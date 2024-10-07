@@ -1,24 +1,5 @@
 // Programme Go : Calcul de Fibonacci par la méthode du Doublement avec Mémoïsation et Benchmark
-//
-// Description :
-// Ce programme en Go calcule les nombres de Fibonacci en utilisant la méthode du doublement, qui est une approche
-// efficace basée sur la division et la conquête. L'algorithme utilise une technique itérative pour calculer
-// rapidement les valeurs de Fibonacci pour de très grands nombres. Pour améliorer la performance, une stratégie
-// de mémoïsation avec LRU (Least Recently Used) est utilisée afin de mettre en cache les résultats des calculs
-// précédents. Cela permet de réutiliser les valeurs déjà calculées et de réduire le temps de calcul des appels
-// futurs. De plus, le programme est conçu pour utiliser des goroutines, ce qui permet un calcul concurrent et
-// améliore l'efficacité en utilisant plusieurs threads.
-//
-// Algorithme de Doublement :
-// L'algorithme de doublement repose sur les propriétés suivantes des nombres de Fibonacci :
-// - F(2k) = F(k) * [2 * F(k+1) - F(k)]
-// - F(2k + 1) = F(k)^2 + F(k+1)^2
-// Ces formules permettent de calculer des valeurs de Fibonacci en utilisant une approche binaire sur les bits
-// de l'indice n, rendant l'algorithme très performant pour de grands nombres.
-//
-// Le programme effectue également des tests de performance (benchmark) sur des valeurs élevées de Fibonacci
-// et affiche le temps moyen d'exécution pour chaque valeur, en utilisant des répétitions multiples pour
-// une meilleure précision.
+// Intégré avec des optimisations supplémentaires
 
 package main
 
@@ -32,7 +13,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
-const MAX_FIB_VALUE = 100000001 // Valeur maximale de n qui peut être calculée
+const MAX_FIB_VALUE = 500000001 // Valeur maximale de n qui peut être calculée
 var two = big.NewInt(2)         // Valeur constante 2 en tant que big.Int pour les calculs
 var maxCacheSize = 1000         // Nombre maximal d'entrées dans le cache
 
@@ -169,9 +150,9 @@ func benchmarkFibWithWorkerPool(nValues []int, repetitions int, workerCount int)
 // Fonction principale pour exécuter les tests de performance
 func main() {
 	// Définir la liste des valeurs pour lesquelles effectuer les tests de performance
-	nValues := []int{1000000, 10000000, 100000000}
+	nValues := []int{1000000, 10000000, 200000000}
 	// Nombre de répétitions pour calculer le temps moyen
-	repetitions := 3
+	repetitions := 5
 	// Nombre de goroutines concurrentes
 	workerCount := 4
 	// Exécuter le benchmark
