@@ -1,9 +1,7 @@
-Ce Repository est simplement exploiter pour l'exploration de différents algorithmes de création de la liste de Fibonacci à l'aide de ChatGPT 4o Canvas
-
-
-
-
 # Programme Go : Calcul de Fibonacci par la Méthode du Doublement avec Mémoïsation et Benchmark
+
+![Diagramme de l'algorithme de Fibonacci](Fibonacci Golang Sequence Diagram.jpeg)
+
 
 ## Introduction
 
