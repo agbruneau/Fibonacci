@@ -14,6 +14,7 @@ var two = big.NewInt(2)        // Constant value 2 as a big.Int for calculations
 
 // Optimized memoization map with better concurrency control
 var memo = &sync.Map{}
+var memoMutex = &sync.Mutex{} // Mutex to provide additional concurrency control
 
 // fibDoubling calculates the nth Fibonacci number using the doubling method
 func fibDoubling(n int) (*big.Int, error) {
@@ -31,11 +32,14 @@ func fibDoubling(n int) (*big.Int, error) {
 
 // fibDoublingHelperIterative is an iterative function that uses the doubling method to compute Fibonacci numbers
 func fibDoublingHelperIterative(n int) *big.Int {
-	// Check if the value is already in the memoization map
+	// Use a mutex to prevent race conditions when accessing the memoization map
+	memoMutex.Lock()
 	if val, exists := memo.Load(n); exists {
 		// If the value is already cached, return it to save computation time
+		memoMutex.Unlock()
 		return val.(*big.Int)
 	}
+	memoMutex.Unlock()
 
 	// Initialize base Fibonacci values F(0) = 0 and F(1) = 1
 	a, b := big.NewInt(0), big.NewInt(1)
@@ -69,7 +73,9 @@ func fibDoublingHelperIterative(n int) *big.Int {
 	result := new(big.Int).Set(a)
 
 	// Store the computed value in the memoization map for future use
+	memoMutex.Lock()
 	memo.Store(n, result)
+	memoMutex.Unlock()
 	return result
 }
 
@@ -86,25 +92,37 @@ func benchmarkFib(nValues []int, repetitions int) {
 		return true
 	})
 
+	var wg sync.WaitGroup // WaitGroup to manage concurrency
+
 	for _, n := range nValues {
-		totalExecTime := big.NewInt(0)
-		// Repeat the calculation for more accurate benchmarking
-		for i := 0; i < repetitions; i++ {
-			start := time.Now()
-			_, err := fibDoubling(n)
-			if err != nil {
-				// Print an error message if n is too large
-				printError(n, err)
-				continue
+		// Ensure that wg.Add(1) is called outside the goroutine
+		wg.Add(1)
+		// Launch a goroutine to calculate Fibonacci concurrently
+		go func(n int) {
+			defer wg.Done() // Mark this goroutine as done when it completes
+
+			totalExecTime := big.NewInt(0)
+			// Repeat the calculation for more accurate benchmarking
+			for i := 0; i < repetitions; i++ {
+				start := time.Now()
+				_, err := fibDoubling(n)
+				if err != nil {
+					// Print an error message if n is too large
+					printError(n, err)
+					continue
+				}
+				// Accumulate the execution time in nanoseconds
+				totalExecTime.Add(totalExecTime, big.NewInt(time.Since(start).Nanoseconds()))
 			}
-			// Accumulate the execution time in nanoseconds
-			totalExecTime.Add(totalExecTime, big.NewInt(time.Since(start).Nanoseconds()))
-		}
-		// Calculate the average execution time
-		execTime := new(big.Int).Div(totalExecTime, big.NewInt(int64(repetitions)))
-		// Print the average execution time for the given value of n
-		fmt.Printf("fibDoubling(%d) averaged over %d runs: %s nanoseconds\n", n, repetitions, execTime.String())
+			// Calculate the average execution time
+			execTime := new(big.Int).Div(totalExecTime, big.NewInt(int64(repetitions)))
+			// Print the average execution time for the given value of n
+			fmt.Printf("fibDoubling(%d) averaged over %d runs: %s nanoseconds\n", n, repetitions, execTime.String())
+		}(n)
 	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
 }
 
 // main function to execute the benchmarking
