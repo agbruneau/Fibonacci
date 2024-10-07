@@ -24,10 +24,11 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::{Duration, Instant};
+use threadpool::ThreadPool;
 
 const MAX_FIB_VALUE: u64 = 100000001; // Valeur maximale de n qui peut être calculée
+const THREAD_POOL_SIZE: usize = 4; // Taille du pool de threads
 
 // Cache LRU optimisé avec une meilleure gestion de la concurrence
 struct LRUCache {
@@ -135,12 +136,11 @@ fn clear_memoization() -> Arc<Mutex<LRUCache>> {
 // et enregistre les résultats de chaque répétition
 fn benchmark_fib(n_values: Vec<u64>, repetitions: u32) {
     let cache = clear_memoization(); // Effacer le cache pour garantir des résultats cohérents
-
-    let mut handles = vec![];
+    let pool = ThreadPool::new(THREAD_POOL_SIZE); // Utiliser un pool de threads avec une taille définie
 
     for &n in &n_values {
         let cache = Arc::clone(&cache);
-        handles.push(thread::spawn(move || {
+        pool.execute(move || {
             let mut total_exec_time = Duration::new(0, 0);
             let mut individual_times = Vec::new(); // Stocker les temps d'exécution individuels pour chaque répétition
 
@@ -155,13 +155,10 @@ fn benchmark_fib(n_values: Vec<u64>, repetitions: u32) {
             let avg_exec_time = total_exec_time.as_secs_f64() / repetitions as f64; // Calculer le temps d'exécution moyen
             println!("fibDoubling({}) averaged over {} runs: {:.6} seconds", n, repetitions, avg_exec_time);
             println!("Individual execution times for {}: {:?}", n, individual_times);
-        }));
+        });
     }
 
-    // Attendre que toutes les goroutines soient terminées
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    pool.join(); // Attendre que toutes les tâches dans le pool de threads soient terminées
 }
 
 // Fonction principale
