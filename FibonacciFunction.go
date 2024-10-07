@@ -10,11 +10,13 @@ import (
 )
 
 const MAX_FIB_VALUE = 100000001 // Maximum value of n that can be calculated
-var two = big.NewInt(2)        // Constant value 2 as a big.Int for calculations
+var two = big.NewInt(2)         // Constant value 2 as a big.Int for calculations
 
 // Optimized memoization map with better concurrency control
 var memo = &sync.Map{}
 var memoMutex = &sync.Mutex{} // Mutex to provide additional concurrency control
+var maxCacheSize = 1000       // Maximum number of entries in the cache
+var cacheKeys = []int{}       // Slice to keep track of cached keys
 
 // fibDoubling calculates the nth Fibonacci number using the doubling method
 func fibDoubling(n int) (*big.Int, error) {
@@ -52,11 +54,11 @@ func fibDoublingHelperIterative(n int) *big.Int {
 	for i := bitLength - 1; i >= 0; i-- {
 		// Use the doubling formulas:
 		// F(2k) = F(k) * [2 * F(k+1) - F(k)]
-		c.Mul(b, two)     // c = 2 * F(k+1)
-		c.Sub(c, a)       // c = 2 * F(k+1) - F(k)
-		c.Mul(a, c)       // c = F(k) * (2 * F(k+1) - F(k))
+		c.Mul(b, two) // c = 2 * F(k+1)
+		c.Sub(c, a)   // c = 2 * F(k+1) - F(k)
+		c.Mul(a, c)   // c = F(k) * (2 * F(k+1) - F(k))
 		// F(2k + 1) = F(k)^2 + F(k+1)^2
-		d.Mul(a, a)       // d = F(k)^2
+		d.Mul(a, a)                      // d = F(k)^2
 		d.Add(d, new(big.Int).Mul(b, b)) // d = F(k)^2 + F(k+1)^2
 
 		// Update a and b based on the current bit of n
@@ -64,7 +66,7 @@ func fibDoublingHelperIterative(n int) *big.Int {
 			a.Set(c) // If the bit is 0, set F(2k) to a
 			b.Set(d) // Set F(2k+1) to b
 		} else {
-			a.Set(d) // If the bit is 1, set F(2k+1) to a
+			a.Set(d)    // If the bit is 1, set F(2k+1) to a
 			b.Add(c, d) // Set F(2k + 2) to b
 		}
 	}
@@ -72,10 +74,18 @@ func fibDoublingHelperIterative(n int) *big.Int {
 	// Cache the result locally before storing it in the memoization map
 	result := new(big.Int).Set(a)
 
-	// Store the computed value in the memoization map for future use
+	// Store the computed value in the memoization map for future use with an eviction strategy
 	memoMutex.Lock()
+	if len(cacheKeys) >= maxCacheSize {
+		// Evict the oldest entry if cache size exceeds the limit
+		oldestKey := cacheKeys[0]
+		cacheKeys = cacheKeys[1:]
+		memo.Delete(oldestKey)
+	}
 	memo.Store(n, result)
+	cacheKeys = append(cacheKeys, n)
 	memoMutex.Unlock()
+
 	return result
 }
 
@@ -91,6 +101,7 @@ func benchmarkFib(nValues []int, repetitions int) {
 		memo.Delete(key)
 		return true
 	})
+	cacheKeys = []int{} // Clear the cache keys
 
 	var wg sync.WaitGroup // WaitGroup to manage concurrency
 
@@ -130,7 +141,7 @@ func main() {
 	// Define the list of values for which to benchmark the Fibonacci calculation
 	nValues := []int{1000000, 10000000, 100000000} // List of values to benchmark
 	// Define the number of repetitions for better accuracy
-	repetitions := 3                                // Number of repetitions for better accuracy
+	repetitions := 3 // Number of repetitions for better accuracy
 	// Run the benchmark
 	benchmarkFib(nValues, repetitions)
 }
