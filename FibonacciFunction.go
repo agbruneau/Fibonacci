@@ -170,11 +170,11 @@ func benchmarkFibWithWorkerPool(nValues []int, repetitions int, workerCount int)
 // Fonction principale pour exécuter les tests de performance
 func main() {
 	// Définir la liste des valeurs pour lesquelles effectuer les tests de performance
-	nValues := []int{1000000, 10000000, 200000000}
+	nValues := []int{100000, 500000, 1000000, 5000000, 10000000, 50000000, 100000000, 500000000}
 	// Nombre de répétitions pour calculer le temps moyen
-	repetitions := 10
+	repetitions := 100
 	// Nombre de goroutines concurrentes
-	workerCount := 4
+	workerCount := 16
 	// Exécuter le benchmark
 	benchmarkFibWithWorkerPool(nValues, repetitions, workerCount)
 }
