@@ -10,6 +10,7 @@ import (
 	"math/bits"
 	"sync"
 	"time"
+
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -67,10 +68,10 @@ func fibDoublingHelperIterative(n int) *big.Int {
 	// Itérer sur chaque bit du plus significatif au moins significatif
 	for i := bitLength - 1; i >= 0; i-- {
 		// Utiliser les formules de doublage pour calculer F(2k) et F(2k + 1)
-		c.Mul(b, two) // c = 2 * F(k+1)
-		c.Sub(c, a)   // c = 2 * F(k+1) - F(k)
-		c.Mul(a, c)   // c = F(k) * (2 * F(k+1) - F(k))
-		d.Mul(a, a)   // d = F(k)^2
+		c.Mul(b, two)                    // c = 2 * F(k+1)
+		c.Sub(c, a)                      // c = 2 * F(k+1) - F(k)
+		c.Mul(a, c)                      // c = F(k) * (2 * F(k+1) - F(k))
+		d.Mul(a, a)                      // d = F(k)^2
 		d.Add(d, new(big.Int).Mul(b, b)) // d = F(k)^2 + F(k+1)^2
 
 		// Mettre à jour a et b en fonction du bit actuel de n
@@ -152,7 +153,7 @@ func main() {
 	// Définir la liste des valeurs pour lesquelles effectuer les tests de performance
 	nValues := []int{1000000, 10000000, 200000000}
 	// Nombre de répétitions pour calculer le temps moyen
-	repetitions := 5
+	repetitions := 10
 	// Nombre de goroutines concurrentes
 	workerCount := 4
 	// Exécuter le benchmark
