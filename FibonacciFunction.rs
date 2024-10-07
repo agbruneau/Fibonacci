@@ -6,8 +6,8 @@
 // rapidement les valeurs de Fibonacci pour de très grands nombres. Pour améliorer la performance, une stratégie
 // de mémoïsation avec LRU (Least Recently Used) est utilisée afin de mettre en cache les résultats des calculs
 // précédents. Cela permet de réutiliser les valeurs déjà calculées et de réduire le temps de calcul des appels
-// futurs. Le programme est également conçu pour utiliser des threads pour calculer les valeurs de manière concurrente
-// et améliorer l'efficacité.
+// futurs. De plus, le programme est conçu pour utiliser la concurrence, ce qui permet un calcul concurrent et
+// améliore l'efficacité en utilisant plusieurs threads.
 //
 // Algorithme de Doublement :
 // L'algorithme de doublement repose sur les propriétés suivantes des nombres de Fibonacci :
@@ -20,151 +20,167 @@
 // et affiche le temps moyen d'exécution pour chaque valeur, en utilisant des répétitions multiples pour
 // une meilleure précision.
 
-use num_bigint::BigUint;
-use num_traits::{One, Zero};
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
-use threadpool::ThreadPool;
+use std::thread;
+use std::sync::mpsc;
 
-const MAX_FIB_VALUE: u64 = 100000001; // Valeur maximale de n qui peut être calculée
-const THREAD_POOL_SIZE: usize = 4; // Taille du pool de threads
+const MAX_FIB_VALUE: u64 = 500_000_001; // Valeur maximale de n qui peut être calculée
 
-// Cache LRU optimisé avec une meilleure gestion de la concurrence
-struct LRUCache {
-    capacity: usize,
-    cache: HashMap<u64, BigUint>, // Utiliser un HashMap pour le stockage des données
-    order: VecDeque<u64>,          // Utiliser une VecDeque pour maintenir l'ordre des accès
+// Initialiser le cache LRU avec une Mutex pour garantir la sécurité concurrente
+struct LruCache {
+    cache: Mutex<HashMap<u64, num::BigUint>>, // Utilisation d'un Mutex pour la sécurité des threads
 }
 
-impl LRUCache {
-    // Crée un nouveau cache LRU avec la capacité donnée
-    fn new(capacity: usize) -> Self {
-        Self {
-            capacity,
-            cache: HashMap::new(),
-            order: VecDeque::new(),
+impl LruCache {
+    // Crée une nouvelle instance de LruCache
+    fn new() -> LruCache {
+        LruCache {
+            cache: Mutex::new(HashMap::new()),
         }
     }
 
-    // Récupère une valeur du cache LRU
-    fn get(&mut self, key: u64) -> Option<BigUint> {
-        if let Some(value) = self.cache.get(&key) {
-            // Déplacer l'élément utilisé récemment à la fin pour montrer qu'il a été accédé
-            self.order.retain(|&k| k != key);
-            self.order.push_back(key);
-            Some(value.clone())
-        } else {
-            None
-        }
-    }
-
-    // Ajoute une nouvelle valeur au cache LRU
-    fn put(&mut self, key: u64, value: BigUint) {
-        if self.cache.contains_key(&key) {
-            // Si la clé existe déjà, la déplacer en tête de liste et mettre à jour sa valeur
-            self.order.retain(|&k| k != key);
-        } else if self.cache.len() >= self.capacity {
-            // Supprimer l'élément le moins récemment utilisé (le plus ancien)
-            if let Some(oldest_key) = self.order.pop_front() {
-                self.cache.remove(&oldest_key);
+    // Récupère une valeur du cache si elle existe
+    fn get(&self, n: u64) -> Option<num::BigUint> {
+        match self.cache.lock() {
+            Ok(cache) => cache.get(&n).cloned(),
+            Err(PoisonError { .. }) => {
+                // Gérer un Mutex empoisonné en affichant un avertissement
+                eprintln!("Warning: Mutex was poisoned while attempting to get value for n = {}", n);
+                None
             }
         }
-        // Ajouter l'élément avec la clé et la valeur
-        self.cache.insert(key, value);
-        self.order.push_back(key);
+    }
+
+    // Ajoute une valeur au cache
+    fn add(&self, n: u64, value: num::BigUint) {
+        match self.cache.lock() {
+            Ok(mut cache) => {
+                cache.insert(n, value);
+            }
+            Err(PoisonError { .. }) => {
+                // Gérer un Mutex empoisonné en affichant un avertissement
+                eprintln!("Warning: Mutex was poisoned while attempting to add value for n = {}", n);
+            }
+        }
     }
 }
 
-// Initialiser le cache LRU avec une taille ajustable
-fn initialize_cache() -> Arc<Mutex<LRUCache>> {
-    Arc::new(Mutex::new(LRUCache::new(1000)))
+lazy_static::lazy_static! {
+    // Utilisation de lazy_static pour initialiser un cache global LRU partagé entre les threads
+    static ref LRU_CACHE: Arc<LruCache> = Arc::new(LruCache::new());
 }
 
-// Fonction qui calcule le nième nombre de Fibonacci en utilisant la méthode de doublement
-fn fib_doubling(n: u64, cache: Arc<Mutex<LRUCache>>) -> BigUint {
+// Fonction qui calcule le nième nombre de Fibonacci en utilisant la méthode de doublage
+fn fib_doubling(n: u64) -> Result<num::BigUint, &'static str> {
     if n < 2 {
-        return BigUint::from(n);
+        return Ok(num::BigUint::from(n)); // Retourner directement n si n est inférieur à 2
     } else if n > MAX_FIB_VALUE {
-        panic!("n est trop grand pour cette implémentation");
+        return Err("n est trop grand pour cette implémentation"); // Limiter les calculs à une valeur maximale raisonnable
     }
-
-    // Récupérer la valeur du cache si elle existe
-    if let Some(result) = cache.lock().unwrap().get(n) {
-        return result;
+    // Vérifier si la valeur est déjà dans le cache
+    if let Some(value) = LRU_CACHE.get(n) {
+        return Ok(value);
     }
+    // Calculer le résultat si non mis en cache
+    let result = fib_doubling_helper_iterative(n);
+    // Ajouter le résultat au cache
+    LRU_CACHE.add(n, result.clone());
+    Ok(result)
+}
 
-    // Initialiser les valeurs de base F(0) = 0, F(1) = 1
-    let mut a = BigUint::zero();
-    let mut b = BigUint::one();
+// Fonction itérative qui utilise la méthode de doublage pour calculer les nombres de Fibonacci
+fn fib_doubling_helper_iterative(n: u64) -> num::BigUint {
+    use num::BigUint;
+    let mut a = BigUint::from(0u64); // F(0)
+    let mut b = BigUint::from(1u64); // F(1)
+    let mut c; // Variable temporaire pour les calculs intermédiaires
+    let mut d; // Variable temporaire pour les calculs intermédiaires
+    
+    let two = BigUint::from(2u64); // Constante 2 pour les calculs
 
-    // Calculer F(n) à l'aide de la méthode de doublement
-    let bit_length = 64 - n.leading_zeros();
+    let bit_length = 64 - n.leading_zeros(); // Déterminer le nombre de bits significatifs de n
+
+    // Itérer sur chaque bit de `n` en partant du plus significatif.
+    // Cela permet de déterminer les valeurs de Fibonacci en utilisant une approche binaire (doublement).
+    // L'algorithme exploite les bits de l'indice pour construire efficacement la séquence de Fibonacci.
     for i in (0..bit_length).rev() {
-        // Utiliser les formules de doublement
-        // F(2k) = F(k) * [2 * F(k+1) - F(k)]
-        let temp1 = &b << 1; // temp1 = 2 * F(k+1)
-        let temp2 = &temp1 - &a; // temp2 = 2 * F(k+1) - F(k)
-        let c: BigUint = &a * &temp2; // c = F(2k)
-        // F(2k + 1) = F(k)^2 + F(k+1)^2
-        let d: BigUint = &a * &a + &b * &b; // d = F(2k + 1)
+        // Calculer F(2k) et F(2k + 1) en utilisant les formules de doublage
+        c = &b * &two - &a; // c = 2 * F(k+1) - F(k)
+        c = &a * &c; // c = F(k) * (2 * F(k+1) - F(k))
+        d = &a * &a + &b * &b; // d = F(k)^2 + F(k+1)^2
 
-        // Mettre à jour a et b en fonction du bit actuel de n
         if (n >> i) & 1 == 0 {
-            a = c.clone(); // Si le bit est 0, définir F(2k) sur a
-            b = d.clone(); // Définir F(2k+1) sur b
+            // Si le bit est 0, mettre à jour a et b pour F(2k) et F(2k+1)
+            a = c.clone();
+            b = d.clone();
         } else {
-            a = d.clone(); // Si le bit est 1, définir F(2k+1) sur a
-            b = c + d;     // Définir F(2k + 2) sur b
+            // Si le bit est 1, mettre à jour a et b pour F(2k+1) et F(2k+2)
+            a = d.clone();
+            b = c + d;
         }
     }
-
-    // Mettre en cache le résultat
-    cache.lock().unwrap().put(n, a.clone());
-    a
+    a // Retourner la valeur de F(n)
 }
 
-// Fonction pour effacer la mémoïsation
-// Cette fonction permet de recréer une instance du cache LRU pour effacer toutes les entrées
-// et garantir que les calculs futurs ne soient pas influencés par des résultats précédents
-fn clear_memoization() -> Arc<Mutex<LRUCache>> {
-    initialize_cache()
+// Fonction pour afficher un message d'erreur dans un format cohérent
+fn print_error(n: u64, err: &str) {
+    println!("fib_doubling({}): {}", n, err); // Afficher le message d'erreur avec la valeur de n
 }
 
-// Fonction de benchmark pour tester les performances de calcul de Fibonacci
-// Cette fonction calcule le temps nécessaire pour calculer plusieurs valeurs de Fibonacci
-// et enregistre les résultats de chaque répétition
-fn benchmark_fib(n_values: Vec<u64>, repetitions: u32) {
-    let cache = clear_memoization(); // Effacer le cache pour garantir des résultats cohérents
-    let pool = ThreadPool::new(THREAD_POOL_SIZE); // Utiliser un pool de threads avec une taille définie
+// Fonction pour effectuer des tests de performance sur les calculs de Fibonacci pour une liste de valeurs
+fn benchmark_fib_with_worker_pool(n_values: Vec<u64>, repetitions: u32, worker_count: usize) {
+    let (tx, rx) = mpsc::channel(); // Canal pour envoyer les résultats des threads
+    let n_values = Arc::new(n_values); // Partager la liste des valeurs entre les threads
 
-    for &n in &n_values {
-        let cache = Arc::clone(&cache);
-        pool.execute(move || {
-            let mut total_exec_time = Duration::new(0, 0);
-            let mut individual_times = Vec::new(); // Stocker les temps d'exécution individuels pour chaque répétition
-
-            for _ in 0..repetitions {
-                let start_time = Instant::now(); // Utiliser Instant pour une meilleure précision
-                fib_doubling(n, Arc::clone(&cache));
-                let exec_time = start_time.elapsed(); // Calculer le temps écoulé
-                total_exec_time += exec_time; // Ajouter au temps total
-                individual_times.push(exec_time.as_secs_f64()); // Enregistrer le temps individuel
+    // Lancer les workers en parallèle
+    for _ in 0..worker_count {
+        let tx = tx.clone();
+        let n_values = Arc::clone(&n_values);
+        thread::spawn(move || {
+            for &n in n_values.iter() {
+                let mut total_exec_time = Duration::default(); // Initialiser la durée totale à zéro
+                for _ in 0..repetitions {
+                    let start = Instant::now(); // Démarrer le chronomètre
+                    match fib_doubling(n) {
+                        Ok(_) => {
+                            total_exec_time += start.elapsed(); // Ajouter le temps écoulé
+                        }
+                        Err(err) => {
+                            print_error(n, err); // Afficher l'erreur si le calcul échoue
+                            return;
+                        }
+                    }
+                }
+                let avg_exec_time = total_exec_time / repetitions; // Calculer le temps d'exécution moyen
+                if let Err(err) = tx.send((n, avg_exec_time)) {
+                    // Gérer les erreurs potentielles lors de l'envoi des résultats
+                    eprintln!("Warning: Failed to send result for n = {}: {}", n, err);
+                }
             }
-
-            let avg_exec_time = total_exec_time.as_secs_f64() / repetitions as f64; // Calculer le temps d'exécution moyen
-            println!("fibDoubling({}) averaged over {} runs: {:.6} seconds", n, repetitions, avg_exec_time);
-            println!("Individual execution times for {}: {:?}", n, individual_times);
         });
     }
 
-    pool.join(); // Attendre que toutes les tâches dans le pool de threads soient terminées
+    // Recevoir et afficher les résultats
+    drop(tx); // Fermer le canal pour indiquer qu'aucun autre résultat ne sera envoyé
+    for (n, avg_exec_time) in rx.iter() {
+        // Afficher les résultats des calculs de Fibonacci
+        println!("fib_doubling({}) averaged over {} runs: {:.2?}", n, repetitions, avg_exec_time);
+    }
 }
 
-// Fonction principale
-// Cette fonction lance le benchmark pour tester les performances du calcul de Fibonacci
+// Fonction principale pour exécuter les tests de performance
 fn main() {
-    let n_values = vec![1000000, 10000000, 100000000]; // Valeurs à tester
-    let repetitions = 3; // Nombre de répétitions pour plus de précision
-    benchmark_fib(n_values, repetitions);
+    // Définir la liste des valeurs pour lesquelles effectuer les tests de performance
+    let n_values = vec![100_000, 500_000, 1_000_000, 5_000_000, 10_000_000, 50_000_000, 100_000_000, 500_000_000];
+    let repetitions = 100; // Nombre de répétitions pour calculer le temps moyen
+    let worker_count = 16; // Nombre de threads concurrents
+
+    // Exécuter le benchmark
+    benchmark_fib_with_worker_pool(n_values, repetitions, worker_count);
 }
+
+extern crate lazy_static;
+extern crate num;
+
