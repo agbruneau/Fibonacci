@@ -1,22 +1,22 @@
-# **[Référence biblique de Genèse 1 : ](https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345)** Calcul de la Suite de Fibonacci via Divers Algorithmes
+# **[Référence biblique de Genèse 1 : ](https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345)** Calcul de la suite de Fibonacci par divers Algorithmes
 
 ## Introduction
 
-Ce projet présente une analyse détaillée de plusieurs implémentations du calcul de la suite de Fibonacci en utilisant le langage de programmation Golang. L'objectif principal est de comparer diverses méthodes algorithmiques afin de déterminer celles qui offrent les meilleures performances pour le calcul de termes de grande taille de la suite de Fibonacci.
+Ce projet présente une analyse rigoureuse de plusieurs méthodes d'implémentation de la suite de Fibonacci en utilisant le langage de programmation Golang. L'objectif est d'évaluer systématiquement les performances de chaque méthode en fonction de la taille des termes à calculer, tout en examinant leur complexité algorithmique respective.
 
-La suite de Fibonacci est définie comme une séquence où chaque terme est la somme des deux termes précédents, les deux premiers termes étant 0 et 1 :
+La suite de Fibonacci est définie comme une séquence dans laquelle chaque terme est la somme des deux précédents, les deux premiers termes étant fixés à 0 et 1 :
 
 ```
 F(0) = 0, F(1) = 1, F(n) = F(n-1) + F(n-2) pour n ≥ 2
 ```
 
-Dans ce contexte, nous évaluons une gamme de techniques algorithmiques, chacune présentant des caractéristiques spécifiques en termes de complexité temporelle et de performance.
+Les sections suivantes examinent diverses approches algorithmiques pour le calcul de cette suite, chacune ayant des caractéristiques distinctes en termes de performances et de complexité temporelle.
 
 ## Algorithmes Implémentés
 
 ### 1. Algorithme Récursif Naïf
 
-Cet algorithme applique directement la définition mathématique de la suite de Fibonacci de manière récursive. Cependant, en raison de sa complexité exponentielle, O(2^n), il se révèle extrêmement inefficace pour des valeurs élevées de n, en raison d'une redondance significative dans les appels de fonction.
+Cet algorithme applique la définition mathématique de la suite de Fibonacci en utilisant une approche récursive directe. La complexité exponentielle, O(2^n), en fait une méthode inefficace pour les valeurs élevées de n, principalement en raison de la redondance des appels récursifs. Les recalculs multiples des mêmes sous-problèmes induisent une inefficience manifeste.
 
 **Code :**
 
@@ -31,7 +31,7 @@ func FibonacciRecursif(n int) int {
 
 ### 2. Algorithme Itératif
 
-L'approche itérative contourne les limitations de la récursivité en utilisant une boucle simple pour calculer les termes successifs. Elle présente une complexité temporelle linéaire, O(n), et est beaucoup plus performante que la méthode récursive naïve, tant en termes de temps de calcul que de mémoire utilisée.
+L'approche itérative évite la redondance des calculs récursifs en utilisant une simple boucle pour cumuler les valeurs nécessaires. Sa complexité temporelle linéaire, O(n), lui confère une meilleure efficacité que l'approche récursive naïve, tout en réduisant significativement la consommation de mémoire.
 
 **Code :**
 
@@ -50,7 +50,7 @@ func FibonacciIteratif(n int) int {
 
 ### 3. Algorithme avec Mémoïsation (Récursivité Optimisée)
 
-Cet algorithme améliore la récursivité en introduisant la mémoïsation, qui consiste à mémoriser les résultats intermédiaires pour éviter les calculs redondants. Ainsi, la complexité temporelle est réduite à O(n), rendant cette approche significativement plus efficace pour des calculs de grande ampleur.
+Cet algorithme améliore l'efficacité de la récursivité en introduisant la mémoïsation, c'est-à-dire la mémorisation des résultats intermédiaires pour éviter les calculs redondants. Cette approche réduit la complexité temporelle à O(n), transformant la récursivité en une solution beaucoup plus efficace, adaptée aux valeurs élevées de n.
 
 **Code :**
 
@@ -69,9 +69,7 @@ func FibonacciMemo(n int, memo map[int]int) int {
 
 ### 4. Algorithme Utilisant la Matrice de Puissance
 
-Cet algorithme repose sur l'exponentiation matricielle pour calculer efficacement le terme n de la suite de Fibonacci, avec une complexité temporelle de O(log n). L'idée fondamentale est de représenter la relation de récurrence de Fibonacci par une multiplication matricielle, ce qui permet une exponentiation rapide, divisant la complexité de manière significative.
-
-L'algorithme de matrice de puissance est particulièrement adapté pour de très grands n, car il réduit le nombre total de calculs nécessaires par rapport aux approches plus directes.
+Cet algorithme repose sur l'exponentiation matricielle pour calculer le terme n de la suite de Fibonacci. En représentant la relation de récurrence sous forme matricielle, il est possible d'appliquer une exponentiation rapide qui réduit la complexité à O(log n). Cette méthode est particulièrement efficace pour les valeurs élevées de n, offrant une solution rapide et optimale.
 
 **Code :**
 
@@ -109,7 +107,7 @@ func multiply(F, M *[2][2]int) {
 
 ### 5. Algorithme Utilisant la Formule de Binet
 
-La formule de Binet fournit une solution fermée pour calculer le n-ième terme de la suite de Fibonacci. Bien qu'elle présente une complexité temporelle constante, O(1), elle est limitée par la précision des calculs en virgule flottante, surtout pour des valeurs très élevées de n, ce qui la rend moins fiable pour des besoins de précision absolue.
+La formule de Binet offre une solution fermée pour calculer directement le n-ième terme de la suite de Fibonacci. La complexité est constante, O(1), ce qui la rend théoriquement très rapide. Cependant, en pratique, cette méthode est limitée par les erreurs d'arrondi liées aux nombres en virgule flottante, la rendant moins fiable pour des valeurs de n très élevées.
 
 **Code :**
 
@@ -122,32 +120,52 @@ func FibonacciBinet(n int) int {
 }
 ```
 
+### 6. Algorithme de Calcul de Fibonacci par la Méthode du Doublement
+
+L'algorithme du doublement (ou "doubling") permet de calculer efficacement le terme n de la suite de Fibonacci en utilisant une approche récursive qui divise le problème par deux à chaque étape. Cette méthode présente une complexité logarithmique, O(log n), similaire à l'exponentiation matricielle, et est particulièrement adaptée aux grandes valeurs de n, assurant une efficacité optimale tant en termes de temps de calcul que de consommation mémoire.
+
+**Code :**
+
+```go
+func FibonacciDoubling(n int) (int, int) {
+    if n == 0 {
+        return 0, 1
+    }
+    a, b := FibonacciDoubling(n / 2)
+    c := a * (2*b - a)
+    d := a*a + b*b
+    if n%2 == 0 {
+        return c, d
+    } else {
+        return d, c + d
+    }
+}
+
+func GetFibonacci(n int) int {
+    result, _ := FibonacciDoubling(n)
+    return result
+}
+```
+
 ## Comparaison des Algorithmes
 
-Pour le calcul des petits termes de la suite de Fibonacci, tous les algorithmes se révèlent adéquats. Toutefois, pour des valeurs élevées (par exemple, F(50) ou plus), les performances des algorithmes divergent de manière significative :
+Pour le calcul de petits termes de la suite de Fibonacci, tous les algorithmes sont adéquats. Toutefois, pour des valeurs élevées (par exemple, F(50) ou plus), les performances des différentes méthodes divergent significativement :
 
-1. **Récursif Naïf** : Complexité exponentielle (O(2^n)), très inefficace pour n > 30 en raison de la redondance des appels récursifs.
-2. **Itératif** : Complexité linéaire (O(n)), performant même pour de grands n, avec une faible empreinte mémoire.
-3. **Mémoïsation** : Complexité linéaire (O(n)), efficace pour éviter la redondance de calcul dans les approches récursives.
-4. **Matrice de Puissance** : Complexité logarithmique (O(log n)), l'une des meilleures options pour des valeurs très élevées en raison de sa rapidité et de sa précision.
-5. **Formule de Binet** : Complexité constante (O(1)), mais sujette aux erreurs d'arrondi et donc moins fiable pour des valeurs extrêmement élevées.
+1. **Récursif Naïf** : Complexité exponentielle (O(2^n)), inefficace pour n > 30 en raison de la redondance excessive des appels.
+2. **Itératif** : Complexité linéaire (O(n)), performant et économe en mémoire.
+3. **Mémoïsation** : Complexité linéaire (O(n)), évite la redondance et améliore l'efficacité des calculs récursifs.
+4. **Matrice de Puissance** : Complexité logarithmique (O(log n)), offre une excellente performance pour les grandes valeurs de n.
+5. **Formule de Binet** : Complexité constante (O(1)), rapide mais sujette aux erreurs d'arrondi pour des valeurs élevées.
+6. **Doublement** : Complexité logarithmique (O(log n)), alternative performante à l'exponentiation matricielle, optimisée pour les calculs récursifs.
 
 ## Conclusion
 
-Pour le calcul de termes élevés de la suite de Fibonacci (par exemple F(1000) et au-delà), l'**algorithme basé sur l'exponentiation par matrice** s'avère le plus performant, en raison de sa complexité logarithmique, qui combine rapidité et efficacité.
+Pour le calcul de termes élevés de la suite de Fibonacci, l'**algorithme de la matrice de puissance** et l'**algorithme du doublement** sont les plus recommandés en raison de leur complexité logarithmique, qui offre un compromis optimal entre rapidité et précision.
 
-L'**algorithme itératif** reste une option solide et simple à implémenter, avec des performances adéquates et une grande lisibilité du code.
+L'**algorithme itératif** reste une option solide pour sa simplicité d'implémentation et sa constance en termes de performance.
 
-Pour les calculs nécessitant une rapidité maximale et où la précision n'est pas critique, la **formule de Binet** peut être envisagée, bien que ses limitations doivent être prises en compte.
-
-## Comment Contribuer
-
-Les contributions à ce projet sont fortement encouragées, qu'il s'agisse d'optimisations des algorithmes existants ou de propositions de nouvelles approches innovantes. Veuillez soumettre une pull request ou ouvrir une issue pour discuter de vos suggestions.
+La **formule de Binet** peut être envisagée pour des calculs rapides dans les cas où la précision absolue n'est pas essentielle.
 
 ## Licence
 
 Ce projet est distribué sous la licence MIT. Pour plus de détails, veuillez consulter le fichier [LICENSE](LICENSE).
-
----
-
-Merci d'avoir pris le temps d'explorer ce projet consacré au calcul des nombres de Fibonacci en Golang. Pour toute question ou suggestion, n'hésitez pas à nous contacter.
