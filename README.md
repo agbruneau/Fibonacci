@@ -2,6 +2,8 @@
 
 Référence biblique de Genèse 1 : [https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345](https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345)
 
+Référence biblique de Genèse 1 : [https://sdfasdfsdfwww.bible.com/bible/104/GEN.1.NBS?parallel=3345](https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345)
+
 ## Introduction
 
 Ce projet présente une analyse détaillée de plusieurs implémentations du calcul de la suite de Fibonacci en utilisant le langage de programmation Golang. L'objectif principal est de comparer diverses méthodes algorithmiques afin de déterminer celles qui offrent les meilleures performances pour le calcul de termes de grande taille de la suite de Fibonacci.
