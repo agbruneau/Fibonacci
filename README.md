@@ -1,6 +1,4 @@
-# Calcul de la Suite de Fibonacci via Divers Algorithmes en Golang
-
-**[Référence biblique de Genèse 1 : ](https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345)**
+# **[Référence biblique de Genèse 1 : ](https://www.bible.com/bible/104/GEN.1.NBS?parallel=3345)** Calcul de la Suite de Fibonacci via Divers Algorithmes
 
 ## Introduction
 
