@@ -1,4 +1,4 @@
-# Fibonacci Concurrent Calculator
+# Calcul de Fibonacci par la Méthode de calcul parallèle avec Mémoïsation et Benchmark
 
 ![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Parallel/Fibonacci%20Golang%20Sequence%20Diagram.jpeg)
 
