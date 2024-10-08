@@ -1,4 +1,4 @@
-# Programme Python : Calcul de Fibonacci par la méthode du Doublement avec Mémoïsation et Benchmark
+# ChatGPT 4o Canvas : Calcul de Fibonacci par la méthode du Doublement avec Mémoïsation et Benchmark
 #
 # Description :
 # Ce programme en Python calcule les nombres de Fibonacci en utilisant la méthode du doublement, qui est une approche
@@ -111,7 +111,7 @@ def benchmark_worker(n, repetitions):
 # Fonction principale pour exécuter les tests de performance
 def main():
     # Liste des valeurs pour lesquelles effectuer les benchmarks
-    n_values = [100000, 500000, 1000000, 5000000, 10000000, 50000000, 100000000, 500000000]
+    n_values = [1000, 10000, 100000, 1000000, 10000000, 100000000]
     repetitions = 100  # Nombre de répétitions pour obtenir un temps moyen
     worker_count = min(cpu_count(), 16)  # Nombre de workers à utiliser, limité au nombre de CPU disponibles
     benchmark_fib(n_values, repetitions, worker_count)  # Exécuter le benchmark

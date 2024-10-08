@@ -1,4 +1,4 @@
-// Programme Go : Calcul de Fibonacci par la méthode du Doublement avec Mémoïsation et Benchmark
+// ChatGPT 4o Canvas : Calcul de Fibonacci par la méthode du Doublement avec Mémoïsation et Benchmark
 //
 // Description :
 // Ce programme en Go calcule les nombres de Fibonacci en utilisant la méthode du doublement, qui est une approche
@@ -199,11 +199,11 @@ func benchmarkFibWithWorkerPool(ctx context.Context, nValues []int, repetitions 
 // Fonction principale pour exécuter les tests de performance
 func main() {
 	// Définir la liste des valeurs pour lesquelles effectuer les tests de performance
-	nValues := []int{100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000}
+	nValues := []int{1000, 10000, 100000, 1000000, 10000000, 100000000}
 	// Nombre de répétitions pour calculer le temps moyen
-	repetitions := 250
+	repetitions := 100
 	// Nombre de goroutines concurrentes
-	workerCount := 32
+	workerCount := 16
 	// Créer un contexte avec annulation possible (timeout de 10 minutes)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel() // Annuler le contexte lorsque le benchmark est terminé
