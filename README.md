@@ -13,7 +13,7 @@ Dans ce projet, nous analysons plusieurs techniques et algorithmes pour calculer
 
 ## Algorithmes Implémentés
 
-### 1. Algorithme Récursif Naïf
+### 1. Algorithme Récursif
 Cet algorithme est une implémentation directe de la définition mathématique de la suite de Fibonacci. Toutefois, il est extrêmement inefficace pour de grands nombres en raison de sa complexité exponentielle, O(2^n).
 
 **Code :**
