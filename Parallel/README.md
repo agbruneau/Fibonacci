@@ -1,6 +1,6 @@
 # Fibonacci Concurrent Calculator
 
-![Diagramme de l'algorithme de Fibonacci]([https://github.com/agbruneau/Fibonacci/blob/main/Function/Fibonacci%20Golang%20Sequence%20Diagram.jpeg](https://github.com/agbruneau/Fibonacci/blob/main/Parallel/Fibonacci%20Golang%20Sequence%20Diagram.jpeg))
+![Diagramme de l'algorithme de Fibonacci]([https://github.com/agbruneau/Fibonacci/blob/main/Function/Fibonacci%20Golang%20Sequence%20Diagram.jpeg](https://github.com/agbruneau/Fibonacci/blob/main/Parallel/Fibonacci%20Golang%20Sequence%20Diagram.jpeg)
 
 ## Description
 
