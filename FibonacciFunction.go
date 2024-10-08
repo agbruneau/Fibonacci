@@ -23,6 +23,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -38,11 +39,21 @@ var two = big.NewInt(2)         // Valeur constante 2 en tant que big.Int pour l
 var maxCacheSize = 1000         // Nombre maximal d'entrées dans le cache
 
 // Initialiser le cache LRU avec une bibliothèque optimisée
-var lruCache, _ = lru.New(maxCacheSize)
+var lruCache *lru.Cache
+
+func init() {
+	// Initialisation du cache LRU
+	var err error
+	lruCache, err = lru.New(maxCacheSize)
+	if err != nil {
+		// Arrêter le programme si l'initialisation du cache échoue
+		panic(fmt.Sprintf("Échec de l'initialisation du cache LRU : %v", err))
+	}
+}
 
 // fibDoubling calcule le nième nombre de Fibonacci en utilisant la méthode de doublage
 func fibDoubling(n int) (*big.Int, error) {
-	// Si n est inférieur à 2, retourner n directement car F(0) = 0 et F(1) = 1
+	// Si n est inférieur à 2, retourner directement le résultat correspondant
 	if n < 2 {
 		return big.NewInt(int64(n)), nil
 	} else if n > MAX_FIB_VALUE {
@@ -60,10 +71,14 @@ func fibDoubling(n int) (*big.Int, error) {
 
 // fibInt64 calcule le nième nombre de Fibonacci avec int64 si la valeur est petite
 func fibInt64(n int) int64 {
-	// Initialiser les deux premiers nombres de Fibonacci
+	// Initialiser les deux premiers nombres de Fibonacci : F(0) = 0, F(1) = 1
 	a, b := int64(0), int64(1)
 	// Calculer le nombre de Fibonacci en utilisant une simple boucle
 	for i := 0; i < n; i++ {
+		// Vérifier le dépassement de capacité pour éviter des résultats incorrects
+		if a > (1<<63-1)-b {
+			panic("Dépassement de capacité détecté lors du calcul de Fibonacci avec int64")
+		}
 		a, b = b, a+b
 	}
 	return a
@@ -113,55 +128,69 @@ func fibDoublingHelperIterative(n int) *big.Int {
 
 // printError affiche un message d'erreur dans un format cohérent
 func printError(n int, err error) {
+	// Afficher le message d'erreur pour une valeur de Fibonacci donnée
 	fmt.Printf("fibDoubling(%d): %s\n", n, err)
 }
 
 // clearMemoization efface efficacement toutes les entrées de la carte de mémoïsation
 func clearMemoization() {
 	// Réinitialiser le cache LRU en créant une nouvelle instance
-	lruCache, _ = lru.New(maxCacheSize)
+	var err error
+	lruCache, err = lru.New(maxCacheSize)
+	if err != nil {
+		// Arrêter le programme si l'initialisation du cache échoue
+		panic(fmt.Sprintf("Échec de l'initialisation du cache LRU : %v", err))
+	}
 }
 
 // benchmarkFib effectue des tests de performance sur les calculs de Fibonacci pour une liste de valeurs
-func benchmarkFibWithWorkerPool(nValues []int, repetitions int, workerCount int) {
+func benchmarkFibWithWorkerPool(ctx context.Context, nValues []int, repetitions int, workerCount int) {
 	// Effacer la carte de mémoïsation avant de commencer le benchmark
 	clearMemoization()
 
 	// Canal pour gérer les travaux
-	jobs := make(chan int, len(nValues))
+	jobs := make(chan int, len(nValues)*2) // Utiliser une taille de canal appropriée pour éviter le blocage des goroutines
 	var wg sync.WaitGroup
 
 	// Lancer un certain nombre de workers (limité par workerCount)
 	for w := 0; w < workerCount; w++ {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		go func(workerID int) {
+			defer wg.Done() // Assurez-vous de signaler la fin du travail du worker
 			// Chaque worker traite les travaux du canal
 			for n := range jobs {
-				var totalExecTime time.Duration = 0
-				// Répéter le calcul pour obtenir un temps d'exécution moyen
-				for i := 0; i < repetitions; i++ {
-					start := time.Now()
-					_, err := fibDoubling(n)
-					if err != nil {
-						// Afficher l'erreur si n est trop grand
-						printError(n, err)
-						continue
+				select {
+				case <-ctx.Done():
+					// Arrêter l'exécution si le contexte est annulé
+					fmt.Printf("Worker %d: contexte annulé, raison: %s\n", workerID, ctx.Err())
+					return
+				default:
+					var totalExecTime time.Duration = 0
+					// Répéter le calcul pour obtenir un temps d'exécution moyen
+					for i := 0; i < repetitions; i++ {
+						start := time.Now()
+						_, err := fibDoubling(n)
+						if err != nil {
+							// Afficher l'erreur si n est trop grand
+							printError(n, err)
+							continue
+						}
+						totalExecTime += time.Since(start)
 					}
-					totalExecTime += time.Since(start)
+					// Calculer le temps d'exécution moyen
+					avgExecTime := totalExecTime / time.Duration(repetitions)
+					fmt.Printf("Worker %d: fibDoubling(%d) averaged over %d runs: %s\n", workerID, n, repetitions, avgExecTime)
 				}
-				// Calculer le temps d'exécution moyen
-				avgExecTime := totalExecTime / time.Duration(repetitions)
-				fmt.Printf("fibDoubling(%d) averaged over %d runs: %s\n", n, repetitions, avgExecTime)
 			}
-		}()
+		}(w)
 	}
 
 	// Ajouter des travaux au canal
 	for _, n := range nValues {
 		jobs <- n
 	}
-	close(jobs) // Fermer le canal une fois que tous les travaux sont ajoutés
+	// Fermer le canal une fois que tous les travaux sont ajoutés
+	close(jobs)
 
 	// Attendre la fin des goroutines
 	wg.Wait()
@@ -170,11 +199,14 @@ func benchmarkFibWithWorkerPool(nValues []int, repetitions int, workerCount int)
 // Fonction principale pour exécuter les tests de performance
 func main() {
 	// Définir la liste des valeurs pour lesquelles effectuer les tests de performance
-	nValues := []int{100000, 500000, 1000000, 5000000, 10000000, 50000000, 100000000, 500000000}
+	nValues := []int{100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000, 100000000, 200000000}
 	// Nombre de répétitions pour calculer le temps moyen
-	repetitions := 100
+	repetitions := 250
 	// Nombre de goroutines concurrentes
-	workerCount := 16
+	workerCount := 32
+	// Créer un contexte avec annulation possible (timeout de 10 minutes)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel() // Annuler le contexte lorsque le benchmark est terminé
 	// Exécuter le benchmark
-	benchmarkFibWithWorkerPool(nValues, repetitions, workerCount)
+	benchmarkFibWithWorkerPool(ctx, nValues, repetitions, workerCount)
 }
