@@ -61,7 +61,6 @@ func FibonacciMemo(n int, memo map[int]int) int {
 ```
 
 ### 4. Algorithme Utilisant la Matrice de Puissance
-![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Fibonacci%20Golang%20Sequence%20Diagram.jpeg)
 Cet algorithme utilise l'exponentiation par matrices pour calculer le terme n de la suite de Fibonacci en O(log n). Il repose sur la propriété que la multiplication répétée d'une matrice permet de générer les termes de Fibonacci de manière efficace.
 
 L'algorithme de matrice de puissance est particulièrement intéressant pour des valeurs élevées de n, car il réduit considérablement la quantité de calculs requis par rapport aux approches naïves. L'idée fondamentale est de représenter la relation de récurrence de Fibonacci sous forme de multiplication matricielle. Plus spécifiquement, la suite de Fibonacci peut être exprimée comme suit :
