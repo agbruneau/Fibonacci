@@ -218,7 +218,7 @@ func benchmarkFibWithWorkerPool(ctx context.Context, nValues []int, repetitions 
 // Fonction principale pour exécuter les tests de performance
 func main() {
 	// Liste des valeurs de n pour le benchmark
-	nValues := []int{1000, 10000, 100000, 1000000, 10000000, 100000000}
+	nValues := []int{100000}
 	// Nombre de répétitions pour chaque valeur de n
 	repetitions := 10
 	// Nombre de workers
