@@ -97,8 +97,8 @@ type LRUCache struct {
 
 // Récupère une valeur du cache
 func (c *LRUCache) Get(key int) (*big.Int, bool) {
-	c.mu.RLock() // Verrou en lecture
-	defer c.mu.RUnlock()
+	c.mu.RLock()         // Verrou en lecture
+	defer c.mu.RUnlock() // Libère le verrou après la lecture
 	if val, ok := c.cache.Get(key); ok {
 		return val.(*big.Int), true // Retourne la valeur si elle est présente dans le cache
 	}
@@ -107,16 +107,16 @@ func (c *LRUCache) Get(key int) (*big.Int, bool) {
 
 // Ajoute une valeur au cache
 func (c *LRUCache) Set(key int, value *big.Int) {
-	c.mu.Lock() // Verrou en écriture
-	defer c.mu.Unlock()
+	c.mu.Lock()             // Verrou en écriture
+	defer c.mu.Unlock()     // Libère le verrou après l'écriture
 	c.cache.Add(key, value) // Ajoute la valeur au cache
 }
 
 // Vide le cache
 func (c *LRUCache) Clear() {
-	c.mu.Lock() // Verrou en écriture
-	defer c.mu.Unlock()
-	c.cache.Purge() // Vide tous les éléments du cache
+	c.mu.Lock()         // Verrou en écriture
+	defer c.mu.Unlock() // Libère le verrou après l'écriture
+	c.cache.Purge()     // Vide tous les éléments du cache
 }
 
 // Service Fibonacci
