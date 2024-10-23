@@ -100,23 +100,23 @@ func (c *LRUCache) Get(key int) (*big.Int, bool) {
 	c.mu.RLock() // Verrou en lecture
 	defer c.mu.RUnlock()
 	if val, ok := c.cache.Get(key); ok {
-		return val.(*big.Int), true
+		return val.(*big.Int), true // Retourne la valeur si elle est présente dans le cache
 	}
-	return nil, false
+	return nil, false // Retourne nil si la valeur n'est pas dans le cache
 }
 
 // Ajoute une valeur au cache
 func (c *LRUCache) Set(key int, value *big.Int) {
 	c.mu.Lock() // Verrou en écriture
 	defer c.mu.Unlock()
-	c.cache.Add(key, value)
+	c.cache.Add(key, value) // Ajoute la valeur au cache
 }
 
 // Vide le cache
 func (c *LRUCache) Clear() {
 	c.mu.Lock() // Verrou en écriture
 	defer c.mu.Unlock()
-	c.cache.Purge()
+	c.cache.Purge() // Vide tous les éléments du cache
 }
 
 // Service Fibonacci
@@ -130,21 +130,23 @@ type FibService struct {
 // Pool pour big.Int pour éviter les allocations répétées
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
-		return new(big.Int)
+		return new(big.Int) // Crée un nouvel objet big.Int si le pool est vide
 	},
 }
 
 // Constructeur du service
 func NewFibService(cfg Config) (*FibService, error) {
+	// Initialisation du cache LRU avec la taille spécifiée dans la configuration
 	lruCache, err := lru.New(cfg.MaxCacheSize)
 	if err != nil {
-		return nil, fmt.Errorf("initialisation du cache: %w", ErrCacheInitFailed)
+		return nil, fmt.Errorf("initialisation du cache: %w", ErrCacheInitFailed) // Retourne une erreur si l'initialisation échoue
 	}
 
 	cache := &LRUCache{
 		cache: lruCache,
 	}
 
+	// Création d'un logger pour le service
 	logger := log.New(os.Stdout, "[FIB] ", log.LstdFlags)
 
 	return &FibService{
@@ -159,28 +161,28 @@ func NewFibService(cfg Config) (*FibService, error) {
 func (s *FibService) ComputeFib(ctx context.Context, n int) (*big.Int, error) {
 	start := time.Now() // Mesure du temps de calcul
 	defer func() {
-		s.metrics.ComputeTime.Add(time.Since(start).Nanoseconds())
+		s.metrics.ComputeTime.Add(time.Since(start).Nanoseconds()) // Enregistre le temps de calcul dans les métriques
 	}()
 
 	// Vérification des entrées
 	if n < 0 {
-		return nil, ErrNegativeInput
+		return nil, ErrNegativeInput // Retourne une erreur si l'entrée est négative
 	}
 	if n > s.config.MaxValue {
-		return nil, ErrInputTooLarge
+		return nil, ErrInputTooLarge // Retourne une erreur si l'entrée dépasse la valeur maximale autorisée
 	}
 
 	// Vérification dans le cache
 	if result, ok := s.cache.Get(n); ok {
 		s.metrics.CacheHits.Add(1) // Incrément du compteur de hits de cache
-		return result, nil
+		return result, nil         // Retourne le résultat s'il est trouvé dans le cache
 	}
 	s.metrics.CacheMisses.Add(1) // Incrément du compteur de ratés de cache
 
 	// Calcul de Fibonacci avec méthode de doublage
 	result, err := s.fibDoubling(ctx, n)
 	if err != nil {
-		return nil, fmt.Errorf("calcul de Fibonacci: %w", err)
+		return nil, fmt.Errorf("calcul de Fibonacci: %w", err) // Retourne une erreur si le calcul échoue
 	}
 
 	// Stockage du résultat dans le cache
@@ -188,8 +190,8 @@ func (s *FibService) ComputeFib(ctx context.Context, n int) (*big.Int, error) {
 
 	// Mise à jour de l'utilisation de la mémoire
 	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	s.metrics.MemoryUsage.Store(m.Alloc)
+	runtime.ReadMemStats(&m)             // Lit les statistiques de la mémoire
+	s.metrics.MemoryUsage.Store(m.Alloc) // Stocke l'utilisation actuelle de la mémoire
 
 	return result, nil
 }
@@ -198,25 +200,25 @@ func (s *FibService) ComputeFib(ctx context.Context, n int) (*big.Int, error) {
 func (s *FibService) fibDoubling(ctx context.Context, n int) (result *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic récupéré: %v", r)
-			s.logger.Printf("panic dans fibDoubling: %v, n=%d", r, n)
+			err = fmt.Errorf("panic récupéré: %v", r)                 // Capture les panics éventuels et retourne une erreur
+			s.logger.Printf("panic dans fibDoubling: %v, n=%d", r, n) // Log du panic
 		}
 	}()
 
 	// Cas de base : n < 2
 	if n < 2 {
-		return big.NewInt(int64(n)), nil
+		return big.NewInt(int64(n)), nil // Retourne directement n si n est inférieur à 2
 	}
 
 	// Initialisation des valeurs de Fibonacci
-	a := bigIntPool.Get().(*big.Int).SetInt64(0) // F(0)
-	b := bigIntPool.Get().(*big.Int).SetInt64(1) // F(1)
+	a := bigIntPool.Get().(*big.Int).SetInt64(0) // F(0) = 0
+	b := bigIntPool.Get().(*big.Int).SetInt64(1) // F(1) = 1
 	c := bigIntPool.Get().(*big.Int)             // Variable temporaire c
 	d := bigIntPool.Get().(*big.Int)             // Variable temporaire d
 
 	// Libération des big.Int après usage
 	defer func() {
-		bigIntPool.Put(a)
+		bigIntPool.Put(a) // Remet les objets dans le pool après utilisation
 		bigIntPool.Put(b)
 		bigIntPool.Put(c)
 		bigIntPool.Put(d)
@@ -234,16 +236,16 @@ func (s *FibService) fibDoubling(ctx context.Context, n int) (result *big.Int, e
 
 			// Mise à jour des valeurs de a et b selon le bit courant
 			if ((n >> i) & 1) == 0 {
-				a.Set(c)
+				a.Set(c) // Si le bit est 0, a = c et b = d
 				b.Set(d)
 			} else {
-				a.Set(d)
+				a.Set(d) // Si le bit est 1, a = d et b = c + d
 				b.Add(c, d)
 			}
 		}
 	}
 
-	return new(big.Int).Set(a), nil
+	return new(big.Int).Set(a), nil // Retourne le résultat
 }
 
 // Handler HTTP pour traiter les requêtes de calcul de Fibonacci
@@ -254,20 +256,20 @@ func (s *FibService) handleCompute(w http.ResponseWriter, r *http.Request) {
 
 	// Décoder la requête JSON
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "Invalid request body", http.StatusBadRequest) // Retourne une erreur si le JSON est invalide
 		return
 	}
 
 	// Calculer le nombre de Fibonacci
 	result, err := s.ComputeFib(r.Context(), req.N)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest) // Retourne une erreur si le calcul échoue
 		return
 	}
 
 	// Encoder la réponse en JSON
 	json.NewEncoder(w).Encode(map[string]string{
-		"result": result.String(),
+		"result": result.String(), // Retourne le résultat en tant que chaîne
 	})
 }
 
@@ -283,22 +285,22 @@ func main() {
 	// Créer une instance du service Fibonacci
 	service, err := NewFibService(cfg)
 	if err != nil {
-		log.Fatalf("Erreur création service: %v", err)
+		log.Fatalf("Erreur création service: %v", err) // Arrête le programme si la création échoue
 	}
 
 	// Test rapide du calcul de Fibonacci
 	ctx := context.Background()
 	result, err := service.ComputeFib(ctx, 100)
 	if err != nil {
-		log.Fatalf("Erreur calcul: %v", err)
+		log.Fatalf("Erreur calcul: %v", err) // Arrête le programme si le calcul échoue
 	}
-	fmt.Printf("Fib(100) = %s\n", result.String())
+	fmt.Printf("Fib(100) = %s\n", result.String()) // Affiche le résultat pour n = 100
 
 	// Démarrage du serveur HTTP
 	http.HandleFunc("/compute", service.handleCompute)
 
 	log.Printf("Démarrage du serveur sur le port %s", cfg.HTTPPort)
 	if err := http.ListenAndServe(cfg.HTTPPort, nil); err != nil {
-		log.Fatalf("Erreur serveur HTTP: %v", err)
+		log.Fatalf("Erreur serveur HTTP: %v", err) // Arrête le programme si le serveur échoue
 	}
 }
