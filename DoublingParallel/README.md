@@ -1,6 +1,6 @@
 # Calcul de Fibonacci par la Méthode du Doublement et Parallélisation avec Mémoïsation et Benchmark
 
-![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Doubling/Fibonacci%20Golang%20Sequence%20Diagram.jpeg)
+![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallel/Sequence%20Diagram.jpeg)
 
 ## Table des Matières
 - [Introduction](#introduction)
