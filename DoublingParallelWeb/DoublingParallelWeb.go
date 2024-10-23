@@ -39,21 +39,21 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"log"
-	"math/big"
-	"math/bits"
-	"net/http"
-	"os"
-	"runtime"
-	"sync"
-	"sync/atomic"
-	"time"
+	"context"       // Provides functionality for managing deadlines, cancellations, and other request-scoped values across API boundaries.
+	"encoding/json" // Implements encoding and decoding of JSON.
+	"errors"        // Defines functions to create and manipulate error values.
+	"fmt"           // Implements formatted I/O with functions similar to C's printf and scanf.
+	"log"           // Provides simple logging support, including output to standard error.
+	"math/big"      // Implements arbitrary-precision arithmetic (big numbers).
+	"math/bits"     // Implements bitwise operations useful for low-level operations.
+	"net/http"      // Provides HTTP client and server implementations.
+	"os"            // Provides a platform-independent interface to operating system functionality, including file and environment management.
+	"runtime"       // Provides operations that interact with Go's runtime system, such as garbage collection and goroutines.
+	"sync"          // Provides basic synchronization primitives such as mutual exclusion locks.
+	"sync/atomic"   // Provides low-level atomic memory primitives useful for implementing concurrent algorithms.
+	"time"          // Provides functionality for measuring and displaying time.
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru" // Imports an LRU (Least Recently Used) cache implementation from HashiCorp's library, useful for managing a limited cache size.
 )
 
 // Erreurs typées
