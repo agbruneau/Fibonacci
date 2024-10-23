@@ -36,6 +36,8 @@
 // Ce programme est conçu pour offrir un service de calcul de Fibonacci performant et capable de gérer des volumes élevés de requêtes simultanées grâce à l'optimisation du cache et des ressources système.
 // Il peut être utilisé dans des environnements nécessitant des calculs intensifs de manière réactive, tout en maintenant une faible latence pour les requêtes répétitives.
 
+// curl -X POST -H "Content-Type: application/json" -d '{"n": 100000000}' http://localhost:8080/compute
+
 package main
 
 import (
