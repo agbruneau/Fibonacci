@@ -1,230 +1,195 @@
-// Ce programme en Go calcule les nombres de Fibonacci en utilisant une combinaison de la méthode de doublage et de parallélisation afin d'optimiser les performances.
-//
-// Objectif :
-// Ce programme est conçu pour illustrer des techniques avancées d'optimisation de calcul à l'aide de la mémoïsation et de la parallélisation. Le calcul des nombres de Fibonacci, en particulier pour des indices élevés, peut être très coûteux en termes de temps et de ressources. En combinant plusieurs méthodes de calcul avancées, ce programme vise à réduire de manière significative le temps de traitement tout en utilisant efficacement la mémoire disponible.
-//
-// Techniques employées :
-// 1. **Méthode de doublage** : Cette technique est une forme d'optimisation mathématique qui permet de calculer les nombres de Fibonacci en exploitant une récurrence basée sur les bits binaires de l'indice. Cela permet de réduire le nombre d'opérations nécessaires et de minimiser le coût du calcul.
-//    - En parcourant les bits de l'indice n, la méthode de doublage divise les calculs en opérations successives qui utilisent les relations entre F(2k) et F(2k+1).
-// 2. **Mémoïsation avec cache LRU (Least Recently Used)** : Le programme utilise un cache de type LRU pour stocker les valeurs déjà calculées de la suite de Fibonacci. Cela évite les recalculs redondants et améliore les performances globales du programme.
-//    - Le cache est géré de manière thread-safe en utilisant des verrous (RWMutex) pour garantir que plusieurs goroutines puissent lire sans conflits tout en protégeant les opérations d'écriture.
-// 3. **Parallélisation avec goroutines et pool de workers** : Pour tirer parti des systèmes multi-cœurs modernes, le programme utilise des goroutines et un pool de workers. Cela permet d'effectuer plusieurs calculs de manière simultanée, réduisant ainsi le temps d'exécution global.
-//    - Un ensemble de workers exécute des tâches parallèles et les synchronise à l'aide de `WaitGroup`.
-//
-// Benchmark :
-// Le programme inclut un benchmark qui permet d'évaluer les performances des différentes méthodes d'optimisation mises en œuvre. Les benchmarks sont exécutés sur des valeurs prédéfinies de n, avec plusieurs répétitions pour calculer la moyenne du temps d'exécution.
-// - Un contexte avec timeout est utilisé pour limiter la durée des tests de performance, garantissant que le programme ne s'exécute pas indéfiniment en cas de problèmes.
-//
-// Usage :
-// - Le programme commence par initialiser le cache LRU et configure un contexte d'exécution avec timeout pour s'assurer que les calculs ne dépassent pas une durée raisonnable.
-// - Ensuite, il lance des goroutines pour exécuter le calcul des nombres de Fibonacci en parallèle, puis combine les résultats.
-// - Enfin, il affiche les résultats des benchmarks, y compris les temps d'exécution moyens pour chaque valeur calculée.
-//
-// Conclusion :
-// Ce programme est un exemple d'optimisation avancée en Go pour le calcul intensif, utilisant la mémoïsation, la parallélisation et des techniques algorithmiques efficaces. En utilisant le cache LRU et des goroutines, le programme montre comment maximiser les performances tout en minimisant les temps de calcul pour des valeurs élevées de la suite de Fibonacci.
+// Obtenir les métriques actuelles
+// curl http://localhost:8080/metrics
 
-package main
+// Calculer un nombre de Fibonacci
+// curl -X POST -H "Content-Type: application/json" -d '{"n": 1000}' http://localhost:8080/compute
 
-import (
-	"context"
-	"errors"
-	"fmt"
-	"math/big"
-	"math/bits"
-	"sync"
-	"time"
+// Métriques détaillées pour le service Fibonacci
+type FibMetrics struct {
+	ComputationDuration atomic.Int64   // Durée totale des calculs en nanosecondes
+	BitOperationsCount  atomic.Int64   // Nombre d'opérations bit à bit effectuées
+	MemoryAllocations   atomic.Uint64  // Nombre d'allocations mémoire
+	CacheEfficiency     atomic.Float64 // Ratio de hits cache (hits / total requests)
 
-	lru "github.com/hashicorp/golang-lru"
-)
+	// Statistiques des calculs
+	TotalCalculations atomic.Int64   // Nombre total de calculs effectués
+	AvgComputeTime    atomic.Float64 // Temps moyen de calcul en millisecondes
+	PeakMemoryUsage   atomic.Uint64  // Utilisation maximale de la mémoire en bytes
 
-const MAX_FIB_VALUE = 500000001
+	// Métriques de performance du cache
+	CacheSize     atomic.Int64 // Taille actuelle du cache
+	CacheHits     atomic.Int64 // Nombre de hits du cache
+	CacheMisses   atomic.Int64 // Nombre de misses du cache
+	EvictionCount atomic.Int64 // Nombre d'éléments évincés du cache
 
-var maxCacheSize = 1000
+	// Métriques du pool
+	PoolAcquisitions atomic.Int64 // Nombre total d'acquisitions depuis le pool
+	PoolMisses       atomic.Int64 // Nombre de fois où le pool était vide
+}
 
-// Initialiser le cache LRU thread-safe
-var lruCache *lru.Cache
-var cacheMutex sync.RWMutex
+// Service Fibonacci modifié avec les nouvelles métriques
+type FibService struct {
+	config  Config
+	metrics *FibMetrics
+	cache   Cache
+	logger  *log.Logger
+}
 
-func init() {
-	// Initialisation du cache LRU avec une taille maximale prédéfinie
-	var err error
-	lruCache, err = lru.New(maxCacheSize)
+// Constructeur mis à jour du service
+func NewFibService(cfg Config) (*FibService, error) {
+	lruCache, err := lru.New(cfg.MaxCacheSize)
 	if err != nil {
-		panic(fmt.Sprintf("Échec de l'initialisation du cache LRU : %v", err))
+		return nil, fmt.Errorf("initialisation du cache: %w", ErrCacheInitFailed)
+	}
+
+	cache := &LRUCache{
+		cache: lruCache,
+		onEvicted: func(key, value interface{}) {
+			metrics.EvictionCount.Add(1)
+		},
+	}
+
+	metrics := &FibMetrics{}
+
+	logger := log.New(os.Stdout, "[FIB] ", log.LstdFlags|log.Lmicroseconds)
+
+	return &FibService{
+		config:  cfg,
+		metrics: metrics,
+		cache:   cache,
+		logger:  logger,
+	}, nil
+}
+
+// Méthode pour mettre à jour les métriques de calcul
+func (s *FibService) updateComputationMetrics(startTime time.Time, n int) {
+	duration := time.Since(startTime)
+	s.metrics.ComputationDuration.Add(duration.Nanoseconds())
+	s.metrics.TotalCalculations.Add(1)
+
+	// Mise à jour du temps moyen de calcul
+	total := float64(s.metrics.ComputationDuration.Load())
+	count := float64(s.metrics.TotalCalculations.Load())
+	s.metrics.AvgComputeTime.Store(total / count / 1e6) // Conversion en millisecondes
+
+	// Mise à jour des métriques mémoire
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	s.metrics.MemoryAllocations.Add(m.Mallocs - m.Frees)
+
+	// Mise à jour du pic mémoire si nécessaire
+	for {
+		current := s.metrics.PeakMemoryUsage.Load()
+		if m.Alloc <= current {
+			break
+		}
+		if s.metrics.PeakMemoryUsage.CompareAndSwap(current, m.Alloc) {
+			break
+		}
+	}
+
+	// Mise à jour de l'efficacité du cache
+	hits := float64(s.metrics.CacheHits.Load())
+	total = float64(hits + s.metrics.CacheMisses.Load())
+	if total > 0 {
+		s.metrics.CacheEfficiency.Store(hits / total)
 	}
 }
 
-// fibDoubling calcule le nième nombre de Fibonacci en utilisant la méthode de doublage
-func fibDoubling(n int) (*big.Int, error) {
-	// Retourne une erreur si n est un entier négatif
+// Méthode pour mettre à jour les métriques du pool
+func (s *FibService) updatePoolMetrics(acquired bool) {
+	s.metrics.PoolAcquisitions.Add(1)
+	if !acquired {
+		s.metrics.PoolMisses.Add(1)
+	}
+}
+
+// Méthode ComputeFib mise à jour avec les nouvelles métriques
+func (s *FibService) ComputeFib(ctx context.Context, n int) (*big.Int, error) {
+	start := time.Now()
+	defer s.updateComputationMetrics(start, n)
+
+	// Vérification des entrées
 	if n < 0 {
-		return nil, errors.New("n doit être un entier positif")
+		return nil, ErrNegativeInput
 	}
-	// Retourne directement n si n est inférieur à 2 (F(0) = 0, F(1) = 1)
-	if n < 2 {
-		return big.NewInt(int64(n)), nil
+	if n > s.config.MaxValue {
+		return nil, ErrInputTooLarge
 	}
-	// Retourne une erreur si n dépasse la valeur maximale autorisée
-	if n > MAX_FIB_VALUE {
-		return nil, errors.New("n est trop grand pour cette implémentation")
+
+	// Vérification dans le cache
+	if result, ok := s.cache.Get(n); ok {
+		s.metrics.CacheHits.Add(1)
+		return result, nil
 	}
-	// Utilise la fonction itérative pour calculer le nombre de Fibonacci
-	result := fibDoublingHelperIterative(n)
+	s.metrics.CacheMisses.Add(1)
+
+	// Calcul de Fibonacci
+	result, err := s.fibDoubling(ctx, n)
+	if err != nil {
+		return nil, fmt.Errorf("calcul de Fibonacci: %w", err)
+	}
+
+	// Mise à jour du cache
+	s.cache.Set(n, result)
+	s.metrics.CacheSize.Store(int64(s.cache.(*LRUCache).cache.Len()))
+
 	return result, nil
 }
 
-// fibDoublingHelperIterative calcule les nombres de Fibonacci en utilisant la méthode de doublage
-func fibDoublingHelperIterative(n int) *big.Int {
-	// Vérifie si la valeur est déjà présente dans le cache LRU
-	if val, exists := getFromCache(n); exists {
-		return val
+// Handler HTTP pour les métriques
+func (s *FibService) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics := map[string]interface{}{
+		"computation": map[string]interface{}{
+			"duration_ms":         float64(s.metrics.ComputationDuration.Load()) / 1e6,
+			"avg_compute_time_ms": s.metrics.AvgComputeTime.Load(),
+			"total_calculations":  s.metrics.TotalCalculations.Load(),
+			"bit_operations":      s.metrics.BitOperationsCount.Load(),
+		},
+		"memory": map[string]interface{}{
+			"allocations":      s.metrics.MemoryAllocations.Load(),
+			"peak_usage_bytes": s.metrics.PeakMemoryUsage.Load(),
+		},
+		"cache": map[string]interface{}{
+			"size":           s.metrics.CacheSize.Load(),
+			"hits":           s.metrics.CacheHits.Load(),
+			"misses":         s.metrics.CacheMisses.Load(),
+			"efficiency":     s.metrics.CacheEfficiency.Load(),
+			"eviction_count": s.metrics.EvictionCount.Load(),
+		},
+		"pool": map[string]interface{}{
+			"acquisitions": s.metrics.PoolAcquisitions.Load(),
+			"misses":       s.metrics.PoolMisses.Load(),
+		},
 	}
 
-	// Initialiser les valeurs de base de Fibonacci : F(0) = 0, F(1) = 1
-	a := big.NewInt(0)
-	b := big.NewInt(1)
-	c := new(big.Int) // Variable temporaire pour les calculs
-	d := new(big.Int) // Variable temporaire pour les calculs
-
-	// Parcourir les bits de n du plus significatif au moins significatif
-	for i := bits.Len(uint(n)) - 1; i >= 0; i-- {
-		// Calculer c = a * (2 * b - a)
-		c.Lsh(b, 1) // c = 2 * b
-		c.Sub(c, a) // c = 2 * b - a
-		c.Mul(c, a) // c = a * (2 * b - a)
-
-		// Calculer d = a^2 + b^2
-		d.Mul(a, a)           // d = a^2
-		d.Add(d, b.Mul(b, b)) // d = a^2 + b^2
-
-		// Mettre à jour a et b en fonction du bit actuel de n
-		if ((n >> i) & 1) == 0 {
-			a.Set(c) // Si le bit est 0, a = c et b = d
-			b.Set(d)
-		} else {
-			a.Set(d) // Si le bit est 1, a = d et b = c + d
-			b.Add(c, d)
-		}
-	}
-
-	// Stocker le résultat dans le cache pour une utilisation future
-	result := new(big.Int).Set(a)
-	addToCache(n, result)
-	return result
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metrics)
 }
 
-// getFromCache récupère une valeur du cache de manière thread-safe
-func getFromCache(n int) (*big.Int, bool) {
-	cacheMutex.RLock()         // Verrouiller le cache en lecture
-	defer cacheMutex.RUnlock() // Déverrouiller à la fin de la fonction
-	if val, ok := lruCache.Get(n); ok {
-		return val.(*big.Int), true // Retourner la valeur si elle est trouvée dans le cache
-	}
-	return nil, false // Retourner nil si la valeur n'est pas trouvée
-}
-
-// addToCache ajoute une valeur au cache de manière thread-safe
-func addToCache(n int, value *big.Int) {
-	cacheMutex.Lock()         // Verrouiller le cache en écriture
-	defer cacheMutex.Unlock() // Déverrouiller à la fin de la fonction
-	lruCache.Add(n, value)    // Ajouter la valeur au cache
-}
-
-// benchmarkFibWithWorkerPool effectue des tests de performance en utilisant un pool de workers
-func benchmarkFibWithWorkerPool(ctx context.Context, nValues []int, repetitions int, workerCount int) {
-	// Effacer le cache avant de commencer le benchmark
-	clearMemoization()
-
-	// Canal pour les travaux
-	jobs := make(chan int)
-	// Canal pour les résultats
-	results := make(chan string)
-	var wg sync.WaitGroup
-
-	// Lancer les workers
-	for w := 0; w < workerCount; w++ {
-		wg.Add(1)
-		go func(workerID int) {
-			defer wg.Done()
-			for n := range jobs {
-				select {
-				case <-ctx.Done():
-					// Arrêter si le contexte est annulé
-					return
-				default:
-					totalExecTime := time.Duration(0)
-					// Effectuer les répétitions pour calculer la moyenne du temps d'exécution
-					for i := 0; i < repetitions; i++ {
-						start := time.Now() // Début du chronométrage
-						_, err := fibDoubling(n)
-						if err != nil {
-							printError(n, err) // Afficher l'erreur si elle se produit
-							continue
-						}
-						totalExecTime += time.Since(start) // Ajouter la durée de l'exécution
-					}
-					// Calculer le temps d'exécution moyen
-					avgExecTime := totalExecTime / time.Duration(repetitions)
-					// Envoyer le résultat au canal des résultats
-					result := fmt.Sprintf("Worker %d: fibDoubling(%d) moyenne sur %d exécutions: %s", workerID, n, repetitions, avgExecTime)
-					select {
-					case results <- result:
-					case <-ctx.Done():
-						return
-					}
-				}
-			}
-		}(w)
-	}
-
-	// Lancer une goroutine pour collecter les résultats
-	go func() {
-		wg.Wait()      // Attendre que tous les workers aient terminé
-		close(results) // Fermer le canal des résultats
-	}()
-
-	// Envoyer les travaux
-	go func() {
-		for _, n := range nValues {
-			select {
-			case jobs <- n: // Envoyer la valeur de n au canal des travaux
-			case <-ctx.Done():
-				close(jobs) // Fermer le canal des travaux si le contexte est annulé
-				return
-			}
-		}
-		close(jobs) // Fermer le canal des travaux une fois tous les travaux envoyés
-	}()
-
-	// Afficher les résultats
-	for res := range results {
-		fmt.Println(res) // Afficher chaque résultat
-	}
-}
-
-// Fonction principale pour exécuter les tests de performance
+// Mise à jour de la fonction main pour ajouter l'endpoint des métriques
 func main() {
-	// Liste des valeurs de n pour le benchmark
-	nValues := []int{100000000}
-	// Nombre de répétitions pour chaque valeur de n
-	repetitions := 10
-	// Nombre de workers
-	workerCount := 16
-	// Contexte avec timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel() // Annuler le contexte après l'exécution
-	// Exécuter le benchmark
-	benchmarkFibWithWorkerPool(ctx, nValues, repetitions, workerCount)
-}
+	// ... configuration existante ...
 
-// clearMemoization efface le cache LRU de manière thread-safe
-func clearMemoization() {
-	cacheMutex.Lock()         // Verrouiller le cache en écriture
-	defer cacheMutex.Unlock() // Déverrouiller à la fin de la fonction
-	lruCache.Purge()          // Vider le cache
-}
+	// Ajout du handler des métriques
+	http.HandleFunc("/metrics", service.handleMetrics)
+	http.HandleFunc("/compute", service.handleCompute)
 
-// printError affiche un message d'erreur dans un format cohérent
-func printError(n int, err error) {
-	fmt.Printf("fibDoubling(%d): %s\n", n, err) // Formater et afficher l'erreur
+	// Démarrage du serveur avec logging des métriques périodiques
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			service.logger.Printf("Métriques actuelles: Cache efficacité=%.2f%%, Temps moyen de calcul=%.2fms, Mémoire utilisée=%d MB",
+				service.metrics.CacheEfficiency.Load()*100,
+				service.metrics.AvgComputeTime.Load(),
+				service.metrics.PeakMemoryUsage.Load()/1024/1024)
+		}
+	}()
+
+	log.Printf("Démarrage du serveur sur le port %s", cfg.HTTPPort)
+	if err := http.ListenAndServe(cfg.HTTPPort, nil); err != nil {
+		log.Fatalf("Erreur serveur HTTP: %v", err)
+	}
 }
