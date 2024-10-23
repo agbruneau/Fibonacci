@@ -101,7 +101,7 @@ Le service gère plusieurs types d'erreurs :
 
 Exemple d'utilisation avec `curl` :
 ```bash
-$ curl -X POST -H "Content-Type: application/json" -d '{"n": 10}' http://localhost:8080/compute
+$ curl -X POST -H "Content-Type: application/json" -d '{"n": 100000000}' http://localhost:8080/compute
 ```
 
 ## Optimisations
