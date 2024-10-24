@@ -85,7 +85,3 @@ Les contributions sont les bienvenues ! Pour contribuer, veuillez cloner le dép
 
 Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, de le modifier et de le distribuer sous les conditions de cette licence.
 
-## Contact
-
-Pour toute question ou suggestion, veuillez contacter l'auteur à l'adresse suivante : [votre@email.com].
-
