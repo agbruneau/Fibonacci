@@ -122,7 +122,7 @@ func main() {
 	segmentSize := n / numWorkers  // Taille de chaque segment à calculer par chaque travailleur
 	remaining := n % numWorkers    // Les éléments restants si n n'est pas divisible par numWorkers
 
-	partialResult := make(chan *big.Int, numWorkers*2) // Canal pour collecter les résultats partiels
+	partialResult := make(chan *big.Int, numWorkers) // Taille du tampon du canal ajustée à `numWorkers` pour réduire la consommation de mémoire
 	var wg sync.WaitGroup
 
 	startTime := time.Now() // Commence la mesure du temps d'exécution
