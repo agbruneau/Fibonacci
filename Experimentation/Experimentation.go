@@ -67,6 +67,9 @@ func fibDoubling(n int) (*big.Int, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être un entier positif") // Vérification des arguments : n doit être un entier positif
 	}
+	if n > 100000000 {
+		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux et consommation excessive de mémoire") // Limitation pour éviter des calculs extrêmement coûteux
+	}
 	if n < 2 {
 		return big.NewInt(int64(n)), nil // Les deux premiers termes de la suite de Fibonacci sont connus : 0 et 1
 	}
