@@ -1,6 +1,9 @@
 # Calcul de Fibonacci par la Méthode de Calcul Parallèle avec Mémoïsation et Benchmark
 
 ![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Parallel/Fibonacci%20Golang%20Sequence%20Diagram.jpeg)
+![Diagramme de contexte du code golang de calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallel/ContextDiagram.jpeg)
+![Diagramme de séquence du code golang du calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallel/SequenceDiagram.jpeg)
+
 
 # README : Programme de Calcul Parallèle de la Somme des Nombres de Fibonacci
 
