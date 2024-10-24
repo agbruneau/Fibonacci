@@ -2,101 +2,88 @@
 
 ![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Parallel/Fibonacci%20Golang%20Sequence%20Diagram.jpeg)
 
-## Description
+# README : Programme de Calcul Parallèle de la Somme des Nombres de Fibonacci
 
-Ce projet, développé en Go, implémente le calcul des sommes partielles de la suite de Fibonacci jusqu'à un indice donné (`n`) en exploitant des techniques avancées de concurrence, notamment l'utilisation de goroutines, la mémoïsation, et la synchronisation via `sync.WaitGroup`. L'objectif est de décomposer le calcul de la suite de Fibonacci en plusieurs segments parallèles, chaque segment étant traité indépendamment par une goroutine distincte, afin de mieux exploiter les capacités des systèmes multi-cœurs et d'optimiser la performance.
+## Introduction
 
-Après le calcul des différentes parties de la suite, les résultats partiels sont combinés pour former le résultat final, qui est ensuite écrit dans un fichier intitulé `fibonacci_result.txt`.
+Ce projet est un programme écrit en Go permettant de calculer la somme des nombres de Fibonacci jusqu'à un certain terme. L'objectif principal est de démontrer l'utilisation de la programmation parallèle et de la mémoïsation en Go afin de réaliser des calculs intensifs de manière optimale. Le programme exploite la méthode de doublage (doubling) pour le calcul des termes de Fibonacci et utilise des goroutines pour la parallélisation du calcul, ce qui réduit de manière significative le temps d'exécution.
 
 ## Fonctionnalités
 
-- **Mémoïsation** : Utilisation de `sync.Map` pour stocker les valeurs calculées antérieurement, permettant leur réutilisation et réduisant ainsi la redondance de calcul.
-- **Calcul parallèle** : Répartition du calcul sur plusieurs goroutines (par défaut, 4) afin d'accélérer le processus sur des systèmes multi-cœurs.
-- **Synchronisation** : Utilisation de `sync.WaitGroup` pour garantir une coordination correcte entre les différentes goroutines.
-- **Enregistrement des résultats** : Le résultat final est sauvegardé dans un fichier texte afin de permettre une consultation ultérieure.
+- **Calcul Parallèle** : Division du calcul de la somme des nombres de Fibonacci en plusieurs segments, chacun étant traité par une goroutine différente afin d'améliorer les performances sur les systèmes multi-cœurs.
+- **Mémoïsation Thread-Safe** : Utilisation de la mémoïsation à l'aide de la structure `sync.Map` pour stocker les valeurs intermédiaires déjà calculées et éviter les recalculs inutiles.
+- **Gestion de la Synchronisation** : Gestion des goroutines via `sync.WaitGroup` afin d'assurer la synchronisation et la bonne gestion des ressources.
+- **Résultats** : Le résultat final, soit la somme des termes de la suite de Fibonacci, est écrit dans un fichier texte nommé `fibonacci_result.txt`. Le temps d'exécution est également affiché dans le terminal.
 
-## Structure du Code
+## Dépendances
 
-1. **Mémoïsation avec `sync.Map`** : Le programme emploie une structure de données sécurisée pour stocker les valeurs de Fibonacci déjà calculées, permettant d'éviter des recalculs inutiles et d'améliorer l'efficacité.
+Le programme utilise plusieurs bibliothèques standards de Go pour assurer le bon fonctionnement :
 
-2. **Fonction `calcFibonacci`** : Cette fonction est responsable du calcul d'une portion de la suite de Fibonacci entre deux indices (`start` et `end`). Elle est conçue pour être exécutée par des goroutines, facilitant la distribution du calcul.
-
-3. **Canal `partialResult`** : Les résultats partiels générés par chaque goroutine sont transmis via un canal, puis agrégés dans la fonction principale (`main`).
-
-4. **Fonction `main`** :
-    - Définit les paramètres tels que la longueur de la suite (`n`) et le nombre de workers (`numWorkers`).
-    - Lance plusieurs goroutines pour effectuer le calcul de manière concurrente.
-    - Attend la fin de toutes les goroutines et agrège les résultats partiels.
-    - Écrit le résultat final dans un fichier et affiche le temps total d'exécution.
+- **`math/big`** : Pour manipuler des entiers de grande taille (arbitraire) car les termes de la suite de Fibonacci peuvent atteindre des valeurs très élevées.
+- **`sync`** : Pour synchroniser les goroutines via `sync.Map` et `sync.WaitGroup`.
+- **`time`** : Pour mesurer et afficher le temps d'exécution.
+- **`os`** : Pour la création et l'écriture dans un fichier de sortie.
 
 ## Prérequis
 
-Pour exécuter ce programme, les éléments suivants sont requis :
+Pour exécuter ce programme, vous devez disposer de Go (à partir de la version 1.16). Vous pouvez vérifier votre version de Go en utilisant la commande suivante :
 
-- **Go version 1.16 ou supérieure**
-- **Un environnement compatible pour l'installation et l'exécution de Go**
-
-## Installation
-
-1. Installez Go depuis [le site officiel](https://golang.org/dl/).
-2. Clonez ou téléchargez ce dépôt sur votre machine.
-3. Naviguez jusqu'au répertoire du projet :
-
-```bash
-git clone <repo-url>
-cd <repo-directory>
+```sh
+$ go version
 ```
 
-## Utilisation
+Si Go n'est pas installé sur votre système, vous pouvez le télécharger depuis [le site officiel de Go](https://golang.org/dl/).
 
-Pour exécuter le programme, lancez la commande suivante dans votre terminal :
+## Installation et Exécution
 
-```bash
-go run main.go
-```
+1. **Cloner le dépôt**
 
-Par défaut, le programme calcule la somme des nombres de Fibonacci jusqu'à `n = 1 000 000`, en utilisant 4 goroutines. Le résultat est écrit dans un fichier intitulé `fibonacci_result.txt`, situé à la racine du répertoire d'exécution.
+   Pour télécharger le code source, vous pouvez cloner ce dépôt en utilisant Git :
 
-### Paramètres Modifiables
+   ```sh
+   $ git clone <URL_DU_DEPOT>
+   $ cd <NOM_DU_REPERTOIRE>
+   ```
 
-- **`n`** : Le nombre total de termes de la suite de Fibonacci à calculer. Ce paramètre est défini dans la fonction `main()` et peut être ajusté selon vos besoins.
-- **`numWorkers`** : Le nombre de goroutines à utiliser pour le calcul parallèle. Un nombre plus élevé de goroutines peut améliorer l'efficacité du calcul en répartissant davantage la charge de travail.
+2. **Exécuter le Programme**
 
-### Exemple de Modification
+   Pour compiler et exécuter le programme, utilisez les commandes suivantes :
 
-Pour modifier le nombre de termes de Fibonacci calculés ou le nombre de goroutines, ajustez les variables dans la fonction `main()` comme suit :
+   ```sh
+   $ go build -o fibonacci_sum
+   $ ./fibonacci_sum
+   ```
 
-```go
-n := 500000     // Par exemple, calculer jusqu'au 500 000e terme de Fibonacci
-numWorkers := 8 // Utiliser 8 goroutines au lieu de 4
-```
+   Par défaut, le programme calculera la somme des termes de la suite de Fibonacci jusqu'à 100 millions.
 
-## Résultats
+## Fonctionnement du Programme
 
-Après l'exécution du programme, un fichier texte nommé `fibonacci_result.txt` contiendra la somme des termes de la suite de Fibonacci calculés. Le programme affichera également le temps d'exécution total dans la console.
+Le programme calcule la somme des nombres de Fibonacci jusqu'à un terme donné en divisant le calcul en plusieurs segments, chacun traité par une goroutine différente. Chaque goroutine calcule la somme partielle de son segment et envoie le résultat via un canal. Le programme principal récupère ces résultats partiels et les agrège pour obtenir la somme finale.
 
-### Exemple de Sortie
+Les calculs sont basés sur la méthode de **doublage** (“doubling”), qui est une méthode efficace pour le calcul de la suite de Fibonacci, permettant de diviser la complexité et ainsi d'améliorer la rapidité des calculs.
 
-```
-Temps d'exécution: 2.34567s
-Résultat et temps d'exécution écrits dans 'fibonacci_result.txt'.
-```
+## Organisation du Code
 
-## Détails Techniques
+- **`fibDoubling(n int)`** : Fonction principale qui calcule le nième terme de Fibonacci en utilisant la méthode de doublage.
+- **`fibDoublingHelperIterative(n int)`** : Fonction auxiliaire itérative utilisant des opérations de bits pour optimiser le calcul.
+- **`calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup)`** : Fonction qui calcule la somme des termes de Fibonacci sur un segment défini et transmet le résultat partiel via un canal.
+- **`main()`** : Fonction principale qui divise le travail entre les goroutines, synchronise les calculs et gère l'écriture du résultat dans un fichier.
 
-1. **Mémoïsation** : Le programme utilise `sync.Map`, une table de hachage sécurisée et concurrente, pour stocker les résultats de la suite de Fibonacci déjà calculés. Cela permet de minimiser la redondance des calculs et d'améliorer l'efficacité globale.
+## Limitations et Améliorations Possibles
 
-2. **Calcul Concurrent** : Le calcul de Fibonacci étant particulièrement coûteux pour des indices élevés, le programme segmente le travail en plusieurs parties. Chaque segment est traité indépendamment par une goroutine, permettant une parallélisation du calcul et une réduction significative du temps d'exécution sur des systèmes multi-cœurs.
+- **Performance** : Bien que la parallélisation améliore significativement les performances, le calcul des très grands termes de Fibonacci peut être coûteux en ressources mémoire et temps d'exécution. Une future optimisation pourrait consister à utiliser une approche adaptative pour la répartition des segments.
+- **Tolérance aux Pannes** : Il pourrait être utile d'ajouter des mécanismes de redondance ou de récupération en cas d'échec d'une goroutine, afin d'améliorer la robustesse globale.
+- **Cache Amélioré** : L'intégration d'une cache plus sophistiquée, comme une cache LRU (Least Recently Used), pourrait aider à éviter les recalculs répétitifs tout en évitant une surcharge mémoire.
 
-3. **Synchronisation via `sync.WaitGroup`** : La structure `sync.WaitGroup` est utilisée pour garantir que toutes les goroutines ont terminé leur exécution avant que les résultats ne soient combinés. Cela permet une coordination précise entre les différentes parties du calcul.
+## Contribution
 
-4. **Canaux Go** : Le canal `partialResult` est employé pour transmettre les résultats partiels de chaque goroutine au processus principal, qui les combine ensuite pour obtenir le résultat final.
-
-## Améliorations Futures
-
-- **Gestion Améliorée des Erreurs** : Bien que le programme comprenne des vérifications d'erreurs, des améliorations peuvent être apportées pour couvrir des cas d'erreur plus variés et complexes.
-- **Optimisation de la Performance** : L'intégration d'algorithmes plus avancés pour le calcul de Fibonacci, comme l'exponentiation par matrices, pourrait permettre d'accélérer davantage le calcul, surtout pour des valeurs de `n` extrêmement élevées.
+Les contributions sont les bienvenues ! Pour contribuer, veuillez cloner le dépôt, créer une branche, et soumettre une pull request avec vos modifications. Assurez-vous d'inclure des tests et des descriptions claires de vos changements.
 
 ## Licence
 
-Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, le modifier et le distribuer selon les termes de cette licence.
+Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, de le modifier et de le distribuer sous les conditions de cette licence.
+
+## Contact
+
+Pour toute question ou suggestion, veuillez contacter l'auteur à l'adresse suivante : [votre@email.com].
+
