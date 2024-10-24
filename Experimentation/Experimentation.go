@@ -50,6 +50,9 @@
 
 package main
 
+// Les imports ici incluent des packages standard pour la manipulation des grands entiers (`math/big`),
+// la gestion des bits (`math/bits`), la gestion des fichiers (`os`), le parallélisme (`sync`, `runtime`)
+// et la mesure du temps (`time`). Assurez-vous que tous ces packages sont nécessaires pour éviter des dépendances inutiles.
 import (
 	"fmt"
 	"math/big"
