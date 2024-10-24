@@ -2,7 +2,7 @@
 
 ![Diagramme de séquence du code golang du calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Experimentation/SequenceDiagram.jpeg)
 
-# README - Analyse du Code : Calcul Parallélisé des Nombres de Fibonacci
+# README - Calcul Parallélisé des Nombres de Fibonacci
 
 ## Introduction
 
