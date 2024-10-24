@@ -1,7 +1,7 @@
 # Calcul de Fibonacci par la Méthode de Calcul Parallèle avec Mémoïsation et Benchmark
 
 ![Diagramme de séquence du code golang du calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Experimentation/SequenceDiagram.jpeg)
-
+![Diagramme de calcul de Doublage de Fibonacci](DoublingAlgo-1.jpeg)
 # README - Calcul Parallélisé des Nombres de Fibonacci
 
 ## Introduction

@@ -2,6 +2,8 @@
 
 ![Diagramme de séquence du code golang du calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallel/SequenceDiagram.jpeg)
 
+![Diagramme d'activité du calcul du doublage Fibonacci](DoublingAlgo-1.jpeg)
+
 # README - Calcul Parallélisé des Nombres de Fibonacci
 
 ## Introduction
