@@ -1,87 +1,106 @@
 # Calcul de Fibonacci par la Méthode de Calcul Parallèle avec Mémoïsation et Benchmark
 
-![Diagramme de contexte du code golang de calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallel/ContextDiagram.jpeg)
-![Diagramme de séquence du code golang du calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallel/SequenceDiagram.jpeg)
+![Diagramme de séquence du code golang du calcul de la liste de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/Experimentation/SequenceDiagram.jpeg)
 
-
-# README : Programme de Calcul Parallèle de la Somme des Nombres de Fibonacci
+# README - Calcul Parallélisé des Nombres de Fibonacci
 
 ## Introduction
 
-Ce projet est un programme écrit en Go permettant de calculer la somme des nombres de Fibonacci jusqu'à un certain terme. L'objectif principal est de démontrer l'utilisation de la programmation parallèle et de la mémoïsation en Go afin de réaliser des calculs intensifs de manière optimale. Le programme exploite la méthode de doublage (doubling) pour le calcul des termes de Fibonacci et utilise des goroutines pour la parallélisation du calcul, ce qui réduit de manière significative le temps d'exécution.
+Ce projet implémente un calcul parallélisé des nombres de Fibonacci en utilisant le langage de programmation Go. Le code repose sur une approche optimisée appelée "doublage" pour le calcul des nombres de Fibonacci et utilise des travailleurs (« workers ») parallèles pour accélérer la somme des n premiers termes. Cette méthode exploite les ressources du processeur de façon optimale, ce qui est particulièrement adapté pour les calculs intensifs sur des grands ensembles de données.
 
-## Fonctionnalités
+## Structure du Code
 
-- **Calcul Parallèle** : Division du calcul de la somme des nombres de Fibonacci en plusieurs segments, chacun étant traité par une goroutine différente afin d'améliorer les performances sur les systèmes multi-cœurs.
-- **Mémoïsation Thread-Safe** : Utilisation de la mémoïsation à l'aide de la structure `sync.Map` pour stocker les valeurs intermédiaires déjà calculées et éviter les recalculs inutiles.
-- **Gestion de la Synchronisation** : Gestion des goroutines via `sync.WaitGroup` afin d'assurer la synchronisation et la bonne gestion des ressources.
-- **Résultats** : Le résultat final, soit la somme des termes de la suite de Fibonacci, est écrit dans un fichier texte nommé `fibonacci_result.txt`. Le temps d'exécution est également affiché dans le terminal.
+Le code est divisé en plusieurs sections et utilise plusieurs paquets de la bibliothèque standard de Go, tels que `fmt`, `math/big`, `sync`, `runtime`, et `os`. Voici une analyse des principales parties du code :
 
-## Dépendances
+### Fonctions de Calcul de Fibonacci
 
-Le programme utilise plusieurs bibliothèques standards de Go pour assurer le bon fonctionnement :
+#### 1. `fibDoubling(n int) (*big.Int, error)`
 
-- **`math/big`** : Pour manipuler des entiers de grande taille (arbitraire) car les termes de la suite de Fibonacci peuvent atteindre des valeurs très élevées.
-- **`sync`** : Pour synchroniser les goroutines via `sync.Map` et `sync.WaitGroup`.
-- **`time`** : Pour mesurer et afficher le temps d'exécution.
-- **`os`** : Pour la création et l'écriture dans un fichier de sortie.
+Cette fonction calcule le `n`ème nombre de Fibonacci en utilisant la méthode de « doublage » (également connue sous le nom de "Fast Doubling"). Cette méthode est plus efficace que les approches itératives classiques, car elle permet de réduire la complexité à `O(log n)`.
 
-## Prérequis
+- **Paramètre :** `n` est un entier positif, représentant l'indice du nombre de Fibonacci à calculer.
+- **Retour :** Retourne un pointeur vers un objet `big.Int`, qui est utilisé pour gérer de très grands entiers.
 
-Pour exécuter ce programme, vous devez disposer de Go (à partir de la version 1.16). Vous pouvez vérifier votre version de Go en utilisant la commande suivante :
+#### 2. `fibDoublingHelperIterative(n int) *big.Int`
 
-```sh
-$ go version
-```
+Il s'agit d'une fonction auxiliaire qui effectue le calcul itératif. Elle se sert des opérations bit-à-bit (à l'aide du paquet `bits`) pour itérer sur les bits de `n` et générer les termes de Fibonacci en doublant successivement.
 
-Si Go n'est pas installé sur votre système, vous pouvez le télécharger depuis [le site officiel de Go](https://golang.org/dl/).
+- Les objets `a` et `b` sont utilisés respectivement pour stocker les termes précédents et courants de la séquence.
+- La fonction utilise des opérations telles que `Lsh` (left shift) et `Mul` pour effectuer les calculs nécessaires.
 
-## Installation et Exécution
+### Calcul Parallélisé des Nombres de Fibonacci
 
-1. **Cloner le dépôt**
+#### 1. `calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup)`
 
-   Pour télécharger le code source, vous pouvez cloner ce dépôt en utilisant Git :
+Cette fonction calcule la somme des nombres de Fibonacci entre les indices `start` et `end`. Pour chaque indice dans cet intervalle, elle appelle `fibDoubling` afin de récupérer la valeur correspondante et l'ajoute à une somme partielle.
 
-   ```sh
-   $ git clone <URL_DU_DEPOT>
-   $ cd <NOM_DU_REPERTOIRE>
-   ```
+- Le résultat partiel est ensuite envoyé via un canal (`partialResult`) pour la fusion ultérieure.
+- Un `WaitGroup` est utilisé pour synchroniser l'exécution des différentes goroutines.
 
-2. **Exécuter le Programme**
+### Fonction Principale (`main`)
 
-   Pour compiler et exécuter le programme, utilisez les commandes suivantes :
+La fonction `main` est le point d'entrée du programme. Voici les éléments clés qu'elle gère :
 
-   ```sh
-   $ go build -o fibonacci_sum
-   $ ./fibonacci_sum
-   ```
+1. **Initialisation des Paramètres :**
+   - `n` est fixé à `100000000`, ce qui signifie que le programme va calculer la somme des 100 millions premiers nombres de Fibonacci.
+   - `numWorkers` est défini comme le nombre de cœurs disponibles (à l'aide de `runtime.NumCPU()`), permettant une parallélisation adaptée à l'architecture de la machine.
 
-   Par défaut, le programme calculera la somme des termes de la suite de Fibonacci jusqu'à 100 millions.
+2. **Décomposition des Tâches :**
+   - Le calcul est divisé en segments, chacun étant assigné à un « worker » distinct.
+   - Chaque goroutine exécute `calcFibonacci` pour calculer sa portion des valeurs de Fibonacci.
 
-## Fonctionnement du Programme
+3. **Fusion des Résultats :**
+   - Une fois les calculs terminés, les résultats partiels sont fusionnés dans une variable `sumFib` pour obtenir la somme totale.
 
-Le programme calcule la somme des nombres de Fibonacci jusqu'à un terme donné en divisant le calcul en plusieurs segments, chacun traité par une goroutine différente. Chaque goroutine calcule la somme partielle de son segment et envoie le résultat via un canal. Le programme principal récupère ces résultats partiels et les agrège pour obtenir la somme finale.
+4. **Calcul des Temps :**
+   - Le temps total d'exécution est calculé et affiché, ainsi que le temps moyen par calcul.
 
-Les calculs sont basés sur la méthode de **doublage** (“doubling”), qui est une méthode efficace pour le calcul de la suite de Fibonacci, permettant de diviser la complexité et ainsi d'améliorer la rapidité des calculs.
+5. **Sauvegarde des Résultats :**
+   - Les résultats, incluant la somme des nombres de Fibonacci, le nombre de calculs, le temps moyen par calcul, et le temps d'exécution, sont sauvegardés dans un fichier texte `fibonacci_result.txt`.
 
-## Organisation du Code
+## Points Forts et Optimisations
 
-- **`fibDoubling(n int)`** : Fonction principale qui calcule le nième terme de Fibonacci en utilisant la méthode de doublage.
-- **`fibDoublingHelperIterative(n int)`** : Fonction auxiliaire itérative utilisant des opérations de bits pour optimiser le calcul.
-- **`calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup)`** : Fonction qui calcule la somme des termes de Fibonacci sur un segment défini et transmet le résultat partiel via un canal.
-- **`main()`** : Fonction principale qui divise le travail entre les goroutines, synchronise les calculs et gère l'écriture du résultat dans un fichier.
+1. **Approche de Doublage :**
+   - L'utilisation de l'algorithme de doublage permet de calculer le `n`ème terme de la séquence de Fibonacci avec une complexité logarithmique, ce qui est beaucoup plus efficace que les méthodes classiques (itératives ou récursives avec mémorisation).
+
+2. **Parallélisation :**
+   - Le programme exploite la parallélisation en utilisant plusieurs goroutines qui calculent chacune une portion des valeurs de Fibonacci, en tirant parti des ressources multi-cœurs.
+
+3. **Utilisation des `big.Int` :**
+   - Les valeurs de Fibonacci deviennent rapidement très grandes. Le type `big.Int` de Go est essentiel pour éviter les débordements et gérer des entiers de taille arbitraire.
 
 ## Limitations et Améliorations Possibles
 
-- **Performance** : Bien que la parallélisation améliore significativement les performances, le calcul des très grands termes de Fibonacci peut être coûteux en ressources mémoire et temps d'exécution. Une future optimisation pourrait consister à utiliser une approche adaptative pour la répartition des segments.
-- **Tolérance aux Pannes** : Il pourrait être utile d'ajouter des mécanismes de redondance ou de récupération en cas d'échec d'une goroutine, afin d'améliorer la robustesse globale.
-- **Cache Amélioré** : L'intégration d'une cache plus sophistiquée, comme une cache LRU (Least Recently Used), pourrait aider à éviter les recalculs répétitifs tout en évitant une surcharge mémoire.
+1. **Performance Mémoire :**
+   - Le programme utilise `big.Int` qui peut consommer beaucoup de mémoire pour des valeurs très grandes de `n`. Une amélioration pourrait consister à utiliser des techniques de réduction de la mémoire.
 
-## Contribution
+2. **Gestion des Erreurs :**
+   - Certaines parties du code, telles que les appels à `fibDoubling`, ignorent les erreurs retournées. Une meilleure gestion des erreurs permettrait de rendre le code plus robuste.
 
-Les contributions sont les bienvenues ! Pour contribuer, veuillez cloner le dépôt, créer une branche, et soumettre une pull request avec vos modifications. Assurez-vous d'inclure des tests et des descriptions claires de vos changements.
+3. **Calcul Répétitif :**
+   - Le calcul des termes de Fibonacci pourrait être optimisé davantage en utilisant une mémoisation partagée pour éviter de recalculer les mêmes termes plusieurs fois.
 
-## Licence
+## Comment Exécuter le Programme
 
-Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, de le modifier et de le distribuer sous les conditions de cette licence.
+### Prérequis
+- **Go** : Assurez-vous que le compilateur Go est installé sur votre système.
+- **Fichier Source** : Le fichier source est intitulé `fibonacci_parallel.go`.
+
+### Compilation et Exécution
+Pour compiler et exécuter le programme, utilisez les commandes suivantes :
+
+```sh
+# Compiler le fichier source
+$ go build -o fibonacci_parallel fibonacci_parallel.go
+
+# Exécuter le programme
+$ ./fibonacci_parallel
+```
+
+Les résultats seront affichés sur la console et également sauvegardés dans le fichier `fibonacci_result.txt`.
+
+## Conclusion
+Ce projet démontre comment tirer parti des caractéristiques avancées du langage Go, telles que la parallélisation avec des goroutines, l'utilisation des grands entiers avec `big.Int`, et des approches mathématiques efficaces comme le doublage pour calculer des séquences de Fibonacci de grande taille. Le code, bien que performant, offre plusieurs pistes pour d’éventuelles améliorations afin de le rendre encore plus optimisé et robuste.
+
+
 
