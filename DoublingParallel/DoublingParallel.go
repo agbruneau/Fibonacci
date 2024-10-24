@@ -50,6 +50,9 @@
 
 package main
 
+// Les imports ici incluent des packages standard pour la manipulation des grands entiers (`math/big`),
+// la gestion des bits (`math/bits`), la gestion des fichiers (`os`), le parallélisme (`sync`, `runtime`)
+// et la mesure du temps (`time`). Assurez-vous que tous ces packages sont nécessaires pour éviter des dépendances inutiles.
 import (
 	"fmt"
 	"math/big"
@@ -66,6 +69,9 @@ var memo sync.Map
 func fibDoubling(n int) (*big.Int, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être un entier positif") // Vérification des arguments : n doit être un entier positif
+	}
+	if n > 100000000 {
+		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux et consommation excessive de mémoire") // Limitation pour éviter des calculs extrêmement coûteux
 	}
 	if n < 2 {
 		return big.NewInt(int64(n)), nil // Les deux premiers termes de la suite de Fibonacci sont connus : 0 et 1
@@ -107,7 +113,7 @@ func fibDoublingHelperIterative(n int) *big.Int {
 func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup) {
 	defer wg.Done() // Indique que cette routine est terminée une fois la fonction terminée
 
-	partialSum := big.NewInt(0) // Initialisation de la somme partielle
+	partialSum := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
 	for i := start; i <= end; i++ {
 		fibValue, _ := fibDoubling(i)        // Calcul de F(i)
 		partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle
@@ -122,7 +128,7 @@ func main() {
 	segmentSize := n / numWorkers  // Taille de chaque segment à calculer par chaque travailleur
 	remaining := n % numWorkers    // Les éléments restants si n n'est pas divisible par numWorkers
 
-	partialResult := make(chan *big.Int, numWorkers*2) // Canal pour collecter les résultats partiels
+	partialResult := make(chan *big.Int, numWorkers) // Taille du tampon du canal ajustée à `numWorkers` pour réduire la consommation de mémoire
 	var wg sync.WaitGroup
 
 	startTime := time.Now() // Commence la mesure du temps d'exécution
@@ -145,8 +151,8 @@ func main() {
 		close(partialResult)
 	}()
 
-	sumFib := big.NewInt(0) // Initialisation de la somme totale des nombres de Fibonacci
-	numCalculations := 0    // Compteur du nombre de calculs effectués
+	sumFib := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
+	numCalculations := 0   // Compteur du nombre de calculs effectués
 	for partial := range partialResult {
 		sumFib.Add(sumFib, partial) // Ajoute la somme partielle à la somme totale
 		numCalculations++           // Incrémente le compteur
