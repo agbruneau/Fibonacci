@@ -107,7 +107,7 @@ func fibDoublingHelperIterative(n int) *big.Int {
 func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup) {
 	defer wg.Done() // Indique que cette routine est terminée une fois la fonction terminée
 
-	partialSum := big.NewInt(0) // Initialisation de la somme partielle
+	partialSum := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
 	for i := start; i <= end; i++ {
 		fibValue, _ := fibDoubling(i)        // Calcul de F(i)
 		partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle
@@ -145,8 +145,8 @@ func main() {
 		close(partialResult)
 	}()
 
-	sumFib := big.NewInt(0) // Initialisation de la somme totale des nombres de Fibonacci
-	numCalculations := 0    // Compteur du nombre de calculs effectués
+	sumFib := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
+	numCalculations := 0   // Compteur du nombre de calculs effectués
 	for partial := range partialResult {
 		sumFib.Add(sumFib, partial) // Ajoute la somme partielle à la somme totale
 		numCalculations++           // Incrémente le compteur

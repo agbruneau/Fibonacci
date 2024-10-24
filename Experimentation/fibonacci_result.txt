@@ -1,4 +1,4 @@
 Somme des Fib(100000000) = 1
 Nombre de calculs: 32
-Temps moyen par calcul: 362.442296ms
-Temps d'exécution: 11.5981535s
+Temps moyen par calcul: 360.330396ms
+Temps d'exécution: 11.5305727s
