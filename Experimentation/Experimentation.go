@@ -1,3 +1,53 @@
+// -----------------------------------------------------------------------------------------
+// Programme : Calcul de la Somme des Nombres de Fibonacci
+// Langage : Go (Golang)
+//
+// Description :
+// Ce programme calcule la somme des nombres de Fibonacci jusqu'au nième terme spécifié (n).
+// Il utilise la méthode du doublage pour calculer efficacement chaque nombre de Fibonacci.
+// L'algorithme est conçu pour exploiter le parallélisme, en répartissant le calcul sur plusieurs
+// cœurs du processeur pour accélérer le traitement. Ce programme démontre une approche itérative
+// de la méthode du doublage, particulièrement utile pour les calculs de grande envergure.
+//
+// Le programme crée un fichier "fibonacci_result.txt" dans lequel il enregistre la somme des
+// nombres de Fibonacci, le nombre total de calculs effectués, le temps moyen par calcul et le
+// temps d'exécution global.
+//
+// Détails d'implémentation :
+// - La méthode `fibDoubling` calcule le nième nombre de Fibonacci en utilisant un algorithme
+//   de doublage. Elle repose sur des opérations arithmétiques avancées sur de grands entiers
+//   grâce au package "math/big" de Go, afin de garantir une précision infinie pour les calculs
+//   même avec des valeurs extrêmement élevées de n.
+// - Pour diviser le travail, le programme détermine le nombre de travailleurs en fonction du
+//   nombre de cœurs du CPU disponible, permettant ainsi d'optimiser l'utilisation des ressources
+//   matérielles.
+// - Chaque travailleur calcule une portion de la série de Fibonacci et renvoie un résultat
+//   partiel, qui est ensuite additionné pour obtenir le résultat final.
+//
+// Structure :
+// - `fibDoubling(n int) (*big.Int, error)` : Fonction principale pour calculer le nième nombre
+//   de Fibonacci en utilisant la méthode de doublage.
+// - `fibDoublingHelperIterative(n int) *big.Int` : Fonction auxiliaire itérative qui applique
+//   la méthode de doublage.
+// - `calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup)` : Fonction
+//   qui divise la liste de Fibonacci en segments et calcule la somme des valeurs dans chaque
+//   segment.
+// - `main()` : Fonction principale qui orchestre les calculs en parallèle, effectue les mesures
+//   de temps, et écrit les résultats dans un fichier.
+//
+// Usage :
+// Ce programme est conçu pour des utilisateurs ayant des connaissances en programmation et en
+// calculs mathématiques avancés. Il peut être utilisé pour étudier la croissance des nombres de
+// Fibonacci et évaluer les performances des algorithmes parallèles.
+//
+// Avertissements :
+// - Ce programme consomme une quantité importante de mémoire et de puissance de calcul en raison
+//   des grands nombres de Fibonacci manipulés, particulièrement pour des valeurs élevées de n.
+// - Il est conseillé de l'exécuter sur une machine disposant de plusieurs cœurs de CPU pour
+//   bénéficier pleinement de l'implémentation concurrente.
+//
+// -----------------------------------------------------------------------------------------
+
 package main
 
 import (
