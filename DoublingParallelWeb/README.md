@@ -78,6 +78,18 @@ curl -X POST -H "Content-Type: application/json" -d '{"n": 10}' http://localhost
 ### 3. **Méthode du Doublage**
 - La **méthode du doublage** réduit le nombre d'opérations arithmétiques nécessaires en exploitant la structure binaire de `n`. Cela permet de diviser pour mieux régner, en évitant le recalcul de termes déjà connus.
 
+- La méthode de doublage est une technique avancée utilisée pour calculer efficacement les termes de la série de Fibonacci. Vulgarisons cette méthode afin de la rendre accessible à un public plus large, tout en préservant sa rigueur mathématique.
+
+- Les nombres de Fibonacci sont une séquence de nombres où chaque terme est la somme des deux termes précédents, commençant par 0 et 1. Bien que cela semble simple, la croissance exponentielle de ces nombres rend leur calcul très exigeant en termes de ressources, surtout pour des valeurs très élevées de n (le nième terme que l'on cherche à calculer).
+
+- La méthode de doublage repose sur la représentation binaire de l'indice n et permet de calculer les termes de manière plus efficace que les approches itératives classiques. En utilisant cette méthode, on peut diviser le problème en plusieurs petites étapes, exploitant la structure binaire de n pour réduire le nombre total d'opérations nécessaires. Plutôt que de calculer les termes de manière linéaire, l'algorithme utilise des techniques de **décalage de bits** et des **multiplications parallèles** afin d'obtenir un résultat en beaucoup moins d'étapes.
+
+- Pour illustrer cela, imaginons que l'on veut atteindre un certain terme F(n). La méthode de doublage décompose cette opération en utilisant une série de doubles et de multiplications conditionnelles basées sur la valeur binaire de n. Concrètement, l'algorithme se sert des deux éléments F(k) et F(k+1) pour calculer F(2k) et F(2k+1) à chaque étape, ce qui évite une accumulation linéaire lente.
+
+- L'utilisation de la méthode de doublage est particulièrement avantageuse lorsqu'elle est combinée avec le **parallélisme**, c'est-à-dire en effectuant simultanément plusieurs calculs grâce à la puissance de traitement de plusieurs cœurs de CPU. Cela permet de diviser la charge de travail et d'accélérer considérablement le calcul de termes très élevés de la série.
+
+- En résumé, la méthode de doublage est une approche efficace qui permet de calculer rapidement de grands nombres de Fibonacci. Grâce à sa capacité à exploiter la représentation binaire des indices et à diviser la charge de travail, elle surpasse largement les méthodes plus traditionnelles lorsqu'il s'agit de calculs à grande échelle.
+
 ## Améliorations Potentielles
 - **Optimisation de la mémoire** : Ajouter un système de mise en cache (via `sync.Map`) pourrait réduire la charge de calcul, en évitant le recalcul de valeurs de Fibonacci déjà obtenues.
 - **Limitation dynamique** : Adapter dynamiquement la limite de `n` en fonction des ressources disponibles (mémoire et puissance du CPU).
