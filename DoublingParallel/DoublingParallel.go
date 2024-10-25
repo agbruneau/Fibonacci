@@ -146,7 +146,7 @@ func formatBigIntSci(n *big.Int) string {
 	return fmt.Sprintf("%se%d", formattedNum, exponent)
 }
 func main() {
-	n := 10000
+	n := 100000
 	n = n - 1
 	numWorkers := runtime.NumCPU()
 	segmentSize := n / numWorkers
