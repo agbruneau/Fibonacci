@@ -11,7 +11,7 @@
 //
 // Le service répond aux requêtes HTTP POST avec un JSON spécifiant la valeur de n, et renvoie la somme des
 // nombres de Fibonacci, le nombre total de calculs effectués, le temps moyen par calcul et le
-// temps d'exécution global.
+// temps d'exécution global (en secondes).
 //
 // Détails d'implémentation :
 // - La méthode `fibDoubling` calcule le nième nombre de Fibonacci en utilisant un algorithme
@@ -46,8 +46,6 @@
 //   bénéficier pleinement de l'implémentation concurrente.
 //
 // -----------------------------------------------------------------------------------------
-
-// curl -X POST http://localhost:8080/fibonacci -H "Content-Type: application/json" -d "{\"n\": 10}"
 
 package main
 
@@ -172,14 +170,14 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		numCalculations++           // Incrémente le compteur
 	}
 
-	executionTime := time.Since(startTime)                                  // Calcule le temps total d'exécution
-	avgTimePerCalculation := executionTime / time.Duration(numCalculations) // Calcule le temps moyen par calcul
+	executionTime := time.Since(startTime).Seconds()                  // Calcule le temps total d'exécution en secondes
+	avgTimePerCalculation := executionTime / float64(numCalculations) // Calcule le temps moyen par calcul en secondes
 
 	response := struct {
-		Sum                   string        `json:"sum"`
-		NumCalculations       int           `json:"num_calculations"`
-		AvgTimePerCalculation time.Duration `json:"avg_time_per_calculation"`
-		ExecutionTime         time.Duration `json:"execution_time"`
+		Sum                   string  `json:"sum"`
+		NumCalculations       int     `json:"num_calculations"`
+		AvgTimePerCalculation float64 `json:"avg_time_per_calculation"`
+		ExecutionTime         float64 `json:"execution_time"`
 	}{
 		Sum:                   sumFib.String(),
 		NumCalculations:       numCalculations,
