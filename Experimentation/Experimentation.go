@@ -57,15 +57,15 @@ BB0_2:
 `
 
 type GPUFibonacci struct {
-	context cu.CUContext
-	module  cu.Module
-	kernel  cu.Function
-	device  cu.Device
-	stream  cu.Stream
+	ctx    cu.Context
+	mod    cu.Module
+	fn     cu.Function
+	dev    cu.Device
+	stream cu.Stream
 }
 
 func NewGPUFibonacci() (*GPUFibonacci, error) {
-	if err := cu.Init(cu.CTX_SCHED_AUTO); err != nil {
+	if err := cu.Init(0); err != nil {
 		return nil, fmt.Errorf("error initializing CUDA: %v", err)
 	}
 
@@ -78,34 +78,30 @@ func NewGPUFibonacci() (*GPUFibonacci, error) {
 		return nil, fmt.Errorf("no CUDA devices found")
 	}
 
-	device, err := cu.GetDevice(0)
+	dev, err := cu.GetDevice(0)
 	if err != nil {
 		return nil, fmt.Errorf("error getting device: %v", err)
 	}
 
-	ctx, err := cu.CtxCreate(cu.CTX_SCHED_AUTO, device)
+	ctx, err := dev.MakeContext(cu.SchedAuto)
 	if err != nil {
 		return nil, fmt.Errorf("error creating context: %v", err)
 	}
 
-	module, err := cu.ModuleLoadData(ptxSource)
+	mod := cu.ModuleLoad(ptxSource)
+	fn, err := mod.Function("fibonacciKernel")
 	if err != nil {
-		return nil, fmt.Errorf("error loading PTX module: %v", err)
+		return nil, fmt.Errorf("error getting kernel function: %v", err)
 	}
 
-	kernel, err := module.Function("fibonacciKernel")
-	if err != nil {
-		return nil, fmt.Errorf("error getting kernel: %v", err)
-	}
-
-	stream := cu.Stream(0)
+	stream := cu.CreateStream()
 
 	return &GPUFibonacci{
-		context: ctx,
-		module:  module,
-		kernel:  kernel,
-		device:  device,
-		stream:  stream,
+		ctx:    ctx,
+		mod:    mod,
+		fn:     fn,
+		dev:    dev,
+		stream: stream,
 	}, nil
 }
 
@@ -113,13 +109,13 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 	n := end - start + 1
 	size := int64(n * 8)
 
-	d_a, err := cu.MemAlloc(size)
+	d_a, err := cu.MemAlloc(uint64(size))
 	if err != nil {
 		return fmt.Errorf("error allocating device memory for a: %v", err)
 	}
 	defer cu.MemFree(d_a)
 
-	d_b, err := cu.MemAlloc(size)
+	d_b, err := cu.MemAlloc(uint64(size))
 	if err != nil {
 		return fmt.Errorf("error allocating device memory for b: %v", err)
 	}
@@ -132,32 +128,37 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 		h_b[i] = 1
 	}
 
-	if err := cu.MemcpyHtoD(d_a, unsafe.Pointer(&h_a[0]), size); err != nil {
+	err = cu.MemcpyHtoD(d_a, unsafe.Pointer(&h_a[0]), size)
+	if err != nil {
 		return fmt.Errorf("error copying h_a to device: %v", err)
 	}
-	if err := cu.MemcpyHtoD(d_b, unsafe.Pointer(&h_b[0]), size); err != nil {
+
+	err = cu.MemcpyHtoD(d_b, unsafe.Pointer(&h_b[0]), size)
+	if err != nil {
 		return fmt.Errorf("error copying h_b to device: %v", err)
 	}
 
 	blockSize := 256
 	gridSize := (n + blockSize - 1) / blockSize
 
-	args := []unsafe.Pointer{
+	kernelParams := []unsafe.Pointer{
 		unsafe.Pointer(&d_a),
 		unsafe.Pointer(&d_b),
-		unsafe.Pointer(uintptr(n)),
+		unsafe.Pointer(&n),
 	}
 
-	err = cu.LaunchKernel(gf.kernel, gridSize, 1, 1, blockSize, 1, 1, 0, gf.stream, args)
+	err = gf.fn.LaunchAsync(gridSize, 1, 1, blockSize, 1, 1, 0, gf.stream, kernelParams)
 	if err != nil {
 		return fmt.Errorf("error launching kernel: %v", err)
 	}
 
-	if err := cu.StreamSynchronize(gf.stream); err != nil {
+	err = gf.stream.Synchronize()
+	if err != nil {
 		return fmt.Errorf("error synchronizing stream: %v", err)
 	}
 
-	if err := cu.MemcpyDtoH(unsafe.Pointer(&h_b[0]), d_b, size); err != nil {
+	err = cu.MemcpyDtoH(unsafe.Pointer(&h_b[0]), d_b, size)
+	if err != nil {
 		return fmt.Errorf("error copying results back to host: %v", err)
 	}
 
@@ -169,7 +170,9 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 }
 
 func (gf *GPUFibonacci) Cleanup() {
-	cu.CtxDestroy(gf.context)
+	if err := gf.ctx.Destroy(); err != nil {
+		log.Printf("Error destroying context: %v", err)
+	}
 }
 
 func main() {
