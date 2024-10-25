@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"math/big"
 	"math/bits"
 	"os"
@@ -144,7 +146,7 @@ func formatBigIntSci(n *big.Int) string {
 	return fmt.Sprintf("%se%d", formattedNum, exponent)
 }
 func main() {
-	n := 100 // 100000000
+	n := 1000000 // 100 000
 	n = n - 1
 	numWorkers := runtime.NumCPU()
 	segmentSize := n / numWorkers
@@ -212,9 +214,30 @@ func main() {
 		}
 	}
 
-	// Affichage console
-	fmt.Printf("Temps d'exécution: %s\n", executionTime)
-	fmt.Printf("Nombre de calculs: %d\n", numCalculations)
-	fmt.Printf("Temps moyen par calcul: %s\n", avgTimePerCalculation)
-	fmt.Println("Résultats écrits dans 'fibonacci_result.txt'")
+	// Fermer le fichier avant de le relire
+	//file.Close()
+
+	// Lire et afficher le contenu du fichier (équivalent à "cat fibonacci_result.txt")
+	file, err = os.Open("fibonacci_result.txt")
+	if err != nil {
+		fmt.Printf("Erreur lors de l'ouverture du fichier pour lecture: %v\n", err)
+		return
+	}
+	defer file.Close()
+
+	fmt.Println("\nContenu de fibonacci_result.txt :")
+	fmt.Println("--------------------------------")
+
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				fmt.Printf("Erreur lors de la lecture du fichier: %v\n", err)
+			}
+			break
+		}
+		fmt.Print(line)
+	}
+	fmt.Println("--------------------------------")
 }
