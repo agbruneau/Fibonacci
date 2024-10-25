@@ -1,0 +1,4 @@
+github.com/barnex/cuda5 v0.0.0-20171012184954-da30a9b287d8 h1:lnbKU7kkMoF75PDPYaj0DLoD0p6lWtzeyXSR94PrQto=
+github.com/barnex/cuda5 v0.0.0-20171012184954-da30a9b287d8/go.mod h1:GnBnFz4V/+kxwKFnquvOOi+IjZoVJsIUbcAVOXLCxCo=
+github.com/hashicorp/golang-lru v1.0.2 h1:dV3g9Z/unq5DpblPpw+Oqcv4dU/1omnb4Ok8iPY6p1c=
+github.com/hashicorp/golang-lru v1.0.2/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
