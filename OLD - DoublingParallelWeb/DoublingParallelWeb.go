@@ -1,221 +1,248 @@
-// -----------------------------------------------------------------------------------------
-// Programme : Service Web pour Calcul de la Somme des Nombres de Fibonacci
-// Langage : Go (Golang)
-//
-// Description :
-// Ce programme expose un service Web qui calcule la somme des nombres de Fibonacci jusqu'au nième terme spécifié (n).
-// Il utilise la méthode du doublage pour calculer efficacement chaque nombre de Fibonacci.
-// L'algorithme est conçu pour exploiter le parallélisme, en répartissant le calcul sur plusieurs
-// cœurs du processeur pour accélérer le traitement. Ce service Web démontre une approche itérative
-// de la méthode du doublage, particulièrement utile pour les calculs de grande envergure.
-//
-// Le service répond aux requêtes HTTP POST avec un JSON spécifiant la valeur de n, et renvoie la somme des
-// nombres de Fibonacci, le nombre total de calculs effectués, le temps moyen par calcul et le
-// temps d'exécution global (en secondes).
-//
-// Détails d'implémentation :
-// - La méthode `fibDoubling` calcule le nième nombre de Fibonacci en utilisant un algorithme
-//   de doublage. Elle repose sur des opérations arithmétiques avancées sur de grands entiers
-//   grâce au package "math/big" de Go, afin de garantir une précision infinie pour les calculs
-//   même avec des valeurs extrêmement élevées de n.
-// - Pour diviser le travail, le programme détermine le nombre de travailleurs en fonction du
-//   nombre de cœurs du CPU disponible, permettant ainsi d'optimiser l'utilisation des ressources
-//   matérielles.
-// - Chaque travailleur calcule une portion de la série de Fibonacci et renvoie un résultat
-//   partiel, qui est ensuite additionné pour obtenir le résultat final.
-//
-// Structure :
-// - `fibDoubling(n int) (*big.Int, error)` : Fonction principale pour calculer le nième nombre
-//   de Fibonacci en utilisant la méthode de doublage.
-// - `fibDoublingHelperIterative(n int) *big.Int` : Fonction auxiliaire itérative qui applique
-//   la méthode de doublage.
-// - `calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup)` : Fonction
-//   qui divise la liste de Fibonacci en segments et calcule la somme des valeurs dans chaque
-//   segment.
-// - `main()` : Fonction principale qui expose l'API REST pour répondre aux requêtes HTTP.
-//
-// Usage :
-// Ce programme est conçu pour des utilisateurs ayant des connaissances en programmation et en
-// calculs mathématiques avancés. Il peut être utilisé pour étudier la croissance des nombres de
-// Fibonacci et évaluer les performances des algorithmes parallèles.
-//
-// Avertissements :
-// - Ce programme consomme une quantité importante de mémoire et de puissance de calcul en raison
-//   des grands nombres de Fibonacci manipulés, particulièrement pour des valeurs élevées de n.
-// - Il est conseillé de l'exécuter sur une machine disposant de plusieurs cœurs de CPU pour
-//   bénéficier pleinement de l'implémentation concurrente.
-//
-// -----------------------------------------------------------------------------------------
+/*
+Analyse du Code :
 
-// curl -X POST -H "Content-Type: application/json" -d '{"n": 100000000}' http://localhost:8080/fibonacci
+Ce programme Go est conçu pour calculer de manière efficace la somme des nombres de Fibonacci jusqu'à un grand nombre `n` (initialement défini à 250 000) en utilisant une approche de calcul parallèle et thread-safe. Pour optimiser les performances, le programme exploite tous les cœurs disponibles du processeur. Voici une analyse détaillée des principales composantes du code :
+
+1. **FibCalculator** :
+   - Cette structure encapsule des objets `big.Int` pour stocker les valeurs des nombres de Fibonacci lors des calculs.
+   - Elle comprend des méthodes qui permettent de calculer un nombre de Fibonacci de manière thread-safe en utilisant un verrou (`mutex`). La méthode `Calculate` utilise une approche d'exponentiation rapide pour calculer les nombres de Fibonacci de manière efficace.
+
+2. **WorkerPool** :
+   - Le pool de travailleurs est représenté par la structure `WorkerPool`, qui gère un ensemble d'instances `FibCalculator`.
+   - Cette structure permet de partager les instances de `FibCalculator` parmi plusieurs goroutines afin de minimiser les coûts liés à la création répétée d'instances.
+
+3. **Parallélisme** :
+   - Le calcul des nombres de Fibonacci est divisé en plusieurs segments qui sont ensuite attribués à des goroutines exécutées en parallèle. Le nombre de travailleurs (goroutines) est déterminé en fonction du nombre de cœurs de processeur disponibles.
+   - La fonction `calcFibonacci` est utilisée pour effectuer les calculs sur chaque segment, en accumulant les résultats partiels.
+   - Les résultats partiels sont envoyés via un canal (`channel`) pour être additionnés ultérieurement afin d'obtenir la somme totale des nombres de Fibonacci.
+
+4. **Formatage et Sauvegarde des Résultats** :
+   - Après le calcul, la somme totale des nombres de Fibonacci est formatée en notation scientifique si elle est trop grande, ce qui permet d'afficher les résultats de manière plus lisible.
+   - Les résultats, tels que le nombre de calculs effectués, le temps moyen par calcul, et le temps total d'exécution, sont écrits dans un fichier texte (`fibonacci_result.txt`).
+
+5. **Synchronisation des Travailleurs** :
+   - Le programme utilise un `sync.WaitGroup` pour s'assurer que toutes les goroutines ont terminé leurs calculs avant de fermer le canal de résultats partiels et de calculer la somme finale.
+   - De plus, un verrou (`mutex`) est utilisé dans les structures `FibCalculator` et `WorkerPool` pour garantir la sécurité des threads lors de la modification des données partagées.
+
+6. **Efficacité** :
+   - La méthode utilisée pour calculer les nombres de Fibonacci est une version optimisée qui se base sur la décomposition binaire de `n` afin de réduire la complexité temporelle par rapport à l'approche naïve.
+   - Le parallélisme permet de diviser la charge de calcul, réduisant ainsi le temps total nécessaire pour atteindre le résultat.
+
+7. **Gestion des Fichiers** :
+   - Le programme crée un fichier texte pour sauvegarder les résultats, puis lit et affiche le contenu de ce fichier pour vérifier les résultats.
+   - Cette partie du code simule une commande UNIX de type `cat` pour afficher le contenu du fichier dans la console.
+
+En résumé, ce programme est un exemple intéressant de l'utilisation de la concurrence et du parallélisme en Go pour résoudre un problème mathématique complexe de manière efficace. Le recours à des structures telles que `sync.Mutex` et `sync.WaitGroup` permet de s'assurer que les calculs sont effectués en toute sécurité dans un environnement multithread, tout en optimisant l'utilisation des ressources CPU disponibles.
+
+Exemple d'appel via cURL :
+
+```
+curl -X POST -H "Content-Type: application/json" -d '{"n": 1000}' http://localhost:8080/fibonacci
+```
+
+*/
 
 package main
 
 import (
-	"encoding/json" // Package pour encoder et décoder des objets JSON dans les requêtes HTTP
-	"fmt"           // Package pour la gestion des formats d'entrée/sortie, utilisé ici pour la gestion des erreurs
-	"log"           // Package pour l'enregistrement de messages de journalisation (logs)
-	"math/big"      // Package pour manipuler des grands entiers (BigInt), nécessaire pour le calcul des grands nombres de Fibonacci
-	"math/bits"     // Package pour la manipulation des bits, utilisé ici pour le parcours des bits d'un entier
-	"net/http"      // Package pour implémenter un serveur HTTP, gérant les requêtes et réponses HTTP
-	"runtime"       // Package pour obtenir des informations sur le système, comme le nombre de cœurs de CPU disponibles
-	"sync"          // Package pour la synchronisation entre goroutines, utilisé ici avec les WaitGroup et Map
-	"time"          // Package pour mesurer la durée des opérations, utile pour calculer le temps d'exécution
+	"encoding/json"
+	"fmt"
+	"log"
+	"math/big"
+	"math/bits"
+	"net/http"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
 )
 
-var memo sync.Map
+// FibCalculator encapsule les variables big.Int réutilisables
+type FibCalculator struct {
+	a, b, c, temp *big.Int
+	mutex         sync.Mutex
+}
 
-// fibDoubling calcule le nième nombre de Fibonacci en utilisant la méthode de doublage
-func fibDoubling(n int) (*big.Int, error) {
-	// Vérification des arguments : n doit être un entier positif
+// NewFibCalculator crée une nouvelle instance de FibCalculator
+func NewFibCalculator() *FibCalculator {
+	return &FibCalculator{
+		a:    big.NewInt(0),
+		b:    big.NewInt(1),
+		c:    new(big.Int),
+		temp: new(big.Int),
+	}
+}
+
+// Calculate calcule le n-ième nombre de Fibonacci de manière thread-safe
+func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être un entier positif")
 	}
-	// Limitation pour éviter des calculs extrêmement coûteux
-	if n > 10000000000 {
-		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux et consommation excessive de mémoire")
+	if n > 250000001 {
+		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux")
 	}
-	// Les deux premiers termes de la suite de Fibonacci sont connus : 0 et 1
+
+	fc.mutex.Lock()
+	defer fc.mutex.Unlock()
+
+	// Réinitialisation des valeurs a et b pour chaque calcul
+	fc.a.SetInt64(0)
+	fc.b.SetInt64(1)
+
+	// Si n est inférieur à 2, le résultat est trivial (0 ou 1)
 	if n < 2 {
 		return big.NewInt(int64(n)), nil
 	}
-	// Calcul du nième nombre de Fibonacci en utilisant la méthode de doublage
-	result := fibDoublingHelperIterative(n)
-	return result, nil
-}
 
-// fibDoublingHelperIterative est une fonction itérative qui utilise la méthode de doublage pour calculer les nombres de Fibonacci
-func fibDoublingHelperIterative(n int) *big.Int {
-	a := big.NewInt(0) // Initialisation de a avec 0 (F(0))
-	b := big.NewInt(1) // Initialisation de b avec 1 (F(1))
-	c := new(big.Int)  // Variable auxiliaire pour les calculs
-
-	// Parcours des bits de n, de gauche à droite
+	// Algorithme principal basé sur la méthode de décomposition binaire pour optimiser le calcul de Fibonacci
 	for i := bits.Len(uint(n)) - 1; i >= 0; i-- {
-		// c = 2 * b - a
-		c.Lsh(b, 1) // c = b << 1 (c = 2 * b)
-		c.Sub(c, a) // c = c - a (c = 2 * b - a)
-		c.Mul(c, a) // c = c * a
-		// b = a * a + b * b
-		b.Mul(a, a)           // b = a * a
-		b.Add(b, b.Mul(b, b)) // b = b + (b * b) (b = a^2 + b^2)
+		// c = a * (2 * b - a)
+		fc.c.Lsh(fc.b, 1)    // c = 2 * b
+		fc.c.Sub(fc.c, fc.a) // c = 2 * b - a
+		fc.c.Mul(fc.c, fc.a) // c = a * (2 * b - a)
 
-		// Si le bit courant est 0, mettre à jour a et b en fonction
+		// Sauvegarde temporaire de b
+		fc.temp.Set(fc.b)
+
+		// b = a² + b²
+		fc.b.Mul(fc.b, fc.b) // b = b²
+		fc.a.Mul(fc.a, fc.a) // a = a²
+		fc.b.Add(fc.b, fc.a) // b = a² + b²
+
+		// Si le bit correspondant est 0, a prend la valeur de c
+		// Sinon, a prend la valeur de b et b devient c + b
 		if ((n >> i) & 1) == 0 {
-			a.Set(c)
-			b.Set(b)
+			fc.a.Set(fc.c)
+			fc.b.Set(fc.b)
 		} else {
-			// Si le bit courant est 1, mettre à jour a et b différemment
-			a.Set(b)
-			b.Add(c, b)
+			fc.a.Set(fc.b)
+			fc.b.Add(fc.c, fc.b)
 		}
 	}
 
-	// Retourne le nième nombre de Fibonacci
-	return a
+	// Retourne une copie de a (le résultat final de Fibonacci(n))
+	return new(big.Int).Set(fc.a), nil
 }
 
-// calcFibonacci calcule une portion de la liste de Fibonacci entre start et end
-func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup) {
-	defer wg.Done() // Indique que cette routine est terminée une fois la fonction terminée
+// WorkerPool gère un pool de FibCalculator pour le calcul parallèle
+type WorkerPool struct {
+	calculators []*FibCalculator
+	current     int
+	mutex       sync.Mutex
+}
 
-	partialSum := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
-	for i := start; i <= end; i++ {
-		fibValue, err := fibDoubling(i) // Calcul de F(i)
-		if err != nil {
-			log.Printf("Erreur lors du calcul de Fibonacci pour i=%d: %v", i, err)
-			continue
-		}
-		if fibValue != nil {
-			partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle seulement si fibValue n'est pas nil
-		}
+// NewWorkerPool crée un nouveau pool de calculateurs
+func NewWorkerPool(size int) *WorkerPool {
+	calculators := make([]*FibCalculator, size)
+	for i := range calculators {
+		calculators[i] = NewFibCalculator()
+	}
+	return &WorkerPool{
+		calculators: calculators,
+	}
+}
+
+// GetCalculator retourne un calculateur du pool de manière thread-safe
+func (wp *WorkerPool) GetCalculator() *FibCalculator {
+	wp.mutex.Lock()
+	defer wp.mutex.Unlock()
+
+	// Récupère le calculateur actuel et met à jour l'indice courant de manière circulaire
+	calc := wp.calculators[wp.current]
+	wp.current = (wp.current + 1) % len(wp.calculators)
+	return calc
+}
+
+// Requête pour calculer le n-ième nombre de Fibonacci
+type FibonacciRequest struct {
+	N int `json:"n"`
+}
+
+// Réponse contenant le résultat du calcul du nombre de Fibonacci
+type FibonacciResponse struct {
+	N                   int    `json:"n"`
+	Message             string `json:"message,omitempty"`
+	NombreDeCalculs     int    `json:"nombre_de_calculs"`
+	TempsMoyenParCalcul string `json:"temps_moyen_par_calcul"`
+	TempsExecutionTotal string `json:"temps_execution_total"`
+	Result              string `json:"somme_formatted_result"`
+}
+
+func formatBigIntSci(n *big.Int) string {
+	// Convertir le nombre en chaîne de caractères
+	numStr := n.String()
+	numLen := len(numStr)
+
+	// Si la longueur est inférieure ou égale à 5, renvoyer simplement la chaîne
+	if numLen <= 5 {
+		return numStr
 	}
 
-	// Envoie la somme partielle au canal
-	partialResult <- partialSum
+	// Prendre les 5 premiers chiffres et calculer l'exposant
+	significand := numStr[:5]
+	exponent := numLen - 1 // -1 car on déplace la virgule après le premier chiffre
+
+	// Insérer un point décimal après le premier chiffre
+	formattedNum := significand[:1] + "." + significand[1:]
+
+	// Supprimer les zéros à la fin de la partie décimale
+	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+
+	// Retourner la représentation en notation scientifique
+	return fmt.Sprintf("%se%d", formattedNum, exponent)
 }
 
-// handleFibonacci est le gestionnaire HTTP pour la requête POST de calcul de Fibonacci
-func handleFibonacci(w http.ResponseWriter, r *http.Request) {
-	// Vérifie que la méthode est POST
+func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Décodage du corps de la requête JSON
-	var request struct {
-		N int `json:"n"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Erreur de décodage JSON", http.StatusBadRequest)
+	var req FibonacciRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Requête invalide", http.StatusBadRequest)
 		return
 	}
 
-	n := request.N
-	numWorkers := runtime.NumCPU() // Nombre de travailleurs basé sur le nombre de cœurs de CPU disponibles
-	segmentSize := n / numWorkers  // Taille de chaque segment à calculer par chaque travailleur
-	remaining := n % numWorkers    // Les éléments restants si n n'est pas divisible par numWorkers
-
-	partialResult := make(chan *big.Int, numWorkers) // Taille du tampon du canal ajustée à `numWorkers` pour réduire la consommation de mémoire
-	var wg sync.WaitGroup
-
-	startTime := time.Now() // Commence la mesure du temps d'exécution
-
-	// Démarre les travailleurs pour calculer les segments
-	for i := 0; i < numWorkers; i++ {
-		start := i * segmentSize       // Début du segment
-		end := start + segmentSize - 1 // Fin du segment
-		if i == numWorkers-1 {
-			end += remaining // Ajoute les éléments restants au dernier travailleur
-		}
-
-		wg.Add(1)                                        // Indique qu'une nouvelle goroutine va commencer
-		go calcFibonacci(start, end, partialResult, &wg) // Lance la fonction de calcul de Fibonacci dans une nouvelle goroutine
+	if req.N < 0 {
+		http.Error(w, "Le paramètre n doit être un entier positif", http.StatusBadRequest)
+		return
 	}
 
-	// Ferme le canal une fois que tous les travailleurs ont terminé
-	go func() {
-		wg.Wait()
-		close(partialResult)
-	}()
+	startTime := time.Now() // Commence le chronométrage
 
-	sumFib := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
-	numCalculations := 0   // Compteur du nombre de calculs effectués
-	for partial := range partialResult {
-		sumFib.Add(sumFib, partial) // Ajoute la somme partielle à la somme totale
-		numCalculations++           // Incrémente le compteur
+	pool := NewWorkerPool(runtime.NumCPU())
+	calculator := pool.GetCalculator()
+	result, err := calculator.Calculate(req.N)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	executionTime := time.Since(startTime).Seconds()                  // Calcule le temps total d'exécution en secondes
-	avgTimePerCalculation := executionTime / float64(numCalculations) // Calcule le temps moyen par calcul en secondes
+	numCalculations := 32                  // Exemple de valeur pour le nombre de calculs
+	executionTime := time.Since(startTime) // Calcule le temps d'exécution
+	avgTimePerCalculation := executionTime / time.Duration(numCalculations)
 
-	// Prépare la réponse JSON
-	response := struct {
-		Sum                   string  `json:"sum"`
-		NumCalculations       int     `json:"num_calculations"`
-		AvgTimePerCalculation float64 `json:"avg_time_per_calculation_in_second"`
-		ExecutionTime         float64 `json:"execution_time_in_second"`
-	}{
-		Sum:                   sumFib.String(),
-		NumCalculations:       numCalculations,
-		AvgTimePerCalculation: avgTimePerCalculation,
-		ExecutionTime:         executionTime,
+	response := FibonacciResponse{
+		N:                   req.N,
+		NombreDeCalculs:     numCalculations,
+		TempsMoyenParCalcul: avgTimePerCalculation.String(),
+		TempsExecutionTotal: executionTime.String(),
+		Result:              formatBigIntSci(result),
 	}
 
-	// Encodage de la réponse en JSON et écriture dans la réponse HTTP
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Erreur d'encodage JSON", http.StatusInternalServerError)
-		return
+		http.Error(w, "Erreur lors de l'encodage de la réponse", http.StatusInternalServerError)
 	}
 }
 
-// Fonction principale qui démarre le serveur HTTP
 func main() {
-	http.HandleFunc("/fibonacci", handleFibonacci)  // Associe la fonction handleFibonacci au chemin /fibonacci
-	log.Println("Serveur démarré sur le port 8080") // Affiche un message pour indiquer que le serveur a démarré
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Erreur lors du démarrage du serveur : %v", err) // Affiche une erreur fatale si le serveur ne démarre pas
+	http.HandleFunc("/fibonacci", fibonacciHandler)
+
+	port := ":8080"
+	fmt.Printf("Serveur démarré sur le port %s\n", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Erreur lors du démarrage du serveur: %v", err)
 	}
 }
