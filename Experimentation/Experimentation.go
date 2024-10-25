@@ -225,8 +225,8 @@ func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
 	avgTimePerCalculation := executionTime / time.Duration(numCalculations)
 
 	response := FibonacciResponse{
-		N:                    req.N,
-		Result:               result.String(),
+		N: req.N,
+		//	Result:              result.String(),
 		NombreDeCalculs:      numCalculations,
 		TempsMoyenParCalcul:  avgTimePerCalculation.String(),
 		TempsExecutionTotal:  executionTime.String(),
