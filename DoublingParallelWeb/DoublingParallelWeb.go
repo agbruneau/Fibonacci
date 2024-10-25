@@ -47,7 +47,7 @@
 //
 // -----------------------------------------------------------------------------------------
 
-// curl -X POST -H "Content-Type: application/json" -d '{"n": 10}' http://localhost:8080/fibonacci
+// curl -X POST -H "Content-Type: application/json" -d '{"n": 100000000}' http://localhost:8080/fibonacci
 
 package main
 
