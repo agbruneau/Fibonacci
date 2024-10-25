@@ -129,10 +129,8 @@ func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitG
 		}
 	}
 
-	// Vérifie si partialSum est initialisée correctement avant de l'envoyer au canal
-	if partialSum != nil {
-		partialResult <- partialSum
-	}
+	// Envoie la somme partielle au canal
+	partialResult <- partialSum
 }
 
 // handleFibonacci est le gestionnaire HTTP pour la requête POST de calcul de Fibonacci
