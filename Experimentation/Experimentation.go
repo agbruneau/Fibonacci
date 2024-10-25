@@ -57,7 +57,7 @@ BB0_2:
 `
 
 type GPUFibonacci struct {
-	context cu.Context
+	context cu.CUContext
 	module  cu.Module
 	kernel  cu.Function
 	device  cu.Device
@@ -65,40 +65,40 @@ type GPUFibonacci struct {
 }
 
 func NewGPUFibonacci() (*GPUFibonacci, error) {
-	if err := cu.Init(0); err != nil {
-		return nil, fmt.Errorf("erreur initialisation CUDA: %v", err)
+	if err := cu.Init(cu.CTX_SCHED_AUTO); err != nil {
+		return nil, fmt.Errorf("error initializing CUDA: %v", err)
 	}
 
 	devices, err := cu.NumDevices()
 	if err != nil {
-		return nil, fmt.Errorf("erreur comptage devices: %v", err)
+		return nil, fmt.Errorf("error counting devices: %v", err)
 	}
 
 	if devices == 0 {
-		return nil, fmt.Errorf("aucun device CUDA trouvé")
+		return nil, fmt.Errorf("no CUDA devices found")
 	}
 
 	device, err := cu.GetDevice(0)
 	if err != nil {
-		return nil, fmt.Errorf("erreur obtention device: %v", err)
+		return nil, fmt.Errorf("error getting device: %v", err)
 	}
 
-	ctx, err := device.MakeContext(cu.SchedAuto)
+	ctx, err := cu.CtxCreate(cu.CTX_SCHED_AUTO, device)
 	if err != nil {
-		return nil, fmt.Errorf("erreur création contexte: %v", err)
+		return nil, fmt.Errorf("error creating context: %v", err)
 	}
 
 	module, err := cu.ModuleLoadData(ptxSource)
 	if err != nil {
-		return nil, fmt.Errorf("erreur chargement module PTX: %v", err)
+		return nil, fmt.Errorf("error loading PTX module: %v", err)
 	}
 
 	kernel, err := module.Function("fibonacciKernel")
 	if err != nil {
-		return nil, fmt.Errorf("erreur obtention kernel: %v", err)
+		return nil, fmt.Errorf("error getting kernel: %v", err)
 	}
 
-	stream := cu.StreamCreate()
+	stream := cu.Stream(0)
 
 	return &GPUFibonacci{
 		context: ctx,
@@ -113,10 +113,16 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 	n := end - start + 1
 	size := int64(n * 8)
 
-	d_a := cu.MemAlloc(size)
+	d_a, err := cu.MemAlloc(size)
+	if err != nil {
+		return fmt.Errorf("error allocating device memory for a: %v", err)
+	}
 	defer cu.MemFree(d_a)
 
-	d_b := cu.MemAlloc(size)
+	d_b, err := cu.MemAlloc(size)
+	if err != nil {
+		return fmt.Errorf("error allocating device memory for b: %v", err)
+	}
 	defer cu.MemFree(d_b)
 
 	h_a := make([]uint64, n)
@@ -126,8 +132,12 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 		h_b[i] = 1
 	}
 
-	cu.MemcpyHtoD(d_a, cu.Malloc(uint64(len(h_a))), size)
-	cu.MemcpyHtoD(d_b, cu.Malloc(uint64(len(h_b))), size)
+	if err := cu.MemcpyHtoD(d_a, unsafe.Pointer(&h_a[0]), size); err != nil {
+		return fmt.Errorf("error copying h_a to device: %v", err)
+	}
+	if err := cu.MemcpyHtoD(d_b, unsafe.Pointer(&h_b[0]), size); err != nil {
+		return fmt.Errorf("error copying h_b to device: %v", err)
+	}
 
 	blockSize := 256
 	gridSize := (n + blockSize - 1) / blockSize
@@ -135,15 +145,21 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&d_a),
 		unsafe.Pointer(&d_b),
-		unsafe.Pointer(&n),
+		unsafe.Pointer(uintptr(n)),
 	}
 
-	err := gf.kernel.LaunchAndSync(gridSize, 1, 1, blockSize, 1, 1, 0, gf.stream, args)
+	err = cu.LaunchKernel(gf.kernel, gridSize, 1, 1, blockSize, 1, 1, 0, gf.stream, args)
 	if err != nil {
-		return fmt.Errorf("erreur lancement kernel: %v", err)
+		return fmt.Errorf("error launching kernel: %v", err)
 	}
 
-	cu.MemcpyDtoH(unsafe.Pointer(&h_b[0]), d_b, size)
+	if err := cu.StreamSynchronize(gf.stream); err != nil {
+		return fmt.Errorf("error synchronizing stream: %v", err)
+	}
+
+	if err := cu.MemcpyDtoH(unsafe.Pointer(&h_b[0]), d_b, size); err != nil {
+		return fmt.Errorf("error copying results back to host: %v", err)
+	}
 
 	for i := 0; i < n; i++ {
 		results <- new(big.Int).SetUint64(h_b[i])
@@ -153,7 +169,7 @@ func (gf *GPUFibonacci) Calculate(start, end int, results chan<- *big.Int) error
 }
 
 func (gf *GPUFibonacci) Cleanup() {
-	gf.context.Destroy()
+	cu.CtxDestroy(gf.context)
 }
 
 func main() {
@@ -164,7 +180,7 @@ func main() {
 
 	gpu, err := NewGPUFibonacci()
 	if err != nil {
-		log.Fatalf("Erreur initialisation GPU: %v", err)
+		log.Fatalf("Error initializing GPU: %v", err)
 	}
 	defer gpu.Cleanup()
 
@@ -180,7 +196,7 @@ func main() {
 		go func(s, e int) {
 			defer wg.Done()
 			if err := gpu.Calculate(s, e, results); err != nil {
-				log.Printf("Erreur calcul GPU [%d-%d]: %v", s, e, err)
+				log.Printf("Error in GPU calculation [%d-%d]: %v", s, e, err)
 			}
 		}(start, end)
 	}
@@ -202,24 +218,24 @@ func main() {
 
 	file, err := os.Create("fibonacci_result_gpu.txt")
 	if err != nil {
-		log.Fatalf("Erreur création fichier: %v", err)
+		log.Fatalf("Error creating file: %v", err)
 	}
 	defer file.Close()
 
 	writeResult := func(format string, args ...interface{}) {
 		if _, err := fmt.Fprintf(file, format, args...); err != nil {
-			log.Printf("Erreur écriture fichier: %v", err)
+			log.Printf("Error writing to file: %v", err)
 		}
 	}
 
-	writeResult("Somme des Fib(%d) = %s\n", n, sumFib.String())
-	writeResult("Nombre de calculs: %d\n", numCalculations)
-	writeResult("Temps moyen par calcul: %s\n", avgTimePerCalculation)
-	writeResult("Temps d'exécution: %s\n", executionTime)
-	writeResult("Calcul effectué sur GPU NVIDIA 4070\n")
+	writeResult("Sum of Fib(%d) = %s\n", n, sumFib.String())
+	writeResult("Number of calculations: %d\n", numCalculations)
+	writeResult("Average time per calculation: %s\n", avgTimePerCalculation)
+	writeResult("Total execution time: %s\n", executionTime)
+	writeResult("Calculation performed on NVIDIA 4070\n")
 
-	fmt.Printf("Temps d'exécution: %s\n", executionTime)
-	fmt.Printf("Nombre de calculs: %d\n", numCalculations)
-	fmt.Printf("Temps moyen par calcul: %s\n", avgTimePerCalculation)
-	fmt.Println("Résultats écrits dans 'fibonacci_result_gpu.txt'")
+	fmt.Printf("Execution time: %s\n", executionTime)
+	fmt.Printf("Number of calculations: %d\n", numCalculations)
+	fmt.Printf("Average time per calculation: %s\n", avgTimePerCalculation)
+	fmt.Println("Results written to 'fibonacci_result_gpu.txt'")
 }
