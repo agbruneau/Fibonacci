@@ -160,8 +160,7 @@ type FibonacciRequest struct {
 
 // Réponse contenant le résultat du calcul du nombre de Fibonacci
 type FibonacciResponse struct {
-	N int `json:"n"`
-	//Result               string `json:"result"`
+	N                   int    `json:"n"`
 	Message             string `json:"message,omitempty"`
 	NombreDeCalculs     int    `json:"nombre_de_calculs"`
 	TempsMoyenParCalcul string `json:"temps_moyen_par_calcul"`
@@ -225,8 +224,7 @@ func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
 	avgTimePerCalculation := executionTime / time.Duration(numCalculations)
 
 	response := FibonacciResponse{
-		N: req.N,
-		// Result:               result.String(),
+		N:                   req.N,
 		NombreDeCalculs:     numCalculations,
 		TempsMoyenParCalcul: avgTimePerCalculation.String(),
 		TempsExecutionTotal: executionTime.String(),
