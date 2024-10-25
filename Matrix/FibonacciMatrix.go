@@ -227,7 +227,7 @@ func benchmarkFibWithWorkerPool(ctx context.Context, nValues []int, repetitions 
 
 // Fonction principale pour exécuter les tests de performance
 func main() {
-	nValues := []int{1000, 10000, 100000, 1000000, 10000000, 100000000}      // Valeurs pour lesquelles calculer Fibonacci
+	nValues := []int{100000000}                                              // Valeurs pour lesquelles calculer Fibonacci
 	repetitions := 100                                                       // Nombre de répétitions pour chaque valeur de n
 	workerCount := 16                                                        // Nombre de workers à lancer
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute) // Contexte avec un délai d'expiration de 10 minutes
