@@ -1,127 +1,96 @@
 # Calcul de Fibonacci Web par la Méthode du Doublement avec Mémoïsation et Benchmark
 
-![Diagramme de l'algorithme de Fibonacci](https://github.com/agbruneau/Fibonacci/blob/main/DoublingParallelWeb/Sequence%20Diagram.jpeg)
+![Diagramme de séquence](SequenceDiagram.jpeg)
 
-## Table des Matières
-- [Introduction](#introduction)
-- [Fonctionnalités](#fonctionnalités)
-- [Prérequis](#prérequis)
-- [Installation et Utilisation](#installation-et-utilisation)
-  - [Installation](#installation)
-  - [Utilisation](#utilisation)
-- [Détails de l'Implémentation](#détails-de-limplémentation)
-  - [Configuration](#configuration)
-  - [Cache LRU](#cache-lru)
-  - [Algorithme de Doublage Rapide](#algorithme-de-doublage-rapide)
-  - [Gestion des Erreurs](#gestion-des-erreurs)
-- [API HTTP](#api-http)
-  - [Endpoint `/compute`](#endpoint-compute)
-- [Optimisations](#optimisations)
-- [Métriques et Monitoring](#métriques-et-monitoring)
-- [Contribuer](#contribuer)
-- [Licence](#licence)
+Ce projet est un programme en Go (Golang) qui propose un service Web pour calculer la somme des termes de la suite de Fibonacci jusqu'à un terme donné. Ce service est conçu pour les utilisateurs ayant des connaissances en programmation et en calculs mathématiques avancés. Voici une description complète du fonctionnement du programme, des technologies utilisées, ainsi que des instructions pour son utilisation.
 
-## Introduction
-Ce projet implémente un **service web en Go** permettant de calculer des nombres de la suite de **Fibonacci** à l'aide d'une **approche optimisée en parallèle**. Le service a été conçu pour être très performant, capable de gérer de nombreuses requêtes simultanées, grâce à des techniques avancées telles que l'utilisation d'un **cache LRU**, des **pools de mémoire**, et un **algorithme de doublage rapide**.
+## Description
+
+Ce programme expose une API REST qui permet de calculer la somme des termes de la suite de Fibonacci jusqu'au terme `n`. Pour garantir une performance optimale, le calcul repose sur la **méthode du doublage** (doubling method) combinée à une **approche concurrente**, exploitant les cœurs du processeur afin d'accélérer le traitement.
+
+Le service est conçu pour répondre à une requête HTTP POST contenant un JSON avec la valeur de `n`, et renvoie la somme des termes de Fibonacci, le nombre de calculs effectués, le temps moyen par calcul, ainsi que le temps d'exécution total.
 
 ## Fonctionnalités
-- Calcul de nombres de la suite de Fibonacci jusqu'à une valeur maximale configurable.
-- Utilisation d'un **cache LRU** (Least Recently Used) pour optimiser les performances des requêtes répétitives.
-- Calcul concurrent en utilisant plusieurs **workers** et **pools de big.Int** pour minimiser les allocations mémoire.
-- Serveur **HTTP** permettant de faire des requêtes JSON pour calculer les valeurs de Fibonacci.
-- **Métriques** pour surveiller les performances, notamment les hits/misses du cache et le temps de calcul.
+
+- **API REST** : Expose une interface pour calculer la somme de la suite de Fibonacci jusqu'à `n`.
+- **Calcul Parallèle** : Division du calcul en segments, exécutés en parallèle à l'aide de **goroutines**.
+- **Méthode de Doublage** : Utilisation de la méthode du doublage pour améliorer l'efficacité du calcul des termes de la suite.
+- **Support des Grands Nombres** : Utilisation du package `math/big` pour manipuler les entiers de grande taille et garantir la précision.
 
 ## Prérequis
-- **Go** version 1.18 ou supérieure.
-- **Git** pour cloner le dépôt.
 
-## Installation et Utilisation
-### Installation
-Clonez ce dépôt à l'aide de Git :
-```bash
-$ git clone <URL_DU_DEPOT>
-$ cd <NOM_DU_DEPOT>
-```
+- **Go (Golang)** : Version 1.16 ou ultérieure.
+- **Machine avec plusieurs cœurs de CPU** : Recommandé pour exploiter pleinement les performances parallèles du programme.
 
-Ensuite, compilez le projet :
-```bash
-$ go build DoublingParallel.go
-```
+## Installation et Lancement
 
-### Utilisation
-Pour lancer le serveur HTTP :
-```bash
-$ ./DoublingParallel
-```
-Le serveur sera par défaut lancé sur le port **8080**. Vous pouvez modifier ce paramètre dans la configuration.
+1. Clonez le dépôt :
+   ```sh
+   git clone https://github.com/votre-utilisateur/service-fibonacci.git
+   cd service-fibonacci
+   ```
 
-## Détails de l'Implémentation
-### Configuration
-Le fichier de configuration vous permet de définir les paramètres suivants :
-- **MaxValue** : La valeur maximale de `n` pour le calcul de Fibonacci.
-- **MaxCacheSize** : La taille maximale du cache LRU.
-- **WorkerCount** : Le nombre de **workers** utilisés pour calculer les valeurs de Fibonacci.
-- **Timeout** : Le **délai d'expiration** du calcul.
-- **HTTPPort** : Le port HTTP sur lequel le serveur écoute.
+2. Compilez et lancez le serveur :
+   ```sh
+   go run main.go
+   ```
 
-Ces paramètres peuvent être modifiés selon vos besoins afin d'ajuster la charge et la performance du service.
+3. Le serveur sera démarré sur le port **8080** par défaut. Vous pouvez maintenant envoyer des requêtes HTTP POST à l'endpoint `/fibonacci`.
 
-### Cache LRU
-Le **cache LRU** est implémenté à l'aide de la bibliothèque `hashicorp/golang-lru`. Il permet de conserver en mémoire les résultats des calculs récents afin d'éviter des recalculs inutiles, améliorant ainsi la **latence** des réponses.
+## Utilisation de l'API
 
-- Les éléments du cache sont régulièrement mis à jour pour maintenir les valeurs les plus utilisées en mémoire.
-- Utilisation de verrous (`RWMutex`) pour assurer une **concurrence sûre** lors de la lecture et l'écriture dans le cache.
-
-### Algorithme de Doublage Rapide
-L'algorithme utilisé pour calculer les valeurs de **Fibonacci** est basé sur la méthode de **doublage rapide** (Fast Doubling). Cette technique est particulièrement efficace pour calculer des valeurs de Fibonacci car elle a une **complexité logarithmique**, permettant ainsi des calculs plus rapides.
-
-### Gestion des Erreurs
-Le service gère plusieurs types d'erreurs :
-- **Entrées négatives** : Une erreur (`ErrNegativeInput`) est renvoyée si `n` est inférieur à 0.
-- **Entrées trop grandes** : Si `n` dépasse `MaxValue`, une erreur (`ErrInputTooLarge`) est renvoyée.
-- **Annulation de Contexte** : Le service vérifie si un **contexte** a été annulé (éventuellement suite à un **timeout**) pour éviter des calculs inutiles.
-
-## API HTTP
-### Endpoint `/compute`
-- **URL** : `/compute`
-- **Méthode** : `POST`
-- **Corps de la Requête** :
+- **Endpoint** : `/fibonacci`
+- **Méthode** : POST
+- **Corps de la requête** : JSON avec la structure suivante :
   ```json
   {
-    "n": <valeur_entier>
+    "n": 10
   }
   ```
-- **Réponse** :
-  ```json
-  {
-    "result": "<valeur_de_fibonacci>"
-  }
-  ```
-- **Code de Statut** : `200 OK` en cas de succès, `400 Bad Request` si la requête est invalide ou si `n` est hors des limites acceptées.
 
-Exemple d'utilisation avec `curl` :
-```bash
-$ curl -X POST -H "Content-Type: application/json" -d '{"n": 100000000}' http://localhost:8080/compute
+### Exemple de Requête avec cURL
+
+```sh
+curl -X POST -H "Content-Type: application/json" -d '{"n": 10}' http://localhost:8080/fibonacci
 ```
 
-## Optimisations
-Le service a été optimisé de plusieurs façons pour garantir des performances élevées :
-- **Parallélisme** : Utilisation de `runtime.GOMAXPROCS` pour maximiser l'utilisation des processeurs disponibles.
-- **Pools de `big.Int`** : Utilisation de `sync.Pool` pour réutiliser les objets `big.Int` afin de minimiser l'overhead des allocations dynamiques.
-- **Cache LRU** : Minimise le temps de calcul pour des valeurs répétées.
-- **Verrous** : Protection de l'accès au cache via des verrous (`RWMutex`), assurant une lecture concurrente rapide tout en évitant les problèmes de course.
+### Exemple de Réponse
 
-## Métriques et Monitoring
-Les **métriques** sont collectées pour suivre les performances et sont accessibles via la structure `Metrics` :
-- **Cache Hits/Misses** : Permet de savoir combien de fois une valeur a été trouvée dans le cache par rapport au nombre de calculs requis.
-- **Temps de Calcul Total** : Temps total passé à calculer des valeurs de Fibonacci.
-- **Utilisation de la Mémoire** : Mise à jour régulière pour surveiller l'utilisation des ressources.
+```json
+{
+  "sum": "143",
+  "num_calculations": 10,
+  "avg_time_per_calculation_in_second": 0.002,
+  "execution_time_in_second": 0.02
+}
+```
 
-## Contribuer
-Les contributions sont les bienvenues ! Veuillez suivre les étapes suivantes pour contribuer :
-1. Forkez le dépôt.
-2. Créez une branche pour vos modifications : `git checkout -b ma-nouvelle-fonctionnalite`.
-3. Soumettez un **pull request** avec une description de vos modifications.
+## Détails Techniques
+
+### 1. **Fonctionnalités de Calcul**
+- La fonction `fibDoubling(n int)` est utilisée pour calculer le nième terme de la suite en utilisant une approche à la fois efficace et précise, grâce au package `math/big` pour les grands nombres.
+- La fonction auxiliaire `fibDoublingHelperIterative` utilise une approche itérative en combinant les valeurs via des opérations sur les bits de `n`, ce qui optimise le nombre de multiplications nécessaires.
+
+### 2. **Calcul Concurrent avec Goroutines**
+- Le calcul de la somme des nombres de Fibonacci est divisé en **segments**. Chaque segment est attribué à une goroutine distincte pour être traité en parallèle, permettant ainsi d'accélérer le traitement.
+- Le programme détermine automatiquement le nombre de cœurs de CPU disponibles (à l'aide de `runtime.NumCPU()`) et crée autant de travailleurs que de cœurs.
+
+### 3. **Méthode du Doublage**
+- La **méthode du doublage** réduit le nombre d'opérations arithmétiques nécessaires en exploitant la structure binaire de `n`. Cela permet de diviser pour mieux régner, en évitant le recalcul de termes déjà connus.
+
+## Améliorations Potentielles
+- **Optimisation de la mémoire** : Ajouter un système de mise en cache (via `sync.Map`) pourrait réduire la charge de calcul, en évitant le recalcul de valeurs de Fibonacci déjà obtenues.
+- **Limitation dynamique** : Adapter dynamiquement la limite de `n` en fonction des ressources disponibles (mémoire et puissance du CPU).
+
+## Mise en Garde
+- Ce programme peut être très **gourmand en ressources** (CPU et mémoire) pour des valeurs élevées de `n`. Il est fortement conseillé de l'utiliser sur une machine disposant de plusieurs cœurs et d'une bonne quantité de mémoire vive.
+- **Temps de Calcul** : Le temps de calcul augmente exponentiellement avec la taille de `n`. Soyez vigilant avant de lancer des calculs très longs.
+
+## Contributions
+Les contributions sont les bienvenues. Pour contribuer :
+- Forkez le projet.
+- Créez une branche de fonctionnalité (`git checkout -b feature/NouvelleFonctionnalite`).
+- Faites vos modifications et soumettez une **Pull Request**.
 
 ## Licence
-Ce projet est sous licence **MIT**. Pour plus de détails, veuillez consulter le fichier `LICENSE`.
+Ce projet est distribué sous la licence MIT. Voir le fichier `LICENSE` pour plus de détails.
