@@ -52,7 +52,9 @@ import (
 	"math/bits"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
+	"time"
 )
 
 // FibCalculator encapsule les variables big.Int réutilisables
@@ -158,9 +160,37 @@ type FibonacciRequest struct {
 
 // Réponse contenant le résultat du calcul du nombre de Fibonacci
 type FibonacciResponse struct {
-	N       int    `json:"n"`
-	Result  string `json:"result"`
-	Message string `json:"message,omitempty"`
+	N                    int    `json:"n"`
+	Result               string `json:"result"`
+	Message              string `json:"message,omitempty"`
+	NombreDeCalculs      int    `json:"nombre_de_calculs"`
+	TempsMoyenParCalcul  string `json:"temps_moyen_par_calcul"`
+	TempsExecutionTotal  string `json:"temps_execution_total"`
+	SommeFormattedResult string `json:"somme_formatted_result"`
+}
+
+func formatBigIntSci(n *big.Int) string {
+	// Convertir le nombre en chaîne de caractères
+	numStr := n.String()
+	numLen := len(numStr)
+
+	// Si la longueur est inférieure ou égale à 5, renvoyer simplement la chaîne
+	if numLen <= 5 {
+		return numStr
+	}
+
+	// Prendre les 5 premiers chiffres et calculer l'exposant
+	significand := numStr[:5]
+	exponent := numLen - 1 // -1 car on déplace la virgule après le premier chiffre
+
+	// Insérer un point décimal après le premier chiffre
+	formattedNum := significand[:1] + "." + significand[1:]
+
+	// Supprimer les zéros à la fin de la partie décimale
+	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+
+	// Retourner la représentation en notation scientifique
+	return fmt.Sprintf("%se%d", formattedNum, exponent)
 }
 
 func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +210,8 @@ func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	startTime := time.Now() // Commence le chronométrage
+
 	pool := NewWorkerPool(runtime.NumCPU())
 	calculator := pool.GetCalculator()
 	result, err := calculator.Calculate(req.N)
@@ -188,9 +220,17 @@ func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	numCalculations := 32                  // Exemple de valeur pour le nombre de calculs
+	executionTime := time.Since(startTime) // Calcule le temps d'exécution
+	avgTimePerCalculation := executionTime / time.Duration(numCalculations)
+
 	response := FibonacciResponse{
-		N:      req.N,
-		Result: result.String(),
+		N:                    req.N,
+		Result:               result.String(),
+		NombreDeCalculs:      numCalculations,
+		TempsMoyenParCalcul:  avgTimePerCalculation.String(),
+		TempsExecutionTotal:  executionTime.String(),
+		SommeFormattedResult: formatBigIntSci(result),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
