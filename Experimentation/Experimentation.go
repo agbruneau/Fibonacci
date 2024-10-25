@@ -226,11 +226,11 @@ func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := FibonacciResponse{
 		N: req.N,
-		//	Result:              result.String(),
-		NombreDeCalculs:      numCalculations,
-		TempsMoyenParCalcul:  avgTimePerCalculation.String(),
-		TempsExecutionTotal:  executionTime.String(),
-		SommeFormattedResult: formatBigIntSci(result),
+		// Result:               result.String(),
+		NombreDeCalculs:     numCalculations,
+		TempsMoyenParCalcul: avgTimePerCalculation.String(),
+		TempsExecutionTotal: executionTime.String(),
+		Result:              formatBigIntSci(result),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
