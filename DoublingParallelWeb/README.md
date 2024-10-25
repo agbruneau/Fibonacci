@@ -1,6 +1,6 @@
 # Calcul de Fibonacci Web par la Méthode du Doublement avec Mémoïsation et Benchmark
 
-![Diagramme de séquence](SequenceDiagram.jpeg)
+![Diagramme de Séquence](SequenceDiagram.jpeg)
 
 Ce projet est un programme en Go (Golang) qui propose un service Web pour calculer la somme des termes de la suite de Fibonacci jusqu'à un terme donné. Ce service est conçu pour les utilisateurs ayant des connaissances en programmation et en calculs mathématiques avancés. Voici une description complète du fonctionnement du programme, des technologies utilisées, ainsi que des instructions pour son utilisation.
 
