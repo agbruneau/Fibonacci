@@ -33,21 +33,26 @@ Ce programme Go est conçu pour calculer de manière efficace la somme des nombr
    - Cette partie du code simule une commande UNIX de type `cat` pour afficher le contenu du fichier dans la console.
 
 En résumé, ce programme est un exemple intéressant de l'utilisation de la concurrence et du parallélisme en Go pour résoudre un problème mathématique complexe de manière efficace. Le recours à des structures telles que `sync.Mutex` et `sync.WaitGroup` permet de s'assurer que les calculs sont effectués en toute sécurité dans un environnement multithread, tout en optimisant l'utilisation des ressources CPU disponibles.
+
+Exemple d'appel via cURL :
+
+```
+curl -X POST -H "Content-Type: application/json" -d '{"n": 1000}' http://localhost:8080/fibonacci
+```
+
 */
 
 package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 	"math/big"
 	"math/bits"
-	"os"
+	"net/http"
 	"runtime"
-	"strings"
 	"sync"
-	"time"
 )
 
 // FibCalculator encapsule les variables big.Int réutilisables
@@ -146,144 +151,60 @@ func (wp *WorkerPool) GetCalculator() *FibCalculator {
 	return calc
 }
 
-// calcFibonacci calcule une portion de la liste de Fibonacci entre start et end
-func calcFibonacci(start, end int, pool *WorkerPool, partialResult chan<- *big.Int, wg *sync.WaitGroup) {
-	defer wg.Done() // Indique que le travailleur a terminé son travail une fois la fonction terminée
-
-	calc := pool.GetCalculator() // Récupère un calculateur du pool
-	partialSum := new(big.Int)   // Crée une nouvelle instance de big.Int pour accumuler la somme partielle
-
-	// Boucle pour calculer chaque valeur de Fibonacci dans la plage donnée
-	for i := start; i <= end; i++ {
-		fibValue, err := calc.Calculate(i)
-		if err != nil {
-			fmt.Printf("Erreur lors du calcul de Fib(%d): %v\n", i, err)
-			continue
-		}
-		partialSum.Add(partialSum, fibValue) // Ajoute la valeur de Fibonacci au total partiel
-	}
-
-	// Envoie la somme partielle au canal de résultats partiels
-	partialResult <- partialSum
+// Requête pour calculer le n-ième nombre de Fibonacci
+type FibonacciRequest struct {
+	N int `json:"n"`
 }
 
-// formatBigIntSci formate un big.Int en notation scientifique
-func formatBigIntSci(n *big.Int) string {
-	// Convertir le nombre en chaîne de caractères
-	numStr := n.String()
-	numLen := len(numStr)
+// Réponse contenant le résultat du calcul du nombre de Fibonacci
+type FibonacciResponse struct {
+	N       int    `json:"n"`
+	Result  string `json:"result"`
+	Message string `json:"message,omitempty"`
+}
 
-	// Si la longueur est inférieure ou égale à 5, renvoyer simplement la chaîne
-	if numLen <= 5 {
-		return numStr
+func fibonacciHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+		return
 	}
 
-	// Prendre les 5 premiers chiffres et calculer l'exposant
-	significand := numStr[:5]
-	exponent := numLen - 1 // -1 car on déplace la virgule après le premier chiffre
+	var req FibonacciRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Requête invalide", http.StatusBadRequest)
+		return
+	}
 
-	// Insérer un point décimal après le premier chiffre
-	formattedNum := significand[:1] + "." + significand[1:]
+	if req.N < 0 {
+		http.Error(w, "Le paramètre n doit être un entier positif", http.StatusBadRequest)
+		return
+	}
 
-	// Supprimer les zéros à la fin de la partie décimale
-	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+	pool := NewWorkerPool(runtime.NumCPU())
+	calculator := pool.GetCalculator()
+	result, err := calculator.Calculate(req.N)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	// Retourner la représentation en notation scientifique
-	return fmt.Sprintf("%se%d", formattedNum, exponent)
+	response := FibonacciResponse{
+		N:      req.N,
+		Result: result.String(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Erreur lors de l'encodage de la réponse", http.StatusInternalServerError)
+	}
 }
 
 func main() {
-	n := 250000                    // Taille maximale de n pour le calcul
-	n = n - 1                      // Ajustement de n pour correspondre aux segments de calcul
-	numWorkers := runtime.NumCPU() // Nombre de travailleurs égal au nombre de cœurs de CPU
-	segmentSize := n / numWorkers  // Taille de chaque segment calculé par un travailleur
-	remaining := n % numWorkers    // Reste à distribuer au dernier travailleur
+	http.HandleFunc("/fibonacci", fibonacciHandler)
 
-	pool := NewWorkerPool(numWorkers)                // Crée un pool de travailleurs
-	partialResult := make(chan *big.Int, numWorkers) // Canal pour recevoir les résultats partiels
-	var wg sync.WaitGroup                            // Groupe d'attente pour synchroniser les travailleurs
-
-	startTime := time.Now() // Enregistre l'heure de début de l'exécution
-
-	// Démarre les travailleurs
-	for i := 0; i < numWorkers; i++ {
-		start := i * segmentSize
-		end := start + segmentSize - 1
-		if i == numWorkers-1 {
-			end += remaining // Le dernier travailleur prend également le reste
-		}
-
-		wg.Add(1)                                              // Ajoute un travailleur au groupe d'attente
-		go calcFibonacci(start, end, pool, partialResult, &wg) // Démarre un goroutine pour chaque segment
+	port := ":8080"
+	fmt.Printf("Serveur démarré sur le port %s\n", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Erreur lors du démarrage du serveur: %v", err)
 	}
-
-	// Fonction pour fermer le canal une fois que tous les travailleurs ont terminé
-	go func() {
-		wg.Wait()            // Attendre que tous les travailleurs aient terminé
-		close(partialResult) // Ferme le canal une fois que les résultats sont prêts
-	}()
-
-	sumFib := new(big.Int) // Crée une nouvelle instance de big.Int pour la somme totale
-	numCalculations := 0   // Compteur pour le nombre de calculs effectués
-
-	// Récupère et additionne toutes les sommes partielles des travailleurs
-	for partial := range partialResult {
-		sumFib.Add(sumFib, partial)
-		numCalculations++
-	}
-
-	executionTime := time.Since(startTime)                                  // Calcule le temps total d'exécution
-	avgTimePerCalculation := executionTime / time.Duration(numCalculations) // Temps moyen par calcul
-
-	// Écriture des résultats dans un fichier
-	file, err := os.Create("fibonacci_result.txt")
-	if err != nil {
-		fmt.Println("Erreur lors de la création du fichier:", err)
-		return
-	}
-	defer file.Close()
-
-	// Correction AGB : Réajustement de n et ajout de la valeur manquante
-	n = n + 1
-	sumFib.Add(sumFib, big.NewInt(1))
-
-	// Écriture simplifiée et corrigée dans le fichier
-	writeLines := []string{
-		fmt.Sprintf("Nombre de calculs: %d", numCalculations),
-		fmt.Sprintf("Temps moyen par calcul: %s", avgTimePerCalculation),
-		fmt.Sprintf("Temps d'exécution: %s", executionTime),
-		fmt.Sprintf("Somme des Fib(%d) = %s\n", n, formatBigIntSci(sumFib)),
-	}
-
-	// Écrit chaque ligne dans le fichier
-	for _, line := range writeLines {
-		if _, err := file.WriteString(line + "\n"); err != nil {
-			fmt.Printf("Erreur lors de l'écriture dans le fichier: %v\n", err)
-			return
-		}
-	}
-
-	// Lire et afficher le contenu du fichier (équivalent à "cat fibonacci_result.txt")
-	file, err = os.Open("fibonacci_result.txt")
-	if err != nil {
-		fmt.Printf("Erreur lors de l'ouverture du fichier pour lecture: %v\n", err)
-		return
-	}
-	defer file.Close()
-
-	fmt.Println("\nContenu de fibonacci_result.txt :")
-	fmt.Println("--------------------------------")
-
-	reader := bufio.NewReader(file)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err != io.EOF {
-				fmt.Printf("Erreur lors de la lecture du fichier: %v\n", err)
-			}
-			break
-		}
-		fmt.Print(line) // Affiche chaque ligne du fichier
-	}
-	fmt.Println("--------------------------------")
 }
