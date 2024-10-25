@@ -160,13 +160,13 @@ type FibonacciRequest struct {
 
 // Réponse contenant le résultat du calcul du nombre de Fibonacci
 type FibonacciResponse struct {
-	N                    int    `json:"n"`
-	Result               string `json:"result"`
-	Message              string `json:"message,omitempty"`
-	NombreDeCalculs      int    `json:"nombre_de_calculs"`
-	TempsMoyenParCalcul  string `json:"temps_moyen_par_calcul"`
-	TempsExecutionTotal  string `json:"temps_execution_total"`
-	SommeFormattedResult string `json:"somme_formatted_result"`
+	N int `json:"n"`
+	//Result               string `json:"result"`
+	Message             string `json:"message,omitempty"`
+	NombreDeCalculs     int    `json:"nombre_de_calculs"`
+	TempsMoyenParCalcul string `json:"temps_moyen_par_calcul"`
+	TempsExecutionTotal string `json:"temps_execution_total"`
+	Result              string `json:"somme_formatted_result"`
 }
 
 func formatBigIntSci(n *big.Int) string {
