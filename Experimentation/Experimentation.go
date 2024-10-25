@@ -50,15 +50,15 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
-	"math/big"
-	"math/bits"
-	"net/http"
-	"runtime"
-	"sync"
-	"time"
+	"encoding/json" // Package pour encoder et décoder des objets JSON dans les requêtes HTTP
+	"fmt"           // Package pour la gestion des formats d'entrée/sortie, utilisé ici pour la gestion des erreurs
+	"log"           // Package pour l'enregistrement de messages de journalisation (logs)
+	"math/big"      // Package pour manipuler des grands entiers (BigInt), nécessaire pour le calcul des grands nombres de Fibonacci
+	"math/bits"     // Package pour la manipulation des bits, utilisé ici pour le parcours des bits d'un entier
+	"net/http"      // Package pour implémenter un serveur HTTP, gérant les requêtes et réponses HTTP
+	"runtime"       // Package pour obtenir des informations sur le système, comme le nombre de cœurs de CPU disponibles
+	"sync"          // Package pour la synchronisation entre goroutines, utilisé ici avec les WaitGroup et Map
+	"time"          // Package pour mesurer la durée des opérations, utile pour calculer le temps d'exécution
 )
 
 var memo sync.Map
