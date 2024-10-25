@@ -54,13 +54,13 @@ package main
 // la gestion des bits (`math/bits`), la gestion des fichiers (`os`), le parallélisme (`sync`, `runtime`)
 // et la mesure du temps (`time`). Assurez-vous que tous ces packages sont nécessaires pour éviter des dépendances inutiles.
 import (
-	"fmt"
-	"math/big"
-	"math/bits"
-	"os"
-	"runtime"
-	"sync"
-	"time"
+	"fmt"       // Package pour la gestion des formats d'entrée/sortie, utilisé ici pour la gestion des erreurs
+	"math/big"  // Package pour manipuler des grands entiers (BigInt), nécessaire pour le calcul des grands nombres de Fibonacci
+	"math/bits" // Package pour la manipulation des bits, utilisé ici pour le parcours des bits d'un entier
+	"os"        // Package pour interagir avec le système d'exploitation (fichiers, processus, variables d'environnement)
+	"runtime"   // Package pour obtenir des informations sur le système, comme le nombre de cœurs de CPU disponibles
+	"sync"      // Package pour la synchronisation entre goroutines, utilisé ici avec les WaitGroup et Map
+	"time"      // Package pour mesurer la durée des opérations, utile pour calculer le temps d'exécution
 )
 
 var memo sync.Map
