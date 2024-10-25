@@ -70,7 +70,7 @@ func fibDoubling(n int) (*big.Int, error) {
 		return nil, fmt.Errorf("n doit être un entier positif")
 	}
 	// Limitation pour éviter des calculs extrêmement coûteux
-	if n > 100000000 {
+	if n > 10000000000 {
 		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux et consommation excessive de mémoire")
 	}
 	// Les deux premiers termes de la suite de Fibonacci sont connus : 0 et 1
@@ -119,12 +119,20 @@ func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitG
 
 	partialSum := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
 	for i := start; i <= end; i++ {
-		fibValue, _ := fibDoubling(i)        // Calcul de F(i)
-		partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle
+		fibValue, err := fibDoubling(i) // Calcul de F(i)
+		if err != nil {
+			log.Printf("Erreur lors du calcul de Fibonacci pour i=%d: %v", i, err)
+			continue
+		}
+		if fibValue != nil {
+			partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle seulement si fibValue n'est pas nil
+		}
 	}
 
-	// Envoie la somme partielle au canal
-	partialResult <- partialSum
+	// Vérifie si partialSum est initialisée correctement avant de l'envoyer au canal
+	if partialSum != nil {
+		partialResult <- partialSum
+	}
 }
 
 // handleFibonacci est le gestionnaire HTTP pour la requête POST de calcul de Fibonacci
