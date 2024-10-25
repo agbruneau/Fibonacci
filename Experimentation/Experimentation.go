@@ -1,15 +1,15 @@
 // -----------------------------------------------------------------------------------------
-// Programme : Calcul de la Somme des Nombres de Fibonacci
+// Programme : Service Web pour Calcul de la Somme des Nombres de Fibonacci
 // Langage : Go (Golang)
 //
 // Description :
-// Ce programme calcule la somme des nombres de Fibonacci jusqu'au nième terme spécifié (n).
+// Ce programme expose un service Web qui calcule la somme des nombres de Fibonacci jusqu'au nième terme spécifié (n).
 // Il utilise la méthode du doublage pour calculer efficacement chaque nombre de Fibonacci.
 // L'algorithme est conçu pour exploiter le parallélisme, en répartissant le calcul sur plusieurs
-// cœurs du processeur pour accélérer le traitement. Ce programme démontre une approche itérative
+// cœurs du processeur pour accélérer le traitement. Ce service Web démontre une approche itérative
 // de la méthode du doublage, particulièrement utile pour les calculs de grande envergure.
 //
-// Le programme crée un fichier "fibonacci_result.txt" dans lequel il enregistre la somme des
+// Le service répond aux requêtes HTTP POST avec un JSON spécifiant la valeur de n, et renvoie la somme des
 // nombres de Fibonacci, le nombre total de calculs effectués, le temps moyen par calcul et le
 // temps d'exécution global.
 //
@@ -32,8 +32,7 @@
 // - `calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitGroup)` : Fonction
 //   qui divise la liste de Fibonacci en segments et calcule la somme des valeurs dans chaque
 //   segment.
-// - `main()` : Fonction principale qui orchestre les calculs en parallèle, effectue les mesures
-//   de temps, et écrit les résultats dans un fichier.
+// - `main()` : Fonction principale qui expose l'API REST pour répondre aux requêtes HTTP.
 //
 // Usage :
 // Ce programme est conçu pour des utilisateurs ayant des connaissances en programmation et en
@@ -48,16 +47,17 @@
 //
 // -----------------------------------------------------------------------------------------
 
+// curl -X POST http://localhost:8080/fibonacci -H "Content-Type: application/json" -d "{\"n\": 10}"
+
 package main
 
-// Les imports ici incluent des packages standard pour la manipulation des grands entiers (`math/big`),
-// la gestion des bits (`math/bits`), la gestion des fichiers (`os`), le parallélisme (`sync`, `runtime`)
-// et la mesure du temps (`time`). Assurez-vous que tous ces packages sont nécessaires pour éviter des dépendances inutiles.
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"math/bits"
-	"os"
+	"net/http"
 	"runtime"
 	"sync"
 	"time"
@@ -122,8 +122,22 @@ func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitG
 	partialResult <- partialSum // Envoie la somme partielle au canal
 }
 
-func main() {
-	n := 100000000                 // Nombre jusqu'auquel la somme de Fibonacci doit être calculée
+// handleFibonacci est le gestionnaire HTTP pour la requête POST de calcul de Fibonacci
+func handleFibonacci(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		N int `json:"n"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Erreur de décodage JSON", http.StatusBadRequest)
+		return
+	}
+
+	n := request.N
 	numWorkers := runtime.NumCPU() // Nombre de travailleurs basé sur le nombre de cœurs de CPU disponibles
 	segmentSize := n / numWorkers  // Taille de chaque segment à calculer par chaque travailleur
 	remaining := n % numWorkers    // Les éléments restants si n n'est pas divisible par numWorkers
@@ -161,42 +175,29 @@ func main() {
 	executionTime := time.Since(startTime)                                  // Calcule le temps total d'exécution
 	avgTimePerCalculation := executionTime / time.Duration(numCalculations) // Calcule le temps moyen par calcul
 
-	// Création du fichier pour écrire les résultats
-	file, err := os.Create("fibonacci_result.txt")
-	if err != nil {
-		fmt.Println("Erreur lors de la création du fichier:", err)
-		return
-	}
-	defer file.Close() // Ferme le fichier à la fin de la fonction
-
-	// Écriture des résultats dans le fichier
-	_, err = file.WriteString(fmt.Sprintf("Somme des Fib(%d) = %s\n", n, sumFib.String()))
-	if err != nil {
-		fmt.Println("Erreur lors de l'écriture du résultat dans le fichier:", err)
-		return
+	response := struct {
+		Sum                   string        `json:"sum"`
+		NumCalculations       int           `json:"num_calculations"`
+		AvgTimePerCalculation time.Duration `json:"avg_time_per_calculation"`
+		ExecutionTime         time.Duration `json:"execution_time"`
+	}{
+		Sum:                   sumFib.String(),
+		NumCalculations:       numCalculations,
+		AvgTimePerCalculation: avgTimePerCalculation,
+		ExecutionTime:         executionTime,
 	}
 
-	_, err = file.WriteString(fmt.Sprintf("Nombre de calculs: %d\n", numCalculations))
-	if err != nil {
-		fmt.Println("Erreur lors de l'écriture du nombre de calculs dans le fichier:", err)
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Erreur d'encodage JSON", http.StatusInternalServerError)
 		return
 	}
+}
 
-	_, err = file.WriteString(fmt.Sprintf("Temps moyen par calcul: %s\n", avgTimePerCalculation))
-	if err != nil {
-		fmt.Println("Erreur lors de l'écriture du temps moyen par calcul dans le fichier:", err)
-		return
+func main() {
+	http.HandleFunc("/fibonacci", handleFibonacci)
+	log.Println("Serveur démarré sur le port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Erreur lors du démarrage du serveur : %v", err)
 	}
-
-	_, err = file.WriteString(fmt.Sprintf("Temps d'exécution: %s\n", executionTime))
-	if err != nil {
-		fmt.Println("Erreur lors de l'écriture du temps d'exécution dans le fichier:", err)
-		return
-	}
-
-	// Affichage des résultats dans la console
-	fmt.Printf("Temps d'exécution: %s\n", executionTime)
-	fmt.Printf("Nombre de calculs: %d\n", numCalculations)
-	fmt.Printf("Temps moyen par calcul: %s\n", avgTimePerCalculation)
-	fmt.Println("Résultat, nombre de calculs, temps moyen par calcul et temps d'exécution écrits dans 'fibonacci_result.txt'.")
 }
