@@ -119,12 +119,20 @@ func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitG
 
 	partialSum := new(big.Int) // Utilisation de new(big.Int) pour éviter les allocations répétées de mémoire
 	for i := start; i <= end; i++ {
-		fibValue, _ := fibDoubling(i)        // Calcul de F(i)
-		partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle
+		fibValue, err := fibDoubling(i) // Calcul de F(i)
+		if err != nil {
+			log.Printf("Erreur lors du calcul de Fibonacci pour i=%d: %v", i, err)
+			continue
+		}
+		if fibValue != nil {
+			partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle seulement si fibValue n'est pas nil
+		}
 	}
 
-	// Envoie la somme partielle au canal
-	partialResult <- partialSum
+	// Vérifie si partialSum est initialisée correctement avant de l'envoyer au canal
+	if partialSum != nil {
+		partialResult <- partialSum
+	}
 }
 
 // handleFibonacci est le gestionnaire HTTP pour la requête POST de calcul de Fibonacci

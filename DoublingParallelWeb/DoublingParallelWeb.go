@@ -65,16 +65,20 @@ var memo sync.Map
 
 // fibDoubling calcule le nième nombre de Fibonacci en utilisant la méthode de doublage
 func fibDoubling(n int) (*big.Int, error) {
+	// Vérification des arguments : n doit être un entier positif
 	if n < 0 {
-		return nil, fmt.Errorf("n doit être un entier positif") // Vérification des arguments : n doit être un entier positif
+		return nil, fmt.Errorf("n doit être un entier positif")
 	}
+	// Limitation pour éviter des calculs extrêmement coûteux
 	if n > 100000000 {
-		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux et consommation excessive de mémoire") // Limitation pour éviter des calculs extrêmement coûteux
+		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux et consommation excessive de mémoire")
 	}
+	// Les deux premiers termes de la suite de Fibonacci sont connus : 0 et 1
 	if n < 2 {
-		return big.NewInt(int64(n)), nil // Les deux premiers termes de la suite de Fibonacci sont connus : 0 et 1
+		return big.NewInt(int64(n)), nil
 	}
-	result := fibDoublingHelperIterative(n) // Calcul du nième nombre de Fibonacci en utilisant la méthode de doublage
+	// Calcul du nième nombre de Fibonacci en utilisant la méthode de doublage
+	result := fibDoublingHelperIterative(n)
 	return result, nil
 }
 
@@ -99,12 +103,14 @@ func fibDoublingHelperIterative(n int) *big.Int {
 			a.Set(c)
 			b.Set(b)
 		} else {
+			// Si le bit courant est 1, mettre à jour a et b différemment
 			a.Set(b)
-			b.Add(c, b) // Si le bit courant est 1, mettre à jour a et b différemment
+			b.Add(c, b)
 		}
 	}
 
-	return a // Retourne le nième nombre de Fibonacci
+	// Retourne le nième nombre de Fibonacci
+	return a
 }
 
 // calcFibonacci calcule une portion de la liste de Fibonacci entre start et end
@@ -117,16 +123,19 @@ func calcFibonacci(start, end int, partialResult chan<- *big.Int, wg *sync.WaitG
 		partialSum.Add(partialSum, fibValue) // Ajoute F(i) à la somme partielle
 	}
 
-	partialResult <- partialSum // Envoie la somme partielle au canal
+	// Envoie la somme partielle au canal
+	partialResult <- partialSum
 }
 
 // handleFibonacci est le gestionnaire HTTP pour la requête POST de calcul de Fibonacci
 func handleFibonacci(w http.ResponseWriter, r *http.Request) {
+	// Vérifie que la méthode est POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// Décodage du corps de la requête JSON
 	var request struct {
 		N int `json:"n"`
 	}
@@ -173,11 +182,12 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 	executionTime := time.Since(startTime).Seconds()                  // Calcule le temps total d'exécution en secondes
 	avgTimePerCalculation := executionTime / float64(numCalculations) // Calcule le temps moyen par calcul en secondes
 
+	// Prépare la réponse JSON
 	response := struct {
 		Sum                   string  `json:"sum"`
 		NumCalculations       int     `json:"num_calculations"`
-		AvgTimePerCalculation float64 `json:"avg_time_per_calculation"`
-		ExecutionTime         float64 `json:"execution_time"`
+		AvgTimePerCalculation float64 `json:"avg_time_per_calculation_in_second"`
+		ExecutionTime         float64 `json:"execution_time_in_second"`
 	}{
 		Sum:                   sumFib.String(),
 		NumCalculations:       numCalculations,
@@ -185,6 +195,7 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		ExecutionTime:         executionTime,
 	}
 
+	// Encodage de la réponse en JSON et écriture dans la réponse HTTP
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Erreur d'encodage JSON", http.StatusInternalServerError)
@@ -192,10 +203,11 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Fonction principale qui démarre le serveur HTTP
 func main() {
-	http.HandleFunc("/fibonacci", handleFibonacci)
-	log.Println("Serveur démarré sur le port 8080")
+	http.HandleFunc("/fibonacci", handleFibonacci)  // Associe la fonction handleFibonacci au chemin /fibonacci
+	log.Println("Serveur démarré sur le port 8080") // Affiche un message pour indiquer que le serveur a démarré
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Erreur lors du démarrage du serveur : %v", err)
+		log.Fatalf("Erreur lors du démarrage du serveur : %v", err) // Affiche une erreur fatale si le serveur ne démarre pas
 	}
 }
