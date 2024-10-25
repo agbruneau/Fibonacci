@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 // FibCalculator encapsule les variables big.Int réutilisables
@@ -106,9 +107,7 @@ func (wp *WorkerPool) GetCalculator() *FibCalculator {
 }
 
 // calcFibonacci calcule une portion de la liste de Fibonacci entre start et end
-func calcFibonacci(start, end int, pool *WorkerPool, partialResult chan<- *big.Int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func calcFibonacci(start, end int, pool *WorkerPool, partialResult chan<- *big.Int) {
 	calc := pool.GetCalculator()
 	partialSum := new(big.Int)
 
@@ -143,7 +142,7 @@ func formatBigIntSci(n *big.Int) string {
 }
 
 func main() {
-	n := 250000
+	n := 99999
 	numWorkers := runtime.NumCPU()
 	segmentSize := n / (numWorkers * 2)
 	pool := NewWorkerPool(numWorkers)
@@ -162,12 +161,13 @@ func main() {
 	close(taskChannel)
 
 	// Lancer les goroutines du pool pour traiter les tâches
+	startTime := time.Now() // Enregistre l'heure de début pour mesurer la durée
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for segment := range taskChannel {
-				calcFibonacci(segment[0], segment[1], pool, partialResult, &wg)
+				calcFibonacci(segment[0], segment[1], pool, partialResult)
 			}
 		}()
 	}
@@ -179,11 +179,19 @@ func main() {
 	}()
 
 	sumFib := new(big.Int)
+	count := 0
 
 	// Récupérer et additionner les résultats partiels
 	for partial := range partialResult {
 		sumFib.Add(sumFib, partial)
+		count++
 	}
 
+	executionTime := time.Since(startTime) // Calcule le temps total d'exécution
+	avgTimePerCalculation := executionTime / time.Duration(count)
+
+	fmt.Printf("Nombre de workers: %d\n", numWorkers)
+	fmt.Printf("Temps moyen par calcul: %s\n", avgTimePerCalculation)
+	fmt.Printf("Temps d'exécution: %s\n", executionTime)
 	fmt.Printf("Somme des Fibonacci: %s\n", formatBigIntSci(sumFib))
 }
