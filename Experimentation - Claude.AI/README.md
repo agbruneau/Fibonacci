@@ -1,80 +1,83 @@
-# Calculateur de Nombres de Fibonacci en Parallèle
+# Calcul Concurrent de la Suite de Fibonacci
 
-![Diagramme de Séquence](SequenceDiagram.jpeg)
+## Description
 
-## Description du Projet
-
-Ce projet est une implémentation en Go (Golang) d'un calculateur de nombres de Fibonacci, optimisé pour des calculs à grande échelle et utilisant le parallélisme afin d'améliorer les performances. Le programme utilise des techniques avancées telles que la décomposition binaire pour réduire la complexité temporelle du calcul, et gère un pool de travailleurs ("worker pool") pour tirer parti des multiples cœurs de CPU disponibles.
-
-Le projet est conçu pour être utilisé dans des environnements où des calculs intensifs sont requis, tout en évitant les problèmes liés à la concurrence à travers l'utilisation d'outils de synchronisation fournis par la librairie standard de Go.
+Ce projet est une implémentation efficace et concurrente pour le calcul de la suite de Fibonacci, écrite en Go. Il utilise l'algorithme d'exponentiation rapide des matrices pour calculer les valeurs de la suite de manière performante. Le programme exploite la puissance de calcul parallèle en utilisant un pool de workers et des structures de synchronisation adaptées. Le calcul est géré de manière itérative, en utilisant la structure `big.Int` de la bibliothèque standard de Go, pour permettre de manipuler des nombres de très grande taille.
 
 ## Fonctionnalités
 
-1. **Calcul Optimisé des Nombres de Fibonacci**  
-   - Utilisation de la méthode de "doublage" pour calculer efficacement les nombres de Fibonacci, en réduisant la complexité du calcul par rapport aux méthodes itératives ou récursives traditionnelles.
-
-2. **Parallélisation des Calculs**  
-   - Utilisation de goroutines pour paralléliser le calcul sur plusieurs cœurs de CPU, maximisant ainsi l'efficacité du programme, particulièrement sur des machines multicœurs.
-
-3. **Gestion de la Concurrence avec un Pool de Travailleurs**  
-   - Gestion des ressources à travers un "worker pool" pré-configuré en fonction du nombre de cœurs CPU, afin d'équilibrer la charge et d'assurer une utilisation optimale des ressources.
-
-4. **Prévention des Débordements et Gestion de la Précision**  
-   - Utilisation de `big.Int` pour gérer les grands nombres de Fibonacci sans risque de débordement.
-
-5. **Sauvegarde et Lecture des Résultats**  
-   - Les résultats des calculs, y compris la somme des nombres de Fibonacci calculés, sont écrits dans un fichier texte. Le contenu du fichier est ensuite affiché pour fournir un récapitulatif des calculs effectués.
+- **Exponentiation rapide des matrices** : Permet de calculer les valeurs de la suite de Fibonacci en temps logarithmique.
+- **Calcul parallèle** : Utilise un pool de workers pour paralléliser le calcul des valeurs, améliorant la performance sur les systèmes multi-cœurs.
+- **Cache** : Stocke les résultats précédemment calculés pour éviter les recalculs inutiles.
+- **Gestion du contexte** : Intègre l'annulation et la gestion des délais pour arrêter les calculs si nécessaire.
 
 ## Structure du Code
 
-### 1. `FibCalculator`
-La structure `FibCalculator` est la pierre angulaire du programme. Elle encapsule les variables nécessaires au calcul des nombres de Fibonacci (instances de `big.Int`) et assure une réutilisation optimale de celles-ci. La méthode `Calculate` implémente un algorithme efficace basé sur la décomposition binaire pour calculer les nombres de Fibonacci.
-
-### 2. `WorkerPool`
-La structure `WorkerPool` gère un ensemble d'instances de `FibCalculator`, assurant la parallélisation des calculs. Elle permet de répartir la charge de travail de manière équilibrée entre plusieurs goroutines, réduisant ainsi le temps total de calcul.
-
-### 3. Calcul Parallèle avec `calcFibonacci`
-La fonction `calcFibonacci` est responsable de calculer une portion de la séquence de Fibonacci et d'envoyer le résultat partiel à travers un canal. Cette fonction est exécutée par plusieurs goroutines, permettant ainsi de paralléliser l'exécution.
-
-### 4. Fonction `main`
-La fonction principale coordonne l'ensemble du processus de calcul en divisant le travail entre les travailleurs, en collectant les résultats partiels, et en écrivant les résultats finaux dans un fichier texte. Elle fournit également des informations sur le temps d'exécution et la performance du calcul.
+1. **Matrix2x2** : Représentation d'une matrice 2x2 utilisée pour les calculs de Fibonacci par exponentiation rapide.
+2. **FibCalculator** : Objet responsable du calcul des valeurs de Fibonacci en utilisant les matrices.
+3. **WorkerPool** : Gère un pool de workers pour distribuer le calcul des segments de la suite de Fibonacci.
+4. **Fonction Main** : Initialise le pool de workers, répartit les segments de la suite à calculer et collecte les résultats.
 
 ## Prérequis
 
-- **Go (Golang)** : Ce programme nécessite la présence de Go sur votre système. Vous pouvez télécharger Go à partir du site officiel : [https://golang.org/](https://golang.org/).
-- **Ressources Matérielles** : Pour maximiser les bénéfices de cette implémentation, il est recommandé d'utiliser une machine multi-cœurs.
+Pour exécuter ce programme, vous aurez besoin de :
 
-## Instructions d'Utilisation
+- **Go 1.16 ou supérieur** : Le programme est écrit en Go et utilise des fonctionnalités modernes de la bibliothèque standard.
+- **Multithreading support** : Un système capable de gérer plusieurs threads de manière efficace afin de tirer parti de la parallélisation.
 
-1. **Clôner le Projet**  
+## Installation
+
+1. **Cloner le dépôt** :
    ```bash
-   git clone <url_du_répertoire>
-   cd <nom_du_répertoire>
+   git clone <URL_du_dépôt>
    ```
 
-2. **Compiler et Exécuter le Programme**  
-   Utilisez la commande suivante pour compiler et exécuter le programme :
+2. **Naviguer dans le répertoire** :
    ```bash
-   go run main.go
+   cd <nom_du_dépôt>
    ```
 
-3. **Modifier le Nombre de Calculs**  
-   Vous pouvez modifier la valeur de `n` dans la fonction `main()` pour ajuster le nombre de nombres de Fibonacci à calculer. Notez que pour des valeurs très grandes, les calculs peuvent être extrêmement longs.
+3. **Compiler le programme** :
+   ```bash
+   go build -o fibonacci_calculator
+   ```
 
-## Sortie du Programme
+4. **Exécuter le programme** :
+   ```bash
+   ./fibonacci_calculator
+   ```
 
-- **Fichier de Résultat** : Les résultats sont écrits dans le fichier `fibonacci_result.txt`. Ce fichier contient la somme des nombres de Fibonacci calculés, le temps total d'exécution, ainsi que le nombre de calculs effectués.
-- **Affichage des Résultats** : Le contenu du fichier de résultat est affiché à la fin de l'exécution du programme.
+## Utilisation
 
-## Remarques Importantes
+Le programme calcule la somme des `n` premiers termes de la suite de Fibonacci en utilisant un pool de workers afin de répartir les calculs sur plusieurs cœurs. L'utilisateur peut ajuster la valeur `n` et la durée limite du calcul en modifiant les paramètres dans la fonction `main`.
 
-- **Complexité du Calcul** : La méthode de calcul utilisée est très efficace, mais les valeurs de `n` très grandes peuvent encore demander un temps de calcul significatif et nécessitent beaucoup de mémoire.
-- **Gestion des Ressources** : Pour garantir l'efficacité des calculs parallèles, des verrous (`mutex`) sont utilisés afin de s'assurer que plusieurs threads ne modifient pas les mêmes variables simultanément.
+Le programme est conçu pour gérer de grands calculs en utilisant la structure `big.Int`, garantissant ainsi que même les valeurs de Fibonacci très élevées peuvent être traitées sans limitation d'entier.
+
+## Détails Techniques
+
+- **Exponentiation Rapide des Matrices** : L'utilisation de la multiplication de matrices pour calculer la suite de Fibonacci permet d'obtenir une complexité logarithmique, comparée à la méthode naïve itérative ou récursive.
+- **Pool de Workers** : Un `WorkerPool` est utilisé pour paralléliser le calcul. Chaque worker reçoit une portion du travail à accomplir, ce qui réduit significativement le temps de calcul sur les machines multi-cœurs.
+- **Gestion des Ressources** : Le programme utilise des sémaphores pour contrôler l'accès aux workers, et des primitives de synchronisation comme `sync.Mutex` et `sync.WaitGroup` pour assurer la sécurité des threads.
+
+## Exemples
+
+Pour ajuster le nombre de termes de Fibonacci à calculer, vous pouvez modifier la valeur de `n` dans la fonction `main()` :
+
+```go
+n := 100000 // Limite de la suite de Fibonacci
+```
+
+Le programme utilise également un contexte (`context.WithTimeout`) pour s'assurer que l'exécution ne dépasse pas une durée limite spécifiée.
 
 ## Contributions
 
-Les contributions sont les bienvenues pour améliorer ce projet. Vous pouvez soumettre des "pull requests" pour suggérer des améliorations ou signaler des problèmes en utilisant l'élément "issues" de GitHub.
+Les contributions sont les bienvenues. Vous pouvez créer une pull request ou ouvrir une issue pour discuter des améliorations potentielles.
 
 ## Licence
 
-Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, le modifier et le distribuer selon les termes de cette licence.
+Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, de le modifier et de le distribuer selon les termes de la licence.
+
+## Remerciements
+
+Ce projet a été réalisé pour démontrer l'utilisation combinée de la parallélisation et des algorithmes efficaces pour le calcul de nombres de Fibonacci, et pour approfondir la compréhension de la gestion des threads en Go.
+
