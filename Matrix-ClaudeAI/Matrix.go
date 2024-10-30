@@ -1,7 +1,6 @@
-package main
-
 /*
- * Programme : Calcul Concurrent de la Suite de Fibonacci
+ * Matrix-ClaudeAI
+ *
  * Langage : Go
  *
  * Description :
@@ -28,6 +27,8 @@ package main
  * Ce programme est conçu pour démontrer l'utilisation des techniques de calcul efficace combinées à la
  * parallélisation, avec une gestion appropriée des ressources et des grandes valeurs numériques.
  */
+
+package main
 
 import (
 	"context"     // Gestion du contexte pour l'annulation et les délais d'expiration
