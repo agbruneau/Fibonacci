@@ -1,4 +1,4 @@
-// Programme de calcul de la somme des nombres de Fibonacci en parallèle
+// Programme de calcul de la somme des nombres de Fibonacci en parallèle en tant que service web
 //
 // Ce programme implémente un calcul parallèle de la somme des nombres de Fibonacci
 // en utilisant une méthode de décomposition binaire optimisée et des goroutines en Go.
@@ -8,31 +8,30 @@
 // et en évitant les recalculs inutiles grâce à une utilisation judicieuse des
 // primitives de synchronisation.
 //
-// Le programme comprend les composants suivants :
-// 1. `FibCalculator` : Structure encapsulant les variables nécessaires pour le calcul
-//    des nombres de Fibonacci de manière thread-safe, en utilisant de grandes valeurs entières (`math/big`).
-// 2. `WorkerPool` : Structure gérant un pool de calculateurs de Fibonacci, permettant
-//    d'allouer des ressources de calcul aux différentes tâches parallèles.
-// 3. `calcFibonacci` : Fonction qui calcule une portion des nombres de Fibonacci entre
-//    deux bornes et accumule les résultats partiels.
-// 4. `main` : Fonction principale qui initialise les paramètres de calcul, divise la charge
-//    de travail entre les goroutines, synchronise les résultats et mesure le temps d'exécution.
+// Le programme est maintenant adapté pour fonctionner comme un service web,
+// accessible via des requêtes HTTP (par exemple, via la commande `curl`).
+// Le service offre une API pour calculer le n-ième nombre de Fibonacci ou la somme
+// des nombres de Fibonacci jusqu'à une valeur donnée.
 //
 // Ce programme est conçu pour utiliser efficacement les ressources CPU disponibles,
 // en divisant la charge de travail de calcul de la série de Fibonacci en segments gérés par plusieurs workers.
-// Les résultats sont accumulés et affichés avec des statistiques de performance, telles que
-// le temps moyen par calcul et le temps d'exécution total.
+// Les résultats sont renvoyés au client via l'API HTTP.
+
+// curl "http://localhost:8080/fibonacci?n=10"
 
 package main
 
 import (
-	"fmt"       // Le package 'fmt' est utilisé pour la sortie formatée, comme 'Println' ou 'Printf' pour afficher des informations dans la console.
-	"math/big"  // Le package 'math/big' permet la manipulation de nombres entiers très grands, ici utilisé pour calculer des valeurs de Fibonacci potentiellement très élevées.
-	"math/bits" // Le package 'math/bits' est utilisé pour manipuler les bits des entiers, par exemple pour trouver la longueur binaire d'un nombre, ce qui est utile dans l'optimisation du calcul de Fibonacci.
-	"runtime"   // Le package 'runtime' est utilisé pour obtenir des informations sur le système, comme le nombre de processeurs disponibles, afin d'optimiser le nombre de workers.
-	"strings"   // Le package 'strings' est utilisé pour manipuler des chaînes de caractères, par exemple pour formater un 'big.Int' en notation scientifique.
-	"sync"      // Le package 'sync' fournit des primitives pour synchroniser les goroutines, comme 'Mutex' pour les sections critiques et 'WaitGroup' pour attendre la fin de plusieurs goroutines.
-	"time"      // Le package 'time' est utilisé pour mesurer les durées d'exécution et calculer le temps pris par des opérations spécifiques.
+	"encoding/json" // Le package 'encoding/json' est utilisé pour encoder et décoder les données JSON des réponses HTTP.
+	"fmt"           // Le package 'fmt' est utilisé pour la sortie formatée.
+	"math/big"      // Le package 'math/big' permet la manipulation de nombres entiers très grands.
+	"math/bits"     // Le package 'math/bits' est utilisé pour manipuler les bits des entiers.
+	"net/http"      // Le package 'net/http' est utilisé pour créer un serveur web et gérer les requêtes HTTP.
+	"runtime"       // Le package 'runtime' est utilisé pour obtenir des informations sur le système.
+	// Le package 'strings' est utilisé pour manipuler des chaînes de caractères.
+	"strconv"
+	"sync" // Le package 'sync' fournit des primitives pour synchroniser les goroutines.
+	// Le package 'time' est utilisé pour mesurer les durées d'exécution.
 )
 
 // FibCalculator encapsule les variables big.Int réutilisables
@@ -136,101 +135,38 @@ func (wp *WorkerPool) GetCalculator() *FibCalculator {
 	return calc
 }
 
-// calcFibonacci calcule une portion de la liste de Fibonacci entre start et end
-func calcFibonacci(start, end int, pool *WorkerPool, partialResult chan<- *big.Int) {
-	// Récupère un calculateur du pool
-	calc := pool.GetCalculator()
-	partialSum := new(big.Int)
-
-	// Calcule la somme des valeurs de Fibonacci entre start et end
-	for i := start; i <= end; i++ {
-		fibValue, err := calc.Calculate(i)
-		if err != nil {
-			fmt.Printf("Erreur lors du calcul de Fib(%d): %v\n", i, err)
-			continue
-		}
-		partialSum.Add(partialSum, fibValue) // Ajoute la valeur de Fibonacci à la somme partielle
+// handleFibonacci calcule le n-ième nombre de Fibonacci et envoie la réponse au client
+func handleFibonacci(w http.ResponseWriter, r *http.Request) {
+	nStr := r.URL.Query().Get("n")
+	if nStr == "" {
+		http.Error(w, "Paramètre 'n' manquant", http.StatusBadRequest)
+		return
 	}
 
-	// Envoie le résultat partiel au canal
-	partialResult <- partialSum
-}
-
-// formatBigIntSci formate un big.Int en notation scientifique
-func formatBigIntSci(n *big.Int) string {
-	numStr := n.String()
-	numLen := len(numStr)
-
-	// Si le nombre est petit, le retourner directement
-	if numLen <= 5 {
-		return numStr
+	n, err := strconv.Atoi(nStr)
+	if err != nil || n < 0 {
+		http.Error(w, "Paramètre 'n' invalide, doit être un entier positif", http.StatusBadRequest)
+		return
 	}
 
-	// Formater le nombre en notation scientifique
-	significand := numStr[:5]
-	exponent := numLen - 1
+	pool := NewWorkerPool(runtime.NumCPU())
+	calculator := pool.GetCalculator()
+	result, err := calculator.Calculate(n)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	// Crée une représentation significative et supprime les zéros inutiles
-	formattedNum := significand[:1] + "." + significand[1:]
-	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+	response := map[string]string{
+		"fibonacci": result.String(),
+	}
 
-	return fmt.Sprintf("%se%d", formattedNum, exponent)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
-	// Initialisation des paramètres pour le calcul
-	n := 100000
-	numWorkers := runtime.NumCPU()                   // Utilise le nombre de CPU disponibles
-	segmentSize := n / (numWorkers * 2)              // Taille de chaque segment à traiter par un worker
-	pool := NewWorkerPool(numWorkers)                // Création du pool de calculateurs
-	taskChannel := make(chan [2]int, numWorkers*4)   // Canal pour les segments de travail
-	partialResult := make(chan *big.Int, numWorkers) // Canal pour les résultats partiels
-	var wg sync.WaitGroup
-
-	// Initialiser les segments de travail et les envoyer au canal de tâches
-	for i := 0; i < n; i += segmentSize {
-		end := i + segmentSize - 1
-		if end >= n {
-			end = n - 1
-		}
-		taskChannel <- [2]int{i, end} // Envoie le segment de travail au canal
-	}
-	close(taskChannel)
-
-	// Lancer les goroutines du pool pour traiter les tâches
-	startTime := time.Now() // Enregistre l'heure de début pour mesurer la durée
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// Traite les segments jusqu'à ce que le canal soit fermé
-			for segment := range taskChannel {
-				calcFibonacci(segment[0], segment[1], pool, partialResult)
-			}
-		}()
-	}
-
-	// Fonction pour fermer le canal une fois que tous les travailleurs ont terminé
-	go func() {
-		wg.Wait()
-		close(partialResult)
-	}()
-
-	sumFib := new(big.Int)
-	count := 0
-
-	// Récupérer et additionner les résultats partiels
-	for partial := range partialResult {
-		sumFib.Add(sumFib, partial)
-		count++
-	}
-
-	executionTime := time.Since(startTime)                        // Calcule le temps total d'exécution
-	avgTimePerCalculation := executionTime / time.Duration(count) // Temps moyen par calcul
-
-	// Afficher les résultats
-	fmt.Printf("Nombre de workers: %d\n", numWorkers)
-	fmt.Printf("Temps moyen par calcul: %s\n", avgTimePerCalculation)
-	fmt.Printf("Temps d'exécution: %s\n", executionTime)
-	fmt.Printf("Somme des Fibonacci: %s\n", formatBigIntSci(sumFib))
+	http.HandleFunc("/fibonacci", handleFibonacci)
+	fmt.Println("Serveur démarré sur le port 8080...")
+	http.ListenAndServe(":8080", nil)
 }
