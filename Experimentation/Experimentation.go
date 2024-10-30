@@ -3,17 +3,12 @@ package main
 import (
 	"fmt"
 	"math/big"
-	"math/bits"
-	"runtime"
-	"strings"
-	"sync"
 	"time"
 )
 
 // FibCalculator encapsule les variables big.Int réutilisables
 type FibCalculator struct {
 	a, b, c, temp *big.Int
-	mutex         sync.Mutex
 }
 
 // NewFibCalculator crée une nouvelle instance de FibCalculator
@@ -26,7 +21,7 @@ func NewFibCalculator() *FibCalculator {
 	}
 }
 
-// Calculate calcule le n-ième nombre de Fibonacci de manière thread-safe
+// Calculate calcule le n-ième nombre de Fibonacci en utilisant l'algorithme du Fast Doubling
 func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être un entier positif")
@@ -34,9 +29,6 @@ func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	if n > 250000001 {
 		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux")
 	}
-
-	fc.mutex.Lock()
-	defer fc.mutex.Unlock()
 
 	// Réinitialisation des valeurs a et b pour chaque calcul
 	fc.a.SetInt64(0)
@@ -47,77 +39,64 @@ func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 		return big.NewInt(int64(n)), nil
 	}
 
-	// Algorithme principal basé sur la méthode de décomposition binaire pour optimiser le calcul de Fibonacci
-	for i := bits.Len(uint(n)) - 1; i >= 0; i-- {
-		// c = a * (2 * b - a)
-		fc.c.Lsh(fc.b, 1)    // c = 2 * b
-		fc.c.Sub(fc.c, fc.a) // c = 2 * b - a
-		fc.c.Mul(fc.c, fc.a) // c = a * (2 * b - a)
-
-		// Sauvegarde temporaire de b
-		fc.temp.Set(fc.b)
-
-		// b = a² + b²
-		fc.b.Mul(fc.b, fc.b) // b = b²
-		fc.a.Mul(fc.a, fc.a) // a = a²
-		fc.b.Add(fc.b, fc.a) // b = a² + b²
-
-		// Si le bit correspondant est 0, a prend la valeur de c
-		// Sinon, a prend la valeur de b et b devient c + b
-		if ((n >> i) & 1) == 0 {
-			fc.a.Set(fc.c)
-			fc.b.Set(fc.b)
-		} else {
-			fc.a.Set(fc.b)
-			fc.b.Add(fc.c, fc.b)
-		}
-	}
-
-	// Retourne une copie de a (le résultat final de Fibonacci(n))
-	return new(big.Int).Set(fc.a), nil
+	// Algorithme du Fast Doubling pour calculer Fib(n)
+	return fc.fastDoubling(n), nil
 }
 
-// WorkerPool gère un pool de FibCalculator pour le calcul parallèle
-type WorkerPool struct {
-	calculators []*FibCalculator
-	current     int
-	mutex       sync.Mutex
-}
-
-// NewWorkerPool crée un nouveau pool de calculateurs
-func NewWorkerPool(size int) *WorkerPool {
-	calculators := make([]*FibCalculator, size)
-	for i := range calculators {
-		calculators[i] = NewFibCalculator()
+// fastDoubling implémente l'algorithme du Fast Doubling
+func (fc *FibCalculator) fastDoubling(n int) *big.Int {
+	if n == 0 {
+		return big.NewInt(0)
 	}
-	return &WorkerPool{
-		calculators: calculators,
+	if n == 1 {
+		return big.NewInt(1)
 	}
-}
 
-// GetCalculator retourne un calculateur du pool de manière thread-safe
-func (wp *WorkerPool) GetCalculator() *FibCalculator {
-	wp.mutex.Lock()
-	defer wp.mutex.Unlock()
+	fc.c = fc.fastDoubling(n / 2)
 
-	// Récupère le calculateur actuel et met à jour l'indice courant de manière circulaire
-	calc := wp.calculators[wp.current]
-	wp.current = (wp.current + 1) % len(wp.calculators)
-	return calc
+	fc.temp.Mul(fc.c, fc.c) // temp = c * c
+
+	if n%2 == 0 {
+		// Fib(2k) = Fib(k) * [2 * Fib(k+1) – Fib(k)]
+		fibKPlus1 := fc.fastDoubling(n/2 + 1)
+		fc.a.Mul(big.NewInt(2), fibKPlus1) // a = 2 * Fib(k+1)
+		fc.a.Sub(fc.a, fc.c)               // a = 2 * Fib(k+1) – Fib(k)
+		fc.a.Mul(fc.a, fc.c)               // a = Fib(k) * (2 * Fib(k+1) – Fib(k))
+		return fc.a
+	} else {
+		// Fib(2k+1) = Fib(k+1)^2 + Fib(k)^2
+		fibKPlus1 := fc.fastDoubling(n/2 + 1)
+		fc.a.Mul(fibKPlus1, fibKPlus1) // a = Fib(k+1)^2
+		fc.b.Mul(fc.c, fc.c)           // b = Fib(k)^2
+		fc.a.Add(fc.a, fc.b)           // a = Fib(k+1)^2 + Fib(k)^2
+		return fc.a
+	}
 }
 
 // calcFibonacci calcule une portion de la liste de Fibonacci entre start et end
-func calcFibonacci(start, end int, pool *WorkerPool, partialResult chan<- *big.Int) {
-	calc := pool.GetCalculator()
+func calcFibonacci(start, end int, partialResult chan<- *big.Int) {
+	calc := NewFibCalculator()
 	partialSum := new(big.Int)
+	a := big.NewInt(0)
+	b := big.NewInt(1)
+
+	// Si start > 1, calculer Fib(start - 1) et Fib(start)
+	if start > 1 {
+		a, _ = calc.Calculate(start - 1)
+		b, _ = calc.Calculate(start)
+	} else if start == 1 {
+		a.SetInt64(0)
+		b.SetInt64(1)
+	} else {
+		a.SetInt64(0)
+		b.SetInt64(1)
+	}
 
 	for i := start; i <= end; i++ {
-		fibValue, err := calc.Calculate(i)
-		if err != nil {
-			fmt.Printf("Erreur lors du calcul de Fib(%d): %v\n", i, err)
-			continue
-		}
-		partialSum.Add(partialSum, fibValue)
+		next := new(big.Int).Add(a, b)
+		partialSum.Add(partialSum, a)
+		a.Set(b)
+		b.Set(next)
 	}
 
 	partialResult <- partialSum
@@ -136,62 +115,44 @@ func formatBigIntSci(n *big.Int) string {
 	exponent := numLen - 1
 
 	formattedNum := significand[:1] + "." + significand[1:]
-	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+	formattedNum = formattedNum.TrimRight(formattedNum, "0")
+	formattedNum = formattedNum.TrimRight(formattedNum, ".")
 
 	return fmt.Sprintf("%se%d", formattedNum, exponent)
 }
 
 func main() {
-	n := 99999
-	numWorkers := runtime.NumCPU()
-	segmentSize := n / (numWorkers * 2)
-	pool := NewWorkerPool(numWorkers)
-	taskChannel := make(chan [2]int, numWorkers*4)
+	n := 250000
+	numWorkers := 4 // Vous pouvez ajuster ce nombre en fonction de votre machine
+	segmentSize := n / numWorkers
 	partialResult := make(chan *big.Int, numWorkers)
-	var wg sync.WaitGroup
+	var workers []int
 
-	// Initialiser les segments de travail et les envoyer au canal de tâches
-	for i := 0; i < n; i += segmentSize {
-		end := i + segmentSize - 1
-		if end >= n {
+	// Diviser les tâches en segments
+	for i := 0; i < numWorkers; i++ {
+		start := i * segmentSize
+		end := start + segmentSize - 1
+		if i == numWorkers-1 {
 			end = n - 1
 		}
-		taskChannel <- [2]int{i, end}
-	}
-	close(taskChannel)
-
-	// Lancer les goroutines du pool pour traiter les tâches
-	startTime := time.Now() // Enregistre l'heure de début pour mesurer la durée
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for segment := range taskChannel {
-				calcFibonacci(segment[0], segment[1], pool, partialResult)
-			}
-		}()
+		workers = append(workers, start, end)
 	}
 
-	// Fonction pour fermer le canal une fois que tous les travailleurs ont terminé
-	go func() {
-		wg.Wait()
-		close(partialResult)
-	}()
+	startTime := time.Now()
+
+	// Lancer les goroutines
+	for i := 0; i < numWorkers*2; i += 2 {
+		go calcFibonacci(workers[i], workers[i+1], partialResult)
+	}
 
 	sumFib := new(big.Int)
-	count := 0
-
-	// Récupérer et additionner les résultats partiels
-	for partial := range partialResult {
-		sumFib.Add(sumFib, partial)
-		count++
+	for i := 0; i < numWorkers; i++ {
+		partialSum := <-partialResult
+		sumFib.Add(sumFib, partialSum)
 	}
 
-	executionTime := time.Since(startTime) // Calcule le temps total d'exécution
-	avgTimePerCalculation := executionTime / time.Duration(count)
-
+	executionTime := time.Since(startTime)
 	fmt.Printf("Nombre de workers: %d\n", numWorkers)
-	fmt.Printf("Temps moyen par calcul: %s\n", avgTimePerCalculation)
 	fmt.Printf("Temps d'exécution: %s\n", executionTime)
-	fmt.Printf("Somme des Fibonacci: %s\n", formatBigIntSci(sumFib))
+	fmt.Printf("Somme des Fibonacci jusqu'à %d: %s\n", n, formatBigIntSci(sumFib))
 }
