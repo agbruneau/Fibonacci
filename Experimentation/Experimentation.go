@@ -28,9 +28,9 @@ import (
 	"math/bits"     // Le package 'math/bits' est utilisé pour manipuler les bits des entiers.
 	"net/http"      // Le package 'net/http' est utilisé pour créer un serveur web et gérer les requêtes HTTP.
 	"runtime"       // Le package 'runtime' est utilisé pour obtenir des informations sur le système.
-	// Le package 'strings' est utilisé pour manipuler des chaînes de caractères.
-	"strconv"
-	"sync" // Le package 'sync' fournit des primitives pour synchroniser les goroutines.
+	"strconv"       // Le package 'strconv' est utilisé pour convertir les chaînes de caractères en entiers.
+	"strings"       // Le package 'strings' est utilisé pour manipuler des chaînes de caractères.
+	"sync"          // Le package 'sync' fournit des primitives pour synchroniser les goroutines.
 	// Le package 'time' est utilisé pour mesurer les durées d'exécution.
 )
 
@@ -135,6 +135,27 @@ func (wp *WorkerPool) GetCalculator() *FibCalculator {
 	return calc
 }
 
+// formatBigIntSci formate un big.Int en notation scientifique avec les 5 premiers chiffres
+func formatBigIntSci(n *big.Int) string {
+	numStr := n.String()
+	numLen := len(numStr)
+
+	// Si le nombre est petit, le retourner directement
+	if numLen <= 5 {
+		return numStr
+	}
+
+	// Formater le nombre en notation scientifique
+	significand := numStr[:5]
+	exponent := numLen - 1
+
+	// Crée une représentation significative et supprime les zéros inutiles
+	formattedNum := significand[:1] + "." + significand[1:]
+	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+
+	return fmt.Sprintf("%se%d", formattedNum, exponent)
+}
+
 // handleFibonacci calcule le n-ième nombre de Fibonacci et envoie la réponse au client
 func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 	nStr := r.URL.Query().Get("n")
@@ -158,7 +179,7 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]string{
-		"fibonacci": result.String(),
+		"fibonacci": formatBigIntSci(result),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
