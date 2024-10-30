@@ -1,4 +1,7 @@
-# Programme de calcul de la somme des nombres de Fibonacci en parallèle
+# DoublingParallel-ChatGPTCanvas
+
+![Diagramme de Séquence](SequenceDiagram.jpeg)
+
 
 ## Description
 Ce programme, écrit en Go, permet de calculer la somme des nombres de Fibonacci en parallèle en utilisant plusieurs workers, chacun exploitant un calculateur de Fibonacci dédié. Le calcul est effectué de manière optimisée grâce à la décomposition binaire des calculs et au parallélisme fourni par les goroutines de Go. Ce programme est particulièrement adapté à des calculs intensifs en raison de son approche orientée sur l'optimisation des ressources disponibles, notamment par l'utilisation de plusieurs cœurs de processeur.

@@ -1,4 +1,6 @@
-# Calcul Concurrent de la Suite de Fibonacci
+# Matrix-ClaudeAI
+
+![Diagramme de Séquence](SequenceDiagram-1.jpeg)
 
 ## Description
 
