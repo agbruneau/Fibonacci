@@ -1,4 +1,4 @@
-// Programme de calcul parallèle des nombres de Fibonacci via un service web en Go
+// DoublingParallelWeb
 //
 // Description :
 // Ce programme implémente un service web permettant de calculer les nombres de Fibonacci en parallèle,
