@@ -1,5 +1,0 @@
-Nombre de calculs: 32
-Temps moyen par calcul: 57.745218ms
-Temps d'exécution: 1.847847s
-Somme des Fib(100000) = 2.5974e20898
-
