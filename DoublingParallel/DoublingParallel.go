@@ -180,6 +180,7 @@ func formatBigIntSci(n *big.Int) string {
 func main() {
 	// Initialisation des paramètres pour le calcul
 	n := 100000
+	n = n - 1
 	numWorkers := runtime.NumCPU()                   // Utilise le nombre de CPU disponibles
 	segmentSize := n / (numWorkers * 2)              // Taille de chaque segment à traiter par un worker
 	pool := NewWorkerPool(numWorkers)                // Création du pool de calculateurs

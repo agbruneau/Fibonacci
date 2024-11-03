@@ -67,13 +67,13 @@ func NewFibCalculator() *FibCalculator {
 // Calculate calcule le n-ième nombre de Fibonacci de manière thread-safe
 func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	// Vérification de la validité de n (doit être positif)
+	n = n - 1
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être un entier positif")
 	}
 	if n > 1000000 {
 		return nil, fmt.Errorf("n est trop grand, risque de calculs extrêmement coûteux")
 	}
-
 	// Verrouillage pour garantir que le calcul est thread-safe
 	fc.mutex.Lock()
 	defer fc.mutex.Unlock()
