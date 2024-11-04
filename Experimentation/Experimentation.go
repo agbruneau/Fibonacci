@@ -9,28 +9,27 @@ import (
 	"time"
 )
 
-// FibCalculator encapsule les variables big.Int réutilisables avec la méthode Doubling
+// FibCalculator encapsule les variables big.Int réutilisables
 type FibCalculator struct {
-	// f[k+1] f[k]
-	// f[k]   f[k-1]
-	a, b, c, d   *big.Int
-	temp1, temp2 *big.Int
-	mutex        sync.Mutex
+	// Pour stocker F(k) et F(k+1)
+	fk, fk1 *big.Int
+	// Variables temporaires pour les calculs
+	temp1, temp2, temp3 *big.Int
+	mutex               sync.Mutex
 }
 
 // NewFibCalculator crée une nouvelle instance de FibCalculator
 func NewFibCalculator() *FibCalculator {
 	return &FibCalculator{
-		a:     big.NewInt(1), // f[k+1]
-		b:     big.NewInt(1), // f[k]
-		c:     big.NewInt(1), // f[k]
-		d:     big.NewInt(0), // f[k-1]
+		fk:    new(big.Int),
+		fk1:   new(big.Int),
 		temp1: new(big.Int),
 		temp2: new(big.Int),
+		temp3: new(big.Int),
 	}
 }
 
-// Calculate calcule le n-ième nombre de Fibonacci avec la méthode Doubling
+// Calculate calcule le n-ième nombre de Fibonacci avec la méthode Doubling correcte
 func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être un entier positif")
@@ -47,44 +46,39 @@ func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 		return big.NewInt(int64(n)), nil
 	}
 
-	// Réinitialisation des matrices
-	fc.a.SetInt64(1) // f[1]
-	fc.b.SetInt64(1) // f[1]
-	fc.c.SetInt64(1) // f[1]
-	fc.d.SetInt64(0) // f[0]
+	// Initialisation
+	fc.fk.SetInt64(0)  // F(0)
+	fc.fk1.SetInt64(1) // F(1)
 
-	// Algorithme de doublement
-	k := n
-	for k > 0 {
-		if k%2 == 1 {
-			// Multiplication des matrices
-			// [a b] = [a b] × [1 1]
-			// [c d]   [c d]   [1 0]
-			fc.temp1.Set(fc.a)
-			fc.temp2.Set(fc.c)
+	// Algorithme de doublement correct
+	for i := 63; i >= 0; i-- { // Parcours des bits de n
+		// Formules:
+		// F(2k) = F(k)[2F(k+1) - F(k)]
+		// F(2k+1) = F(k+1)^2 + F(k)^2
 
-			fc.a.Mul(fc.a, fc.a).Add(fc.a, fc.temp1.Mul(fc.temp1, fc.b))
-			fc.b.Mul(fc.b, fc.temp2).Add(fc.b, fc.temp1)
-			fc.c.Mul(fc.c, fc.a).Add(fc.c, fc.temp2.Mul(fc.temp2, fc.b))
-			fc.d.Mul(fc.d, fc.temp2).Add(fc.d, fc.temp1)
-		}
+		// Sauvegarde de F(k) et F(k+1)
+		fc.temp1.Set(fc.fk)  // temp1 = F(k)
+		fc.temp2.Set(fc.fk1) // temp2 = F(k+1)
 
-		k /= 2
+		// Calcul de F(2k)
+		fc.temp3.Mul(fc.temp2, big.NewInt(2)) // temp3 = 2F(k+1)
+		fc.temp3.Sub(fc.temp3, fc.temp1)      // temp3 = 2F(k+1) - F(k)
+		fc.fk.Mul(fc.temp1, fc.temp3)         // F(k) = F(k)[2F(k+1) - F(k)]
 
-		if k > 0 {
-			// Carré de la matrice
-			// [a b]² = [a² + b² ab]
-			// [c d]    [ac + bd cd]
-			fc.temp1.Mul(fc.a, fc.b)
-			fc.temp2.Mul(fc.c, fc.d)
+		// Calcul de F(2k+1)
+		fc.fk1.Mul(fc.temp2, fc.temp2)   // F(k+1) = F(k+1)^2
+		fc.temp3.Mul(fc.temp1, fc.temp1) // temp3 = F(k)^2
+		fc.fk1.Add(fc.fk1, fc.temp3)     // F(k+1) = F(k+1)^2 + F(k)^2
 
-			fc.b.Mul(fc.b, fc.a.Add(fc.a, fc.c))
-			fc.c.Set(fc.temp1)
-			fc.d.Set(fc.temp2)
+		// Si le bit correspondant de n est 1, on décale
+		if (n & (1 << uint(i))) != 0 {
+			fc.temp3.Set(fc.fk1)      // temp3 = F(2k+1)
+			fc.fk1.Add(fc.fk1, fc.fk) // F(k+1) = F(2k+1) + F(2k)
+			fc.fk.Set(fc.temp3)       // F(k) = F(2k+1)
 		}
 	}
 
-	return new(big.Int).Set(fc.b), nil
+	return new(big.Int).Set(fc.fk), nil
 }
 
 // WorkerPool reste inchangé
@@ -112,7 +106,7 @@ func (wp *WorkerPool) GetCalculator() *FibCalculator {
 	return calc
 }
 
-// Le reste des fonctions utilitaires reste identique
+// Fonctions utilitaires inchangées
 func calcFibonacci(start, end int, pool *WorkerPool, partialResult chan<- *big.Int) {
 	calc := pool.GetCalculator()
 	partialSum := new(big.Int)
@@ -147,7 +141,7 @@ func formatBigIntSci(n *big.Int) string {
 }
 
 func main() {
-	n := 100000
+	n := 1000
 	n = n - 1
 	numWorkers := runtime.NumCPU()
 	segmentSize := n / (numWorkers * 2)
