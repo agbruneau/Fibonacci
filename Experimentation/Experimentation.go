@@ -1,338 +1,345 @@
-// Service Web pour calculer la somme des n premiers nombres de Fibonacci de manière parallélisée.
-// Utilise des techniques avancées de concurrence en Go et gère les grands nombres.
-//
-// Pour utiliser ce service en ligne de commande avec curl :
-//
-// Exemple de requête :
-// curl -X POST http://localhost:8080/fibonacci -H "Content-Type: application/json" -d '{"m": 1000, "numWorkers": 4, "segmentSize": 100, "timeout": "1m"}'
-//
-// Exemple de requête avec configuration par défaut :
-// curl -X POST http://localhost:8080/fibonacci -H "Content-Type: application/json" -d '{}'
-//
-// Les paramètres sont tous optionnels et ont des valeurs par défaut :
-// - m: nombre de termes à calculer (défaut: 100000)
-// - numWorkers: nombre de workers parallèles (défaut: nombre de CPU)
-// - segmentSize: taille des segments de calcul (défaut: 1000)
-// - timeout: durée maximale en format Go (défaut: "5m")
-
+// Package principal du programme
 package main
 
+// Import des bibliothèques nécessaires
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"math/big"
-	"net/http"
-	"runtime"
-	"strings"
-	"sync"
-	"time"
+	"context"  // Pour gérer les contextes et les timeouts
+	"fmt"      // Pour l'affichage formaté
+	"log"      // Pour la journalisation des erreurs
+	"math/big" // Pour gérer les très grands nombres
+	"runtime"  // Pour obtenir des informations sur l'environnement d'exécution
+	"strings"  // Pour manipuler les chaînes de caractères
+	"sync"     // Pour la synchronisation des goroutines
+	"time"     // Pour mesurer le temps et gérer les timeouts
 
-	"github.com/pkg/errors"
+	"github.com/pkg/errors" // Pour une meilleure gestion des erreurs
 )
 
-// Configuration centralise tous les paramètres configurables du programme.
+// Configuration définit tous les paramètres ajustables du programme
+// Cette structure permet de centraliser et modifier facilement les paramètres
 type Configuration struct {
-	M           int           `json:"m"`           // M définit la limite supérieure (exclu) du calcul
-	NumWorkers  int           `json:"numWorkers"`  // Nombre de workers parallèles
-	SegmentSize int           `json:"segmentSize"` // Taille des segments de calcul pour chaque worker
-	Timeout     time.Duration `json:"timeout"`     // Durée maximale autorisée pour le calcul complet
+	M           int           // Nombre maximum de termes de Fibonacci à calculer
+	NumWorkers  int           // Nombre de goroutines de calcul parallèles
+	SegmentSize int           // Nombre de calculs par segment pour chaque worker
+	Timeout     time.Duration // Temps maximum autorisé pour l'ensemble des calculs
 }
 
-// APIRequest représente la structure de la requête JSON
-type APIRequest struct {
-	M           *int   `json:"m,omitempty"`           // Nombre de termes à calculer (optionnel)
-	NumWorkers  *int   `json:"numWorkers,omitempty"`  // Nombre de workers parallèles (optionnel)
-	SegmentSize *int   `json:"segmentSize,omitempty"` // Taille des segments (optionnel)
-	Timeout     string `json:"timeout,omitempty"`     // Durée maximale sous forme de chaîne (optionnel)
-}
-
-// APIResponse représente la structure de la réponse JSON
-type APIResponse struct {
-	Result     string        `json:"result"`          // Résultat du calcul en notation scientifique
-	Duration   time.Duration `json:"duration"`        // Durée totale du calcul
-	Calculs    int64         `json:"calculations"`    // Nombre total de calculs effectués
-	TempsMoyen time.Duration `json:"averageTime"`     // Temps moyen par calcul
-	Error      string        `json:"error,omitempty"` // Message d'erreur (le cas échéant)
-}
-
-// DefaultConfig retourne une configuration par défaut avec des valeurs raisonnables.
+// DefaultConfig retourne une configuration par défaut avec des valeurs optimisées
 func DefaultConfig() Configuration {
 	return Configuration{
-		M:           100000,           // Nombre par défaut de termes de Fibonacci à calculer
-		NumWorkers:  runtime.NumCPU(), // Nombre de workers par défaut égal au nombre de CPU
-		SegmentSize: 1000,             // Taille de segment par défaut
-		Timeout:     5 * time.Minute,  // Délai d'attente par défaut de 5 minutes
+		M:           100000,           // Calcule jusqu'à F(99999)
+		NumWorkers:  runtime.NumCPU(), // Utilise tous les processeurs disponibles
+		SegmentSize: 1000,             // Chaque worker traite 1000 nombres à la fois
+		Timeout:     5 * time.Minute,  // Arrête le calcul après 5 minutes
 	}
 }
 
-// Metrics garde trace des métriques de performance pendant l'exécution.
+// Metrics permet de suivre les performances du programme
+// Cette structure est thread-safe (utilisable en parallèle) grâce au mutex
 type Metrics struct {
-	StartTime         time.Time  // Heure de début
-	EndTime           time.Time  // Heure de fin
-	TotalCalculations int64      // Nombre total de calculs effectués
-	mutex             sync.Mutex // Mutex pour garantir l'accès thread-safe aux métriques
+	StartTime         time.Time  // Moment où le calcul commence
+	EndTime           time.Time  // Moment où le calcul se termine
+	TotalCalculations int64      // Nombre total de nombres de Fibonacci calculés
+	mutex             sync.Mutex // Verrou pour protéger les modifications concurrentes
 }
 
-// NewMetrics crée une nouvelle instance de Metrics initialisée.
+// NewMetrics crée et initialise un nouveau compteur de métriques
 func NewMetrics() *Metrics {
-	return &Metrics{StartTime: time.Now()} // Initialisation de l'heure de début à l'instant courant
+	return &Metrics{StartTime: time.Now()}
 }
 
-// IncrementCalculations incrémente le compteur de calculs de manière thread-safe.
+// IncrementCalculations augmente le compteur de calculs de façon thread-safe
 func (m *Metrics) IncrementCalculations(count int64) {
-	m.mutex.Lock()               // Verrouiller pour éviter la concurrence
-	defer m.mutex.Unlock()       // Déverrouiller après l'opération
-	m.TotalCalculations += count // Incrémenter le compteur de calculs
+	m.mutex.Lock()         // Verrouille l'accès aux données
+	defer m.mutex.Unlock() // Déverrouille à la fin de la fonction
+	m.TotalCalculations += count
 }
 
-// FibCalculator encapsule la logique de calcul des nombres de Fibonacci.
-type FibCalculator struct {
-	fk, fk1             *big.Int   // Variables pour les deux derniers nombres de Fibonacci
-	temp1, temp2, temp3 *big.Int   // Variables temporaires pour le calcul
-	mutex               sync.Mutex // Mutex pour garantir l'accès thread-safe au calculateur
+// Matrix2x2 représente une matrice 2x2 utilisée pour le calcul de Fibonacci
+// La méthode matricielle utilise la propriété que:
+// [1 1]^n = [F(n+1) F(n)  ]
+// [1 0]    [F(n)   F(n-1)]
+type Matrix2x2 struct {
+	a11, a12, a21, a22 *big.Int // Les 4 éléments de la matrice
 }
 
-// NewFibCalculator crée une nouvelle instance de calculateur.
-func NewFibCalculator() *FibCalculator {
-	return &FibCalculator{
-		fk:    new(big.Int), // Initialiser fk
-		fk1:   new(big.Int), // Initialiser fk1
-		temp1: new(big.Int), // Initialiser temp1
-		temp2: new(big.Int), // Initialiser temp2
-		temp3: new(big.Int), // Initialiser temp3
+// NewMatrix2x2 crée une nouvelle matrice 2x2 avec des éléments big.Int
+func NewMatrix2x2() *Matrix2x2 {
+	return &Matrix2x2{
+		a11: new(big.Int), // Élément en position (1,1)
+		a12: new(big.Int), // Élément en position (1,2)
+		a21: new(big.Int), // Élément en position (2,1)
+		a22: new(big.Int), // Élément en position (2,2)
 	}
 }
 
-// Calculate calcule le n-ième nombre de Fibonacci.
+// FibCalculator contient tout le nécessaire pour calculer les nombres de Fibonacci
+type FibCalculator struct {
+	result     *big.Int   // Stocke le résultat du calcul
+	baseMatrix *Matrix2x2 // Matrice de base [1 1; 1 0]
+	tempMatrix *Matrix2x2 // Matrice temporaire pour les calculs
+	powMatrix  *Matrix2x2 // Matrice résultat de l'exponentiation
+	mutex      sync.Mutex // Protection pour l'accès concurrent
+}
+
+// NewFibCalculator initialise un nouveau calculateur de Fibonacci
+func NewFibCalculator() *FibCalculator {
+	fc := &FibCalculator{
+		result:     new(big.Int),
+		baseMatrix: NewMatrix2x2(),
+		tempMatrix: NewMatrix2x2(),
+		powMatrix:  NewMatrix2x2(),
+	}
+
+	// Initialise la matrice de base [[1,1],[1,0]]
+	// Cette matrice est la clé de la méthode matricielle
+	fc.baseMatrix.a11.SetInt64(1)
+	fc.baseMatrix.a12.SetInt64(1)
+	fc.baseMatrix.a21.SetInt64(1)
+	fc.baseMatrix.a22.SetInt64(0)
+
+	return fc
+}
+
+// multiplyMatrices multiplie deux matrices 2x2
+// Le résultat est stocké dans la matrice result
+func (fc *FibCalculator) multiplyMatrices(m1, m2, result *Matrix2x2) {
+	temp1 := new(big.Int) // Variables temporaires pour
+	temp2 := new(big.Int) // éviter les allocations répétées
+
+	// Calcul de chaque élément de la matrice résultante
+	// selon les règles de multiplication matricielle
+
+	// Calcul de result[1,1] = m1[1,1]*m2[1,1] + m1[1,2]*m2[2,1]
+	temp1.Mul(m1.a11, m2.a11)
+	temp2.Mul(m1.a12, m2.a21)
+	result.a11.Add(temp1, temp2)
+
+	// Calcul de result[1,2] = m1[1,1]*m2[1,2] + m1[1,2]*m2[2,2]
+	temp1.Mul(m1.a11, m2.a12)
+	temp2.Mul(m1.a12, m2.a22)
+	result.a12.Add(temp1, temp2)
+
+	// Calcul de result[2,1] = m1[2,1]*m2[1,1] + m1[2,2]*m2[2,1]
+	temp1.Mul(m1.a21, m2.a11)
+	temp2.Mul(m1.a22, m2.a21)
+	result.a21.Add(temp1, temp2)
+
+	// Calcul de result[2,2] = m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2]
+	temp1.Mul(m1.a21, m2.a12)
+	temp2.Mul(m1.a22, m2.a22)
+	result.a22.Add(temp1, temp2)
+}
+
+// matrixPower calcule la puissance n-ième de la matrice de base
+// Utilise l'algorithme d'exponentiation rapide (complexity O(log n))
+func (fc *FibCalculator) matrixPower(n int) {
+	// Initialise la matrice résultat à la matrice identité
+	fc.powMatrix.a11.SetInt64(1)
+	fc.powMatrix.a12.SetInt64(0)
+	fc.powMatrix.a21.SetInt64(0)
+	fc.powMatrix.a22.SetInt64(1)
+
+	// Crée une copie de la matrice de base pour les calculs
+	base := NewMatrix2x2()
+	base.a11.Set(fc.baseMatrix.a11)
+	base.a12.Set(fc.baseMatrix.a12)
+	base.a21.Set(fc.baseMatrix.a21)
+	base.a22.Set(fc.baseMatrix.a22)
+
+	// Algorithme d'exponentiation rapide
+	// Au lieu de multiplier n fois, on utilise la décomposition binaire de n
+	// Par exemple, pour n=13 (1101 en binaire), on calcule:
+	// M^13 = M^8 * M^4 * M^1
+	for n > 0 {
+		if n&1 == 1 { // Si le bit actuel est 1
+			// Multiplie le résultat par la puissance actuelle
+			fc.multiplyMatrices(fc.powMatrix, base, fc.tempMatrix)
+			fc.powMatrix, fc.tempMatrix = fc.tempMatrix, fc.powMatrix
+		}
+		// Carré la puissance actuelle
+		fc.multiplyMatrices(base, base, fc.tempMatrix)
+		base, fc.tempMatrix = fc.tempMatrix, base
+		n >>= 1 // Passe au bit suivant
+	}
+}
+
+// Calculate calcule le n-ième nombre de Fibonacci
 func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
+	// Vérifie que n est valide
 	if n < 0 {
-		return nil, errors.New("n doit être non-négatif") // Vérifier que n est non-négatif
+		return nil, errors.New("n doit être non-négatif")
 	}
 	if n > 1000001 {
-		return nil, errors.New("n est trop grand, risque de calculs extrêmement coûteux") // Limiter la valeur maximale de n
+		return nil, errors.New("n est trop grand, risque de calculs extrêmement coûteux")
 	}
 
-	fc.mutex.Lock()         // Verrouiller pour garantir l'accès exclusif aux variables internes
-	defer fc.mutex.Unlock() // Déverrouiller à la fin de l'opération
+	// Protection contre les accès concurrents
+	fc.mutex.Lock()
+	defer fc.mutex.Unlock()
 
+	// Cas de base pour F(0) et F(1)
 	if n <= 1 {
-		return big.NewInt(int64(n)), nil // Retourner directement le résultat pour n = 0 ou n = 1
+		return big.NewInt(int64(n)), nil
 	}
 
-	// Initialiser les deux premiers termes de la suite de Fibonacci
-	fc.fk.SetInt64(0)
-	fc.fk1.SetInt64(1)
+	// Utilise l'exponentiation matricielle pour n > 1
+	fc.matrixPower(n - 1)
 
-	// Utiliser la méthode de doublement pour calculer rapidement le n-ième terme
-	for i := 63; i >= 0; i-- {
-		// Calculer les termes temporaires selon l'algorithme de doublement
-		fc.temp1.Set(fc.fk)
-		fc.temp2.Set(fc.fk1)
-
-		fc.temp3.Mul(fc.temp2, big.NewInt(2)) // temp3 = 2 * fk1
-		fc.temp3.Sub(fc.temp3, fc.temp1)      // temp3 = 2 * fk1 - fk
-		fc.fk.Mul(fc.temp1, fc.temp3)         // fk = fk * temp3
-
-		fc.fk1.Mul(fc.temp2, fc.temp2)   // fk1 = fk1^2
-		fc.temp3.Mul(fc.temp1, fc.temp1) // temp3 = fk^2
-		fc.fk1.Add(fc.fk1, fc.temp3)     // fk1 = fk1^2 + fk^2
-
-		if (n & (1 << uint(i))) != 0 {
-			// Si le bit i est 1, continuer le calcul
-			fc.temp3.Set(fc.fk1)
-			fc.fk1.Add(fc.fk1, fc.fk) // fk1 = fk1 + fk
-			fc.fk.Set(fc.temp3)       // fk = temp3 (ancien fk1)
-		}
-	}
-
-	return new(big.Int).Set(fc.fk), nil // Retourner le résultat final
+	// F(n) est l'élément [1,1] de la matrice résultante
+	return new(big.Int).Set(fc.powMatrix.a11), nil
 }
 
-// WorkerPool gère un pool de calculateurs réutilisables.
+// WorkerPool gère un ensemble de calculateurs réutilisables
 type WorkerPool struct {
-	calculators []*FibCalculator // Liste des calculateurs disponibles
+	calculators []*FibCalculator // Tableau des calculateurs disponibles
 	current     int              // Index du prochain calculateur à utiliser
-	mutex       sync.Mutex       // Mutex pour garantir l'accès thread-safe au pool
+	mutex       sync.Mutex       // Protection pour l'accès concurrent
 }
 
-// NewWorkerPool crée un nouveau pool avec le nombre spécifié de calculateurs.
+// NewWorkerPool crée un nouveau pool de calculateurs
 func NewWorkerPool(size int) *WorkerPool {
 	calculators := make([]*FibCalculator, size)
 	for i := range calculators {
-		calculators[i] = NewFibCalculator() // Créer un nouveau calculateur pour chaque worker
+		calculators[i] = NewFibCalculator()
 	}
 	return &WorkerPool{
 		calculators: calculators,
 	}
 }
 
-// GetCalculator retourne le prochain calculateur disponible.
+// GetCalculator retourne le prochain calculateur disponible
+// de manière circulaire (round-robin)
 func (wp *WorkerPool) GetCalculator() *FibCalculator {
-	wp.mutex.Lock()                                     // Verrouiller pour éviter la concurrence
-	defer wp.mutex.Unlock()                             // Déverrouiller après avoir sélectionné le calculateur
-	calc := wp.calculators[wp.current]                  // Récupérer le calculateur courant
-	wp.current = (wp.current + 1) % len(wp.calculators) // Passer au calculateur suivant
+	wp.mutex.Lock()
+	defer wp.mutex.Unlock()
+	calc := wp.calculators[wp.current]
+	wp.current = (wp.current + 1) % len(wp.calculators)
 	return calc
 }
 
-// Result encapsule le résultat d'un calcul avec une potentielle erreur.
+// Result encapsule le résultat d'un calcul avec une potentielle erreur
 type Result struct {
-	Value *big.Int // Valeur calculée
-	Error error    // Erreur potentielle
+	Value *big.Int // Le résultat du calcul
+	Error error    // L'erreur éventuelle
 }
 
-// computeSegment calcule la somme des nombres de Fibonacci pour un segment.
+// computeSegment calcule la somme des nombres de Fibonacci pour un segment donné
 func computeSegment(ctx context.Context, start, end int, pool *WorkerPool, metrics *Metrics) Result {
-	calc := pool.GetCalculator()   // Obtenir un calculateur du pool
-	partialSum := new(big.Int)     // Initialiser la somme partielle
-	segmentSize := end - start + 1 // Taille du segment à calculer
+	calc := pool.GetCalculator() // Obtient un calculateur du pool
+	partialSum := new(big.Int)   // Pour stocker la somme partielle
+	segmentSize := end - start + 1
 
+	// Calcule chaque nombre de Fibonacci dans le segment
 	for i := start; i <= end; i++ {
 		select {
-		case <-ctx.Done():
-			// Si le contexte est annulé, retourner une erreur
+		case <-ctx.Done(): // Vérifie si le timeout est atteint
 			return Result{Error: ctx.Err()}
 		default:
-			// Calculer le n-ième terme de Fibonacci
+			// Calcule F(i) et l'ajoute à la somme partielle
 			fibValue, err := calc.Calculate(i)
 			if err != nil {
 				return Result{Error: errors.Wrapf(err, "computing Fibonacci(%d)", i)}
 			}
-			partialSum.Add(partialSum, fibValue) // Ajouter le terme à la somme partielle
+			partialSum.Add(partialSum, fibValue)
 		}
 	}
 
-	metrics.IncrementCalculations(int64(segmentSize)) // Mettre à jour le compteur de calculs
-	return Result{Value: partialSum}                  // Retourner la somme partielle
+	metrics.IncrementCalculations(int64(segmentSize))
+	return Result{Value: partialSum}
 }
 
-// formatBigIntSci formate un grand nombre en notation scientifique.
+// formatBigIntSci formate un grand nombre en notation scientifique
 func formatBigIntSci(n *big.Int) string {
-	numStr := n.String()  // Convertir le nombre en chaîne de caractères
-	numLen := len(numStr) // Longueur du nombre
+	numStr := n.String()
+	numLen := len(numStr)
 
-	if numLen <= 5 {
-		return numStr // Si la longueur est inférieure à 5, retourner directement la chaîne
+	if numLen <= 5 { // Pour les petits nombres, pas de notation scientifique
+		return numStr
 	}
 
-	significand := numStr[:5] // Les 5 premiers chiffres significatifs
-	exponent := numLen - 1    // Exposant basé sur la longueur
+	// Extrait les 5 premiers chiffres pour la mantisse
+	significand := numStr[:5]
+	exponent := numLen - 1
 
-	formattedNum := significand[:1] + "." + significand[1:]                     // Formater le nombre avec un point décimal
-	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".") // Supprimer les zéros et points inutiles
+	// Formate en notation scientifique (ex: 1.2345e6)
+	formattedNum := significand[:1] + "." + significand[1:]
+	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
 
-	return fmt.Sprintf("%se%d", formattedNum, exponent) // Retourner le nombre en notation scientifique
+	return fmt.Sprintf("%se%d", formattedNum, exponent)
 }
 
-// handleFibonacci gère les requêtes HTTP pour le calcul de Fibonacci
-func handleFibonacci(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed) // Vérifier que la méthode est POST
-		return
-	}
+// main est le point d'entrée du programme
+func main() {
+	// Initialisation
+	config := DefaultConfig()
+	metrics := NewMetrics()
+	n := config.M - 1
 
-	var req APIRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Erreur de décodage JSON: "+err.Error(), http.StatusBadRequest) // Gérer les erreurs de décodage JSON
-		return
-	}
-
-	config := DefaultConfig() // Charger la configuration par défaut
-
-	// Mettre à jour la configuration avec les valeurs fournies par l'utilisateur
-	if req.M != nil {
-		config.M = *req.M
-	}
-	if req.NumWorkers != nil {
-		config.NumWorkers = *req.NumWorkers
-	}
-	if req.SegmentSize != nil {
-		config.SegmentSize = *req.SegmentSize
-	}
-	if req.Timeout != "" {
-		timeout, err := time.ParseDuration(req.Timeout)
-		if err != nil {
-			http.Error(w, "Format de timeout invalide: "+err.Error(), http.StatusBadRequest) // Gérer les erreurs de format de timeout
-			return
-		}
-		config.Timeout = timeout
-	}
-
-	metrics := NewMetrics()                                         // Initialiser les métriques
-	ctx, cancel := context.WithTimeout(r.Context(), config.Timeout) // Créer un contexte avec délai d'attente
+	// Crée un contexte avec timeout
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	n := config.M - 1
-	pool := NewWorkerPool(config.NumWorkers)        // Créer un pool de calculateurs
-	results := make(chan Result, config.NumWorkers) // Canal pour recevoir les résultats
+	// Initialise le pool de workers et les canaux
+	pool := NewWorkerPool(config.NumWorkers)
+	results := make(chan Result, config.NumWorkers)
 	var wg sync.WaitGroup
 
-	// Lancer des goroutines pour calculer les segments en parallèle
+	// Distribue le travail aux workers
 	for start := 0; start < n; start += config.SegmentSize {
 		end := start + config.SegmentSize - 1
 		if end >= n {
 			end = n - 1
 		}
 
+		// Lance une goroutine pour chaque segment
 		wg.Add(1)
 		go func(start, end int) {
-			defer wg.Done()                                          // Décrémenter le compteur quand la goroutine se termine
-			result := computeSegment(ctx, start, end, pool, metrics) // Calculer le segment
-			results <- result                                        // Envoyer le résultat au canal
+			defer wg.Done()
+			result := computeSegment(ctx, start, end, pool, metrics)
+			results <- result
 		}(start, end)
 	}
 
-	// Attendre la fin de toutes les goroutines et fermer le canal de résultats
+	// Goroutine pour fermer le canal results quand tout est terminé
 	go func() {
 		wg.Wait()
 		close(results)
 	}()
 
-	sumFib := new(big.Int) // Initialiser la somme totale des termes de Fibonacci
-	var calcError error
+	// Collecte et agrège les résultats
+	sumFib := new(big.Int)
+	hasErrors := false
 
-	// Lire les résultats des goroutines
 	for result := range results {
 		if result.Error != nil {
-			calcError = result.Error
-			break
+			log.Printf("Erreur durant le calcul: %v", result.Error)
+			hasErrors = true
+			continue
 		}
-		sumFib.Add(sumFib, result.Value) // Ajouter la valeur partielle à la somme totale
+		sumFib.Add(sumFib, result.Value)
 	}
 
-	metrics.EndTime = time.Now()                                   // Enregistrer l'heure de fin
-	duration := metrics.EndTime.Sub(metrics.StartTime)             // Calculer la durée totale du calcul
-	avgTime := duration / time.Duration(metrics.TotalCalculations) // Calculer le temps moyen par calcul
-
-	// Construire la réponse API
-	response := APIResponse{
-		Duration:   duration,
-		Calculs:    metrics.TotalCalculations,
-		TempsMoyen: avgTime,
+	if hasErrors {
+		log.Printf("Des erreurs sont survenues pendant le calcul")
 	}
 
-	if calcError != nil {
-		response.Error = calcError.Error() // Enregistrer l'erreur si une erreur est survenue
-	} else {
-		response.Result = formatBigIntSci(sumFib) // Formater le résultat final
-	}
+	// Calcul et affichage des métriques finales
+	metrics.EndTime = time.Now()
+	duration := metrics.EndTime.Sub(metrics.StartTime)
+	avgTime := duration / time.Duration(metrics.TotalCalculations)
 
-	w.Header().Set("Content-Type", "application/json") // Définir le type de contenu de la réponse
-	if calcError != nil {
-		w.WriteHeader(http.StatusInternalServerError) // Si une erreur est survenue, retourner un code d'erreur HTTP
-	}
+	// Affiche les résultats
+	fmt.Printf("\nConfiguration:\n")
+	fmt.Printf("  Nombre de workers: %d\n", config.NumWorkers)
+	fmt.Printf("  Taille des segments: %d\n", config.SegmentSize)
+	fmt.Printf("  Valeur de m: %d\n", config.M)
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Erreur d'encodage de la réponse: %v", err) // Enregistrer toute erreur survenue lors de l'encodage de la réponse
-	}
-}
+	fmt.Printf("\nPerformance:\n")
+	fmt.Printf("  Temps total d'exécution: %v\n", duration)
+	fmt.Printf("  Nombre de calculs: %d\n", metrics.TotalCalculations)
+	fmt.Printf("  Temps moyen par calcul: %v\n", avgTime)
 
-func main() {
-	http.HandleFunc("/fibonacci", handleFibonacci) // Associer la route /fibonacci au gestionnaire
-
-	port := ":8080"
-	fmt.Printf("Serveur démarré sur le port %s\n", port) // Afficher un message pour indiquer que le serveur est démarré
-	log.Fatal(http.ListenAndServe(port, nil))            // Lancer le serveur HTTP sur le port 8080
+	fmt.Printf("\nRésultat:\n")
+	fmt.Printf("  Somme des Fibonacci(0..%d): %s\n", config.M, formatBigIntSci(sumFib))
 }

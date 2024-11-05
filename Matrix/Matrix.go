@@ -1,170 +1,203 @@
-/*
- * Matrix-ClaudeAI
- *
- * Langage : Go
- *
- * Description :
- * Ce programme implémente une méthode efficace et concurrente pour le calcul de la suite de Fibonacci,
- * utilisant l'algorithme d'exponentiation rapide des matrices. Pour maximiser l'efficacité, il fait appel à
- * des techniques de parallélisation via un pool de workers. Le calcul se fait de manière itérative en
- * utilisant des structures de données adaptées aux grands nombres (big.Int) pour gérer les grandes valeurs
- * de la suite de Fibonacci.
- *
- * Fonctionnalités :
- * - Calcul d'un nombre de Fibonacci via exponentiation rapide des matrices (logarithmique en complexité).
- * - Utilisation d'un cache pour éviter les recalculs de valeurs déjà obtenues.
- * - Pool de workers pour paralléliser le calcul des segments de la suite de Fibonacci.
- * - Gestion des ressources via des sémaphores pour coordonner les accès concurrents.
- * - Gestion du contexte et de l'annulation pour garantir que les calculs ne dépassent pas les contraintes
- *   temporelles définies.
- *
- * Structure :
- * 1. Matrix2x2 : Représentation d'une matrice 2x2 nécessaire pour le calcul.
- * 2. FibCalculator : Gestion du calcul de Fibonacci en utilisant les matrices.
- * 3. WorkerPool : Gestion d'un pool de workers pour distribuer le calcul des segments de Fibonacci.
- * 4. Fonction Main : Initialisation du pool de workers, distribution du travail et collecte des résultats.
- *
- * Ce programme est conçu pour démontrer l'utilisation des techniques de calcul efficace combinées à la
- * parallélisation, avec une gestion appropriée des ressources et des grandes valeurs numériques.
- */
-
+// Package principal du programme
 package main
 
+// Import des bibliothèques nécessaires
 import (
-	"context"     // Gestion du contexte pour l'annulation et les délais d'expiration
-	"fmt"         // Utilisé pour l'affichage formaté des résultats et des erreurs
-	"math/big"    // Bibliothèque pour manipuler des grands entiers (big.Int) nécessaires pour les grands nombres de Fibonacci
-	"runtime"     // Utilisé pour obtenir le nombre de CPU disponibles pour la parallélisation
-	"sync"        // Fournit des primitives de synchronisation, comme sync.Mutex et sync.WaitGroup
-	"sync/atomic" // Opérations atomiques pour gérer les accès concurrents aux variables partagées
-	"time"        // Utilisé pour gérer les délais d'expiration et mesurer la durée des calculs
+	"context"  // Pour gérer les contextes et les timeouts
+	"fmt"      // Pour l'affichage formaté
+	"log"      // Pour la journalisation des erreurs
+	"math/big" // Pour gérer les très grands nombres
+	"runtime"  // Pour obtenir des informations sur l'environnement d'exécution
+	"strings"  // Pour manipuler les chaînes de caractères
+	"sync"     // Pour la synchronisation des goroutines
+	"time"     // Pour mesurer le temps et gérer les timeouts
 
-	"golang.org/x/sync/semaphore" // Implémentation des sémaphores pour gérer l'accès concurrent aux workers
+	"github.com/pkg/errors" // Pour une meilleure gestion des erreurs
 )
 
-// Matrix2x2 représente une matrice 2x2 pour le calcul de Fibonacci
-type Matrix2x2 struct {
-	a00, a01, a10, a11 *big.Int
+// Configuration définit tous les paramètres ajustables du programme
+// Cette structure permet de centraliser et modifier facilement les paramètres
+type Configuration struct {
+	M           int           // Nombre maximum de termes de Fibonacci à calculer
+	NumWorkers  int           // Nombre de goroutines de calcul parallèles
+	SegmentSize int           // Nombre de calculs par segment pour chaque worker
+	Timeout     time.Duration // Temps maximum autorisé pour l'ensemble des calculs
 }
 
-// NewMatrix2x2 crée une nouvelle matrice 2x2
+// DefaultConfig retourne une configuration par défaut avec des valeurs optimisées
+func DefaultConfig() Configuration {
+	return Configuration{
+		M:           100000,           // Calcule jusqu'à F(99999)
+		NumWorkers:  runtime.NumCPU(), // Utilise tous les processeurs disponibles
+		SegmentSize: 1000,             // Chaque worker traite 1000 nombres à la fois
+		Timeout:     5 * time.Minute,  // Arrête le calcul après 5 minutes
+	}
+}
+
+// Metrics permet de suivre les performances du programme
+// Cette structure est thread-safe (utilisable en parallèle) grâce au mutex
+type Metrics struct {
+	StartTime         time.Time  // Moment où le calcul commence
+	EndTime           time.Time  // Moment où le calcul se termine
+	TotalCalculations int64      // Nombre total de nombres de Fibonacci calculés
+	mutex             sync.Mutex // Verrou pour protéger les modifications concurrentes
+}
+
+// NewMetrics crée et initialise un nouveau compteur de métriques
+func NewMetrics() *Metrics {
+	return &Metrics{StartTime: time.Now()}
+}
+
+// IncrementCalculations augmente le compteur de calculs de façon thread-safe
+func (m *Metrics) IncrementCalculations(count int64) {
+	m.mutex.Lock()         // Verrouille l'accès aux données
+	defer m.mutex.Unlock() // Déverrouille à la fin de la fonction
+	m.TotalCalculations += count
+}
+
+// Matrix2x2 représente une matrice 2x2 utilisée pour le calcul de Fibonacci
+// La méthode matricielle utilise la propriété que:
+// [1 1]^n = [F(n+1) F(n)  ]
+// [1 0]    [F(n)   F(n-1)]
+type Matrix2x2 struct {
+	a11, a12, a21, a22 *big.Int // Les 4 éléments de la matrice
+}
+
+// NewMatrix2x2 crée une nouvelle matrice 2x2 avec des éléments big.Int
 func NewMatrix2x2() *Matrix2x2 {
 	return &Matrix2x2{
-		a00: new(big.Int), a01: new(big.Int),
-		a10: new(big.Int), a11: new(big.Int),
+		a11: new(big.Int), // Élément en position (1,1)
+		a12: new(big.Int), // Élément en position (1,2)
+		a21: new(big.Int), // Élément en position (2,1)
+		a22: new(big.Int), // Élément en position (2,2)
 	}
 }
 
-// FibCalculator encapsule la logique de calcul de Fibonacci
+// FibCalculator contient tout le nécessaire pour calculer les nombres de Fibonacci
 type FibCalculator struct {
-	cache     sync.Map
-	matrix    *Matrix2x2
-	tempMat   *Matrix2x2
-	resultMat *Matrix2x2
-	mutex     sync.Mutex
+	result     *big.Int   // Stocke le résultat du calcul
+	baseMatrix *Matrix2x2 // Matrice de base [1 1; 1 0]
+	tempMatrix *Matrix2x2 // Matrice temporaire pour les calculs
+	powMatrix  *Matrix2x2 // Matrice résultat de l'exponentiation
+	mutex      sync.Mutex // Protection pour l'accès concurrent
 }
 
-// NewFibCalculator crée une nouvelle instance de FibCalculator
+// NewFibCalculator initialise un nouveau calculateur de Fibonacci
 func NewFibCalculator() *FibCalculator {
 	fc := &FibCalculator{
-		matrix:    NewMatrix2x2(),
-		tempMat:   NewMatrix2x2(),
-		resultMat: NewMatrix2x2(),
+		result:     new(big.Int),
+		baseMatrix: NewMatrix2x2(),
+		tempMatrix: NewMatrix2x2(),
+		powMatrix:  NewMatrix2x2(),
 	}
+
+	// Initialise la matrice de base [[1,1],[1,0]]
+	// Cette matrice est la clé de la méthode matricielle
+	fc.baseMatrix.a11.SetInt64(1)
+	fc.baseMatrix.a12.SetInt64(1)
+	fc.baseMatrix.a21.SetInt64(1)
+	fc.baseMatrix.a22.SetInt64(0)
+
 	return fc
 }
 
-// multiplyMatrix multiplie deux matrices 2x2
-func (fc *FibCalculator) multiplyMatrix(m1, m2, result *Matrix2x2) {
-	// Calcul des nouvelles valeurs des éléments de la matrice résultat
-	temp00 := new(big.Int).Mul(m1.a00, m2.a00)
-	temp00.Add(temp00, new(big.Int).Mul(m1.a01, m2.a10))
+// multiplyMatrices multiplie deux matrices 2x2
+// Le résultat est stocké dans la matrice result
+func (fc *FibCalculator) multiplyMatrices(m1, m2, result *Matrix2x2) {
+	temp1 := new(big.Int) // Variables temporaires pour
+	temp2 := new(big.Int) // éviter les allocations répétées
 
-	temp01 := new(big.Int).Mul(m1.a00, m2.a01)
-	temp01.Add(temp01, new(big.Int).Mul(m1.a01, m2.a11))
+	// Calcul de chaque élément de la matrice résultante
+	// selon les règles de multiplication matricielle
 
-	temp10 := new(big.Int).Mul(m1.a10, m2.a00)
-	temp10.Add(temp10, new(big.Int).Mul(m1.a11, m2.a10))
+	// Calcul de result[1,1] = m1[1,1]*m2[1,1] + m1[1,2]*m2[2,1]
+	temp1.Mul(m1.a11, m2.a11)
+	temp2.Mul(m1.a12, m2.a21)
+	result.a11.Add(temp1, temp2)
 
-	temp11 := new(big.Int).Mul(m1.a10, m2.a01)
-	temp11.Add(temp11, new(big.Int).Mul(m1.a11, m2.a11))
+	// Calcul de result[1,2] = m1[1,1]*m2[1,2] + m1[1,2]*m2[2,2]
+	temp1.Mul(m1.a11, m2.a12)
+	temp2.Mul(m1.a12, m2.a22)
+	result.a12.Add(temp1, temp2)
 
-	// Mettre à jour les valeurs de la matrice résultat
-	result.a00.Set(temp00)
-	result.a01.Set(temp01)
-	result.a10.Set(temp10)
-	result.a11.Set(temp11)
+	// Calcul de result[2,1] = m1[2,1]*m2[1,1] + m1[2,2]*m2[2,1]
+	temp1.Mul(m1.a21, m2.a11)
+	temp2.Mul(m1.a22, m2.a21)
+	result.a21.Add(temp1, temp2)
+
+	// Calcul de result[2,2] = m1[2,1]*m2[1,2] + m1[2,2]*m2[2,2]
+	temp1.Mul(m1.a21, m2.a12)
+	temp2.Mul(m1.a22, m2.a22)
+	result.a22.Add(temp1, temp2)
+}
+
+// matrixPower calcule la puissance n-ième de la matrice de base
+// Utilise l'algorithme d'exponentiation rapide (complexity O(log n))
+func (fc *FibCalculator) matrixPower(n int) {
+	// Initialise la matrice résultat à la matrice identité
+	fc.powMatrix.a11.SetInt64(1)
+	fc.powMatrix.a12.SetInt64(0)
+	fc.powMatrix.a21.SetInt64(0)
+	fc.powMatrix.a22.SetInt64(1)
+
+	// Crée une copie de la matrice de base pour les calculs
+	base := NewMatrix2x2()
+	base.a11.Set(fc.baseMatrix.a11)
+	base.a12.Set(fc.baseMatrix.a12)
+	base.a21.Set(fc.baseMatrix.a21)
+	base.a22.Set(fc.baseMatrix.a22)
+
+	// Algorithme d'exponentiation rapide
+	// Au lieu de multiplier n fois, on utilise la décomposition binaire de n
+	// Par exemple, pour n=13 (1101 en binaire), on calcule:
+	// M^13 = M^8 * M^4 * M^1
+	for n > 0 {
+		if n&1 == 1 { // Si le bit actuel est 1
+			// Multiplie le résultat par la puissance actuelle
+			fc.multiplyMatrices(fc.powMatrix, base, fc.tempMatrix)
+			fc.powMatrix, fc.tempMatrix = fc.tempMatrix, fc.powMatrix
+		}
+		// Carré la puissance actuelle
+		fc.multiplyMatrices(base, base, fc.tempMatrix)
+		base, fc.tempMatrix = fc.tempMatrix, base
+		n >>= 1 // Passe au bit suivant
+	}
 }
 
 // Calculate calcule le n-ième nombre de Fibonacci
-func (fc *FibCalculator) Calculate(ctx context.Context, n int) (*big.Int, error) {
+func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
+	// Vérifie que n est valide
 	if n < 0 {
-		return nil, fmt.Errorf("n doit être positif")
+		return nil, errors.New("n doit être non-négatif")
+	}
+	if n > 1000001 {
+		return nil, errors.New("n est trop grand, risque de calculs extrêmement coûteux")
 	}
 
-	// Vérifier si le contexte a été annulé
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
-	// Vérifier si la valeur est déjà en cache
-	if cachedValue, ok := fc.cache.Load(n); ok {
-		return new(big.Int).Set(cachedValue.(*big.Int)), nil
-	}
-
-	// Mutex pour empêcher les écritures concurrentes
+	// Protection contre les accès concurrents
 	fc.mutex.Lock()
 	defer fc.mutex.Unlock()
 
-	// Initialiser la matrice de base pour la multiplication
-	fc.matrix.a00.SetInt64(1)
-	fc.matrix.a01.SetInt64(1)
-	fc.matrix.a10.SetInt64(1)
-	fc.matrix.a11.SetInt64(0)
-
-	// Initialiser la matrice résultat comme matrice identité (neutre pour la multiplication)
-	fc.resultMat.a00.SetInt64(1)
-	fc.resultMat.a01.SetInt64(0)
-	fc.resultMat.a10.SetInt64(0)
-	fc.resultMat.a11.SetInt64(1)
-
-	// Exponentiation rapide de la matrice pour calculer Fibonacci en temps logarithmique
-	power := n - 1
-	for power > 0 {
-		// Si le bit actuel est à 1, multiplier la matrice résultat par la matrice de base
-		if power&1 == 1 {
-			fc.multiplyMatrix(fc.resultMat, fc.matrix, fc.tempMat)
-			fc.resultMat, fc.tempMat = fc.tempMat, fc.resultMat
-		}
-		// Élever la matrice de base au carré
-		fc.multiplyMatrix(fc.matrix, fc.matrix, fc.tempMat)
-		fc.matrix, fc.tempMat = fc.tempMat, fc.matrix
-		power >>= 1
-
-		// Vérifier le contexte périodiquement pour l'annulation
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
+	// Cas de base pour F(0) et F(1)
+	if n <= 1 {
+		return big.NewInt(int64(n)), nil
 	}
 
-	// Stocker le résultat dans le cache et le retourner
-	result := new(big.Int).Set(fc.resultMat.a00)
-	fc.cache.Store(n, result)
-	return result, nil
+	// Utilise l'exponentiation matricielle pour n > 1
+	fc.matrixPower(n - 1)
+
+	// F(n) est l'élément [1,1] de la matrice résultante
+	return new(big.Int).Set(fc.powMatrix.a11), nil
 }
 
-// WorkerPool gère un pool de workers pour le calcul parallèle
+// WorkerPool gère un ensemble de calculateurs réutilisables
 type WorkerPool struct {
-	calculators []*FibCalculator
-	sem         *semaphore.Weighted
-	current     uint64
+	calculators []*FibCalculator // Tableau des calculateurs disponibles
+	current     int              // Index du prochain calculateur à utiliser
+	mutex       sync.Mutex       // Protection pour l'accès concurrent
 }
 
-// NewWorkerPool crée un nouveau pool de workers
+// NewWorkerPool crée un nouveau pool de calculateurs
 func NewWorkerPool(size int) *WorkerPool {
 	calculators := make([]*FibCalculator, size)
 	for i := range calculators {
@@ -172,117 +205,141 @@ func NewWorkerPool(size int) *WorkerPool {
 	}
 	return &WorkerPool{
 		calculators: calculators,
-		sem:         semaphore.NewWeighted(int64(size)),
 	}
 }
 
-// GetCalculator obtient un calculateur du pool de façon à équilibrer la charge
+// GetCalculator retourne le prochain calculateur disponible
+// de manière circulaire (round-robin)
 func (wp *WorkerPool) GetCalculator() *FibCalculator {
-	current := atomic.AddUint64(&wp.current, 1)
-	return wp.calculators[current%uint64(len(wp.calculators))]
+	wp.mutex.Lock()
+	defer wp.mutex.Unlock()
+	calc := wp.calculators[wp.current]
+	wp.current = (wp.current + 1) % len(wp.calculators)
+	return calc
 }
 
-// ProcessSegment traite un segment de calculs Fibonacci
-func (wp *WorkerPool) ProcessSegment(ctx context.Context, start, end int, results chan<- *big.Int) error {
-	// Acquérir un "permis" pour un worker avant de démarrer un calcul
-	if err := wp.sem.Acquire(ctx, 1); err != nil {
-		return err
-	}
-	defer wp.sem.Release(1)
+// Result encapsule le résultat d'un calcul avec une potentielle erreur
+type Result struct {
+	Value *big.Int // Le résultat du calcul
+	Error error    // L'erreur éventuelle
+}
 
-	// Obtenir un calculateur du pool
-	calc := wp.GetCalculator()
-	sum := new(big.Int)
+// computeSegment calcule la somme des nombres de Fibonacci pour un segment donné
+func computeSegment(ctx context.Context, start, end int, pool *WorkerPool, metrics *Metrics) Result {
+	calc := pool.GetCalculator() // Obtient un calculateur du pool
+	partialSum := new(big.Int)   // Pour stocker la somme partielle
+	segmentSize := end - start + 1
 
-	// Calculer la somme des nombres de Fibonacci dans le segment donné
+	// Calcule chaque nombre de Fibonacci dans le segment
 	for i := start; i <= end; i++ {
-		// Vérifier si le contexte a été annulé
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-ctx.Done(): // Vérifie si le timeout est atteint
+			return Result{Error: ctx.Err()}
 		default:
-			fibValue, err := calc.Calculate(ctx, i)
+			// Calcule F(i) et l'ajoute à la somme partielle
+			fibValue, err := calc.Calculate(i)
 			if err != nil {
-				return err
+				return Result{Error: errors.Wrapf(err, "computing Fibonacci(%d)", i)}
 			}
-			sum.Add(sum, fibValue)
+			partialSum.Add(partialSum, fibValue)
 		}
 	}
 
-	// Envoyer la somme partielle sur le canal des résultats
-	select {
-	case results <- sum:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	metrics.IncrementCalculations(int64(segmentSize))
+	return Result{Value: partialSum}
 }
 
-func main() {
-	// Créer un contexte avec une limite de temps
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+// formatBigIntSci formate un grand nombre en notation scientifique
+func formatBigIntSci(n *big.Int) string {
+	numStr := n.String()
+	numLen := len(numStr)
 
-	n := 100000                   // Limite de la suite de Fibonacci
-	numCPU := runtime.NumCPU()    // Nombre de CPU disponibles
-	pool := NewWorkerPool(numCPU) // Créer un pool de workers
-
-	// Calculer la taille optimale des segments à traiter par les workers
-	segmentSize := 1000
-	if n > 10000 {
-		segmentSize = n / (numCPU * 4)
+	if numLen <= 5 { // Pour les petits nombres, pas de notation scientifique
+		return numStr
 	}
 
-	results := make(chan *big.Int, numCPU)
+	// Extrait les 5 premiers chiffres pour la mantisse
+	significand := numStr[:5]
+	exponent := numLen - 1
+
+	// Formate en notation scientifique (ex: 1.2345e6)
+	formattedNum := significand[:1] + "." + significand[1:]
+	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+
+	return fmt.Sprintf("%se%d", formattedNum, exponent)
+}
+
+// main est le point d'entrée du programme
+func main() {
+	// Initialisation
+	config := DefaultConfig()
+	metrics := NewMetrics()
+	n := config.M - 1
+
+	// Crée un contexte avec timeout
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	defer cancel()
+
+	// Initialise le pool de workers et les canaux
+	pool := NewWorkerPool(config.NumWorkers)
+	results := make(chan Result, config.NumWorkers)
 	var wg sync.WaitGroup
-	var errCount uint64
 
-	startTime := time.Now()
-
-	// Distribuer le travail entre les workers
-	for start := 0; start < n; start += segmentSize {
-		end := start + segmentSize - 1
+	// Distribue le travail aux workers
+	for start := 0; start < n; start += config.SegmentSize {
+		end := start + config.SegmentSize - 1
 		if end >= n {
 			end = n - 1
 		}
 
+		// Lance une goroutine pour chaque segment
 		wg.Add(1)
-		go func(s, e int) {
+		go func(start, end int) {
 			defer wg.Done()
-			if err := pool.ProcessSegment(ctx, s, e, results); err != nil {
-				fmt.Printf("Erreur segment %d-%d: %v\n", s, e, err)
-				atomic.AddUint64(&errCount, 1)
-			}
+			result := computeSegment(ctx, start, end, pool, metrics)
+			results <- result
 		}(start, end)
 	}
 
-	// Goroutine pour fermer le canal des résultats une fois que tous les workers ont fini
+	// Goroutine pour fermer le canal results quand tout est terminé
 	go func() {
 		wg.Wait()
 		close(results)
 	}()
 
-	// Collecter les résultats de chaque segment
-	finalSum := new(big.Int)
-	for partialSum := range results {
-		finalSum.Add(finalSum, partialSum)
+	// Collecte et agrège les résultats
+	sumFib := new(big.Int)
+	hasErrors := false
+
+	for result := range results {
+		if result.Error != nil {
+			log.Printf("Erreur durant le calcul: %v", result.Error)
+			hasErrors = true
+			continue
+		}
+		sumFib.Add(sumFib, result.Value)
 	}
 
-	// Afficher les statistiques
-	duration := time.Since(startTime)
-	fmt.Printf("Temps total: %v\n", duration)
-	fmt.Printf("Erreurs: %d\n", atomic.LoadUint64(&errCount))
-	fmt.Printf("Résultat: %s\n", formatBigInt(finalSum))
-	fmt.Printf("Performance moyenne: %v par calcul\n", duration/time.Duration(n))
-}
-
-// formatBigInt formate un grand nombre en notation scientifique
-func formatBigInt(n *big.Int) string {
-	str := n.String()
-	length := len(str)
-	if length <= 10 {
-		return str
+	if hasErrors {
+		log.Printf("Des erreurs sont survenues pendant le calcul")
 	}
-	// Retourner le nombre en notation scientifique pour les grands chiffres
-	return fmt.Sprintf("%s.%se%d", str[0:1], str[1:10], length-1)
+
+	// Calcul et affichage des métriques finales
+	metrics.EndTime = time.Now()
+	duration := metrics.EndTime.Sub(metrics.StartTime)
+	avgTime := duration / time.Duration(metrics.TotalCalculations)
+
+	// Affiche les résultats
+	fmt.Printf("\nConfiguration:\n")
+	fmt.Printf("  Nombre de workers: %d\n", config.NumWorkers)
+	fmt.Printf("  Taille des segments: %d\n", config.SegmentSize)
+	fmt.Printf("  Valeur de m: %d\n", config.M)
+
+	fmt.Printf("\nPerformance:\n")
+	fmt.Printf("  Temps total d'exécution: %v\n", duration)
+	fmt.Printf("  Nombre de calculs: %d\n", metrics.TotalCalculations)
+	fmt.Printf("  Temps moyen par calcul: %v\n", avgTime)
+
+	fmt.Printf("\nRésultat:\n")
+	fmt.Printf("  Somme des Fibonacci(0..%d): %s\n", config.M, formatBigIntSci(sumFib))
 }

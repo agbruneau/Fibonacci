@@ -1,85 +1,178 @@
-# Matrix-ClaudeAI
+# Calculateur de Fibonacci Parallélisé
 
-![Diagramme de Séquence](SequenceDiagram-1.jpeg)
+![Diagramme de Séquence](SequenceDiagram.jpeg)
 
 ## Description
+Ce projet est une implémentation hautement optimisée d'un calculateur de nombres de Fibonacci en Go, utilisant une approche matricielle parallélisée. Il est capable de calculer efficacement de très grands nombres de la suite de Fibonacci grâce à plusieurs optimisations :
 
-Ce projet est une implémentation efficace et concurrente pour le calcul de la suite de Fibonacci, écrite en Go. Il utilise l'algorithme d'exponentiation rapide des matrices pour calculer les valeurs de la suite de manière performante. Le programme exploite la puissance de calcul parallèle en utilisant un pool de workers et des structures de synchronisation adaptées. Le calcul est géré de manière itérative, en utilisant la structure `big.Int` de la bibliothèque standard de Go, pour permettre de manipuler des nombres de très grande taille.
+- Utilisation de la méthode matricielle (complexité O(log n))
+- Parallélisation des calculs
+- Gestion de grands nombres avec `math/big`
+- Pool de workers réutilisables
+- Métriques de performance détaillées
 
-## Fonctionnalités
-
-- **Exponentiation rapide des matrices** : Permet de calculer les valeurs de la suite de Fibonacci en temps logarithmique.
-- **Calcul parallèle** : Utilise un pool de workers pour paralléliser le calcul des valeurs, améliorant la performance sur les systèmes multi-cœurs.
-- **Cache** : Stocke les résultats précédemment calculés pour éviter les recalculs inutiles.
-- **Gestion du contexte** : Intègre l'annulation et la gestion des délais pour arrêter les calculs si nécessaire.
-
-## Structure du Code
-
-1. **Matrix2x2** : Représentation d'une matrice 2x2 utilisée pour les calculs de Fibonacci par exponentiation rapide.
-2. **FibCalculator** : Objet responsable du calcul des valeurs de Fibonacci en utilisant les matrices.
-3. **WorkerPool** : Gère un pool de workers pour distribuer le calcul des segments de la suite de Fibonacci.
-4. **Fonction Main** : Initialise le pool de workers, répartit les segments de la suite à calculer et collecte les résultats.
+## Caractéristiques Principales
+- ⚡ Calcul rapide grâce à l'algorithme d'exponentiation matricielle
+- 🔄 Parallélisation automatique sur tous les cœurs disponibles
+- 📊 Métriques de performance détaillées
+- ⏱️ Gestion des timeouts
+- 🔒 Thread-safe
+- 💾 Gestion efficace de la mémoire
+- 📈 Support des très grands nombres
 
 ## Prérequis
-
-Pour exécuter ce programme, vous aurez besoin de :
-
-- **Go 1.16 ou supérieur** : Le programme est écrit en Go et utilise des fonctionnalités modernes de la bibliothèque standard.
-- **Multithreading support** : Un système capable de gérer plusieurs threads de manière efficace afin de tirer parti de la parallélisation.
+- Go 1.16 ou supérieur
+- Package `github.com/pkg/errors`
 
 ## Installation
 
-1. **Cloner le dépôt** :
-   ```bash
-   git clone <URL_du_dépôt>
-   ```
+```bash
+# Cloner le repository
+git clone https://github.com/votre-username/fibonacci-calculator
+cd fibonacci-calculator
 
-2. **Naviguer dans le répertoire** :
-   ```bash
-   cd <nom_du_dépôt>
-   ```
-
-3. **Compiler le programme** :
-   ```bash
-   go build -o fibonacci_calculator
-   ```
-
-4. **Exécuter le programme** :
-   ```bash
-   ./fibonacci_calculator
-   ```
+# Installer les dépendances
+go mod tidy
+```
 
 ## Utilisation
 
-Le programme calcule la somme des `n` premiers termes de la suite de Fibonacci en utilisant un pool de workers afin de répartir les calculs sur plusieurs cœurs. L'utilisateur peut ajuster la valeur `n` et la durée limite du calcul en modifiant les paramètres dans la fonction `main`.
+### Compilation et Exécution
+```bash
+# Compiler le programme
+go build -o fib-calc
 
-Le programme est conçu pour gérer de grands calculs en utilisant la structure `big.Int`, garantissant ainsi que même les valeurs de Fibonacci très élevées peuvent être traitées sans limitation d'entier.
-
-## Détails Techniques
-
-- **Exponentiation Rapide des Matrices** : L'utilisation de la multiplication de matrices pour calculer la suite de Fibonacci permet d'obtenir une complexité logarithmique, comparée à la méthode naïve itérative ou récursive.
-- **Pool de Workers** : Un `WorkerPool` est utilisé pour paralléliser le calcul. Chaque worker reçoit une portion du travail à accomplir, ce qui réduit significativement le temps de calcul sur les machines multi-cœurs.
-- **Gestion des Ressources** : Le programme utilise des sémaphores pour contrôler l'accès aux workers, et des primitives de synchronisation comme `sync.Mutex` et `sync.WaitGroup` pour assurer la sécurité des threads.
-
-## Exemples
-
-Pour ajuster le nombre de termes de Fibonacci à calculer, vous pouvez modifier la valeur de `n` dans la fonction `main()` :
-
-```go
-n := 100000 // Limite de la suite de Fibonacci
+# Exécuter avec la configuration par défaut
+./fib-calc
 ```
 
-Le programme utilise également un contexte (`context.WithTimeout`) pour s'assurer que l'exécution ne dépasse pas une durée limite spécifiée.
+### Configuration
+Le programme peut être configuré en modifiant les valeurs dans `DefaultConfig()` :
 
-## Contributions
+```go
+func DefaultConfig() Configuration {
+    return Configuration{
+        M:           100000,           // Nombre maximum de termes
+        NumWorkers:  runtime.NumCPU(), // Nombre de workers
+        SegmentSize: 1000,             // Taille des segments
+        Timeout:     5 * time.Minute,  // Timeout global
+    }
+}
+```
 
-Les contributions sont les bienvenues. Vous pouvez créer une pull request ou ouvrir une issue pour discuter des améliorations potentielles.
+### Sortie
+Le programme affiche :
+- La configuration utilisée
+- Les métriques de performance
+- La somme des nombres de Fibonacci calculés (en notation scientifique)
+
+Exemple de sortie :
+```
+Configuration:
+  Nombre de workers: 8
+  Taille des segments: 1000
+  Valeur de m: 100000
+
+Performance:
+  Temps total d'exécution: 2m15s
+  Nombre de calculs: 100000
+  Temps moyen par calcul: 1.35ms
+
+Résultat:
+  Somme des Fibonacci(0..100000): 1.234e20089
+```
+
+## Architecture Technique
+
+### Composants Principaux
+
+1. **Matrix2x2**
+   - Représente une matrice 2x2 pour le calcul matriciel
+   - Utilise `big.Int` pour la précision infinie
+
+2. **FibCalculator**
+   - Implémente l'algorithme d'exponentiation matricielle
+   - Thread-safe avec mutex intégré
+   - Réutilise les matrices pour optimiser la mémoire
+
+3. **WorkerPool**
+   - Gère un pool de calculateurs réutilisables
+   - Distribution round-robin des calculateurs
+   - Évite la création/destruction excessive d'objets
+
+4. **Metrics**
+   - Collecte les métriques de performance
+   - Thread-safe pour les accès concurrents
+   - Calcule les statistiques d'exécution
+
+### Algorithme Matriciel
+La méthode utilise la propriété suivante :
+```
+[1 1]^n = [F(n+1) F(n)  ]
+[1 0]    [F(n)   F(n-1)]
+```
+
+L'exponentiation rapide permet d'obtenir une complexité de O(log n).
+
+## Performance
+
+Les performances dépendent de plusieurs facteurs :
+- Nombre de cœurs CPU disponibles
+- Taille des segments de calcul
+- Nombres de Fibonacci à calculer
+- Mémoire système disponible
+
+Optimisations clés :
+- Réutilisation des objets `big.Int`
+- Parallélisation automatique
+- Algorithme d'exponentiation rapide
+- Pool de workers
+
+## Limitations
+
+- Limite pratique sur n ≈ 1,000,000 pour des raisons de performance
+- Consommation mémoire proportionnelle à la taille des nombres
+- Précision limitée par la mémoire disponible
+
+## Dépannage
+
+### Erreurs Communes
+
+1. **Timeout**
+   - Augmenter la valeur de `Timeout` dans la configuration
+   - Réduire la valeur de `M`
+   - Augmenter la taille des segments
+
+2. **Mémoire Insuffisante**
+   - Réduire le nombre de workers
+   - Diminuer la taille des segments
+   - Réduire la valeur de `M`
+
+3. **Performance Faible**
+   - Vérifier la charge CPU
+   - Ajuster la taille des segments
+   - Optimiser le nombre de workers
+
+## Contribution
+
+Les contributions sont bienvenues ! Voici comment contribuer :
+
+1. Forker le projet
+2. Créer une branche pour votre fonctionnalité
+3. Commiter vos changements
+4. Pousser vers la branche
+5. Créer une Pull Request
 
 ## Licence
+MIT License
 
-Ce projet est sous licence MIT. Vous êtes libre de l'utiliser, de le modifier et de le distribuer selon les termes de la licence.
+## Contact
+Pour toute question ou suggestion, n'hésitez pas à ouvrir une issue sur GitHub.
 
-## Remerciements
+## Changelog
 
-Ce projet a été réalisé pour démontrer l'utilisation combinée de la parallélisation et des algorithmes efficaces pour le calcul de nombres de Fibonacci, et pour approfondir la compréhension de la gestion des threads en Go.
-
+### v1.0.0
+- Implémentation initiale avec méthode matricielle
+- Support de la parallélisation
+- Métriques de performance
+- Documentation complète
