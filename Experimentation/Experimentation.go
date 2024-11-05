@@ -52,7 +52,7 @@ type APIRequest struct {
 type APIResponse struct {
 	Result     string        `json:"result"`
 	Duration   time.Duration `json:"duration"`
-	Calculs    int64        `json:"calculations"`
+	Calculs    int64         `json:"calculations"`
 	TempsMoyen time.Duration `json:"averageTime"`
 	Error      string        `json:"error,omitempty"`
 }
@@ -67,7 +67,158 @@ func DefaultConfig() Configuration {
 	}
 }
 
-[Le reste du code reste identique jusqu'aux fonctions de calcul]
+// Metrics garde trace des métriques de performance pendant l'exécution.
+type Metrics struct {
+	StartTime         time.Time
+	EndTime           time.Time
+	TotalCalculations int64
+	mutex             sync.Mutex
+}
+
+// NewMetrics crée une nouvelle instance de Metrics initialisée.
+func NewMetrics() *Metrics {
+	return &Metrics{StartTime: time.Now()}
+}
+
+// IncrementCalculations incrémente le compteur de calculs de manière thread-safe.
+func (m *Metrics) IncrementCalculations(count int64) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.TotalCalculations += count
+}
+
+// FibCalculator encapsule la logique de calcul des nombres de Fibonacci.
+type FibCalculator struct {
+	fk, fk1             *big.Int
+	temp1, temp2, temp3 *big.Int
+	mutex               sync.Mutex
+}
+
+// NewFibCalculator crée une nouvelle instance de calculateur.
+func NewFibCalculator() *FibCalculator {
+	return &FibCalculator{
+		fk:    new(big.Int),
+		fk1:   new(big.Int),
+		temp1: new(big.Int),
+		temp2: new(big.Int),
+		temp3: new(big.Int),
+	}
+}
+
+// Calculate calcule le n-ième nombre de Fibonacci.
+func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
+	if n < 0 {
+		return nil, errors.New("n doit être non-négatif")
+	}
+	if n > 1000000 {
+		return nil, errors.New("n est trop grand, risque de calculs extrêmement coûteux")
+	}
+
+	fc.mutex.Lock()
+	defer fc.mutex.Unlock()
+
+	if n <= 1 {
+		return big.NewInt(int64(n)), nil
+	}
+
+	fc.fk.SetInt64(0)
+	fc.fk1.SetInt64(1)
+
+	for i := 63; i >= 0; i-- {
+		fc.temp1.Set(fc.fk)
+		fc.temp2.Set(fc.fk1)
+
+		fc.temp3.Mul(fc.temp2, big.NewInt(2))
+		fc.temp3.Sub(fc.temp3, fc.temp1)
+		fc.fk.Mul(fc.temp1, fc.temp3)
+
+		fc.fk1.Mul(fc.temp2, fc.temp2)
+		fc.temp3.Mul(fc.temp1, fc.temp1)
+		fc.fk1.Add(fc.fk1, fc.temp3)
+
+		if (n & (1 << uint(i))) != 0 {
+			fc.temp3.Set(fc.fk1)
+			fc.fk1.Add(fc.fk1, fc.fk)
+			fc.fk.Set(fc.temp3)
+		}
+	}
+
+	return new(big.Int).Set(fc.fk), nil
+}
+
+// WorkerPool gère un pool de calculateurs réutilisables.
+type WorkerPool struct {
+	calculators []*FibCalculator
+	current     int
+	mutex       sync.Mutex
+}
+
+// NewWorkerPool crée un nouveau pool avec le nombre spécifié de calculateurs.
+func NewWorkerPool(size int) *WorkerPool {
+	calculators := make([]*FibCalculator, size)
+	for i := range calculators {
+		calculators[i] = NewFibCalculator()
+	}
+	return &WorkerPool{
+		calculators: calculators,
+	}
+}
+
+// GetCalculator retourne le prochain calculateur disponible.
+func (wp *WorkerPool) GetCalculator() *FibCalculator {
+	wp.mutex.Lock()
+	defer wp.mutex.Unlock()
+	calc := wp.calculators[wp.current]
+	wp.current = (wp.current + 1) % len(wp.calculators)
+	return calc
+}
+
+// Result encapsule le résultat d'un calcul avec une potentielle erreur.
+type Result struct {
+	Value *big.Int
+	Error error
+}
+
+// computeSegment calcule la somme des nombres de Fibonacci pour un segment.
+func computeSegment(ctx context.Context, start, end int, pool *WorkerPool, metrics *Metrics) Result {
+	calc := pool.GetCalculator()
+	partialSum := new(big.Int)
+	segmentSize := end - start + 1
+
+	for i := start; i <= end; i++ {
+		select {
+		case <-ctx.Done():
+			return Result{Error: ctx.Err()}
+		default:
+			fibValue, err := calc.Calculate(i)
+			if err != nil {
+				return Result{Error: errors.Wrapf(err, "computing Fibonacci(%d)", i)}
+			}
+			partialSum.Add(partialSum, fibValue)
+		}
+	}
+
+	metrics.IncrementCalculations(int64(segmentSize))
+	return Result{Value: partialSum}
+}
+
+// formatBigIntSci formate un grand nombre en notation scientifique.
+func formatBigIntSci(n *big.Int) string {
+	numStr := n.String()
+	numLen := len(numStr)
+
+	if numLen <= 5 {
+		return numStr
+	}
+
+	significand := numStr[:5]
+	exponent := numLen - 1
+
+	formattedNum := significand[:1] + "." + significand[1:]
+	formattedNum = strings.TrimRight(strings.TrimRight(formattedNum, "0"), ".")
+
+	return fmt.Sprintf("%se%d", formattedNum, exponent)
+}
 
 // handleFibonacci gère les requêtes HTTP pour le calcul de Fibonacci
 func handleFibonacci(w http.ResponseWriter, r *http.Request) {
@@ -76,17 +227,14 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Décode la requête JSON
 	var req APIRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Erreur de décodage JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Création de la configuration en partant des valeurs par défaut
 	config := DefaultConfig()
 
-	// Mise à jour de la configuration avec les valeurs de la requête
 	if req.M != nil {
 		config.M = *req.M
 	}
@@ -105,18 +253,15 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		config.Timeout = timeout
 	}
 
-	// Initialisation des métriques et du contexte
 	metrics := NewMetrics()
 	ctx, cancel := context.WithTimeout(r.Context(), config.Timeout)
 	defer cancel()
 
-	// Calcul
 	n := config.M - 1
 	pool := NewWorkerPool(config.NumWorkers)
 	results := make(chan Result, config.NumWorkers)
 	var wg sync.WaitGroup
 
-	// Distribution du travail
 	for start := 0; start < n; start += config.SegmentSize {
 		end := start + config.SegmentSize - 1
 		if end >= n {
@@ -136,7 +281,6 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		close(results)
 	}()
 
-	// Collecte des résultats
 	sumFib := new(big.Int)
 	var calcError error
 
@@ -148,7 +292,6 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		sumFib.Add(sumFib, result.Value)
 	}
 
-	// Préparation de la réponse
 	metrics.EndTime = time.Now()
 	duration := metrics.EndTime.Sub(metrics.StartTime)
 	avgTime := duration / time.Duration(metrics.TotalCalculations)
@@ -165,7 +308,6 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 		response.Result = formatBigIntSci(sumFib)
 	}
 
-	// Envoi de la réponse
 	w.Header().Set("Content-Type", "application/json")
 	if calcError != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -178,7 +320,7 @@ func handleFibonacci(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/fibonacci", handleFibonacci)
-	
+
 	port := ":8080"
 	fmt.Printf("Serveur démarré sur le port %s\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
