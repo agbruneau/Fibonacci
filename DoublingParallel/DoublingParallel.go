@@ -87,7 +87,7 @@ func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	if n < 0 {
 		return nil, errors.New("n doit être non-négatif")
 	}
-	if n > 1000000 {
+	if n > 1000001 {
 		return nil, errors.New("n est trop grand, risque de calculs extrêmement coûteux")
 	}
 
