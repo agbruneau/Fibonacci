@@ -1,106 +1,373 @@
-# DoublingParallelWeb
+# README
 
 ![Diagramme de Séquence](SequenceDiagram.jpeg)
 
-## Description
+## Introduction
 
-Ce projet implémente un service web de calcul des nombres de Fibonacci, utilisant des goroutines pour exécuter des calculs en parallèle. Le programme est écrit en Go et vise à optimiser l'utilisation des ressources CPU disponibles en exploitant le parallélisme. Ce service est particulièrement efficace pour le calcul de grands nombres de Fibonacci, où la performance et l'efficacité sont cruciales.
+Ce programme en Go calcule la **somme des n premiers nombres de Fibonacci** de manière **parallélisée**. Il utilise des techniques avancées de **concurrence** en Go et gère les **grands nombres** entiers grâce au package `math/big`.
 
-Le calcul est réparti entre plusieurs *workers*, chaque *worker* étant responsable du calcul d'une portion de la série de Fibonacci. Cela permet de maximiser l'utilisation des processeurs disponibles et de réduire le temps de calcul global. Pour garantir la sécurité des threads lors des opérations parallèles, des verrous sont utilisés dans les structures de données.
+L'objectif de ce document est d'expliquer en détail le fonctionnement du code, en décrivant chaque composant et en vulgarisant les concepts utilisés.
 
-Le résultat du calcul est renvoyé au client au format JSON, avec le nombre de Fibonacci formaté en notation scientifique pour garantir la lisibilité des très grandes valeurs.
+## Table des matières
 
-## Fonctionnalités
+1. [Structure générale du programme](#structure-générale-du-programme)
+2. [Importations](#importations)
+3. [Configuration](#configuration)
+4. [Métriques de performance](#métriques-de-performance)
+5. [Calcul des nombres de Fibonacci](#calcul-des-nombres-de-fibonacci)
+6. [Gestion des workers](#gestion-des-workers)
+7. [Calcul des segments](#calcul-des-segments)
+8. [Formatage des grands nombres](#formatage-des-grands-nombres)
+9. [Fonction principale `main`](#fonction-principale-main)
+10. [Concepts clés](#concepts-clés)
+11. [Instructions pour l'exécution](#instructions-pour-lexécution)
+12. [Conclusion](#conclusion)
+13. [Références](#références)
 
-- **Calcul parallèle des nombres de Fibonacci** : Utilisation de goroutines pour paralléliser les calculs et optimiser l'utilisation du CPU.
-- **API Web** : Fournit une API RESTful pour calculer le n-ième nombre de Fibonacci.
-- **Sécurité des threads** : Garantit la sécurité des threads grâce à l'utilisation de *mutex* lors des calculs.
-- **Optimisation par décomposition binaire** : Le calcul des nombres de Fibonacci est optimisé à l'aide de la décomposition binaire pour améliorer la performance.
+## Structure générale du programme
 
-## Composants Principaux
+Le programme est structuré comme suit :
 
-1. **FibCalculator** : Structure qui encapsule les variables nécessaires au calcul des nombres de Fibonacci de manière sécurisée. Les grandes valeurs sont manipulées grâce au package `math/big`.
-2. **WorkerPool** : Structure qui gère un pool de calculateurs de Fibonacci, permettant une allocation efficace des ressources de calcul entre les tâches parallèles.
-3. **handleFibonacci** : Fonction qui gère les requêtes HTTP entrantes, extrait le paramètre `n`, calcule le n-ième nombre de Fibonacci, puis retourne le résultat au format JSON.
-4. **formatBigIntSci** : Fonction qui formate les grands nombres de Fibonacci en notation scientifique, en ne conservant que les cinq premiers chiffres significatifs.
+- **Importations** : Inclusion des packages nécessaires.
+- **Types personnalisés** : Définition des structures pour la configuration, les métriques et le calcul des nombres de Fibonacci.
+- **Fonctions** : Implémentation des fonctions pour le calcul, la gestion des workers et le formatage.
+- **Fonction `main`** : Orchestration du processus global.
 
-## Prérequis
+## Importations
 
-Pour exécuter ce projet, vous devez avoir les éléments suivants installés :
+Le programme utilise les packages suivants :
 
-- [Go](https://golang.org/dl/) (version 1.16 ou supérieure)
+- **Packages standards** :
+  - `context` : Gestion des contextes pour les annulations et les timeouts.
+  - `fmt` : Formatage des entrées/sorties.
+  - `log` : Journalisation des erreurs.
+  - `math/big` : Manipulation des grands nombres entiers.
+  - `runtime` : Informations sur l'environnement d'exécution (par exemple, le nombre de cœurs CPU disponibles).
+  - `strings` : Manipulation des chaînes de caractères.
+  - `sync` : Synchronisation des goroutines.
+  - `time` : Gestion du temps et des délais.
+- **Package tiers** :
+  - `github.com/pkg/errors` : Enrichissement des erreurs avec des messages supplémentaires.
 
-## Installation
+## Configuration
 
-1. Clonez le dépôt :
+### Type `Configuration`
 
-   ```sh
-   git clone https://github.com/votre-utilisateur/fibonacci-service.git
-   cd fibonacci-service
-   ```
+La structure `Configuration` centralise tous les paramètres configurables du programme :
 
-2. Compilez le projet :
+- `M int` : Limite supérieure (exclue) du calcul des nombres de Fibonacci.
+- `NumWorkers int` : Nombre de workers parallèles.
+- `SegmentSize int` : Taille des segments de calcul pour chaque worker.
+- `Timeout time.Duration` : Durée maximale autorisée pour le calcul complet.
 
-   ```sh
-   go build
-   ```
+### Fonction `DefaultConfig`
 
-3. Exécutez le service :
+Cette fonction retourne une configuration par défaut avec des valeurs raisonnables :
 
-   ```sh
-   ./fibonacci-service
-   ```
+- `M` : 100000 (calcul jusqu'à F(99 999)).
+- `NumWorkers` : Nombre de cœurs CPU disponibles.
+- `SegmentSize` : 1000 (chaque worker traite 1000 nombres à la fois).
+- `Timeout` : 5 minutes.
 
-Le serveur démarrera sur le port `8080` par défaut.
-
-## Utilisation
-
-Le service est accessible via une requête HTTP sur le port `8080`. Par exemple, pour obtenir le 10e nombre de Fibonacci, vous pouvez exécuter la commande suivante :
-
-```sh
-curl "http://localhost:8080/fibonacci?n=10"
-```
-
-La réponse sera au format JSON, avec le résultat en notation scientifique si nécessaire :
-
-```json
-{
-  "fibonacci": "5.500e6"
+```go
+func DefaultConfig() Configuration {
+    return Configuration{
+        M:           100000,
+        NumWorkers:  runtime.NumCPU(),
+        SegmentSize: 1000,
+        Timeout:     5 * time.Minute,
+    }
 }
 ```
 
-## Exemple de Code
+## Métriques de performance
 
-Le fichier `main.go` contient l'implémentation complète du service. Voici un extrait de la fonction principale qui démarre le serveur :
+### Type `Metrics`
+
+La structure `Metrics` garde trace des performances pendant l'exécution :
+
+- `StartTime time.Time` : Heure de début du calcul.
+- `EndTime time.Time` : Heure de fin du calcul.
+- `TotalCalculations int64` : Nombre total de calculs effectués.
+- `mutex sync.Mutex` : Mutex pour protéger les modifications concurrentes.
+
+### Fonctions associées
+
+- `NewMetrics()` : Crée une nouvelle instance de `Metrics` avec l'heure actuelle.
+- `IncrementCalculations(count int64)` : Incrémente le compteur de calculs de manière thread-safe.
+
+```go
+func NewMetrics() *Metrics {
+    return &Metrics{StartTime: time.Now()}
+}
+
+func (m *Metrics) IncrementCalculations(count int64) {
+    m.mutex.Lock()
+    defer m.mutex.Unlock()
+    m.TotalCalculations += count
+}
+```
+
+## Calcul des nombres de Fibonacci
+
+### Type `FibCalculator`
+
+La structure `FibCalculator` encapsule la logique de calcul des nombres de Fibonacci en réutilisant des variables `big.Int` pour éviter les allocations mémoire répétées :
+
+- `fk, fk1 *big.Int` : Stockent F(k) et F(k+1).
+- `temp1, temp2, temp3 *big.Int` : Variables temporaires pour les calculs.
+- `mutex sync.Mutex` : Protection pour l'accès concurrent.
+
+### Fonction `NewFibCalculator`
+
+Crée une nouvelle instance de `FibCalculator` avec les variables initialisées.
+
+```go
+func NewFibCalculator() *FibCalculator {
+    return &FibCalculator{
+        fk:    new(big.Int),
+        fk1:   new(big.Int),
+        temp1: new(big.Int),
+        temp2: new(big.Int),
+        temp3: new(big.Int),
+    }
+}
+```
+
+### Méthode `Calculate`
+
+Calcule le n-ième nombre de Fibonacci en utilisant l'**algorithme de doublement**, qui a une complexité de O(log n).
+
+#### Étapes de la méthode `Calculate`
+
+1. **Validation des entrées** :
+   - Vérifie que `n` est non négatif.
+   - Vérifie que `n` n'est pas trop grand pour éviter des calculs coûteux.
+
+2. **Cas de base** :
+   - Si `n <= 1`, retourne `n`.
+
+3. **Initialisation** :
+   - Initialise `F(0)` et `F(1)`.
+
+4. **Boucle principale** :
+   - Parcourt les bits de `n` de haut en bas.
+   - Utilise les formules de doublement :
+     - `F(2k) = F(k)[2F(k+1) - F(k)]`
+     - `F(2k+1) = F(k+1)^2 + F(k)^2`
+   - Si le bit est à 1, effectue un pas supplémentaire.
+
+5. **Retourne le résultat** :
+   - Retourne une copie de `fk`.
+
+```go
+func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
+    // Validation et initialisation omises pour la concision
+
+    for i := 63; i >= 0; i-- {
+        // Calcul de F(2k) et F(2k+1)
+
+        if (n & (1 << uint(i))) != 0 {
+            // Pas supplémentaire si le bit est à 1
+        }
+    }
+
+    return new(big.Int).Set(fc.fk), nil
+}
+```
+
+## Gestion des workers
+
+### Type `WorkerPool`
+
+Le `WorkerPool` gère un pool de calculateurs réutilisables :
+
+- `calculators []*FibCalculator` : Tableau des calculateurs disponibles.
+- `current int` : Index du prochain calculateur à utiliser.
+- `mutex sync.Mutex` : Protection pour l'accès concurrent.
+
+### Fonction `NewWorkerPool`
+
+Crée un nouveau pool avec le nombre spécifié de calculateurs.
+
+```go
+func NewWorkerPool(size int) *WorkerPool {
+    calculators := make([]*FibCalculator, size)
+    for i := range calculators {
+        calculators[i] = NewFibCalculator()
+    }
+    return &WorkerPool{
+        calculators: calculators,
+    }
+}
+```
+
+### Méthode `GetCalculator`
+
+Retourne le prochain calculateur disponible de manière circulaire.
+
+```go
+func (wp *WorkerPool) GetCalculator() *FibCalculator {
+    wp.mutex.Lock()
+    defer wp.mutex.Unlock()
+    calc := wp.calculators[wp.current]
+    wp.current = (wp.current + 1) % len(wp.calculators)
+    return calc
+}
+```
+
+## Calcul des segments
+
+### Type `Result`
+
+Structure pour encapsuler le résultat d'un calcul avec une potentielle erreur :
+
+- `Value *big.Int` : Résultat du calcul.
+- `Error error` : Erreur éventuelle.
+
+### Fonction `computeSegment`
+
+Calcule la somme des nombres de Fibonacci pour un segment donné.
+
+#### Étapes de `computeSegment`
+
+1. **Récupération d'un calculateur** depuis le `WorkerPool`.
+2. **Initialisation** de la somme partielle.
+3. **Boucle de calcul** :
+   - Pour chaque `i` dans le segment :
+     - Vérifie si le contexte est annulé (timeout).
+     - Calcule `F(i)` et l'ajoute à la somme partielle.
+4. **Mise à jour des métriques**.
+5. **Retourne le résultat**.
+
+```go
+func computeSegment(ctx context.Context, start, end int, pool *WorkerPool, metrics *Metrics) Result {
+    // Code de la fonction
+}
+```
+
+## Formatage des grands nombres
+
+### Fonction `formatBigIntSci`
+
+Formate un grand nombre en notation scientifique pour un affichage plus lisible.
+
+```go
+func formatBigIntSci(n *big.Int) string {
+    // Code de la fonction
+}
+```
+
+**Exemple** : `123456789` devient `"1.2345e8"`.
+
+## Fonction principale `main`
+
+La fonction `main` orchestre tout le processus de calcul.
+
+### Étapes de `main`
+
+1. **Initialisation** :
+   - Charge la configuration par défaut.
+   - Initialise les métriques.
+
+2. **Création du contexte** avec timeout.
+
+3. **Initialisation du `WorkerPool`** et des canaux.
+
+4. **Distribution du travail** :
+   - Divise le calcul en segments.
+   - Lance des goroutines pour chaque segment.
+
+5. **Collecte des résultats** :
+   - Agrège les sommes partielles.
+   - Gère les erreurs éventuelles.
+
+6. **Calcul des métriques finales**.
+
+7. **Affichage des résultats** :
+   - Configuration utilisée.
+   - Performances.
+   - Résultat final.
 
 ```go
 func main() {
-    http.HandleFunc("/fibonacci", handleFibonacci)
-    fmt.Println("Serveur démarré sur le port 8080...")
-    http.ListenAndServe(":8080", nil)
+    // Code de la fonction
 }
 ```
 
-Cette fonction initialise le serveur HTTP et associe la route `/fibonacci` à la fonction `handleFibonacci`, qui gère les calculs demandés par les utilisateurs.
+## Concepts clés
 
-## Limitations
+### Concurrence et parallélisme
 
-- Le service limite les calculs de Fibonacci à des valeurs de `n` inférieures ou égales à 1 000 000, pour éviter des temps de calcul excessifs et des problèmes de mémoire.
-- Les très grands nombres peuvent nécessiter des ressources significatives et le temps de calcul peut croître rapidement avec `n`.
+- **Goroutines** : Légères unités d'exécution concurrentes.
+- **WaitGroup** : Synchronisation des goroutines pour attendre la fin des tâches.
+- **Mutex** : Protection des ressources partagées contre les accès concurrents.
 
-## Contribuer
+### Gestion des grands nombres
 
-Les contributions sont les bienvenues. Pour proposer des améliorations ou des corrections, vous pouvez ouvrir une *pull request* ou créer une *issue* sur le dépôt GitHub.
+- **Package `math/big`** : Permet de manipuler des entiers de taille arbitraire.
+- **`big.Int`** : Type pour les entiers grands.
+- **Opérations arithmétiques** : Méthodes associées pour les opérations (+, -, *, etc.).
 
-## Licence
+### Algorithme de doublement pour Fibonacci
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+- **Complexité** : O(log n).
+- **Formules utilisées** :
+  - `F(2k) = F(k) * [2 * F(k+1) - F(k)]`
+  - `F(2k+1) = F(k+1)^2 + F(k)^2`
+- **Avantages** : Beaucoup plus efficace que l'approche récursive ou itérative classique.
 
-## Auteurs
+### Gestion des timeouts avec `context`
 
-- **Nom de l'Auteur** - Développeur principal - [Votre Profil GitHub](https://github.com/votre-utilisateur)
+- **Contexte avec timeout** : Permet d'annuler les opérations si elles prennent trop de temps.
+- **Propagation de l'annulation** : Les goroutines vérifient régulièrement si le contexte est annulé.
 
-## Remerciements
+## Instructions pour l'exécution
 
-Un grand merci à tous ceux qui contribuent à la communauté Go et à ceux qui aident à l'amélioration des algorithmes de calcul parallèle.
+### Prérequis
 
+- **Go** : Assurez-vous que Go est installé sur votre système (version 1.13 ou supérieure recommandée).
+- **Packages tiers** : Installez le package `github.com/pkg/errors` en exécutant :
+
+```bash
+go get github.com/pkg/errors
+```
+
+### Compilation
+
+Compilez le programme avec la commande :
+
+```bash
+go build -o fibonacci_sum
+```
+
+### Exécution
+
+Exécutez le programme compilé :
+
+```bash
+./fibonacci_sum
+```
+
+### Personnalisation
+
+Pour modifier les paramètres du programme, ajustez les valeurs dans la fonction `DefaultConfig` :
+
+- **Limite supérieure `M`** : Changez la valeur pour calculer jusqu'à un autre nombre de Fibonacci.
+- **Nombre de workers `NumWorkers`** : Ajustez en fonction du nombre de cœurs CPU souhaités.
+- **Taille des segments `SegmentSize`** : Modifiez pour contrôler la charge de travail de chaque goroutine.
+- **Timeout `Timeout`** : Changez la durée maximale autorisée pour le calcul.
+
+## Conclusion
+
+Ce programme démontre comment utiliser efficacement la **concurrence en Go** pour effectuer des calculs intensifs. En combinant l'algorithme de doublement pour le calcul des nombres de Fibonacci et la gestion des grands nombres avec `math/big`, il est possible de calculer rapidement la somme des n premiers nombres de Fibonacci, même pour de grandes valeurs de n.
+
+Les techniques utilisées, telles que les goroutines, les mutex et les contextes avec timeout, sont essentielles pour écrire des programmes Go performants et robustes.
+
+## Références
+
+- [Documentation officielle de Go](https://golang.org/doc/)
+- [Package `math/big`](https://pkg.go.dev/math/big)
+- [Concurrence en Go](https://tour.golang.org/concurrency/1)
+- [Algorithme de doublement pour Fibonacci](https://www.nayuki.io/page/fast-fibonacci-algorithms)
+- [Gestion des contextes en Go](https://blog.golang.org/context)
