@@ -15,8 +15,10 @@
 // - Algorithme du doublement pour calculer Fibonacci(n) efficacement.
 // - Parallélisation des multiplications (big.Int) par goroutines pour exploiter
 //   la puissance des processeurs multicœurs.
-// - Utilisation d’un contexte avec timeout pour la robustesse du calcul.
+// - Utilisation d'un contexte avec timeout pour la robustesse du calcul.
 // - Formatage en notation scientifique avec notation exponentielle.
+// - Pool de workers pour gérer efficacement les multiplications parallèles.
+// - Système de cache pour éviter de recalculer les valeurs déjà connues.
 // =============================================================================
 
 package main
@@ -24,35 +26,58 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"runtime"
+	"runtime/pprof"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 // Configuration centralise les paramètres configurables du programme.
 type Configuration struct {
-	M       int           // Calcul de Fibonacci(M)
-	Timeout time.Duration // Durée maximale d'exécution
+	M           int           // Calcul de Fibonacci(M)
+	Timeout     time.Duration // Durée maximale d'exécution
+	WorkerCount int           // Nombre de workers pour le pool
+	CacheSize   int           // Taille maximale du cache
+	CPUProfile  string        // Fichier pour le profilage CPU
+	MemProfile  string        // Fichier pour le profilage mémoire
 }
 
 // DefaultConfig retourne une configuration par défaut.
-// Par défaut, la valeur de M est fixée à 100 (modifiable selon les besoins),
-// et le timeout est défini à 5 minutes.
 func DefaultConfig() Configuration {
 	return Configuration{
-		M:       200000000,
-		Timeout: 5 * time.Minute,
+		M:           200000000,
+		Timeout:     5 * time.Minute,
+		WorkerCount: runtime.NumCPU(),
+		CacheSize:   1000,
 	}
+}
+
+// ParseFlags analyse les arguments de ligne de commande et met à jour la configuration.
+func ParseFlags(config *Configuration) {
+	flag.IntVar(&config.M, "n", config.M, "Calcul de Fibonacci(n)")
+	flag.DurationVar(&config.Timeout, "timeout", config.Timeout, "Durée maximale d'exécution")
+	flag.IntVar(&config.WorkerCount, "workers", config.WorkerCount, "Nombre de workers pour le pool")
+	flag.IntVar(&config.CacheSize, "cache", config.CacheSize, "Taille maximale du cache")
+	flag.StringVar(&config.CPUProfile, "cpuprofile", "", "Écrire le profil CPU dans un fichier")
+	flag.StringVar(&config.MemProfile, "memprofile", "", "Écrire le profil mémoire dans un fichier")
+	flag.Parse()
 }
 
 // Metrics conserve des informations de performance du calcul.
 type Metrics struct {
-	StartTime         time.Time // Heure de début du calcul
-	EndTime           time.Time // Heure de fin du calcul
-	TotalCalculations int64     // Nombre de calculs réalisés (pour le moment, 1 calcul)
+	StartTime          time.Time     // Heure de début du calcul
+	EndTime            time.Time     // Heure de fin du calcul
+	TotalCalculations  int64         // Nombre de calculs réalisés
+	CacheHits          int64         // Nombre d'accès au cache
+	CacheMisses        int64         // Nombre d'échecs d'accès au cache
+	MultiplicationTime time.Duration // Temps passé en multiplications
+	mu                 sync.Mutex    // Mutex pour les opérations non atomiques
 }
 
 // NewMetrics initialise les métriques en enregistrant l'heure de début.
@@ -65,118 +90,353 @@ func (m *Metrics) AddCalculations(n int64) {
 	atomic.AddInt64(&m.TotalCalculations, n)
 }
 
+// AddCacheHit incrémente de manière atomique le compteur de hits du cache.
+func (m *Metrics) AddCacheHit() {
+	atomic.AddInt64(&m.CacheHits, 1)
+}
+
+// AddCacheMiss incrémente de manière atomique le compteur d'échecs du cache.
+func (m *Metrics) AddCacheMiss() {
+	atomic.AddInt64(&m.CacheMisses, 1)
+}
+
+// AddMultiplicationTime ajoute au temps total passé en multiplications.
+func (m *Metrics) AddMultiplicationTime(duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.MultiplicationTime += duration
+}
+
+// PrintMetrics affiche les métriques de performance.
+func (m *Metrics) PrintMetrics(config Configuration) {
+	duration := m.EndTime.Sub(m.StartTime)
+
+	var avgTime time.Duration
+	if m.TotalCalculations > 0 {
+		avgTime = duration / time.Duration(m.TotalCalculations)
+	}
+
+	cacheRatio := float64(0)
+	if m.CacheHits+m.CacheMisses > 0 {
+		cacheRatio = float64(m.CacheHits) / float64(m.CacheHits+m.CacheMisses) * 100
+	}
+
+	fmt.Printf("\nConfiguration :\n")
+	fmt.Printf("  Valeur de n             : %d\n", config.M)
+	fmt.Printf("  Timeout                 : %v\n", config.Timeout)
+	fmt.Printf("  Nombre de workers       : %d\n", config.WorkerCount)
+	fmt.Printf("  Taille du cache         : %d\n", config.CacheSize)
+
+	fmt.Printf("\nPerformance :\n")
+	fmt.Printf("  Temps total d'exécution : %v\n", duration)
+	fmt.Printf("  Temps en multiplications: %v (%.2f%%)\n", m.MultiplicationTime, float64(m.MultiplicationTime)/float64(duration)*100)
+	fmt.Printf("  Nombre de calculs       : %d\n", m.TotalCalculations)
+	fmt.Printf("  Hits du cache           : %d\n", m.CacheHits)
+	fmt.Printf("  Ratio d'efficacité cache: %.2f%%\n", cacheRatio)
+	fmt.Printf("  Temps moyen par calcul  : %v\n", avgTime)
+}
+
+// FibCache implémente un cache LRU simple pour les valeurs de Fibonacci.
+type FibCache struct {
+	cache    map[int]*big.Int
+	maxSize  int
+	metrics  *Metrics
+	mu       sync.RWMutex
+	lastUsed []int // Liste ordonnée des clés les plus récemment utilisées
+}
+
+// NewFibCache crée un nouveau cache pour les valeurs de Fibonacci.
+func NewFibCache(maxSize int, metrics *Metrics) *FibCache {
+	return &FibCache{
+		cache:    make(map[int]*big.Int, maxSize),
+		maxSize:  maxSize,
+		metrics:  metrics,
+		lastUsed: make([]int, 0, maxSize),
+	}
+}
+
+// Get récupère une valeur du cache, s'il elle existe.
+func (fc *FibCache) Get(n int) (*big.Int, bool) {
+	fc.mu.RLock()
+	val, exists := fc.cache[n]
+	fc.mu.RUnlock()
+
+	if exists {
+		fc.updateUsage(n)
+		if fc.metrics != nil {
+			fc.metrics.AddCacheHit()
+		}
+		// Retourne une copie pour éviter les modifications
+		return new(big.Int).Set(val), true
+	}
+
+	if fc.metrics != nil {
+		fc.metrics.AddCacheMiss()
+	}
+	return nil, false
+}
+
+// Put ajoute une valeur au cache.
+func (fc *FibCache) Put(n int, val *big.Int) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+
+	// Si le cache est plein, supprime l'élément le moins récemment utilisé
+	if len(fc.cache) >= fc.maxSize && fc.maxSize > 0 {
+		fc.evictLRU()
+	}
+
+	// Ajoute la nouvelle valeur et met à jour l'ordre d'utilisation
+	fc.cache[n] = new(big.Int).Set(val)
+	fc.updateUsageNoLock(n)
+}
+
+// updateUsage met à jour l'ordre d'utilisation des clés (thread-safe).
+func (fc *FibCache) updateUsage(n int) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	fc.updateUsageNoLock(n)
+}
+
+// updateUsageNoLock met à jour l'ordre d'utilisation des clés (non thread-safe).
+func (fc *FibCache) updateUsageNoLock(n int) {
+	// Retire n de la liste s'il y est déjà
+	for i, key := range fc.lastUsed {
+		if key == n {
+			fc.lastUsed = append(fc.lastUsed[:i], fc.lastUsed[i+1:]...)
+			break
+		}
+	}
+
+	// Ajoute n au début de la liste
+	fc.lastUsed = append([]int{n}, fc.lastUsed...)
+}
+
+// evictLRU supprime l'élément le moins récemment utilisé du cache.
+func (fc *FibCache) evictLRU() {
+	if len(fc.lastUsed) > 0 {
+		// Retire le dernier élément (le moins récemment utilisé)
+		lruKey := fc.lastUsed[len(fc.lastUsed)-1]
+		fc.lastUsed = fc.lastUsed[:len(fc.lastUsed)-1]
+		delete(fc.cache, lruKey)
+	}
+}
+
+// MultiplicationJob représente une tâche de multiplication à effectuer.
+type MultiplicationJob struct {
+	x, y       *big.Int
+	resultChan chan<- *big.Int
+	errChan    chan<- error
+}
+
+// WorkerPool gère un ensemble de goroutines pour traiter les multiplications en parallèle.
+type WorkerPool struct {
+	jobChan chan MultiplicationJob
+	wg      sync.WaitGroup
+	metrics *Metrics
+}
+
+// NewWorkerPool crée un nouveau pool de workers pour les multiplications.
+func NewWorkerPool(workerCount int, metrics *Metrics) *WorkerPool {
+	pool := &WorkerPool{
+		jobChan: make(chan MultiplicationJob, workerCount*2),
+		metrics: metrics,
+	}
+
+	// Démarrage des workers
+	pool.wg.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go pool.worker()
+	}
+
+	return pool
+}
+
+// worker traite les multiplications dans une boucle infinie.
+func (wp *WorkerPool) worker() {
+	defer wp.wg.Done()
+
+	for job := range wp.jobChan {
+		startTime := time.Now()
+
+		result, err := performMultiplication(job.x, job.y)
+
+		if wp.metrics != nil {
+			wp.metrics.AddMultiplicationTime(time.Since(startTime))
+		}
+
+		if err != nil {
+			job.errChan <- err
+		} else {
+			job.resultChan <- result
+		}
+	}
+}
+
+// ScheduleMultiplication ajoute une tâche de multiplication au pool.
+func (wp *WorkerPool) ScheduleMultiplication(x, y *big.Int, resultChan chan<- *big.Int, errChan chan<- error) {
+	wp.jobChan <- MultiplicationJob{
+		x:          x,
+		y:          y,
+		resultChan: resultChan,
+		errChan:    errChan,
+	}
+}
+
+// Shutdown arrête proprement le pool de workers.
+func (wp *WorkerPool) Shutdown() {
+	close(wp.jobChan)
+	wp.wg.Wait()
+}
+
 // FibCalculator encapsule le calcul du n‑ième nombre de Fibonacci.
-type FibCalculator struct{}
+type FibCalculator struct {
+	cache      *FibCache
+	workerPool *WorkerPool
+	metrics    *Metrics
+}
 
 // NewFibCalculator retourne une nouvelle instance de FibCalculator.
-func NewFibCalculator() *FibCalculator {
-	return &FibCalculator{}
+func NewFibCalculator(cache *FibCache, workerPool *WorkerPool, metrics *Metrics) *FibCalculator {
+	return &FibCalculator{
+		cache:      cache,
+		workerPool: workerPool,
+		metrics:    metrics,
+	}
 }
 
 // Calculate retourne Fibonacci(n) pour n ≥ 0.
-// Les cas particuliers n=0 et n=1 sont traités directement.
-func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
+func (fc *FibCalculator) Calculate(ctx context.Context, n int) (*big.Int, error) {
+	// Vérification du contexte
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être non négatif")
 	}
+
+	// Cas de base
 	if n == 0 {
 		return big.NewInt(0), nil
 	}
 	if n == 1 {
 		return big.NewInt(1), nil
 	}
-	// Pour n supérieur à 1, on utilise l'algorithme du doublement parallélisé.
-	return fibDoublingParallel(n)
+
+	// Vérification du cache
+	if fc.cache != nil {
+		if val, found := fc.cache.Get(n); found {
+			return val, nil
+		}
+	}
+
+	// Calcul avec l'algorithme du doublement
+	result, err := fc.fibDoublingParallel(ctx, n)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mise en cache du résultat
+	if fc.cache != nil {
+		fc.cache.Put(n, result)
+	}
+
+	return result, nil
 }
 
-// multiplicationResult représente le résultat d'une opération de multiplication.
-type multiplicationResult struct {
-	result *big.Int
-	err    error
-}
-
-// fibDoublingParallel calcule Fibonacci(n) en utilisant l'algorithme itératif
-// du doublement (doubling method) avec parallélisation des multiplications lourdes.
-// L'algorithme parcourt les bits de n, du bit le plus significatif au moins significatif,
-// et à chaque itération, lance des goroutines pour calculer simultanément :
-// - c = a * (2*b - a)
-// - t1 = a * a
-// - t2 = b * b
-// Puis, en fonction du bit courant de n, les valeurs de a et b sont mises à jour.
-func fibDoublingParallel(n int) (*big.Int, error) {
-	// Initialisation : a = F(0) = 0, b = F(1) = 1
+// fibDoublingParallel calcule Fibonacci(n) en utilisant l'algorithme du doublement avec parallélisation.
+func (fc *FibCalculator) fibDoublingParallel(ctx context.Context, n int) (*big.Int, error) {
+	// Initialisation
 	a := big.NewInt(0)
 	b := big.NewInt(1)
 
-	// Détermination du bit le plus significatif de n.
+	// Détermination du bit le plus significatif de n
 	highest := determineHighestBit(n)
-	// Création des big int utilisé dans la boucle
+
+	// Création des big int utilisés dans la boucle
 	twoB := new(big.Int)
 	temp := new(big.Int)
 	c := new(big.Int)
 	d := new(big.Int)
 
-	// Parcours des bits de n, du plus significatif au moins significatif.
+	// Parcours des bits de n, du plus significatif au moins significatif
 	for i := highest; i >= 0; i-- {
-		// Calcul de deuxB = 2 * b (opération rapide via un décalage de bits).
+		// Vérification périodique du contexte
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		// Calcul de deuxB = 2 * b (opération rapide via un décalage de bits)
 		twoB.Lsh(b, 1)
-		// Calcul de temp = 2*b - a.
+		// Calcul de temp = 2*b - a
 		temp.Sub(twoB, a)
 
-		// Création et configuration des canaux pour les résultats des multiplications.
-		cChan, t1Chan, t2Chan, errChan := setupMultiplicationChannels()
+		// Configuration des canaux pour les résultats
+		cChan := make(chan *big.Int, 1)
+		t1Chan := make(chan *big.Int, 1)
+		t2Chan := make(chan *big.Int, 1)
+		errChan := make(chan error, 3)
 
-		// Lancement des goroutines pour effectuer les multiplications.
-		launchMultiplicationGoroutines(a, temp, b, cChan, t1Chan, t2Chan, errChan)
+		// Lancement des multiplications parallèles via le pool de workers
+		fc.workerPool.ScheduleMultiplication(a, temp, cChan, errChan)
+		fc.workerPool.ScheduleMultiplication(a, a, t1Chan, errChan)
+		fc.workerPool.ScheduleMultiplication(b, b, t2Chan, errChan)
 
-		// Récupération des résultats des multiplications et gestion des erreurs.
-		if err := handleMultiplicationResults(cChan, t1Chan, t2Chan, errChan, c, d); err != nil {
+		// Récupération des résultats et gestion des erreurs
+		if err := fc.handleMultiplicationResults(ctx, cChan, t1Chan, t2Chan, errChan, c, d); err != nil {
 			return nil, err
 		}
 
-		// Mise à jour des valeurs (a, b) selon la valeur du bit courant de n.
+		// Mise à jour des valeurs selon le bit courant
 		updateFibonacciValues(n, i, a, b, c, d)
 	}
-	// À la fin de la boucle, a contient Fibonacci(n).
+
+	// À la fin de la boucle, a contient Fibonacci(n)
 	return a, nil
 }
 
-// determineHighestBit Détermine le bit le plus significatif de n.
+// handleMultiplicationResults récupère les résultats des multiplications et gère les erreurs.
+func (fc *FibCalculator) handleMultiplicationResults(
+	ctx context.Context,
+	cChan, t1Chan, t2Chan <-chan *big.Int,
+	errChan <-chan error,
+	c, d *big.Int,
+) error {
+	// Attente des résultats avec vérification du contexte
+	for i := 0; i < 3; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-errChan:
+			return err
+		case c1 := <-cChan:
+			c.Set(c1)
+		case t1 := <-t1Chan:
+			d.Set(t1)
+		case t2 := <-t2Chan:
+			// Ajout de t2 à d (qui contient déjà t1)
+			d.Add(d, t2)
+		}
+	}
+
+	return nil
+}
+
+// determineHighestBit détermine le bit le plus significatif de n.
 func determineHighestBit(n int) int {
 	highest := 0
-	for i := 31; i >= 0; i-- {
-		if n&(1<<i) != 0 {
+	for i := 63; i >= 0; i-- {
+		if n&(1<<uint(i)) != 0 {
 			highest = i
 			break
 		}
 	}
 	return highest
-}
-
-// setupMultiplicationChannels crée et retourne les canaux pour les résultats des multiplications.
-func setupMultiplicationChannels() (cChan, t1Chan, t2Chan chan multiplicationResult, errChan chan error) {
-	cChan = make(chan multiplicationResult, 1)
-	t1Chan = make(chan multiplicationResult, 1)
-	t2Chan = make(chan multiplicationResult, 1)
-	errChan = make(chan error, 3)
-	return
-}
-
-// launchMultiplicationGoroutines lance les goroutines pour effectuer les multiplications.
-func launchMultiplicationGoroutines(a, temp, b *big.Int, cChan, t1Chan, t2Chan chan multiplicationResult, errChan chan error) {
-	go multiply(a, temp, cChan, errChan)
-	go multiply(a, a, t1Chan, errChan)
-	go multiply(b, b, t2Chan, errChan)
-}
-
-// multiply effectue la multiplication de deux grands entiers et envoie le résultat sur le canal.
-func multiply(x, y *big.Int, resultChan chan multiplicationResult, errChan chan error) {
-	result, err := performMultiplication(x, y)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	resultChan <- multiplicationResult{result: result, err: nil}
 }
 
 // performMultiplication effectue la multiplication et retourne le résultat.
@@ -185,32 +445,6 @@ func performMultiplication(x, y *big.Int) (*big.Int, error) {
 		return nil, errors.New("cannot multiply nil big.Int")
 	}
 	return new(big.Int).Mul(x, y), nil
-}
-
-// handleMultiplicationResults récupère les résultats des multiplications et gère les erreurs.
-func handleMultiplicationResults(cChan, t1Chan, t2Chan chan multiplicationResult, errChan chan error, c, d *big.Int) error {
-	var err error
-	cResult := <-cChan
-	t1Result := <-t1Chan
-	t2Result := <-t2Chan
-
-	select {
-	case err = <-errChan:
-		return err
-	default:
-	}
-	if cResult.err != nil {
-		return cResult.err
-	}
-	if t1Result.err != nil {
-		return t1Result.err
-	}
-	if t2Result.err != nil {
-		return t2Result.err
-	}
-	c.Set(cResult.result)
-	d.Add(t1Result.result, t2Result.result)
-	return nil
 }
 
 // updateFibonacciValues met à jour les valeurs de a et b selon la valeur du bit courant de n.
@@ -224,9 +458,12 @@ func updateFibonacciValues(n, i int, a, b, c, d *big.Int) {
 	}
 }
 
-// formatBigIntExp formate un grand entier en notation scientifique avec l'exposant
-// en notation exponentielle (ex: 1.23e45).
-func formatBigIntExp(n *big.Int) string {
+// formatBigIntExp formate un grand entier en notation scientifique avec exposant.
+func formatBigIntExp(n *big.Int, precision int) string {
+	if n == nil {
+		return "nil"
+	}
+
 	if n.Sign() == 0 {
 		return "0"
 	}
@@ -246,21 +483,25 @@ func formatBigIntExp(n *big.Int) string {
 		return s
 	}
 
-	// Détermination du nombre de chiffres significatifs (ici, 6 chiffres).
+	// Détermination du nombre de chiffres significatifs
 	var significand string
-	if len(s) > 6 {
-		significand = s[:1] + "." + s[1:6]
+	if len(s) > precision {
+		significand = s[:1] + "." + s[1:precision]
 	} else {
-		significand = s[:1] + "." + s[1:] + string(make([]byte, 6-len(s)))
-		for i := 0; i < 6-len(s); i++ {
+		significand = s[:1] + "."
+		if len(s) > 1 {
+			significand += s[1:]
+		}
+		// Ajout de zéros pour atteindre la précision demandée
+		for i := 0; i < precision-len(s); i++ {
 			significand += "0"
 		}
 	}
 
-	// Calcul de l'exposant.
+	// Calcul de l'exposant
 	exponent := len(s) - 1
 
-	// Formatage de la sortie.
+	// Formatage de la sortie
 	if isNegative {
 		return fmt.Sprintf("-%se%d", significand, exponent)
 	}
@@ -268,31 +509,48 @@ func formatBigIntExp(n *big.Int) string {
 }
 
 // main constitue le point d'entrée du programme.
-// Il configure le runtime, initialise les paramètres et les métriques, et déclenche le calcul.
 func main() {
-	// Configuration explicite pour exploiter tous les cœurs disponibles.
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	// Récupération de la configuration par défaut.
+	// Récupération de la configuration
 	config := DefaultConfig()
+	ParseFlags(&config)
 
-	// Initialisation des métriques pour mesurer la performance.
+	// Configuration du profilage CPU si demandé
+	if config.CPUProfile != "" {
+		f, err := os.Create(config.CPUProfile)
+		if err != nil {
+			log.Fatal("Erreur lors de la création du fichier de profil CPU:", err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("Erreur lors du démarrage du profilage CPU:", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	// Initialisation des métriques
 	metrics := NewMetrics()
 
-	// Création d'un contexte avec timeout pour limiter la durée d'exécution du calcul.
+	// Création du contexte avec timeout
 	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	// Instanciation du calculateur de Fibonacci.
-	fc := NewFibCalculator()
+	// Initialisation du cache
+	cache := NewFibCache(config.CacheSize, metrics)
 
-	// Création de canaux pour récupérer le résultat ou une éventuelle erreur.
+	// Initialisation du pool de workers
+	workerPool := NewWorkerPool(config.WorkerCount, metrics)
+	defer workerPool.Shutdown()
+
+	// Création du calculateur de Fibonacci
+	fc := NewFibCalculator(cache, workerPool, metrics)
+
+	// Canaux pour récupérer le résultat ou une erreur
 	resultChan := make(chan *big.Int, 1)
 	errorChan := make(chan error, 1)
 
-	// Lancement du calcul de Fibonacci dans une goroutine.
+	// Lancement du calcul dans une goroutine
 	go func() {
-		fib, err := fc.Calculate(config.M)
+		fib, err := fc.Calculate(ctx, config.M)
 		if err != nil {
 			errorChan <- err
 			return
@@ -300,7 +558,7 @@ func main() {
 		resultChan <- fib
 	}()
 
-	// Sélection entre le résultat, une erreur ou un timeout.
+	// Attente du résultat
 	var fibResult *big.Int
 	select {
 	case <-ctx.Done():
@@ -308,33 +566,30 @@ func main() {
 	case err := <-errorChan:
 		log.Fatalf("Erreur lors du calcul de Fibonacci : %v", err)
 	case fibResult = <-resultChan:
-		// Le calcul s'est terminé correctement.
+		// Le calcul s'est terminé correctement
 	}
 
-	// Comptabilisation du calcul effectué.
+	// Enregistrement des métriques finales
 	metrics.AddCalculations(1)
 	metrics.EndTime = time.Now()
-	duration := metrics.EndTime.Sub(metrics.StartTime)
 
-	// Calcul du temps moyen par calcul.
-	var avgTime time.Duration
-	if metrics.TotalCalculations > 0 {
-		avgTime = duration / time.Duration(metrics.TotalCalculations)
-	}
+	// Affichage des métriques
+	metrics.PrintMetrics(config)
 
-	// Affichage de la configuration et des informations de performance.
-	fmt.Printf("\nConfiguration :\n")
-	fmt.Printf("  Valeur de M             : %d\n", config.M)
-	fmt.Printf("  Timeout                 : %v\n", config.Timeout)
-	fmt.Printf("  Nombre de cœurs utilisés: %d\n", runtime.NumCPU())
-
-	fmt.Printf("\nPerformance :\n")
-	fmt.Printf("  Temps total d'exécution : %v\n", duration)
-	fmt.Printf("  Nombre de calculs       : %d\n", metrics.TotalCalculations)
-	fmt.Printf("  Temps moyen par calcul  : %v\n", avgTime)
-
-	// Formatage du résultat en notation scientifique avec l'exposant en notation exponentielle.
-	formattedResult := formatBigIntExp(fibResult)
+	// Affichage du résultat
 	fmt.Printf("\nRésultat :\n")
-	fmt.Printf("  Fibonacci(%d) : %s\n", config.M, formattedResult)
+	fmt.Printf("  Fibonacci(%d) : %s\n", config.M, formatBigIntExp(fibResult, 6))
+
+	// Profilage mémoire si demandé
+	if config.MemProfile != "" {
+		f, err := os.Create(config.MemProfile)
+		if err != nil {
+			log.Fatal("Erreur lors de la création du fichier de profil mémoire:", err)
+		}
+		defer f.Close()
+		runtime.GC() // Forcer une collecte des déchets avant le profilage
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("Erreur lors de l'écriture du profil mémoire:", err)
+		}
+	}
 }
