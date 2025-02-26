@@ -8,21 +8,22 @@
 // code parallélise les multiplications coûteuses à l'aide de goroutines et de canaux.
 // Un contexte avec timeout est mis en place pour limiter la durée d'exécution, et
 // des métriques de performance sont collectées. Le résultat est affiché en notation
-// scientifique avec l'exposant rendu en caractères Unicode superscript, facilitant
+// scientifique avec l'exposant rendu en notation exponentielle (ex: 1.23e45), facilitant
 // ainsi la lecture de nombres très volumineux.
 //
 // Techniques employées :
 // - Algorithme du doublement pour calculer Fibonacci(n) efficacement.
 // - Parallélisation des multiplications (big.Int) par goroutines pour exploiter
-//   la puissance des processeurs multi‑cœurs.
+//   la puissance des processeurs multicœurs.
 // - Utilisation d’un contexte avec timeout pour la robustesse du calcul.
-// - Formatage en notation scientifique avec conversion des exposants en superscript.
+// - Formatage en notation scientifique avec notation exponentielle.
 // =============================================================================
 
 package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -88,6 +89,12 @@ func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
 	return fibDoublingParallel(n)
 }
 
+// multiplicationResult représente le résultat d'une opération de multiplication.
+type multiplicationResult struct {
+	result *big.Int
+	err    error
+}
+
 // fibDoublingParallel calcule Fibonacci(n) en utilisant l'algorithme itératif
 // du doublement (doubling method) avec parallélisation des multiplications lourdes.
 // L'algorithme parcourt les bits de n, du bit le plus significatif au moins significatif,
@@ -102,6 +109,40 @@ func fibDoublingParallel(n int) (*big.Int, error) {
 	b := big.NewInt(1)
 
 	// Détermination du bit le plus significatif de n.
+	highest := determineHighestBit(n)
+	// Création des big int utilisé dans la boucle
+	twoB := new(big.Int)
+	temp := new(big.Int)
+	c := new(big.Int)
+	d := new(big.Int)
+
+	// Parcours des bits de n, du plus significatif au moins significatif.
+	for i := highest; i >= 0; i-- {
+		// Calcul de deuxB = 2 * b (opération rapide via un décalage de bits).
+		twoB.Lsh(b, 1)
+		// Calcul de temp = 2*b - a.
+		temp.Sub(twoB, a)
+
+		// Création et configuration des canaux pour les résultats des multiplications.
+		cChan, t1Chan, t2Chan, errChan := setupMultiplicationChannels()
+
+		// Lancement des goroutines pour effectuer les multiplications.
+		launchMultiplicationGoroutines(a, temp, b, cChan, t1Chan, t2Chan, errChan)
+
+		// Récupération des résultats des multiplications et gestion des erreurs.
+		if err := handleMultiplicationResults(cChan, t1Chan, t2Chan, errChan, c, d); err != nil {
+			return nil, err
+		}
+
+		// Mise à jour des valeurs (a, b) selon la valeur du bit courant de n.
+		updateFibonacciValues(n, i, a, b, c, d)
+	}
+	// À la fin de la boucle, a contient Fibonacci(n).
+	return a, nil
+}
+
+// determineHighestBit Détermine le bit le plus significatif de n.
+func determineHighestBit(n int) int {
 	highest := 0
 	for i := 31; i >= 0; i-- {
 		if n&(1<<i) != 0 {
@@ -109,106 +150,121 @@ func fibDoublingParallel(n int) (*big.Int, error) {
 			break
 		}
 	}
-
-	// Parcours des bits de n, du plus significatif au moins significatif.
-	for i := highest; i >= 0; i-- {
-		// Calcul de deuxB = 2 * b (opération rapide via un décalage de bits).
-		twoB := new(big.Int).Lsh(b, 1)
-		// Calcul de temp = 2*b - a.
-		temp := new(big.Int).Sub(twoB, a)
-
-		// Création de canaux tamponnés pour récupérer les résultats des multiplications.
-		cChan := make(chan *big.Int, 1)
-		t1Chan := make(chan *big.Int, 1)
-		t2Chan := make(chan *big.Int, 1)
-
-		// Lancement de la goroutine pour calculer c = a * (2*b - a).
-		go func(a, temp *big.Int) {
-			cChan <- new(big.Int).Mul(a, temp)
-		}(new(big.Int).Set(a), temp)
-
-		// Lancement de la goroutine pour calculer t1 = a * a.
-		go func(a *big.Int) {
-			t1Chan <- new(big.Int).Mul(a, a)
-		}(new(big.Int).Set(a))
-
-		// Lancement de la goroutine pour calculer t2 = b * b.
-		go func(b *big.Int) {
-			t2Chan <- new(big.Int).Mul(b, b)
-		}(new(big.Int).Set(b))
-
-		// Récupération des résultats des multiplications via les canaux.
-		c := <-cChan
-		t1 := <-t1Chan
-		t2 := <-t2Chan
-
-		// Calcul de d = a*a + b*b.
-		d := new(big.Int).Add(t1, t2)
-
-		// Mise à jour des valeurs (a, b) selon la valeur du bit courant de n.
-		if n&(1<<uint(i)) != 0 {
-			a.Set(d)
-			b.Add(c, d)
-		} else {
-			a.Set(c)
-			b.Set(d)
-		}
-	}
-	// À la fin de la boucle, a contient Fibonacci(n).
-	return a, nil
+	return highest
 }
 
-// toSuperscript convertit une chaîne de chiffres (et éventuellement le signe '-') en
-// leurs équivalents en exposants Unicode. Cette fonction est utilisée pour afficher
-// l'exposant en notation scientifique de manière lisible.
-func toSuperscript(s string) string {
-	// Définition d'une table de correspondance entre chiffres et leurs équivalents en
-	// caractères superscript.
-	supDigits := map[rune]rune{
-		'0': '⁰',
-		'1': '¹',
-		'2': '²',
-		'3': '³',
-		'4': '⁴',
-		'5': '⁵',
-		'6': '⁶',
-		'7': '⁷',
-		'8': '⁸',
-		'9': '⁹',
-		'-': '⁻',
-	}
-	result := ""
-	for _, r := range s {
-		if sup, ok := supDigits[r]; ok {
-			result += string(sup)
-		} else {
-			result += string(r)
-		}
-	}
-	return result
+// setupMultiplicationChannels crée et retourne les canaux pour les résultats des multiplications.
+func setupMultiplicationChannels() (cChan, t1Chan, t2Chan chan multiplicationResult, errChan chan error) {
+	cChan = make(chan multiplicationResult, 1)
+	t1Chan = make(chan multiplicationResult, 1)
+	t2Chan = make(chan multiplicationResult, 1)
+	errChan = make(chan error, 3)
+	return
 }
 
-// formatBigIntSup formate un grand entier en notation scientifique avec l'exposant
-// rendu en caractères Unicode superscript.
-// Par exemple, un nombre tel que 354224848179261915075 sera formaté en "3.54224×10²⁰".
-func formatBigIntSup(n *big.Int) string {
+// launchMultiplicationGoroutines lance les goroutines pour effectuer les multiplications.
+func launchMultiplicationGoroutines(a, temp, b *big.Int, cChan, t1Chan, t2Chan chan multiplicationResult, errChan chan error) {
+	go multiply(a, temp, cChan, errChan)
+	go multiply(a, a, t1Chan, errChan)
+	go multiply(b, b, t2Chan, errChan)
+}
+
+// multiply effectue la multiplication de deux grands entiers et envoie le résultat sur le canal.
+func multiply(x, y *big.Int, resultChan chan multiplicationResult, errChan chan error) {
+	result, err := performMultiplication(x, y)
+	if err != nil {
+		errChan <- err
+		return
+	}
+	resultChan <- multiplicationResult{result: result, err: nil}
+}
+
+// performMultiplication effectue la multiplication et retourne le résultat.
+func performMultiplication(x, y *big.Int) (*big.Int, error) {
+	if x == nil || y == nil {
+		return nil, errors.New("cannot multiply nil big.Int")
+	}
+	return new(big.Int).Mul(x, y), nil
+}
+
+// handleMultiplicationResults récupère les résultats des multiplications et gère les erreurs.
+func handleMultiplicationResults(cChan, t1Chan, t2Chan chan multiplicationResult, errChan chan error, c, d *big.Int) error {
+	var err error
+	cResult := <-cChan
+	t1Result := <-t1Chan
+	t2Result := <-t2Chan
+
+	select {
+	case err = <-errChan:
+		return err
+	default:
+	}
+	if cResult.err != nil {
+		return cResult.err
+	}
+	if t1Result.err != nil {
+		return t1Result.err
+	}
+	if t2Result.err != nil {
+		return t2Result.err
+	}
+	c.Set(cResult.result)
+	d.Add(t1Result.result, t2Result.result)
+	return nil
+}
+
+// updateFibonacciValues met à jour les valeurs de a et b selon la valeur du bit courant de n.
+func updateFibonacciValues(n, i int, a, b, c, d *big.Int) {
+	if n&(1<<uint(i)) != 0 {
+		a.Set(d)
+		b.Add(c, d)
+	} else {
+		a.Set(c)
+		b.Set(d)
+	}
+}
+
+// formatBigIntExp formate un grand entier en notation scientifique avec l'exposant
+// en notation exponentielle (ex: 1.23e45).
+func formatBigIntExp(n *big.Int) string {
+	if n.Sign() == 0 {
+		return "0"
+	}
+
 	s := n.String()
-	// Si le nombre contient un seul chiffre, il est retourné tel quel.
+	isNegative := false
+	if s[0] == '-' {
+		isNegative = true
+		s = s[1:]
+	}
+
+	// Cas simple si le nombre a un seul chiffre
 	if len(s) <= 1 {
+		if isNegative {
+			return "-" + s
+		}
 		return s
 	}
-	// Détermination du nombre de chiffres significatifs (ici 6 chiffres au total).
+
+	// Détermination du nombre de chiffres significatifs (ici, 6 chiffres).
 	var significand string
 	if len(s) > 6 {
 		significand = s[:1] + "." + s[1:6]
 	} else {
-		significand = s[:1] + "." + s[1:]
+		significand = s[:1] + "." + s[1:] + string(make([]byte, 6-len(s)))
+		for i := 0; i < 6-len(s); i++ {
+			significand += "0"
+		}
 	}
-	// Calcul de l'exposant : le nombre de chiffres moins 1.
+
+	// Calcul de l'exposant.
 	exponent := len(s) - 1
-	// Conversion de l'exposant en notation superscript.
-	supExp := toSuperscript(fmt.Sprintf("%d", exponent))
-	return fmt.Sprintf("%s×10%s", significand, supExp)
+
+	// Formatage de la sortie.
+	if isNegative {
+		return fmt.Sprintf("-%se%d", significand, exponent)
+	}
+	return fmt.Sprintf("%se%d", significand, exponent)
 }
 
 // main constitue le point d'entrée du programme.
@@ -277,8 +333,8 @@ func main() {
 	fmt.Printf("  Nombre de calculs       : %d\n", metrics.TotalCalculations)
 	fmt.Printf("  Temps moyen par calcul  : %v\n", avgTime)
 
-	// Formatage du résultat en notation scientifique avec l'exposant en caractères superscript.
-	formattedResult := formatBigIntSup(fibResult)
+	// Formatage du résultat en notation scientifique avec l'exposant en notation exponentielle.
+	formattedResult := formatBigIntExp(fibResult)
 	fmt.Printf("\nRésultat :\n")
 	fmt.Printf("  Fibonacci(%d) : %s\n", config.M, formattedResult)
 }
