@@ -1,17 +1,13 @@
 // =============================================================================
-// Programme : Calcul et affichage de Fibonacci(n) en notation scientifique
-// Auteur    : [Votre nom ou pseudonyme]
-// Date      : [Date de création/modification]
-// Version   : 2.0
+// Programme : Calcul optimisé de Fibonacci(n) - Version scientifique simple
+// Auteur    : [Votre nom]
+// Date      : [Date]
+// Version   : 3.1
 //
 // Description :
 // Ce programme implémente le calcul du n-ième nombre de Fibonacci en utilisant
-// l'algorithme du doublement (doubling method) optimisé par la parallélisation
-// des opérations sur de grands entiers (big.Int) à l'aide de goroutines.
-// L’algorithme présente une complexité en O(log n) et exploite pleinement la
-// puissance de calcul disponible (machine multi‑cœurs) en configurant explicitement
-// runtime.GOMAXPROCS. Le résultat est affiché en notation scientifique avec un
-// exposant en caractères Unicode superscript.
+// l'algorithme du doublement parallélisé avec gestion de cache et optimisation mémoire.
+// L'affichage utilise la notation scientifique standard sans caractères superscript.
 // =============================================================================
 
 package main
@@ -22,75 +18,145 @@ import (
 	"log"
 	"math/big"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
-// Configuration centralise les paramètres configurables.
+// Configuration centralise les paramètres configurables
 type Configuration struct {
-	M       int           // Calcul de Fibonacci(M)
-	Timeout time.Duration // Durée maximale d'exécution
+	M               int           // Calcul de Fibonacci(M)
+	Timeout         time.Duration // Durée maximale d'exécution
+	Precision       int           // Nombre de chiffres significatifs à afficher
+	EnableCache     bool          // Active le cache des résultats intermédiaires
+	EnableBenchmark bool          // Active les benchmarks comparatifs
 }
 
-// DefaultConfig retourne une configuration par défaut.
+// DefaultConfig retourne une configuration par défaut
 func DefaultConfig() Configuration {
 	return Configuration{
-		// Par défaut, on calcule Fibonacci(100) (modifiable selon les besoins)
-		M:       100000000,
-		Timeout: 5 * time.Minute, // Timeout de 5 minutes
+		M:               200000000,
+		Timeout:         5 * time.Minute,
+		Precision:       6,
+		EnableCache:     true,
+		EnableBenchmark: false,
 	}
 }
 
-// Metrics conserve quelques métriques de performance.
+// Metrics conserve les métriques de performance
 type Metrics struct {
-	StartTime         time.Time // Heure de début
-	EndTime           time.Time // Heure de fin
-	TotalCalculations int64     // Nombre de calculs réalisés
+	StartTime         time.Time
+	EndTime           time.Time
+	TotalCalculations int64
+	CacheHits         int64
+	AllocationsSaved  int64
 }
 
-// NewMetrics initialise les métriques avec l'heure de début.
+// NewMetrics initialise les métriques
 func NewMetrics() *Metrics {
 	return &Metrics{StartTime: time.Now()}
 }
 
-// AddCalculations incrémente le compteur via une opération atomique.
+// AddCalculations incrémente le compteur atomiquement
 func (m *Metrics) AddCalculations(n int64) {
 	atomic.AddInt64(&m.TotalCalculations, n)
 }
 
-// FibCalculator encapsule le calcul du n-ième nombre de Fibonacci.
-type FibCalculator struct{}
-
-// NewFibCalculator retourne une nouvelle instance de FibCalculator.
-func NewFibCalculator() *FibCalculator {
-	return &FibCalculator{}
+// AddCacheHit incrémente le compteur de cache hits
+func (m *Metrics) AddCacheHit() {
+	atomic.AddInt64(&m.CacheHits, 1)
 }
 
-// Calculate retourne F(n) pour n ≥ 0.
-// Pour n = 0 ou 1, le résultat est retourné directement.
-func (fc *FibCalculator) Calculate(n int) (*big.Int, error) {
+// AddAllocationSaved incrémente le compteur d'allocations économisées
+func (m *Metrics) AddAllocationSaved() {
+	atomic.AddInt64(&m.AllocationsSaved, 1)
+}
+
+// FibCalculator encapsule le calcul de Fibonacci avec cache
+type FibCalculator struct {
+	cache map[int]*big.Int
+	mu    sync.RWMutex
+	pool  sync.Pool // Pool de big.Int pour réduire les allocations
+}
+
+// NewFibCalculator crée un nouveau calculateur avec cache
+func NewFibCalculator() *FibCalculator {
+	return &FibCalculator{
+		cache: make(map[int]*big.Int),
+		pool: sync.Pool{
+			New: func() interface{} {
+				return new(big.Int)
+			},
+		},
+	}
+}
+
+// getFromCache tente de récupérer un résultat depuis le cache
+func (fc *FibCalculator) getFromCache(n int) (*big.Int, bool) {
+	fc.mu.RLock()
+	defer fc.mu.RUnlock()
+	val, ok := fc.cache[n]
+	if ok {
+		return val, true
+	}
+	return nil, false
+}
+
+// storeInCache stocke un résultat dans le cache
+func (fc *FibCalculator) storeInCache(n int, val *big.Int) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	fc.cache[n] = val
+}
+
+// Calculate retourne F(n) pour n ≥ 0 en utilisant le cache si activé
+func (fc *FibCalculator) Calculate(n int, enableCache bool, metrics *Metrics) (*big.Int, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n doit être non négatif")
 	}
+
+	// Vérification du cache
+	if enableCache {
+		if val, ok := fc.getFromCache(n); ok {
+			metrics.AddCacheHit()
+			return val, nil
+		}
+	}
+
+	// Cas de base
 	if n == 0 {
 		return big.NewInt(0), nil
 	}
 	if n == 1 {
 		return big.NewInt(1), nil
 	}
-	return fibDoublingParallel(n)
+
+	// Calcul avec doublement parallèle
+	result, err := fc.fibDoublingParallel(n, metrics)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mise en cache
+	if enableCache {
+		fc.storeInCache(n, result)
+	}
+
+	return result, nil
 }
 
-// fibDoublingParallel calcule F(n) en utilisant l'algorithme itératif du doublement
-// avec parallélisation des opérations coûteuses. L'algorithme parcourt les bits de n
-// du plus significatif au moins significatif et, pour chaque itération, lance des
-// goroutines pour calculer simultanément les multiplications.
-func fibDoublingParallel(n int) (*big.Int, error) {
-	// Initialisation : a = F(0) = 0, b = F(1) = 1
-	a := big.NewInt(0)
-	b := big.NewInt(1)
+// fibDoublingParallel implémente l'algorithme de doublement avec parallélisation
+func (fc *FibCalculator) fibDoublingParallel(n int, metrics *Metrics) (*big.Int, error) {
+	// Récupération de big.Int depuis le pool
+	a := fc.pool.Get().(*big.Int).SetInt64(0)
+	b := fc.pool.Get().(*big.Int).SetInt64(1)
+	defer func() {
+		// Remise dans le pool
+		fc.pool.Put(a)
+		fc.pool.Put(b)
+	}()
 
-	// Détermination du bit le plus significatif de n
+	// Trouver le bit le plus significatif
 	highest := 0
 	for i := 31; i >= 0; i-- {
 		if n&(1<<i) != 0 {
@@ -99,31 +165,38 @@ func fibDoublingParallel(n int) (*big.Int, error) {
 		}
 	}
 
-	// Parcours des bits de n, du plus significatif au moins significatif
-	for i := highest; i >= 0; i-- {
-		// Calcul de deuxB = 2 * b
-		twoB := new(big.Int).Lsh(b, 1)
-		// Calcul de temp = 2*b - a
-		temp := new(big.Int).Sub(twoB, a)
+	// Variables temporaires réutilisables
+	temp := fc.pool.Get().(*big.Int)
+	twoB := fc.pool.Get().(*big.Int)
+	defer func() {
+		fc.pool.Put(temp)
+		fc.pool.Put(twoB)
+	}()
 
-		// Création de canaux pour récupérer les résultats des multiplications
+	for i := highest; i >= 0; i-- {
+		// Calcul des termes intermédiaires
+		twoB.Lsh(b, 1)
+		temp.Sub(twoB, a)
+
+		// Canaux pour les résultats parallèles
 		cChan := make(chan *big.Int, 1)
 		t1Chan := make(chan *big.Int, 1)
 		t2Chan := make(chan *big.Int, 1)
 
-		// Calcul de c = a * (2*b - a) en parallèle
+		// Goroutines pour les calculs parallèles
 		go func(a, temp *big.Int) {
-			cChan <- new(big.Int).Mul(a, temp)
-		}(new(big.Int).Set(a), temp)
+			res := fc.pool.Get().(*big.Int).Mul(a, temp)
+			cChan <- res
+		}(new(big.Int).Set(a), new(big.Int).Set(temp))
 
-		// Calcul de t1 = a * a en parallèle
 		go func(a *big.Int) {
-			t1Chan <- new(big.Int).Mul(a, a)
+			res := fc.pool.Get().(*big.Int).Mul(a, a)
+			t1Chan <- res
 		}(new(big.Int).Set(a))
 
-		// Calcul de t2 = b * b en parallèle
 		go func(b *big.Int) {
-			t2Chan <- new(big.Int).Mul(b, b)
+			res := fc.pool.Get().(*big.Int).Mul(b, b)
+			t2Chan <- res
 		}(new(big.Int).Set(b))
 
 		// Récupération des résultats
@@ -131,10 +204,10 @@ func fibDoublingParallel(n int) (*big.Int, error) {
 		t1 := <-t1Chan
 		t2 := <-t2Chan
 
-		// Calcul de d = a*a + b*b
-		d := new(big.Int).Add(t1, t2)
+		// Calcul final
+		d := fc.pool.Get().(*big.Int).Add(t1, t2)
+		defer fc.pool.Put(d)
 
-		// Mise à jour de (a, b) selon le bit courant de n
 		if n&(1<<uint(i)) != 0 {
 			a.Set(d)
 			b.Add(c, d)
@@ -142,75 +215,78 @@ func fibDoublingParallel(n int) (*big.Int, error) {
 			a.Set(c)
 			b.Set(d)
 		}
+
+		// Remise dans le pool
+		fc.pool.Put(c)
+		fc.pool.Put(t1)
+		fc.pool.Put(t2)
+
+		metrics.AddCalculations(1)
 	}
-	return a, nil
+
+	return new(big.Int).Set(a), nil
 }
 
-// toSuperscript convertit une chaîne composée de chiffres (et éventuellement le signe '-')
-// en leurs équivalents en exposants Unicode.
-func toSuperscript(s string) string {
-	supDigits := map[rune]rune{
-		'0': '⁰',
-		'1': '¹',
-		'2': '²',
-		'3': '³',
-		'4': '⁴',
-		'5': '⁵',
-		'6': '⁶',
-		'7': '⁷',
-		'8': '⁸',
-		'9': '⁹',
-		'-': '⁻',
-	}
-	result := ""
-	for _, r := range s {
-		if sup, ok := supDigits[r]; ok {
-			result += string(sup)
-		} else {
-			result += string(r)
-		}
-	}
-	return result
-}
-
-// formatBigIntSup formate un grand entier en notation scientifique avec l'exposant
-// rendu en caractères Unicode superscript. Par exemple : "3.54224×10²⁰".
-func formatBigIntSup(n *big.Int) string {
+// formatBigIntScientific formate un big.Int en notation scientifique standard
+func formatBigIntScientific(n *big.Int, precision int) string {
 	s := n.String()
 	if len(s) <= 1 {
 		return s
 	}
-	// Choix du nombre de chiffres significatifs (ici 6 chiffres au total)
-	var significand string
-	if len(s) > 6 {
-		significand = s[:1] + "." + s[1:6]
-	} else {
-		significand = s[:1] + "." + s[1:]
+
+	// Ajustement de la précision
+	if precision < 1 {
+		precision = 1
+	}
+	if len(s)-1 < precision {
+		precision = len(s) - 1
+	}
+
+	significand := s[:1]
+	if precision > 0 {
+		significand += "." + s[1:1+precision]
 	}
 	exponent := len(s) - 1
-	supExp := toSuperscript(fmt.Sprintf("%d", exponent))
-	return fmt.Sprintf("%s×10%s", significand, supExp)
+	return fmt.Sprintf("%se%d", significand, exponent)
+}
+
+// runBenchmark exécute des benchmarks comparatifs
+func runBenchmark(fc *FibCalculator, n int, metrics *Metrics) {
+	fmt.Println("\nBenchmark comparatif:")
+
+	// Test avec cache
+	start := time.Now()
+	fc.Calculate(n, true, metrics)
+	withCache := time.Since(start)
+
+	// Test sans cache
+	start = time.Now()
+	fc.Calculate(n, false, metrics)
+	withoutCache := time.Since(start)
+
+	fmt.Printf("Avec cache: %v\n", withCache)
+	fmt.Printf("Sans cache: %v\n", withoutCache)
+	fmt.Printf("Gain: %.2f%%\n",
+		float64(withoutCache.Nanoseconds()-withCache.Nanoseconds())/float64(withoutCache.Nanoseconds())*100)
 }
 
 func main() {
-	// Configuration explicite pour exploiter tous les cœurs disponibles
+	// Configuration
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	// Initialisation de la configuration et des métriques.
 	config := DefaultConfig()
 	metrics := NewMetrics()
+	fc := NewFibCalculator()
 
-	// Création d'un contexte avec timeout pour limiter la durée d'exécution.
+	// Contexte avec timeout
 	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	// Calcul de Fibonacci(config.M)
-	fc := NewFibCalculator()
+	// Calcul principal
 	resultChan := make(chan *big.Int, 1)
 	errorChan := make(chan error, 1)
 
 	go func() {
-		fib, err := fc.Calculate(config.M)
+		fib, err := fc.Calculate(config.M, config.EnableCache, metrics)
 		if err != nil {
 			errorChan <- err
 			return
@@ -223,33 +299,36 @@ func main() {
 	case <-ctx.Done():
 		log.Fatalf("Délai d'exécution dépassé : %v", ctx.Err())
 	case err := <-errorChan:
-		log.Fatalf("Erreur lors du calcul de Fibonacci : %v", err)
+		log.Fatalf("Erreur lors du calcul : %v", err)
 	case fibResult = <-resultChan:
-		// Calcul terminé.
+		// Calcul terminé avec succès
 	}
 
-	// Comptabilisation du calcul effectué.
-	metrics.AddCalculations(1)
+	// Benchmark si activé
+	if config.EnableBenchmark {
+		runBenchmark(fc, config.M/1000, metrics) // Test sur une valeur plus petite
+	}
+
+	// Finalisation des métriques
 	metrics.EndTime = time.Now()
 	duration := metrics.EndTime.Sub(metrics.StartTime)
-	var avgTime time.Duration
-	if metrics.TotalCalculations > 0 {
-		avgTime = duration / time.Duration(metrics.TotalCalculations)
-	}
 
-	// Affichage des résultats et des métriques.
+	// Affichage des résultats
 	fmt.Printf("\nConfiguration :\n")
 	fmt.Printf("  Valeur de M             : %d\n", config.M)
 	fmt.Printf("  Timeout                 : %v\n", config.Timeout)
+	fmt.Printf("  Précision affichage     : %d chiffres\n", config.Precision)
+	fmt.Printf("  Cache activé            : %v\n", config.EnableCache)
 	fmt.Printf("  Nombre de cœurs utilisés: %d\n", runtime.NumCPU())
 
 	fmt.Printf("\nPerformance :\n")
 	fmt.Printf("  Temps total d'exécution : %v\n", duration)
 	fmt.Printf("  Nombre de calculs       : %d\n", metrics.TotalCalculations)
-	fmt.Printf("  Temps moyen par calcul  : %v\n", avgTime)
+	fmt.Printf("  Cache hits              : %d\n", metrics.CacheHits)
+	fmt.Printf("  Allocations économisées : %d\n", metrics.AllocationsSaved)
 
-	// Affichage du résultat en notation scientifique avec l'exposant en superscript.
-	formattedResult := formatBigIntSup(fibResult)
+	// Affichage du résultat
+	formattedResult := formatBigIntScientific(fibResult, config.Precision)
 	fmt.Printf("\nRésultat :\n")
 	fmt.Printf("  Fibonacci(%d) : %s\n", config.M, formattedResult)
 }
