@@ -1,26 +1,18 @@
 // =============================================================================
-// Programme : Calcul ultra-optimisé et parallèle de listes de Fibonacci(n) en Go
-// Auteur    : André-Guy Bruneau // Adapté par l'IA Gemini 2.5 PRo Experimental 03-2025
+// Programme : Test de Primalité Parallèle pour Grands Nombres en Go
+// Auteur    : Adapté par l'IA Gemini depuis la structure Fibonacci v1.6
 // Date      : 2025-04-03 // Date de la modification
-// Version   : 1.4 // Introduction du calcul parallèle pour une liste de `n`.
+// Version   : 1.1 // Corrections erreurs compilation (unused var, string.Contains)
 //
 // Description :
-// Version 1.4 : Introduction du calcul parallèle pour une liste de `n`.
-// - Utilisation d'un modèle Worker Pool pour distribuer les calculs.
-// Version 1.3 : Intégration des "Minor Potential Considerations" de la V1.2.
-// - Remplacement de la comparaison directe d'erreurs de contexte par errors.Is dans la goroutine principale pour plus de robustesse.
-// - Ajout de commentaires sur la portabilité de l'affichage de progression ('\r') et la nature de la métrique de progression (bits.Len).
-// Version 1.2 : Intégration des "Minor Potential Considerations" de la V1.1.
-// - Remplacement du cache map[int]*big.Int par un cache LRU (github.com/hashicorp/golang-lru/v2)
-//   pour limiter l'utilisation mémoire du cache.
-// - Utilisation de string (strconv.Itoa(n)) comme clé de cache pour supprimer la limite théorique de int.
-// - Ajout du paramètre Config.CacheSize.
-// - Suppression du sync.RWMutex car la bibliothèque LRU gère sa propre synchronisation.
-// Version 1.1 : Intégration des suggestions de raffinement de la V1.0.
-// - Optimisation de multiplyMatrices pour utiliser 2 *big.Int temporaires.
-// - Propagation du contexte (context.Context) dans Calculate et fastDoubling.
-// Version 1.0 : Ajout du suivi de progression.
-// ... (Historique précédent omis pour la brièveté) ...
+// Version 1.1:
+// - Correction de la variable 'displayStr' non utilisée dans l'affichage des résultats.
+// - Correction de l'appel à strings.Contains pour la détection d'erreur de conversion.
+// - Ajout de l'import du package "strings".
+// Version 1.0 (Basé sur Fibonacci v1.6 structure):
+// - Teste la primalité (probable) pour une liste de grands nombres (strings).
+// - Utilise un pool de workers parallèles et Miller-Rabin (ProbablyPrime).
+// - Inclut un cache LRU optionnel et la gestion du timeout.
 // =============================================================================
 
 package main
@@ -30,12 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/big" // Importé mais bits.Len n'est plus utilisé dans fastDoubling V1.6
+	"math/big"
 	"os"
 	"runtime"
-	"runtime/pprof"
-	"sort"
-	"strconv"
+	"runtime/pprof" // Utilisé pour la clé de cache et la détection d'erreur
+	"strings"       // ***** AJOUTÉ V1.1 ***** pour strings.Contains
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,55 +34,56 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
-// --- Constantes ---
-const (
-	// ProgressReportInterval : Fréquence théorique de mise à jour si l'affichage était actif.
-	ProgressReportInterval = 1 * time.Second
-)
-
 // --- Structures ---
 
 // Config structure pour les paramètres de configuration.
 type Config struct {
-	NsToCalculate   []int
-	Timeout         time.Duration
-	Precision       int
-	Workers         int
-	EnableCache     bool
-	CacheSize       int
-	EnableProfiling bool
+	NumbersToTest         []string
+	Timeout               time.Duration
+	Workers               int
+	MillerRabinIterations int
+	EnableCache           bool
+	CacheSize             int
+	EnableProfiling       bool
 }
 
 // DefaultConfig retourne la configuration par défaut.
 func DefaultConfig() Config {
-	exampleNs := []int{
-		1000000, 500000, 1000001, 2000000, 500000,
-		3000000, 1500000, 100, 0, 1, 2, 4000000, 700000, 800000, 950000, 1100000,
-		2500000, 3500000, 10000000, 20000000,
+	exampleNumbers := []string{
+		"0", "1", "2", "3", "4", "10", "17",
+		"7919",   // Premier
+		"104729", // Premier
+		"6", "100",
+		"104730", // Composé (pair)
+		"123456789012345678901234567890123456789", // Très grand, probablement composé
+		"170141183460469231731687303715884105727", // 2^127 - 1 (Mersenne prime)
+		"7919", // Doublon
+		"11111111111111111111111111111111111111111111111111111111111111111111111111111111", // Grand composé
+		"104729",         // Doublon
+		"invalid-number", // Pour tester la gestion d'erreur
+		"170141183460469231731687303715884105727", // Doublon
 	}
 	numWorkers := runtime.NumCPU()
 	return Config{
-		NsToCalculate:   exampleNs,
-		Timeout:         5 * time.Minute,
-		Precision:       10,
-		Workers:         numWorkers,
-		EnableCache:     true,
-		CacheSize:       2048,
-		EnableProfiling: false,
+		NumbersToTest:         exampleNumbers,
+		Timeout:               5 * time.Minute,
+		Workers:               numWorkers,
+		MillerRabinIterations: 20,
+		EnableCache:           true,
+		CacheSize:             1024,
+		EnableProfiling:       false,
 	}
 }
 
 // Metrics structure pour collecter les métriques agrégées de performance.
 type Metrics struct {
-	StartTime         time.Time
-	EndTime           time.Time
-	TotalTasks        int
-	CompletedTasks    atomic.Int64
-	SuccessfulTasks   atomic.Int64
-	FailedTasks       atomic.Int64
-	MatrixOpsCount    atomic.Int64
-	CacheHits         atomic.Int64
-	TempAllocsAvoided atomic.Int64
+	StartTime       time.Time
+	EndTime         time.Time
+	TotalTasks      int
+	CompletedTasks  atomic.Int64
+	SuccessfulTasks atomic.Int64
+	FailedTasks     atomic.Int64
+	CacheHits       atomic.Int64
 }
 
 // NewMetrics initialise une nouvelle structure Metrics.
@@ -102,19 +94,9 @@ func NewMetrics(totalTasks int) *Metrics {
 	}
 }
 
-// AddMatrixOps incrémente le compteur d'opérations matricielles de manière atomique.
-func (m *Metrics) AddMatrixOps(n int64) {
-	m.MatrixOpsCount.Add(n)
-}
-
 // AddCacheHit incrémente le compteur de cache hits de manière atomique.
 func (m *Metrics) AddCacheHit() {
 	m.CacheHits.Add(1)
-}
-
-// AddTempAllocsAvoided incrémente le compteur d'allocations temporaires *big.Int évitées de manière atomique.
-func (m *Metrics) AddTempAllocsAvoided(n int64) {
-	m.TempAllocsAvoided.Add(n)
 }
 
 // RecordTaskCompleted incrémente les compteurs appropriés quand une tâche se termine.
@@ -127,229 +109,110 @@ func (m *Metrics) RecordTaskCompleted(success bool) {
 	}
 }
 
-// FibMatrix représente la matrice 2x2 [[a, b], [c, d]] utilisée pour le calcul de Fibonacci.
-type FibMatrix struct {
-	a, b, c, d *big.Int
+// PrimalityTester encapsule la logique de test, le cache LRU, etc.
+type PrimalityTester struct {
+	lruCache *lru.Cache[string, bool]
+	config   Config
+	metrics  *Metrics
 }
 
-// FibCalculator encapsule la logique de calcul, le cache LRU, les pools de ressources,
-// la configuration et les métriques agrégées. Il est conçu pour être thread-safe.
-type FibCalculator struct {
-	lruCache   *lru.Cache[string, *big.Int]
-	matrixPool sync.Pool
-	bigIntPool sync.Pool
-	config     Config
-	metrics    *Metrics
-}
-
-// NewFibCalculator crée et initialise un nouveau calculateur Fibonacci en fonction de la configuration.
-func NewFibCalculator(cfg Config, metrics *Metrics) *FibCalculator {
-	fc := &FibCalculator{
+// NewPrimalityTester crée et initialise un nouveau testeur de primalité.
+func NewPrimalityTester(cfg Config, metrics *Metrics) *PrimalityTester {
+	pt := &PrimalityTester{
 		config:  cfg,
 		metrics: metrics,
 	}
 	if cfg.EnableCache {
 		var err error
-		fc.lruCache, err = lru.New[string, *big.Int](cfg.CacheSize)
+		pt.lruCache, err = lru.New[string, bool](cfg.CacheSize)
 		if err != nil {
-			log.Fatalf("FATAL: Impossible de créer le cache LRU avec taille %d : %v", cfg.CacheSize, err)
+			log.Fatalf("FATAL: Impossible de créer le cache LRU: %v", err)
 		}
-		log.Printf("INFO: Cache LRU partagé activé (taille maximale: %d éléments)", cfg.CacheSize)
-		fc.lruCache.Add("0", big.NewInt(0))
-		fc.lruCache.Add("1", big.NewInt(1))
-		fc.lruCache.Add("2", big.NewInt(1))
+		log.Printf("INFO: Cache LRU partagé activé (taille max: %d)", cfg.CacheSize)
+		pt.lruCache.Add("0", false)
+		pt.lruCache.Add("1", false)
+		pt.lruCache.Add("2", true)
+		pt.lruCache.Add("3", true)
 	} else {
-		log.Println("INFO: Cache désactivé par la configuration.")
+		log.Println("INFO: Cache désactivé.")
 	}
-	fc.matrixPool = sync.Pool{
-		New: func() interface{} {
-			return &FibMatrix{a: new(big.Int), b: new(big.Int), c: new(big.Int), d: new(big.Int)}
-		},
-	}
-	fc.bigIntPool = sync.Pool{
-		New: func() interface{} { return new(big.Int) },
-	}
-	return fc
+	return pt
 }
 
-// getTempBigInt récupère un *big.Int depuis le pool temporaire partagé.
-func (fc *FibCalculator) getTempBigInt() *big.Int {
-	bi := fc.bigIntPool.Get().(*big.Int)
-	fc.metrics.AddTempAllocsAvoided(1)
-	return bi
-}
-
-// putTempBigInt remet un *big.Int dans le pool temporaire partagé.
-func (fc *FibCalculator) putTempBigInt(bi *big.Int) {
-	fc.bigIntPool.Put(bi)
-}
-
-// getMatrix récupère une *FibMatrix depuis le pool partagé.
-func (fc *FibCalculator) getMatrix() *FibMatrix {
-	return fc.matrixPool.Get().(*FibMatrix)
-}
-
-// putMatrix remet une *FibMatrix dans le pool partagé.
-func (fc *FibCalculator) putMatrix(m *FibMatrix) {
-	fc.matrixPool.Put(m)
-}
-
-// multiplyMatrices (pas de changement)
-func (fc *FibCalculator) multiplyMatrices(m1, m2, result *FibMatrix) {
-	t1 := fc.getTempBigInt()
-	t2 := fc.getTempBigInt()
-	defer fc.putTempBigInt(t1)
-	defer fc.putTempBigInt(t2)
-	t1.Mul(m1.a, m2.a)
-	t2.Mul(m1.b, m2.c)
-	result.a.Add(t1, t2)
-	t1.Mul(m1.a, m2.b)
-	t2.Mul(m1.b, m2.d)
-	result.b.Add(t1, t2)
-	t1.Mul(m1.c, m2.a)
-	t2.Mul(m1.d, m2.c)
-	result.c.Add(t1, t2)
-	t1.Mul(m1.c, m2.b)
-	t2.Mul(m1.d, m2.d)
-	result.d.Add(t1, t2)
-}
-
-// fastDoubling (Correction V1.6: suppression `totalIterations` et `iterationsDone`)
-func (fc *FibCalculator) fastDoubling(ctx context.Context, n int, taskStartTime time.Time) (*big.Int, error) {
-	if n == 0 {
-		return big.NewInt(0), nil
+// probablyPrimeInternal (pas de changement)
+func probablyPrimeInternal(n *big.Int, k int) bool {
+	if n.Cmp(big.NewInt(2)) < 0 {
+		return false
 	}
-	if n == 1 || n == 2 {
-		return big.NewInt(1), nil
+	if n.Cmp(big.NewInt(4)) < 0 {
+		return true
 	}
-
-	// --- Progression (variables de calcul supprimées car affichage commenté) ---
-	// totalIterations := bits.Len(uint(n)) // SUPPRIMÉ V1.6
-	// iterationsDone := 0                  // SUPPRIMÉ V1.6
-	lastReportTime := taskStartTime // Conservé pour la logique de l'intervalle
-	// --- Fin Initialisation Progression ---
-
-	matrix := fc.getMatrix()
-	result := fc.getMatrix()
-	temp := fc.getMatrix()
-	defer fc.putMatrix(matrix)
-	defer fc.putMatrix(result)
-	defer fc.putMatrix(temp)
-
-	matrix.a.SetInt64(1)
-	matrix.b.SetInt64(1)
-	matrix.c.SetInt64(1)
-	matrix.d.SetInt64(0)
-	result.a.SetInt64(1)
-	result.b.SetInt64(0)
-	result.c.SetInt64(0)
-	result.d.SetInt64(1)
-
-	m := n
-	for m > 0 {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		if m&1 != 0 {
-			fc.multiplyMatrices(result, matrix, temp)
-			result, temp = temp, result
-			fc.metrics.AddMatrixOps(1)
-		}
-
-		fc.multiplyMatrices(matrix, matrix, temp)
-		matrix, temp = temp, matrix
-		fc.metrics.AddMatrixOps(1)
-
-		m >>= 1
-
-		// --- Mise à jour et Affichage (commenté) de la Progression ---
-		// iterationsDone++ // SUPPRIMÉ V1.6
-		now := time.Now()
-		// Vérifie si l'intervalle est écoulé (même si rien n'est affiché)
-		if now.Sub(lastReportTime) >= ProgressReportInterval || m == 0 {
-			// Calculs de progression supprimés en V1.5 et V1.6
-
-			// Ligne d'affichage commentée :
-			// fmt.Printf("\r[F(%d)] Progression: ... ", n)
-
-			lastReportTime = now // Met à jour le temps du dernier rapport
-		}
-		// --- Fin Progression ---
+	if n.Bit(0) == 0 {
+		return false
 	}
-
-	finalResult := new(big.Int).Set(result.b)
-	return finalResult, nil
+	return n.ProbablyPrime(k)
 }
 
-// Calculate (pas de changement)
-func (fc *FibCalculator) Calculate(ctx context.Context, n int) (*big.Int, error) {
-	if n < 0 {
-		return nil, fmt.Errorf("l'index n doit être non-négatif, reçu %d", n)
-	}
+// TestPrimality (pas de changement)
+func (pt *PrimalityTester) TestPrimality(ctx context.Context, nStr string) (isPrime bool, err error) {
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return false, ctx.Err()
 	default:
 	}
-	cacheKey := strconv.Itoa(n)
-	if fc.config.EnableCache && fc.lruCache != nil {
-		if val, ok := fc.lruCache.Get(cacheKey); ok {
-			fc.metrics.AddCacheHit()
-			return new(big.Int).Set(val), nil
+	cacheKey := nStr
+	if pt.config.EnableCache && pt.lruCache != nil {
+		if val, ok := pt.lruCache.Get(cacheKey); ok {
+			pt.metrics.AddCacheHit()
+			return val, nil
 		}
 	}
-	taskStartTime := time.Now()
-	result, err := fc.fastDoubling(ctx, n, taskStartTime)
-	if err != nil {
-		return nil, err
+	n := new(big.Int)
+	_, success := n.SetString(nStr, 10)
+	if !success {
+		return false, fmt.Errorf("impossible de convertir '%s' en big.Int", nStr)
 	}
-	if fc.config.EnableCache && fc.lruCache != nil {
-		fc.lruCache.Add(cacheKey, new(big.Int).Set(result))
+	isPrimeResult := probablyPrimeInternal(n, pt.config.MillerRabinIterations)
+	if pt.config.EnableCache && pt.lruCache != nil {
+		pt.lruCache.Add(cacheKey, isPrimeResult)
 	}
-	return result, nil
+	return isPrimeResult, nil
 }
 
-// formatScientific (pas de changement)
-func formatScientific(num *big.Int, precision int) string {
-	if num.Sign() == 0 {
-		return fmt.Sprintf("0.0e+0")
-	}
-	floatPrec := uint(num.BitLen()) + uint(precision) + 10
-	f := new(big.Float).SetPrec(floatPrec).SetInt(num)
-	return f.Text('e', precision)
-}
-
-// TaskResult encapsule le résultat d'un calcul F(n).
+// TaskResult encapsule le résultat d'un test de primalité.
 type TaskResult struct {
-	N      int
-	Result *big.Int
-	Err    error
+	NStr    string
+	IsPrime bool
+	Err     error
 }
 
-// worker (pas de changement)
-func worker(id int, ctx context.Context, wg *sync.WaitGroup, calculator *FibCalculator, tasks <-chan int, results chan<- TaskResult) {
+// worker (correction bug logique RecordTaskCompleted)
+func worker(id int, ctx context.Context, wg *sync.WaitGroup, tester *PrimalityTester, tasks <-chan string, results chan<- TaskResult) {
 	defer wg.Done()
 	log.Printf("INFO: Worker %d démarré.", id)
 	for {
 		select {
-		case n, ok := <-tasks:
+		case nStr, ok := <-tasks:
 			if !ok {
 				log.Printf("INFO: Worker %d terminé (canal tâches fermé).", id)
 				return
 			}
 			select {
 			case <-ctx.Done():
-				log.Printf("WARN: Worker %d: Contexte annulé avant de traiter F(%d).", id, n)
-				results <- TaskResult{N: n, Result: nil, Err: ctx.Err()}
-				calculator.metrics.RecordTaskCompleted(false)
+				log.Printf("WARN: Worker %d: Contexte annulé avant de tester '%s'.", id, nStr)
+				taskErr := ctx.Err()
+				results <- TaskResult{NStr: nStr, Err: taskErr}
+				// Une tâche annulée avant traitement est considérée comme échouée
+				tester.metrics.RecordTaskCompleted(false)
 				continue
 			default:
-				res, err := calculator.Calculate(ctx, n)
-				results <- TaskResult{N: n, Result: res, Err: err}
-				calculator.metrics.RecordTaskCompleted(err == nil)
+				isPrime, err := tester.TestPrimality(ctx, nStr)
+				results <- TaskResult{NStr: nStr, IsPrime: isPrime, Err: err}
+				// Le test est réussi si err est nil (signifie qu'on a un résultat valide PRIME/COMPOSITE)
+				// Les erreurs de contexte qui pourraient survenir PENDANT TestPrimality sont gérées ici.
+				// Les erreurs de conversion sont considérées comme un échec de la tâche.
+				isSuccess := (err == nil)
+				tester.metrics.RecordTaskCompleted(isSuccess)
 			}
 		case <-ctx.Done():
 			log.Printf("INFO: Worker %d terminé (contexte global annulé: %v).", id, ctx.Err())
@@ -358,27 +221,30 @@ func worker(id int, ctx context.Context, wg *sync.WaitGroup, calculator *FibCalc
 	}
 }
 
-// main (pas de changement majeur)
+// main (correction affichage et détection erreur conversion)
 func main() {
+	// --- Configuration & Validation ---
 	cfg := DefaultConfig()
-
-	// --- Validation Config ---
-	if len(cfg.NsToCalculate) == 0 {
-		log.Fatalf("FATAL: La liste NsToCalculate est vide.")
+	if len(cfg.NumbersToTest) == 0 {
+		log.Fatalf("FATAL: NumbersToTest est vide.")
 	}
 	if cfg.CacheSize <= 0 && cfg.EnableCache {
-		log.Printf("WARN: CacheSize (%d) invalide. Désactivation du cache.", cfg.CacheSize)
 		cfg.EnableCache = false
+		log.Println("WARN: Cache désactivé (taille invalide).")
 	}
 	if cfg.Workers <= 0 {
-		log.Printf("WARN: Workers (%d) invalide. Utilisation de runtime.NumCPU() = %d.", cfg.Workers, runtime.NumCPU())
 		cfg.Workers = runtime.NumCPU()
+		log.Printf("WARN: Workers invalide, utilise %d.", cfg.Workers)
+	}
+	if cfg.MillerRabinIterations <= 0 {
+		cfg.MillerRabinIterations = 1
+		log.Println("WARN: MillerRabinIterations invalide, utilise 1.")
 	}
 	runtime.GOMAXPROCS(cfg.Workers)
-	log.Printf("Configuration: %d tâches (F(n)), Timeout=%v, Workers=%d, GOMAXPROCS=%d, Cache=%t, CacheSize=%d, Profiling=%t",
-		len(cfg.NsToCalculate), cfg.Timeout, cfg.Workers, runtime.GOMAXPROCS(-1), cfg.EnableCache, cfg.CacheSize, cfg.EnableProfiling)
+	log.Printf("Configuration: %d tests, Timeout=%v, Workers=%d, GOMAXPROCS=%d, Iterations=%d, Cache=%t, CacheSize=%d, Profiling=%t",
+		len(cfg.NumbersToTest), cfg.Timeout, cfg.Workers, runtime.GOMAXPROCS(-1), cfg.MillerRabinIterations, cfg.EnableCache, cfg.CacheSize, cfg.EnableProfiling)
 
-	metrics := NewMetrics(len(cfg.NsToCalculate))
+	metrics := NewMetrics(len(cfg.NumbersToTest))
 	var fCpu, fMem *os.File
 	var err error
 
@@ -396,7 +262,7 @@ func main() {
 		log.Println("INFO: Profilage CPU activé -> cpu.pprof")
 		fMem, err = os.Create("mem.pprof")
 		if err != nil {
-			log.Printf("WARN: Création mem.pprof échouée: %v. Profilage mémoire désactivé.", err)
+			log.Printf("WARN: Création mem.pprof échouée: %v.", err)
 			fMem = nil
 		} else {
 			defer fMem.Close()
@@ -404,121 +270,125 @@ func main() {
 		}
 	}
 
-	fc := NewFibCalculator(cfg, metrics)
+	pt := NewPrimalityTester(cfg, metrics)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	// --- Worker Pool Setup & Execution ---
 	var wg sync.WaitGroup
-	tasks := make(chan int, len(cfg.NsToCalculate))
-	results := make(chan TaskResult, len(cfg.NsToCalculate))
+	tasks := make(chan string, len(cfg.NumbersToTest))
+	results := make(chan TaskResult, len(cfg.NumbersToTest))
 
 	log.Printf("INFO: Démarrage de %d workers...", cfg.Workers)
 	for i := 1; i <= cfg.Workers; i++ {
 		wg.Add(1)
-		go worker(i, ctx, &wg, fc, tasks, results)
+		go worker(i, ctx, &wg, pt, tasks, results)
 	}
-
 	go func() { // Feed tasks
 		defer close(tasks)
-		log.Println("INFO: Envoi des tâches aux workers...")
-		for _, n := range cfg.NsToCalculate {
+		log.Println("INFO: Envoi des tâches...")
+		for _, nStr := range cfg.NumbersToTest {
 			select {
-			case tasks <- n:
+			case tasks <- nStr:
 			case <-ctx.Done():
-				log.Printf("WARN: Alimentation des tâches interrompue car contexte annulé: %v", ctx.Err())
+				log.Printf("WARN: Alimentation interrompue: %v", ctx.Err())
 				return
 			}
 		}
-		log.Println("INFO: Toutes les tâches ont été envoyées.")
+		log.Println("INFO: Toutes les tâches envoyées.")
 	}()
-
-	go func() { // Close results when workers done
-		wg.Wait()
-		close(results)
-		log.Println("INFO: Tous les workers ont terminé.")
-	}()
+	go func() { wg.Wait(); close(results); log.Println("INFO: Tous les workers terminés.") }() // Close results
 
 	// --- Collect Results ---
-	log.Println("INFO: En attente des résultats des workers...")
-	finalResults := make(map[int]*big.Int)
-	errorsMap := make(map[int]error)
+	log.Println("INFO: En attente des résultats...")
+	finalResults := make(map[string]bool)
+	errorsMap := make(map[string]error)
 	for taskResult := range results {
 		if taskResult.Err != nil {
-			errorsMap[taskResult.N] = taskResult.Err // Store error (context or other)
+			errorsMap[taskResult.NStr] = taskResult.Err
 		} else {
-			finalResults[taskResult.N] = taskResult.Result
+			finalResults[taskResult.NStr] = taskResult.IsPrime
 		}
 	}
 	metrics.EndTime = time.Now()
-	log.Println("INFO: Collecte des résultats terminée.")
-
+	log.Println("INFO: Collecte terminée.")
 	if ctx.Err() != nil {
-		log.Printf("WARN: L'opération globale a été terminée prématurément par le contexte: %v (Timeout: %v)", ctx.Err(), cfg.Timeout)
+		log.Printf("WARN: Opération terminée par contexte: %v (Timeout: %v)", ctx.Err(), cfg.Timeout)
 	}
 
 	// --- Display Results & Metrics ---
 	totalDuration := metrics.EndTime.Sub(metrics.StartTime)
-	fmt.Printf("\n=== Résultats Agrégés pour %d tâches (Timeout: %v, Workers: %d) ===\n",
+	fmt.Printf("\n=== Résultats Agrégés pour %d tests (Timeout: %v, Workers: %d) ===\n",
 		metrics.TotalTasks, cfg.Timeout, cfg.Workers)
-	fmt.Printf("Temps total d'exécution                     : %v\n", totalDuration.Round(time.Millisecond))
-	fmt.Printf("Tâches complétées (succès ou échec géré)    : %d / %d\n", metrics.CompletedTasks.Load(), metrics.TotalTasks)
-	fmt.Printf("Tâches réussies                             : %d\n", metrics.SuccessfulTasks.Load())
-	fmt.Printf("Tâches échouées (erreur ou timeout indiv.)  : %d\n", metrics.FailedTasks.Load())
-	fmt.Printf("Opérations matricielles (total)             : %d\n", metrics.MatrixOpsCount.Load())
+	fmt.Printf("Temps total d'exécution       : %v\n", totalDuration.Round(time.Millisecond))
+	fmt.Printf("Tâches complétées             : %d / %d\n", metrics.CompletedTasks.Load(), metrics.TotalTasks)
+	fmt.Printf("Tâches réussies (résultat OK) : %d\n", metrics.SuccessfulTasks.Load())
+	fmt.Printf("Tâches échouées (err/ctx)     : %d\n", metrics.FailedTasks.Load())
 	if cfg.EnableCache {
-		fmt.Printf("Cache hits (total)                          : %d\n", metrics.CacheHits.Load())
-		if fc.lruCache != nil {
-			fmt.Printf("Cache LRU taille actuelle / max             : %d / %d\n", fc.lruCache.Len(), cfg.CacheSize)
+		fmt.Printf("Cache hits (total)            : %d\n", metrics.CacheHits.Load())
+		if pt.lruCache != nil {
+			fmt.Printf("Cache LRU taille actuelle/max : %d / %d\n", pt.lruCache.Len(), cfg.CacheSize)
 		}
 	} else {
-		fmt.Println("Cache                                       : Désactivé")
+		fmt.Println("Cache                         : Désactivé")
 	}
-	fmt.Printf("Allocations *big.Int évitées (total)      : %d\n", metrics.TempAllocsAvoided.Load())
 
 	fmt.Printf("\n--- Détails des Résultats ---\n")
-	keys := make([]int, 0, len(cfg.NsToCalculate))
-	uniqueNs := make(map[int]struct{})
-	for _, n := range cfg.NsToCalculate {
-		if _, exists := uniqueNs[n]; !exists {
-			keys = append(keys, n)
-			uniqueNs[n] = struct{}{}
-		}
-	}
-	sort.Ints(keys)
+	displayed := make(map[string]int)
+	for _, nStr := range cfg.NumbersToTest {
+		count := displayed[nStr]
+		displayed[nStr]++
+		// *** CORRECTION V1.1: Utilisation de displayStr ici ***
+		displayStr := nStr
+		if count > 0 {
+			displayStr = fmt.Sprintf("%s (%d)", nStr, count+1)
+		} // Marque les doublons
 
-	const maxDigitsDisplay = 50
-	for _, n := range keys {
-		if result, ok := finalResults[n]; ok {
-			s := result.String()
-			numDigits := len(s)
-			fmt.Printf("F(%d) [OK] (%d chiffres): ", n, numDigits)
-			if numDigits <= maxDigitsDisplay {
-				fmt.Printf("%s\n", s)
-			} else {
-				fmt.Printf("%s...%s (Sci: %s)\n", s[:maxDigitsDisplay/2], s[numDigits-maxDigitsDisplay/2:], formatScientific(result, cfg.Precision))
+		const maxDisplayLen = 60
+		trimmedDisplayStr := displayStr // Tronque l'affichage si trop long
+		if len(displayStr) > maxDisplayLen {
+			// Calcule le point milieu correctement même avec le suffixe "(N)"
+			prefixLen := maxDisplayLen / 2
+			suffixStart := len(displayStr) - (maxDisplayLen / 2)
+			if suffixStart <= prefixLen {
+				suffixStart = prefixLen + 1
+			} // Évite chevauchement
+			trimmedDisplayStr = fmt.Sprintf("%s...%s", displayStr[:prefixLen], displayStr[suffixStart:])
+		}
+
+		if isPrime, ok := finalResults[nStr]; ok {
+			resultStr := "COMPOSITE"
+			if isPrime {
+				resultStr = "PROBABLEMENT PREMIER"
 			}
-		} else if errResult, ok := errorsMap[n]; ok {
+			// *** CORRECTION V1.1: Utilisation de trimmedDisplayStr ***
+			fmt.Printf("'%s': [%s]\n", trimmedDisplayStr, resultStr)
+		} else if errResult, ok := errorsMap[nStr]; ok {
 			errMsg := "ERREUR"
+			// *** CORRECTION V1.1: Utilisation de strings.Contains ***
 			if errors.Is(errResult, context.Canceled) {
 				errMsg = "ANNULÉ (CTX)"
 			} else if errors.Is(errResult, context.DeadlineExceeded) {
 				errMsg = "TIMEOUT (CTX)"
+			} else if strings.Contains(errResult.Error(), "impossible de convertir") { // Vérifie le message d'erreur de conversion
+				errMsg = "ENTRÉE INVALIDE"
 			}
-			fmt.Printf("F(%d) [%s]: %v\n", n, errMsg, errResult)
+			// *** CORRECTION V1.1: Utilisation de trimmedDisplayStr ***
+			fmt.Printf("'%s': [%s] %v\n", trimmedDisplayStr, errMsg, errResult)
 		} else {
-			fmt.Printf("F(%d) [NON TRAITÉ / TIMEOUT GLOBAL]\n", n)
+			// *** CORRECTION V1.1: Utilisation de trimmedDisplayStr ***
+			fmt.Printf("'%s': [NON TRAITÉ / TIMEOUT GLOBAL]\n", trimmedDisplayStr)
 		}
 	}
 
 	// --- Final Memory Profile ---
 	if cfg.EnableProfiling && fMem != nil {
-		log.Println("INFO: Écriture du profil mémoire final (heap)...")
+		log.Println("INFO: Écriture du profil mémoire final...")
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(fMem); err != nil {
-			log.Printf("WARN: Impossible d'écrire le profil mémoire final: %v", err)
+			log.Printf("WARN: Échec écriture profil mémoire: %v", err)
 		} else {
-			log.Printf("INFO: Profil mémoire final sauvegardé dans '%s'", fMem.Name())
+			log.Printf("INFO: Profil mémoire sauvegardé: '%s'", fMem.Name())
 		}
 	}
 	log.Println("INFO: Programme terminé.")
