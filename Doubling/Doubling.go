@@ -1,10 +1,13 @@
 // =============================================================================
 // Programme : Calcul ultra-optimisé de Fibonacci(n) en Go
 // Auteur    : André-Guy Bruneau // Adapté par l'IA Gemini 2.5 PRo Experimental 03-2025
-// Date      : 2025-03-26 // Date de la modification
-// Version   : 1.2 // Intégration LRU Cache + String Keys
+// Date      : 2025-03-27 // Date de la modification
+// Version   : 1.3 // Utilisation de errors.Is + Clarifications commentaires
 //
 // Description :
+// Version 1.3 : Intégration des "Minor Potential Considerations" de la V1.2.
+// - Remplacement de la comparaison directe d'erreurs de contexte par errors.Is dans la goroutine principale pour plus de robustesse.
+// - Ajout de commentaires sur la portabilité de l'affichage de progression ('\r') et la nature de la métrique de progression (bits.Len).
 // Version 1.2 : Intégration des "Minor Potential Considerations" de la V1.1.
 // - Remplacement du cache map[int]*big.Int par un cache LRU (github.com/hashicorp/golang-lru/v2)
 //   pour limiter l'utilisation mémoire du cache.
@@ -22,6 +25,7 @@ package main
 
 import (
 	"context"
+	"errors" // Importé pour errors.Is
 	"fmt"
 	"log"
 	"math/big"
@@ -269,6 +273,7 @@ func (fc *FibCalculator) fastDoubling(ctx context.Context, n int, calcStartTime 
 
 	// --- Initialisation pour le suivi de progression ---
 	// Le nombre d'itérations est lié au nombre de bits de n.
+	// Note: bits.Len est une approximation du nombre d'étapes, pas une mesure directe du temps.
 	totalIterations := bits.Len(uint(n)) // bits.Len(0) est 0, bits.Len(1) est 1, etc.
 	iterationsDone := 0
 	lastReportTime := calcStartTime // Démarre le timer de progression au début du calcul.
@@ -344,6 +349,8 @@ func (fc *FibCalculator) fastDoubling(ctx context.Context, n int, calcStartTime 
 				progress = 100.0
 			}
 			// Utilise \r pour réécrire sur la même ligne dans le terminal.
+			// Note: L'affichage avec '\r' peut ne pas fonctionner correctement si
+			// la sortie est redirigée ou dans certains environnements/terminaux.
 			fmt.Printf("\rProgression: %.2f%% (%d/%d bits traités), Temps écoulé: %v      ",
 				progress, iterationsDone, totalIterations, elapsed.Round(time.Millisecond))
 			lastReportTime = now
@@ -405,10 +412,12 @@ func (fc *FibCalculator) Calculate(ctx context.Context, n int) (*big.Int, error)
 	result, err := fc.fastDoubling(ctx, n, fc.metrics.CalculationStartTime)
 	// Gère les erreurs potentielles de fastDoubling (principalement ctx.Err()).
 	if err != nil {
-		// Si fastDoubling a été interrompu (erreur de contexte), on ne met rien en cache.
+		// Si fastDoubling a été interrompu (erreur de contexte ou autre), on ne met rien en cache.
 		// fc.metrics.CalculationEndTime n'est pas défini ici car le calcul n'a pas abouti.
 		// L'erreur sera retournée à l'appelant (main).
-		return nil, fmt.Errorf("le calcul fastDoubling pour F(%d) a échoué: %w", n, err)
+		// Note: On ne formate pas ici, on retourne l'erreur originale de fastDoubling
+		// (qui sera ctx.Err() en cas d'annulation).
+		return nil, err
 	}
 	// Le calcul a réussi, marquer la fin.
 	fc.metrics.CalculationEndTime = time.Now()
@@ -518,21 +527,19 @@ func main() {
 
 		// Vérification du résultat et de l'erreur
 		if err != nil {
-			// Si une erreur s'est produite PENDANT le calcul (pas juste une annulation de contexte)
-			// et que le contexte lui-même n'est pas encore annulé (évite un double signalement),
-			// alors c'est une erreur interne qu'il faut remonter via errChan.
-			// Note: Erreurs de contexte (context.Canceled, context.DeadlineExceeded) sont gérées par le select dans main.
-			// Note: `errors.Is(err, context.Canceled)` et `errors.Is(err, context.DeadlineExceeded)` seraient plus robustes que `==`
-			//       si l'erreur était enveloppée, mais ici `fc.Calculate` retourne directement `ctx.Err()` ou une erreur enveloppée.
-			//       On vérifie aussi ctx.Err() pour les cas limites où l'erreur interne survient juste au moment de l'annulation.
-			if !(err == context.Canceled || err == context.DeadlineExceeded || ctx.Err() != nil) {
-				// Erreur interne non liée au contexte
-				errChan <- fmt.Errorf("erreur interne dans fc.Calculate: %w", err)
-			} else {
-				// Si c'est une erreur de contexte, le select dans main s'en chargera.
-				// Ne rien envoyer sur errChan pour éviter un blocage si main a déjà traité le <-ctx.Done().
+			// Utilise errors.Is pour vérifier si l'erreur est liée à l'annulation du contexte.
+			isContextError := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+
+			if !isContextError {
+				// Si ce n'est PAS une erreur de contexte, c'est une erreur interne/inattendue.
+				// On l'enveloppe pour ajouter du contexte et on l'envoie sur errChan.
+				errChan <- fmt.Errorf("erreur interne lors du calcul de F(%d): %w", cfg.N, err)
 			}
-			return // Termine la goroutine en cas d'erreur ou d'annulation
+			// Si c'est une erreur de contexte (isContextError == true), on ne fait rien ici.
+			// Le select dans main détectera <-ctx.Done() et gérera l'annulation/timeout.
+			// On termine simplement la goroutine.
+
+			return // Termine la goroutine en cas d'erreur (interne ou contexte)
 		}
 
 		// Si le calcul a réussi sans erreur
@@ -563,7 +570,7 @@ func main() {
 		os.Exit(1) // Termine le programme avec un code d'erreur
 
 	case err := <-errChan:
-		// Une erreur interne s'est produite pendant le calcul (non liée au contexte).
+		// Une erreur interne (non liée au contexte) s'est produite pendant le calcul et a été envoyée par la goroutine.
 		// fc.metrics.EndTime n'est pas défini ici.
 		log.Fatalf("FATAL: Erreur interne irrécupérable lors du calcul: %v", err)
 
@@ -612,11 +619,13 @@ func main() {
 		}
 
 	} else if ctx.Err() == nil {
-		// Ce cas ne devrait normalement pas se produire si la logique select est correcte.
-		log.Println("WARN: Le résultat final est nil, mais aucune erreur de contexte ou interne n'a été détectée. État inattendu.")
+		// Ce cas ne devrait normalement pas se produire si la logique select et goroutine est correcte.
+		// Il pourrait survenir si errChan reçoit nil, ce qui ne devrait pas arriver avec la logique actuelle.
+		log.Println("WARN: Le résultat final est nil, mais aucune erreur de contexte ou interne n'a été détectée via les canaux. État inattendu.")
 	}
 
 	// --- Écriture Finale du Profil Mémoire (si succès & activé) ---
+	// Vérifie result != nil pour s'assurer que le calcul a réussi avant d'écrire le profil final.
 	if cfg.EnableProfiling && fMem != nil && result != nil {
 		log.Println("INFO: Écriture du profil mémoire final (heap)...")
 		runtime.GC() // Exécute le GC avant de capturer le profil pour plus de pertinence.
