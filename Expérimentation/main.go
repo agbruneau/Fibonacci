@@ -451,15 +451,3 @@ func printFibResultDetails(value *big.Int, n int, duration time.Duration) {
 		fmt.Printf("F(%d) = %s\n", n, value.Text(10))
 	}
 }
-
-// Fonction utilitaire pour tronquer les longues chaînes
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen < 6 {
-		return s[:maxLen] + "..."
-	}
-	half := maxLen / 2
-	return s[:half] + "..." + s[len(s)-half:]
-}
