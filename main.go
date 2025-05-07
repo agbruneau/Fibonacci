@@ -405,7 +405,7 @@ func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.P
 // Fonction principale (Main)
 // ------------------------------------------------------------
 func main() {
-	nFlag := flag.Int("n", 20000000, "Indice n du terme de Fibonacci (entier non-négatif)")
+	nFlag := flag.Int("n", 10000000, "Indice n du terme de Fibonacci (entier non-négatif)")
 	timeoutFlag := flag.Duration("timeout", 1*time.Minute, "Durée maximale d'exécution globale")
 	flag.Parse()
 
