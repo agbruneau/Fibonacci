@@ -399,33 +399,24 @@ func matMul(target, m1, m2 *mat2, pool *sync.Pool) {
 	defer pool.Put(t2)
 
 	// Calculate target.a = (m1.a*m2.a) + (m1.b*m2.c)
-	val_a := target.a // Save in case target is m1 or m2 (not recommended, but for robustness)
 	t1.Mul(m1.a, m2.a)
 	t2.Mul(m1.b, m2.c)
-	val_a.Add(t1, t2)
+	target.a.Add(t1, t2)
 
 	// Calculate target.b = (m1.a*m2.b) + (m1.b*m2.d)
-	val_b := target.b
 	t1.Mul(m1.a, m2.b)
 	t2.Mul(m1.b, m2.d)
-	val_b.Add(t1, t2)
+	target.b.Add(t1, t2)
 
 	// Calculate target.c = (m1.c*m2.a) + (m1.d*m2.c)
-	val_c := target.c
 	t1.Mul(m1.c, m2.a)
 	t2.Mul(m1.d, m2.c)
-	val_c.Add(t1, t2)
+	target.c.Add(t1, t2)
 
 	// Calculate target.d = (m1.c*m2.b) + (m1.d*m2.d)
-	val_d := target.d
 	t1.Mul(m1.c, m2.b)
 	t2.Mul(m1.d, m2.d)
-	val_d.Add(t1, t2)
-
-	target.a = val_a
-	target.b = val_b
-	target.c = val_c
-	target.d = val_d
+	target.d.Add(t1, t2)
 }
 
 // fibMatrix calculates F(n) by exponentiation of the matrix [[1,1],[1,0]].
@@ -508,31 +499,41 @@ func main() {
 		log.Fatalf("Index n must be greater than or equal to 0. Received: %d", n)
 	}
 
-	allTasks := []task{
+	// definedTasks preserves the original order for "all" and provides a canonical list.
+	definedTasks := []task{
 		{"Fast-doubling", fibFastDoubling},
 		{"Binet", fibBinet},
 		{"Matrice 2x2", fibMatrix},
+	}
+
+	availableAlgos := make(map[string]task)
+	for _, t := range definedTasks {
+		availableAlgos[strings.ToLower(t.name)] = t
 	}
 
 	var selectedTasks []task
 	var selectedAlgoNames []string // For the progressPrinter
 
 	if runAlgosStr == "all" || runAlgosStr == "" {
-		selectedTasks = allTasks
-		for _, t := range allTasks {
+		selectedTasks = definedTasks // Use the original ordered slice
+		for _, t := range selectedTasks {
 			selectedAlgoNames = append(selectedAlgoNames, t.name)
 		}
 	} else {
-		algoNamesFromFlag := strings.Split(runAlgosStr, ",")
-		userSelectedNames := make(map[string]struct{})
-		for _, name := range algoNamesFromFlag {
-			userSelectedNames[strings.TrimSpace(name)] = struct{}{}
-		}
+		userRequestedAlgoNames := strings.Split(runAlgosStr, ",")
+		addedAlgos := make(map[string]bool) // To prevent duplicates if user lists an algo multiple times
 
-		for _, t := range allTasks {
-			if _, found := userSelectedNames[strings.ToLower(t.name)]; found {
-				selectedTasks = append(selectedTasks, t)
-				selectedAlgoNames = append(selectedAlgoNames, t.name)
+		for _, name := range userRequestedAlgoNames {
+			trimmedName := strings.TrimSpace(name)
+			lowerName := strings.ToLower(trimmedName)
+			if task, found := availableAlgos[lowerName]; found {
+				if !addedAlgos[lowerName] {
+					selectedTasks = append(selectedTasks, task)
+					selectedAlgoNames = append(selectedAlgoNames, task.name) // Use original casing from task.name
+					addedAlgos[lowerName] = true
+				}
+			} else {
+				log.Printf("Warning: Algorithm '%s' not recognized and will be skipped.", trimmedName)
 			}
 		}
 	}
@@ -664,9 +665,10 @@ func main() {
 				} else {
 					if results[i].value.Cmp(firstSuccessfulResult.value) != 0 {
 						allValidResultsIdentical = false
+						// Assuming Go 1.21+ for built-in min function.
 						log.Printf("⚠️ DISCREPANCY! Result of '%s' (%s...) different from '%s' (%s...)",
-							results[i].name, results[i].value.String()[:min(10, len(results[i].value.String()))],
-							firstSuccessfulResult.name, firstSuccessfulResult.value.String()[:min(10, len(firstSuccessfulResult.value.String()))])
+							results[i].name, results[i].value.String()[:min(10, len(results[i].value.String()))], // Use built-in min
+							firstSuccessfulResult.name, firstSuccessfulResult.value.String()[:min(10, len(firstSuccessfulResult.value.String()))]) // Use built-in min
 					}
 				}
 			}
@@ -684,7 +686,7 @@ func main() {
 	} else if runAlgosStr != "all" && runAlgosStr != "" {
 		// Message if specific algos were requested but none could be launched (already handled by the 'return' earlier)
 		// This block is potentially redundant with the check for len(selectedTasks) == 0 above.
-	} else if len(allTasks) > 0 && len(selectedTasks) == 0 {
+	} else if len(definedTasks) > 0 && len(selectedTasks) == 0 {
 		// Case where "all" is implicit but selectedTasks is empty (should not happen if allTasks is not empty)
 		log.Println("No algorithm was executed.")
 	}
@@ -710,10 +712,6 @@ func printFibResultDetails(value *big.Int, n int, duration time.Duration) {
 	}
 }
 
-// min returns the minimum of two integers.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+// Note: The custom 'min' function has been removed.
+// It's assumed that the code will be compiled with Go 1.21+ which includes a built-in 'min' function.
+// If using an older Go version, you would need to retain the custom 'min' function.
