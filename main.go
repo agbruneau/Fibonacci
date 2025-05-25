@@ -292,7 +292,7 @@ func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *
 	defer pool.Put(b)
 
 	totalBits := bits.Len(uint(n))
-	
+
 	// Initialize the structure for temporary variables
 	temps := fibTempInts{}
 
@@ -341,7 +341,7 @@ func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *
 			// b becomes F(2k+2)
 			b.Set(temps.t_sum)
 		}
-		
+
 		temps.release(pool) // Release temporary variables at the end of the iteration
 
 		if progress != nil && totalBits > 0 {
@@ -421,7 +421,7 @@ func matMul(target, m1, m2 *mat2, pool *sync.Pool) {
 	t1.Mul(m1.c, m2.b)
 	t2.Mul(m1.d, m2.d)
 	val_d.Add(t1, t2)
-	
+
 	target.a = val_a
 	target.b = val_b
 	target.c = val_c
@@ -442,11 +442,17 @@ func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.P
 
 	res := newMat2(pool)
 	defer res.release(pool)
-	res.a.SetInt64(1); res.b.SetInt64(0); res.c.SetInt64(0); res.d.SetInt64(1) // Identity matrix
+	res.a.SetInt64(1)
+	res.b.SetInt64(0)
+	res.c.SetInt64(0)
+	res.d.SetInt64(1) // Identity matrix
 
 	base := newMat2(pool)
 	defer base.release(pool)
-	base.a.SetInt64(1); base.b.SetInt64(1); base.c.SetInt64(1); base.d.SetInt64(0) // Fibonacci matrix
+	base.a.SetInt64(1)
+	base.b.SetInt64(1)
+	base.c.SetInt64(1)
+	base.d.SetInt64(0) // Fibonacci matrix
 
 	temp := newMat2(pool) // Temporary matrix for calculations
 	defer temp.release(pool)
@@ -489,7 +495,7 @@ func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.P
 // Main function
 // ------------------------------------------------------------
 func main() {
-	nFlag := flag.Int("n", 30000000, "Index n of the Fibonacci term (non-negative integer)")
+	nFlag := flag.Int("n", 10000000, "Index n of the Fibonacci term (non-negative integer)")
 	timeoutFlag := flag.Duration("timeout", 1*time.Minute, "Global maximum execution time")
 	runAlgosFlag := flag.String("runAlgos", "all", "Comma-separated list of algorithms to run (e.g., 'binet,fast-doubling'). 'all' runs every algorithm. Names are case-insensitive. Available: fast-doubling, binet, matrice 2x2.")
 	flag.Parse()
@@ -539,7 +545,6 @@ func main() {
 
 	log.Printf("Calculating F(%d) with a timeout of %v...\n", n, timeout)
 	log.Printf("Algorithms to run: %s\n", strings.Join(selectedAlgoNames, ", "))
-
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -593,7 +598,7 @@ func main() {
 
 	// Retrieve results for the number of selected tasks
 	results := make([]result, 0, len(selectedTasks))
-	timeoutOccurredOverall := false 
+	timeoutOccurredOverall := false
 	if ctx.Err() == context.DeadlineExceeded {
 		timeoutOccurredOverall = true
 	}
@@ -651,7 +656,7 @@ func main() {
 
 		for i := range results {
 			if results[i].err == nil && results[i].value != nil {
-				if !foundSuccessful { 
+				if !foundSuccessful {
 					firstSuccessfulResult = &results[i]
 					foundSuccessful = true
 					fmt.Printf("\nFastest algorithm (that succeeded): %s (%v)\n", firstSuccessfulResult.name, firstSuccessfulResult.duration.Round(time.Microsecond))
@@ -683,7 +688,6 @@ func main() {
 		// Case where "all" is implicit but selectedTasks is empty (should not happen if allTasks is not empty)
 		log.Println("No algorithm was executed.")
 	}
-
 
 	log.Println("Program finished.")
 }
