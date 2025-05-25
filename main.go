@@ -9,134 +9,146 @@ import (
 	"math/big"
 	"math/bits"
 	"sort"
+	"strings" // Added missing import
 	"sync"
 	"time"
 )
 
 // main.go
 //
-// Ce programme calcule le n-ième nombre de Fibonacci en utilisant trois algorithmes différents:
-// 1. Formule de Binet (utilisant des big.Float pour la précision).
-// 2. Algorithme de Doubling Rapide (Fast Doubling).
-// 3. Algorithme d'exponentiation matricielle (Matrice 2x2).
+// This program calculates the nth Fibonacci number using three different algorithms:
+// 1. Binet's formula (using big.Float for precision).
+// 2. Fast Doubling algorithm.
+// 3. Matrix exponentiation algorithm (2x2 Matrix).
 //
-// Il exécute ces algorithmes en concurrence, affiche leur progression,
-// et compare leurs temps d'exécution ainsi que leurs résultats.
-// Un pool de sync.Pool est utilisé pour réduire les allocations mémoire des objets big.Int.
+// It executes these algorithms concurrently, displays their progress,
+// and compares their execution times and results.
+// A sync.Pool is used to reduce memory allocations for big.Int objects.
 //
-// Utilisation:
-//   go run main.go -n <indice> -timeout <durée>
-// Exemple:
+// Usage:
+//   go run main.go -n <index> -timeout <duration>
+// Example:
 //   go run main.go -n 100000 -timeout 1m
 
 // ------------------------------------------------------------
-// Types et structures optimisées
+// Optimized types and structures
 // ------------------------------------------------------------
 
-// fibFunc est un type pour les fonctions calculant Fibonacci.
-// Elle prend un contexte pour l'annulation, un canal pour la progression,
-// l'indice n, et un pool d'objets big.Int pour la réutilisation mémoire.
+// fibFunc is a type for functions calculating Fibonacci numbers.
+// It takes a context for cancellation, a channel for progress,
+// the index n, and a pool of big.Int objects for memory reuse.
 type fibFunc func(ctx context.Context, progress chan<- float64, n int, pool *sync.Pool) (*big.Int, error)
 
-// task représente une tâche de calcul de Fibonacci à exécuter.
+// task represents a Fibonacci calculation task to be executed.
 type task struct {
-	name string  // Nom de l'algorithme
-	fn   fibFunc // Fonction de l'algorithme
+	name string  // Algorithm name
+	fn   fibFunc // Algorithm function
 }
 
-// result stocke le résultat d'une tâche de calcul.
+// result stores the result of a calculation task.
 type result struct {
-	name     string        // Nom de l'algorithme
-	value    *big.Int      // Valeur de Fibonacci calculée
-	duration time.Duration // Durée du calcul
-	err      error         // Erreur éventuelle
+	name     string        // Algorithm name
+	value    *big.Int      // Calculated Fibonacci value
+	duration time.Duration // Calculation duration
+	err      error         // Potential error
 }
 
 // ------------------------------------------------------------
-// Constantes précalculées pour Binet (utilisées comme base pour une précision dynamique)
+// Precomputed constants for Binet (used as a base for dynamic precision)
 // ------------------------------------------------------------
 var (
-	// phi est la valeur de base du nombre d'or.
+	// phi is the base value of the golden ratio.
 	phi = big.NewFloat(1.61803398874989484820458683436563811772030917980576286214)
-	// sqrt5 est la valeur de base de la racine carrée de 5.
+	// sqrt5 is the base value of the square root of 5.
 	sqrt5 = big.NewFloat(2.23606797749978969640917366873127623544061835961152572427)
 )
 
 // ------------------------------------------------------------
-// Gestion de l'affichage de la progression
+// Progress display management
 // ------------------------------------------------------------
 
-// progressData encapsule les informations de progression pour une tâche.
+// progressData encapsulates progress information for a task.
 type progressData struct {
-	name string  // Nom de la tâche
-	pct  float64 // Pourcentage de progression
+	name string  // Task name
+	pct  float64 // Progress percentage
 }
 
-// progressPrinter gère l'affichage consolidé de la progression de toutes les tâches.
-// Il rafraîchit l'affichage à intervalle régulier ou lors de nouvelles données de progression.
-func progressPrinter(progress <-chan progressData) {
+// progressPrinter manages the consolidated display of progress for all tasks.
+// It refreshes the display at regular intervals or upon new progress data.
+// `taskNames` is the list of names of tasks that will be executed, for display purposes.
+func progressPrinter(progress <-chan progressData, taskNames []string) {
 	status := make(map[string]float64)
-	ticker := time.NewTicker(100 * time.Millisecond) // Rafraîchissement minimal pour l'interface
+	ticker := time.NewTicker(100 * time.Millisecond) // Minimal refresh for the interface
 	defer ticker.Stop()
 	lastPrintTime := time.Now()
 	needsUpdate := true
 
-	// Pré-tri des clés pour un affichage ordonné et constant.
-	// Important: ces noms doivent correspondre aux task.name.
-	keys := []string{"Fast-doubling", "Binet", "Matrice 2x2"}
-	// Initialiser le statut pour toutes les clés pour un affichage complet dès le début
-	for _, k := range keys {
+	// Use the passed taskNames to initialize and order the display.
+	// It's important that these names correspond to the task.name of the executed tasks.
+	// Sorting here ensures a constant display if the original order of taskNames is not guaranteed.
+	// However, if taskNames comes from selectedTasks, the order will be that of definition.
+	// For consistency, taskNames can be sorted.
+	// sort.Strings(taskNames) // Optional, if alphabetical order is preferred.
+
+	for _, k := range taskNames {
 		status[k] = 0.0
+	}
+
+	// If no tasks are executed, we can return early.
+	if len(taskNames) == 0 {
+		return
 	}
 
 	for {
 		select {
 		case p, ok := <-progress:
-			if !ok { // Canal fermé, fin de la progression
-				printStatus(status, keys)
-				fmt.Println() // Nouvelle ligne finale
+			if !ok { // Channel closed, end of progress
+				printStatus(status, taskNames)
+				fmt.Println() // Final newline
 				return
 			}
-			if status[p.name] != p.pct {
-				status[p.name] = p.pct
-				needsUpdate = true
+			if _, exists := status[p.name]; exists { // Only update if the task is being tracked
+				if status[p.name] != p.pct {
+					status[p.name] = p.pct
+					needsUpdate = true
+				}
 			}
 		case <-ticker.C:
-			// Rafraîchir si une mise à jour est nécessaire ou si un certain temps s'est écoulé,
-			// pour montrer que le programme est toujours actif même si les pourcentages ne changent pas rapidement.
+			// Refresh if an update is needed or if a certain time has passed,
+			// to show that the program is still active even if percentages don't change quickly.
 			if needsUpdate || time.Since(lastPrintTime) > 500*time.Millisecond {
-				printStatus(status, keys)
-				needsUpdate = false // Réinitialiser après l'impression
+				printStatus(status, taskNames)
+				needsUpdate = false // Reset after printing
 				lastPrintTime = time.Now()
 			}
 		}
 	}
 }
 
-// printStatus affiche l'état actuel de la progression pour chaque tâche.
+// printStatus displays the current progress status for each task.
 func printStatus(status map[string]float64, keys []string) {
-	fmt.Print("\r") // Retour chariot pour effacer la ligne précédente
+	fmt.Print("\r") // Carriage return to clear the previous line
 	first := true
 	for _, k := range keys {
 		v, ok := status[k]
 		if !ok {
 			continue
-		} // Au cas où une tâche n'a pas encore envoyé de statut
+		} // In case a task hasn't sent status yet
 		if !first {
 			fmt.Print("   ")
 		}
 		fmt.Printf("%-14s %6.2f%%", k, v)
 		first = false
 	}
-	fmt.Print("                 ") // Espaces pour effacer les restes de la ligne précédente
+	fmt.Print("                 ") // Spaces to clear any remnants of the previous line
 }
 
 // ------------------------------------------------------------
-// Pool de big.Int pour réutilisation mémoire
+// Pool of big.Int for memory reuse
 // ------------------------------------------------------------
 
-// newIntPool crée un nouveau sync.Pool pour les objets *big.Int.
-// Cela aide à réduire la pression sur le garbage collector en réutilisant des objets.
+// newIntPool creates a new sync.Pool for *big.Int objects.
+// This helps reduce pressure on the garbage collector by reusing objects.
 func newIntPool() *sync.Pool {
 	return &sync.Pool{
 		New: func() interface{} {
@@ -145,19 +157,56 @@ func newIntPool() *sync.Pool {
 	}
 }
 
+// fibTempInts is a structure to manage a set of temporary *big.Int
+// used in Fibonacci calculations, to simplify pool management.
+type fibTempInts struct {
+	a_orig *big.Int
+	t1     *big.Int
+	t2     *big.Int
+	t3     *big.Int
+	new_a  *big.Int
+	new_b  *big.Int
+	// t_sum is used in the 'if (uint(n)>>i)&1 == 1' branch
+	// It is included here to centralize the management of temporary variables.
+	t_sum *big.Int
+}
+
+// acquire retrieves all necessary *big.Int from the pool.
+func (tmp *fibTempInts) acquire(pool *sync.Pool) {
+	tmp.a_orig = pool.Get().(*big.Int)
+	tmp.t1 = pool.Get().(*big.Int)
+	tmp.t2 = pool.Get().(*big.Int)
+	tmp.t3 = pool.Get().(*big.Int)
+	tmp.new_a = pool.Get().(*big.Int)
+	tmp.new_b = pool.Get().(*big.Int)
+	tmp.t_sum = pool.Get().(*big.Int)
+}
+
+// release returns all *big.Int to the pool.
+// It is crucial to call this method to avoid memory leaks from the pool.
+func (tmp *fibTempInts) release(pool *sync.Pool) {
+	pool.Put(tmp.a_orig)
+	pool.Put(tmp.t1)
+	pool.Put(tmp.t2)
+	pool.Put(tmp.t3)
+	pool.Put(tmp.new_a)
+	pool.Put(tmp.new_b)
+	pool.Put(tmp.t_sum)
+}
+
 // ------------------------------------------------------------
-// Algorithmes de calcul de Fibonacci
+// Fibonacci calculation algorithms
 // ------------------------------------------------------------
 
-// fibBinet calcule F(n) en utilisant la formule de Binet.
+// fibBinet calculates F(n) using Binet's formula.
 // F(n) = (phi^n - (-phi)^-n) / sqrt(5)
-// Pour n grand, cela se simplifie à F(n) ≈ round(phi^n / sqrt(5)).
-// Note: Cet algorithme utilise big.Float et n'utilise donc pas activement le pool de big.Int,
-// car la majorité des allocations concerne les flottants à haute précision.
-// Le pool est passé par cohérence avec la signature fibFunc.
+// For large n, this simplifies to F(n) ≈ round(phi^n / sqrt(5)).
+// Note: This algorithm uses big.Float and therefore does not actively use the big.Int pool,
+// as most allocations concern high-precision floats.
+// The pool is passed for consistency with the fibFunc signature.
 func fibBinet(ctx context.Context, progress chan<- float64, n int, pool *sync.Pool) (*big.Int, error) {
 	if n < 0 {
-		return nil, fmt.Errorf("indice négatif non supporté : %d", n)
+		return nil, fmt.Errorf("negative index not supported: %d", n)
 	}
 	if n <= 1 {
 		if progress != nil {
@@ -166,17 +215,17 @@ func fibBinet(ctx context.Context, progress chan<- float64, n int, pool *sync.Po
 		return big.NewInt(int64(n)), nil
 	}
 
-	// La précision nécessaire augmente avec n.
-	// bits pour phi^n ≈ n * log2(phi)
-	// Ajout d'une marge de sécurité (+10 ou plus) pour la précision.
-	phiVal, _ := phi.Float64() // Récupérer la valeur float64 de phi, ignorer l'indicateur de précision.
+	// The required precision increases with n.
+	// bits for phi^n ≈ n * log2(phi)
+	// Add a safety margin (+10 or more) for precision.
+	phiVal, _ := phi.Float64() // Get the float64 value of phi, ignore precision indicator.
 	prec := uint(float64(n)*math.Log2(phiVal) + 10)
 
 	phiPrec := new(big.Float).SetPrec(prec).Set(phi)
 	sqrt5Prec := new(big.Float).SetPrec(prec).Set(sqrt5)
 
-	// Calcul de phi^n par exponentiation binaire (exponentiation by squaring)
-	// pour minimiser le nombre de multiplications.
+	// Calculate phi^n by binary exponentiation (exponentiation by squaring)
+	// to minimize the number of multiplications.
 	powN := new(big.Float).SetPrec(prec)
 
 	numBitsInN := bits.Len(uint(n))
@@ -220,14 +269,14 @@ func fibBinet(ctx context.Context, progress chan<- float64, n int, pool *sync.Po
 	return z, nil
 }
 
-// fibFastDoubling calcule F(n) en utilisant l'algorithme de "Fast Doubling".
-// Formules:
+// fibFastDoubling calculates F(n) using the "Fast Doubling" algorithm.
+// Formulas:
 // F(2k) = F(k) * [2*F(k+1) – F(k)]
 // F(2k+1) = F(k)^2 + F(k+1)^2
-// Cet algorithme est très efficace et utilise le pool de big.Int pour les calculs intermédiaires.
+// This algorithm is very efficient and uses the big.Int pool for intermediate calculations.
 func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *sync.Pool) (*big.Int, error) {
 	if n < 0 {
-		return nil, fmt.Errorf("indice négatif non supporté : %d", n)
+		return nil, fmt.Errorf("negative index not supported: %d", n)
 	}
 	if n <= 1 {
 		if progress != nil {
@@ -236,65 +285,64 @@ func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *
 		return big.NewInt(int64(n)), nil
 	}
 
+	// a and b represent F(k) and F(k+1)
 	a := pool.Get().(*big.Int).SetInt64(0)
-	defer pool.Put(a) // Remettre 'a' dans le pool à la fin de la fonction
+	defer pool.Put(a)
 	b := pool.Get().(*big.Int).SetInt64(1)
-	defer pool.Put(b) // Remettre 'b' dans le pool à la fin de la fonction
+	defer pool.Put(b)
 
 	totalBits := bits.Len(uint(n))
+	
+	// Initialize the structure for temporary variables
+	temps := fibTempInts{}
 
 	for i := totalBits - 1; i >= 0; i-- {
+		temps.acquire(pool) // Acquire temporary variables at the start of each iteration
+
 		select {
 		case <-ctx.Done():
+			temps.release(pool) // Ensure release in case of cancellation
 			return nil, ctx.Err()
 		default:
 		}
 
-		a_orig := pool.Get().(*big.Int).Set(a)
-		// b_orig n'est pas explicitement nécessaire si on calcule d'abord a*a, puis b*b
+		// a_orig stores the value of 'a' (F(k)) before its modification
+		temps.a_orig.Set(a)
 
-		// F(2k) = a * (2*b - a)
-		// t1 = 2*b - a
-		t1 := pool.Get().(*big.Int)
-		t1.Lsh(b, 1)       // t1 = 2*b
-		t1.Sub(t1, a_orig) // t1 = 2*b - a  (utiliser a_orig car 'a' va être modifié)
+		// Calculate F(2k) = a * (2*b - a)
+		// temps.t1 = 2*b
+		temps.t1.Lsh(b, 1)
+		// temps.t1 = 2*b - a_orig
+		temps.t1.Sub(temps.t1, temps.a_orig)
+		// temps.new_a = a_orig * temps.t1
+		temps.new_a.Mul(temps.a_orig, temps.t1)
 
-		// new_a = a_orig * t1 = F(2k)
-		new_a := pool.Get().(*big.Int)
-		new_a.Mul(a_orig, t1)
+		// Calculate F(2k+1) = a^2 + b^2
+		// temps.t2 = a_orig^2
+		temps.t2.Mul(temps.a_orig, temps.a_orig)
+		// temps.t3 = b^2
+		temps.t3.Mul(b, b)
+		// temps.new_b = temps.t2 + temps.t3
+		temps.new_b.Add(temps.t2, temps.t3)
 
-		// F(2k+1) = a^2 + b^2
-		// t2 = a_orig^2
-		t2 := pool.Get().(*big.Int)
-		t2.Mul(a_orig, a_orig)
+		// Update a and b with the new values F(2k) and F(2k+1)
+		a.Set(temps.new_a)
+		b.Set(temps.new_b)
 
-		// t3 = b^2
-		t3 := pool.Get().(*big.Int)
-		t3.Mul(b, b)
-
-		// new_b = t2 + t3 = F(2k+1)
-		new_b := pool.Get().(*big.Int)
-		new_b.Add(t2, t3)
-
-		a.Set(new_a) // a devient F(2k)
-		b.Set(new_b) // b devient F(2k+1)
-
-		pool.Put(a_orig)
-		pool.Put(t1)
-		pool.Put(t2)
-		pool.Put(t3)
-		pool.Put(new_a)
-		pool.Put(new_b)
-
-		if (uint(n)>>i)&1 == 1 { // Si le i-ème bit de n est 1 (n est impair à cette étape)
-			// On a F(2k) et F(2k+1). On veut F(2k+1) et F(2k+2).
-			// new_a_step = F(2k+1) (qui est b actuel)
-			// new_b_step = F(2k) + F(2k+1) (qui est a + b actuels)
-			t_sum := pool.Get().(*big.Int).Add(a, b) // a est F(2k), b est F(2k+1)
-			a.Set(b)                                 // a devient F(2k+1)
-			b.Set(t_sum)                             // b devient F(2k+2)
-			pool.Put(t_sum)
+		if (uint(n)>>i)&1 == 1 { // If the i-th bit of n is 1 (n is odd at this step)
+			// We have F(2k) and F(2k+1). We want F(2k+1) and F(2k+2).
+			// F(2k+1) is in 'b' (temps.new_b after the update)
+			// F(2k+2) = F(2k) + F(2k+1)
+			// 'a' contains F(2k) (temps.new_a) and 'b' contains F(2k+1) (temps.new_b)
+			// temps.t_sum = a + b
+			temps.t_sum.Add(a, b)
+			// a becomes F(2k+1)
+			a.Set(b)
+			// b becomes F(2k+2)
+			b.Set(temps.t_sum)
 		}
+		
+		temps.release(pool) // Release temporary variables at the end of the iteration
 
 		if progress != nil && totalBits > 0 {
 			progress <- (float64(totalBits-i) / float64(totalBits)) * 100.0
@@ -305,52 +353,85 @@ func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *
 		progress <- 100.0
 	}
 
-	// 'a' contient F(n). Créer une copie pour le retour car 'a' appartient au pool.
+	// 'a' contains F(n). Create a copy for the return as 'a' belongs to the pool.
 	finalResult := new(big.Int).Set(a)
 	return finalResult, nil
 }
 
-// mat2 représente une matrice 2x2 de *big.Int.
+// mat2 represents a 2x2 matrix of *big.Int.
 type mat2 struct {
 	a, b, c, d *big.Int
 }
 
-// matMul effectue la multiplication de deux matrices m1 * m2.
-func matMul(m1, m2 *mat2, pool *sync.Pool) *mat2 {
+// newMat2 creates a new mat2 whose components are from the pool.
+func newMat2(pool *sync.Pool) *mat2 {
+	return &mat2{
+		a: pool.Get().(*big.Int),
+		b: pool.Get().(*big.Int),
+		c: pool.Get().(*big.Int),
+		d: pool.Get().(*big.Int),
+	}
+}
+
+// release returns the matrix components to the pool.
+func (m *mat2) release(pool *sync.Pool) {
+	pool.Put(m.a)
+	pool.Put(m.b)
+	pool.Put(m.c)
+	pool.Put(m.d)
+}
+
+// set updates the values of the target matrix with those of another matrix.
+func (m *mat2) set(other *mat2) {
+	m.a.Set(other.a)
+	m.b.Set(other.b)
+	m.c.Set(other.c)
+	m.d.Set(other.d)
+}
+
+// matMul performs the multiplication of two matrices m1 * m2 and stores the result in target.
+// target must not be aliased with m1 or m2 if an operation like target = target * m1 is performed.
+// Use a temporary matrix in that case.
+func matMul(target, m1, m2 *mat2, pool *sync.Pool) {
 	t1 := pool.Get().(*big.Int)
 	t2 := pool.Get().(*big.Int)
 	defer pool.Put(t1)
 	defer pool.Put(t2)
 
-	// Calcul de chaque élément de la nouvelle matrice.
-	// Les résultats new_a, new_b, etc., sont de nouvelles allocations.
-	new_a := new(big.Int)
-	t1.Mul(m1.a, m2.a) // m1.a * m2.a
-	t2.Mul(m1.b, m2.c) // m1.b * m2.c
-	new_a.Add(t1, t2)  // (m1.a*m2.a) + (m1.b*m2.c)
+	// Calculate target.a = (m1.a*m2.a) + (m1.b*m2.c)
+	val_a := target.a // Save in case target is m1 or m2 (not recommended, but for robustness)
+	t1.Mul(m1.a, m2.a)
+	t2.Mul(m1.b, m2.c)
+	val_a.Add(t1, t2)
 
-	new_b := new(big.Int)
-	t1.Mul(m1.a, m2.b) // m1.a * m2.b
-	t2.Mul(m1.b, m2.d) // m1.b * m2.d
-	new_b.Add(t1, t2)  // (m1.a*m2.b) + (m1.b*m2.d)
+	// Calculate target.b = (m1.a*m2.b) + (m1.b*m2.d)
+	val_b := target.b
+	t1.Mul(m1.a, m2.b)
+	t2.Mul(m1.b, m2.d)
+	val_b.Add(t1, t2)
 
-	new_c := new(big.Int)
-	t1.Mul(m1.c, m2.a) // m1.c * m2.a
-	t2.Mul(m1.d, m2.c) // m1.d * m2.c
-	new_c.Add(t1, t2)  // (m1.c*m2.a) + (m1.d*m2.c)
+	// Calculate target.c = (m1.c*m2.a) + (m1.d*m2.c)
+	val_c := target.c
+	t1.Mul(m1.c, m2.a)
+	t2.Mul(m1.d, m2.c)
+	val_c.Add(t1, t2)
 
-	new_d := new(big.Int)
-	t1.Mul(m1.c, m2.b) // m1.c * m2.b
-	t2.Mul(m1.d, m2.d) // m1.d * m2.d
-	new_d.Add(t1, t2)  // (m1.c*m2.b) + (m1.d*m2.d)
-
-	return &mat2{a: new_a, b: new_b, c: new_c, d: new_d}
+	// Calculate target.d = (m1.c*m2.b) + (m1.d*m2.d)
+	val_d := target.d
+	t1.Mul(m1.c, m2.b)
+	t2.Mul(m1.d, m2.d)
+	val_d.Add(t1, t2)
+	
+	target.a = val_a
+	target.b = val_b
+	target.c = val_c
+	target.d = val_d
 }
 
-// fibMatrix calcule F(n) par exponentiation de la matrice [[1,1],[1,0]].
+// fibMatrix calculates F(n) by exponentiation of the matrix [[1,1],[1,0]].
 func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.Pool) (*big.Int, error) {
 	if n < 0 {
-		return nil, fmt.Errorf("indice négatif non supporté : %d", n)
+		return nil, fmt.Errorf("negative index not supported: %d", n)
 	}
 	if n <= 1 {
 		if progress != nil {
@@ -359,14 +440,16 @@ func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.P
 		return big.NewInt(int64(n)), nil
 	}
 
-	res := &mat2{
-		a: new(big.Int).SetInt64(1), b: new(big.Int).SetInt64(0),
-		c: new(big.Int).SetInt64(0), d: new(big.Int).SetInt64(1),
-	}
-	base := &mat2{
-		a: new(big.Int).SetInt64(1), b: new(big.Int).SetInt64(1),
-		c: new(big.Int).SetInt64(1), d: new(big.Int).SetInt64(0),
-	}
+	res := newMat2(pool)
+	defer res.release(pool)
+	res.a.SetInt64(1); res.b.SetInt64(0); res.c.SetInt64(0); res.d.SetInt64(1) // Identity matrix
+
+	base := newMat2(pool)
+	defer base.release(pool)
+	base.a.SetInt64(1); base.b.SetInt64(1); base.c.SetInt64(1); base.d.SetInt64(0) // Fibonacci matrix
+
+	temp := newMat2(pool) // Temporary matrix for calculations
+	defer temp.release(pool)
 
 	exp := uint(n - 1)
 	totalSteps := bits.Len(exp)
@@ -375,17 +458,18 @@ func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.P
 	for ; exp > 0; exp >>= 1 {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, ctx.Err() // Defers will handle the release
 		default:
 		}
 		if exp&1 == 1 {
-			// Libérer les anciens Ints de res avant de réassigner si nécessaire
-			// Cependant, matMul retourne une *nouvelle* mat2, donc les anciens Ints de res
-			// seront récupérés par le GC si res n'est plus référencé ailleurs.
-			res = matMul(res, base, pool)
+			// res = res * base
+			matMul(temp, res, base, pool)
+			res.set(temp)
 		}
-		if exp > 1 {
-			base = matMul(base, base, pool)
+		if exp > 1 { // Condition to avoid unnecessary multiplication at the last step
+			// base = base * base
+			matMul(temp, base, base, pool)
+			base.set(temp)
 		}
 
 		stepsDone++
@@ -397,48 +481,81 @@ func fibMatrix(ctx context.Context, progress chan<- float64, n int, pool *sync.P
 	if progress != nil {
 		progress <- 100.0
 	}
-	// Le résultat est copié pour ne pas retourner un *big.Int qui fait partie d'une matrice.
+	// The result is copied to avoid returning a *big.Int that is part of a pooled matrix.
 	return new(big.Int).Set(res.a), nil
 }
 
 // ------------------------------------------------------------
-// Fonction principale (Main)
+// Main function
 // ------------------------------------------------------------
 func main() {
-	nFlag := flag.Int("n", 30000000, "Indice n du terme de Fibonacci (entier non-négatif)")
-	timeoutFlag := flag.Duration("timeout", 1*time.Minute, "Durée maximale d'exécution globale")
+	nFlag := flag.Int("n", 30000000, "Index n of the Fibonacci term (non-negative integer)")
+	timeoutFlag := flag.Duration("timeout", 1*time.Minute, "Global maximum execution time")
+	runAlgosFlag := flag.String("runAlgos", "all", "Comma-separated list of algorithms to run (e.g., 'binet,fast-doubling'). 'all' runs every algorithm. Names are case-insensitive. Available: fast-doubling, binet, matrice 2x2.")
 	flag.Parse()
 
 	n := *nFlag
 	timeout := *timeoutFlag
+	runAlgosStr := strings.ToLower(*runAlgosFlag)
 
 	if n < 0 {
-		log.Fatalf("L'indice n doit être supérieur ou égal à 0. Reçu: %d", n)
+		log.Fatalf("Index n must be greater than or equal to 0. Received: %d", n)
 	}
 
-	log.Printf("Calcul de F(%d) avec un timeout de %v...\n", n, timeout)
+	allTasks := []task{
+		{"Fast-doubling", fibFastDoubling},
+		{"Binet", fibBinet},
+		{"Matrice 2x2", fibMatrix},
+	}
+
+	var selectedTasks []task
+	var selectedAlgoNames []string // For the progressPrinter
+
+	if runAlgosStr == "all" || runAlgosStr == "" {
+		selectedTasks = allTasks
+		for _, t := range allTasks {
+			selectedAlgoNames = append(selectedAlgoNames, t.name)
+		}
+	} else {
+		algoNamesFromFlag := strings.Split(runAlgosStr, ",")
+		userSelectedNames := make(map[string]struct{})
+		for _, name := range algoNamesFromFlag {
+			userSelectedNames[strings.TrimSpace(name)] = struct{}{}
+		}
+
+		for _, t := range allTasks {
+			if _, found := userSelectedNames[strings.ToLower(t.name)]; found {
+				selectedTasks = append(selectedTasks, t)
+				selectedAlgoNames = append(selectedAlgoNames, t.name)
+			}
+		}
+	}
+
+	if len(selectedTasks) == 0 {
+		log.Println("No valid algorithms selected or no algorithms matching the provided names. Please check the -runAlgos flag.")
+		log.Printf("Available algorithms: Fast-doubling, Binet, Matrice 2x2")
+		return
+	}
+
+	log.Printf("Calculating F(%d) with a timeout of %v...\n", n, timeout)
+	log.Printf("Algorithms to run: %s\n", strings.Join(selectedAlgoNames, ", "))
+
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	intPool := newIntPool()
 
-	tasks := []task{
-		{"Fast-doubling", fibFastDoubling},
-		{"Binet", fibBinet},
-		{"Matrice 2x2", fibMatrix},
-	}
-
-	progressAggregatorCh := make(chan progressData, len(tasks)*2)
-	go progressPrinter(progressAggregatorCh)
+	progressAggregatorCh := make(chan progressData, len(selectedTasks)*2)
+	go progressPrinter(progressAggregatorCh, selectedAlgoNames) // Pass the names of selected tasks
 
 	var wg sync.WaitGroup
 	var relayWg sync.WaitGroup
-	resultsCh := make(chan result, len(tasks))
+	resultsCh := make(chan result, len(selectedTasks))
 
-	log.Println("Lancement des calculs concurrents...")
+	log.Println("Launching concurrent calculations...")
 
-	for _, t := range tasks {
+	for _, t := range selectedTasks { // Use selectedTasks here
 		wg.Add(1)
 		go func(currentTask task) {
 			defer wg.Done()
@@ -467,27 +584,27 @@ func main() {
 	}
 
 	wg.Wait()
-	log.Println("Goroutines de calcul terminées.")
+	log.Println("Calculation goroutines finished.")
 
 	relayWg.Wait()
-	log.Println("Goroutines relais de progression terminées.")
+	log.Println("Progress relay goroutines finished.")
 
 	close(progressAggregatorCh)
 
-	results := make([]result, 0, len(tasks))
-	timeoutOccurredOverall := false // Pour suivre si un timeout global a affecté l'ensemble
+	// Retrieve results for the number of selected tasks
+	results := make([]result, 0, len(selectedTasks))
+	timeoutOccurredOverall := false 
 	if ctx.Err() == context.DeadlineExceeded {
 		timeoutOccurredOverall = true
 	}
 
-	for i := 0; i < len(tasks); i++ {
+	for i := 0; i < len(selectedTasks); i++ { // Use len(selectedTasks) here
 		r := <-resultsCh
 		if r.err != nil {
 			if r.err == context.DeadlineExceeded {
-				log.Printf("⚠️ Tâche '%s' interrompue par timeout (ou contexte annulé) après %v", r.name, r.duration.Round(time.Microsecond))
-				// timeoutOccurredTask = true // Inutile si on vérifie timeoutOccurredOverall
+				log.Printf("⚠️ Task '%s' interrupted by timeout (or context canceled) after %v", r.name, r.duration.Round(time.Microsecond))
 			} else {
-				log.Printf("❌ Erreur pour la tâche '%s' : %v (durée: %v)", r.name, r.err, r.duration.Round(time.Microsecond))
+				log.Printf("❌ Error for task '%s': %v (duration: %v)", r.name, r.err, r.duration.Round(time.Microsecond))
 			}
 		}
 		results = append(results, r)
@@ -495,7 +612,7 @@ func main() {
 	close(resultsCh)
 
 	if timeoutOccurredOverall {
-		log.Println("Comparaison des résultats et détails finaux peuvent être affectés car le timeout global a été atteint.")
+		log.Println("Comparison of results and final details may be affected because the global timeout was reached.")
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -505,18 +622,17 @@ func main() {
 		if results[i].err != nil && results[j].err == nil {
 			return false
 		}
-		// Si les deux ont des erreurs ou les deux n'en ont pas, trier par durée
 		return results[i].duration < results[j].duration
 	})
 
-	fmt.Println("\n--------------------------- RÉSULTATS ORDONNÉS ---------------------------")
+	fmt.Println("\n--------------------------- ORDERED RESULTS ---------------------------")
 	for _, r := range results {
 		status := "OK"
 		valStr := "N/A"
 		if r.err != nil {
-			status = fmt.Sprintf("Erreur: %v", r.err)
+			status = fmt.Sprintf("Error: %v", r.err)
 			if r.err == context.DeadlineExceeded {
-				status = "Timeout/Annulé"
+				status = "Timeout/Canceled"
 			}
 		} else if r.value != nil {
 			if len(r.value.String()) > 15 {
@@ -525,64 +641,72 @@ func main() {
 				valStr = r.value.String()
 			}
 		}
-		fmt.Printf("%-15s : %-12v [%-14s] Résultat: %s\n", r.name, r.duration.Round(time.Microsecond), status, valStr)
+		fmt.Printf("%-15s : %-12v [%-14s] Result: %s\n", r.name, r.duration.Round(time.Microsecond), status, valStr)
 	}
 
-	var firstSuccessfulResult *result
-	allValidResultsIdentical := true
-	foundSuccessful := false
+	if len(results) > 0 { // Only if results were produced
+		var firstSuccessfulResult *result
+		allValidResultsIdentical := true
+		foundSuccessful := false
 
-	for i := range results {
-		if results[i].err == nil && results[i].value != nil {
-			if !foundSuccessful { // Premier résultat réussi trouvé
-				firstSuccessfulResult = &results[i]
-				foundSuccessful = true
-				fmt.Printf("\nAlgorithme le plus rapide (ayant réussi) : %s (%v)\n", firstSuccessfulResult.name, firstSuccessfulResult.duration.Round(time.Microsecond))
-				printFibResultDetails(firstSuccessfulResult.value, n, firstSuccessfulResult.duration)
-			} else {
-				// Comparer avec le premier résultat valide trouvé.
-				if results[i].value.Cmp(firstSuccessfulResult.value) != 0 {
-					allValidResultsIdentical = false
-					log.Printf("⚠️ DISCORDANCE ! Résultat de '%s' (%s...) différent de '%s' (%s...)",
-						results[i].name, results[i].value.String()[:min(10, len(results[i].value.String()))],
-						firstSuccessfulResult.name, firstSuccessfulResult.value.String()[:min(10, len(firstSuccessfulResult.value.String()))])
+		for i := range results {
+			if results[i].err == nil && results[i].value != nil {
+				if !foundSuccessful { 
+					firstSuccessfulResult = &results[i]
+					foundSuccessful = true
+					fmt.Printf("\nFastest algorithm (that succeeded): %s (%v)\n", firstSuccessfulResult.name, firstSuccessfulResult.duration.Round(time.Microsecond))
+					printFibResultDetails(firstSuccessfulResult.value, n, firstSuccessfulResult.duration)
+				} else {
+					if results[i].value.Cmp(firstSuccessfulResult.value) != 0 {
+						allValidResultsIdentical = false
+						log.Printf("⚠️ DISCREPANCY! Result of '%s' (%s...) different from '%s' (%s...)",
+							results[i].name, results[i].value.String()[:min(10, len(results[i].value.String()))],
+							firstSuccessfulResult.name, firstSuccessfulResult.value.String()[:min(10, len(firstSuccessfulResult.value.String()))])
+					}
 				}
 			}
 		}
-	}
 
-	if foundSuccessful {
-		if allValidResultsIdentical {
-			fmt.Println("✅ Tous les résultats valides produits sont identiques.")
+		if foundSuccessful {
+			if allValidResultsIdentical {
+				fmt.Println("✅ All valid results produced are identical.")
+			} else {
+				fmt.Println("❌ Valid algorithm results diverge!")
+			}
 		} else {
-			fmt.Println("❌ Les résultats des algorithmes valides divergent !")
+			fmt.Println("\nNo algorithm successfully completed to produce a result among those selected.")
 		}
-	} else {
-		fmt.Println("\nAucun algorithme n'a terminé avec succès pour produire un résultat.")
+	} else if runAlgosStr != "all" && runAlgosStr != "" {
+		// Message if specific algos were requested but none could be launched (already handled by the 'return' earlier)
+		// This block is potentially redundant with the check for len(selectedTasks) == 0 above.
+	} else if len(allTasks) > 0 && len(selectedTasks) == 0 {
+		// Case where "all" is implicit but selectedTasks is empty (should not happen if allTasks is not empty)
+		log.Println("No algorithm was executed.")
 	}
 
-	log.Println("Programme terminé.")
+
+	log.Println("Program finished.")
 }
 
-// printFibResultDetails affiche des informations détaillées sur le nombre de Fibonacci calculé.
+// printFibResultDetails displays detailed information about the calculated Fibonacci number.
 func printFibResultDetails(value *big.Int, n int, duration time.Duration) {
 	if value == nil {
 		return
 	}
 	digits := len(value.Text(10))
-	fmt.Printf("F(%d) calculé en %v\n", n, duration.Round(time.Millisecond))
-	fmt.Printf("Nombre de chiffres : %d\n", digits)
+	fmt.Printf("F(%d) calculated in %v\n", n, duration.Round(time.Millisecond))
+	fmt.Printf("Number of digits: %d\n", digits)
 
 	if digits > 20 {
 		floatVal := new(big.Float).SetPrec(uint(digits + 10)).SetInt(value)
 		sci := floatVal.Text('e', 8)
-		fmt.Printf("Valeur de F(%d) ≈ %s (notation scientifique)\n", n, sci)
+		fmt.Printf("Value of F(%d) ≈ %s (scientific notation)\n", n, sci)
 	} else {
-		fmt.Printf("Valeur de F(%d) = %s\n", n, value.Text(10))
+		fmt.Printf("Value of F(%d) = %s\n", n, value.Text(10))
 	}
 }
 
-// min renvoie le minimum de deux entiers.
+// min returns the minimum of two integers.
 func min(a, b int) int {
 	if a < b {
 		return a
