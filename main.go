@@ -57,10 +57,10 @@ type result struct {
 // Precomputed constants for Binet (used as a base for dynamic precision)
 // ------------------------------------------------------------
 var (
-	// phi is the base value of the golden ratio.
-	phi = big.NewFloat(1.61803398874989484820458683436563811772030917980576286214)
-	// sqrt5 is the base value of the square root of 5.
-	sqrt5 = big.NewFloat(2.23606797749978969640917366873127623544061835961152572427)
+	// phi and sqrt5 are placeholders. Their values are computed with
+	// sufficient precision in fibBinet.
+	phi   = big.NewFloat(0)
+	sqrt5 = big.NewFloat(0)
 )
 
 // ------------------------------------------------------------
@@ -218,11 +218,17 @@ func fibBinet(ctx context.Context, progress chan<- float64, n int, pool *sync.Po
 	// The required precision increases with n.
 	// bits for phi^n ≈ n * log2(phi)
 	// Add a safety margin (+10 or more) for precision.
-	phiVal, _ := phi.Float64() // Get the float64 value of phi, ignore precision indicator.
+	phiVal := (1 + math.Sqrt(5)) / 2 // Used only for precision estimation
 	prec := uint(float64(n)*math.Log2(phiVal) + 10)
 
-	phiPrec := new(big.Float).SetPrec(prec).Set(phi)
-	sqrt5Prec := new(big.Float).SetPrec(prec).Set(sqrt5)
+	// Compute sqrt(5) with the requested precision.
+	sqrt5Prec := new(big.Float).SetPrec(prec).SetFloat64(5)
+	sqrt5Prec.Sqrt(sqrt5Prec)
+
+	// Compute phi = (1 + sqrt(5)) / 2 with the same precision.
+	phiPrec := new(big.Float).SetPrec(prec)
+	phiPrec.Add(sqrt5Prec, new(big.Float).SetPrec(prec).SetFloat64(1))
+	phiPrec.Quo(phiPrec, new(big.Float).SetPrec(prec).SetFloat64(2))
 
 	// Calculate phi^n by binary exponentiation (exponentiation by squaring)
 	// to minimize the number of multiplications.
