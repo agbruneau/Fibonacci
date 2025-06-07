@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 	"sort"
-	"strings" // Added missing import
+	"strings"
 	"sync"
 	"time"
 )
@@ -54,18 +54,10 @@ type result struct {
 }
 
 // ------------------------------------------------------------
-// Precomputed constants for Binet (used as a base for dynamic precision)
-// ------------------------------------------------------------
-var (
-	// phi and sqrt5 are placeholders. Their values are computed with
-	// sufficient precision in fibBinet.
-	phi   = big.NewFloat(0)
-	sqrt5 = big.NewFloat(0)
-)
-
-// ------------------------------------------------------------
 // Progress display management
 // ------------------------------------------------------------
+
+const progressRefreshInterval = 100 * time.Millisecond
 
 // progressData encapsulates progress information for a task.
 type progressData struct {
@@ -78,7 +70,7 @@ type progressData struct {
 // `taskNames` is the list of names of tasks that will be executed, for display purposes.
 func progressPrinter(progress <-chan progressData, taskNames []string) {
 	status := make(map[string]float64)
-	ticker := time.NewTicker(100 * time.Millisecond) // Minimal refresh for the interface
+	ticker := time.NewTicker(progressRefreshInterval)
 	defer ticker.Stop()
 	lastPrintTime := time.Now()
 	needsUpdate := true
@@ -194,6 +186,50 @@ func (tmp *fibTempInts) release(pool *sync.Pool) {
 	pool.Put(tmp.t_sum)
 }
 
+// selectTasks parses the user input and returns the list of tasks to run
+// along with their display names.
+func selectTasks(spec string, defined []task) ([]task, []string, error) {
+	spec = strings.ToLower(strings.TrimSpace(spec))
+	if spec == "" || spec == "all" {
+		names := make([]string, len(defined))
+		for i, t := range defined {
+			names[i] = t.name
+		}
+		return defined, names, nil
+	}
+
+	available := make(map[string]task)
+	for _, t := range defined {
+		available[strings.ToLower(t.name)] = t
+	}
+
+	added := make(map[string]bool)
+	var tasks []task
+	var names []string
+	unknown := []string{}
+
+	for _, n := range strings.Split(spec, ",") {
+		key := strings.ToLower(strings.TrimSpace(n))
+		if task, ok := available[key]; ok {
+			if !added[key] {
+				tasks = append(tasks, task)
+				names = append(names, task.name)
+				added[key] = true
+			}
+		} else if key != "" {
+			unknown = append(unknown, n)
+		}
+	}
+
+	if len(tasks) == 0 {
+		return nil, nil, fmt.Errorf("no valid algorithms selected")
+	}
+	if len(unknown) > 0 {
+		log.Printf("Warning: unknown algorithms skipped: %s", strings.Join(unknown, ", "))
+	}
+	return tasks, names, nil
+}
+
 // ------------------------------------------------------------
 // Fibonacci calculation algorithms
 // ------------------------------------------------------------
@@ -301,13 +337,13 @@ func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *
 
 	// Initialize the structure for temporary variables
 	temps := fibTempInts{}
+	temps.acquire(pool)
+	defer temps.release(pool)
 
 	for i := totalBits - 1; i >= 0; i-- {
-		temps.acquire(pool) // Acquire temporary variables at the start of each iteration
 
 		select {
 		case <-ctx.Done():
-			temps.release(pool) // Ensure release in case of cancellation
 			return nil, ctx.Err()
 		default:
 		}
@@ -347,8 +383,6 @@ func fibFastDoubling(ctx context.Context, progress chan<- float64, n int, pool *
 			// b becomes F(2k+2)
 			b.Set(temps.t_sum)
 		}
-
-		temps.release(pool) // Release temporary variables at the end of the iteration
 
 		if progress != nil && totalBits > 0 {
 			progress <- (float64(totalBits-i) / float64(totalBits)) * 100.0
@@ -512,40 +546,9 @@ func main() {
 		{"Matrice 2x2", fibMatrix},
 	}
 
-	availableAlgos := make(map[string]task)
-	for _, t := range definedTasks {
-		availableAlgos[strings.ToLower(t.name)] = t
-	}
-
-	var selectedTasks []task
-	var selectedAlgoNames []string // For the progressPrinter
-
-	if runAlgosStr == "all" || runAlgosStr == "" {
-		selectedTasks = definedTasks // Use the original ordered slice
-		for _, t := range selectedTasks {
-			selectedAlgoNames = append(selectedAlgoNames, t.name)
-		}
-	} else {
-		userRequestedAlgoNames := strings.Split(runAlgosStr, ",")
-		addedAlgos := make(map[string]bool) // To prevent duplicates if user lists an algo multiple times
-
-		for _, name := range userRequestedAlgoNames {
-			trimmedName := strings.TrimSpace(name)
-			lowerName := strings.ToLower(trimmedName)
-			if task, found := availableAlgos[lowerName]; found {
-				if !addedAlgos[lowerName] {
-					selectedTasks = append(selectedTasks, task)
-					selectedAlgoNames = append(selectedAlgoNames, task.name) // Use original casing from task.name
-					addedAlgos[lowerName] = true
-				}
-			} else {
-				log.Printf("Warning: Algorithm '%s' not recognized and will be skipped.", trimmedName)
-			}
-		}
-	}
-
-	if len(selectedTasks) == 0 {
-		log.Println("No valid algorithms selected or no algorithms matching the provided names. Please check the -runAlgos flag.")
+	selectedTasks, selectedAlgoNames, err := selectTasks(runAlgosStr, definedTasks)
+	if err != nil {
+		log.Println(err)
 		log.Printf("Available algorithms: Fast-doubling, Binet, Matrice 2x2")
 		return
 	}
