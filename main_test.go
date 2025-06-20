@@ -9,15 +9,15 @@ import (
 	"testing"
 )
 
-// TestFibonacciAlgorithms vérifie la correction de chaque algorithme de Fibonacci
-// en utilisant une approche "table-driven".
+// TestFibonacciAlgorithms verifies the correctness of each Fibonacci algorithm
+// using a table-driven approach.
 func TestFibonacciAlgorithms(t *testing.T) {
-	// Cas de test avec des valeurs de Fibonacci bien connues.
+	// Test cases with well-known Fibonacci values.
 	testCases := []struct {
 		name    string
 		n       int
 		want    *big.Int
-		wantErr bool // Si une erreur est attendue (par exemple, pour n < 0)
+		wantErr bool // If an error is expected (e.g., for n < 0)
 	}{
 		{"n=0", 0, big.NewInt(0), false},
 		{"n=1", 1, big.NewInt(1), false},
@@ -25,104 +25,143 @@ func TestFibonacciAlgorithms(t *testing.T) {
 		{"n=7", 7, big.NewInt(13), false},
 		{"n=10", 10, big.NewInt(55), false},
 		{"n=20", 20, big.NewInt(6765), false},
-		{"n négatif", -1, nil, true},
+		{"negative n", -1, nil, true}, // Test case for negative input
 	}
 
-	// Map des algorithmes à tester.
+	// Map of algorithms to test.
 	algos := map[string]fibFunc{
-		"Doublage Rapide": fibFastDoubling,
-		"Matrice 2x2":     fibMatrix,
-		"Binet":           fibBinet,
+		"Fast Doubling": fibFastDoubling,
+		"Matrix 2x2":    fibMatrix,
+		"Binet":         fibBinet,
+		"Iterative":     fibIterative,
 	}
 
 	pool := newIntPool()
-	ctx := context.Background()
+	ctx := context.Background() // Use a background context for tests
 
-	// Itère sur chaque algorithme.
+	// Iterate over each algorithm.
 	for algoName, algoFunc := range algos {
-		// Itère sur chaque cas de test.
+		// Iterate over each test case.
 		for _, tc := range testCases {
-			// t.Run permet de créer des sous-tests, ce qui facilite le débogage.
-			// Le nom du test sera, par exemple, "Doublage Rapide/n=10".
+			// t.Run creates sub-tests, making debugging easier.
+			// The test name will be, for example, "Fast Doubling/n=10".
 			t.Run(algoName+"/"+tc.name, func(t *testing.T) {
-				// Exécute la fonction de l'algorithme.
-				// Le canal de progression n'est pas nécessaire pour le test de correction.
+				// Execute the algorithm function.
+				// The progress channel is not needed for correctness testing.
 				got, err := algoFunc(ctx, nil, tc.n, pool)
 
-				// Vérifie si une erreur était attendue.
+				// Check if an error was expected.
 				if tc.wantErr {
 					if err == nil {
-						t.Errorf("attendait une erreur pour n=%d, mais n'en a pas eu", tc.n)
+						t.Errorf("expected an error for n=%d, but got none", tc.n)
 					}
-					return // Le test est terminé si une erreur était attendue et a eu lieu.
+					return // Test is done if an error was expected and occurred.
 				}
 
-				// Vérifie si une erreur inattendue est survenue.
+				// Check if an unexpected error occurred.
 				if err != nil {
-					t.Fatalf("erreur inattendue: %v", err)
+					t.Fatalf("unexpected error: %v", err)
 				}
 
-				// Compare le résultat obtenu avec le résultat attendu.
-				if got.Cmp(tc.want) != 0 {
-					t.Errorf("pour F(%d), attendait %s, mais a obtenu %s", tc.n, tc.want.String(), got.String())
+				// Compare the obtained result with the expected result.
+				if got == nil && tc.want == nil {
+					// This case should ideally be covered by wantErr if nil result means error
+				} else if got == nil && tc.want != nil {
+					t.Errorf("for F(%d), expected %s, but got nil", tc.n, tc.want.String())
+				} else if got != nil && tc.want == nil {
+					t.Errorf("for F(%d), expected nil, but got %s", tc.n, got.String())
+				} else if got.Cmp(tc.want) != 0 {
+					t.Errorf("for F(%d), expected %s, but got %s", tc.n, tc.want.String(), got.String())
 				}
 			})
 		}
 	}
 }
 
-// TestFibonacciConsistencyForLargeN vérifie que les algorithmes exacts
-// produisent le même résultat pour un n plus grand.
+// TestFibonacciConsistencyForLargeN verifies that the exact algorithms
+// produce the same result for a larger n.
 func TestFibonacciConsistencyForLargeN(t *testing.T) {
-	n := 1000 // Un n assez grand pour être significatif, mais pas trop long à calculer.
+	n := 1000 // A reasonably large n, but not too long to compute for tests.
+	// For very large n, Binet might show precision issues.
 
 	pool := newIntPool()
 	ctx := context.Background()
 
-	// Calcul avec le Doublage Rapide (considéré comme référence).
-	resFastDoubling, err := fibFastDoubling(ctx, nil, n, pool)
-	if err != nil {
-		t.Fatalf("Le Doublage Rapide a échoué pour n=%d: %v", n, err)
+	var results = make(map[string]*big.Int)
+	var errors = make(map[string]error)
+
+	// Algorithms to test for consistency (excluding Binet for very large N due to precision)
+	consistentAlgos := map[string]fibFunc{
+		"Fast Doubling": fibFastDoubling,
+		"Matrix 2x2":    fibMatrix,
+		"Iterative":     fibIterative,
 	}
 
-	// Calcul avec la Matrice 2x2.
-	resMatrix, err := fibMatrix(ctx, nil, n, pool)
-	if err != nil {
-		t.Fatalf("La Matrice 2x2 a échoué pour n=%d: %v", n, err)
+	for name, fn := range consistentAlgos {
+		t.Run(name, func(t *testing.T) {
+			res, err := fn(ctx, nil, n, pool)
+			results[name] = res
+			errors[name] = err
+			if err != nil {
+				t.Fatalf("%s failed for n=%d: %v", name, n, err)
+			}
+			if res == nil {
+				t.Fatalf("%s returned nil for n=%d without error", name, n)
+			}
+		})
 	}
 
-	// Compare les deux résultats.
-	if resFastDoubling.Cmp(resMatrix) != 0 {
-		t.Errorf("Discordance pour F(%d) entre Doublage Rapide et Matrice 2x2", n)
-		t.Logf("Doublage Rapide: %s...", resFastDoubling.String()[:20])
-		t.Logf("Matrice 2x2:     %s...", resMatrix.String()[:20])
+	// Compare results
+	var referenceResult *big.Int
+	var referenceAlgoName string
+
+	for name, res := range results {
+		if referenceResult == nil {
+			referenceResult = res
+			referenceAlgoName = name
+		} else {
+			if res.Cmp(referenceResult) != 0 {
+				t.Errorf("Discrepancy for F(%d): %s (%s...) vs %s (%s...)",
+					n,
+					referenceAlgoName, referenceResult.String()[:min(20, len(referenceResult.String()))],
+					name, res.String()[:min(20, len(res.String()))])
+			}
+		}
 	}
 
-	// Note: On ne compare pas avec Binet pour les grands n car sa précision basée
-	// sur les flottants peut entraîner de légères erreurs d'arrondi.
+	// Note: Binet's formula is not compared for very large n here due to
+	// potential floating-point precision errors that can lead to slight rounding differences.
+	// It's tested for smaller values in TestFibonacciAlgorithms.
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // ------------------------------------------------------------
 // Benchmarks
 // ------------------------------------------------------------
 
-// Un n commun pour tous les benchmarks pour une comparaison équitable.
-const benchmarkN = 100000
+// Common n for all benchmarks for fair comparison.
+const benchmarkN = 100000 // Adjusted for potentially slower iterative, but still substantial
 
-// BenchmarkFibFastDoubling mesure les performances de l'algorithme de Doublage Rapide.
+// BenchmarkFibFastDoubling measures the performance of the Fast Doubling algorithm.
 func BenchmarkFibFastDoubling(b *testing.B) {
 	pool := newIntPool()
 	ctx := context.Background()
-	b.ReportAllocs() // Affiche le nombre d'allocations mémoire.
-	b.ResetTimer()   // Réinitialise le timer pour ne pas inclure le temps de setup.
+	b.ReportAllocs() // Display memory allocations.
+	b.ResetTimer()   // Reset timer to exclude setup time.
 
 	for i := 0; i < b.N; i++ {
-		// Le résultat n'est pas vérifié ici, on se concentre sur la performance.
+		// The result is not verified here; focus is on performance.
 		_, _ = fibFastDoubling(ctx, nil, benchmarkN, pool)
 	}
 }
 
-// BenchmarkFibMatrix mesure les performances de l'algorithme d'exponentiation de matrice.
+// BenchmarkFibMatrix measures the performance of the matrix exponentiation algorithm.
 func BenchmarkFibMatrix(b *testing.B) {
 	pool := newIntPool()
 	ctx := context.Background()
@@ -134,15 +173,37 @@ func BenchmarkFibMatrix(b *testing.B) {
 	}
 }
 
-// BenchmarkFibBinet mesure les performances de l'algorithme de Binet.
+// BenchmarkFibBinet measures the performance of Binet's formula.
 func BenchmarkFibBinet(b *testing.B) {
-	// Le pool n'est pas utilisé par Binet, mais on le passe pour la consistance de l'API.
-	var pool *sync.Pool
+	// The pool is not actively used by Binet for big.Ints, but passed for API consistency.
+	var pool *sync.Pool // Binet does not use the pool in its current form.
 	ctx := context.Background()
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		_, _ = fibBinet(ctx, nil, benchmarkN, pool)
+	}
+}
+
+// BenchmarkFibIterative measures the performance of the iterative algorithm.
+func BenchmarkFibIterative(b *testing.B) {
+	pool := newIntPool()
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	// For iterative, benchmarkN might be too large for reasonable benchmark times.
+	// Consider a smaller N for iterative if it's too slow, or adjust b.N.
+	// For this example, we'll use benchmarkN, but be mindful of execution time.
+	// If benchmarkN is very large (e.g. 10,000,000), this will be slow.
+	// Let's use a smaller N for iterative benchmark for practical reasons.
+	iterativeBenchmarkN := 100000                            // Can be adjusted if too slow/fast.
+	if benchmarkN < iterativeBenchmarkN && benchmarkN > 20 { // if global N is smaller, use that
+		iterativeBenchmarkN = benchmarkN
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _ = fibIterative(ctx, nil, iterativeBenchmarkN, pool)
 	}
 }

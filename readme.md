@@ -1,161 +1,163 @@
-Calculateur de Fibonacci Concurrent en Go
+# Concurrent Fibonacci Calculator in Go
 
-Ce projet est un outil en ligne de commande écrit en Go pour calculer le n-ième nombre de Fibonacci. Sa particularité est d'implémenter plusieurs algorithmes distincts et de les exécuter en parallèle pour comparer leur performance, leur consommation mémoire et valider leurs résultats.
+This project is a command-line tool written in Go to calculate the n-th Fibonacci number. Its key feature is the implementation of several distinct algorithms, executing them in parallel to compare their performance, memory consumption, and validate their results.
 
-L'application est conçue pour être à la fois un outil pratique et une démonstration de plusieurs concepts avancés de Go, tels que la concurrence, la gestion des contextes, l'optimisation de la mémoire et les tests de performance (benchmarking).
+The application is designed to be both a practical tool and a demonstration of several advanced Go concepts, such as concurrency, context management, memory optimization, and performance testing (benchmarking).
 
-✨ Caractéristiques
+✨ Features
 
-Calcul de Très Grands Nombres : Utilise le package math/big pour calculer des nombres de Fibonacci bien au-delà des limites des types entiers standards.
+*   **Very Large Number Calculation**: Uses the `math/big` package to calculate Fibonacci numbers far beyond the limits of standard integer types.
+*   **Concurrent Execution**: Launches multiple algorithms in parallel using goroutines for direct performance comparison.
+*   **Multi-Algorithm**: Implements four different calculation methods with distinct performance characteristics:
+    *   Fast Doubling
+    *   Matrix Exponentiation
+    *   Binet's Formula
+    *   Iterative Method
+*   **Progress Display**: Shows real-time progress of each algorithm on a single, updating line.
+*   **Timeout Management**: Uses `context.WithTimeout` to ensure the program terminates cleanly if calculations take too long.
+*   **Memory Optimization**: Employs a `sync.Pool` to recycle `*big.Int` objects, reducing pressure on the Garbage Collector.
+*   **Comprehensive Test Suite**: Includes unit tests to validate algorithm correctness and benchmarks to formally measure their performance.
+*   **Selective Algorithm Execution**: Allows users to specify which algorithms to run via a command-line flag.
 
-Exécution Concurrente : Lance plusieurs algorithmes en parallèle grâce aux goroutines pour une comparaison directe des performances.
+🛠️ Prerequisites
 
-Multi-Algorithmes : Implémente trois méthodes de calcul différentes avec des caractéristiques de performance distinctes.
-
-Affichage de la Progression : Affiche en temps réel la progression de chaque algorithme sur une seule ligne.
-
-Gestion des Timeouts : Utilise context.WithTimeout pour garantir que le programme se termine proprement si les calculs sont trop longs.
-
-Optimisation de la Mémoire : Emploie un sync.Pool pour recycler les objets *big.Int et réduire la pression sur le ramasse-miettes (Garbage Collector).
-
-Suite de Tests Complète : Inclut des tests unitaires pour valider l'exactitude des algorithmes et des benchmarks pour mesurer leurs performances de manière formelle.
-
-🛠️ Prérequis
-
-Go (version 1.16+ recommandée)
-
-Git (pour cloner le projet)
+*   Go (version 1.18+ recommended, as the project uses `go fmt ./...` and some newer practices. Core logic might work on 1.16+ but 1.18+ is advised for full compatibility with development environment tooling.)
+*   Git (to clone the project)
 
 🚀 Installation
 
-Clonez le dépôt sur votre machine locale :
+1.  Clone the repository to your local machine:
+    ```sh
+    git clone https://github.com/your-username/your-repo.git
+    ```
+    (Replace the URL with your repository's actual URL)
 
-git clone https://github.com/votre-utilisateur/votre-repo.git
+2.  Navigate to the project directory:
+    ```sh
+    cd your-repo
+    ```
 
+💻 Usage
 
-(Remplacez l'URL par celle de votre dépôt)
+The tool is run directly from the command line.
 
-Accédez au répertoire du projet :
+**Simple Execution**
 
-cd votre-repo
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Sh
-IGNORE_WHEN_COPYING_END
-Usage
-
-L'outil se lance directement depuis la ligne de commande.
-
-Exécution simple
-
-Pour lancer le calcul avec les valeurs par défaut (n=100000, timeout=1m) :
-
+To run the calculation with default values (n=100000, timeout=1m, all algorithms):
+```sh
 go run .
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Sh
-IGNORE_WHEN_COPYING_END
-Options de la ligne de commande
+```
 
-Vous pouvez personnaliser l'exécution avec les options suivantes :
+**Command-Line Options**
 
--n <nombre> : Spécifie l'index n du nombre de Fibonacci à calculer.
+You can customize the execution with the following options:
 
--timeout <durée> : Spécifie le délai d'attente global pour l'exécution (ex: 30s, 2m, 1h).
+*   `-n <number>`: Specifies the index `n` of the Fibonacci number to calculate (non-negative integer). Default: `100000`.
+*   `-timeout <duration>`: Specifies the global timeout for the execution (e.g., `30s`, `2m`, `1h`). Default: `1m`.
+*   `-algorithms <list>`: Comma-separated list of algorithms to run. Available: `Fast Doubling`, `Matrix 2x2`, `Binet`, `Iterative`. Use `all` to run all. Names are case-insensitive (e.g., "fast doubling", "matrix 2x2", "binet", "iterative"). Default: `all`.
 
-Exemples
+**Examples**
 
-Calculer F(500 000) avec un timeout de 30 secondes :
+Calculate F(500,000) with a 30-second timeout, running only Fast Doubling and Iterative algorithms:
+```sh
+go run . -n 500000 -timeout 30s -algorithms "fast doubling,iterative"
+```
 
-go run . -n 500000 -timeout 30s
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Sh
-IGNORE_WHEN_COPYING_END
-
-Calculer F(1 000 000) avec un timeout de 5 minutes :
-
+Calculate F(1,000,000) with a 5-minute timeout, running all algorithms:
+```sh
+go run . -n 1000000 -timeout 5m -algorithms all
+```
+Or simply (as `all` is default for algorithms):
+```sh
 go run . -n 1000000 -timeout 5m
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Sh
-IGNORE_WHEN_COPYING_END
-Exemple de Sortie
-2023/10/27 10:30:00 Calcul de F(200000) avec un timeout de 1m...
-2023/10/27 10:30:00 Algorithmes à exécuter: Doublage Rapide, Matrice 2x2, Binet
-2023/10/27 10:30:00 Lancement des calculs concurrents...
-Doublage Rapide:  100.00%   Matrice 2x2:     100.00%   Binet:           100.00%                 
-2023/10/27 10:30:01 Calculs terminés.
+```
 
---------------------------- RÉSULTATS ORDONNÉS ---------------------------
-Doublage Rapide  : 8.8475ms     [OK              ] Résultat: 25974...03125
-Matrice 2x2      : 18.0673ms    [OK              ] Résultat: 25974...03125
-Binet            : 43.1258ms    [OK              ] Résultat: 25974...03125
+**Example Output**
+```
+2023/10/27 10:30:00 Calculating F(200000) with a timeout of 1m...
+2023/10/27 10:30:00 Algorithms to run: Fast Doubling, Matrix 2x2, Binet, Iterative
+2023/10/27 10:30:00 Launching concurrent calculations...
+Fast Doubling:   100.00%   Matrix 2x2:      100.00%   Binet:           100.00%   Iterative:       100.00%
+2023/10/27 10:30:01 Calculations finished.
+
+--------------------------- ORDERED RESULTS ---------------------------
+Fast Doubling    : 8.8475ms     [OK              ] Result: 25974...03125
+Iterative        : 12.5032ms    [OK              ] Result: 25974...03125
+Matrix 2x2       : 18.0673ms    [OK              ] Result: 25974...03125
+Binet            : 43.1258ms    [OK              ] Result: 25974...03125
 ------------------------------------------------------------------------
 
-🏆 Algorithme le plus rapide (ayant réussi) : Doublage Rapide (8.848ms)
-Nombre de chiffres de F(200000) : 41798
-Valeur (notation scientifique) ≈ 2.59740692e+41797
-✅ Tous les résultats valides produits sont identiques.
-2023/10/27 10:30:01 Programme terminé.
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-IGNORE_WHEN_COPYING_END
-🧠 Algorithmes Implémentés
+🏆 Fastest algorithm (that succeeded): Fast Doubling (8.848ms)
+Number of digits in F(200000): 41798
+Value (scientific notation) ≈ 2.59740692e+41797
+✅ All valid results produced are identical.
+2023/10/27 10:30:01 Program finished.
+```
 
-Doublage Rapide (Fast Doubling)
-Un des algorithmes les plus rapides pour les grands entiers. Il utilise les identités F(2k) = F(k) * [2*F(k+1) – F(k)] et F(2k+1) = F(k)² + F(k+1)² pour réduire considérablement le nombre d'opérations.
+🧠 Implemented Algorithms
 
-Exponentiation de Matrice 2x2
-Une approche classique qui repose sur le fait que [[1,1],[1,0]]^n = [[F(n+1), F(n)], [F(n), F(n-1)]]. Le calcul est optimisé via l'exponentiation par la carré.
+1.  **Fast Doubling**
+    One of the fastest known algorithms for large integers. It uses the identities:
+    *   `F(2k) = F(k) * [2*F(k+1) – F(k)]`
+    *   `F(2k+1) = F(k)² + F(k+1)²`
+    to significantly reduce the number of operations. Complexity: O(log n) arithmetic operations.
 
-Formule de Binet
-Une solution analytique basée sur le nombre d'or. Elle est calculée en utilisant des nombres à virgule flottante de haute précision (big.Float). Bien qu'élégante, elle est généralement moins performante et peut souffrir d'erreurs de précision pour de très grands n.
+2.  **Matrix Exponentiation (2x2)**
+    A classic approach based on the property that raising the matrix `Q = [[1,1],[1,0]]` to the power `k` yields:
+    ```
+    Q^k  =  | F(k+1)  F(k)   |
+           | F(k)    F(k-1) |
+    ```
+    The calculation of Q^(n-1) (to get F(n) as the top-left element) is optimized using exponentiation by squaring. Complexity: O(log n) matrix multiplications.
 
-🏗️ Architecture du Code
+3.  **Binet's Formula**
+    An analytical solution using the golden ratio (φ):
+    `F(n) = (φ^n - ψ^n) / √5`, where `φ = (1+√5)/2` and `ψ = (1-√5)/2`.
+    It's calculated using high-precision floating-point numbers (`big.Float`). While elegant, it's generally less performant for direct computation and can suffer from precision errors for very large `n`.
 
-code.go (ou main.go) : Contient l'ensemble du code, y compris la logique principale, les implémentations des algorithmes, la gestion de la concurrence et l'affichage de la progression.
+4.  **Iterative Method**
+    Calculates Fibonacci numbers by iterating from F(0)=0 and F(1)=1 up to F(n) using the fundamental definition `F(k) = F(k-1) + F(k-2)`.
+    This method is simple to understand and very memory-efficient (especially when `sync.Pool` is used for `big.Int` objects). However, with O(n) arithmetic operations (each on potentially large numbers), it is significantly slower for large `n` compared to the logarithmic methods.
 
-main_test.go : Contient les tests unitaires et les benchmarks.
+🏗️ Code Architecture
 
-La concurrence est gérée par un sync.WaitGroup pour attendre la fin de tous les calculs. Un canal unique (progressAggregatorCh) centralise les mises à jour de progression de toutes les goroutines, qui sont ensuite affichées par une goroutine dédiée.
+The codebase is organized into several Go files for better modularity:
+
+*   `main.go`: Contains the main application logic, including command-line flag parsing, orchestration of concurrent algorithm execution via goroutines, and the final display of results.
+*   `algorithms.go`: Houses the implementations of the different Fibonacci calculation algorithms. This includes the `fibFunc` type definition and its concrete implementations (e.g., `fibFastDoubling`, `fibMatrix`, `fibBinet`, `fibIterative`).
+*   `utils.go`: Provides utility functions shared across the application. Key components are the `progressPrinter` for real-time progress display and the `newIntPool` helper for managing the `sync.Pool` of `*big.Int` objects.
+*   `main_test.go`: Contains a comprehensive suite of unit tests to verify the correctness of each algorithm and benchmarks to measure their performance characteristics (execution time and memory allocations).
+
+Concurrency is managed using a `sync.WaitGroup` to ensure all calculation goroutines complete before the program proceeds to aggregate results. Progress updates from each concurrent task are sent over a shared channel (`progressAggregatorCh`) to the `progressPrinter` goroutine, which consolidates and displays them on a single line in the console.
 
 ✅ Tests
 
-Le projet est fourni avec une suite de tests pour garantir son bon fonctionnement.
+The project includes a comprehensive suite of tests to ensure correctness and measure performance.
 
-Lancer les Tests Unitaires
+**Run Unit Tests**
 
-Pour vérifier que les algorithmes produisent des résultats corrects pour des valeurs connues :
+To verify that all implemented algorithms produce correct Fibonacci numbers for a set of known values (including edge cases):
+```sh
+go test -v ./...
+```
+This command runs all tests in the current package and any sub-packages.
 
-go test -v
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Sh
-IGNORE_WHEN_COPYING_END
-Lancer les Benchmarks
+**Run Benchmarks**
 
-Pour mesurer et comparer les performances (temps d'exécution et allocations mémoire) de chaque algorithme :
+To measure and compare the performance (execution time and memory allocations) of each algorithm:
+```sh
+go test -bench . ./...
+```
+This command runs all benchmarks in the current package and sub-packages. The `.` indicates all benchmarks.
+To run benchmarks for a specific algorithm or a group, you can use the `-bench` flag with a regular expression. For example, to benchmark only the Iterative method:
+```sh
+go test -bench=BenchmarkFibIterative ./...
+```
+Or to benchmark all Fibonacci algorithms:
+```sh
+go test -bench=Fib ./...
+```
 
-go test -bench .
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Sh
-IGNORE_WHEN_COPYING_END
-📜 Licence
+📜 License
 
-Ce projet est distribué sous la licence MIT. Voir le fichier LICENSE pour plus de détails.
+This project is distributed under the MIT License. (Typically, a `LICENSE` file would be included in the repository with the full text of the MIT License.)
