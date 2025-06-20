@@ -1,78 +1,78 @@
-# Concurrent Fibonacci Calculator in Go
+# Calculateur de Fibonacci Concurrent en Go
 
-This project is a command-line tool written in Go to calculate the n-th Fibonacci number. Its key feature is the implementation of several distinct algorithms, executing them in parallel to compare their performance, memory consumption, and validate their results.
+Ce projet est un outil en ligne de commande écrit en Go pour calculer le n-ième nombre de Fibonacci. Sa caractéristique principale est l'implémentation de plusieurs algorithmes distincts, les exécutant en parallèle pour comparer leurs performances, leur consommation mémoire et valider leurs résultats.
 
-The application is designed to be both a practical tool and a demonstration of several advanced Go concepts, such as concurrency, context management, memory optimization, and performance testing (benchmarking).
+L'application est conçue à la fois comme un outil pratique et une démonstration de plusieurs concepts avancés de Go, tels que la concurrence, la gestion de contexte, l'optimisation de la mémoire et les tests de performance (benchmarking).
 
-✨ Features
+✨ Fonctionnalités
 
-*   **Very Large Number Calculation**: Uses the `math/big` package to calculate Fibonacci numbers far beyond the limits of standard integer types.
-*   **Concurrent Execution**: Launches multiple algorithms in parallel using goroutines for direct performance comparison.
-*   **Multi-Algorithm**: Implements four different calculation methods with distinct performance characteristics:
-    *   Fast Doubling
-    *   Matrix Exponentiation
-    *   Binet's Formula
-    *   Iterative Method
-*   **Progress Display**: Shows real-time progress of each algorithm on a single, updating line.
-*   **Timeout Management**: Uses `context.WithTimeout` to ensure the program terminates cleanly if calculations take too long.
-*   **Memory Optimization**: Employs a `sync.Pool` to recycle `*big.Int` objects, reducing pressure on the Garbage Collector.
-*   **Comprehensive Test Suite**: Includes unit tests to validate algorithm correctness and benchmarks to formally measure their performance.
-*   **Selective Algorithm Execution**: Allows users to specify which algorithms to run via a command-line flag.
+*   **Calcul de Très Grands Nombres**: Utilise le paquet `math/big` pour calculer des nombres de Fibonacci bien au-delà des limites des types entiers standards.
+*   **Exécution Concurrente**: Lance plusieurs algorithmes en parallèle à l'aide de goroutines pour une comparaison directe des performances.
+*   **Multi-Algorithme**: Implémente quatre méthodes de calcul différentes avec des caractéristiques de performance distinctes :
+    *   Doublage Rapide (Fast Doubling)
+    *   Exponentiation Matricielle (Matrix Exponentiation)
+    *   Formule de Binet
+    *   Méthode Itérative
+*   **Affichage de la Progression**: Montre en temps réel la progression de chaque algorithme sur une seule ligne qui se met à jour.
+*   **Gestion du Délai d'Attente (Timeout)**: Utilise `context.WithTimeout` pour assurer que le programme se termine proprement si les calculs prennent trop de temps.
+*   **Optimisation de la Mémoire**: Emploie un `sync.Pool` pour recycler les objets `*big.Int`, réduisant la pression sur le Ramasse-Miettes (Garbage Collector).
+*   **Suite de Tests Complète**: Inclut des tests unitaires pour valider la correction des algorithmes et des benchmarks pour mesurer formellement leurs performances.
+*   **Exécution Sélective des Algorithmes**: Permet aux utilisateurs de spécifier quels algorithmes exécuter via une option en ligne de commande.
 
-🛠️ Prerequisites
+🛠️ Prérequis
 
-*   Go (version 1.18+ recommended, as the project uses `go fmt ./...` and some newer practices. Core logic might work on 1.16+ but 1.18+ is advised for full compatibility with development environment tooling.)
-*   Git (to clone the project)
+*   Go (version 1.18+ recommandée, car le projet utilise `go fmt ./...` et certaines pratiques plus récentes. La logique principale pourrait fonctionner sur Go 1.16+ mais 1.18+ est conseillé pour une compatibilité totale avec l'outillage de l'environnement de développement.)
+*   Git (pour cloner le projet)
 
 🚀 Installation
 
-1.  Clone the repository to your local machine:
+1.  Clonez le dépôt sur votre machine locale :
     ```sh
-    git clone https://github.com/your-username/your-repo.git
+    git clone https://github.com/votre-nom-utilisateur/votre-depot.git
     ```
-    (Replace the URL with your repository's actual URL)
+    (Remplacez l'URL par l'URL réelle de votre dépôt)
 
-2.  Navigate to the project directory:
+2.  Naviguez vers le répertoire du projet :
     ```sh
-    cd your-repo
+    cd votre-depot
     ```
 
-💻 Usage
+💻 Utilisation
 
-The tool is run directly from the command line.
+L'outil est exécuté directement depuis la ligne de commande.
 
-**Simple Execution**
+**Exécution Simple**
 
-To run the calculation with default values (n=100000, timeout=1m, all algorithms):
+Pour exécuter le calcul avec les valeurs par défaut (n=100000, timeout=1m, tous les algorithmes) :
 ```sh
 go run .
 ```
 
-**Command-Line Options**
+**Options en Ligne de Commande**
 
-You can customize the execution with the following options:
+Vous pouvez personnaliser l'exécution avec les options suivantes :
 
-*   `-n <number>`: Specifies the index `n` of the Fibonacci number to calculate (non-negative integer). Default: `100000`.
-*   `-timeout <duration>`: Specifies the global timeout for the execution (e.g., `30s`, `2m`, `1h`). Default: `1m`.
-*   `-algorithms <list>`: Comma-separated list of algorithms to run. Available: `Fast Doubling`, `Matrix 2x2`, `Binet`, `Iterative`. Use `all` to run all. Names are case-insensitive (e.g., "fast doubling", "matrix 2x2", "binet", "iterative"). Default: `all`.
+*   `-n <nombre>` : Spécifie l'index `n` du nombre de Fibonacci à calculer (entier non-négatif). Défaut : `100000`.
+*   `-timeout <durée>` : Spécifie le délai d'attente global pour l'exécution (ex: `30s`, `2m`, `1h`). Défaut : `1m`.
+*   `-algorithms <liste>` : Liste d'algorithmes séparés par des virgules à exécuter. Disponibles : `Fast Doubling`, `Matrix 2x2`, `Binet`, `Iterative`. Utilisez `all` pour tous les exécuter. Les noms sont insensibles à la casse (ex: "fast doubling", "matrix 2x2", "binet", "iterative"). Défaut : `all`.
 
-**Examples**
+**Exemples**
 
-Calculate F(500,000) with a 30-second timeout, running only Fast Doubling and Iterative algorithms:
+Calculer F(500 000) avec un délai d'attente de 30 secondes, en exécutant uniquement les algorithmes Fast Doubling et Iterative :
 ```sh
 go run . -n 500000 -timeout 30s -algorithms "fast doubling,iterative"
 ```
 
-Calculate F(1,000,000) with a 5-minute timeout, running all algorithms:
+Calculer F(1 000 000) avec un délai d'attente de 5 minutes, en exécutant tous les algorithmes :
 ```sh
 go run . -n 1000000 -timeout 5m -algorithms all
 ```
-Or simply (as `all` is default for algorithms):
+Ou simplement (puisque `all` est la valeur par défaut pour les algorithmes) :
 ```sh
 go run . -n 1000000 -timeout 5m
 ```
 
-**Example Output**
+**Exemple de Sortie**
 ```
 2023/10/27 10:30:00 Calculating F(200000) with a timeout of 1m...
 2023/10/27 10:30:00 Algorithms to run: Fast Doubling, Matrix 2x2, Binet, Iterative
@@ -94,70 +94,70 @@ Value (scientific notation) ≈ 2.59740692e+41797
 2023/10/27 10:30:01 Program finished.
 ```
 
-🧠 Implemented Algorithms
+🧠 Algorithmes Implémentés
 
-1.  **Fast Doubling**
-    One of the fastest known algorithms for large integers. It uses the identities:
+1.  **Doublage Rapide (Fast Doubling)**
+    L'un des algorithmes connus les plus rapides pour les grands entiers. Il utilise les identités :
     *   `F(2k) = F(k) * [2*F(k+1) – F(k)]`
     *   `F(2k+1) = F(k)² + F(k+1)²`
-    to significantly reduce the number of operations. Complexity: O(log n) arithmetic operations.
+    pour réduire significativement le nombre d'opérations. Complexité : O(log n) opérations arithmétiques.
 
-2.  **Matrix Exponentiation (2x2)**
-    A classic approach based on the property that raising the matrix `Q = [[1,1],[1,0]]` to the power `k` yields:
+2.  **Exponentiation Matricielle (Matrix Exponentiation 2x2)**
+    Une approche classique basée sur la propriété que l'élévation de la matrice `Q = [[1,1],[1,0]]` à la puissance `k` donne :
     ```
     Q^k  =  | F(k+1)  F(k)   |
            | F(k)    F(k-1) |
     ```
-    The calculation of Q^(n-1) (to get F(n) as the top-left element) is optimized using exponentiation by squaring. Complexity: O(log n) matrix multiplications.
+    Le calcul de Q^(n-1) (pour obtenir F(n) comme élément en haut à gauche) est optimisé en utilisant l'exponentiation par carrés. Complexité : O(log n) multiplications de matrices.
 
-3.  **Binet's Formula**
-    An analytical solution using the golden ratio (φ):
-    `F(n) = (φ^n - ψ^n) / √5`, where `φ = (1+√5)/2` and `ψ = (1-√5)/2`.
-    It's calculated using high-precision floating-point numbers (`big.Float`). While elegant, it's generally less performant for direct computation and can suffer from precision errors for very large `n`.
+3.  **Formule de Binet**
+    Une solution analytique utilisant le nombre d'or (φ) :
+    `F(n) = (φ^n - ψ^n) / √5`, où `φ = (1+√5)/2` et `ψ = (1-√5)/2`.
+    Elle est calculée en utilisant des nombres à virgule flottante de haute précision (`big.Float`). Bien qu'élégante, elle est généralement moins performante pour le calcul direct et peut souffrir d'erreurs de précision pour de très grandes valeurs de `n`.
 
-4.  **Iterative Method**
-    Calculates Fibonacci numbers by iterating from F(0)=0 and F(1)=1 up to F(n) using the fundamental definition `F(k) = F(k-1) + F(k-2)`.
-    This method is simple to understand and very memory-efficient (especially when `sync.Pool` is used for `big.Int` objects). However, with O(n) arithmetic operations (each on potentially large numbers), it is significantly slower for large `n` compared to the logarithmic methods.
+4.  **Méthode Itérative**
+    Calcule les nombres de Fibonacci en itérant depuis F(0)=0 et F(1)=1 jusqu'à F(n) en utilisant la définition fondamentale `F(k) = F(k-1) + F(k-2)`.
+    Cette méthode est simple à comprendre et très efficace en mémoire (surtout lorsque `sync.Pool` est utilisé pour les objets `big.Int`). Cependant, avec O(n) opérations arithmétiques (chacune sur des nombres potentiellement grands), elle est significativement plus lente pour les grandes valeurs de `n` par rapport aux méthodes logarithmiques.
 
-🏗️ Code Architecture
+🏗️ Architecture du Code
 
-The codebase is organized into several Go files for better modularity:
+La base de code est organisée en plusieurs fichiers Go pour une meilleure modularité :
 
-*   `main.go`: Contains the main application logic, including command-line flag parsing, orchestration of concurrent algorithm execution via goroutines, and the final display of results.
-*   `algorithms.go`: Houses the implementations of the different Fibonacci calculation algorithms. This includes the `fibFunc` type definition and its concrete implementations (e.g., `fibFastDoubling`, `fibMatrix`, `fibBinet`, `fibIterative`).
-*   `utils.go`: Provides utility functions shared across the application. Key components are the `progressPrinter` for real-time progress display and the `newIntPool` helper for managing the `sync.Pool` of `*big.Int` objects.
-*   `main_test.go`: Contains a comprehensive suite of unit tests to verify the correctness of each algorithm and benchmarks to measure their performance characteristics (execution time and memory allocations).
+*   `main.go`: Contient la logique principale de l'application, y compris l'analyse des options en ligne de commande, l'orchestration de l'exécution concurrente des algorithmes via des goroutines, et l'affichage final des résultats.
+*   `algorithms.go`: Abrite les implémentations des différents algorithmes de calcul de Fibonacci. Cela inclut la définition du type `fibFunc` et ses implémentations concrètes (par ex., `fibFastDoubling`, `fibMatrix`, `fibBinet`, `fibIterative`).
+*   `utils.go`: Fournit des fonctions utilitaires partagées à travers l'application. Les composants clés sont le `progressPrinter` pour l'affichage en temps réel de la progression et l'assistant `newIntPool` pour la gestion du `sync.Pool` d'objets `*big.Int`.
+*   `main_test.go`: Contient une suite complète de tests unitaires pour vérifier la correction de chaque algorithme et des benchmarks pour mesurer leurs caractéristiques de performance (temps d'exécution et allocations mémoire).
 
-Concurrency is managed using a `sync.WaitGroup` to ensure all calculation goroutines complete before the program proceeds to aggregate results. Progress updates from each concurrent task are sent over a shared channel (`progressAggregatorCh`) to the `progressPrinter` goroutine, which consolidates and displays them on a single line in the console.
+La concurrence est gérée à l'aide d'un `sync.WaitGroup` pour s'assurer que toutes les goroutines de calcul se terminent avant que le programme ne procède à l'agrégation des résultats. Les mises à jour de progression de chaque tâche concurrente sont envoyées via un canal partagé (`progressAggregatorCh`) à la goroutine `progressPrinter`, qui les consolide et les affiche sur une seule ligne dans la console.
 
 ✅ Tests
 
-The project includes a comprehensive suite of tests to ensure correctness and measure performance.
+Le projet inclut une suite complète de tests pour assurer la correction et mesurer les performances.
 
-**Run Unit Tests**
+**Exécuter les Tests Unitaires**
 
-To verify that all implemented algorithms produce correct Fibonacci numbers for a set of known values (including edge cases):
+Pour vérifier que tous les algorithmes implémentés produisent des nombres de Fibonacci corrects pour un ensemble de valeurs connues (y compris les cas limites) :
 ```sh
 go test -v ./...
 ```
-This command runs all tests in the current package and any sub-packages.
+Cette commande exécute tous les tests dans le paquet courant et tous les sous-paquets.
 
-**Run Benchmarks**
+**Exécuter les Benchmarks**
 
-To measure and compare the performance (execution time and memory allocations) of each algorithm:
+Pour mesurer et comparer les performances (temps d'exécution et allocations mémoire) de chaque algorithme :
 ```sh
 go test -bench . ./...
 ```
-This command runs all benchmarks in the current package and sub-packages. The `.` indicates all benchmarks.
-To run benchmarks for a specific algorithm or a group, you can use the `-bench` flag with a regular expression. For example, to benchmark only the Iterative method:
+Cette commande exécute tous les benchmarks dans le paquet courant et les sous-paquets. Le `.` indique tous les benchmarks.
+Pour exécuter les benchmarks pour un algorithme spécifique ou un groupe, vous pouvez utiliser l'option `-bench` avec une expression régulière. Par exemple, pour bencher uniquement la méthode Itérative :
 ```sh
 go test -bench=BenchmarkFibIterative ./...
 ```
-Or to benchmark all Fibonacci algorithms:
+Ou pour bencher tous les algorithmes Fibonacci :
 ```sh
 go test -bench=Fib ./...
 ```
 
-📜 License
+📜 Licence
 
-This project is distributed under the MIT License. (Typically, a `LICENSE` file would be included in the repository with the full text of the MIT License.)
+Ce projet est distribué sous la Licence MIT. (Typiquement, un fichier `LICENSE` serait inclus dans le dépôt avec le texte intégral de la Licence MIT.)
