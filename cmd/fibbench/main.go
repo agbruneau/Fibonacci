@@ -46,19 +46,9 @@ func main() {
 	results, err := r.Run(ctx)
 
 	// 6. Traitement et affichage des résultats.
-	exitCode := 0
-	if err != nil {
-		slog.Error("Le benchmark s'est terminé avec une erreur", "error", err)
-		// Si le runner retourne une erreur mais qu'il n'y a aucun résultat,
-		// on considère cela comme un échec global.
-		if len(results) == 0 {
-			exitCode = 1
-		}
-	}
-
 	if len(results) > 0 {
-		// Affiche les résultats et détermine le code de sortie en fonction de la cohérence.
-		exitCode = processResults(results, cfg)
+		// Affiche les résultats même si une erreur globale (e.g. timeout) est survenue.
+		processResults(results, cfg)
 	} else if err == nil {
 		slog.Info("Aucun résultat à afficher.")
 	}
@@ -72,20 +62,15 @@ func main() {
 			slog.Error("Erreur lors de l'arrêt du serveur de métriques", "error", err)
 		}
 	}
-
-	// 8. Sortie du programme avec le code approprié.
-	if exitCode != 0 {
-		os.Exit(exitCode)
-	}
 }
 
-// processResults affiche le résumé, effectue la vérification et retourne un code de sortie.
-func processResults(results []runner.Result, cfg *config.Config) int {
+// processResults affiche le résumé et effectue la vérification de cohérence.
+func processResults(results []runner.Result, cfg *config.Config) {
 	fmt.Println("\n--------------------------- RÉSULTATS ORDONNÉS (Performance) ---------------------------")
 	printSummary(results)
 
 	fmt.Println("\n--------------------------- VÉRIFICATION ET DÉTAILS ------------------------------------")
-	return verifyAndPrintDetails(results, cfg)
+	verifyAndPrintDetails(results, cfg)
 }
 
 // printSummary affiche le tableau récapitulatif des performances.
@@ -118,8 +103,8 @@ func summarizeBigInt(v *big.Int) string {
 	return s
 }
 
-// verifyAndPrintDetails compare les résultats, affiche les détails et retourne un code de sortie.
-func verifyAndPrintDetails(results []runner.Result, cfg *config.Config) int {
+// verifyAndPrintDetails compare les résultats et affiche les détails du meilleur résultat.
+func verifyAndPrintDetails(results []runner.Result, cfg *config.Config) {
 	var fastestSuccess *runner.Result
 	allConsistent := true
 	successfulCount := 0
@@ -151,14 +136,15 @@ func verifyAndPrintDetails(results []runner.Result, cfg *config.Config) int {
 	if successfulCount > 0 {
 		if allConsistent {
 			fmt.Println("✅ Vérification réussie : Tous les algorithmes terminés ont donné des résultats identiques.")
-			return 0 // Succès
 		} else {
 			fmt.Println("❌ Échec de la vérification : Les résultats divergent !")
-			return 2 // Code de sortie pour divergence
+			// Utilisation d'un code de sortie non nul pour indiquer une incohérence (utile pour CI/CD).
+			os.Exit(2)
 		}
 	} else {
 		fmt.Println("❌ Aucun algorithme n'a réussi à terminer le calcul dans le délai imparti.")
-		return 1 // Code de sortie pour échec de calcul
+		// Sortie si aucun calcul n'a réussi.
+		os.Exit(1)
 	}
 }
 
