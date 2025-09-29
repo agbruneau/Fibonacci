@@ -146,12 +146,7 @@ func main() {
 	// `context.Background()` fournit le contexte racine, qui n'est jamais annulé.
 	exitCode := run(context.Background(), config, os.Stdout)
 
-	// Étape 3 : Sauvegarder le cache avant de quitter.
-	// C'est une bonne pratique de s'assurer que les ressources (comme un cache)
-	// sont proprement sauvegardées à la fin du cycle de vie de l'application.
-	fibonacci.SaveCache()
-
-	// Étape 4 : Terminer le programme avec le code de sortie approprié.
+	// Étape 3 : Terminer le programme avec le code de sortie approprié.
 	os.Exit(exitCode)
 }
 

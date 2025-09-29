@@ -122,15 +122,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		}
 	}
 
-	// --- DÉCORATEUR - Étape 1 : Vérification du Cache sur Disque ---
-	if diskCache != nil {
-		if val, found := diskCache.Get(n); found {
-			reporter(1.0) // Trouvé dans le cache, c'est instantané.
-			return val, nil
-		}
-	}
-
-	// --- DÉCORATEUR - Étape 2 : Optimisation "Fast Path" (O(1)) via LUT en mémoire ---
+	// --- DÉCORATEUR - Étape 1 : Optimisation "Fast Path" (O(1)) via LUT en mémoire ---
 	// Avant de lancer un calcul coûteux, on vérifie si le résultat est déjà connu.
 	if n <= MaxFibUint64 {
 		reporter(1.0) // Le calcul est "instantané", on signale 100% de progression.
@@ -143,10 +135,6 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 	// Filet de sécurité du décorateur : s'assurer que 100% est bien rapporté en cas de succès.
 	if err == nil && result != nil {
 		reporter(1.0)
-		// --- DÉCORATEUR - Étape 3 : Stocker le nouveau résultat dans le cache ---
-		if diskCache != nil {
-			diskCache.Set(n, result)
-		}
 	}
 
 	return result, err
