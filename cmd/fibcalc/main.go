@@ -32,6 +32,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	// signalant à toutes les autres goroutines du groupe de s'arrêter.
 	"golang.org/x/sync/errgroup"
 
+	"example.com/fibcalc/internal/cache"
 	"example.com/fibcalc/internal/cli"
 	"example.com/fibcalc/internal/fibonacci"
 )
@@ -75,6 +77,8 @@ type AppConfig struct {
 	Algo      string
 	Threshold int
 	Calibrate bool
+	CachePath string
+	NoCache   bool
 }
 
 // Validate vérifie la validité sémantique de la configuration.
@@ -171,6 +175,14 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Seuil (en bits) pour activer la multiplication parallèle.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode de calibration pour trouver le meilleur seuil de parallélisme.")
+
+	// Définition du chemin par défaut pour le cache.
+	defaultCachePath := "fibcalc.db"
+	if userCacheDir, err := os.UserCacheDir(); err == nil {
+		defaultCachePath = filepath.Join(userCacheDir, "fibcalc", "cache.db")
+	}
+	fs.StringVar(&config.CachePath, "cache-path", defaultCachePath, "Chemin vers le fichier de la base de données du cache.")
+	fs.BoolVar(&config.NoCache, "no-cache", false, "Désactive la lecture et l'écriture dans le cache pour cette exécution.")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
@@ -294,29 +306,56 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 		return runCalibration(ctx, config, out)
 	}
 
-	// --- GESTION DU CONTEXTE ET DE L'ANNULATION ---
-	// EXPLICATION ACADÉMIQUE : Composition des Contextes pour un Arrêt Propre (Graceful Shutdown)
-	// Le `context` de Go est un mécanisme puissant pour propager des signaux d'annulation.
-	// Ici, nous composons deux types d'annulation :
-	// 1. Basée sur le temps (`context.WithTimeout`) : Annule si le calcul dure trop longtemps.
-	// 2. Basée sur un signal OS (`signal.NotifyContext`) : Annule si l'utilisateur appuie sur Ctrl+C.
-	// Le contexte `ctx` passé aux fonctions en aval sera annulé si L'UN OU L'AUTRE de ces événements se produit.
-	// Les `defer cancel()` sont cruciaux pour libérer les ressources associées aux contextes.
-	ctx, cancelTimeout := context.WithTimeout(ctx, config.Timeout)
-	defer cancelTimeout()
-	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
-	defer stopSignals()
+	// --- GESTION DU CACHE ---
+	var fibCache *cache.Cache
+	var err error
+	if !config.NoCache {
+		fibCache, err = cache.New(config.CachePath)
+		if err != nil {
+			fmt.Fprintf(out, "Avertissement : Impossible d'initialiser le cache : %v. Le calcul se poursuivra sans cache.\n", err)
+			fibCache = nil // S'assurer que le cache est nil en cas d'erreur
+		} else {
+			defer fibCache.Close()
+		}
+	}
 
 	fmt.Fprintln(out, "--- Configuration ---")
 	fmt.Fprintf(out, "Calcul de F(%d).\n", config.N)
 	fmt.Fprintf(out, "Système : CPU Cores=%d | Go Runtime=%s\n", runtime.NumCPU(), runtime.Version())
 	fmt.Fprintf(out, "Paramètres : Timeout=%s | Parallel Threshold=%d bits\n", config.Timeout, config.Threshold)
+	if fibCache != nil {
+		fmt.Fprintf(out, "Cache : activé (fichier : %s)\n", config.CachePath)
+	} else {
+		fmt.Fprintln(out, "Cache : désactivé.")
+	}
+
+	// --- VERIFICATION DU CACHE AVANT CALCUL ---
+	// On utilise le cache seulement en mode d'exécution simple (pas en benchmark/comparaison)
+	if fibCache != nil && config.Algo != "all" {
+		startTime := time.Now()
+		cachedResult, found, err := fibCache.Get(config.N)
+		if err != nil {
+			fmt.Fprintf(out, "Avertissement : Erreur lors de la lecture du cache : %v. Le calcul se poursuivra.\n", err)
+		} else if found {
+			duration := time.Since(startTime)
+			fmt.Fprintln(out, "\n--- Résultat (depuis le cache) ---")
+			fmt.Fprintf(out, "✅ Résultat trouvé dans le cache en %s.\n", duration)
+			cli.DisplayResult(cachedResult, config.N, duration, config.Verbose, out)
+			return ExitSuccess
+		}
+	}
+
+	// --- GESTION DU CONTEXTE ET DE L'ANNULATION ---
+	ctx, cancelTimeout := context.WithTimeout(ctx, config.Timeout)
+	defer cancelTimeout()
+	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stopSignals()
 
 	calculatorsToRun := getCalculatorsToRun(config)
 	if len(calculatorsToRun) > 1 {
-		fmt.Fprintln(out, "Mode : Comparaison (Exécution parallèle).")
+		fmt.Fprintln(out, "\nMode : Comparaison (Exécution parallèle).")
 	} else {
-		fmt.Fprintf(out, "Mode : Simple exécution. Algorithme : %s\n", calculatorsToRun[0].Name())
+		fmt.Fprintf(out, "\nMode : Simple exécution. Algorithme : %s\n", calculatorsToRun[0].Name())
 	}
 	fmt.Fprintln(out, "\n--- Exécution ---")
 
@@ -328,6 +367,18 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 		if res.Err != nil {
 			return handleCalculationError(res.Err, res.Duration, config.Timeout, out)
 		}
+
+		// --- MISE EN CACHE DU NOUVEAU RÉSULTAT ---
+		if fibCache != nil {
+			fmt.Fprintln(out, "Mise en cache du résultat...")
+			err := fibCache.Set(config.N, res.Result)
+			if err != nil {
+				fmt.Fprintf(out, "Avertissement : Échec de la mise en cache du résultat : %v\n", err)
+			} else {
+				fmt.Fprintln(out, "✅ Résultat stocké dans le cache.")
+			}
+		}
+
 		cli.DisplayResult(res.Result, config.N, res.Duration, config.Verbose, out)
 		return ExitSuccess
 	}
