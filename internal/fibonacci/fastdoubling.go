@@ -57,11 +57,32 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	// significatif, ce qui nous donne le nombre d'itérations nécessaires.
 	numBits := bits.Len64(n)
 
-	invNumBits := 1.0 / float64(numBits)
 	// BONIFICATION 2 : Utilisation de GOMAXPROCS(0) pour déterminer le parallélisme réel configuré.
 	useParallel := runtime.GOMAXPROCS(0) > 1
 
-	// BONIFICATION 4a : Variables pour le throttling du rapport de progression.
+	// --- NOUVEAU MODÈLE DE PROGRESSION PONDÉRÉE ---
+	// EXPLICATION ACADÉMIQUE : Modèle de Coût Exponentiel
+	// Le coût de chaque itération de la boucle "Fast Doubling" n'est pas constant.
+	// La taille des nombres `F(k)` et `F(k+1)` double à chaque étape. Le coût d'une
+	// multiplication de grands nombres est (approximativement) quadratique (O(N²)).
+	// Si la taille des opérandes double, le coût est multiplié par 4.
+	// On modélise donc le coût de l'itération `j` (pour `j` de 0 à `numBits-1`)
+	// comme étant proportionnel à `4^j`.
+	// Le travail total est la somme de la série géométrique : Sum(4^j) = (4^numBits - 1) / 3.
+	// On utilise `math/big` pour ces calculs afin d'éviter les dépassements de capacité.
+
+	var totalWork, workDone, workOfStep, four big.Int
+	four.SetInt64(4)
+
+	if numBits > 0 {
+		// totalWork = (4^numBits - 1) / 3
+		numBitsBig := big.NewInt(int64(numBits))
+		totalWork.Exp(&four, numBitsBig, nil)
+		totalWork.Sub(&totalWork, big.NewInt(1))
+		totalWork.Div(&totalWork, big.NewInt(3))
+	}
+
+	// Variables pour le throttling du rapport de progression.
 	lastReportedProgress := 0.0
 	const reportThreshold = 0.01 // Rapport tous les 1%
 
@@ -75,24 +96,6 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			return nil, ctx.Err()
 		}
 
-		// Rapport de progression via le callback `reporter`.
-		if i < numBits-1 {
-			currentProgress := float64(numBits-1-i) * invNumBits
-
-			// BONIFICATION 4a : Throttling du rapport.
-			if currentProgress-lastReportedProgress >= reportThreshold {
-				// BONIFICATION 4b : Clarification pédagogique.
-				// EXPLICATION ACADÉMIQUE : Limites du Rapport de Progression
-				// La progression est rapportée en fonction du nombre d'itérations (bits traités).
-				// Cependant, le coût CPU de chaque itération augmente drastiquement car la taille
-				// des nombres double à chaque étape (le coût de multiplication domine).
-				// Les dernières itérations sont beaucoup plus longues que les premières.
-				// Cette progression n'est donc pas une estimation linéaire du temps restant.
-				reporter(currentProgress)
-				lastReportedProgress = currentProgress
-			}
-		}
-
 		// --- ÉTAPE DE DOUBLING : Calcul de (F(2k), F(2k+1)) à partir de (F(k), F(k+1)) ---
 
 		// 1. Calcul du terme commun : t2 = 2*F(k+1) - F(k)
@@ -100,15 +103,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		s.t2.Sub(s.t2, s.f_k) // t2 = t2 - f_k
 
 		// 2. Calcul des trois multiplications coûteuses.
-		//    F(2k)   = F(k) * (2*F(k+1) - F(k)) -> s.t3 = s.f_k * s.t2
-		//    F(2k+1) = F(k+1)² + F(k)²          -> s.f_k1 = s.t1 + s.t4
-		//
-		// EXPLICATION ACADÉMIQUE : Seuil de Parallélisme
-		// ... (Commentaires inchangés) ...
-		// NOTE DE TUNING : La valeur optimale de `threshold` dépend de l'architecture CPU
-		// et doit être déterminée empiriquement par benchmarking.
 		if useParallel && s.f_k1.BitLen() > threshold {
-			// BONIFICATION 1 : Utilisation de la version optimisée.
 			parallelMultiply3Optimized(s)
 		} else {
 			s.t3.Mul(s.f_k, s.t2)    // F(k) * t2
@@ -121,13 +116,31 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		s.f_k1.Add(s.t1, s.t4)
 
 		// --- ÉTAPE D'ADDITION CONDITIONNELLE ---
-		// Si le i-ème bit de `n` est à 1, on doit avancer d'un pas.
 		if (n>>uint(i))&1 == 1 {
-			// On passe de (F(2k), F(2k+1)) à (F(2k+1), F(2k+2))
-			// ... (Logique inchangée) ...
 			s.t1.Set(s.f_k1)
 			s.f_k1.Add(s.f_k1, s.f_k)
 			s.f_k.Set(s.t1)
+		}
+
+		// --- Rapport de Progression Pondérée (après le travail de l'itération) ---
+		// L'itération `j` (où j = numBits - 1 - i) a un coût de `4^j`.
+		j := int64(numBits - 1 - i)
+		workOfStep.Exp(&four, big.NewInt(j), nil)
+		workDone.Add(&workDone, &workOfStep)
+
+		// On ne rapporte la progression que si le travail total est non nul.
+		if totalWork.Sign() > 0 {
+			workDoneFloat := new(big.Float).SetInt(&workDone)
+			totalWorkFloat := new(big.Float).SetInt(&totalWork)
+			progressRatio := new(big.Float).Quo(workDoneFloat, totalWorkFloat)
+			currentProgress, _ := progressRatio.Float64()
+
+			// Throttling du rapport, mais on force le rapport pour la dernière itération
+			// pour s'assurer que la barre atteint bien 100%.
+			if currentProgress-lastReportedProgress >= reportThreshold || i == 0 {
+				reporter(currentProgress)
+				lastReportedProgress = currentProgress
+			}
 		}
 	}
 
