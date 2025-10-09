@@ -37,7 +37,7 @@ type MatrixExponentiation struct{}
 
 // Name retourne le nom descriptif de l'algorithme et de ses optimisations.
 func (c *MatrixExponentiation) Name() string {
-	return "Matrix Exponentiation (O(log n) | Symmetric Opt. | Parallel | Zero-Alloc)"
+	return "Matrix Exponentiation (O(log n) | Parallèle Optimisé | Zéro-Alloc)"
 }
 
 // CalculateCore implémente la logique principale de l'algorithme.
@@ -190,34 +190,34 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, useParallel bo
 }
 
 // executeTasks est une fonction utilitaire pour l'exécution parallèle de tâches indépendantes.
-// Elle abstrait la logique de synchronisation via `sync.WaitGroup`.
+// Elle abstrait la logique de synchronisation via `sync.WaitGroup` et optimise l'utilisation
+// des goroutines en exécutant la dernière tâche dans la goroutine appelante.
 func executeTasks(inParallel bool, tasks []func()) {
-	if inParallel {
-		var wg sync.WaitGroup
-		wg.Add(len(tasks))
-
-		// EXPLICATION ACADÉMIQUE : Stratégie de Parallélisme "On-Demand"
-		// On lance de nouvelles goroutines pour chaque groupe de tâches. Pour un nombre
-		// faible et fixe de tâches (ici 4 ou 8), le coût de lancement "à la demande"
-		// est souvent inférieur au coût de synchronisation (via canaux) nécessaire
-		// pour utiliser un pool de workers persistant.
-		for _, task := range tasks {
-			// EXPLICATION ACADÉMIQUE : Capture de variable de boucle (Idiome Go)
-			// `task := task` crée une nouvelle variable locale ("shadowing") pour
-			// garantir que chaque goroutine utilise la bonne fonction, évitant le bug
-			// classique de concurrence (essentiel avant Go 1.22).
-			task := task
-			go func() {
-				defer wg.Done()
-				task()
-			}()
-		}
-		// Synchronisation : Bloque jusqu'à ce que toutes les tâches soient terminées.
-		wg.Wait()
-	} else {
-		// Exécution séquentielle.
+	if !inParallel || len(tasks) < 2 {
+		// Exécution séquentielle si le parallélisme n'est pas activé ou s'il y a moins de 2 tâches.
 		for _, task := range tasks {
 			task()
 		}
+		return
 	}
+
+	var wg sync.WaitGroup
+	numTasks := len(tasks)
+	// On attend seulement N-1 tâches, car la dernière est exécutée dans la goroutine courante.
+	wg.Add(numTasks - 1)
+
+	// Lancer N-1 tâches en arrière-plan.
+	for i := 0; i < numTasks-1; i++ {
+		task := tasks[i] // Capture de la variable de boucle.
+		go func() {
+			defer wg.Done()
+			task()
+		}()
+	}
+
+	// Exécuter la dernière tâche dans la goroutine courante pour économiser un "spawn".
+	tasks[numTasks-1]()
+
+	// Attendre la fin des autres tâches.
+	wg.Wait()
 }
