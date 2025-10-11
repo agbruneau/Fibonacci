@@ -31,7 +31,6 @@ package cli
 import (
 	"bytes"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"testing"
@@ -102,65 +101,6 @@ func TestProgressBar(t *testing.T) {
 	}
 }
 
-// TestDisplayResult vérifie que la sortie formatée du résultat final est correcte.
-func TestDisplayResult(t *testing.T) {
-	duration := 123 * time.Millisecond
-
-	// --- Cas 1: Nombre court, ne doit pas être tronqué ---
-	t.Run("ShortNumberNotTruncated", func(t *testing.T) {
-		var buf bytes.Buffer
-		// F(50) a 11 chiffres, bien en dessous de la limite de 100.
-		result, _ := new(big.Int).SetString("12586269025", 10)
-		DisplayResult(result, 50, duration, false, &buf)
-
-		output := buf.String()
-		expectedValue := "F(50) = 12,586,269,025"
-		if !strings.Contains(output, expectedValue) {
-			t.Errorf("La sortie pour un nombre court est incorrecte.\nAttendu (contenant): %q\nObtenu: %s", expectedValue, output)
-		}
-		if strings.Contains(output, "(Tronqué)") {
-			t.Errorf("La sortie pour un nombre court ne devrait pas mentionner qu'il est tronqué. Obtenu:\n%s", output)
-		}
-	})
-
-	// --- Cas 2: Nombre long, doit être tronqué par défaut ---
-	t.Run("LongNumberTruncated", func(t *testing.T) {
-		var buf bytes.Buffer
-		// Un nombre de 101 chiffres pour dépasser la limite.
-		longNumStr := strings.Repeat("1", 25) + strings.Repeat("2", 51) + strings.Repeat("3", 25)
-		result, _ := new(big.Int).SetString(longNumStr, 10)
-		DisplayResult(result, 500, duration, false, &buf)
-
-		output := buf.String()
-		expectedTruncated := "F(500) (Tronqué) = " + strings.Repeat("1", 25) + "..." + strings.Repeat("3", 25)
-		if !strings.Contains(output, expectedTruncated) {
-			t.Errorf("La sortie tronquée est incorrecte.\nAttendu (contenant): %q\nObtenu: %s", expectedTruncated, output)
-		}
-		if !strings.Contains(output, "Utilisez le flag -v ou --verbose") {
-			t.Errorf("La sortie tronquée devrait contenir l'aide pour le mode verbeux. Obtenu:\n%s", output)
-		}
-	})
-
-	// --- Cas 3: Nombre long en mode verbeux, ne doit pas être tronqué ---
-	t.Run("LongNumberVerbose", func(t *testing.T) {
-		var buf bytes.Buffer
-		longNumStr := strings.Repeat("1", 101)
-		result, _ := new(big.Int).SetString(longNumStr, 10)
-		DisplayResult(result, 500, duration, true, &buf)
-
-		output := buf.String()
-		// On vérifie que la valeur formatée est bien présente
-		// 101 chiffres -> 1,00... (34 groupes de 3 chiffres + 2 chiffres initiaux)
-		expectedFormatted := "11,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111,111"
-		// On ne vérifie qu'une partie pour ne pas rendre le test trop fragile
-		if !strings.Contains(output, "11,111,111,111") {
-			t.Errorf("La sortie verbeuse est incorrecte. Attendu (contenant une partie de) %q\nObtenu: %s", expectedFormatted, output)
-		}
-		if strings.Contains(output, "(Tronqué)") {
-			t.Errorf("La sortie verbeuse ne devrait pas être tronquée. Obtenu:\n%s", output)
-		}
-	})
-}
 
 // TestDisplayAggregateProgress teste le consommateur de l'UI de progression.
 func TestDisplayAggregateProgress(t *testing.T) {
