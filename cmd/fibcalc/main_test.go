@@ -102,8 +102,11 @@ func TestRunFunction(t *testing.T) {
 			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "F(10) = 55") {
-			t.Errorf("La sortie ne contient pas le résultat attendu 'F(10) = 55'. Sortie:\n%s", output)
+		if strings.Contains(output, "--- Valeur Calculée ---") {
+			t.Errorf("La sortie ne devrait plus contenir l'en-tête '--- Valeur Calculée ---'. Sortie:\n%s", output)
+		}
+		if !strings.Contains(output, "Données du Résultat") {
+			t.Errorf("La sortie devrait toujours contenir 'Données du Résultat'. Sortie:\n%s", output)
 		}
 	})
 
@@ -121,8 +124,8 @@ func TestRunFunction(t *testing.T) {
 		if !strings.Contains(output, "Statut Global : Succès") {
 			t.Errorf("La sortie ne contient pas le statut de succès global. Sortie:\n%s", output)
 		}
-		if !strings.Contains(output, "F(20) = 6,765") {
-			t.Errorf("La sortie ne contient pas le résultat attendu 'F(20) = 6,765'. Sortie:\n%s", output)
+		if strings.Contains(output, "--- Valeur Calculée ---") {
+			t.Errorf("La sortie ne devrait plus contenir l'en-tête '--- Valeur Calculée ---'. Sortie:\n%s", output)
 		}
 	})
 

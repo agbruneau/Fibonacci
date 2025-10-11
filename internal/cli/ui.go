@@ -261,17 +261,6 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose bo
 		fmt.Fprintf(out, "Notation Scientifique : %e\n", f)
 	}
 
-	fmt.Fprintln(out, "\n--- Valeur Calculée ---")
-	// La gestion de l'affichage (complet vs. tronqué) est une question d'expérience
-	// utilisateur (UX) pour éviter d'inonder le terminal avec des millions de chiffres.
-	if verbose {
-		fmt.Fprintf(out, "F(%d) =\n%s\n", n, formatNumberString(resultStr))
-	} else if numDigits > TruncationLimit {
-		fmt.Fprintf(out, "F(%d) (Tronqué) = %s...%s\n", n, resultStr[:DisplayEdges], resultStr[numDigits-DisplayEdges:])
-		fmt.Fprintln(out, "(Utilisez le flag -v ou --verbose pour afficher le résultat complet)")
-	} else {
-		fmt.Fprintf(out, "F(%d) = %s\n", n, formatNumberString(resultStr))
-	}
 }
 
 // formatNumberString ajoute des séparateurs de milliers à une chaîne numérique pour une meilleure lisibilité.
