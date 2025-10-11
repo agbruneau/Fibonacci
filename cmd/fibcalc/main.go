@@ -102,9 +102,8 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 // de nouveaux algorithmes (ouvert à l'extension) sans modifier le code qui l'utilise
 // (fermé à la modification).
 var calculatorRegistry = map[string]fibonacci.Calculator{
-	"fast":           fibonacci.NewCalculator(&fibonacci.OptimizedFastDoubling{}),
-	"fast-karatsuba": fibonacci.NewCalculator(&fibonacci.FastDoublingKaratsuba{}),
-	"matrix":         fibonacci.NewCalculator(&fibonacci.MatrixExponentiation{}),
+	"fast":   fibonacci.NewCalculator(&fibonacci.OptimizedFastDoubling{}),
+	"matrix": fibonacci.NewCalculator(&fibonacci.MatrixExponentiation{}),
 }
 
 // EXPLICATION ACADÉMIQUE : La fonction `init`
