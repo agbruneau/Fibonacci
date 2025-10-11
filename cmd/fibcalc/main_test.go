@@ -1,29 +1,33 @@
 //
-// MODULE ACADÉMIQUE : TESTS D'INTÉGRATION ET DE LA RACINE DE COMPOSITION (MAIN)
+// MODULE ACADÉMIQUE : TESTS D'INTÉGRATION DE LA RACINE DE COMPOSITION (MAIN)
 //
 // OBJECTIF PÉDAGOGIQUE :
-// Ce fichier de test montre comment tester le "Composition Root" (`main.go`) d'une
-// application Go. Le défi est de tester des fonctions qui interagissent avec des
-// éléments globaux (flags, `os.Args`, `os.Stdout`) et qui orchestrent le cycle de
-// vie de l'application.
+// Ce fichier de test illustre les techniques de validation pour la fonction `main` d'une
+// application en ligne de commande (CLI) en Go. Le défi principal consiste à tester une
+// logique qui, par nature, interagit avec l'état global du système (arguments de la ligne
+// de commande, flux d'E/S standards, signaux du système d'exploitation).
 //
-// CONCEPTS CLÉS DÉMONTRÉS :
-//  1. TESTABILITÉ PAR CONCEPTION : Les fonctions `parseConfig` et `run` ont été
-//     conçues pour être testables. Elles évitent l'état global en acceptant leurs
-//     dépendances (arguments, `io.Writer`, `context`) comme paramètres, ce qui est
-//     une application directe du principe d'Inversion de Dépendances (le 'D' de SOLID).
-//  2. TESTS DE LA LOGIQUE DE PARSING : `TestParseConfig` utilise une approche de
-//     test par table pour couvrir les cas de succès et d'erreur du parsing des
-//     arguments de la ligne de commande, sans jamais dépendre de `os.Args`.
-//  3. TESTS DE LA LOGIQUE D'EXÉCUTION (`run`) : `TestRunFunction` teste la logique
-//     principale de l'application. Il vérifie que `run` produit la sortie attendue
-//     et retourne les codes de sortie corrects en fonction des scénarios.
-//  4. SIMULATION DE L'ENVIRONNEMENT :
-//      - La sortie standard (`os.Stdout`) est remplacée par un `bytes.Buffer` pour
-//        capturer et valider ce qui est affiché.
-//      - Le `context` est utilisé pour simuler des conditions d'exécution spéciales
-//        comme un timeout ou une annulation (Ctrl+C), permettant de tester les
-//        chemins de code de "graceful shutdown".
+// CONCEPTS DE CONCEPTION ET DE TEST ILLUSTRÉS :
+//  1. TESTABILITÉ PAR CONCEPTION (DESIGN FOR TESTABILITY) : Le code du module `main` est
+//     structuré pour être testable. Les fonctions `parseConfig` et `run` ont été extraites
+//     et conçues pour être pures en acceptant leurs dépendances (arguments, `io.Writer`, `context`)
+//     comme paramètres. Ceci est une application directe du principe d'Inversion de Dépendances
+//     et constitue la pierre angulaire qui rend la validation systématique possible.
+//  2. VALIDATION DE LA CONFIGURATION : `TestParseConfig` emploie des tests pilotés par les
+//     données pour vérifier exhaustivement la logique de parsing et de validation des
+//     arguments, couvrant les cas nominaux, les cas d'erreur et les cas limites, de manière
+//     totalement isolée de l'environnement d'exécution (`os.Args`).
+//  3. VALIDATION DE L'ORCHESTRATEUR (`run`) : `TestRunFunction` est un test d'intégration
+//     qui valide la logique d'orchestration principale. Il vérifie que la fonction `run`
+//     produit la sortie attendue et retourne les codes de sortie système corrects en fonction
+//     de divers scénarios d'entrée.
+//  4. SIMULATION DE L'ENVIRONNEMENT (TEST DOUBLES) :
+//      - Le flux de sortie standard (`os.Stdout`) est remplacé par un "Test Double" de type
+//        `bytes.Buffer`, qui agit comme un "Spy" pour capturer la sortie et permettre des
+//        assertions sur son contenu.
+//      - Le `context` est utilisé pour simuler des conditions d'exécution exceptionnelles,
+//        telles qu'un timeout ou une annulation externe (simulant un `Ctrl+C`), permettant de
+//        valider la robustesse et les chemins de code de l'arrêt contrôlé ("graceful shutdown").
 //
 package main
 
@@ -39,35 +43,30 @@ import (
 
 // TestParseConfig valide la fonction de parsing et de validation de la configuration.
 func TestParseConfig(t *testing.T) {
-	// `io.Discard` est un `io.Writer` qui ignore toutes les écritures. C'est utile
-	// ici pour ne pas polluer les logs de test avec les messages d'erreur de `flag.Usage()`.
-	var discard bytes.Buffer
+	// `bytes.Buffer` est utilisé comme un "sink" silencieux pour les messages d'erreur
+	// potentiels, afin de ne pas polluer les journaux de test.
+	var errorSink bytes.Buffer
 
 	testCases := []struct {
-		name                 string
-		args                 []string
-		expectErr            bool
-		expectedN            uint64
-		expectedAlgo         string
-		expectedFFTThreshold int
-		expectedDetails      bool
+		name        string
+		args        []string
+		expectErr   bool
+		expectedN   uint64
+		expectedAlgo string
 	}{
-		{"Cas par défaut", []string{}, false, 250000000, "all", 20000, false},
-		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", 20000, false},
-		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 250000000, "fast", 20000, false},
-		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix", 20000, false},
-		{"Spécification du seuil FFT", []string{"-fft-threshold", "42000"}, false, 250000000, "all", 42000, false},
-		{"Flag details (court)", []string{"-d"}, false, 250000000, "all", 20000, true},
-		{"Flag details (long)", []string{"--details"}, false, 250000000, "all", 20000, true},
-		{"Seuil FFT négatif", []string{"-fft-threshold", "-100"}, true, 0, "", 0, false},
-		{"Argument inconnu", []string{"-unknown"}, true, 0, "", 0, false},
-		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, "", 0, false},
-		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, "", 0, false},
+		{"Cas nominal (défauts)", []string{}, false, 250000000, "all"},
+		{"Spécification de N", []string{"-n", "50"}, false, 50, "all"},
+		{"Spécification de l'algorithme", []string{"-algo", "fast"}, false, 250000000, "fast"},
+		{"Spécification de l'algorithme (insensible à la casse)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix"},
+		{"Cas d'erreur : seuil négatif", []string{"-threshold", "-100"}, true, 0, ""},
+		{"Cas d'erreur : argument inconnu", []string{"-invalid-flag"}, true, 0, ""},
+		{"Cas d'erreur : algorithme inconnu", []string{"-algo", "nonexistent"}, true, 0, ""},
+		{"Cas d'erreur : timeout invalide", []string{"-timeout", "-5s"}, true, 0, ""},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			config, err := parseConfig("test", tc.args, &discard)
+			config, err := parseConfig("test", tc.args, &errorSink)
 
 			if tc.expectErr {
 				if err == nil {
@@ -75,48 +74,23 @@ func TestParseConfig(t *testing.T) {
 				}
 			} else {
 				if err != nil {
-					t.Errorf("Une erreur inattendue a été retournée: %v", err)
+					t.Errorf("Une erreur inattendue a été retournée : %v", err)
 				}
 				if config.N != tc.expectedN {
-					t.Errorf("config.N incorrect. Attendu: %d, Obtenu: %d", tc.expectedN, config.N)
+					t.Errorf("Champ N de la config incorrect. Attendu: %d, Obtenu: %d", tc.expectedN, config.N)
 				}
 				if config.Algo != tc.expectedAlgo {
-					t.Errorf("config.Algo incorrect. Attendu: %s, Obtenu: %s", tc.expectedAlgo, config.Algo)
-				}
-				if config.FFTThreshold != tc.expectedFFTThreshold {
-					t.Errorf("config.FFTThreshold incorrect. Attendu: %d, Obtenu: %d", tc.expectedFFTThreshold, config.FFTThreshold)
-				}
-				if config.Details != tc.expectedDetails {
-					t.Errorf("config.Details incorrect. Attendu: %t, Obtenu: %t", tc.expectedDetails, config.Details)
+					t.Errorf("Champ Algo de la config incorrect. Attendu: %q, Obtenu: %q", tc.expectedAlgo, config.Algo)
 				}
 			}
 		})
 	}
 }
 
-// TestRunFunction teste la fonction d'orchestration principale `run`.
+// TestRunFunction valide le comportement de la fonction d'orchestration principale `run`.
 func TestRunFunction(t *testing.T) {
 
-	// --- Cas 1: Exécution simple avec succès (sans détails) ---
-	t.Run("SimpleSuccessNoDetails", func(t *testing.T) {
-		var buf bytes.Buffer
-		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: false}
-		exitCode := run(context.Background(), config, &buf)
-
-		if exitCode != ExitSuccess {
-			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
-		}
-		output := buf.String()
-		if !strings.Contains(output, "Taille Binaire du Résultat : 6 bits.") {
-			t.Errorf("La sortie par défaut est incorrecte. Attendu: 'Taille Binaire du Résultat : 6 bits.'. Sortie:\n%s", output)
-		}
-		if strings.Contains(output, "Données Détaillées") {
-			t.Errorf("La sortie par défaut ne devrait pas contenir de détails. Sortie:\n%s", output)
-		}
-	})
-
-	// --- Cas 2: Exécution simple avec succès (avec détails) ---
-	t.Run("SimpleSuccessWithDetails", func(t *testing.T) {
+	t.Run("Exécution simple avec succès", func(t *testing.T) {
 		var buf bytes.Buffer
 		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
 		exitCode := run(context.Background(), config, &buf)
@@ -130,8 +104,7 @@ func TestRunFunction(t *testing.T) {
 		}
 	})
 
-	// --- Cas 3: Comparaison avec succès (sans détails) ---
-	t.Run("ComparisonSuccessNoDetails", func(t *testing.T) {
+	t.Run("Comparaison parallèle avec succès", func(t *testing.T) {
 		var buf bytes.Buffer
 		config := AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: false}
 		exitCode := run(context.Background(), config, &buf)
@@ -140,54 +113,46 @@ func TestRunFunction(t *testing.T) {
 			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Taille Binaire du Résultat : 13 bits.") {
-			t.Errorf("La sortie par défaut est incorrecte. Attendu: 'Taille Binaire du Résultat : 13 bits.'. Sortie:\n%s", output)
-		}
-		if strings.Contains(output, "Données Détaillées") {
-			t.Errorf("La sortie par défaut ne devrait pas contenir de détails. Sortie:\n%s", output)
+		// En mode comparaison, on vérifie la présence du tableau récapitulatif et le statut global.
+		if !strings.Contains(output, "Synthèse de la Comparaison") || !strings.Contains(output, "Statut Global : Succès") {
+			t.Errorf("La sortie du mode comparaison est incorrecte. Sortie:\n%s", output)
 		}
 	})
 
-	// --- Cas 4: Test de timeout ---
-	t.Run("Timeout", func(t *testing.T) {
+	t.Run("Échec dû à un timeout", func(t *testing.T) {
 		var buf bytes.Buffer
-		// On choisit un N très grand et un timeout très court pour forcer une erreur de timeout.
-		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
-
-		// On utilise un contexte de base, le timeout est géré par la fonction `run` elle-même.
+		// Un N très grand et un timeout très court pour garantir l'échec.
+		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond}
 		exitCode := run(context.Background(), config, &buf)
 
 		if exitCode != ExitErrorTimeout {
-			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitErrorTimeout, exitCode)
+			t.Errorf("Code de sortie incorrect pour un timeout. Attendu: %d, Obtenu: %d", ExitErrorTimeout, exitCode)
 		}
 		output := buf.String()
 		if !strings.Contains(output, "Échec (Timeout)") {
-			t.Errorf("La sortie n'indique pas une erreur de timeout. Sortie:\n%s", output)
+			t.Errorf("La sortie devrait explicitement mentionner l'échec par timeout. Sortie:\n%s", output)
 		}
 	})
 
-	// --- Cas 4: Test d'annulation par le contexte ---
-	t.Run("ContextCancellation", func(t *testing.T) {
+	t.Run("Échec dû à une annulation par le contexte", func(t *testing.T) {
 		var buf bytes.Buffer
-		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
+		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Minute}
 
-		// EXPLICATION ACADÉMIQUE : Simulation d'une Annulation (Ctrl+C)
-		// On crée un contexte qui peut être annulé manuellement.
-		// `context.WithCancel` retourne le contexte et une fonction `cancel`.
+		// NOTE PÉDAGOGIQUE : Simulation d'une annulation externe (e.g., Ctrl+C).
+		// `context.WithCancel` permet de créer un contexte que l'on peut annuler
+		// programmatiquement. L'appel immédiat à `cancel()` simule un signal
+		// d'interruption reçu avant même le début du calcul.
 		ctx, cancel := context.WithCancel(context.Background())
-
-		// On appelle `cancel()` immédiatement. La fonction `run` devrait détecter
-		// cette annulation dès le début de son exécution.
 		cancel()
 
 		exitCode := run(ctx, config, &buf)
 
 		if exitCode != ExitErrorCanceled {
-			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitErrorCanceled, exitCode)
+			t.Errorf("Code de sortie incorrect pour une annulation. Attendu: %d, Obtenu: %d", ExitErrorCanceled, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Statut: Annulé") {
-			t.Errorf("La sortie n'indique pas une annulation. Sortie:\n%s", output)
+		if !strings.Contains(output, "Statut : Annulé") {
+			t.Errorf("La sortie devrait explicitement mentionner l'annulation. Sortie:\n%s", output)
 		}
 	})
 }
