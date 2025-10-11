@@ -169,7 +169,7 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	algoHelp := fmt.Sprintf("Algorithme : 'all' (comparaison) ou l'un parmi : [%s].", strings.Join(availableAlgos, ", "))
 
 	config := AppConfig{}
-	fs.Uint64Var(&config.N, "n", 250000000, "L'indice 'n' de la séquence de Fibonacci à calculer.")
+	fs.Uint64Var(&config.N, "n", 100000000, "L'indice 'n' de la séquence de Fibonacci à calculer.")
 	fs.BoolVar(&config.Verbose, "v", false, "Affiche le résultat complet (non tronqué).")
 	fs.BoolVar(&config.Verbose, "verbose", false, "Affiche le résultat complet (non tronqué).")
 	fs.BoolVar(&config.Details, "d", false, "Affiche les détails complets du résultat (temps, taille, etc.).")
