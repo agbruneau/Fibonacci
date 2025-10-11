@@ -40,9 +40,10 @@ import (
 // Constantes définissant le comportement et l'apparence de l'interface utilisateur.
 const (
 	// ProgressRefreshRate définit la fréquence de rafraîchissement de la barre de progression.
-	// Une valeur de 100ms (10Hz) offre un bon compromis entre une animation fluide
-	// et une consommation CPU minimale. Un taux trop élevé pourrait surcharger le terminal.
-	ProgressRefreshRate = 100 * time.Millisecond
+	// Une valeur de 250ms (4Hz) réduit la charge I/O sur le terminal, ce qui peut
+	// légèrement améliorer les performances globales sur les calculs très rapides,
+	// tout en conservant une rétroaction visuelle adéquate.
+	ProgressRefreshRate = 250 * time.Millisecond
 
 	// ProgressBarWidth détermine la largeur en caractères de la barre de progression.
 	ProgressBarWidth = 40
