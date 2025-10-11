@@ -15,6 +15,8 @@ import (
 	"math/bits"
 	"runtime"
 	"sync"
+
+	"github.com/remyoudompheng/bigfft"
 )
 
 // OptimizedFastDoubling est une implémentation de l'interface `coreCalculator`.
@@ -30,7 +32,7 @@ func (fd *OptimizedFastDoubling) Name() string {
 }
 
 // CalculateCore implémente la logique principale de l'algorithme.
-func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int) (*big.Int, error) {
+func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 
 	// BONIFICATION 3a : Gestion des cas triviaux sans utiliser le pool.
 	switch n {
@@ -103,12 +105,20 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		s.t2.Sub(s.t2, s.f_k) // t2 = t2 - f_k
 
 		// 2. Calcul des trois multiplications coûteuses.
+		useFFT := fftThreshold > 0 && s.f_k1.BitLen() > fftThreshold
+
 		if useParallel && s.f_k1.BitLen() > threshold {
-			parallelMultiply3Optimized(s)
+			parallelMultiply3Optimized(s, useFFT)
 		} else {
-			s.t3.Mul(s.f_k, s.t2)    // F(k) * t2
-			s.t1.Mul(s.f_k1, s.f_k1) // F(k+1)²
-			s.t4.Mul(s.f_k, s.f_k)   // F(k)²
+			if useFFT {
+				s.t3 = mulFFT(s.f_k, s.t2)    // F(k) * t2
+				s.t1 = mulFFT(s.f_k1, s.f_k1) // F(k+1)²
+				s.t4 = mulFFT(s.f_k, s.f_k)   // F(k)²
+			} else {
+				s.t3.Mul(s.f_k, s.t2)    // F(k) * t2
+				s.t1.Mul(s.f_k1, s.f_k1) // F(k+1)²
+				s.t4.Mul(s.f_k, s.f_k)   // F(k)²
+			}
 		}
 
 		// 3. Assemblage des résultats du doubling.
@@ -153,7 +163,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 // parallelMultiply3Optimized (remplace parallelMultiply3) exécute les trois multiplications
 // indépendantes de l'étape de "doubling" en parallèle de manière optimisée.
 // Pré-requis : s.t2 doit déjà contenir la valeur `2*F(k+1) - F(k)`.
-func parallelMultiply3Optimized(s *calculationState) {
+func parallelMultiply3Optimized(s *calculationState, useFFT bool) {
 	// EXPLICATION ACADÉMIQUE : Parallélisme de Tâches Optimisé
 	// Les trois multiplications sont mathématiquement indépendantes :
 	//   A = F(k) * t2
@@ -172,22 +182,41 @@ func parallelMultiply3Optimized(s *calculationState) {
 	// Tâche A: s.t3 = s.f_k * s.t2 (Nouvelle Goroutine)
 	go func() {
 		defer wg.Done()
-		s.t3.Mul(s.f_k, s.t2)
+		if useFFT {
+			s.t3 = mulFFT(s.f_k, s.t2)
+		} else {
+			s.t3.Mul(s.f_k, s.t2)
+		}
 	}()
 
 	// Tâche B: s.t1 = s.f_k1 * s.f_k1 (Nouvelle Goroutine)
 	go func() {
 		defer wg.Done()
-		s.t1.Mul(s.f_k1, s.f_k1) // Mul est optimisé pour le carré (squaring).
+		if useFFT {
+			s.t1 = mulFFT(s.f_k1, s.f_k1)
+		} else {
+			s.t1.Mul(s.f_k1, s.f_k1) // Mul est optimisé pour le carré (squaring).
+		}
 	}()
 
 	// Tâche C: s.t4 = s.f_k * s.f_k (Exécutée dans la goroutine courante)
 	// Pas besoin de wg.Done() car nous ne l'avons pas comptée dans wg.Add(2).
-	s.t4.Mul(s.f_k, s.f_k)
+	if useFFT {
+		s.t4 = mulFFT(s.f_k, s.f_k)
+	} else {
+		s.t4.Mul(s.f_k, s.f_k)
+	}
 
 	// Bloque l'exécution jusqu'à ce que les tâches A et B soient terminées.
 	wg.Wait()
 	// Après cette ligne, s.t1, s.t3 (via Wait) et s.t4 (via exécution directe) sont prêts.
+}
+
+// mulFFT exécute la multiplication de deux grands entiers en utilisant la transformée de Fourier rapide (FFT).
+// Cette méthode est asymptotiquement plus rapide que la multiplication standard pour des nombres
+// de très grande taille. Elle alloue et retourne un nouveau `*big.Int` pour le résultat.
+func mulFFT(x, y *big.Int) *big.Int {
+	return bigfft.Mul(x, y)
 }
 
 // NOTE: Les types et fonctions suivants sont assumés exister (non fournis dans l'extrait original)

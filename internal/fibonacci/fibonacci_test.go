@@ -105,7 +105,7 @@ func TestFibonacciCalculators(t *testing.T) {
 					expected.SetString(testCase.result, 10)
 
 					// On exécute le calcul. Le canal de progression est `nil` car non pertinent pour ce test.
-					result, err := calc.Calculate(ctx, nil, 0, testCase.n, DefaultParallelThreshold)
+					result, err := calc.Calculate(ctx, nil, 0, testCase.n, DefaultParallelThreshold, 0)
 
 					// --- VÉRIFICATIONS (ASSERTIONS) ---
 					if err != nil {
@@ -196,7 +196,7 @@ func TestProgressReporter(t *testing.T) {
 				}
 			}()
 
-			_, err := calc.Calculate(context.Background(), progressChan, 0, 10000, DefaultParallelThreshold)
+			_, err := calc.Calculate(context.Background(), progressChan, 0, 10000, DefaultParallelThreshold, 0)
 			close(progressChan)
 			wg.Wait()
 
@@ -228,7 +228,7 @@ func TestContextCancellation(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 			defer cancel()
 
-			_, err := calc.Calculate(ctx, nil, 0, n, DefaultParallelThreshold)
+			_, err := calc.Calculate(ctx, nil, 0, n, DefaultParallelThreshold, 0)
 
 			// On s'attend à une erreur de type "context deadline exceeded".
 			if err == nil {
@@ -299,17 +299,17 @@ func TestFibonacciProperties(t *testing.T) {
 
 			g.Go(func() error {
 				var err error
-				f_n_minus_1, err = calc.Calculate(ctx, nil, 0, n-1, DefaultParallelThreshold)
+				f_n_minus_1, err = calc.Calculate(ctx, nil, 0, n-1, DefaultParallelThreshold, 0)
 				return err
 			})
 			g.Go(func() error {
 				var err error
-				f_n, err = calc.Calculate(ctx, nil, 0, n, DefaultParallelThreshold)
+				f_n, err = calc.Calculate(ctx, nil, 0, n, DefaultParallelThreshold, 0)
 				return err
 			})
 			g.Go(func() error {
 				var err error
-				f_n_plus_1, err = calc.Calculate(ctx, nil, 0, n+1, DefaultParallelThreshold)
+				f_n_plus_1, err = calc.Calculate(ctx, nil, 0, n+1, DefaultParallelThreshold, 0)
 				return err
 			})
 
@@ -366,7 +366,7 @@ func runBenchmark(b *testing.B, calc Calculator, n uint64) {
 		}()
 
 		// L'appel à la fonction dont on veut mesurer la performance.
-		_, _ = calc.Calculate(ctx, progressChan, 0, n, DefaultParallelThreshold)
+		_, _ = calc.Calculate(ctx, progressChan, 0, n, DefaultParallelThreshold, 0)
 
 		close(progressChan)
 		wg.Wait()

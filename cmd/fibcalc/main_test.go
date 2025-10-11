@@ -44,19 +44,22 @@ func TestParseConfig(t *testing.T) {
 	var discard bytes.Buffer
 
 	testCases := []struct {
-		name        string
-		args        []string
-		expectErr   bool
-		expectedN   uint64
-		expectedAlgo string
+		name               string
+		args               []string
+		expectErr          bool
+		expectedN          uint64
+		expectedAlgo       string
+		expectedFFTThreshold int
 	}{
-		{"Cas par défaut", []string{}, false, 100000000, "all"},
-		{"Spécification de N", []string{"-n", "50"}, false, 50, "all"},
-		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 100000000, "fast"},
-		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 100000000, "matrix"},
-		{"Argument inconnu", []string{"-unknown"}, true, 0, ""},
-		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, ""},
-		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, ""},
+		{"Cas par défaut", []string{}, false, 100000000, "all", 20000},
+		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", 20000},
+		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 100000000, "fast", 20000},
+		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 100000000, "matrix", 20000},
+		{"Spécification du seuil FFT", []string{"-fft-threshold", "42000"}, false, 100000000, "all", 42000},
+		{"Seuil FFT négatif", []string{"-fft-threshold", "-100"}, true, 0, "", 0},
+		{"Argument inconnu", []string{"-unknown"}, true, 0, "", 0},
+		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, "", 0},
+		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, "", 0},
 	}
 
 	for _, tc := range testCases {
@@ -77,6 +80,9 @@ func TestParseConfig(t *testing.T) {
 				if config.Algo != tc.expectedAlgo {
 					t.Errorf("config.Algo incorrect. Attendu: %s, Obtenu: %s", tc.expectedAlgo, config.Algo)
 				}
+				if config.FFTThreshold != tc.expectedFFTThreshold {
+					t.Errorf("config.FFTThreshold incorrect. Attendu: %d, Obtenu: %d", tc.expectedFFTThreshold, config.FFTThreshold)
+				}
 			}
 		})
 	}
@@ -88,7 +94,7 @@ func TestRunFunction(t *testing.T) {
 	// --- Cas 1: Exécution simple avec succès ---
 	t.Run("SimpleSuccess", func(t *testing.T) {
 		var buf bytes.Buffer
-		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold}
+		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
 
 		exitCode := run(context.Background(), config, &buf)
 
@@ -104,7 +110,7 @@ func TestRunFunction(t *testing.T) {
 	// --- Cas 2: Comparaison avec succès ---
 	t.Run("ComparisonSuccess", func(t *testing.T) {
 		var buf bytes.Buffer
-		config := AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold}
+		config := AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
 
 		exitCode := run(context.Background(), config, &buf)
 
@@ -124,7 +130,7 @@ func TestRunFunction(t *testing.T) {
 	t.Run("Timeout", func(t *testing.T) {
 		var buf bytes.Buffer
 		// On choisit un N très grand et un timeout très court pour forcer une erreur de timeout.
-		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond, Threshold: fibonacci.DefaultParallelThreshold}
+		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
 
 		// On utilise un contexte de base, le timeout est géré par la fonction `run` elle-même.
 		exitCode := run(context.Background(), config, &buf)
@@ -141,7 +147,7 @@ func TestRunFunction(t *testing.T) {
 	// --- Cas 4: Test d'annulation par le contexte ---
 	t.Run("ContextCancellation", func(t *testing.T) {
 		var buf bytes.Buffer
-		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold}
+		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
 
 		// EXPLICATION ACADÉMIQUE : Simulation d'une Annulation (Ctrl+C)
 		// On crée un contexte qui peut être annulé manuellement.
