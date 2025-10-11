@@ -231,17 +231,22 @@ func progressBar(progress float64, length int) string {
 }
 
 // DisplayResult formate et affiche le résultat final F(n) et ses métadonnées.
-func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose bool, out io.Writer) {
-	fmt.Fprintln(out, "\n--- Données du Résultat ---")
+func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
+	// `BitLen()` est une méthode très efficace pour obtenir le nombre de bits nécessaires
+	// pour représenter un nombre, ce qui est une mesure de sa "taille" en mémoire.
+	bitLen := result.BitLen()
+	fmt.Fprintf(out, "Taille Binaire du Résultat : %s bits.\n", formatNumberString(fmt.Sprintf("%d", bitLen)))
+
+	if !details {
+		fmt.Fprintln(out, "(Utilisez le flag -d ou --details pour afficher les informations complètes)")
+		return
+	}
+
+	fmt.Fprintln(out, "\n--- Données Détaillées du Résultat ---")
 
 	if duration > 0 {
 		fmt.Fprintf(out, "Durée d'exécution     : %s\n", duration)
 	}
-
-	// `BitLen()` est une méthode très efficace pour obtenir le nombre de bits nécessaires
-	// pour représenter un nombre, ce qui est une mesure de sa "taille" en mémoire.
-	bitLen := result.BitLen()
-	fmt.Fprintf(out, "Taille Binaire        : %s bits.\n", formatNumberString(fmt.Sprintf("%d", bitLen)))
 
 	// EXPLICATION ACADÉMIQUE : Coût des Conversions de Base
 	// La conversion d'un `big.Int` (stocké en base 2^64 ou 2^32) en une chaîne de

@@ -44,22 +44,25 @@ func TestParseConfig(t *testing.T) {
 	var discard bytes.Buffer
 
 	testCases := []struct {
-		name               string
-		args               []string
-		expectErr          bool
-		expectedN          uint64
-		expectedAlgo       string
+		name                 string
+		args                 []string
+		expectErr            bool
+		expectedN            uint64
+		expectedAlgo         string
 		expectedFFTThreshold int
+		expectedDetails      bool
 	}{
-		{"Cas par défaut", []string{}, false, 250000000, "all", 20000},
-		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", 20000},
-		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 250000000, "fast", 20000},
-		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix", 20000},
-		{"Spécification du seuil FFT", []string{"-fft-threshold", "42000"}, false, 250000000, "all", 42000},
-		{"Seuil FFT négatif", []string{"-fft-threshold", "-100"}, true, 0, "", 0},
-		{"Argument inconnu", []string{"-unknown"}, true, 0, "", 0},
-		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, "", 0},
-		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, "", 0},
+		{"Cas par défaut", []string{}, false, 250000000, "all", 20000, false},
+		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", 20000, false},
+		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 250000000, "fast", 20000, false},
+		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix", 20000, false},
+		{"Spécification du seuil FFT", []string{"-fft-threshold", "42000"}, false, 250000000, "all", 42000, false},
+		{"Flag details (court)", []string{"-d"}, false, 250000000, "all", 20000, true},
+		{"Flag details (long)", []string{"--details"}, false, 250000000, "all", 20000, true},
+		{"Seuil FFT négatif", []string{"-fft-threshold", "-100"}, true, 0, "", 0, false},
+		{"Argument inconnu", []string{"-unknown"}, true, 0, "", 0, false},
+		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, "", 0, false},
+		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, "", 0, false},
 	}
 
 	for _, tc := range testCases {
@@ -83,6 +86,9 @@ func TestParseConfig(t *testing.T) {
 				if config.FFTThreshold != tc.expectedFFTThreshold {
 					t.Errorf("config.FFTThreshold incorrect. Attendu: %d, Obtenu: %d", tc.expectedFFTThreshold, config.FFTThreshold)
 				}
+				if config.Details != tc.expectedDetails {
+					t.Errorf("config.Details incorrect. Attendu: %t, Obtenu: %t", tc.expectedDetails, config.Details)
+				}
 			}
 		})
 	}
@@ -91,11 +97,28 @@ func TestParseConfig(t *testing.T) {
 // TestRunFunction teste la fonction d'orchestration principale `run`.
 func TestRunFunction(t *testing.T) {
 
-	// --- Cas 1: Exécution simple avec succès ---
-	t.Run("SimpleSuccess", func(t *testing.T) {
+	// --- Cas 1: Exécution simple avec succès (sans détails) ---
+	t.Run("SimpleSuccessNoDetails", func(t *testing.T) {
 		var buf bytes.Buffer
-		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
+		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: false}
+		exitCode := run(context.Background(), config, &buf)
 
+		if exitCode != ExitSuccess {
+			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
+		}
+		output := buf.String()
+		if !strings.Contains(output, "Taille Binaire du Résultat : 6 bits.") {
+			t.Errorf("La sortie par défaut est incorrecte. Attendu: 'Taille Binaire du Résultat : 6 bits.'. Sortie:\n%s", output)
+		}
+		if strings.Contains(output, "Données Détaillées") {
+			t.Errorf("La sortie par défaut ne devrait pas contenir de détails. Sortie:\n%s", output)
+		}
+	})
+
+	// --- Cas 2: Exécution simple avec succès (avec détails) ---
+	t.Run("SimpleSuccessWithDetails", func(t *testing.T) {
+		var buf bytes.Buffer
+		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
 		exitCode := run(context.Background(), config, &buf)
 
 		if exitCode != ExitSuccess {
@@ -103,30 +126,29 @@ func TestRunFunction(t *testing.T) {
 		}
 		output := buf.String()
 		if !strings.Contains(output, "F(10) = 55") {
-			t.Errorf("La sortie ne contient pas le résultat attendu 'F(10) = 55'. Sortie:\n%s", output)
+			t.Errorf("La sortie détaillée ne contient pas le résultat attendu 'F(10) = 55'. Sortie:\n%s", output)
 		}
 	})
 
-	// --- Cas 2: Comparaison avec succès ---
-	t.Run("ComparisonSuccess", func(t *testing.T) {
+	// --- Cas 3: Comparaison avec succès (sans détails) ---
+	t.Run("ComparisonSuccessNoDetails", func(t *testing.T) {
 		var buf bytes.Buffer
-		config := AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000}
-
+		config := AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: false}
 		exitCode := run(context.Background(), config, &buf)
 
 		if exitCode != ExitSuccess {
 			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Statut Global : Succès") {
-			t.Errorf("La sortie ne contient pas le statut de succès global. Sortie:\n%s", output)
+		if !strings.Contains(output, "Taille Binaire du Résultat : 13 bits.") {
+			t.Errorf("La sortie par défaut est incorrecte. Attendu: 'Taille Binaire du Résultat : 13 bits.'. Sortie:\n%s", output)
 		}
-		if !strings.Contains(output, "F(20) = 6,765") {
-			t.Errorf("La sortie ne contient pas le résultat attendu 'F(20) = 6,765'. Sortie:\n%s", output)
+		if strings.Contains(output, "Données Détaillées") {
+			t.Errorf("La sortie par défaut ne devrait pas contenir de détails. Sortie:\n%s", output)
 		}
 	})
 
-	// --- Cas 3: Test de timeout ---
+	// --- Cas 4: Test de timeout ---
 	t.Run("Timeout", func(t *testing.T) {
 		var buf bytes.Buffer
 		// On choisit un N très grand et un timeout très court pour forcer une erreur de timeout.
