@@ -44,23 +44,29 @@ func TestParseConfig(t *testing.T) {
 	var discard bytes.Buffer
 
 	testCases := []struct {
-		name        string
-		args        []string
-		expectErr   bool
-		expectedN   uint64
-		expectedAlgo string
+		name                   string
+		args                   []string
+		expectErr              bool
+		expectedN              uint64
+		expectedAlgo           string
+		expectedKaratsubaThres int
+		expectedFFTThres       int
 	}{
-		{"Cas par défaut", []string{}, false, 250000000, "all"},
-		{"Spécification de N", []string{"-n", "50"}, false, 50, "all"},
-		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 250000000, "fast"},
-		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix"},
-		{"Argument inconnu", []string{"-unknown"}, true, 0, ""},
-		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, ""},
-		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, ""},
+		{"Cas par défaut", []string{}, false, 100000000, "all", 2048, 200000},
+		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", 2048, 200000},
+		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 100000000, "fast", 2048, 200000},
+		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 100000000, "matrix", 2048, 200000},
+		{"Spécification des seuils", []string{"--karatsuba-threshold", "4096", "--fft-threshold", "250000"}, false, 100000000, "all", 4096, 250000},
+		{"Calibration FFT", []string{"--calibrate-fft"}, false, 100000000, "all", 2048, 200000},
+		{"Argument inconnu", []string{"-unknown"}, true, 0, "", 0, 0},
+		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, "", 0, 0},
+		{"Timeout négatif", []string{"-timeout", "-1s"}, true, 0, "", 0, 0},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Pour les tests, nous réinitialisons les valeurs par défaut au cas où un test précédent les aurait modifiées.
+			// Dans une exécution réelle, cela est géré par `parseConfig` qui initialise la config.
 			config, err := parseConfig("test", tc.args, &discard)
 
 			if tc.expectErr {
@@ -76,6 +82,15 @@ func TestParseConfig(t *testing.T) {
 				}
 				if config.Algo != tc.expectedAlgo {
 					t.Errorf("config.Algo incorrect. Attendu: %s, Obtenu: %s", tc.expectedAlgo, config.Algo)
+				}
+				if config.KaratsubaThreshold != tc.expectedKaratsubaThres {
+					t.Errorf("config.KaratsubaThreshold incorrect. Attendu: %d, Obtenu: %d", tc.expectedKaratsubaThres, config.KaratsubaThreshold)
+				}
+				if config.FFTThreshold != tc.expectedFFTThres {
+					t.Errorf("config.FFTThreshold incorrect. Attendu: %d, Obtenu: %d", tc.expectedFFTThres, config.FFTThreshold)
+				}
+				if tc.name == "Calibration FFT" && !config.CalibrateFFT {
+					t.Error("config.CalibrateFFT devrait être true, mais est false.")
 				}
 			}
 		})

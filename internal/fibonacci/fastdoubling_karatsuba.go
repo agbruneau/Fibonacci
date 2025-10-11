@@ -61,13 +61,13 @@ func (fd *FastDoublingKaratsuba) CalculateCore(ctx context.Context, reporter Pro
 		s.t2.Lsh(s.f_k1, 1)
 		s.t2.Sub(s.t2, s.f_k)
 
-		// Utilisation de la multiplication de Karatsuba pour les opérations coûteuses.
+		// Utilisation de la multiplication hybride pour les opérations coûteuses.
 		if useParallel && s.f_k1.BitLen() > threshold {
-			parallelMultiply3Karatsuba(s)
+			parallelMultiply3(s)
 		} else {
-			MulKaratsuba(s.t3, s.f_k, s.t2)    // t3 = f_k * t2
-			MulKaratsuba(s.t1, s.f_k1, s.f_k1) // t1 = f_k1²
-			MulKaratsuba(s.t4, s.f_k, s.f_k)   // t4 = f_k²
+			Mul(s.t3, s.f_k, s.t2)    // t3 = f_k * t2
+			Mul(s.t1, s.f_k1, s.f_k1) // t1 = f_k1²
+			Mul(s.t4, s.f_k, s.f_k)   // t4 = f_k²
 		}
 
 		// f_k = t3
@@ -93,26 +93,26 @@ func (fd *FastDoublingKaratsuba) CalculateCore(ctx context.Context, reporter Pro
 	return new(big.Int).Set(s.f_k), nil
 }
 
-// parallelMultiply3Karatsuba exécute les trois multiplications en parallèle
-// en utilisant MulKaratsuba.
-func parallelMultiply3Karatsuba(s *calculationState) {
+// parallelMultiply3 exécute les trois multiplications en parallèle
+// en utilisant la fonction de dispatch Mul.
+func parallelMultiply3(s *calculationState) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	// Tâche A: t3 = f_k * t2
 	go func() {
 		defer wg.Done()
-		MulKaratsuba(s.t3, s.f_k, s.t2)
+		Mul(s.t3, s.f_k, s.t2)
 	}()
 
 	// Tâche B: t1 = f_k1 * f_k1
 	go func() {
 		defer wg.Done()
-		MulKaratsuba(s.t1, s.f_k1, s.f_k1)
+		Mul(s.t1, s.f_k1, s.f_k1)
 	}()
 
 	// Tâche C: t4 = f_k * f_k (dans la goroutine principale)
-	MulKaratsuba(s.t4, s.f_k, s.f_k)
+	Mul(s.t4, s.f_k, s.f_k)
 
 	wg.Wait()
 }

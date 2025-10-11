@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -387,4 +388,57 @@ func BenchmarkFastDoubling10M(b *testing.B) {
 
 func BenchmarkMatrixExp10M(b *testing.B) {
 	runBenchmark(b, NewCalculator(&MatrixExponentiation{}), 10_000_000)
+}
+
+// TestMultiplicationDispatch vérifie que la fonction `Mul` (qui choisit entre
+// standard, Karatsuba et FFT) donne le même résultat que la multiplication standard.
+func TestMultiplicationDispatch(t *testing.T) {
+	// Définir des seuils de test bas pour s'assurer que nous déclenchons
+	// bien les différents algorithmes (Karatsuba et FFT) pendant le test.
+	// On sauvegarde les anciennes valeurs pour les restaurer après le test.
+	oldKaratsubaThreshold := KaratsubaThresholdBits
+	oldFFTThreshold := FFTThresholdBits
+	KaratsubaThresholdBits = 128
+	FFTThresholdBits = 512
+	defer func() {
+		KaratsubaThresholdBits = oldKaratsubaThreshold
+		FFTThresholdBits = oldFFTThreshold
+	}()
+
+	testCases := []struct {
+		name    string
+		bitSize int // Taille en bits des nombres à multiplier
+	}{
+		{"Small (Standard)", 64},
+		{"Medium (Karatsuba)", 256},
+		{"Large (FFT)", 1024},
+		{"Edge Case (Just below Karatsuba)", KaratsubaThresholdBits - 1},
+		{"Edge Case (At Karatsuba)", KaratsubaThresholdBits},
+		{"Edge Case (Just below FFT)", FFTThresholdBits - 1},
+		{"Edge Case (At FFT)", FFTThresholdBits},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Générer deux grands nombres de la taille spécifiée.
+			// Pour un contrôle précis, nous créons un nombre qui a exactement la bonne
+			// longueur en bits en créant une chaîne binaire.
+			x := new(big.Int)
+			x.SetString(strings.Repeat("1", tc.bitSize), 2)
+
+			y := new(big.Int)
+			y.SetString(strings.Repeat("1", tc.bitSize-1), 2) // Un peu différent pour éviter la symétrie parfaite
+
+			// Calculer le résultat attendu avec la multiplication standard.
+			expected := new(big.Int).Mul(x, y)
+
+			// Calculer le résultat avec notre fonction de dispatch.
+			actual := Mul(new(big.Int), x, y)
+
+			// Vérifier que les résultats sont identiques.
+			if actual.Cmp(expected) != 0 {
+				t.Errorf("La multiplication a échoué pour des nombres de %d bits.\nAttendu: %v\nObtenu:  %v", tc.bitSize, expected, actual)
+			}
+		})
+	}
 }
