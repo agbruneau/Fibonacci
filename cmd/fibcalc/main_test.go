@@ -51,11 +51,11 @@ func TestParseConfig(t *testing.T) {
 		expectedAlgo       string
 		expectedFFTThreshold int
 	}{
-		{"Cas par défaut", []string{}, false, 100000000, "all", 20000},
+		{"Cas par défaut", []string{}, false, 250000000, "all", 20000},
 		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", 20000},
-		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 100000000, "fast", 20000},
-		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 100000000, "matrix", 20000},
-		{"Spécification du seuil FFT", []string{"-fft-threshold", "42000"}, false, 100000000, "all", 42000},
+		{"Spécification de l'algo", []string{"-algo", "fast"}, false, 250000000, "fast", 20000},
+		{"Spécification de l'algo (majuscules)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix", 20000},
+		{"Spécification du seuil FFT", []string{"-fft-threshold", "42000"}, false, 250000000, "all", 42000},
 		{"Seuil FFT négatif", []string{"-fft-threshold", "-100"}, true, 0, "", 0},
 		{"Argument inconnu", []string{"-unknown"}, true, 0, "", 0},
 		{"Algo inconnu", []string{"-algo", "invalid"}, true, 0, "", 0},

@@ -15,8 +15,6 @@ import (
 	"math/bits"
 	"runtime"
 	"sync"
-
-	"github.com/remyoudompheng/bigfft"
 )
 
 // OptimizedFastDoubling est une implémentation de l'interface `coreCalculator`.
@@ -210,13 +208,6 @@ func parallelMultiply3Optimized(s *calculationState, useFFT bool) {
 	// Bloque l'exécution jusqu'à ce que les tâches A et B soient terminées.
 	wg.Wait()
 	// Après cette ligne, s.t1, s.t3 (via Wait) et s.t4 (via exécution directe) sont prêts.
-}
-
-// mulFFT exécute la multiplication de deux grands entiers en utilisant la transformée de Fourier rapide (FFT).
-// Cette méthode est asymptotiquement plus rapide que la multiplication standard pour des nombres
-// de très grande taille. Elle alloue et retourne un nouveau `*big.Int` pour le résultat.
-func mulFFT(x, y *big.Int) *big.Int {
-	return bigfft.Mul(x, y)
 }
 
 // NOTE: Les types et fonctions suivants sont assumés exister (non fournis dans l'extrait original)

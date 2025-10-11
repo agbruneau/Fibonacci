@@ -83,7 +83,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 		// ÉTAPE 1 : MULTIPLICATION CONDITIONNELLE (Si le i-ème bit est 1)
 		// res = res * p
 		if (exponent>>uint(i))&1 == 1 {
-			multiplyMatrices(state.tempMatrix, state.res, state.p, state, useParallel, threshold)
+			multiplyMatrices(state.tempMatrix, state.res, state.p, state, useParallel, threshold, fftThreshold)
 
 			// OPTIMISATION MAJEURE : Échange de pointeurs (Pointer Swap)
 			// Au lieu de copier le contenu de `tempMatrix` vers `res` (coûteux avec big.Int),
@@ -98,7 +98,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 		if i < numBits-1 {
 			// Puisque `p` est garanti d'être symétrique, on utilise la fonction optimisée
 			// (4 multiplications au lieu de 8).
-			squareSymmetricMatrix(state.tempMatrix, state.p, state, useParallel, threshold)
+			squareSymmetricMatrix(state.tempMatrix, state.p, state, useParallel, threshold, fftThreshold)
 			// Échange de pointeurs (Pointer Swap).
 			state.p, state.tempMatrix = state.tempMatrix, state.p
 		}
@@ -111,7 +111,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 
 // multiplyMatrices effectue une multiplication standard de deux matrices 2x2.
 // C = A * B
-func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, useParallel bool, threshold int) {
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, useParallel bool, threshold int, fftThreshold int) {
 	// La multiplication standard requiert 8 multiplications d'entiers indépendantes.
 	// C[0,0] = A[0,0]*B[0,0] + A[0,1]*B[1,0]  (t1 + t2)
 	// C[0,1] = A[0,0]*B[0,1] + A[0,1]*B[1,1]  (t3 + t4)
@@ -119,15 +119,25 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, useParallel bool
 	// C[1,1] = A[1,0]*B[0,1] + A[1,1]*B[1,1]  (t7 + t8)
 
 	// Définition des tâches via closures.
+	useFFT := fftThreshold > 0 && m1.a.BitLen() > fftThreshold
+	var mulFunc func(*big.Int, *big.Int) *big.Int
+	if useFFT {
+		mulFunc = mulFFT
+	} else {
+		mulFunc = func(x, y *big.Int) *big.Int {
+			return new(big.Int).Mul(x, y)
+		}
+	}
+
 	tasks := []func(){
-		func() { state.t1.Mul(m1.a, m2.a) },
-		func() { state.t2.Mul(m1.b, m2.c) },
-		func() { state.t3.Mul(m1.a, m2.b) },
-		func() { state.t4.Mul(m1.b, m2.d) },
-		func() { state.t5.Mul(m1.c, m2.a) },
-		func() { state.t6.Mul(m1.d, m2.c) },
-		func() { state.t7.Mul(m1.c, m2.b) },
-		func() { state.t8.Mul(m1.d, m2.d) },
+		func() { state.t1 = mulFunc(m1.a, m2.a) },
+		func() { state.t2 = mulFunc(m1.b, m2.c) },
+		func() { state.t3 = mulFunc(m1.a, m2.b) },
+		func() { state.t4 = mulFunc(m1.b, m2.d) },
+		func() { state.t5 = mulFunc(m1.c, m2.a) },
+		func() { state.t6 = mulFunc(m1.d, m2.c) },
+		func() { state.t7 = mulFunc(m1.c, m2.b) },
+		func() { state.t8 = mulFunc(m1.d, m2.d) },
 	}
 
 	// EXPLICATION ACADÉMIQUE : Seuil de Parallélisme Heuristique
@@ -158,7 +168,7 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, useParallel bool
 //
 // Au lieu de 8 multiplications standard, on n'a besoin que de 4 calculs coûteux :
 // a², b², d², et b*(a+d). C'est un gain de performance majeur pour les `big.Int`.
-func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, useParallel bool, threshold int) {
+func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, useParallel bool, threshold int, fftThreshold int) {
 	// Alias pour les temporaires du pool.
 	aSquared := state.t1
 	bSquared := state.t2
@@ -170,12 +180,38 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, useParallel bo
 	aPlusD.Add(mat.a, mat.d)
 
 	// Définition des 4 tâches indépendantes.
+	useFFT := fftThreshold > 0 && mat.a.BitLen() > fftThreshold
+
 	tasks := []func(){
 		// Note : Mul(x, x) est optimisé en interne pour le calcul du carré (squaring).
-		func() { aSquared.Mul(mat.a, mat.a) },
-		func() { bSquared.Mul(mat.b, mat.b) },
-		func() { dSquared.Mul(mat.d, mat.d) },
-		func() { bTimesAPlusD.Mul(mat.b, aPlusD) },
+		func() {
+			if useFFT {
+				aSquared = mulFFT(mat.a, mat.a)
+			} else {
+				aSquared.Mul(mat.a, mat.a)
+			}
+		},
+		func() {
+			if useFFT {
+				bSquared = mulFFT(mat.b, mat.b)
+			} else {
+				bSquared.Mul(mat.b, mat.b)
+			}
+		},
+		func() {
+			if useFFT {
+				dSquared = mulFFT(mat.d, mat.d)
+			} else {
+				dSquared.Mul(mat.d, mat.d)
+			}
+		},
+		func() {
+			if useFFT {
+				bTimesAPlusD = mulFFT(mat.b, aPlusD)
+			} else {
+				bTimesAPlusD.Mul(mat.b, aPlusD)
+			}
+		},
 	}
 
 	// Exécution en parallèle si les conditions sont remplies.
