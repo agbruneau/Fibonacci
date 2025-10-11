@@ -186,7 +186,7 @@ func TestRunFunction(t *testing.T) {
 			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitErrorCanceled, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Statut : Annulé") {
+		if !strings.Contains(output, "Statut: Annulé") {
 			t.Errorf("La sortie n'indique pas une annulation. Sortie:\n%s", output)
 		}
 	})
