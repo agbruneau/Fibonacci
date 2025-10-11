@@ -69,12 +69,13 @@ const (
 // AppConfig agrège tous les paramètres de configuration de l'application.
 // C'est une bonne pratique de regrouper la configuration dans une structure dédiée.
 type AppConfig struct {
-	N         uint64
-	Verbose   bool
-	Timeout   time.Duration
-	Algo      string
-	Threshold int
-	Calibrate bool
+	N            uint64
+	Verbose      bool
+	Timeout      time.Duration
+	Algo         string
+	Threshold    int
+	FFTThreshold int
+	Calibrate    bool
 }
 
 // Validate vérifie la validité sémantique de la configuration.
@@ -86,6 +87,9 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	}
 	if c.Threshold < 0 {
 		return fmt.Errorf("le seuil (-threshold) ne peut pas être négatif (valeur : %d)", c.Threshold)
+	}
+	if c.FFTThreshold < 0 {
+		return fmt.Errorf("le seuil FFT (-fft-threshold) ne peut pas être négatif (valeur : %d)", c.FFTThreshold)
 	}
 	if c.Algo != "all" {
 		if _, ok := calculatorRegistry[c.Algo]; !ok {
@@ -170,6 +174,7 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Délai maximum d'exécution (ex: 30s, 1m).")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Seuil (en bits) pour activer la multiplication parallèle.")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication par FFT. Mettre à 0 pour désactiver.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode de calibration pour trouver le meilleur seuil de parallélisme.")
 
 	if err := fs.Parse(args); err != nil {
@@ -237,7 +242,8 @@ func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
 
 		startTime := time.Now()
 		// Le canal de progression est nil car non nécessaire pour la calibration.
-		_, err := calculator.Calculate(ctx, nil, 0, calibrationN, threshold)
+		// Le seuil FFT n'est pas pertinent ici, on le met à 0 (désactivé).
+		_, err := calculator.Calculate(ctx, nil, 0, calibrationN, threshold, 0)
 		duration := time.Since(startTime)
 
 		if err != nil {
@@ -310,7 +316,7 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 	fmt.Fprintln(out, "--- Configuration ---")
 	fmt.Fprintf(out, "Calcul de F(%d).\n", config.N)
 	fmt.Fprintf(out, "Système : CPU Cores=%d | Go Runtime=%s\n", runtime.NumCPU(), runtime.Version())
-	fmt.Fprintf(out, "Paramètres : Timeout=%s | Parallel Threshold=%d bits\n", config.Timeout, config.Threshold)
+	fmt.Fprintf(out, "Paramètres : Timeout=%s | Parallel Threshold=%d bits | FFT Threshold=%d bits\n", config.Timeout, config.Threshold, config.FFTThreshold)
 
 	calculatorsToRun := getCalculatorsToRun(config)
 	if len(calculatorsToRun) > 1 {
@@ -365,7 +371,7 @@ func executeCalculations(ctx context.Context, calculators []fibonacci.Calculator
 		idx, calculator := i, calc
 		g.Go(func() error {
 			startTime := time.Now()
-			res, err := calculator.Calculate(ctx, progressChan, idx, config.N, config.Threshold)
+			res, err := calculator.Calculate(ctx, progressChan, idx, config.N, config.Threshold, config.FFTThreshold)
 
 			// Écriture "Thread-Safe" : Chaque goroutine écrit dans un index unique du slice `results`,
 			// il n'y a donc pas de conflit d'accès ("race condition") et pas besoin de mutex.

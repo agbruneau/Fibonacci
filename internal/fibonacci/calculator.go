@@ -55,7 +55,7 @@ type ProgressReporter func(progress float64)
 // Calculator est l'interface PUBLIQUE du module. C'est le seul point d'entrée que
 // l'orchestrateur (`main.go`) connaît.
 type Calculator interface {
-	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int) (*big.Int, error)
+	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 	Name() string
 }
 
@@ -64,7 +64,7 @@ type Calculator interface {
 // des détails d'orchestration comme les canaux ou les index.
 // C'est un exemple du Principe de Ségrégation des Interfaces (le 'I' de SOLID).
 type coreCalculator interface {
-	CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int) (*big.Int, error)
+	CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 	Name() string
 }
 
@@ -96,7 +96,7 @@ func (c *FibCalculator) Name() string {
 }
 
 // Calculate est la méthode centrale qui orchestre les rôles de décorateur et d'adaptateur.
-func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int) (*big.Int, error) {
+func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 
 	// --- Rôle d'ADAPTATEUR : Création du ProgressReporter ---
 	// La closure `reporter` capture les détails d'implémentation (`progressChan`, `calcIndex`)
@@ -130,7 +130,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 	}
 
 	// Délégation à l'algorithme de cœur pour les cas complexes.
-	result, err := c.core.CalculateCore(ctx, reporter, n, threshold)
+	result, err := c.core.CalculateCore(ctx, reporter, n, threshold, fftThreshold)
 
 	// Filet de sécurité du décorateur : s'assurer que 100% est bien rapporté en cas de succès.
 	if err == nil && result != nil {

@@ -41,7 +41,7 @@ func (c *MatrixExponentiation) Name() string {
 }
 
 // CalculateCore implémente la logique principale de l'algorithme.
-func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int) (*big.Int, error) {
+func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	// Cas de base F(0) = 0.
 	if n == 0 {
 		return big.NewInt(0), nil
