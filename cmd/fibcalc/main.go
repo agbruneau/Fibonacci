@@ -69,12 +69,15 @@ const (
 // AppConfig agrège tous les paramètres de configuration de l'application.
 // C'est une bonne pratique de regrouper la configuration dans une structure dédiée.
 type AppConfig struct {
-	N         uint64
-	Verbose   bool
-	Timeout   time.Duration
-	Algo      string
-	Threshold int
-	Calibrate bool
+	N                  uint64
+	Verbose            bool
+	Timeout            time.Duration
+	Algo               string
+	Threshold          int
+	Calibrate          bool
+	CalibrateFFT       bool
+	KaratsubaThreshold int
+	FFTThreshold       int
 }
 
 // Validate vérifie la validité sémantique de la configuration.
@@ -172,6 +175,9 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Seuil (en bits) pour activer la multiplication parallèle.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode de calibration pour trouver le meilleur seuil de parallélisme.")
+	fs.BoolVar(&config.CalibrateFFT, "calibrate-fft", false, "Exécute la calibration pour trouver le meilleur seuil de multiplication FFT.")
+	fs.IntVar(&config.KaratsubaThreshold, "karatsuba-threshold", 2048, "Seuil (en bits) pour passer à la multiplication de Karatsuba.")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", 200000, "Seuil (en bits) pour passer à la multiplication FFT.")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
@@ -289,10 +295,100 @@ func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
 	return ExitSuccess
 }
 
+// runFFTCalibration exécute des benchmarks pour trouver le seuil de FFT optimal.
+func runFFTCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
+	fmt.Fprintln(out, "--- Mode Calibration : Recherche du Seuil de Multiplication FFT Optimal ---")
+
+	const calibrationN = 50_000_000 // Un N très grand pour que la FFT soit pertinente.
+	calculator := calculatorRegistry["fast-karatsuba"]
+	if calculator == nil {
+		fmt.Fprintln(out, "Erreur : L'algorithme 'fast-karatsuba' est requis pour la calibration FFT.")
+		return ExitErrorGeneric
+	}
+
+	// Les seuils de FFT (en bits) à tester.
+	thresholdsToTest := []int{100000, 150000, 200000, 250000, 300000, 400000, 500000}
+
+	type calibrationResult struct {
+		Threshold int
+		Duration  time.Duration
+		Err       error
+	}
+
+	results := make([]calibrationResult, 0, len(thresholdsToTest))
+	bestDuration := time.Duration(1<<63 - 1) // Max duration
+	bestThreshold := 0
+
+	// Utiliser le seuil de Karatsuba fourni ou sa valeur par défaut.
+	fibonacci.KaratsubaThresholdBits = config.KaratsubaThreshold
+	fmt.Fprintf(out, "Utilisation du seuil Karatsuba fixe : %d bits\n\n", fibonacci.KaratsubaThresholdBits)
+
+	for _, threshold := range thresholdsToTest {
+		if ctx.Err() != nil {
+			fmt.Fprintln(out, "\nCalibration annulée.")
+			return ExitErrorCanceled
+		}
+
+		// Appliquer le seuil FFT pour ce test.
+		fibonacci.FFTThresholdBits = threshold
+
+		fmt.Fprintf(out, "Test du seuil FFT : %-10d bits...", threshold)
+
+		startTime := time.Now()
+		_, err := calculator.Calculate(ctx, nil, 0, calibrationN, config.Threshold)
+		duration := time.Since(startTime)
+
+		if err != nil {
+			fmt.Fprintf(out, " ❌ Échec (%v)\n", err)
+			results = append(results, calibrationResult{threshold, 0, err})
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return handleCalculationError(err, duration, config.Timeout, out)
+			}
+			continue
+		}
+
+		fmt.Fprintf(out, " ✅ Succès (Durée: %s)\n", duration)
+		results = append(results, calibrationResult{threshold, duration, nil})
+
+		if duration < bestDuration {
+			bestDuration = duration
+			bestThreshold = threshold
+		}
+	}
+
+	fmt.Fprintln(out, "\n--- Résultats de la Calibration FFT ---")
+	fmt.Fprintf(out, "  %-15s │ %s\n", "Seuil FFT", "Durée")
+	fmt.Fprintf(out, "  %s┼%s\n", strings.Repeat("─", 17), strings.Repeat("─", 20))
+
+	for _, res := range results {
+		highlight := ""
+		if res.Threshold == bestThreshold && res.Err == nil {
+			highlight = " (Meilleur)"
+		}
+		fmt.Fprintf(out, "  %-15d │ %s%s\n", res.Threshold, res.Duration, highlight)
+	}
+
+	fmt.Fprintln(out, "\n-----------------------------------")
+	fmt.Fprintf(out, "✅ Recommandation : Pour des performances optimales sur cette machine,\n")
+	fmt.Fprintf(out, "   utilisez le flag : --fft-threshold %d\n", bestThreshold)
+	fmt.Fprintln(out, "-----------------------------------")
+
+	return ExitSuccess
+}
+
 // run contient la logique principale de l'application. Elle est testable.
 func run(ctx context.Context, config AppConfig, out io.Writer) int {
+	// Assigner les seuils de multiplication globaux à partir de la configuration.
+	// C'est le point de transition entre la configuration et l'état global utilisé
+	// par la logique de bas niveau.
+	fibonacci.KaratsubaThresholdBits = config.KaratsubaThreshold
+	fibonacci.FFTThresholdBits = config.FFTThreshold
+
 	if config.Calibrate {
 		return runCalibration(ctx, config, out)
+	}
+	if config.CalibrateFFT {
+		return runFFTCalibration(ctx, config, out)
 	}
 
 	// --- GESTION DU CONTEXTE ET DE L'ANNULATION ---
@@ -312,6 +408,7 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 	fmt.Fprintf(out, "Calcul de F(%d).\n", config.N)
 	fmt.Fprintf(out, "Système : CPU Cores=%d | Go Runtime=%s\n", runtime.NumCPU(), runtime.Version())
 	fmt.Fprintf(out, "Paramètres : Timeout=%s | Parallel Threshold=%d bits\n", config.Timeout, config.Threshold)
+	fmt.Fprintf(out, "Seuils de multiplication : Karatsuba=%d bits | FFT=%d bits\n", fibonacci.KaratsubaThresholdBits, fibonacci.FFTThresholdBits)
 
 	calculatorsToRun := getCalculatorsToRun(config)
 	if len(calculatorsToRun) > 1 {
