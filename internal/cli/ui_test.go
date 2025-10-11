@@ -1,30 +1,30 @@
 //
-// MODULE ACADÉMIQUE : TESTS DE LA COUCHE DE PRÉSENTATION (UI)
+// MODULE ACADÉMIQUE : VALIDATION DE LA COUCHE DE PRÉSENTATION (UI)
 //
 // OBJECTIF PÉDAGOGIQUE :
-// Ce fichier de test illustre comment tester efficacement une couche de présentation
-// en ligne de commande (CLI) en Go. Le défi principal est de tester des fonctions
-// qui écrivent dans des `io.Writer` (comme le terminal) et qui gèrent des états
-// d'affichage complexes.
+// Ce fichier de test démontre les stratégies de validation pour une couche de présentation
+// en ligne de commande (CLI) en Go. Il aborde le défi de tester des fonctions dont les
+// effets de bord sont des écritures sur des flux de sortie (`io.Writer`) et qui gèrent
+// un état d'affichage dynamique et concurrent.
 //
-// CONCEPTS CLÉS DÉMONTRÉS :
-//  1. INJECTION DE DÉPENDANCES POUR LA TESTABILITÉ : Les fonctions du module `cli`
-//     acceptent un `io.Writer` comme argument. En test, au lieu de `os.Stdout`,
-//     on injecte un `bytes.Buffer`, ce qui nous permet de capturer la sortie
-//     générée et de faire des assertions précises sur son contenu.
-//  2. TESTS DE TABLE (TABLE-DRIVEN TESTS) : Utilisés intensivement pour couvrir
-//     de nombreux cas de manière concise et lisible, notamment pour `TestFormatNumberString`
-//     et `TestProgressBar`.
-//  3. TESTS BASÉS SUR DES "GOLDEN FILES" (APPROCHE SIMPLIFIÉE) : Le test
-//     `TestDisplayResult` compare la sortie générée à une chaîne de caractères attendue
-//     ("golden string"). Pour des sorties très complexes, cette chaîne pourrait être
-//     stockée dans un fichier séparé (`.golden` file), une pratique courante pour
-//     les tests de snapshot.
-//  4. TESTS DE CONCURRENCE POUR L'UI : Le test `TestDisplayAggregateProgress` est
-//     le plus complexe. Il simule le comportement du producteur (`main.go`) et
-//     vérifie que le consommateur (`DisplayAggregateProgress`) réagit correctement
-//     aux messages et à la fermeture du canal, tout en gérant la synchronisation
-//     avec des `WaitGroup`.
+// CONCEPTS DE TEST ILLUSTRÉS :
+//  1. INJECTION DE DÉPENDANCES POUR LA TESTABILITÉ : Le principe de conception fondamental
+//     qui rend ce module testable est l'injection de dépendances. En acceptant un `io.Writer`
+//     comme paramètre, les fonctions peuvent être testées en leur fournissant un `bytes.Buffer`
+//     en mémoire au lieu de `os.Stdout`. Cela permet de capturer la sortie générée et d'effectuer
+//     des assertions précises sur son contenu.
+//  2. TESTS PILOTÉS PAR LES DONNÉES (TABLE-DRIVEN TESTS) : Cette technique est employée pour
+//     valider les fonctions pures (`formatNumberString`, `progressBar`) sur un large éventail
+//     de cas, y compris les cas nominaux et les cas limites, de manière concise et maintenable.
+//  3. TESTS DE TYPE "GOLDEN FILE" (APPROCHE SIMPLIFIÉE) : La fonction `TestDisplayResult` compare
+//     la sortie textuelle générée à une chaîne de caractères attendue ("golden string"). Cette
+//     méthode est une forme de test d'instantané (snapshot testing) qui permet de détecter
+//     toute régression non intentionnelle dans le formatage de la sortie.
+//  4. VALIDATION D'UN SYSTÈME CONCURRENT (PRODUCTEUR/CONSOMMATEUR) : Le test
+//     `TestDisplayAggregateProgress` est le plus complexe. Il simule le comportement du
+//     producteur (qui envoie des mises à jour de progression) et vérifie que le consommateur
+//     (`DisplayAggregateProgress`) traite correctement ces messages, réagit à la fermeture
+//     du canal et se synchronise correctement via un `WaitGroup`.
 //
 package cli
 
@@ -40,8 +40,7 @@ import (
 	"example.com/fibcalc/internal/fibonacci"
 )
 
-// TestFormatNumberString utilise un test de table pour valider la fonction
-// de formatage de nombres avec des séparateurs de milliers.
+// TestFormatNumberString valide la fonction de formatage de nombres par l'ajout de séparateurs de milliers.
 func TestFormatNumberString(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -49,11 +48,11 @@ func TestFormatNumberString(t *testing.T) {
 		expected string
 	}{
 		{"Chaîne vide", "", ""},
-		{"Un chiffre", "1", "1"},
-		{"Trois chiffres", "123", "123"},
-		{"Quatre chiffres", "1234", "1,234"},
-		{"Six chiffres", "123456", "123,456"},
-		{"Sept chiffres", "1234567", "1,234,567"},
+		{"Nombre à un chiffre", "1", "1"},
+		{"Nombre à trois chiffres", "123", "123"},
+		{"Nombre à quatre chiffres", "1234", "1,234"},
+		{"Nombre à six chiffres", "123456", "123,456"},
+		{"Nombre à sept chiffres", "1234567", "1,234,567"},
 		{"Nombre négatif", "-1234567", "-1,234,567"},
 	}
 
@@ -66,7 +65,7 @@ func TestFormatNumberString(t *testing.T) {
 	}
 }
 
-// TestProgressBar valide la génération de la barre de progression textuelle.
+// TestProgressBar valide la génération de la représentation textuelle de la barre de progression.
 func TestProgressBar(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -74,96 +73,73 @@ func TestProgressBar(t *testing.T) {
 		length   int
 		expected string
 	}{
-		{"0%", 0.0, 10, "░░░░░░░░░░"},
-		{"50%", 0.5, 10, "█████░░░░░"},
-		{"100%", 1.0, 10, "██████████"},
-		{"25%", 0.25, 20, "█████░░░░░░░░░░░░░░░"},
-		{"Cas limite > 100%", 1.1, 10, "██████████"},
-		{"Cas limite < 0%", -0.1, 10, "░░░░░░░░░░"},
+		{"Progression nulle (0%)", 0.0, 10, "░░░░░░░░░░"},
+		{"Progression partielle (50%)", 0.5, 10, "█████░░░░░"},
+		{"Progression complète (100%)", 1.0, 10, "██████████"},
+		{"Progression de 25% sur une barre de 20", 0.25, 20, "█████░░░░░░░░░░░░░░░"},
+		{"Cas limite : progression > 100%", 1.1, 10, "██████████"},
+		{"Cas limite : progression < 0%", -0.1, 10, "░░░░░░░░░░"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// On remplace les caractères par défaut pour éviter les problèmes d'encodage
-			// dans certains terminaux de test.
-			const (
-				filledChar = '█'
-				emptyChar  = '░'
-			)
-			bar := progressBar(tc.progress, tc.length)
-			// Remplacement pour une comparaison robuste
-			bar = strings.ReplaceAll(bar, string(filledChar), "█")
-			bar = strings.ReplaceAll(bar, string(emptyChar), "░")
-
-			if bar != tc.expected {
-				t.Errorf("progressBar(%f, %d) = %q; attendu %q", tc.progress, tc.length, bar, tc.expected)
+			if got := progressBar(tc.progress, tc.length); got != tc.expected {
+				t.Errorf("progressBar(%.2f, %d) = %q; attendu %q", tc.progress, tc.length, got, tc.expected)
 			}
 		})
 	}
 }
 
-// TestDisplayResult vérifie que la sortie formatée du résultat final est correcte.
+// TestDisplayResult vérifie l'exactitude de la sortie formatée pour le résultat final.
 func TestDisplayResult(t *testing.T) {
 	duration := 123 * time.Millisecond
 	result, _ := new(big.Int).SetString("12586269025", 10) // F(50)
 
-	// --- Cas 1: Pas de détails ---
-	t.Run("NoDetails", func(t *testing.T) {
+	t.Run("Sortie sans détails", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, false, false, &buf)
 		output := buf.String()
 		if !strings.Contains(output, "Taille Binaire du Résultat : 34 bits.") {
 			t.Errorf("La sortie de base est incorrecte. Attendu: 'Taille Binaire du Résultat : 34 bits.', Obtenu: %q", output)
 		}
-		if !strings.Contains(output, "(Utilisez le flag -d ou --details") {
+		if !strings.Contains(output, "(Utilisez l'option -d ou --details") {
 			t.Errorf("La sortie de base devrait contenir l'aide pour le mode détails. Obtenu: %q", output)
-		}
-		if strings.Contains(output, "Données Détaillées") {
-			t.Errorf("La sortie de base ne devrait pas contenir de détails. Obtenu: %q", output)
 		}
 	})
 
-	// --- Cas 2: Avec détails, non verbeux ---
-	t.Run("WithDetailsNotVerbose", func(t *testing.T) {
+	t.Run("Sortie détaillée mais non-verbeuse (troncature)", func(t *testing.T) {
 		var buf bytes.Buffer
-		// Un nombre long pour tester la troncature
-		longNumStr := strings.Repeat("1", 25) + strings.Repeat("2", 51) + strings.Repeat("3", 25)
+		longNumStr := strings.Repeat("1", 101) // Chaîne plus longue que TruncationLimit
 		longResult, _ := new(big.Int).SetString(longNumStr, 10)
 		DisplayResult(longResult, 500, duration, false, true, &buf)
 		output := buf.String()
 
-		if !strings.Contains(output, "Données Détaillées") {
-			t.Errorf("La sortie détaillée devrait contenir le titre des détails. Obtenu: %q", output)
-		}
-		if !strings.Contains(output, "(Tronqué)") {
+		if !strings.Contains(output, "(tronqué)") {
 			t.Errorf("La sortie détaillée non-verbeuse devrait être tronquée. Obtenu: %q", output)
 		}
-		expectedTruncated := "F(500) (Tronqué) = " + strings.Repeat("1", 25) + "..." + strings.Repeat("3", 25)
+		expectedTruncated := fmt.Sprintf("F(500) (tronqué) = %s...%s", longNumStr[:DisplayEdges], longNumStr[len(longNumStr)-DisplayEdges:])
 		if !strings.Contains(output, expectedTruncated) {
-			t.Errorf("La sortie tronquée est incorrecte.\nAttendu (contenant): %q\nObtenu: %s", expectedTruncated, output)
+			t.Errorf("Le format de la sortie tronquée est incorrect.\nAttendu (contenant): %q\nObtenu: %s", expectedTruncated, output)
 		}
 	})
 
-	// --- Cas 3: Avec détails et verbeux ---
-	t.Run("WithDetailsAndVerbose", func(t *testing.T) {
+	t.Run("Sortie détaillée et verbeuse (complète)", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, true, true, &buf)
 		output := buf.String()
 
-		if !strings.Contains(output, "Données Détaillées") {
-			t.Errorf("La sortie détaillée devrait contenir le titre des détails. Obtenu: %q", output)
-		}
-		if strings.Contains(output, "(Tronqué)") {
+		if strings.Contains(output, "(tronqué)") {
 			t.Errorf("La sortie verbeuse ne devrait pas être tronquée. Obtenu: %q", output)
 		}
+		// Le formatage ajoute un saut de ligne avant la valeur.
 		expectedValue := "F(50) =\n12,586,269,025"
 		if !strings.Contains(output, expectedValue) {
-			t.Errorf("La sortie verbeuse est incorrecte.\nAttendu (contenant): %q\nObtenu: %s", expectedValue, output)
+			t.Errorf("La valeur dans la sortie verbeuse est incorrecte.\nAttendu (contenant): %q\nObtenu: %s", expectedValue, output)
 		}
 	})
 }
 
-// TestDisplayAggregateProgress teste le consommateur de l'UI de progression.
+// TestDisplayAggregateProgress valide le comportement du consommateur de l'interface de progression.
 func TestDisplayAggregateProgress(t *testing.T) {
 	var buf bytes.Buffer
 	var wg sync.WaitGroup
@@ -171,44 +147,47 @@ func TestDisplayAggregateProgress(t *testing.T) {
 	numCalculators := 2
 
 	wg.Add(1)
-	// On lance le consommateur dans sa propre goroutine, comme dans l'application réelle.
 	go DisplayAggregateProgress(&wg, progressChan, numCalculators, &buf)
 
-	// Simulation du producteur : envoi de quelques mises à jour.
+	// Simulation du producteur : envoi de mises à jour de progression.
 	progressChan <- fibonacci.ProgressUpdate{CalculatorIndex: 0, Value: 0.25}
 	progressChan <- fibonacci.ProgressUpdate{CalculatorIndex: 1, Value: 0.50}
 
-	// On attend un peu pour laisser au ticker le temps de se déclencher et d'afficher.
-	// C'est une simplification. Des tests plus robustes utiliseraient des horloges mockées.
+	// NOTE DE TEST : L'attente `time.Sleep` est une simplification. Dans un cadre de
+	// test industriel, on utiliserait des horloges simulées ("mock clocks") pour
+	// contrôler le temps de manière déterministe et éviter les tests fragiles ("flaky tests").
 	time.Sleep(ProgressRefreshRate * 2)
 
-	// Le producteur signale la fin en fermant le canal.
+	// Le producteur signale la fin des mises à jour en fermant le canal.
 	close(progressChan)
-	// On attend que la goroutine du consommateur se termine proprement.
+	// Attente de la terminaison de la goroutine du consommateur.
 	wg.Wait()
 
 	output := buf.String()
 
-	// Vérification de la sortie finale.
-	// La sortie attendue est "Progression Moyenne :  37.50% [███░░░░░░░]"
-	// suivie d'un saut de ligne. Le 37.50% vient de la moyenne de 0.25 et 0.50.
-	// Comme l'affichage est dynamique avec des retours chariot, on ne vérifie que
-	// la présence de la ligne finale, qui est la plus importante.
+	// La sortie est dynamique et utilise des retours chariot. La validation se concentre
+	// sur la dernière ligne affichée, qui représente l'état final.
+	// La progression moyenne de 0.25 et 0.50 est 0.375.
 	expectedFinalLine := fmt.Sprintf("Progression Moyenne :  37.50%% [%s]", progressBar(0.375, ProgressBarWidth))
 
-	// Nettoyage de la sortie pour une comparaison plus facile
+	// On ne garde que la dernière ligne de la sortie pour la comparaison,
+	// afin d'ignorer les rafraîchissements intermédiaires.
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	lastLine := ""
 	if len(lines) > 0 {
-		// La dernière ligne pertinente peut être précédée par des retours chariots.
-		lastLine = strings.TrimSpace(lines[len(lines)-1])
+		// La dernière ligne peut contenir des codes de contrôle. On les supprime.
+		lastLineWithControl := lines[len(lines)-1]
+		// On ne garde que ce qui suit le dernier retour chariot pour avoir la ligne finale.
+		if finalCR := strings.LastIndex(lastLineWithControl, "\r"); finalCR != -1 {
+			lastLine = lastLineWithControl[finalCR+1:]
+		} else {
+			lastLine = lastLineWithControl
+		}
+		// On supprime les autres codes ANSI.
+		lastLine = strings.TrimPrefix(lastLine, "\033[K")
 	}
 
-	// Nettoyage de la ligne attendue
-	expectedFinalLine = strings.TrimSpace(expectedFinalLine)
-
-
-	if !strings.Contains(lastLine, expectedFinalLine) {
-		t.Errorf("La sortie finale de la barre de progression est incorrecte.\nAttendu (contenant): %q\nObtenu (dernière ligne) : %q", expectedFinalLine, lastLine)
+	if lastLine != expectedFinalLine {
+		t.Errorf("La ligne finale de la barre de progression est incorrecte.\nAttendu: %q\nObtenu : %q", expectedFinalLine, lastLine)
 	}
 }

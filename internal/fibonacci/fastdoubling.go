@@ -1,10 +1,10 @@
 // @module(fibonacci)
 // @author(Jules)
 // @date(2023-10-27)
-// @version(1.1)
+// @version(1.2)
 //
-// @description(Implémentation de l'algorithme "Fast Doubling" optimisé pour le calcul de Fibonacci.)
-// @pedagogical(Combine une complexité O(log n), une gestion mémoire "zéro-allocation" via `sync.Pool`, et le parallélisme de tâches.)
+// @description(Mise en œuvre d'une version optimisée de l'algorithme "Fast Doubling" pour le calcul des nombres de Fibonacci.)
+// @pedagogical(Cet algorithme illustre la synergie entre une complexité algorithmique logarithmique (O(log n)), une gestion de la mémoire optimisée pour minimiser l'allocation (zéro-allocation) par l'utilisation de `sync.Pool`, et l'exploitation du parallélisme de bas niveau pour les opérations arithmétiques sur les grands nombres.)
 package fibonacci
 
 import (
@@ -16,25 +16,25 @@ import (
 )
 
 // @struct(OptimizedFastDoubling)
-// @description(Implémente `coreCalculator` avec l'algorithme Fast Doubling.)
+// @description(Structure implémentant l'interface `coreCalculator` au moyen de l'algorithme "Fast Doubling".)
 // @theory(
-//   L'algorithme "Fast Doubling" utilise les identités suivantes :
+//   L'algorithme "Fast Doubling" repose sur les identités matricielles de la suite de Fibonacci, permettant de calculer F(2n) et F(2n+1) à partir de F(n) et F(n+1). Les formules de récurrence sont les suivantes :
 //   F(2k) = F(k) * [2*F(k+1) - F(k)]
 //   F(2k+1) = F(k)² + F(k+1)²
-//   En parcourant les bits de 'n' de gauche à droite, on peut calculer F(n)
-//   en O(log n) étapes, chaque étape consistant en un "doubling" et une "addition" conditionnelle.
+//   Cette approche consiste à itérer sur la représentation binaire du nombre 'n', du bit de poids le plus fort au plus faible. Chaque itération correspond à une étape de "doublage" (calcul de F(2k) à partir de F(k)) et, si le bit courant de 'n' est à 1, une étape "d'addition" (calcul de F(2k+1)). La complexité de cette méthode est en O(log n) opérations sur des grands nombres.
 // )
 type OptimizedFastDoubling struct{}
 
 // @method(Name)
-// @description(Retourne le nom de l'algorithme, incluant ses optimisations clés.)
+// @description(Renvoie la dénomination formelle de l'algorithme, en soulignant ses caractéristiques d'optimisation fondamentales.)
 func (fd *OptimizedFastDoubling) Name() string {
 	return "Fast Doubling (O(log n), Parallèle, Zéro-Alloc)"
 }
 
 // @method(CalculateCore)
-// @description(Implémente la logique principale de l'algorithme Fast Doubling.)
+// @description(Constitue le cœur de l'implémentation de l'algorithme "Fast Doubling". Cette méthode orchestre le calcul de F(n) en appliquant itérativement les formules de doublage et d'addition.)
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+	// Fonction utilitaire pour la multiplication, utilisant la FFT pour les grands nombres si le seuil est dépassé.
 	mul := func(dest, x, y *big.Int) {
 		if fftThreshold > 0 && x.BitLen() > fftThreshold && y.BitLen() > fftThreshold {
 			mulFFT(dest, x, y)
@@ -43,46 +43,50 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		}
 	}
 
+	// Acquisition d'un état pré-alloué depuis un pool pour éviter les allocations dynamiques.
 	s := acquireState()
-	defer releaseState(s)
+	defer releaseState(s) // Libération de l'état dans le pool après usage.
 
 	numBits := bits.Len64(n)
 	useParallel := runtime.GOMAXPROCS(0) > 1 && threshold > 0
 
-	// Modèle de progression pondérée basé sur le coût quadratique des multiplications.
+	// Le calcul de la progression est pondéré pour refléter la complexité quasi-quadratique de la multiplication des grands nombres.
+	// Le travail total est estimé par la somme d'une série géométrique.
 	var totalWork, workDone, workOfStep, four big.Int
 	four.SetInt64(4)
 	if numBits > 0 {
 		totalWork.Exp(&four, big.NewInt(int64(numBits)), nil).Sub(&totalWork, big.NewInt(1)).Div(&totalWork, big.NewInt(3))
 	}
 	lastReportedProgress := -1.0
-	const reportThreshold = 0.01
+	const reportThreshold = 0.01 // Seuil de changement pour notifier la progression.
 
+	// Itération sur les bits de n, du plus significatif au moins significatif.
 	for i := numBits - 1; i >= 0; i-- {
+		// Vérification de l'annulation du contexte pour un arrêt précoce.
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 
-		// Étape de Doubling
+		// Étape de Doublage (Doubling): Calcule F(2k) et F(2k+1) à partir de F(k) et F(k+1).
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
 		if useParallel && s.f_k1.BitLen() > threshold {
 			parallelMultiply3Optimized(s, mul)
 		} else {
-			mul(s.t3, s.f_k, s.t2)
-			mul(s.t1, s.f_k1, s.f_k1)
-			mul(s.t4, s.f_k, s.f_k)
+			mul(s.t3, s.f_k, s.t2)      // F(2k)
+			mul(s.t1, s.f_k1, s.f_k1) // F(k+1)^2
+			mul(s.t4, s.f_k, s.f_k)     // F(k)^2
 		}
 		s.f_k.Set(s.t3)
-		s.f_k1.Add(s.t1, s.t4)
+		s.f_k1.Add(s.t1, s.t4) // F(2k+1) = F(k+1)^2 + F(k)^2
 
-		// Étape d'Addition Conditionnelle
+		// Étape d'Addition (Addition-Step): Si le bit courant de n est à 1, met à jour les valeurs pour calculer F(2k+1).
 		if (n>>uint(i))&1 == 1 {
 			s.t1.Set(s.f_k1)
 			s.f_k1.Add(s.f_k1, s.f_k)
 			s.f_k.Set(s.t1)
 		}
 
-		// Rapport de Progression
+		// Mise à jour de la progression : notifie l'observateur de l'avancement du calcul.
 		if totalWork.Sign() > 0 {
 			j := int64(numBits - 1 - i)
 			workOfStep.Exp(&four, big.NewInt(j), nil)
@@ -100,8 +104,8 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 }
 
 // @function(parallelMultiply3Optimized)
-// @description(Exécute les trois multiplications indépendantes de l'étape de doubling en parallèle.)
-// @pedagogical(Optimisation : exécute N-1 tâches en goroutines et la N-ième dans la goroutine appelante pour réduire l'overhead.)
+// @description(Procédure optimisée pour l'exécution concurrente des trois multiplications indépendantes requises par l'étape de doublage.)
+// @pedagogical(Cette fonction illustre une technique d'optimisation du parallélisme : pour N tâches, N-1 sont déléguées à de nouvelles goroutines, tandis que la N-ième est exécutée par la goroutine appelante. Cette stratégie minimise la latence et le surcoût (overhead) liés à la création et à la synchronisation des goroutines.)
 func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int)) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -113,41 +117,7 @@ func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.In
 		defer wg.Done()
 		mul(s.t1, s.f_k1, s.f_k1)
 	}()
+	// Exécution de la troisième multiplication dans la goroutine principale.
 	mul(s.t4, s.f_k, s.f_k)
-	wg.Wait()
+	wg.Wait() // Attente de la complétion des deux autres multiplications.
 }
-
-// NOTE: Les types et fonctions suivants sont assumés exister (non fournis dans l'extrait original)
-// et sont nécessaires pour que le code compile et fonctionne comme décrit :
-/*
-type ProgressReporter func(float64)
-
-// calculationState contient tous les buffers nécessaires pour éviter les allocations.
-type calculationState struct {
-	f_k, f_k1 *big.Int // F(k) et F(k+1)
-	t1, t2, t3, t4 *big.Int // Variables temporaires
-}
-
-var statePool = sync.Pool{
-	New: func() interface{} {
-		return &calculationState{
-			f_k:  new(big.Int),
-			f_k1: new(big.Int),
-			t1:   new(big.Int),
-			t2:   new(big.Int),
-			t3:   new(big.Int),
-			t4:   new(big.Int),
-		}
-	},
-}
-
-func acquireState() *calculationState {
-	return statePool.Get().(*calculationState)
-}
-
-func releaseState(s *calculationState) {
-	// Optionnel : Réinitialiser les valeurs ici si l'initialisation explicite n'était pas faite dans CalculateCore.
-	// Comme nous faisons une initialisation explicite, ce n'est pas strictement nécessaire ici.
-	statePool.Put(s)
-}
-*/
