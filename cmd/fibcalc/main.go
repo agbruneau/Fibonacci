@@ -71,6 +71,7 @@ const (
 type AppConfig struct {
 	N            uint64
 	Verbose      bool
+	Details      bool
 	Timeout      time.Duration
 	Algo         string
 	Threshold    int
@@ -171,6 +172,8 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	fs.Uint64Var(&config.N, "n", 250000000, "L'indice 'n' de la séquence de Fibonacci à calculer.")
 	fs.BoolVar(&config.Verbose, "v", false, "Affiche le résultat complet (non tronqué).")
 	fs.BoolVar(&config.Verbose, "verbose", false, "Affiche le résultat complet (non tronqué).")
+	fs.BoolVar(&config.Details, "d", false, "Affiche les détails complets du résultat (temps, taille, etc.).")
+	fs.BoolVar(&config.Details, "details", false, "Affiche les détails complets du résultat (temps, taille, etc.).")
 	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Délai maximum d'exécution (ex: 30s, 1m).")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Seuil (en bits) pour activer la multiplication parallèle.")
@@ -334,7 +337,7 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 		if res.Err != nil {
 			return handleCalculationError(res.Err, res.Duration, config.Timeout, out)
 		}
-		cli.DisplayResult(res.Result, config.N, res.Duration, config.Verbose, out)
+		cli.DisplayResult(res.Result, config.N, res.Duration, config.Verbose, config.Details, out)
 		return ExitSuccess
 	}
 
@@ -508,7 +511,7 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	}
 
 	fmt.Fprintln(out, "\nStatut Global : Succès. Tous les résultats valides sont identiques.")
-	cli.DisplayResult(firstValidResult, config.N, 0, config.Verbose, out)
+	cli.DisplayResult(firstValidResult, config.N, 0, config.Verbose, config.Details, out)
 	return ExitSuccess
 }
 
