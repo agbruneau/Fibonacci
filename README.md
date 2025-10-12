@@ -63,7 +63,7 @@ go build -o fibcalc ./cmd/fibcalc
 
 Un binaire nommé `fibcalc` (ou `fibcalc.exe` sur Windows) sera créé dans le répertoire courant.
 
-## 6. Guide d'Utilisation
+## 6. Guide d'Utilisation et Optimisation de la Performance
 
 L'exécutable s'utilise de la manière suivante :
 
@@ -78,45 +78,61 @@ L'exécutable s'utilise de la manière suivante :
 | `-n`             |             | L'indice 'n' de la suite de Fibonacci à calculer.                        | `100000000` |
 | `-algo`          |             | Algorithme : `fast`, `matrix`, ou `all` pour comparer.                   | `all`       |
 | `-timeout`       |             | Délai d'exécution maximal (ex: `10s`, `1m30s`).                          | `5m0s`      |
-| `-threshold`     |             | Seuil (en bits) pour paralléliser les multiplications.                   | `2048`      |
+| `-threshold`     |             | Seuil (en bits) pour paralléliser les multiplications.                   | `4096`      |
 | `-fft-threshold` |             | Seuil (en bits) pour utiliser la multiplication FFT (0=désactivé).        | `20000`     |
 | `-d`             | `--details` | Afficher les détails de performance et les métadonnées du résultat.      | `false`     |
 | `-v`             | `--verbose` | Afficher la valeur complète du résultat (peut être extrêmement long).    | `false`     |
 | `--calibrate`    |             | Lancer la calibration pour trouver le seuil de parallélisme optimal.     | `false`     |
 
-### Exemples
+### Optimisation de la Performance
 
-**1. Calcul simple de F(1 000 000) avec l'algorithme "Fast Doubling" et affichage des détails :**
-```bash
-./fibcalc -n 1000000 -algo fast -d
-```
+Pour obtenir les meilleures performances possibles, il est recommandé de suivre une approche méthodique :
 
-**2. Comparaison des performances de tous les algorithmes pour F(10 000 000) :**
-```bash
-./fibcalc -n 10000000 -algo all
-```
+#### Étape 1 : Calibration du Seuil de Parallélisme
 
-**3. Calcul de F(250 000 000) avec affichage du résultat complet et un timeout de 10 minutes :**
-```bash
-./fibcalc -n 250000000 -algo fast -v -d --timeout 10m
-```
+La performance des calculs sur de très grands nombres dépend fortement de l'architecture de votre processeur. Ce projet inclut un mode de calibration pour déterminer empiriquement le meilleur seuil de parallélisme (`--threshold`) pour votre machine.
 
-## 7. Modes Spéciaux
-
-### Mode Calibration (`--calibrate`)
-
-Ce mode exécute une série de benchmarks sur la machine hôte pour déterminer empiriquement le seuil de parallélisme (`-threshold`) le plus performant. Il ignore l'argument `-n`.
-
+Exécutez la commande suivante :
 ```bash
 ./fibcalc --calibrate
 ```
-Le programme testera différentes valeurs pour le seuil et recommandera la meilleure pour les calculs intensifs.
+Le programme testera plusieurs valeurs de seuil et vous fournira une recommandation, par exemple : `✅ Recommandation pour cette machine : --threshold 4096`.
 
-### Mode Comparaison (`-algo all`)
+#### Étape 2 : Utilisation des Paramètres Optimaux
 
-Ce mode exécute tous les algorithmes enregistrés en parallèle et affiche un tableau comparatif de leurs performances. Il effectue également une **validation croisée** : si tous les calculs réussissent, il vérifie que leurs résultats sont identiques. En cas de divergence, une erreur critique est signalée.
+Une fois le seuil optimal déterminé, utilisez-le pour vos calculs.
 
-## 8. Validation et Tests
+*   `--threshold` : Le seuil de parallélisme. Une valeur bien ajustée (via `--calibrate`) est cruciale pour les calculs sur des machines multi-cœur.
+*   `--fft-threshold` : Ce seuil active la multiplication par FFT, plus rapide pour les nombres dépassant plusieurs dizaines de milliers de bits. La valeur par défaut de `20000` est un bon point de départ pour la plupart des architectures modernes.
+
+#### Étape 3 : Comparaison des Algorithmes
+
+Le programme fournit deux algorithmes de pointe. Leurs performances peuvent varier. Utilisez le mode de comparaison pour identifier le plus rapide pour votre cas d'usage.
+
+```bash
+./fibcalc -n <un_grand_nombre> -algo all --threshold <valeur_calibrée>
+```
+Le programme exécutera les deux algorithmes en parallèle et affichera un tableau comparatif. Il effectue également une **validation croisée** : si les calculs réussissent, il vérifie que leurs résultats sont identiques, garantissant l'exactitude.
+
+### Exemples d'Utilisation
+
+**1. Trouver le paramètre de performance optimal pour votre machine :**
+```bash
+./fibcalc --calibrate
+```
+
+**2. Comparer les algorithmes pour F(10 000 000) en utilisant un seuil de parallélisme calibré de 4096 :**
+```bash
+./fibcalc -n 10000000 -algo all --threshold 4096 -d
+```
+
+**3. Calculer F(250 000 000) avec l'algorithme le plus rapide, un affichage détaillé, et un timeout de 10 minutes :**
+```bash
+# Après avoir déterminé que 'fast' est le plus rapide à l'étape 2
+./fibcalc -n 250000000 -algo fast --threshold 4096 -d --timeout 10m
+```
+
+## 7. Validation et Tests
 
 Le projet est doté d'une suite de tests complète pour garantir son exactitude et sa robustesse.
 
@@ -135,6 +151,6 @@ Le projet est doté d'une suite de tests complète pour garantir son exactitude 
 *   **Tests Basés sur les Propriétés (Property-Based Testing)** :
     Le projet emploie des tests basés sur les propriétés (avec la bibliothèque `gopter`) pour valider des invariants mathématiques, comme l'**Identité de Cassini**, offrant un niveau de confiance supérieur quant à l'exactitude des algorithmes.
 
-## 9. Licence
+## 8. Licence
 
 Ce projet est distribué sous la licence MIT. Voir le fichier `LICENSE` pour plus de détails.

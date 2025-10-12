@@ -22,7 +22,7 @@ const (
 	// @const(DefaultParallelThreshold)
 	// @description(Seuil, exprimé en nombre de bits, à partir duquel les multiplications de grands entiers sont parallélisées.)
 	// @rationale(Le parallélisme introduit un surcoût (overhead) dû à la synchronisation des goroutines. Ce seuil représente le point d'équilibre où le gain de temps obtenu par le calcul parallèle devient supérieur à ce surcoût. Sa valeur optimale est dépendante de l'architecture matérielle sous-jacente.)
-	DefaultParallelThreshold = 2048
+	DefaultParallelThreshold = 4096
 )
 
 // @struct(ProgressUpdate)
