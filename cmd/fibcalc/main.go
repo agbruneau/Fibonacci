@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -356,6 +357,9 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	successCount := 0
 
 	fmt.Fprintln(out, "\n--- Synthèse de la Comparaison ---")
+	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(tw, "Algorithme\tDurée\tStatut")
+	fmt.Fprintln(tw, "----------\t-----\t------")
 	for _, res := range results {
 		var status string
 		if res.Err != nil {
@@ -370,8 +374,9 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 				firstValidResult = res.Result
 			}
 		}
-		fmt.Fprintf(out, "  - %-40s Durée: %-20s Statut: %s\n", res.Name, res.Duration.String(), status)
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", res.Name, res.Duration.String(), status)
 	}
+	tw.Flush()
 
 	if successCount == 0 {
 		fmt.Fprintln(out, "\nStatut Global : Échec. Aucun des algorithmes n'a pu terminer le calcul.")
