@@ -271,7 +271,7 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 	if len(calculatorsToRun) > 1 {
 		fmt.Fprintln(out, "Mode d'exécution : Comparaison parallèle de tous les algorithmes.")
 	} else {
-		fmt.Fprintf(out, "Mode d'exécution : Calcul simple avec l'algorithme %s.\t\n", calculatorsToRun[0].Name())
+		fmt.Fprintf(out, "Mode d'exécution : Calcul simple avec l'algorithme %s.\n", calculatorsToRun[0].Name())
 	}
 	fmt.Fprintln(out, "\n--- Début de l'Exécution ---")
 
