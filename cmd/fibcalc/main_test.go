@@ -54,10 +54,10 @@ func TestParseConfig(t *testing.T) {
 		expectedN   uint64
 		expectedAlgo string
 	}{
-		{"Cas nominal (défauts)", []string{}, false, 250000000, "all"},
+		{"Cas nominal (défauts)", []string{}, false, 100000000, "all"},
 		{"Spécification de N", []string{"-n", "50"}, false, 50, "all"},
-		{"Spécification de l'algorithme", []string{"-algo", "fast"}, false, 250000000, "fast"},
-		{"Spécification de l'algorithme (insensible à la casse)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix"},
+		{"Spécification de l'algorithme", []string{"-algo", "fast"}, false, 100000000, "fast"},
+		{"Spécification de l'algorithme (insensible à la casse)", []string{"-algo", "MATRIX"}, false, 100000000, "matrix"},
 		{"Cas d'erreur : seuil négatif", []string{"-threshold", "-100"}, true, 0, ""},
 		{"Cas d'erreur : argument inconnu", []string{"-invalid-flag"}, true, 0, ""},
 		{"Cas d'erreur : algorithme inconnu", []string{"-algo", "nonexistent"}, true, 0, ""},
