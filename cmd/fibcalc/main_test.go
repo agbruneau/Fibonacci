@@ -48,20 +48,24 @@ func TestParseConfig(t *testing.T) {
 	var errorSink bytes.Buffer
 
 	testCases := []struct {
-		name        string
-		args        []string
-		expectErr   bool
-		expectedN   uint64
-		expectedAlgo string
+		name           string
+		args           []string
+		expectErr      bool
+		expectedN      uint64
+		expectedAlgo   string
+		expectCalibrate bool
+		expectCalibrateFFT bool
 	}{
-		{"Cas nominal (défauts)", []string{}, false, 250000000, "all"},
-		{"Spécification de N", []string{"-n", "50"}, false, 50, "all"},
-		{"Spécification de l'algorithme", []string{"-algo", "fast"}, false, 250000000, "fast"},
-		{"Spécification de l'algorithme (insensible à la casse)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix"},
-		{"Cas d'erreur : seuil négatif", []string{"-threshold", "-100"}, true, 0, ""},
-		{"Cas d'erreur : argument inconnu", []string{"-invalid-flag"}, true, 0, ""},
-		{"Cas d'erreur : algorithme inconnu", []string{"-algo", "nonexistent"}, true, 0, ""},
-		{"Cas d'erreur : timeout invalide", []string{"-timeout", "-5s"}, true, 0, ""},
+		{"Cas nominal (défauts)", []string{}, false, 100000000, "all", false, false},
+		{"Spécification de N", []string{"-n", "50"}, false, 50, "all", false, false},
+		{"Spécification de l'algorithme", []string{"-algo", "fast"}, false, 100000000, "fast", false, false},
+		{"Spécification de l'algorithme (insensible à la casse)", []string{"-algo", "MATRIX"}, false, 100000000, "matrix", false, false},
+		{"Mode calibration de parallélisme", []string{"-calibrate"}, false, 100000000, "all", true, false},
+		{"Mode calibration FFT", []string{"-calibrate-fft"}, false, 100000000, "all", false, true},
+		{"Cas d'erreur : seuil négatif", []string{"-threshold", "-100"}, true, 0, "", false, false},
+		{"Cas d'erreur : argument inconnu", []string{"-invalid-flag"}, true, 0, "", false, false},
+		{"Cas d'erreur : algorithme inconnu", []string{"-algo", "nonexistent"}, true, 0, "", false, false},
+		{"Cas d'erreur : timeout invalide", []string{"-timeout", "-5s"}, true, 0, "", false, false},
 	}
 
 	for _, tc := range testCases {
@@ -81,6 +85,12 @@ func TestParseConfig(t *testing.T) {
 				}
 				if config.Algo != tc.expectedAlgo {
 					t.Errorf("Champ Algo de la config incorrect. Attendu: %q, Obtenu: %q", tc.expectedAlgo, config.Algo)
+				}
+				if config.Calibrate != tc.expectCalibrate {
+					t.Errorf("Champ Calibrate de la config incorrect. Attendu: %v, Obtenu: %v", tc.expectCalibrate, config.Calibrate)
+				}
+				if config.CalibrateFFT != tc.expectCalibrateFFT {
+					t.Errorf("Champ CalibrateFFT de la config incorrect. Attendu: %v, Obtenu: %v", tc.expectCalibrateFFT, config.CalibrateFFT)
 				}
 			}
 		})
