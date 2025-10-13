@@ -186,25 +186,25 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 	bitLen := result.BitLen()
 	fmt.Fprintf(out, "Taille Binaire du Résultat : %s bits.\n", formatNumberString(fmt.Sprintf("%d", bitLen)))
 
-	if !details {
-		fmt.Fprintln(out, "(Utilisez l'option -d ou --details pour un rapport complet)")
-		return
-	}
-
-	fmt.Fprintln(out, "\n--- Analyse Détaillée du Résultat ---")
-	if duration > 0 {
-		fmt.Fprintf(out, "Temps de calcul       : %s\n", duration)
-	}
-
 	// NOTE DE PERFORMANCE : La conversion d'un `big.Int` en chaîne décimale est une
 	// opération coûteuse (complexité super-linéaire). Elle ne doit être effectuée qu'une seule fois.
 	resultStr := result.String()
 	numDigits := len(resultStr)
-	fmt.Fprintf(out, "Nombre de chiffres    : %s\n", formatNumberString(fmt.Sprintf("%d", numDigits)))
 
-	if numDigits > 6 {
-		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Notation scientifique : %.6e\n", f)
+	if duration > 0 {
+		fmt.Fprintf(out, "Temps de calcul       : %s\n", duration)
+	}
+
+	if details {
+		fmt.Fprintln(out, "\n--- Analyse Détaillée du Résultat ---")
+		fmt.Fprintf(out, "Nombre de chiffres    : %s\n", formatNumberString(fmt.Sprintf("%d", numDigits)))
+
+		if numDigits > 6 {
+			f := new(big.Float).SetInt(result)
+			fmt.Fprintf(out, "Notation scientifique : %.6e\n", f)
+		}
+	} else {
+		fmt.Fprintln(out, "(Utilisez l'option -d ou --details pour un rapport complet)")
 	}
 
 	fmt.Fprintln(out, "\n--- Valeur Calculée ---")
