@@ -76,14 +76,13 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			mul(s.t1, s.f_k1, s.f_k1) // F(k+1)^2
 			mul(s.t4, s.f_k, s.f_k)     // F(k)^2
 		}
-		s.f_k.Set(s.t3)
-		s.f_k1.Add(s.t1, s.t4) // F(2k+1) = F(k+1)^2 + F(k)^2
+		s.f_k, s.t3 = s.t3, s.f_k
+		s.f_k1.Add(s.t1, s.t4)
 
 		// Étape d'Addition (Addition-Step): Si le bit courant de n est à 1, met à jour les valeurs pour calculer F(2k+1).
 		if (n>>uint(i))&1 == 1 {
-			s.t1.Set(s.f_k1)
+			s.f_k, s.f_k1 = s.f_k1, s.f_k
 			s.f_k1.Add(s.f_k1, s.f_k)
-			s.f_k.Set(s.t1)
 		}
 
 		// Mise à jour de la progression : notifie l'observateur de l'avancement du calcul.
