@@ -24,6 +24,9 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"crypto/rand"
+
+	"github.com/remyoudompheng/bigfft"
 	"golang.org/x/sync/errgroup"
 
 	"example.com/fibcalc/internal/cli"
@@ -56,6 +59,7 @@ type AppConfig struct {
 	Threshold    int
 	FFTThreshold int
 	Calibrate    bool
+	CalibrateFFT bool
 }
 
 // @method(Validate)
@@ -147,6 +151,7 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Seuil (en nombre de bits) pour activer la parallélisation des multiplications.")
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en nombre de bits) pour utiliser la multiplication par FFT (0 pour désactiver).")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécuter le mode de calibration pour déterminer le seuil de parallélisme optimal.")
+	fs.BoolVar(&config.CalibrateFFT, "calibrate-fft", false, "Exécuter le mode de calibration pour déterminer le seuil de multiplication FFT optimal.")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err // Erreur de parsing syntaxique.
@@ -248,12 +253,114 @@ func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
 	return ExitSuccess
 }
 
+// @function(runFFTCalibration)
+// @description(Exécute une suite de benchmarks pour déterminer empiriquement le seuil optimal pour l'utilisation de la multiplication FFT sur la machine hôte.)
+func runFFTCalibration(ctx context.Context, out io.Writer) int {
+	fmt.Fprintln(out, "--- Mode Calibration : Recherche du Seuil de Multiplication FFT Optimal ---")
+	fmt.Fprintln(out, "Analyse des performances de big.Int.Mul() vs bigfft.Mul()...")
+
+	// Définition des tailles de bits à tester.
+	bitSizes := []int{
+		2_000, 4_000, 6_000, 8_000, 10_000, 12_000, 14_000, 16_000,
+		20_000, 24_000, 28_000, 32_000, 48_000, 64_000, 96_000, 128_000,
+	}
+
+	type fftResult struct {
+		BitSize      int
+		StdMulTime   time.Duration
+		FFTMulTime   time.Duration
+		FFTIsFaster  bool
+		Err          error
+	}
+	results := make([]fftResult, 0, len(bitSizes))
+	crossoverPoint := -1
+	const numSamples = 5 // Nombre d'échantillons par taille pour lisser les résultats.
+
+	for _, bitSize := range bitSizes {
+		if ctx.Err() != nil {
+			fmt.Fprintln(out, "\nCalibration interrompue.")
+			return ExitErrorCanceled
+		}
+		fmt.Fprintf(out, "Test de la taille de %d bits...", bitSize)
+
+		var totalStdTime, totalFFTTime time.Duration
+		var err error
+
+		for i := 0; i < numSamples; i++ {
+			x, err_x := rand.Prime(rand.Reader, bitSize)
+			y, err_y := rand.Prime(rand.Reader, bitSize)
+			if err_x != nil || err_y != nil {
+				err = fmt.Errorf("impossible de générer les nombres de test: %v, %v", err_x, err_y)
+				break
+			}
+
+			// Benchmark de la multiplication standard.
+			destStd := new(big.Int)
+			startStd := time.Now()
+			destStd.Mul(x, y)
+			totalStdTime += time.Since(startStd)
+
+			// Benchmark de la multiplication FFT.
+			startFFT := time.Now()
+			_ = bigfft.Mul(x, y)
+			totalFFTTime += time.Since(startFFT)
+		}
+
+		if err != nil {
+			fmt.Fprintf(out, " ❌ Échec (%v)\n", err)
+			results = append(results, fftResult{BitSize: bitSize, Err: err})
+			continue
+		}
+
+		avgStdTime := totalStdTime / time.Duration(numSamples)
+		avgFFTTime := totalFFTTime / time.Duration(numSamples)
+		fftIsFaster := avgFFTTime < avgStdTime
+		if fftIsFaster && crossoverPoint == -1 {
+			crossoverPoint = bitSize
+		}
+
+		fmt.Fprintf(out, " ✅ Std: %-10s | FFT: %-10s | FFT plus rapide: %v\n", avgStdTime, avgFFTTime, fftIsFaster)
+		results = append(results, fftResult{
+			BitSize: bitSize, StdMulTime: avgStdTime, FFTMulTime: avgFFTTime, FFTIsFaster: fftIsFaster,
+		})
+	}
+
+	fmt.Fprintln(out, "\n--- Synthèse de la Calibration FFT ---")
+	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(tw, "Taille (bits)\tDurée Std Mul\tDurée FFT Mul\tFFT Gagnante")
+	fmt.Fprintln(tw, "-------------\t-------------\t-------------\t------------")
+	for _, res := range results {
+		if res.Err != nil {
+			fmt.Fprintf(tw, "%d\tN/A\tN/A\tErreur: %v\n", res.BitSize, res.Err)
+		} else {
+			highlight := ""
+			if res.FFTIsFaster {
+				highlight = "✅"
+			}
+			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\n", res.BitSize, res.StdMulTime, res.FFTMulTime, highlight)
+		}
+	}
+	tw.Flush()
+
+	if crossoverPoint != -1 {
+		fmt.Fprintf(out, "\n✅ Recommandation pour cette machine : --fft-threshold %d\n", crossoverPoint)
+	} else {
+		fmt.Fprintln(out, "\nℹ️ Le point de bascule n'a pas été trouvé dans la plage testée. La multiplication standard est plus rapide.")
+		fmt.Fprintln(out, "   Pour des nombres plus grands, la FFT pourrait devenir plus performante. Recommandation : --fft-threshold 0 (désactivé)")
+	}
+
+	return ExitSuccess
+}
+
 // @function(run)
 // @description(Contient la logique d'orchestration principale de l'application. Cette fonction est pure et testable.)
 // @architecture(Cette fonction illustre la composition de contextes pour une gestion robuste de l'arrêt ("graceful shutdown"). Le contexte initial est enrichi successivement avec un timeout et un gestionnaire de signaux OS. L'annulation de l'un de ces contextes se propage à travers toute l'application.)
 func run(ctx context.Context, config AppConfig, out io.Writer) int {
 	if config.Calibrate {
 		return runCalibration(ctx, config, out)
+	}
+	if config.CalibrateFFT {
+		return runFFTCalibration(ctx, out)
 	}
 
 	// Composition des contextes pour la gestion du cycle de vie.
