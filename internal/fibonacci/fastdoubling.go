@@ -68,22 +68,40 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		}
 
 		// Étape de Doublage (Doubling): Calcule F(2k) et F(2k+1) à partir de F(k) et F(k+1).
+		// La stratégie de réutilisation de la mémoire par échange de pointeurs est appliquée ici
+		// pour éliminer les réallocations coûteuses des `big.Int`.
+
+		// t2 = 2*F(k+1) - F(k)
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
+
+		// Exécution des multiplications, en parallèle si les opérandes sont suffisamment grands.
+		// Les résultats sont stockés dans les registres temporaires t1, t3, t4.
 		if useParallel && s.f_k1.BitLen() > threshold {
 			parallelMultiply3Optimized(s, mul)
 		} else {
-			mul(s.t3, s.f_k, s.t2)      // F(2k)
-			mul(s.t1, s.f_k1, s.f_k1) // F(k+1)^2
-			mul(s.t4, s.f_k, s.f_k)     // F(k)^2
+			mul(s.t3, s.f_k, s.t2)      // t3 = F(k) * (2*F(k+1) - F(k)) = F(2k)
+			mul(s.t1, s.f_k1, s.f_k1) // t1 = F(k+1)^2
+			mul(s.t4, s.f_k, s.f_k)     // t4 = F(k)^2
 		}
-		s.f_k.Set(s.t3)
-		s.f_k1.Add(s.t1, s.t4) // F(2k+1) = F(k+1)^2 + F(k)^2
 
-		// Étape d'Addition (Addition-Step): Si le bit courant de n est à 1, met à jour les valeurs pour calculer F(2k+1).
+		// Calcul de F(2k+1) = F(k+1)^2 + F(k)^2. Le résultat est stocké dans le buffer de l'ancien F(k).
+		s.f_k.Add(s.t1, s.t4)
+
+		// Échange atomique des pointeurs pour mettre à jour F(k) et F(k+1) sans allocation.
+		// Le nouveau F(k) est dans t3.
+		// Le nouveau F(k+1) est dans le buffer de l'ancien F(k).
+		// L'ancien F(k+1) devient un buffer temporaire.
+		s.f_k, s.f_k1, s.t3 = s.t3, s.f_k, s.f_k1
+
+		// Étape d'Addition (Addition-Step): Si le bit courant de n est à 1, met à jour les valeurs pour calculer F(k+1) = F(k) + F(k+1).
+		// La même stratégie d'échange de pointeurs est utilisée pour une efficacité mémoire maximale.
 		if (n>>uint(i))&1 == 1 {
-			s.t1.Set(s.f_k1)
-			s.f_k1.Add(s.f_k1, s.f_k)
-			s.f_k.Set(s.t1)
+			// t1 = F(k) + F(k+1)  (Le nouveau F(k+1))
+			s.t1.Add(s.f_k, s.f_k1)
+			// Le nouveau F(k) est l'ancien F(k+1).
+			// Le nouveau F(k+1) est t1.
+			// L'ancien F(k) devient un buffer temporaire.
+			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
 		}
 
 		// Mise à jour de la progression : notifie l'observateur de l'avancement du calcul.
