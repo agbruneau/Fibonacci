@@ -78,6 +78,7 @@ func TestFibonacciCalculators(t *testing.T) {
 	calculators := map[string]Calculator{
 		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
 		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
+		"FFTBased":     NewCalculator(&FFTBasedCalculator{}),
 	}
 
 	for name, calc := range calculators {
@@ -305,4 +306,8 @@ func BenchmarkFastDoubling10M(b *testing.B) {
 
 func BenchmarkMatrixExp10M(b *testing.B) {
 	runBenchmark(b, NewCalculator(&MatrixExponentiation{}), 10_000_000)
+}
+
+func BenchmarkFFTBased10M(b *testing.B) {
+	runBenchmark(b, NewCalculator(&FFTBasedCalculator{}), 10_000_000)
 }
