@@ -279,16 +279,6 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 
 	results := executeCalculations(ctx, calculatorsToRun, config, out)
 
-	if len(results) == 1 {
-		res := results[0]
-		fmt.Fprintln(out, "\n--- Résultat Final ---")
-		if res.Err != nil {
-			return handleCalculationError(res.Err, res.Duration, config.Timeout, out)
-		}
-		cli.DisplayResult(res.Result, config.N, res.Duration, config.Verbose, config.Details, out)
-		return ExitSuccess
-	}
-
 	return analyzeComparisonResults(results, config, out)
 }
 
