@@ -86,6 +86,7 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 var calculatorRegistry = map[string]fibonacci.Calculator{
 	"fast":   fibonacci.NewCalculator(&fibonacci.OptimizedFastDoubling{}),
 	"matrix": fibonacci.NewCalculator(&fibonacci.MatrixExponentiation{}),
+	"fft":    fibonacci.NewCalculator(&fibonacci.FFTBasedCalculator{}),
 }
 
 // @function(init)
@@ -138,7 +139,7 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	algoHelp := fmt.Sprintf("Algorithme à utiliser : 'all' (défaut) ou l'un de [%s].", strings.Join(availableAlgos, ", "))
 
 	config := AppConfig{}
-	fs.Uint64Var(&config.N, "n", 100000000, "Indice 'n' du nombre de Fibonacci à calculer.")
+	fs.Uint64Var(&config.N, "n", 250000000, "Indice 'n' du nombre de Fibonacci à calculer.")
 	fs.BoolVar(&config.Verbose, "v", false, "Afficher la valeur complète du résultat (peut être très long).")
 	fs.BoolVar(&config.Details, "d", false, "Afficher les détails de performance et les métadonnées du résultat.")
 	fs.BoolVar(&config.Details, "details", false, "Alias pour -d.")
