@@ -1,10 +1,11 @@
-// @module(fibonacci)
-// @author(Jules)
-// @date(2023-10-27)
-// @version(1.2)
-//
-// @description(Ce module constitue le noyau architectural du système de calcul. Il définit les interfaces, les contrats de communication et les stratégies d'optimisation fondamentales qui régissent l'ensemble des algorithmes.)
-// @pedagogical(Ce code est une étude de cas sur l'application des patrons de conception Décorateur et Adaptateur, du principe d'inversion de dépendances (SOLID), de l'optimisation de la gestion mémoire via des pools d'objets (`sync.Pool`), et de la garantie de l'immuabilité des données partagées.)
+// Le paquetage fibonacci fournit des implémentations pour le calcul des nombres de
+// la suite de Fibonacci. Il expose une interface `Calculator` qui abstrait
+// l'algorithme de calcul sous-jacent, permettant ainsi d'utiliser différentes
+// stratégies (par exemple, Fast Doubling, Exponentiation Matricielle) de manière
+// interchangeable. Le paquetage intègre également des optimisations telles
+// qu'une table de consultation (LUT) pour les petites valeurs et une gestion
+// de la mémoire via des pools d'objets pour minimiser la pression sur le
+// ramasse-miettes (GC).
 package fibonacci
 
 import (
@@ -14,54 +15,48 @@ import (
 )
 
 const (
-	// @const(MaxFibUint64)
-	// @description(Constante définissant l'index du plus grand nombre de Fibonacci qui peut être représenté par un entier non signé de 64 bits (F(93)).)
-	// @rationale(Cette valeur sert de seuil pour une optimisation de type "fast path". Les calculs pour n <= 93 peuvent être résolus en temps constant, O(1), via une consultation dans une table pré-calculée (Look-Up Table, LUT).)
+	// MaxFibUint64 représente l'indice du plus grand nombre de Fibonacci
+	// calculable sur un entier non signé de 64 bits.
 	MaxFibUint64 = 93
 
-	// @const(DefaultParallelThreshold)
-	// @description(Seuil, exprimé en nombre de bits, à partir duquel les multiplications de grands entiers sont parallélisées.)
-	// @rationale(Le parallélisme introduit un surcoût (overhead) dû à la synchronisation des goroutines. Ce seuil représente le point d'équilibre où le gain de temps obtenu par le calcul parallèle devient supérieur à ce surcoût. Sa valeur optimale est dépendante de l'architecture matérielle sous-jacente.)
+	// DefaultParallelThreshold définit le seuil en bits à partir duquel les
+	// multiplications de grands entiers sont parallélisées.
 	DefaultParallelThreshold = 4096
 )
 
-// @struct(ProgressUpdate)
-// @description(Objet de Transfert de Données (DTO) utilisé pour communiquer l'état de progression d'un calcul. Il est conçu pour être transmis via des canaux (channels).)
+// ProgressUpdate est un objet de transfert de données (DTO) qui encapsule
+// l'état de progression d'un calcul.
 type ProgressUpdate struct {
-	CalculatorIndex int     // Identifiant unique du calculateur pour permettre au récepteur de distinguer les sources de progression.
-	Value           float64 // Valeur de progression normalisée, comprise dans l'intervalle [0.0, 1.0].
+	CalculatorIndex int     // Identifiant unique du calculateur.
+	Value           float64 // Valeur normalisée de la progression [0.0, 1.0].
 }
 
-// @type(ProgressReporter)
-// @description(Type fonctionnel définissant un callback pour le rapport de progression. Il s'agit d'une abstraction qui découple l'algorithme de calcul du mécanisme de communication.)
-// @pedagogical(Cette abstraction est une application directe du Principe d'Inversion de Dépendances (D de SOLID). L'algorithme de haut niveau ne dépend pas des détails de bas niveau (ici, un canal Go), mais d'une abstraction, ce qui favorise la modularité et la testabilité.)
+// ProgressReporter définit le type fonctionnel pour un callback de rapport de
+// progression.
 type ProgressReporter func(progress float64)
 
-// @interface(Calculator)
-// @description(Définit l'interface publique du module `fibonacci`. C'est le point d'entrée unique pour les couches supérieures de l'application (par exemple, l'orchestrateur de calculs).)
+// Calculator définit l'interface publique pour un calculateur Fibonacci.
 type Calculator interface {
+	// Calculate exécute le calcul du n-ième nombre de Fibonacci.
 	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
+	// Name retourne le nom de l'algorithme de calcul.
 	Name() string
 }
 
-// @interface(coreCalculator)
-// @description(Définit l'interface interne pour un algorithme de calcul pur. Cette interface se concentre exclusivement sur la logique mathématique.)
-// @pedagogical(Ceci est un exemple du Principe de Ségrégation des Interfaces (I de SOLID). En séparant l'interface de calcul pur de celle d'orchestration, on évite de surcharger les implémentations d'algorithmes avec des dépendances non pertinentes (comme la gestion des canaux de progression).)
+// coreCalculator définit l'interface interne pour un algorithme de calcul pur.
 type coreCalculator interface {
 	CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 	Name() string
 }
 
-// @struct(FibCalculator)
-// @description(Implémentation de l'interface `Calculator` qui applique les patrons de conception Décorateur et Adaptateur.)
-// @pattern(Decorator, Adapter)
-// @pedagogical(Cette structure agit comme un Décorateur en ajoutant des fonctionnalités (optimisation par LUT) autour d'un `coreCalculator`. Elle agit également comme un Adaptateur en transformant l'interface de communication (le `chan<- ProgressUpdate`) en une interface plus simple (`ProgressReporter`) pour le `coreCalculator`.)
+// FibCalculator est une implémentation de l'interface `Calculator` qui utilise
+// le patron de conception Décorateur pour ajouter des fonctionnalités autour
+// d'un `coreCalculator`.
 type FibCalculator struct {
 	core coreCalculator
 }
 
-// @function(NewCalculator)
-// @description(Fonction de fabrique (Factory) qui construit et retourne une instance du décorateur `FibCalculator`, encapsulant une implémentation de `coreCalculator`.)
+// NewCalculator est une fonction de fabrique qui construit un `FibCalculator`.
 func NewCalculator(core coreCalculator) Calculator {
 	if core == nil {
 		panic("fibonacci: l'implémentation de `coreCalculator` ne peut être nulle")
@@ -69,20 +64,14 @@ func NewCalculator(core coreCalculator) Calculator {
 	return &FibCalculator{core: core}
 }
 
-// @method(Name)
-// @description(Délègue l'appel à la méthode `Name` de l'objet `coreCalculator` encapsulé, conformément au patron Décorateur.)
+// Name retourne le nom du calculateur encapsulé.
 func (c *FibCalculator) Name() string {
 	return c.core.Name()
 }
 
-// @method(Calculate)
-// @description(Orchestre l'exécution du calcul en appliquant les responsabilités du décorateur et de l'adaptateur.)
-// @architecture(
-//   1. Rôle d'Adaptateur : Adapte le canal `progressChan` en une fonction `ProgressReporter` simple, découplant le noyau de l'implémentation de la communication.
-//   2. Rôle de Décorateur : Intercepte l'appel et applique une optimisation "fast path" en utilisant la table de consultation (LUT) pour les petites valeurs de `n`.
-//   3. Délégation : Si l'optimisation n'est pas applicable, l'appel est délégué à la méthode `CalculateCore` de l'objet `coreCalculator` encapsulé.
-//   4. Fiabilité : Assure qu'un rapport de progression final de 100% est envoyé en cas de succès, garantissant une communication cohérente à l'appelant.
-// )
+// Calculate orchestre le calcul. Il adapte le canal de progression en un
+// simple `ProgressReporter`, applique une optimisation pour les petites valeurs
+// de `n` et délègue le calcul principal au `coreCalculator`.
 func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	reporter := func(progress float64) {
 		if progressChan == nil {
@@ -93,31 +82,25 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		}
 		update := ProgressUpdate{CalculatorIndex: calcIndex, Value: progress}
 		select {
-		case progressChan <- update: // Envoi non-bloquant pour éviter de ralentir le calcul.
-		default: // L'envoi est abandonné si le canal est plein ou indisponible.
+		case progressChan <- update:
+		default:
 		}
 	}
 
-	// Optimisation "Fast Path" via LUT.
 	if n <= MaxFibUint64 {
 		reporter(1.0)
 		return lookupSmall(n), nil
 	}
 
-	// Délégation au noyau de calcul.
 	result, err := c.core.CalculateCore(ctx, reporter, n, threshold, fftThreshold)
 	if err == nil && result != nil {
-		reporter(1.0) // Garantit que l'état final est toujours notifié.
+		reporter(1.0)
 	}
 	return result, err
 }
 
-// @variable(fibLookupTable)
-// @description(Table de consultation (Look-Up Table, LUT) contenant les valeurs pré-calculées des nombres de Fibonacci de F(0) à F(93).)
 var fibLookupTable [MaxFibUint64 + 1]*big.Int
 
-// @function(init)
-// @description(Fonction d'initialisation du module, exécutée automatiquement au chargement du programme. Elle peuple la table de consultation `fibLookupTable`.)
 func init() {
 	fibLookupTable[0] = big.NewInt(0)
 	if MaxFibUint64 > 0 {
@@ -128,18 +111,14 @@ func init() {
 	}
 }
 
-// @function(lookupSmall)
-// @description(Récupère une valeur de la table de consultation de manière sécurisée et immuable.)
-// @pedagogical(Cette fonction retourne une NOUVELLE instance de `big.Int` contenant la valeur demandée. Cette pratique est cruciale pour garantir l'immuabilité de la table partagée. Si nous retournions directement le pointeur de la table, un appelant pourrait accidentellement modifier la valeur pré-calculée, introduisant un état global corrompu et des effets de bord difficiles à déboguer.)
+// lookupSmall retourne une copie du n-ième nombre de Fibonacci à partir de la
+// table de consultation, garantissant l'immuabilité de la table.
 func lookupSmall(n uint64) *big.Int {
 	return new(big.Int).Set(fibLookupTable[n])
 }
 
-// @section(Object Pooling Infrastructure)
-// @description(Cette section définit une infrastructure générique pour la gestion de pools d'objets (`sync.Pool`). L'objectif est de réutiliser des objets coûteux à allouer (comme `big.Int` ou des structures complexes) afin de minimiser la charge sur le ramasse-miettes (Garbage Collector, GC) et d'améliorer les performances globales.)
-
-// @struct(calculationState)
-// @description(Structure de données qui agrège l'ensemble des variables temporaires requises par l'algorithme "Fast Doubling". L'utilisation de cette structure unique permet de la gérer efficacement au sein d'un pool d'objets.)
+// calculationState agrège les variables temporaires pour l'algorithme
+// "Fast Doubling", permettant une gestion efficace via un pool d'objets.
 type calculationState struct {
 	f_k, f_k1, t1, t2, t3, t4 *big.Int
 }
@@ -148,7 +127,6 @@ type calculationState struct {
 func (s *calculationState) Reset() {
 	s.f_k.SetInt64(0)
 	s.f_k1.SetInt64(1)
-	// Il n'est pas nécessaire de réinitialiser les variables temporaires (t1-t4), car elles sont systématiquement écrasées avant d'être lues.
 }
 
 var statePool = sync.Pool{
@@ -171,16 +149,15 @@ func acquireState() *calculationState {
 	return s
 }
 
-// releaseState remet un état dans le pool pour sa réutilisation.
+// releaseState remet un état dans le pool.
 func releaseState(s *calculationState) {
 	statePool.Put(s)
 }
 
-// @struct(matrix)
-// @description(Représente une matrice 2x2 composée d'entiers de grande taille (`*big.Int`), utilisée dans l'algorithme d'exponentiation matricielle.)
+// matrix représente une matrice 2x2 de `*big.Int`.
 type matrix struct{ a, b, c, d *big.Int }
 
-// newMatrix alloue une nouvelle matrice avec des `big.Int` initialisés.
+// newMatrix alloue une nouvelle matrice.
 func newMatrix() *matrix {
 	return &matrix{new(big.Int), new(big.Int), new(big.Int), new(big.Int)}
 }
@@ -201,7 +178,7 @@ func (m *matrix) SetIdentity() {
 	m.d.SetInt64(1)
 }
 
-// SetBaseQ configure la matrice avec la matrice de base de Fibonacci [[1, 1], [1, 0]].
+// SetBaseQ configure la matrice avec la matrice de base de Fibonacci.
 func (m *matrix) SetBaseQ() {
 	m.a.SetInt64(1)
 	m.b.SetInt64(1)
@@ -209,8 +186,8 @@ func (m *matrix) SetBaseQ() {
 	m.d.SetInt64(0)
 }
 
-// @struct(matrixState)
-// @description(Structure de données qui agrège toutes les variables nécessaires pour l'algorithme d'exponentiation matricielle, y compris les matrices et les entiers temporaires. Gérée via un pool d'objets.)
+// matrixState agrège les variables pour l'algorithme d'exponentiation
+// matricielle.
 type matrixState struct {
 	res, p, tempMatrix             *matrix
 	t1, t2, t3, t4, t5, t6, t7, t8 *big.Int
@@ -241,7 +218,7 @@ func acquireMatrixState() *matrixState {
 	return s
 }
 
-// releaseMatrixState remet un état dans le pool pour sa réutilisation.
+// releaseMatrixState remet un état dans le pool.
 func releaseMatrixState(s *matrixState) {
 	matrixStatePool.Put(s)
 }
