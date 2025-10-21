@@ -10,7 +10,7 @@ import (
 	"example.com/fibcalc/internal/fibonacci"
 )
 
-// TestParseConfig valide la fonction d'analyse de la configuration.
+// TestParseConfig validates the configuration parsing function.
 func TestParseConfig(t *testing.T) {
 	var errorSink bytes.Buffer
 
@@ -21,14 +21,14 @@ func TestParseConfig(t *testing.T) {
 		expectedN    uint64
 		expectedAlgo string
 	}{
-		{"Cas nominal (défauts)", []string{}, false, 250000000, "all"},
-		{"Spécification de N", []string{"-n", "50"}, false, 50, "all"},
-		{"Spécification de l'algorithme", []string{"-algo", "fast"}, false, 250000000, "fast"},
-		{"Spécification de l'algorithme (insensible à la casse)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix"},
-		{"Cas d'erreur : seuil négatif", []string{"-threshold", "-100"}, true, 0, ""},
-		{"Cas d'erreur : argument inconnu", []string{"-invalid-flag"}, true, 0, ""},
-		{"Cas d'erreur : algorithme inconnu", []string{"-algo", "nonexistent"}, true, 0, ""},
-		{"Cas d'erreur : timeout invalide", []string{"-timeout", "-5s"}, true, 0, ""},
+		{"Nominal case (defaults)", []string{}, false, 250000000, "all"},
+		{"Specifying N", []string{"-n", "50"}, false, 50, "all"},
+		{"Specifying the algorithm", []string{"-algo", "fast"}, false, 250000000, "fast"},
+		{"Specifying the algorithm (case-insensitive)", []string{"-algo", "MATRIX"}, false, 250000000, "matrix"},
+		{"Error case: negative threshold", []string{"-threshold", "-100"}, true, 0, ""},
+		{"Error case: unknown argument", []string{"-invalid-flag"}, true, 0, ""},
+		{"Error case: unknown algorithm", []string{"-algo", "nonexistent"}, true, 0, ""},
+		{"Error case: invalid timeout", []string{"-timeout", "-5s"}, true, 0, ""},
 	}
 
 	for _, tc := range testCases {
@@ -37,69 +37,69 @@ func TestParseConfig(t *testing.T) {
 
 			if tc.expectErr {
 				if err == nil {
-					t.Error("Une erreur était attendue, mais aucune n'a été retournée.")
+					t.Error("An error was expected, but none was returned.")
 				}
 			} else {
 				if err != nil {
-					t.Errorf("Une erreur inattendue a été retournée : %v", err)
+					t.Errorf("An unexpected error was returned: %v", err)
 				}
 				if config.N != tc.expectedN {
-					t.Errorf("Champ N de la config incorrect. Attendu: %d, Obtenu: %d", tc.expectedN, config.N)
+					t.Errorf("Incorrect N field in config. Expected: %d, Got: %d", tc.expectedN, config.N)
 				}
 				if config.Algo != tc.expectedAlgo {
-					t.Errorf("Champ Algo de la config incorrect. Attendu: %q, Obtenu: %q", tc.expectedAlgo, config.Algo)
+					t.Errorf("Incorrect Algo field in config. Expected: %q, Got: %q", tc.expectedAlgo, config.Algo)
 				}
 			}
 		})
 	}
 }
 
-// TestRunFunction valide le comportement de la fonction d'orchestration principale `run`.
+// TestRunFunction validates the behavior of the main orchestration function `run`.
 func TestRunFunction(t *testing.T) {
 
-	t.Run("Exécution simple avec succès", func(t *testing.T) {
+	t.Run("Simple execution with success", func(t *testing.T) {
 		var buf bytes.Buffer
 		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
 		exitCode := run(context.Background(), config, &buf)
 
 		if exitCode != ExitSuccess {
-			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
+			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
 		}
 		output := buf.String()
 		if !strings.Contains(output, "F(10) = 55") {
-			t.Errorf("La sortie détaillée ne contient pas le résultat attendu 'F(10) = 55'. Sortie:\n%s", output)
+			t.Errorf("The detailed output does not contain the expected result 'F(10) = 55'. Output:\n%s", output)
 		}
 	})
 
-	t.Run("Comparaison parallèle avec succès", func(t *testing.T) {
+	t.Run("Parallel comparison with success", func(t *testing.T) {
 		var buf bytes.Buffer
 		config := AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: false}
 		exitCode := run(context.Background(), config, &buf)
 
 		if exitCode != ExitSuccess {
-			t.Errorf("Code de sortie incorrect. Attendu: %d, Obtenu: %d", ExitSuccess, exitCode)
+			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Synthèse de la Comparaison") || !strings.Contains(output, "Statut Global : Succès") {
-			t.Errorf("La sortie du mode comparaison est incorrecte. Sortie:\n%s", output)
+		if !strings.Contains(output, "Comparison Summary") || !strings.Contains(output, "Global Status: Success") {
+			t.Errorf("The comparison mode output is incorrect. Output:\n%s", output)
 		}
 	})
 
-	t.Run("Échec dû à un timeout", func(t *testing.T) {
+	t.Run("Failure due to timeout", func(t *testing.T) {
 		var buf bytes.Buffer
 		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond}
 		exitCode := run(context.Background(), config, &buf)
 
 		if exitCode != ExitErrorTimeout {
-			t.Errorf("Code de sortie incorrect pour un timeout. Attendu: %d, Obtenu: %d", ExitErrorTimeout, exitCode)
+			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", ExitErrorTimeout, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Échec (Timeout)") {
-			t.Errorf("La sortie devrait explicitement mentionner l'échec par timeout. Sortie:\n%s", output)
+		if !strings.Contains(output, "Failure (Timeout)") {
+			t.Errorf("The output should explicitly mention the timeout failure. Output:\n%s", output)
 		}
 	})
 
-	t.Run("Échec dû à une annulation par le contexte", func(t *testing.T) {
+	t.Run("Failure due to context cancellation", func(t *testing.T) {
 		var buf bytes.Buffer
 		config := AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Minute}
 		ctx, cancel := context.WithCancel(context.Background())
@@ -107,11 +107,11 @@ func TestRunFunction(t *testing.T) {
 		exitCode := run(ctx, config, &buf)
 
 		if exitCode != ExitErrorCanceled {
-			t.Errorf("Code de sortie incorrect pour une annulation. Attendu: %d, Obtenu: %d", ExitErrorCanceled, exitCode)
+			t.Errorf("Incorrect exit code for a cancellation. Expected: %d, Got: %d", ExitErrorCanceled, exitCode)
 		}
 		output := buf.String()
-		if !strings.Contains(output, "Statut : Annulé") {
-			t.Errorf("La sortie devrait explicitement mentionner l'annulation. Sortie:\n%s", output)
+		if !strings.Contains(output, "Status: Canceled") {
+			t.Errorf("The output should explicitly mention the cancellation. Output:\n%s", output)
 		}
 	})
 }

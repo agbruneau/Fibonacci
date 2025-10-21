@@ -8,26 +8,25 @@ import (
 	"sync"
 )
 
-// OptimizedFastDoubling implémente l'interface `coreCalculator` en utilisant
-// l'algorithme "Fast Doubling".
+// OptimizedFastDoubling implements the `coreCalculator` interface using the
+// "Fast Doubling" algorithm.
 //
-// L'algorithme "Fast Doubling" repose sur les identités suivantes :
+// The "Fast Doubling" algorithm is based on the following identities:
 // F(2k) = F(k) * [2*F(k+1) - F(k)]
 // F(2k+1) = F(k)² + F(k+1)²
-// Il itère sur les bits de `n` du plus significatif au moins significatif,
-// effectuant une étape de "doublage" et, si le bit est à 1, une étape
-// "d'addition", atteignant une complexité en O(log n).
+// It iterates over the bits of `n` from most significant to least significant,
+// performing a "doubling" step and, if the bit is 1, an "addition" step,
+// achieving a complexity of O(log n).
 type OptimizedFastDoubling struct{}
 
-// Name retourne le nom de l'algorithme.
+// Name returns the name of the algorithm.
 func (fd *OptimizedFastDoubling) Name() string {
-	return "Fast Doubling (O(log n), Parallèle, Zéro-Alloc)"
+	return "Fast Doubling (O(log n), Parallel, Zero-Alloc)"
 }
 
-// CalculateCore exécute le calcul de F(n) en utilisant l'algorithme
-// "Fast Doubling". Il optimise la gestion de la mémoire en utilisant un pool
-// d'objets pour les états de calcul et parallélise les multiplications de
-// grands nombres.
+// CalculateCore executes the calculation of F(n) using the "Fast Doubling"
+// algorithm. It optimizes memory management by using an object pool for
+// calculation states and parallelizes multiplications of large numbers.
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	mul := func(dest, x, y *big.Int) {
 		if fftThreshold > 0 && x.BitLen() > fftThreshold && y.BitLen() > fftThreshold {
@@ -56,7 +55,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			return nil, err
 		}
 
-		// Étape de Doublage
+		// Doubling Step
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
 
 		if useParallel && s.f_k1.BitLen() > threshold {
@@ -70,7 +69,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		s.f_k.Add(s.t1, s.t4)
 		s.f_k, s.f_k1, s.t3 = s.t3, s.f_k, s.f_k1
 
-		// Étape d'Addition
+		// Addition Step
 		if (n>>uint(i))&1 == 1 {
 			s.t1.Add(s.f_k, s.f_k1)
 			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
@@ -92,9 +91,8 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	return new(big.Int).Set(s.f_k), nil
 }
 
-// parallelMultiply3Optimized exécute les trois multiplications de l'étape de
-// doublage en parallèle pour optimiser les performances sur les machines
-// multi-cœurs.
+// parallelMultiply3Optimized executes the three multiplications of the
+// doubling step in parallel to optimize performance on multi-core machines.
 func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int)) {
 	var wg sync.WaitGroup
 	wg.Add(2)

@@ -8,21 +8,21 @@ import (
 	"sync"
 )
 
-// MatrixExponentiation implémente l'interface `coreCalculator` via
-// l'algorithme d'exponentiation matricielle.
+// MatrixExponentiation implements the `coreCalculator` interface via the
+// matrix exponentiation algorithm.
 //
-// L'algorithme est basé sur le fait que la n-ième puissance de la matrice
-// Q = [[1, 1], [1, 0]] contient le n-ième nombre de Fibonacci. Le calcul
-// de cette puissance est effectué en O(log n) multiplications de matrices
-// en utilisant l'exponentiation binaire.
+// The algorithm is based on the fact that the n-th power of the matrix
+// Q = [[1, 1], [1, 0]] contains the n-th Fibonacci number. The calculation
+// of this power is performed in O(log n) matrix multiplications using
+// binary exponentiation.
 type MatrixExponentiation struct{}
 
-// Name retourne le nom de l'algorithme.
+// Name returns the name of the algorithm.
 func (c *MatrixExponentiation) Name() string {
-	return "Exponentiation Matricielle (O(log n), Parallèle, Zéro-Alloc)"
+	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
 
-// CalculateCore exécute le calcul de F(n) par exponentiation matricielle.
+// CalculateCore executes the calculation of F(n) by matrix exponentiation.
 func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil
@@ -70,7 +70,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	return new(big.Int).Set(state.res.a), nil
 }
 
-// multiplyMatrices effectue la multiplication de deux matrices 2x2, C = A * B.
+// multiplyMatrices performs the multiplication of two 2x2 matrices, C = A * B.
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
 	tasks := []func(){
 		func() { mul(state.t1, m1.a, m2.a) }, func() { mul(state.t2, m1.b, m2.c) },
@@ -86,8 +86,8 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 	dest.d.Add(state.t7, state.t8)
 }
 
-// squareSymmetricMatrix calcule le carré d'une matrice symétrique en
-// optimisant le nombre de multiplications d'entiers.
+// squareSymmetricMatrix calculates the square of a symmetric matrix by
+// optimizing the number of integer multiplications.
 func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	b_ad, ad := state.t4, state.t5
@@ -107,7 +107,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	dest.d.Add(b2, d2)
 }
 
-// executeTasks exécute un ensemble de tâches, en parallèle si spécifié.
+// executeTasks executes a set of tasks, in parallel if specified.
 func executeTasks(inParallel bool, tasks []func()) {
 	if !inParallel || len(tasks) < 2 {
 		for _, task := range tasks {
