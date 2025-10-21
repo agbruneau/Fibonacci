@@ -167,6 +167,8 @@ type CalculationResult struct {
 	Result *big.Int
 	// Duration is the total time taken for the calculation.
 	Duration time.Duration
+	// CPUTime is the CPU time consumed by the calculation.
+	CPUTime time.Duration
 	// Err holds any error encountered during the calculation.
 	Err error
 }
@@ -292,10 +294,24 @@ func executeCalculations(ctx context.Context, calculators []fibonacci.Calculator
 	for i, calc := range calculators {
 		idx, calculator := i, calc
 		g.Go(func() error {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			var cpuTime time.Duration
+
+			startCpuTime, errStart := getCPUTime()
 			startTime := time.Now()
+
 			res, err := calculator.Calculate(ctx, progressChan, idx, config.N, config.Threshold, config.FFTThreshold)
+
+			duration := time.Since(startTime)
+			endCpuTime, errEnd := getCPUTime()
+
+			if errStart == nil && errEnd == nil {
+				cpuTime = endCpuTime - startCpuTime
+			}
+
 			results[idx] = CalculationResult{
-				Name: calculator.Name(), Result: res, Duration: time.Since(startTime), Err: err,
+				Name: calculator.Name(), Result: res, Duration: duration, CPUTime: cpuTime, Err: err,
 			}
 			return nil
 		})
@@ -328,8 +344,8 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 
 	fmt.Fprintln(out, "\n--- Comparison Summary ---")
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "Algorithm\tDuration\tStatus")
-	fmt.Fprintln(tw, "----------\t-----\t------")
+	fmt.Fprintln(tw, "Algorithm\tDuration\tCPU Time\tStatus")
+	fmt.Fprintln(tw, "----------\t----\t--------\t------")
 	for _, res := range results {
 		var status string
 		if res.Err != nil {
@@ -345,7 +361,7 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 				firstValidResultDuration = res.Duration
 			}
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", res.Name, res.Duration.String(), status)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", res.Name, res.Duration.String(), res.CPUTime.String(), status)
 	}
 	tw.Flush()
 
