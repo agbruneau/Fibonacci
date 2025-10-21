@@ -15,8 +15,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// knownFibResults est un oracle de test contenant des valeurs de référence
-// pour la suite de Fibonacci, utilisées pour valider l'exactitude des calculs.
+// knownFibResults is a test oracle containing reference values
+// for the Fibonacci sequence, used to validate the accuracy of the calculations.
 var knownFibResults = []struct {
 	n      uint64
 	result string
@@ -27,8 +27,8 @@ var knownFibResults = []struct {
 	{1000, "43466557686937456435688527675040625802564660517371780402481729089536555417949051890403879840079255169295922593080322634775209689623239873322471161642996440906533187938298969649928516003704476137795166849228875"},
 }
 
-// TestFibonacciCalculators valide systématiquement toutes les implémentations
-// de `Calculator` par rapport à l'oracle de test `knownFibResults`.
+// TestFibonacciCalculators systematically validates all implementations
+// of `Calculator` against the `knownFibResults` test oracle.
 func TestFibonacciCalculators(t *testing.T) {
 	ctx := context.Background()
 	calculators := map[string]Calculator{
@@ -47,13 +47,13 @@ func TestFibonacciCalculators(t *testing.T) {
 					result, err := calc.Calculate(ctx, nil, 0, testCase.n, DefaultParallelThreshold, 0)
 
 					if err != nil {
-						t.Fatalf("Erreur inattendue : %v", err)
+						t.Fatalf("Unexpected error: %v", err)
 					}
 					if result == nil {
-						t.Fatal("Résultat nul retourné sans erreur.")
+						t.Fatal("Nil result returned without an error.")
 					}
 					if result.Cmp(expected) != 0 {
-						t.Errorf("Résultat incorrect.\nAttendu: %s\nObtenu : %s", expected.String(), result.String())
+						t.Errorf("Incorrect result.\nExpected: %s\nGot: %s", expected.String(), result.String())
 					}
 				})
 			}
@@ -61,33 +61,33 @@ func TestFibonacciCalculators(t *testing.T) {
 	}
 }
 
-// TestLookupTableImmutability vérifie que la table de consultation (LUT)
-// garantit l'immuabilité de ses données en retournant des copies.
+// TestLookupTableImmutability verifies that the lookup table (LUT)
+// ensures the immutability of its data by returning copies.
 func TestLookupTableImmutability(t *testing.T) {
 	val1 := lookupSmall(10)
 	expected := big.NewInt(55)
 	if val1.Cmp(expected) != 0 {
-		t.Fatalf("Valeur F(10) incorrecte. Attendu 55, obtenu %s", val1.String())
+		t.Fatalf("Incorrect F(10) value. Expected 55, got %s", val1.String())
 	}
 	val1.Add(val1, big.NewInt(1))
 	val2 := lookupSmall(10)
 	if val2.Cmp(expected) != 0 {
-		t.Fatalf("Violation d'immuabilité : LUT modifiée. F(10) attendu 55, obtenu %s", val2.String())
+		t.Fatalf("Immutability violation: LUT modified. Expected F(10) to be 55, got %s", val2.String())
 	}
 }
 
-// TestNilCoreCalculatorPanic vérifie que `NewCalculator` panique si appelé
-// avec un `coreCalculator` nul.
+// TestNilCoreCalculatorPanic verifies that `NewCalculator` panics if called
+// with a nil `coreCalculator`.
 func TestNilCoreCalculatorPanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("NewCalculator aurait dû paniquer avec un noyau nil.")
+			t.Error("NewCalculator should have panicked with a nil core.")
 		}
 	}()
 	_ = NewCalculator(nil)
 }
 
-// TestProgressReporter valide la notification monotone de la progression.
+// TestProgressReporter validates the monotonic notification of progress.
 func TestProgressReporter(t *testing.T) {
 	calculators := map[string]Calculator{
 		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
@@ -105,7 +105,7 @@ func TestProgressReporter(t *testing.T) {
 				defer wg.Done()
 				for update := range progressChan {
 					if update.Value < lastProgress {
-						t.Errorf("Progression non-monotone. Précédent: %f, Actuel: %f", lastProgress, update.Value)
+						t.Errorf("Non-monotonic progress. Previous: %f, Current: %f", lastProgress, update.Value)
 					}
 					lastProgress = update.Value
 				}
@@ -116,17 +116,17 @@ func TestProgressReporter(t *testing.T) {
 			wg.Wait()
 
 			if err != nil {
-				t.Fatalf("Le calcul a échoué : %v", err)
+				t.Fatalf("Calculation failed: %v", err)
 			}
 			if lastProgress != 1.0 {
-				t.Errorf("Progression finale attendue 1.0, obtenue %f", lastProgress)
+				t.Errorf("Final progress expected to be 1.0, got %f", lastProgress)
 			}
 		})
 	}
 }
 
-// TestContextCancellation vérifie la réactivité des algorithmes à une
-// annulation de contexte.
+// TestContextCancellation verifies the responsiveness of the algorithms to a
+// context cancellation.
 func TestContextCancellation(t *testing.T) {
 	calculators := map[string]Calculator{
 		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
@@ -139,20 +139,20 @@ func TestContextCancellation(t *testing.T) {
 			defer cancel()
 			_, err := calc.Calculate(ctx, nil, 0, 100_000_000, DefaultParallelThreshold, 0)
 			if !errors.Is(err, context.DeadlineExceeded) {
-				t.Fatalf("Erreur attendue : %v, Obtenue : %v", context.DeadlineExceeded, err)
+				t.Fatalf("Expected error: %v, Got: %v", context.DeadlineExceeded, err)
 			}
 		})
 	}
 }
 
-// TestFibonacciProperties utilise des tests basés sur les propriétés pour
-// valider l'identité de Cassini pour un large éventail d'entrées.
+// TestFibonacciProperties uses property-based testing to
+// validate Cassini's identity for a wide range of inputs.
 func TestFibonacciProperties(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	uint64Gen := gen.UInt64Range(1, 2000)
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("Identité de Cassini", prop.ForAll(
+	properties.Property("Cassini's Identity", prop.ForAll(
 		func(n uint64) bool {
 			calc := NewCalculator(&OptimizedFastDoubling{})
 			ctx := context.Background()
@@ -164,7 +164,7 @@ func TestFibonacciProperties(t *testing.T) {
 			g.Go(func() error { var err error; f_n_plus_1, err = calc.Calculate(ctx, nil, 0, n+1, DefaultParallelThreshold, 0); return err })
 
 			if err := g.Wait(); err != nil {
-				t.Logf("Échec du calcul pour n=%d : %v", n, err)
+				t.Logf("Calculation failed for n=%d: %v", n, err)
 				return false
 			}
 
@@ -214,16 +214,16 @@ func BenchmarkFFTBased10M(b *testing.B) {
 	runBenchmark(b, NewCalculator(&FFTBasedCalculator{}), 10_000_000)
 }
 
-// ExampleCalculator_Calculate illustre l'utilisation de base d'un Calculator
-// pour calculer un nombre de Fibonacci.
+// ExampleCalculator_Calculate illustrates the basic use of a Calculator
+// to calculate a Fibonacci number.
 func ExampleCalculator_Calculate() {
-	// Crée un nouveau calculateur avec l'algorithme Fast Doubling.
+	// Create a new calculator with the Fast Doubling algorithm.
 	calculator := NewCalculator(&OptimizedFastDoubling{})
 
-	// Calcule le 20ème nombre de Fibonacci.
+	// Calculate the 20th Fibonacci number.
 	result, err := calculator.Calculate(context.Background(), nil, 0, 20, DefaultParallelThreshold, 0)
 	if err != nil {
-		fmt.Printf("Erreur de calcul : %v\n", err)
+		fmt.Printf("Calculation error: %v\n", err)
 		return
 	}
 
