@@ -8,21 +8,38 @@ import (
 	"sync"
 )
 
-// MatrixExponentiation implements the `coreCalculator` interface via the
-// matrix exponentiation algorithm.
+// MatrixExponentiation implements the `coreCalculator` interface using the
+// matrix exponentiation algorithm, a classic method for computing Fibonacci
+// numbers with a time complexity of O(log n).
 //
-// The algorithm is based on the fact that the n-th power of the matrix
-// Q = [[1, 1], [1, 0]] contains the n-th Fibonacci number. The calculation
-// of this power is performed in O(log n) matrix multiplications using
-// binary exponentiation.
+// The algorithm leverages the following property of the Fibonacci sequence:
+//   [ F(n+1) F(n)   ] = [ 1 1 ]^n
+//   [ F(n)   F(n-1) ]   [ 1 0 ]
+//
+// To find F(n), the algorithm calculates the n-th power of the matrix Q = [[1, 1], [1, 0]]
+// using binary exponentiation (also known as exponentiation by squaring). This
+// reduces the number of matrix multiplications to a logarithmic scale.
+//
+// This implementation incorporates several optimizations:
+//   - Zero-Allocation: Utilizes a `sync.Pool` to reuse `matrixState` objects,
+//     which contain matrices and temporary variables, to avoid allocations in
+//     the main loop and reduce GC overhead.
+//   - Parallelism: For matrices with large number entries (exceeding a
+//     configurable bit threshold), matrix multiplications are parallelized to
+//     take advantage of multi-core systems.
+//   - Symmetric Squaring: A specialized function `squareSymmetricMatrix` is
+//     used for squaring symmetric matrices, which is a common operation in this
+//     algorithm. This reduces the number of required `big.Int` multiplications.
 type MatrixExponentiation struct{}
 
-// Name returns the name of the algorithm.
+// Name returns the descriptive name of the algorithm.
 func (c *MatrixExponentiation) Name() string {
 	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
 
-// CalculateCore executes the calculation of F(n) by matrix exponentiation.
+// CalculateCore executes the Fibonacci calculation for F(n) using the matrix
+// exponentiation method. It manages the exponentiation loop, state pooling,
+// and progress reporting.
 func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil

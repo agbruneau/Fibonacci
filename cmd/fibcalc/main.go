@@ -26,31 +26,53 @@ import (
 	"example.com/fibcalc/internal/fibonacci"
 )
 
-// Application exit codes.
+// Application exit codes define the standard exit statuses for the application.
 const (
-	ExitSuccess       = 0
-	ExitErrorGeneric  = 1
-	ExitErrorTimeout  = 2
+	// ExitSuccess indicates a successful execution without errors.
+	ExitSuccess = 0
+	// ExitErrorGeneric indicates a general, unspecified error.
+	ExitErrorGeneric = 1
+	// ExitErrorTimeout signals that the calculation exceeded the configured timeout.
+	ExitErrorTimeout = 2
+	// ExitErrorMismatch indicates an inconsistency detected between the results of different algorithms.
 	ExitErrorMismatch = 3
-	ExitErrorConfig   = 4
+	// ExitErrorConfig denotes an error related to configuration or command-line arguments.
+	ExitErrorConfig = 4
+	// ExitErrorCanceled is used when the execution is canceled by the user (e.g., via SIGINT).
 	ExitErrorCanceled = 130
 )
 
+// ProgressBufferMultiplier defines the buffer size of the progress channel,
+// calculated as a multiple of the number of active calculators. A larger
+// buffer reduces the risk of blocking progress updates.
 const ProgressBufferMultiplier = 10
 
-// AppConfig aggregates the application's configuration parameters.
+// AppConfig aggregates the application's configuration parameters, parsed from
+// command-line flags. It encapsulates all settings that control the execution,
+// from the Fibonacci index to calculate to performance tuning parameters.
 type AppConfig struct {
-	N            uint64
-	Verbose      bool
-	Details      bool
-	Timeout      time.Duration
-	Algo         string
-	Threshold    int
+	// N is the index of the Fibonacci number to be calculated.
+	N uint64
+	// Verbose, if true, instructs the application to display the full calculated number.
+	Verbose bool
+	// Details, if true, provides a detailed report including performance metrics.
+	Details bool
+	// Timeout sets the maximum duration for the calculation.
+	Timeout time.Duration
+	// Algo specifies the algorithm to use ("all", "fast", "matrix", etc.).
+	Algo string
+	// Threshold determines the bit size at which multiplications are parallelized.
+	Threshold int
+	// FFTThreshold is the bit size threshold for using FFT-based multiplication.
 	FFTThreshold int
-	Calibrate    bool
+	// Calibrate, if true, runs the application in calibration mode to find the
+	// optimal parallelism threshold.
+	Calibrate bool
 }
 
-// Validate checks the semantic consistency of the configuration.
+// Validate checks the semantic consistency of the configuration parameters. It
+// ensures that numerical values are within valid ranges and that the chosen
+// algorithm is supported. It returns an error if the configuration is invalid.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
 		return errors.New("timeout value must be strictly positive")
@@ -135,12 +157,18 @@ func parseConfig(programName string, args []string, errorWriter io.Writer) (AppC
 	return config, nil
 }
 
-// CalculationResult encapsulates the result of a calculation.
+// CalculationResult encapsulates the outcome of a single Fibonacci calculation.
+// It holds the result, execution duration, and any error that occurred, facilitating
+// the aggregation and comparison of results from multiple algorithms.
 type CalculationResult struct {
-	Name     string
-	Result   *big.Int
+	// Name is the identifier of the algorithm used for the calculation.
+	Name string
+	// Result is the calculated Fibonacci number. It is nil if an error occurred.
+	Result *big.Int
+	// Duration is the total time taken for the calculation.
 	Duration time.Duration
-	Err      error
+	// Err holds any error encountered during the calculation.
+	Err error
 }
 
 // runCalibration runs benchmarks to find the optimal parallelism threshold.

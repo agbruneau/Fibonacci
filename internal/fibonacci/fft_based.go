@@ -6,18 +6,24 @@ import (
 	"math/bits"
 )
 
-// FFTBasedCalculator implements `coreCalculator` using exclusively FFT-based
-// multiplication for operations on large numbers.
+// FFTBasedCalculator implements the `coreCalculator` interface by applying the
+// "Fast Doubling" algorithm, but with a key modification: all `big.Int`
+// multiplications are exclusively performed using the FFT-based `mulFFT` function.
+// This calculator is designed to be a proof-of-concept and a benchmark tool to
+// evaluate the performance of FFT multiplication for Fibonacci calculations at
+// all scales, without the adaptive thresholding used in other calculators.
 type FFTBasedCalculator struct{}
 
-// Name returns the name of the algorithm.
+// Name returns the name of the algorithm, indicating its reliance on FFT.
 func (c *FFTBasedCalculator) Name() string {
 	return "FFT-Based Doubling"
 }
 
-// CalculateCore calculates F(n) using the "Fast Doubling" algorithm where all
-// `big.Int` multiplications are performed via `mulFFT`. This approach is
-// optimal for extremely large `n` numbers.
+// CalculateCore executes the Fibonacci calculation for F(n). It follows the
+// same logic as the `OptimizedFastDoubling` calculator but replaces all standard
+// `big.Int.Mul` calls with `mulFFT`. This makes it particularly suitable for
+// calculating extremely large Fibonacci numbers where FFT multiplication is
+// consistently more performant.
 func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	s := acquireState()
 	defer releaseState(s)

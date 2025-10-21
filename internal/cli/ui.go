@@ -27,14 +27,18 @@ const (
 	DisplayEdges = 25
 )
 
-// ProgressState encapsulates the aggregated progress state of the calculations.
+// ProgressState encapsulates the aggregated progress of one or more concurrent
+// calculations. It maintains the individual progress of each calculator and
+// provides methods to compute the average and display a progress bar.
 type ProgressState struct {
 	progresses     []float64
 	numCalculators int
 	out            io.Writer
 }
 
-// NewProgressState initializes a new progress state.
+// NewProgressState is a factory function that initializes and returns a new
+// `ProgressState`. It requires the total number of calculators to track and the
+// output writer for displaying the progress bar.
 func NewProgressState(numCalculators int, out io.Writer) *ProgressState {
 	return &ProgressState{
 		progresses:     make([]float64, numCalculators),
@@ -43,14 +47,17 @@ func NewProgressState(numCalculators int, out io.Writer) *ProgressState {
 	}
 }
 
-// Update updates the progress for a specific calculator.
+// Update records a new progress value for a specific calculator, identified by
+// its index. This method is safe for concurrent use.
 func (ps *ProgressState) Update(index int, value float64) {
 	if index >= 0 && index < len(ps.progresses) {
 		ps.progresses[index] = value
 	}
 }
 
-// CalculateAverage calculates the average progress of all calculators.
+// CalculateAverage computes the average progress across all tracked calculators.
+// This is used to display a single, aggregated progress bar when multiple
+// algorithms are run in parallel.
 func (ps *ProgressState) CalculateAverage() float64 {
 	var totalProgress float64
 	for _, p := range ps.progresses {
@@ -62,7 +69,9 @@ func (ps *ProgressState) CalculateAverage() float64 {
 	return totalProgress / float64(ps.numCalculators)
 }
 
-// PrintBar displays the formatted progress bar.
+// PrintBar renders and displays the current state of the progress bar to the
+// configured output writer. It can be a final print (with a newline) or an
+// in-place update.
 func (ps *ProgressState) PrintBar(final bool) {
 	avgProgress := ps.CalculateAverage()
 	label := "Progress"
@@ -76,12 +85,15 @@ func (ps *ProgressState) PrintBar(final bool) {
 	}
 }
 
-// DisplayAggregateProgress handles the asynchronous display of progress. It
-// runs in a goroutine and consumes progress updates from a channel to refresh
-// the user interface at regular intervals.
+// DisplayAggregateProgress manages the asynchronous display of a progress bar. It
+// is designed to run in a dedicated goroutine. It listens for `ProgressUpdate`
+// messages on a channel, aggregates them in a `ProgressState`, and periodically
+// refreshes the progress bar on the screen. The function ensures the final state
+// of the bar is printed before exiting.
 func DisplayAggregateProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressUpdate, numCalculators int, out io.Writer) {
 	defer wg.Done()
 	if numCalculators <= 0 {
+		// Drain the channel to prevent sender goroutines from blocking.
 		for range progressChan {
 		}
 		return
@@ -95,17 +107,19 @@ func DisplayAggregateProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.
 		select {
 		case update, ok := <-progressChan:
 			if !ok {
+				// Channel closed, print the final bar and exit.
 				state.PrintBar(true)
 				return
 			}
 			state.Update(update.CalculatorIndex, update.Value)
 		case <-ticker.C:
+			// Refresh the bar periodically.
 			state.PrintBar(false)
 		}
 	}
 }
 
-// progressBar generates a string representing a progress bar.
+// progressBar generates a string representing a textual progress bar.
 func progressBar(progress float64, length int) string {
 	if progress > 1.0 {
 		progress = 1.0
@@ -115,7 +129,7 @@ func progressBar(progress float64, length int) string {
 	}
 	count := int(progress * float64(length))
 	var builder strings.Builder
-	builder.Grow(length * 3)
+	builder.Grow(length)
 	for i := 0; i < length; i++ {
 		if i < count {
 			builder.WriteRune('█')
@@ -126,7 +140,11 @@ func progressBar(progress float64, length int) string {
 	return builder.String()
 }
 
-// DisplayResult formats and displays the final calculation result.
+// DisplayResult formats and prints the final calculation result to the specified
+// output writer. It provides different levels of detail based on the `verbose`
+// and `details` flags, including metadata like binary size, number of digits,
+// and scientific notation. For very large numbers, it truncates the output
+// unless `verbose` is true.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
 	fmt.Fprintf(out, "Binary Size of the Result: %s bits.\n", formatNumberString(fmt.Sprintf("%d", bitLen)))

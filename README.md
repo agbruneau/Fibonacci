@@ -16,6 +16,7 @@ The code is fully commented in English, with an academic perspective, to serve a
 *   **Multiple Algorithms**: Implementation of several logarithmic complexity algorithms:
     *   **Fast Doubling** (`fast`)
     *   **Matrix Exponentiation** (`matrix`)
+    *   **FFT-Based Doubling** (`fft`)
 *   **Advanced Performance Optimizations**:
     *   **"Zero-Allocation" Strategy**: Intensive use of `sync.Pool` for reusing objects (`big.Int`, calculation states), minimizing pressure on the Garbage Collector.
     *   **Task Parallelism**: Exploitation of multi-core processors to parallelize integer multiplications beyond a configurable threshold.
@@ -76,7 +77,7 @@ The executable is used as follows:
 | Flag             | Alias       | Description                                                              | Default      |
 | ---------------- | ----------- | ------------------------------------------------------------------------ | ----------- |
 | `-n`             |             | The index 'n' of the Fibonacci sequence to calculate.                        | `100000000` |
-| `-algo`          |             | Algorithm: `fast`, `matrix`, or `all` to compare.                   | `all`       |
+| `-algo`          |             | Algorithm: `fast`, `matrix`, `fft`, or `all` to compare.            | `all`       |
 | `-timeout`       |             | Maximum execution time (e.g., `10s`, `1m30s`).                          | `5m0s`      |
 | `-threshold`     |             | Threshold (in bits) to parallelize multiplications.                   | `4096`      |
 | `-fft-threshold` |             | Threshold (in bits) to use FFT multiplication (0=disabled).        | `20000`     |
