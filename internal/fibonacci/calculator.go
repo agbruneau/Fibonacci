@@ -24,21 +24,42 @@ const (
 )
 
 // ProgressUpdate is a data transfer object (DTO) that encapsulates the
-// progress state of a calculation.
+// progress state of a calculation. It is sent over a channel from the
+// calculator to the user interface to provide asynchronous progress updates.
 type ProgressUpdate struct {
-	CalculatorIndex int     // Unique identifier of the calculator.
-	Value           float64 // Normalized progress value [0.0, 1.0].
+	// CalculatorIndex is a unique identifier for the calculator instance, allowing
+	// the UI to distinguish between multiple concurrent calculations.
+	CalculatorIndex int
+	// Value represents the normalized progress of the calculation, ranging from 0.0 to 1.0.
+	Value float64
 }
 
 // ProgressReporter defines the functional type for a progress reporting
-// callback.
+// callback. This simplified interface is used by core calculation algorithms to
+// report their progress without being coupled to the channel-based communication
+// mechanism of the broader application.
 type ProgressReporter func(progress float64)
 
-// Calculator defines the public interface for a Fibonacci calculator.
+// Calculator defines the public interface for a Fibonacci calculator. It is
+// the primary abstraction used by the application's orchestration layer to
+// interact with different Fibonacci calculation algorithms.
 type Calculator interface {
-	// Calculate executes the calculation of the n-th Fibonacci number.
+	// Calculate executes the calculation of the n-th Fibonacci number. It is
+	// designed for safe concurrent execution and supports cancellation through the
+	// provided context. Progress updates are sent asynchronously to the progressChan.
+	//
+	// Parameters:
+	//   - ctx: The context for managing cancellation and deadlines.
+	//   - progressChan: The channel for sending progress updates.
+	//   - calcIndex: A unique index for the calculator instance.
+	//   - n: The index of the Fibonacci number to calculate.
+	//   - threshold: The bit size threshold for parallelizing multiplications.
+	//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+	//
+	// Returns the calculated Fibonacci number and an error if one occurred.
 	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
-	// Name returns the name of the calculation algorithm.
+
+	// Name returns the display name of the calculation algorithm (e.g., "Fast Doubling").
 	Name() string
 }
 
@@ -50,12 +71,17 @@ type coreCalculator interface {
 }
 
 // FibCalculator is an implementation of the `Calculator` interface that uses
-// the Decorator design pattern to add functionality around a `coreCalculator`.
+// the Decorator design pattern. It wraps a `coreCalculator` to add cross-cutting
+// concerns, such as the lookup table optimization for small `n` and the adaptation
+// of the progress reporting mechanism.
 type FibCalculator struct {
 	core coreCalculator
 }
 
-// NewCalculator is a factory function that constructs a `FibCalculator`.
+// NewCalculator is a factory function that constructs and returns a new
+// `FibCalculator`. It takes a `coreCalculator` as input, which represents the
+// specific Fibonacci algorithm to be used. This function panics if the core
+// calculator is nil, ensuring system integrity.
 func NewCalculator(core coreCalculator) Calculator {
 	if core == nil {
 		panic("fibonacci: the `coreCalculator` implementation cannot be nil")
@@ -63,14 +89,17 @@ func NewCalculator(core coreCalculator) Calculator {
 	return &FibCalculator{core: core}
 }
 
-// Name returns the name of the encapsulated calculator.
+// Name returns the name of the encapsulated `coreCalculator`, fulfilling the
+// `Calculator` interface by delegating the call.
 func (c *FibCalculator) Name() string {
 	return c.core.Name()
 }
 
-// Calculate orchestrates the calculation. It adapts the progress channel into a
-// simple `ProgressReporter`, applies an optimization for small values of `n`,
-// and delegates the main calculation to the `coreCalculator`.
+// Calculate orchestrates the calculation process. It first checks for small
+// values of `n` to leverage the lookup table optimization. For larger values, it
+// adapts the `progressChan` into a `ProgressReporter` callback and delegates the
+// core calculation to the wrapped `coreCalculator`. This method ensures that
+// progress is reported completely upon successful calculation.
 func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	reporter := func(progress float64) {
 		if progressChan == nil {
