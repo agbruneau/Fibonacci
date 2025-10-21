@@ -1,7 +1,7 @@
-// Le paquetage cli fournit des fonctions pour construire une interface utilisateur
-// en ligne de commande (CLI) pour l'application de calcul Fibonacci. Il gère
-// l'affichage de la progression des calculs de manière asynchrone et formate
-// les résultats pour une présentation claire et lisible.
+// The cli package provides functions for building a command-line interface (CLI)
+// for the Fibonacci calculation application. It handles the asynchronous
+// display of calculation progress and formats the results for a clear and
+// readable presentation.
 package cli
 
 import (
@@ -16,25 +16,25 @@ import (
 )
 
 const (
-	// ProgressRefreshRate définit la fréquence de rafraîchissement de la barre de progression.
+	// ProgressRefreshRate defines the refresh frequency of the progress bar.
 	ProgressRefreshRate = 100 * time.Millisecond
-	// ProgressBarWidth définit la largeur en caractères de la barre de progression.
+	// ProgressBarWidth defines the width in characters of the progress bar.
 	ProgressBarWidth = 40
-	// TruncationLimit est le seuil de chiffres à partir duquel un résultat est tronqué.
+	// TruncationLimit is the digit threshold from which a result is truncated.
 	TruncationLimit = 100
-	// DisplayEdges spécifie le nombre de chiffres à afficher au début et à la fin
-	// d'un nombre tronqué.
+	// DisplayEdges specifies the number of digits to display at the beginning
+	// and end of a truncated number.
 	DisplayEdges = 25
 )
 
-// ProgressState encapsule l'état agrégé de la progression des calculs.
+// ProgressState encapsulates the aggregated progress state of the calculations.
 type ProgressState struct {
 	progresses     []float64
 	numCalculators int
 	out            io.Writer
 }
 
-// NewProgressState initialise un nouvel état de progression.
+// NewProgressState initializes a new progress state.
 func NewProgressState(numCalculators int, out io.Writer) *ProgressState {
 	return &ProgressState{
 		progresses:     make([]float64, numCalculators),
@@ -43,14 +43,14 @@ func NewProgressState(numCalculators int, out io.Writer) *ProgressState {
 	}
 }
 
-// Update met à jour la progression pour un calculateur spécifique.
+// Update updates the progress for a specific calculator.
 func (ps *ProgressState) Update(index int, value float64) {
 	if index >= 0 && index < len(ps.progresses) {
 		ps.progresses[index] = value
 	}
 }
 
-// CalculateAverage calcule la progression moyenne de tous les calculateurs.
+// CalculateAverage calculates the average progress of all calculators.
 func (ps *ProgressState) CalculateAverage() float64 {
 	var totalProgress float64
 	for _, p := range ps.progresses {
@@ -62,12 +62,12 @@ func (ps *ProgressState) CalculateAverage() float64 {
 	return totalProgress / float64(ps.numCalculators)
 }
 
-// PrintBar affiche la barre de progression formatée.
+// PrintBar displays the formatted progress bar.
 func (ps *ProgressState) PrintBar(final bool) {
 	avgProgress := ps.CalculateAverage()
-	label := "Progression"
+	label := "Progress"
 	if ps.numCalculators > 1 {
-		label = "Progression Moyenne"
+		label = "Average Progress"
 	}
 	bar := progressBar(avgProgress, ProgressBarWidth)
 	fmt.Fprintf(ps.out, "\r\033[K%s : %6.2f%% [%s]", label, avgProgress*100, bar)
@@ -76,9 +76,9 @@ func (ps *ProgressState) PrintBar(final bool) {
 	}
 }
 
-// DisplayAggregateProgress gère l'affichage de la progression de manière asynchrone.
-// Elle s'exécute dans une goroutine et consomme les mises à jour de progression
-// d'un canal pour rafraîchir l'interface utilisateur à intervalles réguliers.
+// DisplayAggregateProgress handles the asynchronous display of progress. It
+// runs in a goroutine and consumes progress updates from a channel to refresh
+// the user interface at regular intervals.
 func DisplayAggregateProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressUpdate, numCalculators int, out io.Writer) {
 	defer wg.Done()
 	if numCalculators <= 0 {
@@ -105,7 +105,7 @@ func DisplayAggregateProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.
 	}
 }
 
-// progressBar génère une chaîne de caractères représentant une barre de progression.
+// progressBar generates a string representing a progress bar.
 func progressBar(progress float64, length int) string {
 	if progress > 1.0 {
 		progress = 1.0
@@ -126,42 +126,42 @@ func progressBar(progress float64, length int) string {
 	return builder.String()
 }
 
-// DisplayResult formate et affiche le résultat final du calcul.
+// DisplayResult formats and displays the final calculation result.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
-	fmt.Fprintf(out, "Taille Binaire du Résultat : %s bits.\n", formatNumberString(fmt.Sprintf("%d", bitLen)))
+	fmt.Fprintf(out, "Binary Size of the Result: %s bits.\n", formatNumberString(fmt.Sprintf("%d", bitLen)))
 
 	if !details {
-		fmt.Fprintln(out, "(Utilisez l'option -d ou --details pour un rapport complet)")
+		fmt.Fprintln(out, "(Use the -d or --details option for a full report)")
 		return
 	}
 
-	fmt.Fprintln(out, "\n--- Analyse Détaillée du Résultat ---")
+	fmt.Fprintln(out, "\n--- Detailed Result Analysis ---")
 	if duration > 0 {
-		fmt.Fprintf(out, "Temps de calcul       : %s\n", duration)
+		fmt.Fprintf(out, "Calculation time      : %s\n", duration)
 	}
 
 	resultStr := result.String()
 	numDigits := len(resultStr)
-	fmt.Fprintf(out, "Nombre de chiffres    : %s\n", formatNumberString(fmt.Sprintf("%d", numDigits)))
+	fmt.Fprintf(out, "Number of digits    : %s\n", formatNumberString(fmt.Sprintf("%d", numDigits)))
 
 	if numDigits > 6 {
 		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Notation scientifique : %.6e\n", f)
+		fmt.Fprintf(out, "Scientific notation : %.6e\n", f)
 	}
 
-	fmt.Fprintln(out, "\n--- Valeur Calculée ---")
+	fmt.Fprintln(out, "\n--- Calculated Value ---")
 	if verbose {
 		fmt.Fprintf(out, "F(%d) =\n%s\n", n, formatNumberString(resultStr))
 	} else if numDigits > TruncationLimit {
-		fmt.Fprintf(out, "F(%d) (tronqué) = %s...%s\n", n, resultStr[:DisplayEdges], resultStr[numDigits-DisplayEdges:])
-		fmt.Fprintln(out, "(Utilisez l'option -v ou --verbose pour afficher la valeur complète)")
+		fmt.Fprintf(out, "F(%d) (truncated) = %s...%s\n", n, resultStr[:DisplayEdges], resultStr[numDigits-DisplayEdges:])
+		fmt.Fprintln(out, "(Use the -v or --verbose option to display the full value)")
 	} else {
 		fmt.Fprintf(out, "F(%d) = %s\n", n, formatNumberString(resultStr))
 	}
 }
 
-// formatNumberString insère des séparateurs de milliers dans une chaîne numérique.
+// formatNumberString inserts thousand separators into a numeric string.
 func formatNumberString(s string) string {
 	if len(s) == 0 {
 		return ""

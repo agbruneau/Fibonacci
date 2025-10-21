@@ -6,18 +6,18 @@ import (
 	"math/bits"
 )
 
-// FFTBasedCalculator implémente `coreCalculator` en utilisant exclusivement la
-// multiplication basée sur la FFT pour les opérations sur les grands nombres.
+// FFTBasedCalculator implements `coreCalculator` using exclusively FFT-based
+// multiplication for operations on large numbers.
 type FFTBasedCalculator struct{}
 
-// Name retourne le nom de l'algorithme.
+// Name returns the name of the algorithm.
 func (c *FFTBasedCalculator) Name() string {
 	return "FFT-Based Doubling"
 }
 
-// CalculateCore calcule F(n) en utilisant l'algorithme "Fast Doubling" où
-// toutes les multiplications de `big.Int` sont effectuées via `mulFFT`.
-// Cette approche est optimale pour des nombres `n` extrêmement grands.
+// CalculateCore calculates F(n) using the "Fast Doubling" algorithm where all
+// `big.Int` multiplications are performed via `mulFFT`. This approach is
+// optimal for extremely large `n` numbers.
 func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	s := acquireState()
 	defer releaseState(s)
@@ -37,7 +37,7 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 			return nil, err
 		}
 
-		// Étape de Doublage
+		// Doubling Step
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
 		mulFFT(s.t3, s.f_k, s.t2)
 		mulFFT(s.t1, s.f_k1, s.f_k1)
@@ -45,7 +45,7 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 		s.f_k.Set(s.t3)
 		s.f_k1.Add(s.t1, s.t4)
 
-		// Étape d'Addition
+		// Addition Step
 		if (n>>uint(i))&1 == 1 {
 			s.t1.Set(s.f_k1)
 			s.f_k1.Add(s.f_k1, s.f_k)

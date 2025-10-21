@@ -1,11 +1,10 @@
-// Le paquetage fibonacci fournit des implémentations pour le calcul des nombres de
-// la suite de Fibonacci. Il expose une interface `Calculator` qui abstrait
-// l'algorithme de calcul sous-jacent, permettant ainsi d'utiliser différentes
-// stratégies (par exemple, Fast Doubling, Exponentiation Matricielle) de manière
-// interchangeable. Le paquetage intègre également des optimisations telles
-// qu'une table de consultation (LUT) pour les petites valeurs et une gestion
-// de la mémoire via des pools d'objets pour minimiser la pression sur le
-// ramasse-miettes (GC).
+// The fibonacci package provides implementations for calculating Fibonacci
+// numbers. It exposes a `Calculator` interface that abstracts the
+// underlying calculation algorithm, allowing different strategies (e.g., Fast
+// Doubling, Matrix Exponentiation) to be used interchangeably. The package also
+// integrates optimizations such as a lookup table (LUT) for small values and
+// memory management via object pools to minimize pressure on the garbage
+// collector (GC).
 package fibonacci
 
 import (
@@ -15,63 +14,63 @@ import (
 )
 
 const (
-	// MaxFibUint64 représente l'indice du plus grand nombre de Fibonacci
-	// calculable sur un entier non signé de 64 bits.
+	// MaxFibUint64 represents the index of the largest Fibonacci number
+	// that can be calculated on a 64-bit unsigned integer.
 	MaxFibUint64 = 93
 
-	// DefaultParallelThreshold définit le seuil en bits à partir duquel les
-	// multiplications de grands entiers sont parallélisées.
+	// DefaultParallelThreshold defines the bit threshold from which
+	// multiplications of large integers are parallelized.
 	DefaultParallelThreshold = 4096
 )
 
-// ProgressUpdate est un objet de transfert de données (DTO) qui encapsule
-// l'état de progression d'un calcul.
+// ProgressUpdate is a data transfer object (DTO) that encapsulates the
+// progress state of a calculation.
 type ProgressUpdate struct {
-	CalculatorIndex int     // Identifiant unique du calculateur.
-	Value           float64 // Valeur normalisée de la progression [0.0, 1.0].
+	CalculatorIndex int     // Unique identifier of the calculator.
+	Value           float64 // Normalized progress value [0.0, 1.0].
 }
 
-// ProgressReporter définit le type fonctionnel pour un callback de rapport de
-// progression.
+// ProgressReporter defines the functional type for a progress reporting
+// callback.
 type ProgressReporter func(progress float64)
 
-// Calculator définit l'interface publique pour un calculateur Fibonacci.
+// Calculator defines the public interface for a Fibonacci calculator.
 type Calculator interface {
-	// Calculate exécute le calcul du n-ième nombre de Fibonacci.
+	// Calculate executes the calculation of the n-th Fibonacci number.
 	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
-	// Name retourne le nom de l'algorithme de calcul.
+	// Name returns the name of the calculation algorithm.
 	Name() string
 }
 
-// coreCalculator définit l'interface interne pour un algorithme de calcul pur.
+// coreCalculator defines the internal interface for a pure calculation
+// algorithm.
 type coreCalculator interface {
 	CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 	Name() string
 }
 
-// FibCalculator est une implémentation de l'interface `Calculator` qui utilise
-// le patron de conception Décorateur pour ajouter des fonctionnalités autour
-// d'un `coreCalculator`.
+// FibCalculator is an implementation of the `Calculator` interface that uses
+// the Decorator design pattern to add functionality around a `coreCalculator`.
 type FibCalculator struct {
 	core coreCalculator
 }
 
-// NewCalculator est une fonction de fabrique qui construit un `FibCalculator`.
+// NewCalculator is a factory function that constructs a `FibCalculator`.
 func NewCalculator(core coreCalculator) Calculator {
 	if core == nil {
-		panic("fibonacci: l'implémentation de `coreCalculator` ne peut être nulle")
+		panic("fibonacci: the `coreCalculator` implementation cannot be nil")
 	}
 	return &FibCalculator{core: core}
 }
 
-// Name retourne le nom du calculateur encapsulé.
+// Name returns the name of the encapsulated calculator.
 func (c *FibCalculator) Name() string {
 	return c.core.Name()
 }
 
-// Calculate orchestre le calcul. Il adapte le canal de progression en un
-// simple `ProgressReporter`, applique une optimisation pour les petites valeurs
-// de `n` et délègue le calcul principal au `coreCalculator`.
+// Calculate orchestrates the calculation. It adapts the progress channel into a
+// simple `ProgressReporter`, applies an optimization for small values of `n`,
+// and delegates the main calculation to the `coreCalculator`.
 func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	reporter := func(progress float64) {
 		if progressChan == nil {
@@ -111,19 +110,19 @@ func init() {
 	}
 }
 
-// lookupSmall retourne une copie du n-ième nombre de Fibonacci à partir de la
-// table de consultation, garantissant l'immuabilité de la table.
+// lookupSmall returns a copy of the n-th Fibonacci number from the lookup
+// table, ensuring the immutability of the table.
 func lookupSmall(n uint64) *big.Int {
 	return new(big.Int).Set(fibLookupTable[n])
 }
 
-// calculationState agrège les variables temporaires pour l'algorithme
-// "Fast Doubling", permettant une gestion efficace via un pool d'objets.
+// calculationState aggregates temporary variables for the "Fast Doubling"
+// algorithm, allowing efficient management via an object pool.
 type calculationState struct {
 	f_k, f_k1, t1, t2, t3, t4 *big.Int
 }
 
-// Reset réinitialise l'état pour une nouvelle utilisation.
+// Reset resets the state for a new use.
 func (s *calculationState) Reset() {
 	s.f_k.SetInt64(0)
 	s.f_k1.SetInt64(1)
@@ -142,27 +141,27 @@ var statePool = sync.Pool{
 	},
 }
 
-// acquireState obtient un état du pool et le réinitialise.
+// acquireState gets a state from the pool and resets it.
 func acquireState() *calculationState {
 	s := statePool.Get().(*calculationState)
 	s.Reset()
 	return s
 }
 
-// releaseState remet un état dans le pool.
+// releaseState puts a state back into the pool.
 func releaseState(s *calculationState) {
 	statePool.Put(s)
 }
 
-// matrix représente une matrice 2x2 de `*big.Int`.
+// matrix represents a 2x2 matrix of `*big.Int`.
 type matrix struct{ a, b, c, d *big.Int }
 
-// newMatrix alloue une nouvelle matrice.
+// newMatrix allocates a new matrix.
 func newMatrix() *matrix {
 	return &matrix{new(big.Int), new(big.Int), new(big.Int), new(big.Int)}
 }
 
-// Set copie les valeurs d'une autre matrice.
+// Set copies the values of another matrix.
 func (m *matrix) Set(other *matrix) {
 	m.a.Set(other.a)
 	m.b.Set(other.b)
@@ -170,7 +169,7 @@ func (m *matrix) Set(other *matrix) {
 	m.d.Set(other.d)
 }
 
-// SetIdentity configure la matrice en tant que matrice identité.
+// SetIdentity configures the matrix as an identity matrix.
 func (m *matrix) SetIdentity() {
 	m.a.SetInt64(1)
 	m.b.SetInt64(0)
@@ -178,7 +177,7 @@ func (m *matrix) SetIdentity() {
 	m.d.SetInt64(1)
 }
 
-// SetBaseQ configure la matrice avec la matrice de base de Fibonacci.
+// SetBaseQ configures the matrix with the Fibonacci base matrix.
 func (m *matrix) SetBaseQ() {
 	m.a.SetInt64(1)
 	m.b.SetInt64(1)
@@ -186,14 +185,13 @@ func (m *matrix) SetBaseQ() {
 	m.d.SetInt64(0)
 }
 
-// matrixState agrège les variables pour l'algorithme d'exponentiation
-// matricielle.
+// matrixState aggregates variables for the matrix exponentiation algorithm.
 type matrixState struct {
 	res, p, tempMatrix             *matrix
 	t1, t2, t3, t4, t5, t6, t7, t8 *big.Int
 }
 
-// Reset réinitialise l'état pour une nouvelle utilisation.
+// Reset resets the state for a new use.
 func (s *matrixState) Reset() {
 	s.res.SetIdentity()
 	s.p.SetBaseQ()
@@ -211,14 +209,14 @@ var matrixStatePool = sync.Pool{
 	},
 }
 
-// acquireMatrixState obtient un état du pool et le réinitialise.
+// acquireMatrixState gets a state from the pool and resets it.
 func acquireMatrixState() *matrixState {
 	s := matrixStatePool.Get().(*matrixState)
 	s.Reset()
 	return s
 }
 
-// releaseMatrixState remet un état dans le pool.
+// releaseMatrixState puts a state back into the pool.
 func releaseMatrixState(s *matrixState) {
 	matrixStatePool.Put(s)
 }

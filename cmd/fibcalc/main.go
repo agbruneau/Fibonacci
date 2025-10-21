@@ -1,6 +1,6 @@
-// Le paquetage main est le point d'entrée de l'application fibcalc. Il gère
-// l'analyse des arguments de la ligne de commande, la configuration,
-// l'orchestration des calculs et l'affichage des résultats.
+// The main package is the entry point of the fibcalc application. It handles
+// command-line argument parsing, configuration, calculation orchestration,
+// and result display.
 package main
 
 import (
@@ -26,7 +26,7 @@ import (
 	"example.com/fibcalc/internal/fibonacci"
 )
 
-// Codes de sortie de l'application.
+// Application exit codes.
 const (
 	ExitSuccess       = 0
 	ExitErrorGeneric  = 1
@@ -38,7 +38,7 @@ const (
 
 const ProgressBufferMultiplier = 10
 
-// AppConfig agrège les paramètres de configuration de l'application.
+// AppConfig aggregates the application's configuration parameters.
 type AppConfig struct {
 	N            uint64
 	Verbose      bool
@@ -50,20 +50,20 @@ type AppConfig struct {
 	Calibrate    bool
 }
 
-// Validate vérifie la cohérence sémantique de la configuration.
+// Validate checks the semantic consistency of the configuration.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
-		return errors.New("la valeur du timeout doit être strictement positive")
+		return errors.New("timeout value must be strictly positive")
 	}
 	if c.Threshold < 0 {
-		return fmt.Errorf("le seuil de parallélisme ne peut être négatif : %d", c.Threshold)
+		return fmt.Errorf("parallelism threshold cannot be negative: %d", c.Threshold)
 	}
 	if c.FFTThreshold < 0 {
-		return fmt.Errorf("le seuil FFT ne peut être négatif : %d", c.FFTThreshold)
+		return fmt.Errorf("FFT threshold cannot be negative: %d", c.FFTThreshold)
 	}
 	if c.Algo != "all" {
 		if _, ok := calculatorRegistry[c.Algo]; !ok {
-			return fmt.Errorf("algorithme non reconnu : '%s'. Algorithmes valides : 'all' ou l'un de [%s]", c.Algo, strings.Join(availableAlgos, ", "))
+			return fmt.Errorf("unrecognized algorithm: '%s'. Valid algorithms: 'all' or one of [%s]", c.Algo, strings.Join(availableAlgos, ", "))
 		}
 	}
 	return nil
@@ -78,12 +78,12 @@ var calculatorRegistry = map[string]fibonacci.Calculator{
 func init() {
 	for name, calc := range calculatorRegistry {
 		if calc == nil {
-			panic(fmt.Sprintf("Erreur critique d'initialisation : le calculateur enregistré sous le nom '%s' est nil.", name))
+			panic(fmt.Sprintf("Critical initialization error: the calculator registered under the name '%s' is nil.", name))
 		}
 	}
 }
 
-// getSortedCalculatorKeys retourne les clés du registre des calculateurs, triées.
+// getSortedCalculatorKeys returns the sorted keys of the calculator registry.
 func getSortedCalculatorKeys() []string {
 	keys := make([]string, 0, len(calculatorRegistry))
 	for k := range calculatorRegistry {
@@ -105,37 +105,37 @@ func main() {
 	os.Exit(exitCode)
 }
 
-// parseConfig analyse les arguments de la ligne de commande.
+// parseConfig parses command-line arguments.
 func parseConfig(programName string, args []string, errorWriter io.Writer) (AppConfig, error) {
 	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
 	fs.SetOutput(errorWriter)
 	availableAlgos := getSortedCalculatorKeys()
-	algoHelp := fmt.Sprintf("Algorithme à utiliser : 'all' (défaut) ou l'un de [%s].", strings.Join(availableAlgos, ", "))
+	algoHelp := fmt.Sprintf("Algorithm to use: 'all' (default) or one of [%s].", strings.Join(availableAlgos, ", "))
 
 	config := AppConfig{}
-	fs.Uint64Var(&config.N, "n", 250000000, "Indice 'n' du nombre de Fibonacci à calculer.")
-	fs.BoolVar(&config.Verbose, "v", false, "Afficher la valeur complète du résultat (peut être très long).")
-	fs.BoolVar(&config.Details, "d", false, "Afficher les détails de performance et les métadonnées du résultat.")
-	fs.BoolVar(&config.Details, "details", false, "Alias pour -d.")
-	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Délai d'exécution maximal pour le calcul.")
+	fs.Uint64Var(&config.N, "n", 250000000, "Index 'n' of the Fibonacci number to calculate.")
+	fs.BoolVar(&config.Verbose, "v", false, "Display the full value of the result (can be very long).")
+	fs.BoolVar(&config.Details, "d", false, "Display performance details and result metadata.")
+	fs.BoolVar(&config.Details, "details", false, "Alias for -d.")
+	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Maximum execution time for the calculation.")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
-	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Seuil (en nombre de bits) pour activer la parallélisation des multiplications.")
-	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en nombre de bits) pour utiliser la multiplication par FFT (0 pour désactiver).")
-	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécuter le mode de calibration pour déterminer le seuil de parallélisme optimal.")
+	fs.IntVar(&config.Threshold, "threshold", fibonacci.DefaultParallelThreshold, "Threshold (in bits) to enable parallelization of multiplications.")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Threshold (in bits) to use FFT multiplication (0 to disable).")
+	fs.BoolVar(&config.Calibrate, "calibrate", false, "Run calibration mode to determine the optimal parallelism threshold.")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
 	}
 	config.Algo = strings.ToLower(config.Algo)
 	if err := config.Validate(availableAlgos); err != nil {
-		fmt.Fprintln(errorWriter, "Erreur de configuration :", err)
+		fmt.Fprintln(errorWriter, "Configuration error:", err)
 		fs.Usage()
-		return AppConfig{}, errors.New("configuration invalide")
+		return AppConfig{}, errors.New("invalid configuration")
 	}
 	return config, nil
 }
 
-// CalculationResult encapsule le résultat d'un calcul.
+// CalculationResult encapsulates the result of a calculation.
 type CalculationResult struct {
 	Name     string
 	Result   *big.Int
@@ -143,13 +143,13 @@ type CalculationResult struct {
 	Err      error
 }
 
-// runCalibration exécute des benchmarks pour trouver le seuil de parallélisme optimal.
+// runCalibration runs benchmarks to find the optimal parallelism threshold.
 func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
-	fmt.Fprintln(out, "--- Mode Calibration : Recherche du Seuil de Parallélisme Optimal ---")
+	fmt.Fprintln(out, "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---")
 	const calibrationN = 10_000_000
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
-		fmt.Fprintln(out, "Erreur critique : L'algorithme 'fast' est requis pour la calibration mais n'a pas été trouvé.")
+		fmt.Fprintln(out, "Critical error: The 'fast' algorithm is required for calibration but was not found.")
 		return ExitErrorGeneric
 	}
 
@@ -165,20 +165,20 @@ func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
 
 	for _, threshold := range thresholdsToTest {
 		if ctx.Err() != nil {
-			fmt.Fprintln(out, "\nCalibration interrompue.")
+			fmt.Fprintln(out, "\nCalibration interrupted.")
 			return ExitErrorCanceled
 		}
 		thresholdLabel := fmt.Sprintf("%d bits", threshold)
 		if threshold == 0 {
-			thresholdLabel = "Séquentiel"
+			thresholdLabel = "Sequential"
 		}
-		fmt.Fprintf(out, "Test du seuil : %-12s...", thresholdLabel)
+		fmt.Fprintf(out, "Testing threshold: %-12s...", thresholdLabel)
 		startTime := time.Now()
 		_, err := calculator.Calculate(ctx, nil, 0, calibrationN, threshold, 0)
 		duration := time.Since(startTime)
 
 		if err != nil {
-			fmt.Fprintf(out, " ❌ Échec (%v)\n", err)
+			fmt.Fprintf(out, " ❌ Failure (%v)\n", err)
 			results = append(results, calibrationResult{threshold, 0, err})
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return handleCalculationError(err, duration, config.Timeout, out)
@@ -186,20 +186,20 @@ func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
 			continue
 		}
 
-		fmt.Fprintf(out, " ✅ Succès (Durée: %s)\n", duration)
+		fmt.Fprintf(out, " ✅ Success (Duration: %s)\n", duration)
 		results = append(results, calibrationResult{threshold, duration, nil})
 		if duration < bestDuration {
 			bestDuration, bestThreshold = duration, threshold
 		}
 	}
 
-	fmt.Fprintln(out, "\n--- Synthèse de la Calibration ---")
-	fmt.Fprintf(out, "  %-12s │ %s\n", "Seuil", "Durée d'exécution")
+	fmt.Fprintln(out, "\n--- Calibration Summary ---")
+	fmt.Fprintf(out, "  %-12s │ %s\n", "Threshold", "Execution Time")
 	fmt.Fprintf(out, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))
 	for _, res := range results {
 		thresholdLabel := fmt.Sprintf("%d bits", res.Threshold)
 		if res.Threshold == 0 {
-			thresholdLabel = "Séquentiel"
+			thresholdLabel = "Sequential"
 		}
 		durationStr := "N/A"
 		if res.Err == nil {
@@ -211,11 +211,11 @@ func runCalibration(ctx context.Context, config AppConfig, out io.Writer) int {
 		}
 		fmt.Fprintf(out, "  %-12s │ %s%s\n", thresholdLabel, durationStr, highlight)
 	}
-	fmt.Fprintf(out, "\n✅ Recommandation pour cette machine : --threshold %d\n", bestThreshold)
+	fmt.Fprintf(out, "\n✅ Recommendation for this machine: --threshold %d\n", bestThreshold)
 	return ExitSuccess
 }
 
-// run est la fonction principale qui orchestre l'exécution de l'application.
+// run is the main function that orchestrates the application's execution.
 func run(ctx context.Context, config AppConfig, out io.Writer) int {
 	if config.Calibrate {
 		return runCalibration(ctx, config, out)
@@ -225,24 +225,24 @@ func run(ctx context.Context, config AppConfig, out io.Writer) int {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 
-	fmt.Fprintln(out, "--- Configuration d'Exécution ---")
-	fmt.Fprintf(out, "Calcul de F(%d) avec un timeout de %s.\n", config.N, config.Timeout)
-	fmt.Fprintf(out, "Environnement : %d CPU logiques, Go %s.\n", runtime.NumCPU(), runtime.Version())
-	fmt.Fprintf(out, "Seuils d'optimisation : Parallélisme=%d bits, FFT=%d bits.\n", config.Threshold, config.FFTThreshold)
+	fmt.Fprintln(out, "--- Execution Configuration ---")
+	fmt.Fprintf(out, "Calculating F(%d) with a timeout of %s.\n", config.N, config.Timeout)
+	fmt.Fprintf(out, "Environment: %d logical CPUs, Go %s.\n", runtime.NumCPU(), runtime.Version())
+	fmt.Fprintf(out, "Optimization thresholds: Parallelism=%d bits, FFT=%d bits.\n", config.Threshold, config.FFTThreshold)
 
 	calculatorsToRun := getCalculatorsToRun(config)
 	if len(calculatorsToRun) > 1 {
-		fmt.Fprintln(out, "Mode d'exécution : Comparaison parallèle de tous les algorithmes.")
+		fmt.Fprintln(out, "Execution mode: Parallel comparison of all algorithms.")
 	} else {
-		fmt.Fprintf(out, "Mode d'exécution : Calcul simple avec l'algorithme %s.\n", calculatorsToRun[0].Name())
+		fmt.Fprintf(out, "Execution mode: Simple calculation with the %s algorithm.\n", calculatorsToRun[0].Name())
 	}
-	fmt.Fprintln(out, "\n--- Début de l'Exécution ---")
+	fmt.Fprintln(out, "\n--- Start of Execution ---")
 
 	results := executeCalculations(ctx, calculatorsToRun, config, out)
 	return analyzeComparisonResults(results, config, out)
 }
 
-// getCalculatorsToRun sélectionne les calculateurs à exécuter.
+// getCalculatorsToRun selects the calculators to run.
 func getCalculatorsToRun(config AppConfig) []fibonacci.Calculator {
 	if config.Algo == "all" {
 		keys := getSortedCalculatorKeys()
@@ -255,7 +255,7 @@ func getCalculatorsToRun(config AppConfig) []fibonacci.Calculator {
 	return []fibonacci.Calculator{calculatorRegistry[config.Algo]}
 }
 
-// executeCalculations orchestre l'exécution concurrente des calculs.
+// executeCalculations orchestrates the concurrent execution of calculations.
 func executeCalculations(ctx context.Context, calculators []fibonacci.Calculator, config AppConfig, out io.Writer) []CalculationResult {
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]CalculationResult, len(calculators))
@@ -284,7 +284,7 @@ func executeCalculations(ctx context.Context, calculators []fibonacci.Calculator
 	return results
 }
 
-// analyzeComparisonResults analyse et affiche les résultats.
+// analyzeComparisonResults analyzes and displays the results.
 func analyzeComparisonResults(results []CalculationResult, config AppConfig, out io.Writer) int {
 	sort.Slice(results, func(i, j int) bool {
 		if (results[i].Err == nil) != (results[j].Err == nil) {
@@ -297,19 +297,19 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	var firstError error
 	successCount := 0
 
-	fmt.Fprintln(out, "\n--- Synthèse de la Comparaison ---")
+	fmt.Fprintln(out, "\n--- Comparison Summary ---")
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "Algorithme\tDurée\tStatut")
+	fmt.Fprintln(tw, "Algorithm\tDuration\tStatus")
 	fmt.Fprintln(tw, "----------\t-----\t------")
 	for _, res := range results {
 		var status string
 		if res.Err != nil {
-			status = fmt.Sprintf("❌ Échec (%v)", res.Err)
+			status = fmt.Sprintf("❌ Failure (%v)", res.Err)
 			if firstError == nil {
 				firstError = res.Err
 			}
 		} else {
-			status = "✅ Succès"
+			status = "✅ Success"
 			successCount++
 			if firstValidResult == nil {
 				firstValidResult = res.Result
@@ -320,7 +320,7 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	tw.Flush()
 
 	if successCount == 0 {
-		fmt.Fprintln(out, "\nStatut Global : Échec. Aucun des algorithmes n'a pu terminer le calcul.")
+		fmt.Fprintln(out, "\nGlobal Status: Failure. None of the algorithms could complete the calculation.")
 		return handleCalculationError(firstError, 0, config.Timeout, out)
 	}
 
@@ -332,33 +332,33 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 		}
 	}
 	if mismatch {
-		fmt.Fprintln(out, "\nStatut Global : ÉCHEC CRITIQUE ! Une incohérence a été détectée entre les résultats des algorithmes.")
+		fmt.Fprintln(out, "\nGlobal Status: CRITICAL FAILURE! An inconsistency was detected between the results of the algorithms.")
 		return ExitErrorMismatch
 	}
 
-	fmt.Fprintln(out, "\nStatut Global : Succès. Tous les résultats valides sont cohérents.")
+	fmt.Fprintln(out, "\nGlobal Status: Success. All valid results are consistent.")
 	cli.DisplayResult(firstValidResult, config.N, 0, config.Verbose, config.Details, out)
 	return ExitSuccess
 }
 
-// handleCalculationError interprète une erreur et retourne le code de sortie approprié.
+// handleCalculationError interprets an error and returns the appropriate exit code.
 func handleCalculationError(err error, duration time.Duration, timeout time.Duration, out io.Writer) int {
 	if err == nil {
 		return ExitSuccess
 	}
 	msgSuffix := ""
 	if duration > 0 {
-		msgSuffix = fmt.Sprintf(" après %s", duration)
+		msgSuffix = fmt.Sprintf(" after %s", duration)
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		fmt.Fprintf(out, "Statut : Échec (Timeout). Le délai d'exécution de %s a été dépassé%s.\n", timeout, msgSuffix)
+		fmt.Fprintf(out, "Status: Failure (Timeout). The execution time limit of %s was exceeded%s.\n", timeout, msgSuffix)
 		return ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
-		fmt.Fprintf(out, "Statut : Annulé par l'utilisateur%s.\n", msgSuffix)
+		fmt.Fprintf(out, "Status: Canceled by user%s.\n", msgSuffix)
 		return ExitErrorCanceled
 	}
-	fmt.Fprintf(out, "Statut : Échec. Une erreur inattendue est survenue : %v\n", err)
+	fmt.Fprintf(out, "Status: Failure. An unexpected error occurred: %v\n", err)
 	return ExitErrorGeneric
 }

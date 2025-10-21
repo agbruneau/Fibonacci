@@ -1,156 +1,156 @@
-# Calculateur de Suite de Fibonacci de Haute Performance
+# High-Performance Fibonacci Sequence Calculator
 
 ![Go version](https://img.shields.io/badge/Go-1.18+-blue.svg)
-![Licence](https://img.shields.io/badge/Licence-MIT-green.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 
-## 1. Résumé
+## 1. Summary
 
-Ce projet n'est pas un simple calculateur pour la suite de Fibonacci ; il s'agit d'une **étude de cas** et d'une implémentation de référence démontrant des techniques avancées d'ingénierie logicielle en langage Go. L'objectif principal est d'explorer et de mettre en œuvre des algorithmes de calcul pour de très grands entiers, tout en appliquant des optimisations de bas niveau et des patrons de conception de haut niveau pour atteindre des performances maximales.
+This project is not just a simple calculator for the Fibonacci sequence; it is a **case study** and a reference implementation demonstrating advanced software engineering techniques in the Go language. The main objective is to explore and implement calculation algorithms for very large integers, while applying low-level optimizations and high-level design patterns to achieve maximum performance.
 
-Le code est intégralement commenté en français, avec une perspective académique, pour servir de support pédagogique.
+The code is fully commented in English, with an academic perspective, to serve as a pedagogical support.
 
-## 2. Caractéristiques Principales
+## 2. Main Features
 
-*   **Calcul sur de Très Grands Nombres** : Utilisation de `math/big` pour une précision arithmétique arbitraire.
-*   **Algorithmes Multiples** : Implémentation de plusieurs algorithmes de complexité logarithmique :
+*   **Calculation on Very Large Numbers**: Use of `math/big` for arbitrary arithmetic precision.
+*   **Multiple Algorithms**: Implementation of several logarithmic complexity algorithms:
     *   **Fast Doubling** (`fast`)
-    *   **Exponentiation Matricielle** (`matrix`)
-*   **Optimisations de Performance Avancées** :
-    *   **Stratégie "Zéro-Allocation"** : Utilisation intensive de `sync.Pool` pour la réutilisation d'objets (`big.Int`, états de calcul), minimisant la pression sur le ramasse-miettes (Garbage Collector).
-    *   **Parallélisme de Tâches** : Exploitation des processeurs multi-cœurs pour paralléliser les multiplications d'entiers au-delà d'un seuil configurable.
-    *   **Multiplication par FFT** : Utilisation adaptative de la Transformée de Fourier Rapide pour la multiplication de nombres dépassant un seuil de plusieurs dizaines de milliers de bits.
-    *   **Table de Consultation (LUT)** : Résolution en O(1) pour les petits nombres de Fibonacci via une table pré-calculée.
-*   **Architecture Modulaire et Robuste** :
-    *   **Séparation des Responsabilités (SoC)** : Découplage strict entre la logique métier, l'interface utilisateur et l'orchestration.
-    *   **Gestion du Cycle de Vie** : Utilisation avancée de `context` pour une gestion propre des timeouts et des signaux d'interruption (graceful shutdown).
-    *   **Concurrence Structurée** : Orchestration des calculs parallèles avec `golang.org/x/sync/errgroup`.
-*   **Interface en Ligne de Commande (CLI) Riche** :
-    *   Barre de progression dynamique et non-bloquante.
-    *   Modes de comparaison, de calibration et d'affichage détaillé.
-    *   Validation robuste de la configuration.
+    *   **Matrix Exponentiation** (`matrix`)
+*   **Advanced Performance Optimizations**:
+    *   **"Zero-Allocation" Strategy**: Intensive use of `sync.Pool` for reusing objects (`big.Int`, calculation states), minimizing pressure on the Garbage Collector.
+    *   **Task Parallelism**: Exploitation of multi-core processors to parallelize integer multiplications beyond a configurable threshold.
+    *   **FFT Multiplication**: Adaptive use of the Fast Fourier Transform for multiplying numbers exceeding a threshold of several tens of thousands of bits.
+    *   **Lookup Table (LUT)**: O(1) resolution for small Fibonacci numbers via a pre-calculated table.
+*   **Modular and Robust Architecture**:
+    *   **Separation of Concerns (SoC)**: Strict decoupling between business logic, user interface, and orchestration.
+    *   **Lifecycle Management**: Advanced use of `context` for clean management of timeouts and interruption signals (graceful shutdown).
+    *   **Structured Concurrency**: Orchestration of parallel calculations with `golang.org/x/sync/errgroup`.
+*   **Rich Command-Line Interface (CLI)**:
+    *   Dynamic and non-blocking progress bar.
+    *   Comparison, calibration, and detailed display modes.
+    *   Robust configuration validation.
 
-## 3. Principes et Patrons de Conception
+## 3. Design Principles and Patterns
 
-Ce projet sert de démonstration pratique pour plusieurs principes et patrons de conception fondamentaux :
+This project serves as a practical demonstration for several fundamental design principles and patterns:
 
-*   **SOLID** :
-    *   **Principe de Responsabilité Unique** : Chaque module (`cmd/fibcalc`, `internal/fibonacci`, `internal/cli`) a une responsabilité unique et bien définie.
-    *   **Principe Ouvert/Fermé** : Le `calculatorRegistry` permet d'ajouter de nouveaux algorithmes sans modifier le code d'orchestration existant.
-    *   **Principe d'Inversion de Dépendances** : Les modules de haut niveau dépendent d'abstractions (`Calculator`) plutôt que d'implémentations concrètes.
-    *   **Principe de Ségrégation des Interfaces** : La séparation entre `Calculator` (interface publique) et `coreCalculator` (interface interne) évite de surcharger les implémentations avec des dépendances inutiles.
-*   **Patron Décorateur** : La structure `FibCalculator` encapsule un `coreCalculator` pour y ajouter des fonctionnalités transversales (comme l'optimisation par LUT) de manière transparente.
-*   **Patron Adaptateur** : `FibCalculator` adapte également l'interface de communication basée sur les canaux (`chan`) en une interface de rappel (`ProgressReporter`) plus simple pour les algorithmes.
-*   **Patron Producteur/Consommateur** : Les algorithmes (Producteurs) génèrent des mises à jour de progression qui sont traitées de manière asynchrone par l'UI (Consommateur) via des canaux Go.
-*   **Patron Registre (Registry)** : Le `calculatorRegistry` centralise les implémentations d'algorithmes disponibles, favorisant un couplage faible.
-*   **Pooling d'Objets** : L'utilisation de `sync.Pool` pour gérer les états de calcul (`calculationState`, `matrixState`) est une optimisation mémoire cruciale pour atteindre la "zéro-allocation".
+*   **SOLID**:
+    *   **Single Responsibility Principle**: Each module (`cmd/fibcalc`, `internal/fibonacci`, `internal/cli`) has a unique and well-defined responsibility.
+    *   **Open/Closed Principle**: The `calculatorRegistry` allows adding new algorithms without modifying the existing orchestration code.
+    *   **Dependency Inversion Principle**: High-level modules depend on abstractions (`Calculator`) rather than concrete implementations.
+    *   **Interface Segregation Principle**: The separation between `Calculator` (public interface) and `coreCalculator` (internal interface) avoids overloading implementations with unnecessary dependencies.
+*   **Decorator Pattern**: The `FibCalculator` structure encapsulates a `coreCalculator` to transparently add cross-cutting features (like LUT optimization).
+*   **Adapter Pattern**: `FibCalculator` also adapts the channel-based communication interface (`chan`) into a simpler callback interface (`ProgressReporter`) for the algorithms.
+*   **Producer/Consumer Pattern**: The algorithms (Producers) generate progress updates that are processed asynchronously by the UI (Consumer) via Go channels.
+*   **Registry Pattern**: The `calculatorRegistry` centralizes the available algorithm implementations, promoting loose coupling.
+*   **Object Pooling**: The use of `sync.Pool` to manage calculation states (`calculationState`, `matrixState`) is a crucial memory optimization to achieve "zero-allocation".
 
-## 4. Architecture Logicielle
+## 4. Software Architecture
 
-Le projet est structuré en trois modules principaux :
+The project is structured into three main modules:
 
-*   `cmd/fibcalc`: **La Racine de Composition (Composition Root)**. Point d'entrée de l'application, responsable de l'analyse des arguments, de la configuration, de l'injection des dépendances et de l'orchestration du cycle de vie.
-*   `internal/fibonacci`: **Le Domaine Métier**. Contient toute la logique de calcul, les implémentations des algorithmes et les optimisations de bas niveau.
-*   `internal/cli`: **La Couche de Présentation**. Gère toutes les interactions avec l'utilisateur (barre de progression, affichage des résultats).
+*   `cmd/fibcalc`: **The Composition Root**. Entry point of the application, responsible for parsing arguments, configuration, dependency injection, and lifecycle orchestration.
+*   `internal/fibonacci`: **The Business Domain**. Contains all the calculation logic, algorithm implementations, and low-level optimizations.
+*   `internal/cli`: **The Presentation Layer**. Manages all interactions with the user (progress bar, result display).
 
-## 5. Installation et Compilation
+## 5. Installation and Compilation
 
-Le projet utilise les modules Go standards. Pour compiler l'exécutable :
+The project uses standard Go modules. To compile the executable:
 
 ```bash
 go build -o fibcalc ./cmd/fibcalc
 ```
 
-Un binaire nommé `fibcalc` (ou `fibcalc.exe` sur Windows) sera créé dans le répertoire courant.
+A binary named `fibcalc` (or `fibcalc.exe` on Windows) will be created in the current directory.
 
-## 6. Guide d'Utilisation et Optimisation de la Performance
+## 6. User Guide and Performance Optimization
 
-L'exécutable s'utilise de la manière suivante :
+The executable is used as follows:
 
 ```bash
 ./fibcalc [options]
 ```
 
-### Options de la Ligne de Commande
+### Command-Line Options
 
-| Flag             | Alias       | Description                                                              | Défaut      |
+| Flag             | Alias       | Description                                                              | Default      |
 | ---------------- | ----------- | ------------------------------------------------------------------------ | ----------- |
-| `-n`             |             | L'indice 'n' de la suite de Fibonacci à calculer.                        | `100000000` |
-| `-algo`          |             | Algorithme : `fast`, `matrix`, ou `all` pour comparer.                   | `all`       |
-| `-timeout`       |             | Délai d'exécution maximal (ex: `10s`, `1m30s`).                          | `5m0s`      |
-| `-threshold`     |             | Seuil (en bits) pour paralléliser les multiplications.                   | `4096`      |
-| `-fft-threshold` |             | Seuil (en bits) pour utiliser la multiplication FFT (0=désactivé).        | `20000`     |
-| `-d`             | `--details` | Afficher les détails de performance et les métadonnées du résultat.      | `false`     |
-| `-v`             | `--verbose` | Afficher la valeur complète du résultat (peut être extrêmement long).    | `false`     |
-| `--calibrate`    |             | Lancer la calibration pour trouver le seuil de parallélisme optimal.     | `false`     |
+| `-n`             |             | The index 'n' of the Fibonacci sequence to calculate.                        | `100000000` |
+| `-algo`          |             | Algorithm: `fast`, `matrix`, or `all` to compare.                   | `all`       |
+| `-timeout`       |             | Maximum execution time (e.g., `10s`, `1m30s`).                          | `5m0s`      |
+| `-threshold`     |             | Threshold (in bits) to parallelize multiplications.                   | `4096`      |
+| `-fft-threshold` |             | Threshold (in bits) to use FFT multiplication (0=disabled).        | `20000`     |
+| `-d`             | `--details` | Display performance details and result metadata.      | `false`     |
+| `-v`             | `--verbose` | Display the full value of the result (can be extremely long).    | `false`     |
+| `--calibrate`    |             | Run calibration to find the optimal parallelism threshold.     | `false`     |
 
-### Optimisation de la Performance
+### Performance Optimization
 
-Pour obtenir les meilleures performances possibles, il est recommandé de suivre une approche méthodique :
+To achieve the best possible performance, a methodical approach is recommended:
 
-#### Étape 1 : Calibration du Seuil de Parallélisme
+#### Step 1: Calibration of the Parallelism Threshold
 
-La performance des calculs sur de très grands nombres dépend fortement de l'architecture de votre processeur. Ce projet inclut un mode de calibration pour déterminer empiriquement le meilleur seuil de parallélisme (`--threshold`) pour votre machine.
+The performance of calculations on very large numbers strongly depends on your processor's architecture. This project includes a calibration mode to empirically determine the best parallelism threshold (`--threshold`) for your machine.
 
-Exécutez la commande suivante :
+Run the following command:
 ```bash
 ./fibcalc --calibrate
 ```
-Le programme testera plusieurs valeurs de seuil et vous fournira une recommandation, par exemple : `✅ Recommandation pour cette machine : --threshold 4096`.
+The program will test several threshold values and provide a recommendation, for example: `✅ Recommendation for this machine: --threshold 4096`.
 
-#### Étape 2 : Utilisation des Paramètres Optimaux
+#### Step 2: Using Optimal Parameters
 
-Une fois le seuil optimal déterminé, utilisez-le pour vos calculs.
+Once the optimal threshold is determined, use it for your calculations.
 
-*   `--threshold` : Le seuil de parallélisme. Une valeur bien ajustée (via `--calibrate`) est cruciale pour les calculs sur des machines multi-cœur.
-*   `--fft-threshold` : Ce seuil active la multiplication par FFT, plus rapide pour les nombres dépassant plusieurs dizaines de milliers de bits. La valeur par défaut de `20000` est un bon point de départ pour la plupart des architectures modernes.
+*   `--threshold`: The parallelism threshold. A well-adjusted value (via `--calibrate`) is crucial for calculations on multi-core machines.
+*   `--fft-threshold`: This threshold enables FFT multiplication, which is faster for numbers exceeding several tens of thousands of bits. The default value of `20000` is a good starting point for most modern architectures.
 
-#### Étape 3 : Comparaison des Algorithmes
+#### Step 3: Algorithm Comparison
 
-Le programme fournit deux algorithmes de pointe. Leurs performances peuvent varier. Utilisez le mode de comparaison pour identifier le plus rapide pour votre cas d'usage.
+The program provides two state-of-the-art algorithms. Their performance may vary. Use the comparison mode to identify the fastest for your use case.
 
 ```bash
-./fibcalc -n <un_grand_nombre> -algo all --threshold <valeur_calibrée>
+./fibcalc -n <a_large_number> -algo all --threshold <calibrated_value>
 ```
-Le programme exécutera les deux algorithmes en parallèle et affichera un tableau comparatif. Il effectue également une **validation croisée** : si les calculs réussissent, il vérifie que leurs résultats sont identiques, garantissant l'exactitude.
+The program will run both algorithms in parallel and display a comparative table. It also performs a **cross-validation**: if the calculations succeed, it verifies that their results are identical, ensuring accuracy.
 
-### Exemples d'Utilisation
+### Usage Examples
 
-**1. Trouver le paramètre de performance optimal pour votre machine :**
+**1. Find the optimal performance parameter for your machine:**
 ```bash
 ./fibcalc --calibrate
 ```
 
-**2. Comparer les algorithmes pour F(10 000 000) en utilisant un seuil de parallélisme calibré de 4096 :**
+**2. Compare algorithms for F(10,000,000) using a calibrated parallelism threshold of 4096:**
 ```bash
 ./fibcalc -n 10000000 -algo all --threshold 4096 -d
 ```
 
-**3. Calculer F(250 000 000) avec l'algorithme le plus rapide, un affichage détaillé, et un timeout de 10 minutes :**
+**3. Calculate F(250,000,000) with the fastest algorithm, detailed display, and a 10-minute timeout:**
 ```bash
-# Après avoir déterminé que 'fast' est le plus rapide à l'étape 2
+# After determining that 'fast' is the fastest in Step 2
 ./fibcalc -n 250000000 -algo fast --threshold 4096 -d --timeout 10m
 ```
 
-## 7. Validation et Tests
+## 7. Validation and Tests
 
-Le projet est doté d'une suite de tests complète pour garantir son exactitude et sa robustesse.
+The project has a comprehensive test suite to ensure its accuracy and robustness.
 
-*   **Tests Unitaires et d'Intégration** :
+*   **Unit and Integration Tests**:
     ```bash
     go test ./... -v
     ```
-    Cette commande exécute tous les tests du projet, y compris la validation de la logique de parsing, des cas limites des algorithmes, et du comportement de l'UI.
+    This command runs all project tests, including validation of parsing logic, algorithm edge cases, and UI behavior.
 
-*   **Tests de Performance (Benchmarks)** :
+*   **Performance Tests (Benchmarks)**:
     ```bash
     go test -bench . ./...
     ```
-    Cette commande exécute les benchmarks pour mesurer la latence et les allocations mémoire des algorithmes.
+    This command runs benchmarks to measure the latency and memory allocations of the algorithms.
 
-*   **Tests Basés sur les Propriétés (Property-Based Testing)** :
-    Le projet emploie des tests basés sur les propriétés (avec la bibliothèque `gopter`) pour valider des invariants mathématiques, comme l'**Identité de Cassini**, offrant un niveau de confiance supérieur quant à l'exactitude des algorithmes.
+*   **Property-Based Testing**:
+    The project uses property-based tests (with the `gopter` library) to validate mathematical invariants, such as **Cassini's Identity**, providing a higher level of confidence in the accuracy of the algorithms.
 
-## 8. Licence
+## 8. License
 
-Ce projet est distribué sous la licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+This project is distributed under the MIT license. See the `LICENSE` file for more details.

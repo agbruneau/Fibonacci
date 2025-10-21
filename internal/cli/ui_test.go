@@ -12,32 +12,32 @@ import (
 	"example.com/fibcalc/internal/fibonacci"
 )
 
-// TestFormatNumberString valide la fonction de formatage de nombres.
+// TestFormatNumberString validates the number formatting function.
 func TestFormatNumberString(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    string
 		expected string
 	}{
-		{"Chaîne vide", "", ""},
-		{"Nombre à un chiffre", "1", "1"},
-		{"Nombre à trois chiffres", "123", "123"},
-		{"Nombre à quatre chiffres", "1234", "1,234"},
-		{"Nombre à six chiffres", "123456", "123,456"},
-		{"Nombre à sept chiffres", "1234567", "1,234,567"},
-		{"Nombre négatif", "-1234567", "-1,234,567"},
+		{"Empty string", "", ""},
+		{"Single-digit number", "1", "1"},
+		{"Three-digit number", "123", "123"},
+		{"Four-digit number", "1234", "1,234"},
+		{"Six-digit number", "123456", "123,456"},
+		{"Seven-digit number", "1234567", "1,234,567"},
+		{"Negative number", "-1234567", "-1,234,567"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := formatNumberString(tc.input); got != tc.expected {
-				t.Errorf("formatNumberString(%q) = %q; attendu %q", tc.input, got, tc.expected)
+				t.Errorf("formatNumberString(%q) = %q; want %q", tc.input, got, tc.expected)
 			}
 		})
 	}
 }
 
-// TestProgressBar valide la génération de la barre de progression.
+// TestProgressBar validates the progress bar generation.
 func TestProgressBar(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -45,72 +45,72 @@ func TestProgressBar(t *testing.T) {
 		length   int
 		expected string
 	}{
-		{"Progression nulle (0%)", 0.0, 10, "░░░░░░░░░░"},
-		{"Progression partielle (50%)", 0.5, 10, "█████░░░░░"},
-		{"Progression complète (100%)", 1.0, 10, "██████████"},
-		{"Progression de 25% sur une barre de 20", 0.25, 20, "█████░░░░░░░░░░░░░░░"},
-		{"Cas limite : progression > 100%", 1.1, 10, "██████████"},
-		{"Cas limite : progression < 0%", -0.1, 10, "░░░░░░░░░░"},
+		{"Zero progress (0%)", 0.0, 10, "░░░░░░░░░░"},
+		{"Partial progress (50%)", 0.5, 10, "█████░░░░░"},
+		{"Full progress (100%)", 1.0, 10, "██████████"},
+		{"25% progress on a 20-char bar", 0.25, 20, "█████░░░░░░░░░░░░░░░"},
+		{"Edge case: progress > 100%", 1.1, 10, "██████████"},
+		{"Edge case: progress < 0%", -0.1, 10, "░░░░░░░░░░"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := progressBar(tc.progress, tc.length); got != tc.expected {
-				t.Errorf("progressBar(%.2f, %d) = %q; attendu %q", tc.progress, tc.length, got, tc.expected)
+				t.Errorf("progressBar(%.2f, %d) = %q; want %q", tc.progress, tc.length, got, tc.expected)
 			}
 		})
 	}
 }
 
-// TestDisplayResult vérifie le formatage de la sortie du résultat.
+// TestDisplayResult checks the formatting of the result output.
 func TestDisplayResult(t *testing.T) {
 	duration := 123 * time.Millisecond
 	result, _ := new(big.Int).SetString("12586269025", 10) // F(50)
 
-	t.Run("Sortie sans détails", func(t *testing.T) {
+	t.Run("Output without details", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, false, false, &buf)
 		output := buf.String()
-		if !strings.Contains(output, "Taille Binaire du Résultat : 34 bits.") {
-			t.Errorf("La sortie de base est incorrecte. Attendu: 'Taille Binaire du Résultat : 34 bits.', Obtenu: %q", output)
+		if !strings.Contains(output, "Binary Size of the Result: 34 bits.") {
+			t.Errorf("The basic output is incorrect. Expected: 'Binary Size of the Result: 34 bits.', Got: %q", output)
 		}
-		if !strings.Contains(output, "(Utilisez l'option -d ou --details") {
-			t.Errorf("La sortie de base devrait contenir l'aide pour le mode détails. Obtenu: %q", output)
+		if !strings.Contains(output, "(Use the -d or --details option") {
+			t.Errorf("The basic output should contain help for the details mode. Got: %q", output)
 		}
 	})
 
-	t.Run("Sortie détaillée mais non-verbeuse (troncature)", func(t *testing.T) {
+	t.Run("Detailed but non-verbose output (truncation)", func(t *testing.T) {
 		var buf bytes.Buffer
-		longNumStr := strings.Repeat("1", 101) // Chaîne plus longue que TruncationLimit
+		longNumStr := strings.Repeat("1", 101) // String longer than TruncationLimit
 		longResult, _ := new(big.Int).SetString(longNumStr, 10)
 		DisplayResult(longResult, 500, duration, false, true, &buf)
 		output := buf.String()
 
-		if !strings.Contains(output, "(tronqué)") {
-			t.Errorf("La sortie détaillée non-verbeuse devrait être tronquée. Obtenu: %q", output)
+		if !strings.Contains(output, "(truncated)") {
+			t.Errorf("The detailed non-verbose output should be truncated. Got: %q", output)
 		}
-		expectedTruncated := fmt.Sprintf("F(500) (tronqué) = %s...%s", longNumStr[:DisplayEdges], longNumStr[len(longNumStr)-DisplayEdges:])
+		expectedTruncated := fmt.Sprintf("F(500) (truncated) = %s...%s", longNumStr[:DisplayEdges], longNumStr[len(longNumStr)-DisplayEdges:])
 		if !strings.Contains(output, expectedTruncated) {
-			t.Errorf("Le format de la sortie tronquée est incorrect.\nAttendu (contenant): %q\nObtenu: %s", expectedTruncated, output)
+			t.Errorf("The truncated output format is incorrect.\nExpected (containing): %q\nGot: %s", expectedTruncated, output)
 		}
 	})
 
-	t.Run("Sortie détaillée et verbeuse (complète)", func(t *testing.T) {
+	t.Run("Detailed and verbose output (full)", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, true, true, &buf)
 		output := buf.String()
 
-		if strings.Contains(output, "(tronqué)") {
-			t.Errorf("La sortie verbeuse ne devrait pas être tronquée. Obtenu: %q", output)
+		if strings.Contains(output, "(truncated)") {
+			t.Errorf("The verbose output should not be truncated. Got: %q", output)
 		}
 		expectedValue := "F(50) =\n12,586,269,025"
 		if !strings.Contains(output, expectedValue) {
-			t.Errorf("La valeur dans la sortie verbeuse est incorrecte.\nAttendu (contenant): %q\nObtenu: %s", expectedValue, output)
+			t.Errorf("The value in the verbose output is incorrect.\nExpected (containing): %q\nGot: %s", expectedValue, output)
 		}
 	})
 }
 
-// TestDisplayAggregateProgress valide le comportement du consommateur de progression.
+// TestDisplayAggregateProgress validates the behavior of the progress consumer.
 func TestDisplayAggregateProgress(t *testing.T) {
 	var buf bytes.Buffer
 	var wg sync.WaitGroup
@@ -129,7 +129,7 @@ func TestDisplayAggregateProgress(t *testing.T) {
 	wg.Wait()
 
 	output := buf.String()
-	expectedFinalLine := fmt.Sprintf("Progression Moyenne :  37.50%% [%s]", progressBar(0.375, ProgressBarWidth))
+	expectedFinalLine := fmt.Sprintf("Average Progress :  37.50%% [%s]", progressBar(0.375, ProgressBarWidth))
 
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	lastLine := ""
@@ -144,6 +144,6 @@ func TestDisplayAggregateProgress(t *testing.T) {
 	}
 
 	if lastLine != expectedFinalLine {
-		t.Errorf("La ligne finale de la barre de progression est incorrecte.\nAttendu: %q\nObtenu : %q", expectedFinalLine, lastLine)
+		t.Errorf("The final line of the progress bar is incorrect.\nExpected: %q\nGot : %q", expectedFinalLine, lastLine)
 	}
 }
