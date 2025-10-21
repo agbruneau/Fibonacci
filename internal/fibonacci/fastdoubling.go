@@ -69,10 +69,16 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		s.f_k.Add(s.t1, s.t4)
 		s.f_k, s.f_k1, s.t3 = s.t3, s.f_k, s.f_k1
 
-		// Addition Step
+		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
+		// F(k) <- F(k+1)
+		// F(k+1) <- F(k) + F(k+1)
 		if (n>>uint(i))&1 == 1 {
+			// s.t1 temporarily stores the new F(k+1)
 			s.t1.Add(s.f_k, s.f_k1)
-			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
+			// s.f_k becomes the old s.f_k1
+			s.f_k.Set(s.f_k1)
+			// s.f_k1 takes the new value s.t1
+			s.f_k1.Set(s.t1)
 		}
 
 		if totalWork.Sign() > 0 {
