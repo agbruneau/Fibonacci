@@ -322,7 +322,7 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	})
 
 	var firstValidResult *big.Int
-	var fastestDuration time.Duration
+	var firstValidResultDuration time.Duration
 	var firstError error
 	successCount := 0
 
@@ -342,10 +342,7 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 			successCount++
 			if firstValidResult == nil {
 				firstValidResult = res.Result
-				fastestDuration = res.Duration
-			}
-			if res.Duration < fastestDuration {
-				fastestDuration = res.Duration
+				firstValidResultDuration = res.Duration
 			}
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\n", res.Name, res.Duration.String(), status)
@@ -355,10 +352,6 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	if successCount == 0 {
 		fmt.Fprintln(out, "\nGlobal Status: Failure. None of the algorithms could complete the calculation.")
 		return handleCalculationError(firstError, 0, config.Timeout, out)
-	}
-
-	if len(results) > 1 && config.Details {
-		fmt.Fprintf(out, "Fastest valid execution time: %s\n", fastestDuration)
 	}
 
 	mismatch := false
@@ -374,11 +367,7 @@ func analyzeComparisonResults(results []CalculationResult, config AppConfig, out
 	}
 
 	fmt.Fprintln(out, "\nGlobal Status: Success. All valid results are consistent.")
-	durationToDisplay := fastestDuration
-	if len(results) == 1 {
-		durationToDisplay = results[0].Duration
-	}
-	cli.DisplayResult(firstValidResult, config.N, durationToDisplay, config.Verbose, config.Details, out)
+	cli.DisplayResult(firstValidResult, config.N, firstValidResultDuration, config.Verbose, config.Details, out)
 	return ExitSuccess
 }
 

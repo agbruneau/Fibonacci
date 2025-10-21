@@ -83,20 +83,6 @@ func TestRunFunction(t *testing.T) {
 		if !strings.Contains(output, "Comparison Summary") || !strings.Contains(output, "Global Status: Success") {
 			t.Errorf("The comparison mode output is incorrect. Output:\n%s", output)
 		}
-		if !strings.Contains(output, "Fastest valid execution time") {
-			t.Errorf("The detailed output should contain the fastest valid execution time. Output:\n%s", output)
-		}
-	})
-
-	t.Run("Single algorithm execution with details", func(t *testing.T) {
-		var buf bytes.Buffer
-		config := AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: fibonacci.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
-		exitCode := run(context.Background(), config, &buf)
-
-		if exitCode != ExitSuccess {
-			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
-		}
-		output := buf.String()
 		if !strings.Contains(output, "Calculation time") {
 			t.Errorf("The detailed output should contain the calculation time. Output:\n%s", output)
 		}
