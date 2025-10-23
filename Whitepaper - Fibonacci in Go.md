@@ -1,4 +1,4 @@
-# High-Performance Fibonacci Sequence Calculator: A Technical White Paper
+# High-Performance Fibonacci Sequence Calculator
 
 ## Executive Summary
 
