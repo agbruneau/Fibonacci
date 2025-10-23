@@ -6,12 +6,17 @@ import (
 	"math/bits"
 )
 
-// FFTBasedCalculator implements the `coreCalculator` interface by applying the
-// "Fast Doubling" algorithm, but with a key modification: all `big.Int`
-// multiplications are exclusively performed using the FFT-based `mulFFT` function.
-// This calculator is designed to be a proof-of-concept and a benchmark tool to
-// evaluate the performance of FFT multiplication for Fibonacci calculations at
-// all scales, without the adaptive thresholding used in other calculators.
+// FFTBasedCalculator is a specialized Fibonacci calculator that uses the Fast Doubling
+// algorithm, but with a significant modification: it exclusively relies on FFT-based
+// multiplication for all `big.Int` operations.
+//
+// Unlike the `OptimizedFastDoubling` calculator, which adaptively switches between
+// standard and FFT-based multiplication, this implementation uses `mulFFT` for
+// every multiplication, regardless of the numbers' size. This makes it an
+// excellent tool for benchmarking the performance of FFT-based multiplication in
+// Fibonacci calculations. It is also particularly effective for computing
+// exceptionally large Fibonacci numbers, where FFT-based methods are consistently
+// faster.
 type FFTBasedCalculator struct{}
 
 // Name returns the name of the algorithm, indicating its reliance on FFT.
@@ -19,11 +24,14 @@ func (c *FFTBasedCalculator) Name() string {
 	return "FFT-Based Doubling"
 }
 
-// CalculateCore executes the Fibonacci calculation for F(n). It follows the
-// same logic as the `OptimizedFastDoubling` calculator but replaces all standard
-// `big.Int.Mul` calls with `mulFFT`. This makes it particularly suitable for
-// calculating extremely large Fibonacci numbers where FFT multiplication is
-// consistently more performant.
+// CalculateCore computes F(n) using the Fast Doubling algorithm, with all
+// multiplications performed via `mulFFT`.
+//
+// While the high-level logic of this function is similar to `OptimizedFastDoubling`,
+// it differs in its multiplication strategy. Instead of adaptively choosing the
+// multiplication method, it consistently uses FFT-based multiplication. This design
+// makes it ideal for scenarios where FFT is expected to be the most performant
+// option, such as with extremely large numbers.
 func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	s := acquireState()
 	defer releaseState(s)
