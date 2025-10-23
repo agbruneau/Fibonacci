@@ -8,30 +8,32 @@ import (
 	"sync"
 )
 
-// OptimizedFastDoubling implements the `coreCalculator` interface using a highly
-// optimized version of the "Fast Doubling" algorithm. This method is one of the
-// most efficient for calculating Fibonacci numbers, with a time complexity of
-// O(log n).
+// OptimizedFastDoubling provides a high-performance implementation of the "Fast Doubling"
+// algorithm for calculating Fibonacci numbers. This method is highly efficient,
+// boasting a time complexity of O(log n), making it one of the fastest known
+// algorithms for this purpose.
 //
-// The algorithm is based on the following mathematical identities:
+// At its core, the algorithm relies on two mathematical identities:
 //   F(2k)   = F(k) * [2*F(k+1) - F(k)]
 //   F(2k+1) = F(k)² + F(k+1)²
 //
-// It operates by iterating over the bits of the input `n` from the most
-// significant to the least significant. In each iteration, it performs a "doubling"
-// step (calculating F(2k) and F(2k+1) from F(k) and F(k+1)). If the current bit
-// of `n` is set, it also performs an "addition" step, effectively advancing the
-// calculation to F(2k+1).
+// The calculation proceeds by examining the binary representation of the input `n`,
+// from the most significant bit to the least. For each bit, a "doubling" step
+// is performed, which computes F(2k) and F(2k+1) from the previously calculated
+// F(k) and F(k+1). If the current bit is 1, an additional "addition" step is
+// performed to advance the calculation.
 //
-// This implementation includes several key optimizations:
-//   - Zero-Allocation: It uses a `sync.Pool` to reuse `calculationState`
-//     objects, minimizing garbage collector pressure.
-//   - Parallelism: For very large numbers (exceeding a configurable bit
-//     threshold), it parallelizes the three main multiplications of the doubling
-//     step to leverage multi-core processors.
-//   - Adaptive Multiplication: It dynamically switches to an FFT-based
-//     multiplication for numbers exceeding the `fftThreshold`, further optimizing
-//     performance for extremely large inputs.
+// To achieve maximum performance, this implementation incorporates several advanced
+// optimizations:
+//   - Zero-Allocation Strategy: By using a `sync.Pool`, the calculator reuses
+//     `calculationState` objects, which significantly reduces memory allocation
+//     and garbage collector overhead.
+//   - Multi-core Parallelism: For very large numbers (exceeding a configurable bit
+//     threshold), the algorithm parallelizes the three core multiplications in the
+//     doubling step, taking full advantage of modern multi-core processors.
+//   - Adaptive Multiplication: To handle extremely large numbers efficiently, the
+//     calculator dynamically switches to an FFT-based multiplication method when
+//     the numbers exceed a specified `fftThreshold`.
 type OptimizedFastDoubling struct{}
 
 // Name returns the descriptive name of the algorithm.
@@ -39,10 +41,13 @@ func (fd *OptimizedFastDoubling) Name() string {
 	return "Fast Doubling (O(log n), Parallel, Zero-Alloc)"
 }
 
-// CalculateCore executes the Fibonacci calculation for F(n) using the optimized
-// Fast Doubling algorithm. It manages the calculation lifecycle, including state
-// acquisition from the object pool, iteration over the bits of `n`, and progress
-// reporting.
+// CalculateCore computes F(n) using the Fast Doubling algorithm.
+//
+// This function orchestrates the entire calculation process, which includes:
+// - Acquiring a `calculationState` from the object pool to avoid allocations.
+// - Iterating over the bits of `n` from most significant to least significant.
+// - Reporting progress to the caller.
+// - Returning the final result, F(n).
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	mul := func(dest, x, y *big.Int) {
 		if fftThreshold > 0 && x.BitLen() > fftThreshold && y.BitLen() > fftThreshold {
@@ -113,8 +118,10 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	return new(big.Int).Set(s.f_k), nil
 }
 
-// parallelMultiply3Optimized executes the three multiplications of the
-// doubling step in parallel to optimize performance on multi-core machines.
+// parallelMultiply3Optimized leverages concurrency to accelerate the three key
+// multiplications of the doubling step. By executing these multiplications in
+// parallel, this function takes advantage of multi-core processors, leading to
+// significant performance improvements for very large numbers.
 func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int)) {
 	var wg sync.WaitGroup
 	wg.Add(2)

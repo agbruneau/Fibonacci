@@ -8,28 +8,28 @@ import (
 	"sync"
 )
 
-// MatrixExponentiation implements the `coreCalculator` interface using the
-// matrix exponentiation algorithm, a classic method for computing Fibonacci
-// numbers with a time complexity of O(log n).
-//
-// The algorithm leverages the following property of the Fibonacci sequence:
+// MatrixExponentiation offers a classic and efficient approach to calculating Fibonacci
+// numbers, with a time complexity of O(log n). This method is based on a
+// fundamental property of the Fibonacci sequence, which can be expressed in
+// matrix form:
 //   [ F(n+1) F(n)   ] = [ 1 1 ]^n
 //   [ F(n)   F(n-1) ]   [ 1 0 ]
 //
-// To find F(n), the algorithm calculates the n-th power of the matrix Q = [[1, 1], [1, 0]]
-// using binary exponentiation (also known as exponentiation by squaring). This
-// reduces the number of matrix multiplications to a logarithmic scale.
+// To compute F(n), the algorithm calculates the n-th power of the matrix Q = [[1, 1], [1, 0]]
+// using a technique known as binary exponentiation (or exponentiation by squaring).
+// This dramatically reduces the number of required matrix multiplications compared
+// to a naive iterative approach.
 //
-// This implementation incorporates several optimizations:
-//   - Zero-Allocation: Utilizes a `sync.Pool` to reuse `matrixState` objects,
-//     which contain matrices and temporary variables, to avoid allocations in
-//     the main loop and reduce GC overhead.
-//   - Parallelism: For matrices with large number entries (exceeding a
-//     configurable bit threshold), matrix multiplications are parallelized to
-//     take advantage of multi-core systems.
-//   - Symmetric Squaring: A specialized function `squareSymmetricMatrix` is
-//     used for squaring symmetric matrices, which is a common operation in this
-//     algorithm. This reduces the number of required `big.Int` multiplications.
+// This implementation is further enhanced with several key optimizations:
+//   - Zero-Allocation: A `sync.Pool` is used to recycle `matrixState` objects,
+//     which hold the matrices and temporary variables. This practice minimizes
+//     memory allocations and reduces pressure on the garbage collector.
+//   - Parallel Processing: When dealing with matrices containing very large numbers
+//     (as determined by a configurable threshold), the matrix multiplication
+//     process is parallelized to leverage the power of multi-core processors.
+//   - Symmetric Squaring: The algorithm uses a specialized function, `squareSymmetricMatrix`,
+//     for squaring symmetric matrices. This optimization reduces the total number
+//     of `big.Int` multiplications required, leading to a noticeable performance gain.
 type MatrixExponentiation struct{}
 
 // Name returns the descriptive name of the algorithm.
@@ -37,9 +37,11 @@ func (c *MatrixExponentiation) Name() string {
 	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
 
-// CalculateCore executes the Fibonacci calculation for F(n) using the matrix
-// exponentiation method. It manages the exponentiation loop, state pooling,
-// and progress reporting.
+// CalculateCore computes F(n) using the matrix exponentiation method.
+//
+// This function implements the binary exponentiation algorithm to efficiently
+// calculate the n-th power of the Fibonacci matrix. It also handles state
+// management through pooling and reports progress to the caller.
 func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil
@@ -87,7 +89,9 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	return new(big.Int).Set(state.res.a), nil
 }
 
-// multiplyMatrices performs the multiplication of two 2x2 matrices, C = A * B.
+// multiplyMatrices computes the product of two 2x2 matrices, C = A * B.
+// It can perform the underlying integer multiplications in parallel for improved
+// performance.
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
 	tasks := []func(){
 		func() { mul(state.t1, m1.a, m2.a) }, func() { mul(state.t2, m1.b, m2.c) },
@@ -103,8 +107,12 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 	dest.d.Add(state.t7, state.t8)
 }
 
-// squareSymmetricMatrix calculates the square of a symmetric matrix by
-// optimizing the number of integer multiplications.
+// squareSymmetricMatrix computes the square of a symmetric matrix.
+//
+// This function is a performance optimization that reduces the number of integer
+// multiplications required to square a matrix. For a symmetric matrix, where
+// b equals c, some calculations become redundant. This method avoids those
+// redundancies, resulting in a faster computation.
 func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	b_ad, ad := state.t4, state.t5
