@@ -78,19 +78,25 @@ The theoretical performance characteristics demonstrate significant improvements
 
 The system implements a three-tier modular architecture following SOLID principles:
 
-#### 3.1.1 Presentation Layer (`internal/cli`)
+#### 3.1.1 Sequence of Operations
+
+The following sequence diagram illustrates the interaction between the user, the CLI, and the Fibonacci calculator.
+
+![Sequence Diagram](<Sequence Diagram - Fibonacci in Go.svg>)
+
+#### 3.1.2 Presentation Layer (`internal/cli`)
 - User interface management
 - Progress visualization with dynamic progress bars
 - Result formatting and display
 - Command-line argument processing
 
-#### 3.1.2 Business Logic Layer (`internal/fibonacci`)
+#### 3.1.3 Business Logic Layer (`internal/fibonacci`)
 - Core calculation algorithms
 - Performance optimization strategies
 - Object lifecycle management
 - Memory optimization techniques
 
-#### 3.1.3 Application Layer (`cmd/fibcalc`)
+#### 3.1.4 Application Layer (`cmd/fibcalc`)
 - Dependency injection and composition root
 - Configuration management
 - Application lifecycle orchestration
