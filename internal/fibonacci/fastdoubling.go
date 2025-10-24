@@ -87,8 +87,12 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			mul(s.t4, s.f_k, s.f_k)
 		}
 
-		s.f_k.Add(s.t1, s.t4)
-		s.f_k, s.f_k1, s.t3 = s.t3, s.f_k, s.f_k1
+		// F(2k+1) = F(k+1)² + F(k)². Store result in t2, which is free.
+		s.t2.Add(s.t1, s.t4)
+		// Swap the pointers for the next iteration.
+		// f_k becomes F(2k) (from t3), f_k1 becomes F(2k+1) (from t2).
+		// t2 and t3 become the old f_k and f_k1, now temporaries.
+		s.f_k, s.f_k1, s.t2, s.t3 = s.t3, s.t2, s.f_k, s.f_k1
 
 		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
 		// F(k) <- F(k+1)
@@ -96,10 +100,11 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		if (n>>uint(i))&1 == 1 {
 			// s.t1 temporarily stores the new F(k+1)
 			s.t1.Add(s.f_k, s.f_k1)
+			// Swap pointers to avoid large allocations:
 			// s.f_k becomes the old s.f_k1
-			s.f_k.Set(s.f_k1)
-			// s.f_k1 takes the new value s.t1
-			s.f_k1.Set(s.t1)
+			// s.f_k1 becomes the new sum (s.t1)
+			// s.t1 becomes the old s.f_k, now a temporary
+			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
 		}
 
 		if totalWork.Sign() > 0 {
