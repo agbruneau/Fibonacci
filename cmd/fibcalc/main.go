@@ -289,6 +289,7 @@ func getCalculatorsToRun(cfg config.AppConfig) []fibonacci.Calculator {
 	return []fibonacci.Calculator{calculatorRegistry[cfg.Algo]}
 }
 
+
 // executeCalculations orchestrates the concurrent execution of one or more
 // Fibonacci calculations. It uses an `errgroup` to manage the lifecycle of the
 // calculation goroutines and ensures that they can be gracefully canceled.
