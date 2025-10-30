@@ -25,7 +25,7 @@ import (
 	"example.com/fibcalc/internal/cli"
 	"example.com/fibcalc/internal/config"
 	"example.com/fibcalc/internal/fibonacci"
-    "example.com/fibcalc/internal/i18n"
+	"example.com/fibcalc/internal/i18n"
 )
 
 // Application exit codes define the standard exit statuses for the application.
@@ -69,9 +69,9 @@ var calculatorRegistry = map[string]fibonacci.Calculator{
 }
 
 func init() {
-    for name, calc := range calculatorRegistry {
+	for name, calc := range calculatorRegistry {
 		if calc == nil {
-            panic(fmt.Sprintf("Erreur d'initialisation critique : le calculateur enregistré sous le nom '%s' est nul.", name))
+			panic(fmt.Sprintf("Erreur d'initialisation critique : le calculateur enregistré sous le nom '%s' est nul.", name))
 		}
 	}
 }
@@ -143,11 +143,11 @@ type CalculationResult struct {
 //
 // Returns an exit code indicating the outcome of the calibration process.
 func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
-    writeOut(out, "%s\n", i18n.Messages["CalibrationTitle"])
+	writeOut(out, "%s\n", i18n.Messages["CalibrationTitle"])
 	const calibrationN = 10_000_000
 	calculator := calculatorRegistry["fast"]
-    if calculator == nil {
-        writeOut(out, "%sErreur critique : l'algorithme 'fast' est requis pour la calibration mais est introuvable.%s\n", ColorRed, ColorReset)
+	if calculator == nil {
+		writeOut(out, "%sErreur critique : l'algorithme 'fast' est requis pour la calibration mais est introuvable.%s\n", ColorRed, ColorReset)
 		return ExitErrorGeneric
 	}
 
@@ -167,8 +167,8 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 	go cli.DisplayProgress(&wg, progressChan, 1, out)
 
 	for _, threshold := range thresholdsToTest {
-        if ctx.Err() != nil {
-            writeOut(out, "\n%sCalibration interrompue.%s\n", ColorYellow, ColorReset)
+		if ctx.Err() != nil {
+			writeOut(out, "\n%sCalibration interrompue.%s\n", ColorYellow, ColorReset)
 			return ExitErrorCanceled
 		}
 
@@ -176,8 +176,8 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 		_, err := calculator.Calculate(ctx, progressChan, 0, calibrationN, threshold, 0)
 		duration := time.Since(startTime)
 
-        if err != nil {
-            writeOut(out, "%s❌ Échec (%v)%s\n", ColorRed, err, ColorReset)
+		if err != nil {
+			writeOut(out, "%s❌ Échec (%v)%s\n", ColorRed, err, ColorReset)
 			results = append(results, calibrationResult{threshold, 0, err})
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
@@ -195,14 +195,14 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 	close(progressChan)
 	wg.Wait()
 
-    writeOut(out, "\n%s\n", i18n.Messages["CalibrationSummary"])
+	writeOut(out, "\n%s\n", i18n.Messages["CalibrationSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-    writeOut(tw, "  %sSeuil%s        │ %sTemps d'exécution%s\n", ColorUnderline, ColorReset, ColorUnderline, ColorReset)
+	writeOut(tw, "  %sSeuil%s        │ %sTemps d'exécution%s\n", ColorUnderline, ColorReset, ColorUnderline, ColorReset)
 	writeOut(tw, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))
 	for _, res := range results {
 		thresholdLabel := fmt.Sprintf("%d bits", res.Threshold)
 		if res.Threshold == 0 {
-            thresholdLabel = "Séquentiel"
+			thresholdLabel = "Séquentiel"
 		}
 		durationStr := fmt.Sprintf("%sN/A%s", ColorRed, ColorReset)
 		if res.Err == nil {
@@ -213,13 +213,13 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 		}
 		highlight := ""
 		if res.Threshold == bestThreshold && res.Err == nil {
-            highlight = fmt.Sprintf(" %s(Optimal)%s", ColorGreen, ColorReset)
+			highlight = fmt.Sprintf(" %s(Optimal)%s", ColorGreen, ColorReset)
 		}
 		writeOut(tw, "  %s%-12s%s │ %s%s%s%s\n", ColorCyan, thresholdLabel, ColorReset, ColorYellow, durationStr, ColorReset, highlight)
 	}
 	tw.Flush()
-    writeOut(out, "\n%s✅ Recommandation pour cette machine : %s--threshold %d%s\n",
-        ColorGreen, ColorYellow, bestThreshold, ColorReset)
+	writeOut(out, "\n%s✅ Recommandation pour cette machine : %s--threshold %d%s\n",
+		ColorGreen, ColorYellow, bestThreshold, ColorReset)
 	return ExitSuccess
 }
 
@@ -249,24 +249,24 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 
-    writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
-    writeOut(out, "Calcul de %sF(%d)%s avec un délai maximum de %s%s%s.\n",
-        ColorMagenta, cfg.N, ColorReset, ColorYellow, cfg.Timeout, ColorReset)
-    writeOut(out, "Environnement : %s%d%s processeurs logiques, Go %s%s%s.\n",
-        ColorCyan, runtime.NumCPU(), ColorReset, ColorCyan, runtime.Version(), ColorReset)
-    writeOut(out, "Seuils d'optimisation : Parallélisme=%s%d%s bits, FFT=%s%d%s bits.\n",
-        ColorCyan, cfg.Threshold, ColorReset, ColorCyan, cfg.FFTThreshold, ColorReset)
+	writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
+	writeOut(out, "Calcul de %sF(%d)%s avec un délai maximum de %s%s%s.\n",
+		ColorMagenta, cfg.N, ColorReset, ColorYellow, cfg.Timeout, ColorReset)
+	writeOut(out, "Environnement : %s%d%s processeurs logiques, Go %s%s%s.\n",
+		ColorCyan, runtime.NumCPU(), ColorReset, ColorCyan, runtime.Version(), ColorReset)
+	writeOut(out, "Seuils d'optimisation : Parallélisme=%s%d%s bits, FFT=%s%d%s bits.\n",
+		ColorCyan, cfg.Threshold, ColorReset, ColorCyan, cfg.FFTThreshold, ColorReset)
 
 	calculatorsToRun := getCalculatorsToRun(cfg)
-    var modeDesc string
+	var modeDesc string
 	if len(calculatorsToRun) > 1 {
-        modeDesc = "Comparaison parallèle de tous les algorithmes"
+		modeDesc = "Comparaison parallèle de tous les algorithmes"
 	} else {
-        modeDesc = fmt.Sprintf("Calcul simple avec l'algorithme %s%s%s",
-            ColorGreen, calculatorsToRun[0].Name(), ColorReset)
+		modeDesc = fmt.Sprintf("Calcul simple avec l'algorithme %s%s%s",
+			ColorGreen, calculatorsToRun[0].Name(), ColorReset)
 	}
-    writeOut(out, "Mode d'exécution : %s.\n", modeDesc)
-    writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])
+	writeOut(out, "Mode d'exécution : %s.\n", modeDesc)
+	writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])
 
 	results := executeCalculations(ctx, calculatorsToRun, cfg, out)
 	return analyzeComparisonResults(results, cfg, out)
@@ -292,7 +292,6 @@ func getCalculatorsToRun(cfg config.AppConfig) []fibonacci.Calculator {
 	}
 	return []fibonacci.Calculator{calculatorRegistry[cfg.Algo]}
 }
-
 
 // executeCalculations orchestrates the concurrent execution of one or more
 // Fibonacci calculations. It uses an `errgroup` to manage the lifecycle of the
@@ -373,20 +372,20 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	var firstError error
 	successCount := 0
 
-    writeOut(out, "\n%s\n", i18n.Messages["ComparisonSummary"])
+	writeOut(out, "\n%s\n", i18n.Messages["ComparisonSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-    writeOut(tw, "%sAlgorithme%s\t%sDurée%s\t%sStatut%s\n",
+	writeOut(tw, "%sAlgorithme%s\t%sDurée%s\t%sStatut%s\n",
 		ColorUnderline, ColorReset, ColorUnderline, ColorReset, ColorUnderline, ColorReset)
 
 	for _, res := range results {
 		var status string
-        if res.Err != nil {
-            status = fmt.Sprintf("%s❌ Échec (%v)%s", ColorRed, res.Err, ColorReset)
+		if res.Err != nil {
+			status = fmt.Sprintf("%s❌ Échec (%v)%s", ColorRed, res.Err, ColorReset)
 			if firstError == nil {
 				firstError = res.Err
 			}
 		} else {
-            status = fmt.Sprintf("%s✅ Succès%s", ColorGreen, ColorReset)
+			status = fmt.Sprintf("%s✅ Succès%s", ColorGreen, ColorReset)
 			successCount++
 			if firstValidResult == nil {
 				firstValidResult = res.Result
@@ -404,8 +403,8 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	}
 	tw.Flush()
 
-    if successCount == 0 {
-        writeOut(out, "\n%s\n", i18n.Messages["GlobalStatusFailure"])
+	if successCount == 0 {
+		writeOut(out, "\n%s\n", i18n.Messages["GlobalStatusFailure"])
 		return handleCalculationError(firstError, 0, cfg.Timeout, out)
 	}
 
@@ -416,12 +415,12 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 			break
 		}
 	}
-    if mismatch {
-        writeOut(out, "\n" + i18n.Messages["StatusCriticalMismatch"])
+	if mismatch {
+		writeOut(out, "\n"+i18n.Messages["StatusCriticalMismatch"])
 		return ExitErrorMismatch
 	}
 
-    writeOut(out, "\n" + i18n.Messages["GlobalStatusSuccess"])
+	writeOut(out, "\n"+i18n.Messages["GlobalStatusSuccess"])
 	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
 	return ExitSuccess
 }
@@ -447,15 +446,15 @@ func handleCalculationError(err error, duration time.Duration, timeout time.Dura
 		msgSuffix = fmt.Sprintf(" after %s%s%s", ColorYellow, duration, ColorReset)
 	}
 
-    if errors.Is(err, context.DeadlineExceeded) {
-        writeOut(out, "%s\n", i18n.Messages["StatusTimeout"])
+	if errors.Is(err, context.DeadlineExceeded) {
+		writeOut(out, "%s\n", i18n.Messages["StatusTimeout"])
 		return ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
-        writeOut(out, "%s%s%s.%s\n", ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, ColorReset)
+		writeOut(out, "%s%s%s.%s\n", ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, ColorReset)
 		return ExitErrorCanceled
 	}
-    writeOut(out, "%s\n", i18n.Messages["StatusFailure"])
+	writeOut(out, "%s\n", i18n.Messages["StatusFailure"])
 	return ExitErrorGeneric
 }
 
