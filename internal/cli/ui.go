@@ -16,6 +16,16 @@ import (
 	"github.com/briandowns/spinner"
 )
 
+// FormatExecutionDuration affiche la durée en ms si <1s, sinon sous forme humaine
+func FormatExecutionDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%dµs", d.Microseconds())
+	} else if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return d.String()
+}
+
 const (
 	// ANSI escape codes for text styling.
 	ColorReset   = "\033[0m"
@@ -154,11 +164,11 @@ func progressBar(progress float64, length int) string {
 // for the duration of the calculations.
 //
 // The function's responsibilities include:
-// - Receiving progress updates from a channel.
-// - Aggregating these updates to calculate the average progress.
-// - Periodically refreshing the spinner and progress bar to provide a smooth
-//   visual experience.
-// - Gracefully shutting down when the progress channel is closed.
+//   - Receiving progress updates from a channel.
+//   - Aggregating these updates to calculate the average progress.
+//   - Periodically refreshing the spinner and progress bar to provide a smooth
+//     visual experience.
+//   - Gracefully shutting down when the progress channel is closed.
 //
 // Parameters:
 //   - wg: A `WaitGroup` to signal completion of the function.
@@ -203,7 +213,6 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 	}
 }
 
-
 // DisplayResult formats and prints the final calculation result to the specified
 // output writer. It provides different levels of detail based on the `verbose`
 // and `details` flags, including metadata like binary size, number of digits,
@@ -220,7 +229,11 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 
 	fmt.Fprintf(out, "\n%s--- Detailed Result Analysis ---%s\n", ColorBold, ColorReset)
 	if duration > 0 {
-		fmt.Fprintf(out, "Calculation time      : %s%s%s\n", ColorGreen, duration, ColorReset)
+		duree := FormatExecutionDuration(duration)
+		if duration == 0 {
+			duree = "< 1µs"
+		}
+		fmt.Fprintf(out, "Calculation time      : %s%s%s\n", ColorGreen, duree, ColorReset)
 	}
 
 	resultStr := result.String()

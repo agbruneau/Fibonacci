@@ -205,7 +205,10 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 		}
 		durationStr := fmt.Sprintf("%sN/A%s", ColorRed, ColorReset)
 		if res.Err == nil {
-			durationStr = res.Duration.String()
+			durationStr = cli.FormatExecutionDuration(res.Duration)
+			if res.Duration == 0 {
+				durationStr = "< 1µs"
+			}
 		}
 		highlight := ""
 		if res.Threshold == bestThreshold && res.Err == nil {
@@ -389,9 +392,13 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 				firstValidResultDuration = res.Duration
 			}
 		}
+		duree := cli.FormatExecutionDuration(res.Duration)
+		if res.Duration == 0 {
+			duree = "< 1µs"
+		}
 		writeOut(tw, "%s%s%s\t%s%s%s\t%s\n",
 			ColorBlue, res.Name, ColorReset,
-			ColorYellow, res.Duration.String(), ColorReset,
+			ColorYellow, duree, ColorReset,
 			status)
 	}
 	tw.Flush()
