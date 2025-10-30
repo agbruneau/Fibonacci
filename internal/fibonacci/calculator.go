@@ -13,10 +13,10 @@ import (
 	"sync"
 )
 
+// MaxFibUint64 = 93 car F(93) est le plus grand Fibonacci tenant sur un uint64,
+// car F(94) dépasse 2^64. Valeur issue de la croissance très rapide de la suite.
 const (
-	// MaxFibUint64 represents the index of the largest Fibonacci number
-	// that can be calculated on a 64-bit unsigned integer.
-	MaxFibUint64 = 93
+	MaxFibUint64 = 93 // Justifié ci-dessus
 )
 
 // ProgressUpdate is a data transfer object (DTO) that encapsulates the
@@ -35,6 +35,40 @@ type ProgressUpdate struct {
 // report their progress without being coupled to the channel-based communication
 // mechanism of the broader application.
 type ProgressReporter func(progress float64)
+
+// ProgressReportParams contient l'état nécessaire au calcul du reporting de progression.
+type ProgressReportParams struct {
+	NumBits int
+	Four    *big.Int
+}
+
+// CalcTotalWork calcule le travail total (nombre d'étapes pondérées) pour des algorithmes en O(log n).
+func CalcTotalWork(numBits int) *big.Int {
+	four := big.NewInt(4)
+	totalWork := new(big.Int)
+	if numBits > 0 {
+		totalWork.Exp(four, big.NewInt(int64(numBits)), nil).Sub(totalWork, big.NewInt(1)).Div(totalWork, big.NewInt(3))
+	}
+	return totalWork
+}
+
+// ReportStepProgress gère le reporting de progression harmonisé pour tous les algos.
+// Utiliser pour chaque i (étape ou bit courant)
+func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i int, numBits int) {
+	const ReportThreshold = 0.01 // seuil centralisé
+	if totalWork.Sign() > 0 {
+		j := int64(numBits - 1 - i)
+		workOfStep.Exp(big.NewInt(4), big.NewInt(j), nil)
+		workDone.Add(workDone, workOfStep)
+		workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
+		totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
+		currentProgress := workDoneFloat / totalWorkFloat
+		if currentProgress-*lastReported >= ReportThreshold || i == 0 {
+			progressReporter(currentProgress)
+			*lastReported = currentProgress
+		}
+	}
+}
 
 // Calculator defines the public interface for a Fibonacci calculator. It is
 // the primary abstraction used by the application's orchestration layer to
@@ -207,7 +241,7 @@ func (m *matrix) Set(other *matrix) {
 //   [ 0 1 ]
 // The identity matrix is the multiplicative identity for matrix multiplication.
 func (m *matrix) SetIdentity() {
-	m.a.SetInt64(1)
+	m.a.SetInt64(1) // Idem élément neutre matrice
 	m.b.SetInt64(0)
 	m.c.SetInt64(0)
 	m.d.SetInt64(1)
@@ -218,12 +252,16 @@ func (m *matrix) SetIdentity() {
 //   [ 1 0 ]
 // Powers of this matrix are used to generate Fibonacci numbers.
 func (m *matrix) SetBaseQ() {
-	m.a.SetInt64(1)
+	m.a.SetInt64(1) // Base Q de la récurrence de Fibonacci
 	m.b.SetInt64(1)
 	m.c.SetInt64(1)
 	m.d.SetInt64(0)
 }
 
+// Dans la logique de progression (voir CalcTotalWork) :
+// On utilise la base 4 pour modéliser le nombre d'opérations via la structure
+// de l'algorithme (1 addition et 3 multiplications à chaque bit), donc on a 4^k.
+// +1 dans la LUT car la LUT contient F(0) à F(93) inclus.
 // matrixState aggregates variables for the matrix exponentiation algorithm.
 // The temporary variables (p1-p7, s1-s10) are specifically designed to support
 // the memory requirements of Strassen's matrix multiplication algorithm,

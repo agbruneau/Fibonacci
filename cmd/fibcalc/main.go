@@ -142,11 +142,11 @@ type CalculationResult struct {
 //
 // Returns an exit code indicating the outcome of the calibration process.
 func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
-	fmt.Fprintf(out, "%s--- Calibration Mode: Finding the Optimal Parallelism Threshold ---%s\n", ColorBold, ColorReset)
+	writeOut(out, "%s\n", userMessages["CalibrationTitle"])
 	const calibrationN = 10_000_000
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
-		fmt.Fprintf(out, "%sCritical error: The 'fast' algorithm is required for calibration but was not found.%s\n", ColorRed, ColorReset)
+		writeOut(out, "%sCritical error: The 'fast' algorithm is required for calibration but was not found.%s\n", ColorRed, ColorReset)
 		return ExitErrorGeneric
 	}
 
@@ -167,7 +167,7 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 
 	for _, threshold := range thresholdsToTest {
 		if ctx.Err() != nil {
-			fmt.Fprintf(out, "\n%sCalibration interrupted.%s\n", ColorYellow, ColorReset)
+			writeOut(out, "\n%sCalibration interrupted.%s\n", ColorYellow, ColorReset)
 			return ExitErrorCanceled
 		}
 
@@ -176,7 +176,7 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 		duration := time.Since(startTime)
 
 		if err != nil {
-			fmt.Fprintf(out, "%s❌ Failure (%v)%s\n", ColorRed, err, ColorReset)
+			writeOut(out, "%s❌ Failure (%v)%s\n", ColorRed, err, ColorReset)
 			results = append(results, calibrationResult{threshold, 0, err})
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
@@ -194,10 +194,10 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 	close(progressChan)
 	wg.Wait()
 
-	fmt.Fprintf(out, "\n%s--- Calibration Summary ---%s\n", ColorBold, ColorReset)
+	writeOut(out, "\n%s\n", userMessages["CalibrationSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(tw, "  %sThreshold%s    │ %sExecution Time%s\n", ColorUnderline, ColorReset, ColorUnderline, ColorReset)
-	fmt.Fprintf(tw, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))
+	writeOut(tw, "  %sThreshold%s    │ %sExecution Time%s\n", ColorUnderline, ColorReset, ColorUnderline, ColorReset)
+	writeOut(tw, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))
 	for _, res := range results {
 		thresholdLabel := fmt.Sprintf("%d bits", res.Threshold)
 		if res.Threshold == 0 {
@@ -211,10 +211,10 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 		if res.Threshold == bestThreshold && res.Err == nil {
 			highlight = fmt.Sprintf(" %s(Optimal)%s", ColorGreen, ColorReset)
 		}
-		fmt.Fprintf(tw, "  %s%-12s%s │ %s%s%s%s\n", ColorCyan, thresholdLabel, ColorReset, ColorYellow, durationStr, ColorReset, highlight)
+		writeOut(tw, "  %s%-12s%s │ %s%s%s%s\n", ColorCyan, thresholdLabel, ColorReset, ColorYellow, durationStr, ColorReset, highlight)
 	}
 	tw.Flush()
-	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
+	writeOut(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
 		ColorGreen, ColorYellow, bestThreshold, ColorReset)
 	return ExitSuccess
 }
@@ -245,12 +245,12 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 
-	fmt.Fprintf(out, "%s--- Execution Configuration ---%s\n", ColorBold, ColorReset)
-	fmt.Fprintf(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
+	writeOut(out, "%s\n", userMessages["ExecConfigTitle"])
+	writeOut(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
 		ColorMagenta, cfg.N, ColorReset, ColorYellow, cfg.Timeout, ColorReset)
-	fmt.Fprintf(out, "Environment: %s%d%s logical CPUs, Go %s%s%s.\n",
+	writeOut(out, "Environment: %s%d%s logical CPUs, Go %s%s%s.\n",
 		ColorCyan, runtime.NumCPU(), ColorReset, ColorCyan, runtime.Version(), ColorReset)
-	fmt.Fprintf(out, "Optimization thresholds: Parallelism=%s%d%s bits, FFT=%s%d%s bits.\n",
+	writeOut(out, "Optimization thresholds: Parallelism=%s%d%s bits, FFT=%s%d%s bits.\n",
 		ColorCyan, cfg.Threshold, ColorReset, ColorCyan, cfg.FFTThreshold, ColorReset)
 
 	calculatorsToRun := getCalculatorsToRun(cfg)
@@ -261,8 +261,8 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 		modeDesc = fmt.Sprintf("Simple calculation with the %s%s%s algorithm",
 			ColorGreen, calculatorsToRun[0].Name(), ColorReset)
 	}
-	fmt.Fprintf(out, "Execution mode: %s.\n", modeDesc)
-	fmt.Fprintf(out, "\n%s--- Start of Execution ---%s\n", ColorBold, ColorReset)
+	writeOut(out, "Execution mode: %s.\n", modeDesc)
+	writeOut(out, "\n%s\n", userMessages["ExecStartTitle"])
 
 	results := executeCalculations(ctx, calculatorsToRun, cfg, out)
 	return analyzeComparisonResults(results, cfg, out)
@@ -369,9 +369,9 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	var firstError error
 	successCount := 0
 
-	fmt.Fprintf(out, "\n%s--- Comparison Summary ---%s\n", ColorBold, ColorReset)
+	writeOut(out, "\n%s\n", userMessages["ComparisonSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
+	writeOut(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
 		ColorUnderline, ColorReset, ColorUnderline, ColorReset, ColorUnderline, ColorReset)
 
 	for _, res := range results {
@@ -389,7 +389,7 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 				firstValidResultDuration = res.Duration
 			}
 		}
-		fmt.Fprintf(tw, "%s%s%s\t%s%s%s\t%s\n",
+		writeOut(tw, "%s%s%s\t%s%s%s\t%s\n",
 			ColorBlue, res.Name, ColorReset,
 			ColorYellow, res.Duration.String(), ColorReset,
 			status)
@@ -397,7 +397,7 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	tw.Flush()
 
 	if successCount == 0 {
-		fmt.Fprintf(out, "\n%sGlobal Status: Failure. None of the algorithms could complete the calculation.%s\n", ColorRed, ColorReset)
+		writeOut(out, "\n%s\n", userMessages["GlobalStatusFailure"])
 		return handleCalculationError(firstError, 0, cfg.Timeout, out)
 	}
 
@@ -409,11 +409,11 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 		}
 	}
 	if mismatch {
-		fmt.Fprintln(out, "\nGlobal Status: CRITICAL FAILURE! An inconsistency was detected between the results of the algorithms.")
+		writeOut(out, "\n" + userMessages["StatusCriticalMismatch"])
 		return ExitErrorMismatch
 	}
 
-	fmt.Fprintln(out, "\nGlobal Status: Success. All valid results are consistent.")
+	writeOut(out, "\n" + userMessages["GlobalStatusSuccess"])
 	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
 	return ExitSuccess
 }
@@ -440,15 +440,40 @@ func handleCalculationError(err error, duration time.Duration, timeout time.Dura
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		fmt.Fprintf(out, "%sStatus: Failure (Timeout). The execution time limit of %s%s%s was exceeded%s.%s\n",
-			ColorRed, ColorYellow, timeout, ColorReset, msgSuffix, ColorReset)
+		writeOut(out, "%s\n", userMessages["StatusTimeout"])
 		return ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
-		fmt.Fprintf(out, "%sStatus: Canceled by user%s.%s\n",
-			ColorYellow, msgSuffix, ColorReset)
+		writeOut(out, "%s%s%s.%s\n", ColorYellow, userMessages["StatusCanceled"], msgSuffix, ColorReset)
 		return ExitErrorCanceled
 	}
-	fmt.Fprintf(out, "%sStatus: Failure. An unexpected error occurred: %v%s\n", ColorRed, err, ColorReset)
+	writeOut(out, "%s\n", userMessages["StatusFailure"])
 	return ExitErrorGeneric
 }
+
+// writeOut centralise l'écriture sur out et gère (ou loggue) l’erreur.
+func writeOut(out io.Writer, format string, a ...interface{}) {
+	if _, err := fmt.Fprintf(out, format, a...); err != nil {
+		// Erreur d'I/O sur la sortie utilisateur, généralement critique !
+		// Ici nous logguons sur stderr via fmt.Fprintln mais on pourrait exit immédiatement.
+		fmt.Fprintln(os.Stderr, "[Erreur sortie] :", err)
+		// os.Exit(1) // En production, on pourrait envisager un exit.
+	}
+}
+
+// ----- Début extraction messages pour i18n -----
+var userMessages = map[string]string{
+	"CalibrationTitle":   "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---",
+	"CalibrationSummary": "--- Calibration Summary ---",
+	"OptimalRecommendation": "✅ Recommendation for this machine: --threshold %d",
+	"ExecConfigTitle":    "--- Execution Configuration ---",
+	"ExecStartTitle":     "--- Start of Execution ---",
+	"ComparisonSummary":  "--- Comparison Summary ---",
+	"GlobalStatusSuccess":   "Global Status: Success. All valid results are consistent.",
+	"GlobalStatusFailure":   "Global Status: Failure. None of the algorithms could complete the calculation.",
+	"StatusCriticalMismatch": "Global Status: CRITICAL FAILURE! An inconsistency was detected between the results of the algorithms.",
+	"StatusCanceled":        "Status: Canceled by user",
+	"StatusTimeout":         "Status: Failure (Timeout). The execution time limit of %s was exceeded%s.",
+	"StatusFailure":         "Status: Failure. An unexpected error occurred: %v",
+}
+// ----- Fin extraction messages pour i18n -----

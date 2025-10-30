@@ -74,13 +74,10 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	numBits := bits.Len64(n)
 	useParallel := runtime.GOMAXPROCS(0) > 1 && threshold > 0
 
-	var totalWork, workDone, workOfStep, four big.Int
-	four.SetInt64(4)
-	if numBits > 0 {
-		totalWork.Exp(&four, big.NewInt(int64(numBits)), nil).Sub(&totalWork, big.NewInt(1)).Div(&totalWork, big.NewInt(3))
-	}
+	// Calcul du travail total pour le reporting de progression via utilitaire commun
+	totalWork := CalcTotalWork(numBits)
+	var workDone, workOfStep big.Int
 	lastReportedProgress := -1.0
-	const reportThreshold = 0.01
 
 	for i := numBits - 1; i >= 0; i-- {
 		if err := ctx.Err(); err != nil {
@@ -118,18 +115,8 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
 		}
 
-		if totalWork.Sign() > 0 {
-			j := int64(numBits - 1 - i)
-			workOfStep.Exp(&four, big.NewInt(j), nil)
-			workDone.Add(&workDone, &workOfStep)
-			workDoneFloat, _ := new(big.Float).SetInt(&workDone).Float64()
-			totalWorkFloat, _ := new(big.Float).SetInt(&totalWork).Float64()
-			currentProgress := workDoneFloat / totalWorkFloat
-			if currentProgress-lastReportedProgress >= reportThreshold || i == 0 {
-				reporter(currentProgress)
-				lastReportedProgress = currentProgress
-			}
-		}
+		// Reporting harmonisé via fonction utilitaire commune
+		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits)
 	}
 	return new(big.Int).Set(s.f_k), nil
 }
