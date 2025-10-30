@@ -52,13 +52,13 @@ type AppConfig struct {
 // Returns an error if the configuration is invalid, otherwise nil.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
-		return errors.New("timeout value must be strictly positive")
+		return errors.New("la valeur du délai d’expiration (timeout) doit être strictement positive")
 	}
 	if c.Threshold < 0 {
-		return fmt.Errorf("parallelism threshold cannot be negative: %d", c.Threshold)
+		return fmt.Errorf("le seuil de parallélisation ne peut pas être négatif : %d", c.Threshold)
 	}
 	if c.FFTThreshold < 0 {
-		return fmt.Errorf("FFT threshold cannot be negative: %d", c.FFTThreshold)
+		return fmt.Errorf("le seuil FFT ne peut pas être négatif : %d", c.FFTThreshold)
 	}
 	isAlgoAvailable := false
 	for _, a := range availableAlgos {
@@ -68,7 +68,7 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 		}
 	}
 	if c.Algo != "all" && !isAlgoAvailable {
-		return fmt.Errorf("unrecognized algorithm: '%s'. Valid algorithms: 'all' or one of [%s]", c.Algo, strings.Join(availableAlgos, ", "))
+		return fmt.Errorf("algorithme non reconnu : '%s'. Algorithmes valides : 'all' ou [%s]", c.Algo, strings.Join(availableAlgos, ", "))
 	}
 	return nil
 }
@@ -91,25 +91,25 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 func ParseConfig(programName string, args []string, errorWriter io.Writer, availableAlgos []string) (AppConfig, error) {
 	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
 	fs.SetOutput(errorWriter)
-	algoHelp := fmt.Sprintf("Algorithm to use: 'all' (default) or one of [%s].", strings.Join(availableAlgos, ", "))
+	algoHelp := fmt.Sprintf("Algorithme à utiliser : 'all' (défaut) ou un des suivants [%s].", strings.Join(availableAlgos, ", "))
 
 	config := AppConfig{}
-	fs.Uint64Var(&config.N, "n", 250000000, "Index 'n' of the Fibonacci number to calculate.")
-	fs.BoolVar(&config.Verbose, "v", false, "Display the full value of the result (can be very long).")
-	fs.BoolVar(&config.Details, "d", false, "Display performance details and result metadata.")
-	fs.BoolVar(&config.Details, "details", false, "Alias for -d.")
-	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Maximum execution time for the calculation.")
+	fs.Uint64Var(&config.N, "n", 250000000, "Index n du nombre de Fibonacci à calculer.")
+	fs.BoolVar(&config.Verbose, "v", false, "Afficher la valeur complète du résultat (peut être très long).")
+	fs.BoolVar(&config.Details, "d", false, "Afficher les détails de performance et les métadonnées du résultat.")
+	fs.BoolVar(&config.Details, "details", false, "Alias pour -d.")
+	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Durée maximale d’exécution du calcul.")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
-	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Threshold (in bits) to enable parallelization of multiplications.")
-	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Threshold (in bits) to use FFT multiplication (0 to disable).")
-	fs.BoolVar(&config.Calibrate, "calibrate", false, "Run calibration mode to determine the optimal parallelism threshold.")
+	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Seuil (en bits) d’activation de la parallélisation des multiplications.")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication FFT (0 pour désactiver).")
+	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode calibration pour déterminer le seuil optimal de parallélisation.")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
 	}
 	config.Algo = strings.ToLower(config.Algo)
 	if err := config.Validate(availableAlgos); err != nil {
-		fmt.Fprintln(errorWriter, "Configuration error:", err)
+		fmt.Fprintln(errorWriter, "Erreur de configuration :", err)
 		fs.Usage()
 		return AppConfig{}, errors.New("invalid configuration")
 	}

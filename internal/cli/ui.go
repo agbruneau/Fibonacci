@@ -195,7 +195,7 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 		select {
 		case update, ok := <-progressChan:
 			if !ok {
-				s.UpdateSuffix(" Calculation complete.")
+				s.UpdateSuffix(" Calcul terminé.")
 				// A short pause to ensure the final message is displayed.
 				time.Sleep(ProgressRefreshRate)
 				return
@@ -204,9 +204,9 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 		case <-ticker.C:
 			avgProgress := state.CalculateAverage()
 			bar := progressBar(avgProgress, ProgressBarWidth)
-			label := "Progress"
+			label := "Progression"
 			if numCalculators > 1 {
-				label = "Average Progress"
+				label = "Progression moyenne"
 			}
 			s.UpdateSuffix(fmt.Sprintf(" %s: %6.2f%% [%s]", label, avgProgress*100, bar))
 		}
@@ -220,39 +220,39 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 // unless `verbose` is true.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
-	fmt.Fprintf(out, "Binary Size of the Result: %s%s%s bits.\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset)
+	fmt.Fprintf(out, "Taille binaire du résultat : %s%s%s bits.\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset)
 
 	if !details {
-		fmt.Fprintf(out, "(Use the %s-d%s or %s--details%s option for a full report)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
+		fmt.Fprintf(out, "(Astuce : utiliser l’option %s-d%s ou %s--details%s pour un rapport complet)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
 		return
 	}
 
-	fmt.Fprintf(out, "\n%s--- Detailed Result Analysis ---%s\n", ColorBold, ColorReset)
+	fmt.Fprintf(out, "\n%s--- Analyse détaillée du résultat ---%s\n", ColorBold, ColorReset)
 	if duration > 0 {
 		duree := FormatExecutionDuration(duration)
 		if duration == 0 {
 			duree = "< 1µs"
 		}
-		fmt.Fprintf(out, "Calculation time      : %s%s%s\n", ColorGreen, duree, ColorReset)
+		fmt.Fprintf(out, "Temps de calcul           : %s%s%s\n", ColorGreen, duree, ColorReset)
 	}
 
 	resultStr := result.String()
 	numDigits := len(resultStr)
-	fmt.Fprintf(out, "Number of digits    : %s%s%s\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset)
+	fmt.Fprintf(out, "Nombre de chiffres        : %s%s%s\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset)
 
 	if numDigits > 6 {
 		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Scientific notation : %s%.6e%s\n", ColorCyan, f, ColorReset)
+		fmt.Fprintf(out, "Notation scientifique      : %s%.6e%s\n", ColorCyan, f, ColorReset)
 	}
 
-	fmt.Fprintf(out, "\n%s--- Calculated Value ---%s\n", ColorBold, ColorReset)
+	fmt.Fprintf(out, "\n%s--- Valeur calculée ---%s\n", ColorBold, ColorReset)
 	if verbose {
 		fmt.Fprintf(out, "F(%s%d%s) =\n%s%s%s\n", ColorMagenta, n, ColorReset, ColorGreen, formatNumberString(resultStr), ColorReset)
 	} else if numDigits > TruncationLimit {
-		fmt.Fprintf(out, "F(%s%d%s) (truncated) = %s%s...%s%s\n",
+		fmt.Fprintf(out, "F(%s%d%s) (tronqué) = %s%s...%s%s\n",
 			ColorMagenta, n, ColorReset,
 			ColorGreen, resultStr[:DisplayEdges], resultStr[numDigits-DisplayEdges:], ColorReset)
-		fmt.Fprintf(out, "(Use the %s-v%s or %s--verbose%s option to display the full value)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
+		fmt.Fprintf(out, "(Astuce : utiliser l’option %s-v%s ou %s--verbose%s pour afficher la valeur complète)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
 	} else {
 		fmt.Fprintf(out, "F(%s%d%s) = %s%s%s\n", ColorMagenta, n, ColorReset, ColorGreen, formatNumberString(resultStr), ColorReset)
 	}
