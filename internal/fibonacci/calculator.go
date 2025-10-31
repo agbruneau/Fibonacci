@@ -57,12 +57,19 @@ func CalcTotalWork(numBits int) *big.Int {
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i int, numBits int) {
 	const ReportThreshold = 0.01 // seuil centralisé
 	if totalWork.Sign() > 0 {
-		j := int64(numBits - 1 - i)
-		workOfStep.Exp(big.NewInt(4), big.NewInt(j), nil)
-		workDone.Add(workDone, workOfStep)
-		workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
-		totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
-		currentProgress := workDoneFloat / totalWorkFloat
+        // Mise à jour incrémentale: la charge de l'étape courante est 4^j
+        // où j croît de 0 à numBits-1. On évite Exp à chaque itération en
+        // multipliant par 4 à chaque pas (workOfStep <- workOfStep * 4),
+        // en initialisant à 1 pour la première étape.
+        if workOfStep.Sign() == 0 {
+            workOfStep.SetInt64(1)
+        } else {
+            workOfStep.Lsh(workOfStep, 2) // *4
+        }
+        workDone.Add(workDone, workOfStep)
+        workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
+        totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
+        currentProgress := workDoneFloat / totalWorkFloat
 		if currentProgress-*lastReported >= ReportThreshold || i == 0 {
 			progressReporter(currentProgress)
 			*lastReported = currentProgress

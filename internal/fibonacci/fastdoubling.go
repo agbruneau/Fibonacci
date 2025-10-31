@@ -14,8 +14,9 @@ import (
 // algorithms for this purpose.
 //
 // At its core, the algorithm relies on two mathematical identities:
-//   F(2k)   = F(k) * [2*F(k+1) - F(k)]
-//   F(2k+1) = F(k)² + F(k+1)²
+//
+//	F(2k)   = F(k) * [2*F(k+1) - F(k)]
+//	F(2k+1) = F(k)² + F(k+1)²
 //
 // The calculation proceeds by examining the binary representation of the input `n`,
 // from the most significant bit to the least. For each bit, a "doubling" step
@@ -61,11 +62,19 @@ func (fd *OptimizedFastDoubling) Name() string {
 // Returns the calculated Fibonacci number and an error if one occurred.
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	mul := func(dest, x, y *big.Int) {
-		if fftThreshold > 0 && x.BitLen() > fftThreshold && y.BitLen() > fftThreshold {
-			mulFFT(dest, x, y)
-		} else {
-			dest.Mul(x, y)
+		if fftThreshold > 0 {
+			// Utilise FFT uniquement si les deux opérandes dépassent le seuil.
+			// Raccourci: compare le min des tailles en bits.
+			minBitLen := x.BitLen()
+			if b := y.BitLen(); b < minBitLen {
+				minBitLen = b
+			}
+			if minBitLen > fftThreshold {
+				mulFFT(dest, x, y)
+				return
+			}
 		}
+		dest.Mul(x, y)
 	}
 
 	s := acquireState()
@@ -87,7 +96,14 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		// Doubling Step
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
 
-		if useParallel && s.f_k1.BitLen() > threshold {
+		// Parallélise lorsque au moins l'un des opérandes principaux est volumineux
+		if useParallel && func() bool {
+			bl := s.f_k1.BitLen()
+			if b := s.f_k.BitLen(); b > bl {
+				bl = b
+			}
+			return bl > threshold
+		}() {
 			parallelMultiply3Optimized(s, mul)
 		} else {
 			mul(s.t3, s.f_k, s.t2)
