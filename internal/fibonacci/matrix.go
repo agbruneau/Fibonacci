@@ -112,9 +112,13 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 // et la version Strassen (7 multiplications + additions) en fonction d'un seuil sur
 // la taille en bits des opérandes. Pour des petites tailles, la version classique
 // évite le surcoût d'additions de Strassen.
+// DefaultStrassenThresholdBits contrôle le basculement vers Strassen.
+// Modifiable au démarrage via la configuration.
+var DefaultStrassenThresholdBits = 256
+
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
-	const strassenThresholdBits = 256 // heuristique simple, ajustable selon benchs
-	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
+    strassenThresholdBits := DefaultStrassenThresholdBits
+    if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
 		multiplyMatricesClassic(dest, m1, m2, state, inParallel, mul)
 		return
 	}

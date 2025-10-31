@@ -37,6 +37,8 @@ type AppConfig struct {
 	Threshold int
 	// FFTThreshold is the bit size threshold for using FFT-based multiplication.
 	FFTThreshold int
+    // StrassenThreshold controls when matrix multiplication switches to Strassen.
+    StrassenThreshold int
 	// Calibrate, if true, runs the application in calibration mode to find the
 	// optimal parallelism threshold.
 	Calibrate bool
@@ -111,6 +113,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Seuil (en bits) d’activation de la parallélisation des multiplications.")
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication FFT (0 pour désactiver).")
+    fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Seuil (en bits) pour basculer vers l'algorithme de Strassen en multiplication matricielle.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode calibration pour déterminer le seuil optimal de parallélisation.")
     fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", true, "Active la calibration automatique rapide au démarrage (recommandé).")
     fs.StringVar(&config.Lang, "lang", "fr", "Code langue pour i18n (ex: fr, en).")

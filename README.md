@@ -79,9 +79,10 @@ Utilisation de l’exécutable :
 | `-timeout`       |             | Durée maximale d’exécution (ex. `10s`, `1m30s`).                      | `5m0s`      |
 | `-threshold`     |             | Seuil (en bits) de parallélisation des multiplications.               | `4096`      |
 | `-fft-threshold` |             | Seuil (en bits) pour activer la multiplication FFT (0 pour désact.). | `20000`     |
+| `--strassen-threshold` |      | Seuil (en bits) pour basculer Strassen en multiplication matricielle. | `256`       |
 | `-d`             | `--details` | Afficher les détails de performance et les métadonnées du résultat.   | `false`     |
 | `-v`             | `--verbose` | Afficher la valeur complète du résultat (très long).                  | `false`     |
-| `--calibrate`    |             | Lancer la calibration du seuil de parallélisation optimal (avec raffinement local). | `false`     |
+| `--calibrate`    |             | Lancer la calibration du seuil de parallélisation optimal (recherche ternaire). | `false`     |
 | `--auto-calibrate` |           | Calibration rapide au démarrage pour affiner `threshold` et `fft-threshold`. | `true`      |
 | `--lang`         |             | Code langue i18n (ex: `fr`, `en`).                                   | `fr`        |
 | `--i18n-dir`     |             | Répertoire contenant `<lang>.json` pour surcharger les messages.     | `""`       |
@@ -90,7 +91,7 @@ Utilisation de l’exécutable :
 
 Pour obtenir les meilleures performances, suivez une approche méthodique :
 
-#### Étape 1 : Calibration du seuil de parallélisation (avec raffinement)
+#### Étape 1 : Calibration du seuil de parallélisation (recherche ternaire)
 
 Les performances sur de très grands nombres dépendent fortement de l’architecture du processeur. Le projet inclut un mode calibration pour déterminer empiriquement le meilleur seuil de parallélisation (`--threshold`) pour votre machine.
 
@@ -98,7 +99,7 @@ Exécutez la commande suivante :
 ```bash
 ./fibcalc --calibrate
 ```
-Le programme teste une grille de valeurs puis applique un raffinement local de type dichotomique autour du meilleur candidat pour proposer une recommandation plus précise, par exemple : `✅ Recommandation pour cette machine : --threshold 4096`.
+Le programme teste une grille de valeurs puis applique une recherche ternaire discrète dans une plage plausible pour localiser plus rapidement un optimum (fonction de performance supposée quasi‑unimodale), par exemple : `✅ Recommandation pour cette machine : --threshold 4096`.
 
 #### Étape 2 : Utiliser des paramètres optimaux
 
@@ -106,6 +107,7 @@ Une fois le seuil optimal déterminé, utilisez-le dans vos calculs.
 
 *   `--threshold` : seuil de parallélisation (calibré), crucial sur machines multi-cœurs.
 *   `--fft-threshold` : seuil d’activation de la multiplication FFT, efficace pour des nombres immenses (millions de bits).
+*   `--strassen-threshold` : seuil de bascule vers Strassen dans l’algorithme matriciel (par défaut 256, configurable).
 *   `--auto-calibrate` : laissez activé (par défaut) pour un réglage opportuniste au démarrage.
 
 #### Étape 3 : Comparaison des algorithmes
@@ -133,6 +135,11 @@ Le programme exécute tous les algorithmes en parallèle et affiche un tableau c
 ```bash
 # Après avoir déterminé à l’étape 2 que `fast` est le plus rapide
 ./fibcalc -n 250000000 -algo fast --threshold 4096 -d --timeout 10m
+```
+
+**5. Ajuster le seuil Strassen pour l’algorithme matriciel :**
+```bash
+./fibcalc -n 10000000 -algo matrix --strassen-threshold 384 -d
 ```
 
 **4. Activer i18n dynamique (chargement JSON) :**
