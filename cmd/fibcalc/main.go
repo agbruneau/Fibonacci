@@ -312,7 +312,7 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
     }
 
     // 1) Calibration du seuil de parallélisme (FFT désactivée pour stabilité)
-    parallelCandidates := []int{0, 1024, 4096, 8192, 16384}
+    parallelCandidates := []int{0, 512, 1024, 2048, 4096, 8192, 12288, 16384, 24576, 32768}
     bestPar := cfg.Threshold
     bestParDur := time.Duration(1<<63 - 1)
     for _, cand := range parallelCandidates {
@@ -326,7 +326,7 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
     }
 
     // 2) Calibration du seuil FFT (en utilisant le meilleur parallélisme trouvé)
-    fftCandidates := []int{0, 15000, 20000, 25000, 30000}
+    fftCandidates := []int{0, 12000, 16000, 20000, 24000, 28000, 32000, 40000}
     bestFFT := cfg.FFTThreshold
     bestFFTDur := time.Duration(1<<63 - 1)
     for _, cand := range fftCandidates {
