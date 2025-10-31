@@ -10,6 +10,7 @@ import (
 	"io"
 	"strings"
 	"time"
+    apperrors "example.com/fibcalc/internal/errors"
 )
 
 const (
@@ -42,6 +43,11 @@ type AppConfig struct {
     // AutoCalibrate, if true, runs a short automatic calibration at startup to
     // refine Threshold and FFTThreshold for the current machine.
     AutoCalibrate bool
+    // Lang specifies the i18n language code to use (e.g., "fr", "en").
+    Lang string
+    // I18nDir, if provided, is a directory that contains JSON translation
+    // files named like "fr.json", "en.json" to override Messages.
+    I18nDir string
 }
 
 // Validate checks the semantic consistency of the configuration parameters. It
@@ -55,13 +61,13 @@ type AppConfig struct {
 // Returns an error if the configuration is invalid, otherwise nil.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
-		return errors.New("la valeur du délai d’expiration (timeout) doit être strictement positive")
+        return apperrors.NewConfigError("la valeur du délai d’expiration (timeout) doit être strictement positive")
 	}
 	if c.Threshold < 0 {
-		return fmt.Errorf("le seuil de parallélisation ne peut pas être négatif : %d", c.Threshold)
+        return apperrors.NewConfigError("le seuil de parallélisation ne peut pas être négatif : %d", c.Threshold)
 	}
 	if c.FFTThreshold < 0 {
-		return fmt.Errorf("le seuil FFT ne peut pas être négatif : %d", c.FFTThreshold)
+        return apperrors.NewConfigError("le seuil FFT ne peut pas être négatif : %d", c.FFTThreshold)
 	}
 	isAlgoAvailable := false
 	for _, a := range availableAlgos {
@@ -70,9 +76,9 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 			break
 		}
 	}
-	if c.Algo != "all" && !isAlgoAvailable {
-		return fmt.Errorf("algorithme non reconnu : '%s'. Algorithmes valides : 'all' ou [%s]", c.Algo, strings.Join(availableAlgos, ", "))
-	}
+    if c.Algo != "all" && !isAlgoAvailable {
+        return apperrors.NewConfigError("algorithme non reconnu : '%s'. Algorithmes valides : 'all' ou [%s]", c.Algo, strings.Join(availableAlgos, ", "))
+    }
 	return nil
 }
 
@@ -107,6 +113,8 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication FFT (0 pour désactiver).")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode calibration pour déterminer le seuil optimal de parallélisation.")
     fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", true, "Active la calibration automatique rapide au démarrage (recommandé).")
+    fs.StringVar(&config.Lang, "lang", "fr", "Code langue pour i18n (ex: fr, en).")
+    fs.StringVar(&config.I18nDir, "i18n-dir", "", "Répertoire des fichiers de traduction JSON (ex: ./locales).")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
