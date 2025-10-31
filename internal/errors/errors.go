@@ -1,3 +1,6 @@
+// Package apperrors définit des types d'erreurs applicatives structurées
+// permettant de distinguer clairement les classes d'erreurs (configuration,
+// calcul, etc.) et de transporter la cause sous-jacente.
 package apperrors
 
 import "fmt"

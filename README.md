@@ -81,13 +81,16 @@ Utilisation de l’exécutable :
 | `-fft-threshold` |             | Seuil (en bits) pour activer la multiplication FFT (0 pour désact.). | `20000`     |
 | `-d`             | `--details` | Afficher les détails de performance et les métadonnées du résultat.   | `false`     |
 | `-v`             | `--verbose` | Afficher la valeur complète du résultat (très long).                  | `false`     |
-| `--calibrate`    |             | Lancer la calibration du seuil de parallélisation optimal.            | `false`     |
+| `--calibrate`    |             | Lancer la calibration du seuil de parallélisation optimal (avec raffinement local). | `false`     |
+| `--auto-calibrate` |           | Calibration rapide au démarrage pour affiner `threshold` et `fft-threshold`. | `true`      |
+| `--lang`         |             | Code langue i18n (ex: `fr`, `en`).                                   | `fr`        |
+| `--i18n-dir`     |             | Répertoire contenant `<lang>.json` pour surcharger les messages.     | `""`       |
 
 ### Optimisation des performances
 
-To achieve the best possible performance, a methodical approach is recommended:
+Pour obtenir les meilleures performances, suivez une approche méthodique :
 
-#### Étape 1 : Calibration du seuil de parallélisation
+#### Étape 1 : Calibration du seuil de parallélisation (avec raffinement)
 
 Les performances sur de très grands nombres dépendent fortement de l’architecture du processeur. Le projet inclut un mode calibration pour déterminer empiriquement le meilleur seuil de parallélisation (`--threshold`) pour votre machine.
 
@@ -95,7 +98,7 @@ Exécutez la commande suivante :
 ```bash
 ./fibcalc --calibrate
 ```
-Le programme testera plusieurs valeurs et proposera une recommandation, par exemple : `✅ Recommandation pour cette machine : --threshold 4096`.
+Le programme teste une grille de valeurs puis applique un raffinement local de type dichotomique autour du meilleur candidat pour proposer une recommandation plus précise, par exemple : `✅ Recommandation pour cette machine : --threshold 4096`.
 
 #### Étape 2 : Utiliser des paramètres optimaux
 
@@ -103,6 +106,7 @@ Une fois le seuil optimal déterminé, utilisez-le dans vos calculs.
 
 *   `--threshold` : seuil de parallélisation (calibré), crucial sur machines multi-cœurs.
 *   `--fft-threshold` : seuil d’activation de la multiplication FFT, efficace pour des nombres immenses (millions de bits).
+*   `--auto-calibrate` : laissez activé (par défaut) pour un réglage opportuniste au démarrage.
 
 #### Étape 3 : Comparaison des algorithmes
 
@@ -129,6 +133,12 @@ Le programme exécute tous les algorithmes en parallèle et affiche un tableau c
 ```bash
 # Après avoir déterminé à l’étape 2 que `fast` est le plus rapide
 ./fibcalc -n 250000000 -algo fast --threshold 4096 -d --timeout 10m
+```
+
+**4. Activer i18n dynamique (chargement JSON) :**
+```bash
+./fibcalc --i18n-dir ./locales --lang fr
+# attend un fichier ./locales/fr.json au format { "Key": "Texte" }
 ```
 
 ## 7. Validation et tests
