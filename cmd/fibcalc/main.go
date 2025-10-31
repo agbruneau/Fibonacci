@@ -241,13 +241,20 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 //
 // Returns an exit code that reflects the outcome of the execution.
 func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
-	if cfg.Calibrate {
+    if cfg.Calibrate {
 		return runCalibration(ctx, cfg, out)
 	}
 	ctx, cancelTimeout := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancelTimeout()
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
+
+    // Calibration automatique rapide au démarrage (si activée)
+    if cfg.AutoCalibrate {
+        if updated, ok := autoCalibrate(ctx, cfg, out); ok {
+            cfg = updated
+        }
+    }
 
 	writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
 	writeOut(out, "Calcul de %sF(%d)%s avec un délai maximum de %s%s%s.\n",
@@ -270,6 +277,86 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 
 	results := executeCalculations(ctx, calculatorsToRun, cfg, out)
 	return analyzeComparisonResults(results, cfg, out)
+}
+
+// autoCalibrate effectue une calibration rapide des seuils de parallélisation
+// et du seuil FFT pour la machine courante. Elle est courte et opportuniste :
+// si le contexte est annulé ou si un essai dépasse une petite fraction du
+// timeout, on conserve les valeurs actuelles.
+// Retourne (cfgMisAJour, true) si mise à jour, sinon (cfgOriginal, false).
+func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer) (config.AppConfig, bool) {
+    // Ne lance pas l'auto-calibration en mode comparaison de tous les algos :
+    // on cible l'implémentation fast (doubling) pour vitesse et cohérence.
+    calc := calculatorRegistry["fast"]
+    if calc == nil {
+        return cfg, false
+    }
+
+    // Fenêtre courte : chaque essai dispose d'au plus 1/6 du timeout global,
+    // avec une borne inférieure utile pour éviter trop court (ex: 2s).
+    perTrial := cfg.Timeout / 6
+    if perTrial < 2*time.Second {
+        perTrial = 2 * time.Second
+    }
+
+    // Taille d'entrée pour calibration: suffisamment grande pour déclencher
+    // les chemins d'intérêt sans être trop longue.
+    const nForCalibration = 10_000_000
+
+    tryRun := func(threshold, fftThreshold int) (time.Duration, error) {
+        ctx, cancel := context.WithTimeout(parentCtx, perTrial)
+        defer cancel()
+        start := time.Now()
+        _, err := calc.Calculate(ctx, nil, 0, nForCalibration, threshold, fftThreshold)
+        return time.Since(start), err
+    }
+
+    // 1) Calibration du seuil de parallélisme (FFT désactivée pour stabilité)
+    parallelCandidates := []int{0, 1024, 4096, 8192, 16384}
+    bestPar := cfg.Threshold
+    bestParDur := time.Duration(1<<63 - 1)
+    for _, cand := range parallelCandidates {
+        dur, err := tryRun(cand, 0)
+        if err != nil {
+            continue
+        }
+        if dur < bestParDur {
+            bestParDur, bestPar = dur, cand
+        }
+    }
+
+    // 2) Calibration du seuil FFT (en utilisant le meilleur parallélisme trouvé)
+    fftCandidates := []int{0, 15000, 20000, 25000, 30000}
+    bestFFT := cfg.FFTThreshold
+    bestFFTDur := time.Duration(1<<63 - 1)
+    for _, cand := range fftCandidates {
+        dur, err := tryRun(bestPar, cand)
+        if err != nil {
+            continue
+        }
+        if dur < bestFFTDur {
+            bestFFTDur, bestFFT = dur, cand
+        }
+    }
+
+    // Si aucune mesure valide n'a été faite, ne rien changer
+    if bestParDur == time.Duration(1<<63-1) && bestFFTDur == time.Duration(1<<63-1) {
+        return cfg, false
+    }
+
+    // Appliquer les meilleures valeurs trouvées
+    updated := cfg
+    if bestParDur != time.Duration(1<<63-1) {
+        updated.Threshold = bestPar
+    }
+    if bestFFTDur != time.Duration(1<<63-1) {
+        updated.FFTThreshold = bestFFT
+    }
+
+    // Affichage succinct
+    writeOut(out, "%sCalibration auto%s: parallélisme=%s%d%s bits, FFT=%s%d%s bits\n",
+        ColorGreen, ColorReset, ColorYellow, updated.Threshold, ColorReset, ColorYellow, updated.FFTThreshold, ColorReset)
+    return updated, true
 }
 
 // getCalculatorsToRun selects the calculators to be run based on the application's

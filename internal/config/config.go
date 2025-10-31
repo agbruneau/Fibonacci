@@ -39,6 +39,9 @@ type AppConfig struct {
 	// Calibrate, if true, runs the application in calibration mode to find the
 	// optimal parallelism threshold.
 	Calibrate bool
+    // AutoCalibrate, if true, runs a short automatic calibration at startup to
+    // refine Threshold and FFTThreshold for the current machine.
+    AutoCalibrate bool
 }
 
 // Validate checks the semantic consistency of the configuration parameters. It
@@ -103,6 +106,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Seuil (en bits) d’activation de la parallélisation des multiplications.")
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication FFT (0 pour désactiver).")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode calibration pour déterminer le seuil optimal de parallélisation.")
+    fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", true, "Active la calibration automatique rapide au démarrage (recommandé).")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
