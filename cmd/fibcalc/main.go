@@ -191,7 +191,7 @@ func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) in
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
 				wg.Wait()
-				return handleCalculationError(err, duration, cfg.Timeout, out)
+				return handleCalculationError(err, duration, out)
 			}
 			continue
 		}
@@ -581,7 +581,7 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 
 	if successCount == 0 {
 		writeOut(out, "\n%s\n", i18n.Messages["GlobalStatusFailure"])
-		return handleCalculationError(firstError, 0, cfg.Timeout, out)
+		return handleCalculationError(firstError, 0, out)
 	}
 
 	mismatch := false
@@ -613,7 +613,7 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 //   - out: The output writer for displaying the error message.
 //
 // Returns an exit code that corresponds to the nature of the error.
-func handleCalculationError(err error, duration time.Duration, timeout time.Duration, out io.Writer) int {
+func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
 		return ExitSuccess
 	}
