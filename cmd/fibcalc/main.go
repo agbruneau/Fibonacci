@@ -592,11 +592,11 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 		}
 	}
 	if mismatch {
-		writeOut(out, "\n"+i18n.Messages["StatusCriticalMismatch"])
+		writeOut(out, "\n%s", i18n.Messages["StatusCriticalMismatch"])
 		return ExitErrorMismatch
 	}
 
-	writeOut(out, "\n"+i18n.Messages["GlobalStatusSuccess"])
+	writeOut(out, "\n%s", i18n.Messages["GlobalStatusSuccess"])
 	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
 	return ExitSuccess
 }
