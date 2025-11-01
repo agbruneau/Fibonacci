@@ -151,7 +151,7 @@ type CalculationResult struct {
 //   - out: The output writer for displaying progress and results.
 //
 // Returns an exit code indicating the outcome of the calibration process.
-func runCalibration(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
+func runCalibration(ctx context.Context, out io.Writer) int {
 	writeOut(out, "%s\n", i18n.Messages["CalibrationTitle"])
 	const calibrationN = 10_000_000
 	calculator := calculatorRegistry["fast"]
@@ -298,7 +298,7 @@ func min(a, b int) int {
 // Returns an exit code that reflects the outcome of the execution.
 func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	if cfg.Calibrate {
-		return runCalibration(ctx, cfg, out)
+		return runCalibration(ctx, out)
 	}
 	ctx, cancelTimeout := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancelTimeout()
