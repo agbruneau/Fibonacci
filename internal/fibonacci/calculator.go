@@ -42,18 +42,26 @@ type ProgressReportParams struct {
 	Four    *big.Int
 }
 
+// Cache pour les constantes fréquemment utilisées
+var (
+	bigIntFour  = big.NewInt(4)
+	bigIntOne   = big.NewInt(1)
+	bigIntThree = big.NewInt(3)
+)
+
 // CalcTotalWork calcule le travail total (nombre d'étapes pondérées) pour des algorithmes en O(log n).
+// Optimisé pour réutiliser les constantes pré-calculées
 func CalcTotalWork(numBits int) *big.Int {
-	four := big.NewInt(4)
 	totalWork := new(big.Int)
 	if numBits > 0 {
-		totalWork.Exp(four, big.NewInt(int64(numBits)), nil).Sub(totalWork, big.NewInt(1)).Div(totalWork, big.NewInt(3))
+		totalWork.Exp(bigIntFour, big.NewInt(int64(numBits)), nil).Sub(totalWork, bigIntOne).Div(totalWork, bigIntThree)
 	}
 	return totalWork
 }
 
 // ReportStepProgress gère le reporting de progression harmonisé pour tous les algos.
 // Utiliser pour chaque i (étape ou bit courant)
+// Optimisé pour éviter les conversions coûteuses big.Int->float64 à chaque itération
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i int, numBits int) {
 	const ReportThreshold = 0.01 // seuil centralisé
 	if totalWork.Sign() > 0 {
@@ -67,13 +75,18 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
             workOfStep.Lsh(workOfStep, 2) // *4
         }
         workDone.Add(workDone, workOfStep)
-        workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
-        totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
-        currentProgress := workDoneFloat / totalWorkFloat
-		if currentProgress-*lastReported >= ReportThreshold || i == 0 {
-			progressReporter(currentProgress)
-			*lastReported = currentProgress
-		}
+        
+        // Optimisation : Ne faire la conversion coûteuse que toutes les N itérations
+        // Pour éviter les conversions à chaque itération, on utilise un modulo
+        if i%8 == 0 || i == numBits-1 {
+            workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
+            totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
+            currentProgress := workDoneFloat / totalWorkFloat
+            if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
+                progressReporter(currentProgress)
+                *lastReported = currentProgress
+            }
+        }
 	}
 }
 

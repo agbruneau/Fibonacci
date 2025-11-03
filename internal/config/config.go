@@ -115,7 +115,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication FFT (0 pour désactiver).")
     fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Seuil (en bits) pour basculer vers l'algorithme de Strassen en multiplication matricielle.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode calibration pour déterminer le seuil optimal de parallélisation.")
-    fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", true, "Active la calibration automatique rapide au démarrage (recommandé).")
+	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Active la calibration automatique rapide au démarrage (peut augmenter le temps de chargement).")
     fs.StringVar(&config.Lang, "lang", "fr", "Code langue pour i18n (ex: fr, en).")
     fs.StringVar(&config.I18nDir, "i18n-dir", "", "Répertoire des fichiers de traduction JSON (ex: ./locales).")
 
