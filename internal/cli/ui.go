@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"example.com/fibcalc/internal/fibonacci"
-	"github.com/briandowns/spinner"
 )
 
 // FormatExecutionDuration affiche la durée en ms si <1s, sinon sous forme humaine
@@ -60,28 +59,103 @@ type Spinner interface {
 	UpdateSuffix(suffix string)
 }
 
-// realSpinner is a wrapper for the `spinner.Spinner` that implements the
-// `Spinner` interface. This adapter allows the `spinner` library to be used
-// within the application's CLI framework.
-type realSpinner struct {
-	s *spinner.Spinner
+type simpleSpinner struct {
+	out      io.Writer
+	frames   []rune
+	interval time.Duration
+
+	mu       sync.Mutex
+	suffix   string
+	frameIdx int
+	lastLen  int
+
+	startOnce sync.Once
+	stopOnce  sync.Once
+	stopCh    chan struct{}
+	doneCh    chan struct{}
 }
 
-func (rs *realSpinner) Start() {
-	rs.s.Start()
+func (s *simpleSpinner) Start() {
+	s.startOnce.Do(func() {
+		s.stopCh = make(chan struct{})
+		s.doneCh = make(chan struct{})
+		go s.loop()
+	})
 }
 
-func (rs *realSpinner) Stop() {
-	rs.s.Stop()
+func (s *simpleSpinner) loop() {
+	ticker := time.NewTicker(s.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.renderFrame()
+		case <-s.stopCh:
+			s.renderFinalLine()
+			close(s.doneCh)
+			return
+		}
+	}
 }
 
-func (rs *realSpinner) UpdateSuffix(suffix string) {
-	rs.s.Suffix = suffix
+func (s *simpleSpinner) renderFrame() {
+	s.mu.Lock()
+	frame := s.frames[s.frameIdx]
+	s.frameIdx = (s.frameIdx + 1) % len(s.frames)
+	suffix := s.suffix
+	lastLen := s.lastLen
+	s.mu.Unlock()
+
+	line := fmt.Sprintf("%c %s", frame, suffix)
+	padding := ""
+	if len(line) < lastLen {
+		padding = strings.Repeat(" ", lastLen-len(line))
+	}
+	fmt.Fprintf(s.out, "\r%s%s", line, padding)
+
+	s.mu.Lock()
+	s.lastLen = len(line)
+	s.mu.Unlock()
 }
 
-var newSpinner = func(options ...spinner.Option) Spinner {
-	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, options...)
-	return &realSpinner{s}
+func (s *simpleSpinner) renderFinalLine() {
+	s.mu.Lock()
+	suffix := s.suffix
+	lastLen := s.lastLen
+	s.mu.Unlock()
+
+	line := suffix
+	if strings.TrimSpace(line) == "" {
+		line = "Terminé."
+	}
+	padding := ""
+	if len(line) < lastLen {
+		padding = strings.Repeat(" ", lastLen-len(line))
+	}
+	fmt.Fprintf(s.out, "\r%s%s\n", line, padding)
+}
+
+func (s *simpleSpinner) Stop() {
+	s.stopOnce.Do(func() {
+		if s.stopCh != nil {
+			close(s.stopCh)
+			<-s.doneCh
+		}
+	})
+}
+
+func (s *simpleSpinner) UpdateSuffix(suffix string) {
+	s.mu.Lock()
+	s.suffix = suffix
+	s.mu.Unlock()
+}
+
+var newSpinner = func(out io.Writer) Spinner {
+	return &simpleSpinner{
+		out:      out,
+		frames:   []rune{'|', '/', '-', '\\'},
+		interval: ProgressRefreshRate,
+	}
 }
 
 // ProgressState encapsulates the aggregated progress of one or more concurrent
@@ -184,7 +258,7 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 	}
 
 	state := NewProgressState(numCalculators)
-	s := newSpinner(spinner.WithWriter(out))
+	s := newSpinner(out)
 	s.Start()
 	defer s.Stop()
 

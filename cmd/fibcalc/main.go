@@ -340,11 +340,82 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 // si le contexte est annulé ou si un essai dépasse une petite fraction du
 // timeout, on conserve les valeurs actuelles.
 // Retourne (cfgMisAJour, true) si mise à jour, sinon (cfgOriginal, false).
+const (
+	autoCalibrateMaxSampleN    = 1_000_000
+	autoCalibrateMinSampleN    = 50_000
+	autoCalibrateMaxCandidates = 5
+)
+
+func estimateFibBitLen(n uint64) int {
+	if n == 0 {
+		return 0
+	}
+	const log2Phi = 0.6942419136306174   // log2((1+sqrt5)/2)
+	const log2Sqrt5 = 1.1609640474436813 // log2(sqrt(5))
+	bits := float64(n)*log2Phi - log2Sqrt5
+	if bits <= 0 {
+		return 0
+	}
+	return int(bits) + 1
+}
+
+func filterThresholdCandidates(candidates []int, maxBits int) []int {
+	seen := make(map[int]struct{}, len(candidates))
+	filtered := make([]int, 0, len(candidates))
+	for _, cand := range candidates {
+		if cand < 0 {
+			continue
+		}
+		if cand != 0 && maxBits > 0 && cand > maxBits {
+			continue
+		}
+		if _, ok := seen[cand]; ok {
+			continue
+		}
+		seen[cand] = struct{}{}
+		filtered = append(filtered, cand)
+	}
+	if len(filtered) == 0 {
+		return []int{0}
+	}
+	if len(filtered) > autoCalibrateMaxCandidates && autoCalibrateMaxCandidates > 1 {
+		sampled := make([]int, 0, autoCalibrateMaxCandidates)
+		lastIdx := len(filtered) - 1
+		for i := 0; i < autoCalibrateMaxCandidates; i++ {
+			idx := i * lastIdx / (autoCalibrateMaxCandidates - 1)
+			val := filtered[idx]
+			if len(sampled) == 0 || sampled[len(sampled)-1] != val {
+				sampled = append(sampled, val)
+			}
+		}
+		filtered = sampled
+	}
+	return filtered
+}
+
 func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer) (config.AppConfig, bool) {
 	// Ne lance pas l'auto-calibration en mode comparaison de tous les algos :
 	// on cible l'implémentation fast (doubling) pour vitesse et cohérence.
 	calc := calculatorRegistry["fast"]
 	if calc == nil {
+		return cfg, false
+	}
+	const maxDuration = time.Duration(1<<63 - 1)
+
+	if parentCtx.Err() != nil {
+		return cfg, false
+	}
+
+	sampleN := cfg.N
+	if sampleN > autoCalibrateMaxSampleN {
+		sampleN = autoCalibrateMaxSampleN
+	}
+	if sampleN < autoCalibrateMinSampleN {
+		return cfg, false
+	}
+
+	estimatedBits := estimateFibBitLen(sampleN)
+	if estimatedBits == 0 {
 		return cfg, false
 	}
 
@@ -355,25 +426,27 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		perTrial = 2 * time.Second
 	}
 
-	// Taille d'entrée pour calibration: suffisamment grande pour déclencher
-	// les chemins d'intérêt sans être trop longue.
-	const nForCalibration = 10_000_000
-
 	tryRun := func(threshold, fftThreshold int) (time.Duration, error) {
 		ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 		defer cancel()
 		start := time.Now()
-		_, err := calc.Calculate(ctx, nil, 0, nForCalibration, threshold, fftThreshold)
+		_, err := calc.Calculate(ctx, nil, 0, sampleN, threshold, fftThreshold)
 		return time.Since(start), err
 	}
 
 	// 1) Calibration du seuil de parallélisme (FFT désactivée pour stabilité)
-	parallelCandidates := []int{0, 512, 1024, 2048, 4096, 8192, 12288, 16384, 24576, 32768}
+	parallelCandidates := filterThresholdCandidates([]int{0, cfg.Threshold, 512, 1024, 2048, 4096, 8192, 12288, 16384, 24576, 32768}, estimatedBits)
 	bestPar := cfg.Threshold
-	bestParDur := time.Duration(1<<63 - 1)
+	bestParDur := maxDuration
 	for _, cand := range parallelCandidates {
+		if parentCtx.Err() != nil {
+			return cfg, false
+		}
 		dur, err := tryRun(cand, 0)
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return cfg, false
+			}
 			continue
 		}
 		if dur < bestParDur {
@@ -382,12 +455,22 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	}
 
 	// 2) Calibration du seuil FFT (en utilisant le meilleur parallélisme trouvé)
-	fftCandidates := []int{0, 12000, 16000, 20000, 24000, 28000, 32000, 40000}
+	fftCandidates := filterThresholdCandidates([]int{0, cfg.FFTThreshold, 12000, 16000, 20000, 24000, 28000, 32000, 40000}, estimatedBits)
 	bestFFT := cfg.FFTThreshold
-	bestFFTDur := time.Duration(1<<63 - 1)
+	bestFFTDur := maxDuration
+	parallelForFFT := bestPar
+	if bestParDur == maxDuration {
+		parallelForFFT = cfg.Threshold
+	}
 	for _, cand := range fftCandidates {
-		dur, err := tryRun(bestPar, cand)
+		if parentCtx.Err() != nil {
+			return cfg, false
+		}
+		dur, err := tryRun(parallelForFFT, cand)
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return cfg, false
+			}
 			continue
 		}
 		if dur < bestFFTDur {
@@ -396,52 +479,63 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	}
 
 	// 3) Calibration du seuil Strassen (avec l'algorithme matriciel)
-	//    On évalue plusieurs candidats et on retient le meilleur.
 	matCalc := calculatorRegistry["matrix"]
 	bestStrassen := cfg.StrassenThreshold
-	bestStrassenDur := time.Duration(1<<63 - 1)
+	bestStrassenDur := maxDuration
 	if matCalc != nil {
-		// Désactiver FFT pour isoler l'effet Strassen
-		strassenCandidates := []int{128, 192, 256, 320, 384, 512, 768, 1024}
+		strassenCandidates := filterThresholdCandidates([]int{cfg.StrassenThreshold, 128, 192, 256, 320, 384, 512, 768, 1024}, estimatedBits)
+		parallelForMatrix := cfg.Threshold
+		if bestParDur != maxDuration {
+			parallelForMatrix = bestPar
+		}
+		originalStrassen := fibonacci.DefaultStrassenThresholdBits
 		for _, cand := range strassenCandidates {
+			if parentCtx.Err() != nil {
+				fibonacci.DefaultStrassenThresholdBits = originalStrassen
+				return cfg, false
+			}
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
+			fibonacci.DefaultStrassenThresholdBits = cand
 			start := time.Now()
-			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, bestPar, 0)
+			_, err := matCalc.Calculate(ctx, nil, 0, sampleN, parallelForMatrix, 0)
 			cancel()
 			dur := time.Since(start)
 			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					fibonacci.DefaultStrassenThresholdBits = originalStrassen
+					return cfg, false
+				}
 				continue
 			}
-			// Simuler l'impact du seuil en jouant sur variable globale
-			fibonacci.DefaultStrassenThresholdBits = cand
 			if dur < bestStrassenDur {
 				bestStrassenDur = dur
 				bestStrassen = cand
 			}
 		}
+		fibonacci.DefaultStrassenThresholdBits = originalStrassen
 	}
 
 	// Si aucune mesure valide n'a été faite, ne rien changer
-	if bestParDur == time.Duration(1<<63-1) && bestFFTDur == time.Duration(1<<63-1) {
+	if bestParDur == maxDuration && bestFFTDur == maxDuration && bestStrassenDur == maxDuration {
 		return cfg, false
 	}
 
 	// Appliquer les meilleures valeurs trouvées
 	updated := cfg
-	if bestParDur != time.Duration(1<<63-1) {
+	if bestParDur != maxDuration {
 		updated.Threshold = bestPar
 	}
-	if bestFFTDur != time.Duration(1<<63-1) {
+	if bestFFTDur != maxDuration {
 		updated.FFTThreshold = bestFFT
 	}
-	if bestStrassenDur != time.Duration(1<<63-1) {
+	if bestStrassenDur != maxDuration {
 		updated.StrassenThreshold = bestStrassen
 		fibonacci.DefaultStrassenThresholdBits = bestStrassen
 	}
 
 	// Affichage succinct
-	writeOut(out, "%sCalibration auto%s: parallélisme=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
-		ColorGreen, ColorReset,
+	writeOut(out, "%sCalibration auto%s (n=%d): parallélisme=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
+		ColorGreen, ColorReset, sampleN,
 		ColorYellow, updated.Threshold, ColorReset,
 		ColorYellow, updated.FFTThreshold, ColorReset,
 		ColorYellow, updated.StrassenThreshold, ColorReset)

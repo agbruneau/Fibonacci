@@ -11,11 +11,28 @@ import (
 	"example.com/fibcalc/internal/config"
 )
 
-// stripAnsiCodes removes ANSI escape codes from a string.
-func stripAnsiCodes(s string) string {
+var accentReplacer = strings.NewReplacer(
+	"\u00e9", "e", "\u00e8", "e", "\u00ea", "e", "\u00eb", "e",
+	"\u00e0", "a", "\u00e2", "a", "\u00e4", "a",
+	"\u00f9", "u", "\u00fb", "u", "\u00fc", "u",
+	"\u00f4", "o", "\u00f6", "o",
+	"\u00ee", "i", "\u00ef", "i",
+	"\u00e7", "c",
+	"\u00c9", "E", "\u00c8", "E", "\u00ca", "E",
+	"\u00c0", "A", "\u00c2", "A",
+	"\u00d9", "U", "\u00db", "U",
+	"\u00d4", "O",
+	"\u0152", "OE", "\u0153", "oe",
+	"\u2019", "'", "\u201c", "\"", "\u201d", "\"",
+	"\u0300", "", "\u0301", "", "\u0302", "", "\u0308", "",
+)
+
+func sanitizeOutput(s string) string {
 	const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
 	re := regexp.MustCompile(ansi)
-	return re.ReplaceAllString(s, "")
+	cleaned := re.ReplaceAllString(s, "")
+	cleaned = strings.ReplaceAll(cleaned, "\r", "")
+	return accentReplacer.Replace(cleaned)
 }
 
 // TestParseConfig validates the configuration parsing function.
@@ -74,7 +91,7 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != ExitSuccess {
 			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
+		output := sanitizeOutput(buf.String())
 		if !strings.Contains(output, "F(10) = 55") {
 			t.Errorf("The detailed output does not contain the expected result 'F(10) = 55'. Output:\n%s", output)
 		}
@@ -88,11 +105,11 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != ExitSuccess {
 			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
-		if !strings.Contains(output, "Comparison Summary") || !strings.Contains(output, "Global Status: Success") {
+		output := sanitizeOutput(buf.String())
+		if !strings.Contains(output, "Resume de la comparaison") || !strings.Contains(output, "Statut global : SUCCES") {
 			t.Errorf("The comparison mode output is incorrect. Output:\n%s", output)
 		}
-		if !strings.Contains(output, "Calculation time") {
+		if !strings.Contains(output, "Temps de calcul") {
 			t.Errorf("The detailed output should contain the calculation time. Output:\n%s", output)
 		}
 	})
@@ -105,8 +122,8 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != ExitErrorTimeout {
 			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", ExitErrorTimeout, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
-		if !strings.Contains(output, "Failure (Timeout)") {
+		output := sanitizeOutput(buf.String())
+		if !strings.Contains(output, "Statut : Echec (temps depasse)") {
 			t.Errorf("The output should explicitly mention the timeout failure. Output:\n%s", output)
 		}
 	})
@@ -121,8 +138,8 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != ExitErrorCanceled {
 			t.Errorf("Incorrect exit code for a cancellation. Expected: %d, Got: %d", ExitErrorCanceled, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
-		if !strings.Contains(output, "Status: Canceled") {
+		output := sanitizeOutput(buf.String())
+		if !strings.Contains(output, "Statut : Calcul annule par l'utilisateur") {
 			t.Errorf("The output should explicitly mention the cancellation. Output:\n%s", output)
 		}
 	})

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/big"
 	"regexp"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"example.com/fibcalc/internal/fibonacci"
-	"github.com/briandowns/spinner"
 )
 
 // MockSpinner is a mock implementation of the Spinner interface for testing.
@@ -65,11 +65,28 @@ func TestFormatNumberString(t *testing.T) {
 	}
 }
 
-// stripAnsiCodes removes ANSI escape codes from a string.
-func stripAnsiCodes(s string) string {
+var accentReplacer = strings.NewReplacer(
+	"\u00e9", "e", "\u00e8", "e", "\u00ea", "e", "\u00eb", "e",
+	"\u00e0", "a", "\u00e2", "a", "\u00e4", "a",
+	"\u00f9", "u", "\u00fb", "u", "\u00fc", "u",
+	"\u00f4", "o", "\u00f6", "o",
+	"\u00ee", "i", "\u00ef", "i",
+	"\u00e7", "c",
+	"\u00c9", "E", "\u00c8", "E", "\u00ca", "E",
+	"\u00c0", "A", "\u00c2", "A",
+	"\u00d9", "U", "\u00db", "U",
+	"\u00d4", "O",
+	"\u0152", "OE", "\u0153", "oe",
+	"\u2019", "'", "\u201c", "\"", "\u201d", "\"",
+	"\u0300", "", "\u0301", "", "\u0302", "", "\u0308", "",
+)
+
+func sanitizeOutput(s string) string {
 	const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
 	re := regexp.MustCompile(ansi)
-	return re.ReplaceAllString(s, "")
+	cleaned := re.ReplaceAllString(s, "")
+	cleaned = strings.ReplaceAll(cleaned, "\r", "")
+	return accentReplacer.Replace(cleaned)
 }
 
 // TestDisplayResult checks the formatting of the result output.
@@ -80,12 +97,12 @@ func TestDisplayResult(t *testing.T) {
 	t.Run("Output without details", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, false, false, &buf)
-		output := stripAnsiCodes(buf.String())
-		if !strings.Contains(output, "Binary Size of the Result: 34 bits.") {
-			t.Errorf("The basic output is incorrect. Expected: 'Binary Size of the Result: 34 bits.', Got: %q", output)
+		output := sanitizeOutput(buf.String())
+		if !strings.Contains(output, "Taille binaire du resultat : 34 bits.") {
+			t.Errorf("La sortie de base est incorrecte. Attendu : 'Taille binaire du resultat : 34 bits.'. Obtenu : %q", output)
 		}
-		if !strings.Contains(output, "(Use the -d or --details option") {
-			t.Errorf("The basic output should contain help for the details mode. Got: %q", output)
+		if !strings.Contains(output, "(Astuce : utiliser l'option -d") {
+			t.Errorf("La sortie de base devrait contenir l'aide pour le mode details. Obtenu : %q", output)
 		}
 	})
 
@@ -94,28 +111,28 @@ func TestDisplayResult(t *testing.T) {
 		longNumStr := strings.Repeat("1", 101) // String longer than TruncationLimit
 		longResult, _ := new(big.Int).SetString(longNumStr, 10)
 		DisplayResult(longResult, 500, duration, false, true, &buf)
-		output := stripAnsiCodes(buf.String())
+		output := sanitizeOutput(buf.String())
 
-		if !strings.Contains(output, "(truncated)") {
-			t.Errorf("The detailed non-verbose output should be truncated. Got: %q", output)
+		if !strings.Contains(output, "(tronque)") {
+			t.Errorf("La sortie detaillee non verbeuse devrait etre tronquee. Obtenu : %q", output)
 		}
-		expectedTruncated := fmt.Sprintf("F(500) (truncated) = %s...%s", longNumStr[:DisplayEdges], longNumStr[len(longNumStr)-DisplayEdges:])
+		expectedTruncated := fmt.Sprintf("F(500) (tronque) = %s...%s", longNumStr[:DisplayEdges], longNumStr[len(longNumStr)-DisplayEdges:])
 		if !strings.Contains(output, expectedTruncated) {
-			t.Errorf("The truncated output format is incorrect.\nExpected (containing): %q\nGot: %s", expectedTruncated, output)
+			t.Errorf("Le format de sortie tronque est incorrect.\nAttendu (contenant) : %q\nObtenu : %s", expectedTruncated, output)
 		}
 	})
 
 	t.Run("Detailed and verbose output (full)", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, true, true, &buf)
-		output := stripAnsiCodes(buf.String())
+		output := sanitizeOutput(buf.String())
 
-		if strings.Contains(output, "(truncated)") {
-			t.Errorf("The verbose output should not be truncated. Got: %q", output)
+		if strings.Contains(output, "(tronque)") {
+			t.Errorf("La sortie verbeuse ne doit pas etre tronquee. Obtenu : %q", output)
 		}
 		expectedValue := "F(50) =\n12,586,269,025"
 		if !strings.Contains(output, expectedValue) {
-			t.Errorf("The value in the verbose output is incorrect.\nExpected (containing): %q\nGot: %s", expectedValue, output)
+			t.Errorf("La valeur dans la sortie verbeuse est incorrecte.\nAttendu (contenant) : %q\nObtenu : %s", expectedValue, output)
 		}
 	})
 }
@@ -129,7 +146,7 @@ func TestDisplayProgress(t *testing.T) {
 	mock := &MockSpinner{}
 
 	originalNewSpinner := newSpinner
-	newSpinner = func(options ...spinner.Option) Spinner {
+	newSpinner = func(out io.Writer) Spinner {
 		return mock
 	}
 	defer func() { newSpinner = originalNewSpinner }()
@@ -144,11 +161,12 @@ func TestDisplayProgress(t *testing.T) {
 	time.Sleep(ProgressRefreshRate * 2)
 
 	mock.mu.Lock()
-	if !strings.Contains(mock.suffix, "Average Progress") {
-		t.Errorf("The spinner suffix should show the 'Average Progress' label. Got: %q", mock.suffix)
+	suffix := accentReplacer.Replace(mock.suffix)
+	if !strings.Contains(suffix, "Progression moyenne") {
+		t.Errorf("Le suffixe du spinner devrait afficher 'Progression moyenne'. Obtenu : %q", suffix)
 	}
-	if !strings.Contains(mock.suffix, "37.50%") {
-		t.Errorf("The spinner suffix should show the correct average percentage. Got: %q", mock.suffix)
+	if !strings.Contains(suffix, "37.50%") {
+		t.Errorf("Le suffixe du spinner devrait afficher le pourcentage moyen correct. Obtenu : %q", suffix)
 	}
 	mock.mu.Unlock()
 
@@ -164,7 +182,8 @@ func TestDisplayProgress(t *testing.T) {
 
 	mock.mu.Lock()
 	defer mock.mu.Unlock()
-	if !strings.Contains(mock.suffix, "Calculation complete.") {
-		t.Errorf("The final spinner suffix is incorrect. Got: %q", mock.suffix)
+	finalSuffix := accentReplacer.Replace(mock.suffix)
+	if !strings.Contains(finalSuffix, "Calcul termine.") {
+		t.Errorf("Le suffixe final du spinner est incorrect. Obtenu : %q", finalSuffix)
 	}
 }
