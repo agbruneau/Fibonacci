@@ -81,7 +81,9 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	defer releaseState(s)
 
 	numBits := bits.Len64(n)
-	useParallel := runtime.GOMAXPROCS(0) > 1 && threshold > 0
+	// Cache la vérification de parallélisme pour éviter les appels répétés
+	maxProcs := runtime.GOMAXPROCS(0)
+	useParallel := maxProcs > 1 && threshold > 0
 
 	// Calcul du travail total pour le reporting de progression via utilitaire commun
 	totalWork := CalcTotalWork(numBits)

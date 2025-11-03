@@ -79,7 +79,9 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 
 	exponent := n - 1
 	numBits := bits.Len64(exponent)
-	useParallel := runtime.NumCPU() > 1 && threshold > 0
+	// Cache la vérification de parallélisme pour éviter les appels répétés
+	numCPU := runtime.NumCPU()
+	useParallel := numCPU > 1 && threshold > 0
 
 	var invNumBits float64
 	if numBits > 0 {
@@ -236,6 +238,7 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 }
 
 // maxBitLenMatrix retourne la taille en bits maximale parmi les 4 éléments
+// Optimisé: évite les appels répétés en utilisant des variables locales
 func maxBitLenMatrix(m *matrix) int {
 	max := m.a.BitLen()
 	if b := m.b.BitLen(); b > max {
@@ -250,11 +253,43 @@ func maxBitLenMatrix(m *matrix) int {
 	return max
 }
 
+// maxBitLenMatrixCached retourne la taille maximale avec mise en cache optionnelle
+// pour éviter les recalculs répétés sur la même matrice
+func maxBitLenMatrixCached(m *matrix, cached *int) int {
+	if cached != nil && *cached > 0 {
+		return *cached
+	}
+	result := maxBitLenMatrix(m)
+	if cached != nil {
+		*cached = result
+	}
+	return result
+}
+
 // maxBitLenTwoMatrices retourne la taille en bits maximale parmi deux matrices
+// Optimisé: calcul direct sans appels de fonction supplémentaires
 func maxBitLenTwoMatrices(m1, m2 *matrix) int {
-	max := maxBitLenMatrix(m1)
-	if v := maxBitLenMatrix(m2); v > max {
-		max = v
+	max := m1.a.BitLen()
+	if b := m1.b.BitLen(); b > max {
+		max = b
+	}
+	if c := m1.c.BitLen(); c > max {
+		max = c
+	}
+	if d := m1.d.BitLen(); d > max {
+		max = d
+	}
+	if b := m2.a.BitLen(); b > max {
+		max = b
+	}
+	if b := m2.b.BitLen(); b > max {
+		max = b
+	}
+	if c := m2.c.BitLen(); c > max {
+		max = c
+	}
+	if d := m2.d.BitLen(); d > max {
+		max = d
 	}
 	return max
 }

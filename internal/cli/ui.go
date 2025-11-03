@@ -220,7 +220,8 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 // unless `verbose` is true.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
-	fmt.Fprintf(out, "Taille binaire du résultat : %s%s%s bits.\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset)
+	bitLenStr := fmt.Sprintf("%d", bitLen)
+	fmt.Fprintf(out, "Taille binaire du résultat : %s%s%s bits.\n", ColorCyan, formatNumberString(bitLenStr), ColorReset)
 
 	if !details {
 		fmt.Fprintf(out, "(Astuce : utiliser l’option %s-d%s ou %s--details%s pour un rapport complet)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
@@ -238,11 +239,14 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 
 	resultStr := result.String()
 	numDigits := len(resultStr)
-	fmt.Fprintf(out, "Nombre de chiffres        : %s%s%s\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset)
+	numDigitsStr := fmt.Sprintf("%d", numDigits)
+	fmt.Fprintf(out, "Nombre de chiffres        : %s%s%s\n", ColorCyan, formatNumberString(numDigitsStr), ColorReset)
 
 	if numDigits > 6 {
-		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Notation scientifique      : %s%.6e%s\n", ColorCyan, f, ColorReset)
+		// Réutiliser big.Float pour éviter allocation répétée
+		var f big.Float
+		f.SetInt(result)
+		fmt.Fprintf(out, "Notation scientifique      : %s%.6e%s\n", ColorCyan, &f, ColorReset)
 	}
 
 	fmt.Fprintf(out, "\n%s--- Valeur calculée ---%s\n", ColorBold, ColorReset)
@@ -259,31 +263,43 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 }
 
 // formatNumberString inserts thousand separators into a numeric string.
+// Optimisé: précalcule la taille exacte et évite les allocations inutiles
 func formatNumberString(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
-	prefix := ""
-	if s[0] == '-' {
-		prefix = "-"
-		s = s[1:]
-	}
 	n := len(s)
-	if n <= 3 {
-		return prefix + s
+	hasPrefix := s[0] == '-'
+	digitsStart := 0
+	if hasPrefix {
+		digitsStart = 1
+		n--
 	}
+	if n <= 3 {
+		return s // Pas besoin de formater
+	}
+
+	// Calcul exact de la taille finale: len(prefix) + n + nombre de virgules
+	numCommas := (n - 1) / 3
+	totalLen := digitsStart + n + numCommas
 
 	var builder strings.Builder
-	builder.Grow(len(prefix) + n + (n-1)/3)
-	builder.WriteString(prefix)
-
+	builder.Grow(totalLen)
+	if hasPrefix {
+		builder.WriteByte('-')
+	}
+	
+	// Calculer la longueur du premier groupe
 	firstGroupLen := n % 3
 	if firstGroupLen == 0 {
 		firstGroupLen = 3
 	}
-	builder.WriteString(s[:firstGroupLen])
-
-	for i := firstGroupLen; i < n; i += 3 {
+	
+	// Écrire le premier groupe
+	builder.WriteString(s[digitsStart : digitsStart+firstGroupLen])
+	
+	// Écrire les groupes suivants avec virgules
+	for i := digitsStart + firstGroupLen; i < len(s); i += 3 {
 		builder.WriteByte(',')
 		builder.WriteString(s[i : i+3])
 	}

@@ -43,17 +43,28 @@ type ProgressReportParams struct {
 }
 
 // CalcTotalWork calcule le travail total (nombre d'étapes pondérées) pour des algorithmes en O(log n).
+// Optimisé: réutilise big.NewInt(4) au lieu de créer une nouvelle instance.
+var calcTotalWorkFour = big.NewInt(4)
+
 func CalcTotalWork(numBits int) *big.Int {
-	four := big.NewInt(4)
 	totalWork := new(big.Int)
 	if numBits > 0 {
-		totalWork.Exp(four, big.NewInt(int64(numBits)), nil).Sub(totalWork, big.NewInt(1)).Div(totalWork, big.NewInt(3))
+		totalWork.Exp(calcTotalWorkFour, big.NewInt(int64(numBits)), nil).Sub(totalWork, big.NewInt(1)).Div(totalWork, big.NewInt(3))
 	}
 	return totalWork
 }
 
+// max retourne le maximum de deux entiers
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // ReportStepProgress gère le reporting de progression harmonisé pour tous les algos.
 // Utiliser pour chaque i (étape ou bit courant)
+// Optimisé: utilise des conversions big.Int->float64 uniquement quand nécessaire.
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i int, numBits int) {
 	const ReportThreshold = 0.01 // seuil centralisé
 	if totalWork.Sign() > 0 {
@@ -67,13 +78,43 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
             workOfStep.Lsh(workOfStep, 2) // *4
         }
         workDone.Add(workDone, workOfStep)
-        workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
-        totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
-        currentProgress := workDoneFloat / totalWorkFloat
-		if currentProgress-*lastReported >= ReportThreshold || i == 0 {
-			progressReporter(currentProgress)
-			*lastReported = currentProgress
-		}
+        
+        // Optimisation: calcul approximatif rapide pour éviter la conversion complète
+        // Comparaison simple pour déterminer si on doit reporter avant conversion coûteuse
+        if i == 0 || workDone.Cmp(totalWork) >= 0 {
+            // Cas spéciaux: début ou fin, on reporte toujours
+            var workDoneFloat, totalWorkFloat big.Float
+            workDoneFloat.SetInt(workDone)
+            totalWorkFloat.SetInt(totalWork)
+            var ratio big.Float
+            ratio.Quo(&workDoneFloat, &totalWorkFloat)
+            currentProgress, _ := ratio.Float64()
+            if currentProgress-*lastReported >= ReportThreshold || i == 0 {
+                progressReporter(currentProgress)
+                *lastReported = currentProgress
+            }
+        } else {
+            // Estimation rapide: compare les longueurs de bits pour éviter conversion complète
+            // Si workDone/totalWork est proche de 1, ou si la différence est significative
+            doneBits := workDone.BitLen()
+            totalBits := totalWork.BitLen()
+            // Estimation approximative: si les bits sont proches, on est probablement proche du seuil
+            // Échantillonnage périodique pour réduire les conversions
+            checkInterval := max(1, numBits/50)
+            if doneBits >= totalBits-2 || i%checkInterval == 0 {
+                // Conversion complète uniquement si nécessaire
+                var workDoneFloat, totalWorkFloat big.Float
+                workDoneFloat.SetInt(workDone)
+                totalWorkFloat.SetInt(totalWork)
+                var ratio big.Float
+                ratio.Quo(&workDoneFloat, &totalWorkFloat)
+                currentProgress, _ := ratio.Float64()
+                if currentProgress-*lastReported >= ReportThreshold {
+                    progressReporter(currentProgress)
+                    *lastReported = currentProgress
+                }
+            }
+        }
 	}
 }
 
