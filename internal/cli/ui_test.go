@@ -81,10 +81,10 @@ func TestDisplayResult(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, false, false, &buf)
 		output := stripAnsiCodes(buf.String())
-		if !strings.Contains(output, "Binary Size of the Result: 34 bits.") {
-			t.Errorf("The basic output is incorrect. Expected: 'Binary Size of the Result: 34 bits.', Got: %q", output)
+		if !strings.Contains(output, "Result binary size: 34 bits.") {
+			t.Errorf("The basic output is incorrect. Expected: 'Result binary size: 34 bits.', Got: %q", output)
 		}
-		if !strings.Contains(output, "(Use the -d or --details option") {
+		if !strings.Contains(output, "(Tip: use the -d or --details option") {
 			t.Errorf("The basic output should contain help for the details mode. Got: %q", output)
 		}
 	})
@@ -144,8 +144,8 @@ func TestDisplayProgress(t *testing.T) {
 	time.Sleep(ProgressRefreshRate * 2)
 
 	mock.mu.Lock()
-	if !strings.Contains(mock.suffix, "Average Progress") {
-		t.Errorf("The spinner suffix should show the 'Average Progress' label. Got: %q", mock.suffix)
+	if !strings.Contains(mock.suffix, "Average progress") {
+		t.Errorf("The spinner suffix should show the 'Average progress' label. Got: %q", mock.suffix)
 	}
 	if !strings.Contains(mock.suffix, "37.50%") {
 		t.Errorf("The spinner suffix should show the correct average percentage. Got: %q", mock.suffix)
@@ -164,7 +164,7 @@ func TestDisplayProgress(t *testing.T) {
 
 	mock.mu.Lock()
 	defer mock.mu.Unlock()
-	if !strings.Contains(mock.suffix, "Calculation complete.") {
+	if !strings.Contains(mock.suffix, "Calculation finished.") {
 		t.Errorf("The final spinner suffix is incorrect. Got: %q", mock.suffix)
 	}
 }

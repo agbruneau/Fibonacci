@@ -64,7 +64,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 
 	mul := func(dest, x, y *big.Int) {
 		if fftThreshold > 0 {
-			// Utiliser FFT si le plus petit des deux opérandes dépasse le seuil
+			// Use FFT if the smaller of the two operands exceeds the threshold
 			minBitLen := x.BitLen()
 			if b := y.BitLen(); b < minBitLen {
 				minBitLen = b
@@ -93,7 +93,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 		reporter(float64(i) * invNumBits)
 
 		if (exponent>>uint(i))&1 == 1 {
-			// Décide du parallélisme selon la taille max des opérandes impliqués
+			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > threshold
 			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, mul)
 			state.res, state.tempMatrix = state.tempMatrix, state.res
@@ -108,12 +108,12 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	return new(big.Int).Set(state.res.a), nil
 }
 
-// multiplyMatrices décide dynamiquement entre la version classique (8 multiplications)
-// et la version Strassen (7 multiplications + additions) en fonction d'un seuil sur
-// la taille en bits des opérandes. Pour des petites tailles, la version classique
-// évite le surcoût d'additions de Strassen.
-// DefaultStrassenThresholdBits contrôle le basculement vers Strassen.
-// Modifiable au démarrage via la configuration.
+// multiplyMatrices dynamically decides between the classic version (8 multiplications)
+// and the Strassen version (7 multiplications + additions) based on a threshold on
+// the bit size of the operands. For small sizes, the classic version
+// avoids the overhead of Strassen's additions.
+// DefaultStrassenThresholdBits controls the switch to Strassen.
+// Modifiable at startup via configuration.
 var DefaultStrassenThresholdBits = 256
 
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
@@ -125,7 +125,7 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, mul)
 }
 
-// multiplyMatricesStrassen: implémentation Strassen 2x2 (7 multiplications)
+// multiplyMatricesStrassen: 2x2 Strassen implementation (7 multiplications)
 func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
 	// Let m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
 	// The temporary variables from the state object are used to store intermediate results.
@@ -202,16 +202,16 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	dest.d.Add(b2, d2)
 }
 
-// multiplyMatricesClassic: multiplication 2x2 naïve (8 multiplications)
+// multiplyMatricesClassic: naive 2x2 multiplication (8 multiplications)
 func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
-	// Utilise les tampons de l'état pour éviter des allocations
+	// Uses buffers from the state to avoid allocations
 	// a = a*e + b*g
 	// b = a*f + b*h
 	// c = c*e + d*g
 	// d = c*f + d*h
 
-	// Tampons
+	// Buffers
 	ae, bg := state.p1, state.p2
 	af, bh := state.p3, state.p4
 	ce, dg := state.p5, state.p6
@@ -235,7 +235,7 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 	dest.d.Add(cf, dh)
 }
 
-// maxBitLenMatrix retourne la taille en bits maximale parmi les 4 éléments
+// maxBitLenMatrix returns the maximum bit length among the 4 elements
 func maxBitLenMatrix(m *matrix) int {
 	max := m.a.BitLen()
 	if b := m.b.BitLen(); b > max {
@@ -250,7 +250,7 @@ func maxBitLenMatrix(m *matrix) int {
 	return max
 }
 
-// maxBitLenTwoMatrices retourne la taille en bits maximale parmi deux matrices
+// maxBitLenTwoMatrices returns the maximum bit length between two matrices
 func maxBitLenTwoMatrices(m1, m2 *matrix) int {
 	max := maxBitLenMatrix(m1)
 	if v := maxBitLenMatrix(m2); v > max {

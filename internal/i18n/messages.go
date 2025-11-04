@@ -1,6 +1,6 @@
-// Package i18n centralise les messages destinés à l'utilisateur pour la CLI.
-// Elle fournit une base simple pour l'internationalisation et garantit
-// l'uniformité du ton et du vocabulaire affichés par l'application.
+// Package i18n centralizes user-facing messages for the CLI.
+// It provides a simple basis for internationalization and ensures
+// uniformity in the tone and vocabulary displayed by the application.
 package i18n
 
 import (
@@ -11,32 +11,32 @@ import (
     "path/filepath"
 )
 
-// Messages regroupe les messages destinés à l'utilisateur (i18n basique).
-// Centraliser ces libellés facilite la maintenance, la cohérence et une
-// éventuelle traduction multi-langues à l'avenir.
+// Messages groups user-facing messages (basic i18n).
+// Centralizing these labels facilitates maintenance, consistency, and a
+// potential multi-language translation in the future.
 var Messages = map[string]string{
-    "CalibrationTitle":       "--- Mode de calibration : recherche du seuil optimal de parallélisation ---",
-    "CalibrationSummary":     "--- Résumé de la calibration ---",
-    "OptimalRecommendation":  "✅ Recommandation pour cette machine : --threshold %d",
-    "ExecConfigTitle":        "--- Configuration de l'exécution ---",
-    "ExecStartTitle":         "--- Début de l'exécution ---",
-    "ComparisonSummary":      "--- Résumé de la comparaison ---",
-    "GlobalStatusSuccess":    "Statut global : SUCCÈS. Tous les résultats valides sont cohérents.",
-    "GlobalStatusFailure":    "Statut global : ÉCHEC. Aucun algorithme n'a pu mener le calcul à terme.",
-    "StatusCriticalMismatch": "Statut global : ERREUR CRITIQUE ! Une incohérence a été détectée entre les résultats des algorithmes.",
-    "StatusCanceled":         "Statut : Calcul annulé par l'utilisateur",
-    "StatusTimeout":          "Statut : Échec (temps dépassé). La limite d'exécution de %s a été atteinte%s.",
-    "StatusFailure":          "Statut : Échec. Une erreur imprévue s'est produite : %v",
+    "CalibrationTitle":       "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---",
+    "CalibrationSummary":     "--- Calibration Summary ---",
+    "OptimalRecommendation":  "✅ Recommendation for this machine: --threshold %d",
+    "ExecConfigTitle":        "--- Execution Configuration ---",
+    "ExecStartTitle":         "--- Starting Execution ---",
+    "ComparisonSummary":      "--- Comparison Summary ---",
+    "GlobalStatusSuccess":    "Global Status: Success. All valid results are consistent.",
+    "GlobalStatusFailure":    "Global Status: Failure. No algorithm could complete the calculation.",
+    "StatusCriticalMismatch": "Global Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.",
+    "StatusCanceled":         "Status: Canceled",
+    "StatusTimeout":          "Status: Failure (Timeout). The execution limit of %s was reached%s.",
+    "StatusFailure":          "Status: Failure. An unexpected error occurred: %v",
 }
 
 
-// LoadFromDir charge un fichier de traduction JSON (par ex. fr.json) depuis
-// un répertoire donné. En cas de succès, remplace les entrées existantes de
-// Messages par celles du fichier (fallback sur les valeurs déjà présentes).
-// Le format attendu est un objet JSON { "Key": "Valeur", ... }.
+// LoadFromDir loads a JSON translation file (e.g., en.json) from
+// a given directory. On success, it replaces existing entries in
+// Messages with those from the file (falling back on already present values).
+// The expected format is a JSON object { "Key": "Value", ... }.
 func LoadFromDir(dir string, lang string) error {
     if dir == "" || lang == "" {
-        return errors.New("i18n: répertoire ou langue vide")
+        return errors.New("i18n: empty directory or language")
     }
     path := filepath.Join(dir, fmt.Sprintf("%s.json", lang))
     f, err := os.Open(path)
@@ -49,11 +49,9 @@ func LoadFromDir(dir string, lang string) error {
     if err := dec.Decode(&loaded); err != nil {
         return err
     }
-    // Merge: les entrées chargées remplacent les valeurs par défaut
+    // Merge: loaded entries replace default values
     for k, v := range loaded {
         Messages[k] = v
     }
     return nil
 }
-
-

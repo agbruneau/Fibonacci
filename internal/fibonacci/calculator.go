@@ -13,10 +13,10 @@ import (
 	"sync"
 )
 
-// MaxFibUint64 = 93 car F(93) est le plus grand Fibonacci tenant sur un uint64,
-// car F(94) dépasse 2^64. Valeur issue de la croissance très rapide de la suite.
+// MaxFibUint64 = 93 because F(93) is the largest Fibonacci number that fits in a uint64,
+// as F(94) exceeds 2^64. This value is derived from the very rapid growth of the sequence.
 const (
-	MaxFibUint64 = 93 // Justifié ci-dessus
+	MaxFibUint64 = 93 // Justified above
 )
 
 // ProgressUpdate is a data transfer object (DTO) that encapsulates the
@@ -36,21 +36,21 @@ type ProgressUpdate struct {
 // mechanism of the broader application.
 type ProgressReporter func(progress float64)
 
-// ProgressReportParams contient l'état nécessaire au calcul du reporting de progression.
+// ProgressReportParams contains the necessary state for calculating progress reporting.
 type ProgressReportParams struct {
 	NumBits int
 	Four    *big.Int
 }
 
-// Cache pour les constantes fréquemment utilisées
+// Cache for frequently used constants
 var (
 	bigIntFour  = big.NewInt(4)
 	bigIntOne   = big.NewInt(1)
 	bigIntThree = big.NewInt(3)
 )
 
-// CalcTotalWork calcule le travail total (nombre d'étapes pondérées) pour des algorithmes en O(log n).
-// Optimisé pour réutiliser les constantes pré-calculées
+// CalcTotalWork calculates the total work (number of weighted steps) for O(log n) algorithms.
+// Optimized to reuse pre-calculated constants
 func CalcTotalWork(numBits int) *big.Int {
 	totalWork := new(big.Int)
 	if numBits > 0 {
@@ -59,16 +59,16 @@ func CalcTotalWork(numBits int) *big.Int {
 	return totalWork
 }
 
-// ReportStepProgress gère le reporting de progression harmonisé pour tous les algos.
-// Utiliser pour chaque i (étape ou bit courant)
-// Optimisé pour éviter les conversions coûteuses big.Int->float64 à chaque itération
+// ReportStepProgress handles harmonized progress reporting for all algorithms.
+// Use for each i (current step or bit)
+// Optimized to avoid costly big.Int->float64 conversions at each iteration
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i int, numBits int) {
-	const ReportThreshold = 0.01 // seuil centralisé
+	const ReportThreshold = 0.01 // centralized threshold
 	if totalWork.Sign() > 0 {
-        // Mise à jour incrémentale: la charge de l'étape courante est 4^j
-        // où j croît de 0 à numBits-1. On évite Exp à chaque itération en
-        // multipliant par 4 à chaque pas (workOfStep <- workOfStep * 4),
-        // en initialisant à 1 pour la première étape.
+        // Incremental update: the load of the current step is 4^j
+        // where j grows from 0 to numBits-1. We avoid Exp at each iteration by
+        // multiplying by 4 at each step (workOfStep <- workOfStep * 4),
+        // initializing to 1 for the first step.
         if workOfStep.Sign() == 0 {
             workOfStep.SetInt64(1)
         } else {
@@ -76,8 +76,8 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
         }
         workDone.Add(workDone, workOfStep)
         
-        // Optimisation : Ne faire la conversion coûteuse que toutes les N itérations
-        // Pour éviter les conversions à chaque itération, on utilise un modulo
+        // Optimization: Only perform the costly conversion every N iterations
+        // To avoid conversions at each iteration, a modulo is used
         if i%8 == 0 || i == numBits-1 {
             workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
             totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
@@ -261,7 +261,7 @@ func (m *matrix) Set(other *matrix) {
 //   [ 0 1 ]
 // The identity matrix is the multiplicative identity for matrix multiplication.
 func (m *matrix) SetIdentity() {
-	m.a.SetInt64(1) // Idem élément neutre matrice
+	m.a.SetInt64(1) // Same as the neutral element of a matrix
 	m.b.SetInt64(0)
 	m.c.SetInt64(0)
 	m.d.SetInt64(1)
@@ -272,16 +272,16 @@ func (m *matrix) SetIdentity() {
 //   [ 1 0 ]
 // Powers of this matrix are used to generate Fibonacci numbers.
 func (m *matrix) SetBaseQ() {
-	m.a.SetInt64(1) // Base Q de la récurrence de Fibonacci
+	m.a.SetInt64(1) // Base Q of the Fibonacci recurrence
 	m.b.SetInt64(1)
 	m.c.SetInt64(1)
 	m.d.SetInt64(0)
 }
 
-// Dans la logique de progression (voir CalcTotalWork) :
-// On utilise la base 4 pour modéliser le nombre d'opérations via la structure
-// de l'algorithme (1 addition et 3 multiplications à chaque bit), donc on a 4^k.
-// +1 dans la LUT car la LUT contient F(0) à F(93) inclus.
+// In the progress logic (see CalcTotalWork):
+// We use base 4 to model the number of operations via the algorithm's structure
+// (1 addition and 3 multiplications at each bit), so we have 4^k.
+// +1 in the LUT because the LUT contains F(0) to F(93) inclusive.
 // matrixState aggregates variables for the matrix exponentiation algorithm.
 // The temporary variables (p1-p7, s1-s10) are specifically designed to support
 // the memory requirements of Strassen's matrix multiplication algorithm,

@@ -106,7 +106,7 @@ func TestRunFunction(t *testing.T) {
 			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", ExitErrorTimeout, exitCode)
 		}
 		output := stripAnsiCodes(buf.String())
-		if !strings.Contains(output, "Failure (Timeout)") {
+		if !strings.Contains(output, "Status: Failure (Timeout)") {
 			t.Errorf("The output should explicitly mention the timeout failure. Output:\n%s", output)
 		}
 	})

@@ -63,13 +63,13 @@ type AppConfig struct {
 // Returns an error if the configuration is invalid, otherwise nil.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
-        return apperrors.NewConfigError("la valeur du délai d’expiration (timeout) doit être strictement positive")
+        return apperrors.NewConfigError("timeout value must be strictly positive")
 	}
 	if c.Threshold < 0 {
-        return apperrors.NewConfigError("le seuil de parallélisation ne peut pas être négatif : %d", c.Threshold)
+        return apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold)
 	}
 	if c.FFTThreshold < 0 {
-        return apperrors.NewConfigError("le seuil FFT ne peut pas être négatif : %d", c.FFTThreshold)
+        return apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold)
 	}
 	isAlgoAvailable := false
 	for _, a := range availableAlgos {
@@ -79,7 +79,7 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 		}
 	}
     if c.Algo != "all" && !isAlgoAvailable {
-        return apperrors.NewConfigError("algorithme non reconnu : '%s'. Algorithmes valides : 'all' ou [%s]", c.Algo, strings.Join(availableAlgos, ", "))
+        return apperrors.NewConfigError("unrecognized algorithm: '%s'. Valid algorithms are: 'all' or [%s]", c.Algo, strings.Join(availableAlgos, ", "))
     }
 	return nil
 }
@@ -102,29 +102,29 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 func ParseConfig(programName string, args []string, errorWriter io.Writer, availableAlgos []string) (AppConfig, error) {
 	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
 	fs.SetOutput(errorWriter)
-	algoHelp := fmt.Sprintf("Algorithme à utiliser : 'all' (défaut) ou un des suivants [%s].", strings.Join(availableAlgos, ", "))
+	algoHelp := fmt.Sprintf("Algorithm to use: 'all' (default) or one of [%s].", strings.Join(availableAlgos, ", "))
 
 	config := AppConfig{}
-	fs.Uint64Var(&config.N, "n", 250000000, "Index n du nombre de Fibonacci à calculer.")
-	fs.BoolVar(&config.Verbose, "v", false, "Afficher la valeur complète du résultat (peut être très long).")
-	fs.BoolVar(&config.Details, "d", false, "Afficher les détails de performance et les métadonnées du résultat.")
-	fs.BoolVar(&config.Details, "details", false, "Alias pour -d.")
-	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Durée maximale d’exécution du calcul.")
+	fs.Uint64Var(&config.N, "n", 250000000, "Index n of the Fibonacci number to calculate.")
+	fs.BoolVar(&config.Verbose, "v", false, "Display the full value of the result (can be very long).")
+	fs.BoolVar(&config.Details, "d", false, "Display performance details and result metadata.")
+	fs.BoolVar(&config.Details, "details", false, "Alias for -d.")
+	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Maximum execution time for the calculation.")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
-	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Seuil (en bits) d’activation de la parallélisation des multiplications.")
-	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Seuil (en bits) pour activer la multiplication FFT (0 pour désactiver).")
-    fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Seuil (en bits) pour basculer vers l'algorithme de Strassen en multiplication matricielle.")
-	fs.BoolVar(&config.Calibrate, "calibrate", false, "Exécute le mode calibration pour déterminer le seuil optimal de parallélisation.")
-	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Active la calibration automatique rapide au démarrage (peut augmenter le temps de chargement).")
-    fs.StringVar(&config.Lang, "lang", "fr", "Code langue pour i18n (ex: fr, en).")
-    fs.StringVar(&config.I18nDir, "i18n-dir", "", "Répertoire des fichiers de traduction JSON (ex: ./locales).")
+	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Threshold (in bits) for activating parallelism in multiplications.")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
+    fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
+	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
+	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Enables quick automatic calibration at startup (may increase loading time).")
+    fs.StringVar(&config.Lang, "lang", "en", "Language code for i18n (e.g., fr, en).")
+    fs.StringVar(&config.I18nDir, "i18n-dir", "", "Directory of JSON translation files (e.g., ./locales).")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
 	}
 	config.Algo = strings.ToLower(config.Algo)
 	if err := config.Validate(availableAlgos); err != nil {
-		fmt.Fprintln(errorWriter, "Erreur de configuration :", err)
+		fmt.Fprintln(errorWriter, "Configuration error:", err)
 		fs.Usage()
 		return AppConfig{}, errors.New("invalid configuration")
 	}

@@ -84,7 +84,7 @@ Using the executable:
 | `-v`             |             | Display the full value of the result (very long).                  | `false`     |
 | `--calibrate`    |             | Run calibration of the optimal parallelism threshold. | `false`     |
 | `--auto-calibrate` |           | Quick calibration at startup to fine-tune `threshold` and `fft-threshold`. | `false`      |
-| `--lang`         |             | i18n language code (e.g., `fr`, `en`).                                   | `fr`        |
+| `--lang`         |             | i18n language code (e.g., `fr`, `en`).                                   | `en`        |
 | `--i18n-dir`     |             | Directory containing `<lang>.json` to override messages.     | `""`       |
 
 ### Performance Optimization
@@ -144,8 +144,8 @@ The program runs all algorithms in parallel and displays a comparative table. It
 
 **5. Enable dynamic i18n (JSON loading):**
 ```bash
-./fibcalc --i18n-dir ./locales --lang fr
-# expects a ./locales/fr.json file in the format { "Key": "Text" }
+./fibcalc --i18n-dir ./locales --lang en
+# expects a ./locales/en.json file in the format { "Key": "Text" }
 ```
 
 ## 7. Validation and Testing
