@@ -237,19 +237,6 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 	return ExitSuccess
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // run is the main function that orchestrates the application's execution flow.
 // It is responsible for setting up the execution context, including timeouts and
 // signal handling, and then initiating the Fibonacci calculations.
