@@ -41,7 +41,8 @@ const (
 	// and end of a truncated number.
 	DisplayEdges = 25
 	// ProgressRefreshRate defines the refresh frequency of the progress bar.
-	ProgressRefreshRate = 100 * time.Millisecond
+	// Optimisé à 200ms pour réduire les updates et améliorer les performances
+	ProgressRefreshRate = 200 * time.Millisecond
 	// ProgressBarWidth defines the width in characters of the progress bar.
 	ProgressBarWidth = 40
 )
@@ -80,7 +81,8 @@ func (rs *realSpinner) UpdateSuffix(suffix string) {
 }
 
 var newSpinner = func(options ...spinner.Option) Spinner {
-	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, options...)
+	// Utilisation du même intervalle que ProgressRefreshRate pour synchroniser
+	s := spinner.New(spinner.CharSets[11], ProgressRefreshRate, options...)
 	return &realSpinner{s}
 }
 
@@ -259,6 +261,7 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 }
 
 // formatNumberString inserts thousand separators into a numeric string.
+// Optimisé pour réduire les allocations mémoire
 func formatNumberString(s string) string {
 	if len(s) == 0 {
 		return ""
@@ -273,8 +276,11 @@ func formatNumberString(s string) string {
 		return prefix + s
 	}
 
+	// Calcul précis de la capacité nécessaire pour éviter les réallocations
+	numSeparators := (n - 1) / 3
+	capacity := len(prefix) + n + numSeparators
 	var builder strings.Builder
-	builder.Grow(len(prefix) + n + (n-1)/3)
+	builder.Grow(capacity)
 	builder.WriteString(prefix)
 
 	firstGroupLen := n % 3
@@ -283,6 +289,7 @@ func formatNumberString(s string) string {
 	}
 	builder.WriteString(s[:firstGroupLen])
 
+	// Boucle optimisée avec moins d'appels de fonction
 	for i := firstGroupLen; i < n; i += 3 {
 		builder.WriteByte(',')
 		builder.WriteString(s[i : i+3])

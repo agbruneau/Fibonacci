@@ -60,7 +60,8 @@ const (
 // ProgressBufferMultiplier defines the buffer size of the progress channel,
 // calculated as a multiple of the number of active calculators. A larger
 // buffer reduces the risk of blocking progress updates.
-const ProgressBufferMultiplier = 10
+// Réduit à 5 pour optimiser l'utilisation mémoire tout en évitant le blocage
+const ProgressBufferMultiplier = 5
 
 var calculatorRegistry = map[string]fibonacci.Calculator{
 	"fast":   fibonacci.NewCalculator(&fibonacci.OptimizedFastDoubling{}),
@@ -204,39 +205,9 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 	close(progressChan)
 	wg.Wait()
 
-	// Recherche ternaire discrète (si possible) autour d'une plage plausible
-	// Hypothèse raisonnable: la courbe temps(seuil) est localement régulière.
-	if bestDuration > 0 {
-		left, right := 0, 65536
-		eval := func(th int) (time.Duration, error) {
-			start := time.Now()
-			_, err := calculator.Calculate(ctx, nil, 0, calibrationN, th, 0)
-			return time.Since(start), err
-		}
-		for iter := 0; iter < 8 && right-left >= 128; iter++ {
-			m1 := left + (right-left)/3
-			m2 := right - (right-left)/3
-			d1, e1 := eval(m1)
-			d2, e2 := eval(m2)
-			results = append(results, calibrationResult{m1, d1, e1})
-			results = append(results, calibrationResult{m2, d2, e2})
-			if e1 == nil && d1 <= d2 {
-				right = m2
-				if d1 < bestDuration {
-					bestDuration, bestThreshold = d1, m1
-				}
-			} else if e2 == nil {
-				left = m1
-				if d2 < bestDuration {
-					bestDuration, bestThreshold = d2, m2
-				}
-			} else {
-				// Si les deux échouent, on rétrécit autour du meilleur courant
-				left = max(0, bestThreshold-(right-left)/4)
-				right = min(65536, bestThreshold+(right-left)/4)
-			}
-		}
-	}
+	// Note: La recherche ternaire discrète a été supprimée pour améliorer les temps de chargement.
+	// Les tests initiaux fournissent déjà une bonne estimation.
+	// Pour une calibration plus précise, utilisez --calibrate avec plus de temps.
 
 	writeOut(out, "\n%s\n", i18n.Messages["CalibrationSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
@@ -368,7 +339,8 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	}
 
 	// 1) Calibration du seuil de parallélisme (FFT désactivée pour stabilité)
-	parallelCandidates := []int{0, 512, 1024, 2048, 4096, 8192, 12288, 16384, 24576, 32768}
+	// Réduction du nombre de candidats pour améliorer le temps de chargement
+	parallelCandidates := []int{0, 2048, 4096, 8192, 16384}
 	bestPar := cfg.Threshold
 	bestParDur := time.Duration(1<<63 - 1)
 	for _, cand := range parallelCandidates {
@@ -382,7 +354,8 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	}
 
 	// 2) Calibration du seuil FFT (en utilisant le meilleur parallélisme trouvé)
-	fftCandidates := []int{0, 12000, 16000, 20000, 24000, 28000, 32000, 40000}
+	// Réduction du nombre de candidats pour améliorer le temps de chargement
+	fftCandidates := []int{0, 16000, 20000, 28000}
 	bestFFT := cfg.FFTThreshold
 	bestFFTDur := time.Duration(1<<63 - 1)
 	for _, cand := range fftCandidates {
@@ -397,12 +370,13 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 
 	// 3) Calibration du seuil Strassen (avec l'algorithme matriciel)
 	//    On évalue plusieurs candidats et on retient le meilleur.
+	// Réduction du nombre de candidats pour améliorer le temps de chargement
 	matCalc := calculatorRegistry["matrix"]
 	bestStrassen := cfg.StrassenThreshold
 	bestStrassenDur := time.Duration(1<<63 - 1)
 	if matCalc != nil {
 		// Désactiver FFT pour isoler l'effet Strassen
-		strassenCandidates := []int{128, 192, 256, 320, 384, 512, 768, 1024}
+		strassenCandidates := []int{192, 256, 384, 512}
 		for _, cand := range strassenCandidates {
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 			start := time.Now()
