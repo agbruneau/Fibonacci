@@ -1,11 +1,11 @@
-// Package apperrors définit des types d'erreurs applicatives structurées
-// permettant de distinguer clairement les classes d'erreurs (configuration,
-// calcul, etc.) et de transporter la cause sous-jacente.
+// Package apperrors defines structured application error types,
+// allowing for a clear distinction between error classes (configuration,
+// calculation, etc.) and for carrying the underlying cause.
 package apperrors
 
 import "fmt"
 
-// ConfigError représente une erreur de configuration utilisateur (flags, valeurs invalides, etc.).
+// ConfigError represents a user configuration error (flags, invalid values, etc.).
 type ConfigError struct {
     Message string
 }
@@ -16,13 +16,11 @@ func NewConfigError(format string, a ...interface{}) error {
     return ConfigError{Message: fmt.Sprintf(format, a...)}
 }
 
-// CalculationError permet d'encapsuler une erreur de calcul tout en gardant
-// la cause d'origine (unwrap).
+// CalculationError allows for encapsulating a calculation error while preserving
+// the original cause (unwrap).
 type CalculationError struct {
     Cause error
 }
 
 func (e CalculationError) Error() string { return e.Cause.Error() }
 func (e CalculationError) Unwrap() error { return e.Cause }
-
-

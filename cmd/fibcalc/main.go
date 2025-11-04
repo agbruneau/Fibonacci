@@ -60,7 +60,7 @@ const (
 // ProgressBufferMultiplier defines the buffer size of the progress channel,
 // calculated as a multiple of the number of active calculators. A larger
 // buffer reduces the risk of blocking progress updates.
-// Réduit à 5 pour optimiser l'utilisation mémoire tout en évitant le blocage
+// Reduced to 5 to optimize memory usage while avoiding blocking.
 const ProgressBufferMultiplier = 5
 
 var calculatorRegistry = map[string]fibonacci.Calculator{
@@ -72,7 +72,7 @@ var calculatorRegistry = map[string]fibonacci.Calculator{
 func init() {
 	for name, calc := range calculatorRegistry {
 		if calc == nil {
-			panic(fmt.Sprintf("Erreur d'initialisation critique : le calculateur enregistré sous le nom '%s' est nul.", name))
+			panic(fmt.Sprintf("Critical initialization error: the calculator registered under the name '%s' is nil.", name))
 		}
 	}
 }
@@ -100,14 +100,14 @@ func main() {
 		}
 		os.Exit(ExitErrorConfig)
 	}
-	// Chargement i18n optionnel
+	// Optional i18n loading
 	if cfg.I18nDir != "" {
 		if err := i18n.LoadFromDir(cfg.I18nDir, cfg.Lang); err != nil {
-			// Non bloquant : on continue avec les messages intégrés
-			fmt.Fprintln(os.Stderr, "[i18n] chargement des traductions échoué:", err)
+			// Non-blocking: continue with built-in messages
+			fmt.Fprintln(os.Stderr, "[i18n] failed to load translations:", err)
 		}
 	}
-	// Paramétrage du seuil Strassen pour l'algo matriciel
+	// Setting the Strassen threshold for the matrix algorithm
 	fibonacci.DefaultStrassenThresholdBits = cfg.StrassenThreshold
 	exitCode := run(context.Background(), cfg, os.Stdout)
 	os.Exit(exitCode)
@@ -157,7 +157,7 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 	const calibrationN = 10_000_000
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
-		writeOut(out, "%sErreur critique : l'algorithme 'fast' est requis pour la calibration mais est introuvable.%s\n", ColorRed, ColorReset)
+		writeOut(out, "%sCritical error: the 'fast' algorithm is required for calibration but was not found.%s\n", ColorRed, ColorReset)
 		return ExitErrorGeneric
 	}
 
@@ -178,7 +178,7 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 
 	for _, threshold := range thresholdsToTest {
 		if ctx.Err() != nil {
-			writeOut(out, "\n%sCalibration interrompue.%s\n", ColorYellow, ColorReset)
+			writeOut(out, "\n%sCalibration interrupted.%s\n", ColorYellow, ColorReset)
 			return ExitErrorCanceled
 		}
 
@@ -187,7 +187,7 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 		duration := time.Since(startTime)
 
 		if err != nil {
-			writeOut(out, "%s❌ Échec (%v)%s\n", ColorRed, err, ColorReset)
+			writeOut(out, "%s❌ Failure (%v)%s\n", ColorRed, err, ColorReset)
 			results = append(results, calibrationResult{threshold, 0, err})
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
@@ -205,18 +205,18 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 	close(progressChan)
 	wg.Wait()
 
-	// Note: La recherche ternaire discrète a été supprimée pour améliorer les temps de chargement.
-	// Les tests initiaux fournissent déjà une bonne estimation.
-	// Pour une calibration plus précise, utilisez --calibrate avec plus de temps.
+	// Note: The discrete ternary search has been removed to improve loading times.
+	// The initial tests already provide a good estimate.
+	// For a more precise calibration, use --calibrate with more time.
 
 	writeOut(out, "\n%s\n", i18n.Messages["CalibrationSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	writeOut(tw, "  %sSeuil%s        │ %sTemps d'exécution%s\n", ColorUnderline, ColorReset, ColorUnderline, ColorReset)
+	writeOut(tw, "  %sThreshold%s    │ %sExecution Time%s\n", ColorUnderline, ColorReset, ColorUnderline, ColorReset)
 	writeOut(tw, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))
 	for _, res := range results {
 		thresholdLabel := fmt.Sprintf("%d bits", res.Threshold)
 		if res.Threshold == 0 {
-			thresholdLabel = "Séquentiel"
+			thresholdLabel = "Sequential"
 		}
 		durationStr := fmt.Sprintf("%sN/A%s", ColorRed, ColorReset)
 		if res.Err == nil {
@@ -232,7 +232,7 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 		writeOut(tw, "  %s%-12s%s │ %s%s%s%s\n", ColorCyan, thresholdLabel, ColorReset, ColorYellow, durationStr, ColorReset, highlight)
 	}
 	tw.Flush()
-	writeOut(out, "\n%s✅ Recommandation pour cette machine : %s--threshold %d%s\n",
+	writeOut(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
 		ColorGreen, ColorYellow, bestThreshold, ColorReset)
 	return ExitSuccess
 }
@@ -276,7 +276,7 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 
-	// Calibration automatique rapide au démarrage (si activée)
+	// Quick auto-calibration at startup (if enabled)
 	if cfg.AutoCalibrate {
 		if updated, ok := autoCalibrate(ctx, cfg, out); ok {
 			cfg = updated
@@ -284,50 +284,50 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	}
 
 	writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
-	writeOut(out, "Calcul de %sF(%d)%s avec un délai maximum de %s%s%s.\n",
+	writeOut(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
 		ColorMagenta, cfg.N, ColorReset, ColorYellow, cfg.Timeout, ColorReset)
-	writeOut(out, "Environnement : %s%d%s processeurs logiques, Go %s%s%s.\n",
+	writeOut(out, "Environment: %s%d%s logical processors, Go %s%s%s.\n",
 		ColorCyan, runtime.NumCPU(), ColorReset, ColorCyan, runtime.Version(), ColorReset)
-	writeOut(out, "Seuils d'optimisation : Parallélisme=%s%d%s bits, FFT=%s%d%s bits.\n",
+	writeOut(out, "Optimization thresholds: Parallelism=%s%d%s bits, FFT=%s%d%s bits.\n",
 		ColorCyan, cfg.Threshold, ColorReset, ColorCyan, cfg.FFTThreshold, ColorReset)
 
 	calculatorsToRun := getCalculatorsToRun(cfg)
 	var modeDesc string
 	if len(calculatorsToRun) > 1 {
-		modeDesc = "Comparaison parallèle de tous les algorithmes"
+		modeDesc = "Parallel comparison of all algorithms"
 	} else {
-		modeDesc = fmt.Sprintf("Calcul simple avec l'algorithme %s%s%s",
+		modeDesc = fmt.Sprintf("Single calculation with the %s%s%s algorithm",
 			ColorGreen, calculatorsToRun[0].Name(), ColorReset)
 	}
-	writeOut(out, "Mode d'exécution : %s.\n", modeDesc)
+	writeOut(out, "Execution mode: %s.\n", modeDesc)
 	writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])
 
 	results := executeCalculations(ctx, calculatorsToRun, cfg, out)
 	return analyzeComparisonResults(results, cfg, out)
 }
 
-// autoCalibrate effectue une calibration rapide des seuils de parallélisation
-// et du seuil FFT pour la machine courante. Elle est courte et opportuniste :
-// si le contexte est annulé ou si un essai dépasse une petite fraction du
-// timeout, on conserve les valeurs actuelles.
-// Retourne (cfgMisAJour, true) si mise à jour, sinon (cfgOriginal, false).
+// autoCalibrate performs a quick calibration of parallelism and FFT thresholds
+// for the current machine. It is short and opportunistic: if the context is
+// canceled or if a trial exceeds a small fraction of the timeout, the current
+// values are kept.
+// Returns (updatedCfg, true) if updated, otherwise (originalCfg, false).
 func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer) (config.AppConfig, bool) {
-	// Ne lance pas l'auto-calibration en mode comparaison de tous les algos :
-	// on cible l'implémentation fast (doubling) pour vitesse et cohérence.
+	// Do not run auto-calibration in all-algorithm comparison mode:
+	// we target the fast (doubling) implementation for speed and consistency.
 	calc := calculatorRegistry["fast"]
 	if calc == nil {
 		return cfg, false
 	}
 
-	// Fenêtre courte : chaque essai dispose d'au plus 1/6 du timeout global,
-	// avec une borne inférieure utile pour éviter trop court (ex: 2s).
+	// Short window: each trial has at most 1/6 of the global timeout,
+	// with a useful lower bound to avoid being too short (e.g., 2s).
 	perTrial := cfg.Timeout / 6
 	if perTrial < 2*time.Second {
 		perTrial = 2 * time.Second
 	}
 
-	// Taille d'entrée pour calibration: suffisamment grande pour déclencher
-	// les chemins d'intérêt sans être trop longue.
+	// Input size for calibration: large enough to trigger the paths of
+	// interest without being too long.
 	const nForCalibration = 10_000_000
 
 	tryRun := func(threshold, fftThreshold int) (time.Duration, error) {
@@ -338,8 +338,8 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		return time.Since(start), err
 	}
 
-	// 1) Calibration du seuil de parallélisme (FFT désactivée pour stabilité)
-	// Réduction du nombre de candidats pour améliorer le temps de chargement
+	// 1) Calibrate parallelism threshold (FFT disabled for stability)
+	// Reduced number of candidates to improve loading time
 	parallelCandidates := []int{0, 2048, 4096, 8192, 16384}
 	bestPar := cfg.Threshold
 	bestParDur := time.Duration(1<<63 - 1)
@@ -353,8 +353,8 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		}
 	}
 
-	// 2) Calibration du seuil FFT (en utilisant le meilleur parallélisme trouvé)
-	// Réduction du nombre de candidats pour améliorer le temps de chargement
+	// 2) Calibrate FFT threshold (using the best parallelism found)
+	// Reduced number of candidates to improve loading time
 	fftCandidates := []int{0, 16000, 20000, 28000}
 	bestFFT := cfg.FFTThreshold
 	bestFFTDur := time.Duration(1<<63 - 1)
@@ -368,14 +368,14 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		}
 	}
 
-	// 3) Calibration du seuil Strassen (avec l'algorithme matriciel)
-	//    On évalue plusieurs candidats et on retient le meilleur.
-	// Réduction du nombre de candidats pour améliorer le temps de chargement
+	// 3) Calibrate Strassen threshold (with the matrix algorithm)
+	//    We evaluate several candidates and keep the best one.
+	// Reduced number of candidates to improve loading time
 	matCalc := calculatorRegistry["matrix"]
 	bestStrassen := cfg.StrassenThreshold
 	bestStrassenDur := time.Duration(1<<63 - 1)
 	if matCalc != nil {
-		// Désactiver FFT pour isoler l'effet Strassen
+		// Disable FFT to isolate the Strassen effect
 		strassenCandidates := []int{192, 256, 384, 512}
 		for _, cand := range strassenCandidates {
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
@@ -386,7 +386,7 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 			if err != nil {
 				continue
 			}
-			// Simuler l'impact du seuil en jouant sur variable globale
+			// Simulate the impact of the threshold by playing with a global variable
 			fibonacci.DefaultStrassenThresholdBits = cand
 			if dur < bestStrassenDur {
 				bestStrassenDur = dur
@@ -395,12 +395,12 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		}
 	}
 
-	// Si aucune mesure valide n'a été faite, ne rien changer
+	// If no valid measurement was made, do not change anything
 	if bestParDur == time.Duration(1<<63-1) && bestFFTDur == time.Duration(1<<63-1) {
 		return cfg, false
 	}
 
-	// Appliquer les meilleures valeurs trouvées
+	// Apply the best values found
 	updated := cfg
 	if bestParDur != time.Duration(1<<63-1) {
 		updated.Threshold = bestPar
@@ -413,8 +413,8 @@ func autoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		fibonacci.DefaultStrassenThresholdBits = bestStrassen
 	}
 
-	// Affichage succinct
-	writeOut(out, "%sCalibration auto%s: parallélisme=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
+	// Succinct display
+	writeOut(out, "%sAuto-calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
 		ColorGreen, ColorReset,
 		ColorYellow, updated.Threshold, ColorReset,
 		ColorYellow, updated.FFTThreshold, ColorReset,
@@ -524,31 +524,31 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 
 	writeOut(out, "\n%s\n", i18n.Messages["ComparisonSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	writeOut(tw, "%sAlgorithme%s\t%sDurée%s\t%sStatut%s\n",
+	writeOut(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
 		ColorUnderline, ColorReset, ColorUnderline, ColorReset, ColorUnderline, ColorReset)
 
 	for _, res := range results {
 		var status string
 		if res.Err != nil {
-			status = fmt.Sprintf("%s❌ Échec (%v)%s", ColorRed, res.Err, ColorReset)
+			status = fmt.Sprintf("%s❌ Failure (%v)%s", ColorRed, res.Err, ColorReset)
 			if firstError == nil {
 				firstError = res.Err
 			}
 		} else {
-			status = fmt.Sprintf("%s✅ Succès%s", ColorGreen, ColorReset)
+			status = fmt.Sprintf("%s✅ Success%s", ColorGreen, ColorReset)
 			successCount++
 			if firstValidResult == nil {
 				firstValidResult = res.Result
 				firstValidResultDuration = res.Duration
 			}
 		}
-		duree := cli.FormatExecutionDuration(res.Duration)
+		duration := cli.FormatExecutionDuration(res.Duration)
 		if res.Duration == 0 {
-			duree = "< 1µs"
+			duration = "< 1µs"
 		}
 		writeOut(tw, "%s%s%s\t%s%s%s\t%s\n",
 			ColorBlue, res.Name, ColorReset,
-			ColorYellow, duree, ColorReset,
+			ColorYellow, duration, ColorReset,
 			status)
 	}
 	tw.Flush()
@@ -608,14 +608,14 @@ func handleCalculationError(err error, duration time.Duration, out io.Writer) in
 	return ExitErrorGeneric
 }
 
-// writeOut centralise l'écriture sur out et gère (ou loggue) l’erreur.
+// writeOut centralizes writing to out and handles (or logs) the error.
 func writeOut(out io.Writer, format string, a ...interface{}) {
 	if _, err := fmt.Fprintf(out, format, a...); err != nil {
-		// Erreur d'I/O sur la sortie utilisateur, généralement critique !
-		// Ici nous logguons sur stderr via fmt.Fprintln mais on pourrait exit immédiatement.
-		fmt.Fprintln(os.Stderr, "[Erreur sortie] :", err)
-		// os.Exit(1) // En production, on pourrait envisager un exit.
+		// I/O error on user output, usually critical!
+		// Here we log to stderr via fmt.Fprintln but we could exit immediately.
+		fmt.Fprintln(os.Stderr, "[Output Error]:", err)
+		// os.Exit(1) // In production, we might consider an exit.
 	}
 }
 
-// Messages centralisés : voir internal/i18n/messages.go
+// Centralized messages: see internal/i18n/messages.go

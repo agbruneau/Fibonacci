@@ -63,8 +63,8 @@ func (fd *OptimizedFastDoubling) Name() string {
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	mul := func(dest, x, y *big.Int) {
 		if fftThreshold > 0 {
-			// Utilise FFT uniquement si les deux opérandes dépassent le seuil.
-			// Raccourci: compare le min des tailles en bits.
+			// Use FFT only if both operands exceed the threshold.
+			// Shortcut: compare the min of the bit lengths.
 			minBitLen := x.BitLen()
 			if b := y.BitLen(); b < minBitLen {
 				minBitLen = b
@@ -83,7 +83,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	numBits := bits.Len64(n)
 	useParallel := runtime.GOMAXPROCS(0) > 1 && threshold > 0
 
-	// Calcul du travail total pour le reporting de progression via utilitaire commun
+	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
 	var workDone, workOfStep big.Int
 	lastReportedProgress := -1.0
@@ -96,7 +96,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		// Doubling Step
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
 
-		// Parallélise lorsque au moins l'un des opérandes principaux est volumineux
+		// Parallelize when at least one of the main operands is large
 		if useParallel && func() bool {
 			bl := s.f_k1.BitLen()
 			if b := s.f_k.BitLen(); b > bl {
@@ -131,7 +131,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
 		}
 
-		// Reporting harmonisé via fonction utilitaire commune
+		// Harmonized reporting via common utility function
 		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits)
 	}
 	return new(big.Int).Set(s.f_k), nil
