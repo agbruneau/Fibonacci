@@ -3,6 +3,7 @@
 ![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
+![Coverage Status](https://img.shields.io/badge/coverage-69.7%25-brightgreen)
 
 ## 1. Summary
 
