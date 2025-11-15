@@ -231,11 +231,11 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 
 	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ColorBold, ColorReset)
 	if duration > 0 {
-		duree := FormatExecutionDuration(duration)
+		durationStr := FormatExecutionDuration(duration)
 		if duration == 0 {
-			duree = "< 1µs"
+			durationStr = "< 1µs"
 		}
-		fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen, duree, ColorReset)
+		fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen, durationStr, ColorReset)
 	}
 
 	resultStr := result.String()
