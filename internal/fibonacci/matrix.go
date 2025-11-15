@@ -81,16 +81,17 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	numBits := bits.Len64(exponent)
 	useParallel := runtime.NumCPU() > 1 && threshold > 0
 
-	var invNumBits float64
-	if numBits > 0 {
-		invNumBits = 1.0 / float64(numBits)
-	}
+	// Calculate total work for progress reporting via common utility
+	totalWork := CalcTotalWork(numBits)
+	var workDone, workOfStep big.Int
+	lastReportedProgress := -1.0
 
 	for i := 0; i < numBits; i++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		reporter(float64(i) * invNumBits)
+		// Harmonized reporting via common utility function
+		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, false)
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved

@@ -132,7 +132,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		}
 
 		// Harmonized reporting via common utility function
-		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits)
+		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, true)
 	}
 	return new(big.Int).Set(s.f_k), nil
 }
