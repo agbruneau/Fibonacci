@@ -114,14 +114,9 @@ func main() {
 }
 
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
-// It holds the result, execution duration, and any error that occurred, facilitating
-// the aggregation and comparison of results from multiple algorithms.
-//
-// Fields:
-//   - Name: The identifier of the algorithm used for the calculation.
-//   - Result: The calculated Fibonacci number. It is nil if an error occurred.
-//   - Duration: The total time taken for the calculation.
-//   - Err: Any error encountered during the calculation.
+// It holds the result, execution duration, and any error that occurred,
+// facilitating the aggregation and comparison of results from multiple
+// algorithms.
 type CalculationResult struct {
 	// Name is the identifier of the algorithm used for the calculation.
 	Name string
@@ -133,25 +128,22 @@ type CalculationResult struct {
 	Err error
 }
 
-// runCalibration runs a series of benchmarks to determine the optimal parallelism
-// threshold for the current machine. It tests a predefined set of threshold
-// values and measures the execution time for each, ultimately recommending the
-// value that yields the best performance. This function is invoked when the
-// `--calibrate` flag is provided.
+// runCalibration runs benchmarks to determine the optimal parallelism threshold.
+// It's invoked with the --calibrate flag and tests a range of threshold values
+// to find the one that offers the best performance on the current machine.
 //
-// The calibration process involves:
-// - Iterating through a list of threshold values.
-// - For each threshold, calculating a large Fibonacci number.
-// - Recording the duration of each calculation.
-// - Displaying a summary table comparing the performance of each threshold.
-// - Recommending the threshold that resulted in the shortest execution time.
+// The process is as follows:
+//  1. Iterates through a predefined set of threshold values.
+//  2. For each threshold, it calculates a large Fibonacci number.
+//  3. It records the duration of each calculation.
+//  4. A summary table is displayed, comparing the performance of each threshold.
+//  5. The function recommends the threshold that resulted in the shortest
+//     execution time.
 //
-// Parameters:
-//   - ctx: The context for managing cancellation.
-//   - cfg: The application's configuration, used for settings like timeout.
-//   - out: The output writer for displaying progress and results.
+// The context is used for managing cancellation. The out writer is for
+// displaying progress and results.
 //
-// Returns an exit code indicating the outcome of the calibration process.
+// It returns an exit code indicating the outcome of the calibration process.
 func runCalibration(ctx context.Context, out io.Writer) int {
 	writeOut(out, "%s\n", i18n.Messages["CalibrationTitle"])
 	const calibrationN = 10_000_000
@@ -238,22 +230,20 @@ func runCalibration(ctx context.Context, out io.Writer) int {
 }
 
 // run is the main function that orchestrates the application's execution flow.
-// It is responsible for setting up the execution context, including timeouts and
-// signal handling, and then initiating the Fibonacci calculations.
+// It sets up the execution context, including timeouts and signal handling, and
+// then initiates the Fibonacci calculations.
 //
 // The process includes:
-// - Configuring a context for timeout and graceful shutdown.
-// - Displaying the execution configuration to the user.
-// - Selecting the appropriate calculator(s) based on the configuration.
-// - Executing the calculation(s).
-// - Analyzing and displaying the results.
+//   - Configuring a context for timeout and graceful shutdown.
+//   - Displaying the execution configuration to the user.
+//   - Selecting the appropriate calculator(s) based on the configuration.
+//   - Executing the calculation(s).
+//   - Analyzing and displaying the results.
 //
-// Parameters:
-//   - ctx: The parent context for the execution.
-//   - cfg: The application's configuration.
-//   - out: The output writer for displaying information and results.
+// The parent context for the execution is ctx. The application's configuration
+// is cfg, and out is the output writer for displaying information and results.
 //
-// Returns an exit code that reflects the outcome of the execution.
+// It returns an exit code that reflects the outcome of the execution.
 func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	if cfg.Calibrate {
 		return runCalibration(ctx, out)
@@ -479,23 +469,22 @@ func executeCalculations(ctx context.Context, calculators []fibonacci.Calculator
 	return results
 }
 
-// analyzeComparisonResults processes and displays the final results of the
-// calculations. It sorts the results by performance, checks for inconsistencies,
-// and presents a summary to the user.
+// analyzeComparisonResults processes and displays the final results.
+// It sorts the results by performance, checks for inconsistencies, and presents
+// a summary to the user.
 //
 // The analysis includes the following steps:
-// - Sorting the results by duration, with successful calculations prioritized.
-// - Displaying a detailed comparison summary in a tabular format.
-// - Checking for mismatches between the results of different algorithms.
-// - Reporting the final status (success, failure, or mismatch).
-// - Displaying the final calculated value and performance details.
+//   - Sorting the results by duration, prioritizing successful calculations.
+//   - Displaying a detailed comparison summary in a tabular format.
+//   - Checking for mismatches between the results of different algorithms.
+//   - Reporting the final status (success, failure, or mismatch).
+//   - Displaying the final calculated value and performance details.
 //
-// Parameters:
-//   - results: The slice of `CalculationResult` from the calculations.
-//   - cfg: The application's configuration.
-//   - out: The output writer for displaying the analysis.
+// The slice of CalculationResult from the calculations is results. The
+// application's configuration is cfg, and out is the output writer for
+// displaying the analysis.
 //
-// Returns an exit code that reflects the outcome of the analysis.
+// It returns an exit code that reflects the outcome of the analysis.
 func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, out io.Writer) int {
 	sort.Slice(results, func(i, j int) bool {
 		if (results[i].Err == nil) != (results[j].Err == nil) {
@@ -567,13 +556,11 @@ func analyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 // error types, such as context cancellation and deadline exceeded, to provide
 // more informative feedback to the user.
 //
-// Parameters:
-//   - err: The error to be handled. If nil, the function returns ExitSuccess.
-//   - duration: The execution duration at the time of the error.
-//   - timeout: The configured timeout for the operation.
-//   - out: The output writer for displaying the error message.
+// The error to be handled is err. If it's nil, the function returns
+// ExitSuccess. The execution duration at the time of the error is duration, and
+// out is the output writer for displaying the error message.
 //
-// Returns an exit code that corresponds to the nature of the error.
+// It returns an exit code that corresponds to the nature of the error.
 func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
 		return ExitSuccess

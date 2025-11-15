@@ -21,7 +21,7 @@ const (
 
 // AppConfig aggregates the application's configuration parameters, parsed from
 // command-line flags. It encapsulates all settings that control the execution,
-// from the Fibonacci index to calculate to performance tuning parameters.
+// from the Fibonacci index to calculate, to performance-tuning parameters.
 type AppConfig struct {
 	// N is the index of the Fibonacci number to be calculated.
 	N uint64
@@ -37,33 +37,32 @@ type AppConfig struct {
 	Threshold int
 	// FFTThreshold is the bit size threshold for using FFT-based multiplication.
 	FFTThreshold int
-    // StrassenThreshold controls when matrix multiplication switches to Strassen.
-    StrassenThreshold int
+	// StrassenThreshold controls when matrix multiplication switches to Strassen.
+	StrassenThreshold int
 	// Calibrate, if true, runs the application in calibration mode to find the
 	// optimal parallelism threshold.
 	Calibrate bool
-    // AutoCalibrate, if true, runs a short automatic calibration at startup to
-    // refine Threshold and FFTThreshold for the current machine.
-    AutoCalibrate bool
-    // Lang specifies the i18n language code to use (e.g., "fr", "en").
-    Lang string
-    // I18nDir, if provided, is a directory that contains JSON translation
-    // files named like "fr.json", "en.json" to override Messages.
-    I18nDir string
+	// AutoCalibrate, if true, runs a short automatic calibration at startup to
+	// refine Threshold and FFTThreshold for the current machine.
+	AutoCalibrate bool
+	// Lang specifies the i18n language code to use (e.g., "fr", "en").
+	Lang string
+	// I18nDir, if provided, is a directory that contains JSON translation
+	// files named like "fr.json", "en.json" to override Messages.
+	I18nDir string
 }
 
-// Validate checks the semantic consistency of the configuration parameters. It
-// ensures that numerical values are within valid ranges and that the chosen
+// Validate checks the semantic consistency of the configuration parameters.
+// It ensures that numerical values are within valid ranges and that the chosen
 // algorithm is supported.
 //
-// Parameters:
-//   - availableAlgos: A slice of the names of the available algorithms to
-//     validate the `Algo` field against.
+// A slice of the names of the available algorithms is availableAlgos, which is
+// used to validate the Algo field.
 //
-// Returns an error if the configuration is invalid, otherwise nil.
+// It returns an error if the configuration is invalid, otherwise nil.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
-        return apperrors.NewConfigError("timeout value must be strictly positive")
+		return apperrors.NewConfigError("timeout value must be strictly positive")
 	}
 	if c.Threshold < 0 {
         return apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold)
@@ -84,7 +83,7 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	return nil
 }
 
-// ParseConfig parses the command-line arguments and populates an `AppConfig`
+// ParseConfig parses the command-line arguments and populates an AppConfig
 // struct. It defines all the command-line flags, sets their default values, and
 // handles the parsing process. After parsing, it performs validation on the
 // resulting configuration.
@@ -92,13 +91,12 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 // The function is designed to be testable by allowing the input arguments and
 // output writer to be specified.
 //
-// Parameters:
-//   - programName: The name of the program, used for the help message.
-//   - args: A slice of strings representing the command-line arguments.
-//   - errorWriter: The `io.Writer` to which parsing errors will be written.
-//   - availableAlgos: A slice of the names of the available algorithms.
+// The name of the program, used for the help message, is programName. A slice
+// of strings representing the command-line arguments is args. The io.Writer to
+// which parsing errors will be written is errorWriter. A slice of the names of
+// the available algorithms is availableAlgos.
 //
-// Returns an `AppConfig` struct and an error if parsing or validation fails.
+// It returns an AppConfig struct and an error if parsing or validation fails.
 func ParseConfig(programName string, args []string, errorWriter io.Writer, availableAlgos []string) (AppConfig, error) {
 	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
 	fs.SetOutput(errorWriter)

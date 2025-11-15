@@ -8,38 +8,41 @@ import (
 	"sync"
 )
 
-// OptimizedFastDoubling provides a high-performance implementation of the "Fast Doubling"
-// algorithm for calculating Fibonacci numbers. This method is highly efficient,
-// boasting a time complexity of O(log n), making it one of the fastest known
-// algorithms for this purpose.
+// OptimizedFastDoubling provides a high-performance implementation of the "Fast
+// Doubling" algorithm for calculating Fibonacci numbers.
+// This method is highly efficient, boasting a time complexity of O(log n),
+// making it one of the fastest known algorithms for this purpose.
 //
 // At its core, the algorithm relies on two mathematical identities:
 //
 //	F(2k)   = F(k) * [2*F(k+1) - F(k)]
 //	F(2k+1) = F(k)² + F(k+1)²
 //
-// The calculation proceeds by examining the binary representation of the input `n`,
-// from the most significant bit to the least. For each bit, a "doubling" step
-// is performed, which computes F(2k) and F(2k+1) from the previously calculated
-// F(k) and F(k+1). If the current bit is 1, an additional "addition" step is
-// performed to advance the calculation.
+// The calculation proceeds by examining the binary representation of the input
+// `n`, from the most significant bit to the least. For each bit, a "doubling"
+// step is performed, which computes F(2k) and F(2k+1) from the previously
+// calculated F(k) and F(k+1). If the current bit is 1, an additional
+// "addition" step is performed to advance the calculation.
 //
-// To achieve maximum performance, this implementation incorporates several advanced
-// optimizations:
-//   - Zero-Allocation Strategy: By using a `sync.Pool`, the calculator reuses
-//     `calculationState` objects, which significantly reduces memory allocation
+// To achieve maximum performance, this implementation incorporates several
+// advanced optimizations:
+//   - Zero-Allocation Strategy: By using a sync.Pool, the calculator reuses
+//     calculationState objects, which significantly reduces memory allocation
 //     and garbage collector overhead.
-//   - Multi-core Parallelism: For very large numbers (exceeding a configurable bit
-//     threshold), the algorithm parallelizes the three core multiplications in the
-//     doubling step, taking full advantage of modern multi-core processors.
-//   - Adaptive Multiplication: To handle extremely large numbers efficiently, the
-//     calculator dynamically switches to an FFT-based multiplication method when
-//     the numbers exceed a specified `fftThreshold`.
+//   - Multi-core Parallelism: For very large numbers (exceeding a configurable
+//     bit threshold), the algorithm parallelizes the three core multiplications
+//     in the doubling step, taking full advantage of modern multi-core processors.
+//   - Adaptive Multiplication: To handle extremely large numbers efficiently,
+//     the calculator dynamically switches to an FFT-based multiplication method
+//     when the numbers exceed a specified fftThreshold.
 type OptimizedFastDoubling struct{}
 
-// Name returns the descriptive name of the algorithm. This name is displayed in
-// the application's user interface, providing a clear and concise identification
-// of the calculation method, including its key performance characteristics.
+// Name returns the descriptive name of the algorithm.
+// This name is displayed in the application's user interface, providing a clear
+// and concise identification of the calculation method, including its key
+// performance characteristics.
+//
+// It returns a string with the name of the algorithm.
 func (fd *OptimizedFastDoubling) Name() string {
 	return "Fast Doubling (O(log n), Parallel, Zero-Alloc)"
 }
@@ -47,19 +50,18 @@ func (fd *OptimizedFastDoubling) Name() string {
 // CalculateCore computes F(n) using the Fast Doubling algorithm.
 //
 // This function orchestrates the entire calculation process, which includes:
-//   - Acquiring a `calculationState` from the object pool to avoid allocations.
-//   - Iterating over the bits of `n` from most significant to least significant.
+//   - Acquiring a calculationState from the object pool to avoid allocations.
+//   - Iterating over the bits of `n` from most significant to least
+//     significant.
 //   - Reporting progress to the caller.
 //   - Returning the final result, F(n).
 //
-// Parameters:
-//   - ctx: The context for managing cancellation.
-//   - reporter: The function for reporting progress.
-//   - n: The index of the Fibonacci number to calculate.
-//   - threshold: The bit size threshold for parallelizing multiplications.
-//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+// The context for managing cancellation is ctx. The function for reporting
+// progress is reporter. The index of the Fibonacci number to calculate is n.
+// The bit size threshold for parallelizing multiplications is threshold. The bit
+// size threshold for using FFT-based multiplication is fftThreshold.
 //
-// Returns the calculated Fibonacci number and an error if one occurred.
+// It returns the calculated Fibonacci number and an error if one occurred.
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	mul := func(dest, x, y *big.Int) {
 		if fftThreshold > 0 {

@@ -11,12 +11,12 @@ import (
     "path/filepath"
 )
 
-// Messages groups user-facing messages (basic i18n).
+// Messages groups user-facing messages for basic i18n.
 // Centralizing these labels facilitates maintenance, consistency, and a
 // potential multi-language translation in the future.
 var Messages = map[string]string{
-    "CalibrationTitle":       "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---",
-    "CalibrationSummary":     "--- Calibration Summary ---",
+	"CalibrationTitle": "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---",
+	"CalibrationSummary": "--- Calibration Summary ---",
     "OptimalRecommendation":  "✅ Recommendation for this machine: --threshold %d",
     "ExecConfigTitle":        "--- Execution Configuration ---",
     "ExecStartTitle":         "--- Starting Execution ---",
@@ -30,14 +30,19 @@ var Messages = map[string]string{
 }
 
 
-// LoadFromDir loads a JSON translation file (e.g., en.json) from
-// a given directory. On success, it replaces existing entries in
-// Messages with those from the file (falling back on already present values).
-// The expected format is a JSON object { "Key": "Value", ... }.
+// LoadFromDir loads a JSON translation file from a given directory.
+// On success, it replaces existing entries in Messages with those from the file,
+// falling back on already present values. The expected format is a JSON object
+// of the form { "Key": "Value", ... }.
+//
+// The directory containing the translation files is dir. The language code of
+// the file to load is lang.
+//
+// It returns an error if the file cannot be read or parsed.
 func LoadFromDir(dir string, lang string) error {
-    if dir == "" || lang == "" {
-        return errors.New("i18n: empty directory or language")
-    }
+	if dir == "" || lang == "" {
+		return errors.New("i18n: empty directory or language")
+	}
     path := filepath.Join(dir, fmt.Sprintf("%s.json", lang))
     f, err := os.Open(path)
     if err != nil {

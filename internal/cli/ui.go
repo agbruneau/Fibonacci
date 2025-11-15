@@ -16,7 +16,14 @@ import (
 	"github.com/briandowns/spinner"
 )
 
-// FormatExecutionDuration displays the duration in ms if <1s, otherwise in human-readable form.
+// FormatExecutionDuration formats a time.Duration for display.
+// It shows microseconds for durations less than a millisecond, milliseconds for
+// durations less than a second, and the default string representation otherwise.
+// This approach provides a more human-readable output for short durations.
+//
+// The duration to be formatted is d.
+//
+// It returns a string representation of the duration.
 func FormatExecutionDuration(d time.Duration) string {
 	if d < time.Millisecond {
 		return fmt.Sprintf("%dµs", d.Microseconds())
@@ -86,23 +93,22 @@ var newSpinner = func(options ...spinner.Option) Spinner {
 	return &realSpinner{s}
 }
 
-// ProgressState encapsulates the aggregated progress of one or more concurrent
-// calculations. It maintains the individual progress of each calculator and
-// provides methods to compute the average. This is essential for providing a
-// consolidated progress view when multiple algorithms are running in parallel.
+// ProgressState encapsulates the aggregated progress of concurrent calculations.
+// It maintains the individual progress of each calculator and computes the
+// average, which is essential for providing a consolidated progress view when
+// multiple algorithms are running in parallel.
 type ProgressState struct {
 	progresses     []float64
 	numCalculators int
 }
 
-// NewProgressState is a factory function that initializes and returns a new
-// `ProgressState`. It sets up the internal storage for tracking the progress
-// of a specified number of calculators.
+// NewProgressState creates and initializes a new ProgressState.
+// It sets up the internal storage for tracking the progress of a specified
+// number of calculators.
 //
-// Parameters:
-//   - numCalculators: The number of concurrent calculators to track.
+// The number of concurrent calculators to track is numCalculators.
 //
-// Returns a new `ProgressState` instance.
+// It returns a new ProgressState instance.
 func NewProgressState(numCalculators int) *ProgressState {
 	return &ProgressState{
 		progresses:     make([]float64, numCalculators),
@@ -110,14 +116,13 @@ func NewProgressState(numCalculators int) *ProgressState {
 	}
 }
 
-// Update records a new progress value for a specific calculator. It is designed
-// to be safe for concurrent use, although in the current implementation it is
-// called sequentially. The method ensures that updates are only applied for valid
-// calculator indices.
+// Update records a new progress value for a specific calculator.
+// It is designed to be safe for concurrent use, although in the current
+// implementation it is called sequentially. The method ensures that updates are
+// only applied for valid calculator indices.
 //
-// Parameters:
-//   - index: The index of the calculator providing the update.
-//   - value: The new progress value, typically between 0.0 and 1.0.
+// The index of the calculator providing the update is index. The new progress
+// value, typically between 0.0 and 1.0, is value.
 func (ps *ProgressState) Update(index int, value float64) {
 	if index >= 0 && index < len(ps.progresses) {
 		ps.progresses[index] = value
@@ -128,7 +133,7 @@ func (ps *ProgressState) Update(index int, value float64) {
 // This is used to display a single, consolidated progress bar to the user,
 // representing the overall progress of the application.
 //
-// Returns the average progress as a float64 between 0.0 and 1.0.
+// It returns the average progress as a float64 between 0.0 and 1.0.
 func (ps *ProgressState) CalculateAverage() float64 {
 	var totalProgress float64
 	for _, p := range ps.progresses {
@@ -168,15 +173,13 @@ func progressBar(progress float64, length int) string {
 // The function's responsibilities include:
 //   - Receiving progress updates from a channel.
 //   - Aggregating these updates to calculate the average progress.
-//   - Periodically refreshing the spinner and progress bar to provide a smooth
-//     visual experience.
+//   - Periodically refreshing the spinner and progress bar.
 //   - Gracefully shutting down when the progress channel is closed.
 //
-// Parameters:
-//   - wg: A `WaitGroup` to signal completion of the function.
-//   - progressChan: The channel for receiving progress updates.
-//   - numCalculators: The number of concurrent calculators being monitored.
-//   - out: The output writer for the spinner and progress bar.
+// The WaitGroup wg signals completion of the function. The channel for
+// receiving progress updates is progressChan. The number of concurrent
+// calculators being monitored is numCalculators, and out is the output writer
+// for the spinner and progress bar.
 func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressUpdate, numCalculators int, out io.Writer) {
 	defer wg.Done()
 	if numCalculators <= 0 {
@@ -215,11 +218,15 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 	}
 }
 
-// DisplayResult formats and prints the final calculation result to the specified
-// output writer. It provides different levels of detail based on the `verbose`
-// and `details` flags, including metadata like binary size, number of digits,
-// and scientific notation. For very large numbers, it truncates the output
-// unless `verbose` is true.
+// DisplayResult formats and prints the final calculation result.
+// It provides different levels of detail based on the verbose and details flags,
+// including metadata like binary size, number of digits, and scientific
+// notation. For very large numbers, it truncates the output unless verbose is
+// true.
+//
+// The calculated Fibonacci number is result. The input number is n, and the
+// execution duration is duration. The verbose and details flags control the
+// level of detail, and out is the output writer.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
 	fmt.Fprintf(out, "Result binary size: %s%s%s bits.\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset)
