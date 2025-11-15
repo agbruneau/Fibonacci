@@ -63,6 +63,46 @@ func TestFibonacciCalculators(t *testing.T) {
 	}
 }
 
+// TestProgressCalculationLogic validates that progress is not just monotonic,
+// but also accurately reflects the work done.
+func TestProgressCalculationLogic(t *testing.T) {
+	const n = 100_000 // A sufficiently large number for the test
+	calc := NewCalculator(&OptimizedFastDoubling{})
+	progressChan := make(chan ProgressUpdate, 200)
+	var progressUpdates []float64
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		for update := range progressChan {
+			progressUpdates = append(progressUpdates, update.Value)
+		}
+	}()
+
+	_, err := calc.Calculate(context.Background(), progressChan, 0, n, config.DefaultParallelThreshold, 0)
+	close(progressChan)
+	wg.Wait()
+
+	if err != nil {
+		t.Fatalf("Calculation failed: %v", err)
+	}
+
+	if len(progressUpdates) < 2 {
+		t.Fatal("Insufficient progress updates received to validate logic.")
+	}
+
+	// The work for the first half of the bits should be overwhelmingly larger
+	// than the second half. Progress should be > 99.9% after the first few updates.
+	// A flawed, inverted logic would show very slow progress initially.
+	// We expect the first reported progress (after the initial 0.0) to be substantial.
+	firstReportedProgress := progressUpdates[0]
+	if firstReportedProgress < 0.75 {
+		t.Errorf("Expected initial progress to be very high, reflecting the work of the MSBs."+
+			" Got: %f. This may indicate inverted progress logic.", firstReportedProgress)
+	}
+}
+
 // TestLookupTableImmutability verifies that the lookup table (LUT)
 // ensures the immutability of its data by returning copies.
 func TestLookupTableImmutability(t *testing.T) {

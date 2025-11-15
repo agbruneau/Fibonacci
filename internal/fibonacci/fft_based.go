@@ -74,7 +74,7 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
             s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
         }
 		// Harmonized reporting via utility function
-		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits)
+		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, true)
 	}
 	return new(big.Int).Set(s.f_k), nil
 }

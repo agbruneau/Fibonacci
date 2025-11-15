@@ -59,34 +59,46 @@ func CalcTotalWork(numBits int) *big.Int {
 	return totalWork
 }
 
-// ReportStepProgress handles harmonized progress reporting for all algorithms.
-// Use for each i (current step or bit)
-// Optimized to avoid costly big.Int->float64 conversions at each iteration
-func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i int, numBits int) {
-	const ReportThreshold = 0.01 // centralized threshold
+// ReportStepProgress handles harmonized progress reporting for algorithms that
+// iterate over the bits of `n`. It supports both forward (LSB to MSB) and
+// reverse (MSB to LSB) iteration.
+func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i, numBits int, reversed bool) {
+	const ReportThreshold = 0.01 // Report if progress increases by at least 1%
 	if totalWork.Sign() > 0 {
-        // Incremental update: the load of the current step is 4^j
-        // where j grows from 0 to numBits-1. We avoid Exp at each iteration by
-        // multiplying by 4 at each step (workOfStep <- workOfStep * 4),
-        // initializing to 1 for the first step.
-        if workOfStep.Sign() == 0 {
-            workOfStep.SetInt64(1)
-        } else {
-            workOfStep.Lsh(workOfStep, 2) // *4
-        }
-        workDone.Add(workDone, workOfStep)
-        
-        // Optimization: Only perform the costly conversion every N iterations
-        // To avoid conversions at each iteration, a modulo is used
-        if i%8 == 0 || i == numBits-1 {
-            workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
-            totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
-            currentProgress := workDoneFloat / totalWorkFloat
-            if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
-                progressReporter(currentProgress)
-                *lastReported = currentProgress
-            }
-        }
+		// The computational work of a step `j` (from 0 to numBits-1) is
+		// proportional to 4^j.
+		if workOfStep.Sign() == 0 { // First step
+			if reversed {
+				// For MSB-to-LSB, the first step has the largest work: 4^(numBits-1)
+				workOfStep.Exp(bigIntFour, big.NewInt(int64(numBits-1)), nil)
+			} else {
+				// For LSB-to-MSB, the first step has the smallest work: 4^0 = 1
+				workOfStep.SetInt64(1)
+			}
+		} else { // Subsequent steps
+			if reversed {
+				// Halve the work twice (equivalent to dividing by 4)
+				workOfStep.Rsh(workOfStep, 2)
+			} else {
+				// Double the work twice (equivalent to multiplying by 4)
+				workOfStep.Lsh(workOfStep, 2)
+			}
+		}
+		workDone.Add(workDone, workOfStep)
+
+		// Optimization: To avoid costly big.Int -> float64 conversions at each
+		// iteration, we only perform the conversion and report progress
+		// periodically or on the final step.
+		if i%8 == 0 || i == numBits-1 {
+			workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
+			totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
+			currentProgress := workDoneFloat / totalWorkFloat
+
+			if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
+				progressReporter(currentProgress)
+				*lastReported = currentProgress
+			}
+		}
 	}
 }
 
