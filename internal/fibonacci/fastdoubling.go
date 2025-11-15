@@ -10,31 +10,49 @@ import (
 
 // OptimizedFastDoubling provides a high-performance implementation of the "Fast
 // Doubling" algorithm for calculating Fibonacci numbers.
-// This method is highly efficient, boasting a time complexity of O(log n),
-// making it one of the fastest known algorithms for this purpose.
+// This method is highly efficient, making it one of the fastest known algorithms
+// for this purpose.
 //
-// At its core, the algorithm relies on two mathematical identities:
+// Formula Derivation:
+// The algorithm's identities can be derived from the matrix exponentiation form:
+//   [ F(n+1) F(n)   ] = [ 1 1 ]^n
+//   [ F(n)   F(n-1) ]   [ 1 0 ]
+// By squaring the matrix for F(k), we get the matrix for F(2k):
+//   [ F(k+1) F(k) ]^2 = [ F(k+1)²+F(k)²     F(k+1)F(k)+F(k)F(k-1) ]
+//   [ F(k)   F(k-1) ]  [ F(k)F(k+1)+F(k-1)F(k) F(k)²+F(k-1)²     ]
+// This simplifies to the matrix for F(2k):
+//   [ F(2k+1) F(2k)   ]
+//   [ F(2k)   F(2k-1) ]
+// From this, we extract the two core identities:
+//   F(2k)   = F(k) * (F(k+1) + F(k-1)) = F(k) * (F(k+1) + (F(k+1) - F(k)))
+//           = F(k) * [2*F(k+1) - F(k)]
+//   F(2k+1) = F(k+1)² + F(k)²
 //
-//	F(2k)   = F(k) * [2*F(k+1) - F(k)]
-//	F(2k+1) = F(k)² + F(k+1)²
+// Algorithmic Complexity:
+// The time complexity is often cited as O(log n), which refers to the number of
+// arithmetic operations. However, since we use arbitrary-precision integers
+// (`math/big`), the cost of each multiplication dominates. The number of bits in
+// F(n) is proportional to n. If M(k) is the time complexity of multiplying two
+// k-bit numbers, the total complexity of this algorithm is O(log n * M(n)).
+//   - For standard multiplication (Karatsuba), M(n) ≈ O(n^1.585).
+//   - For FFT-based multiplication, M(n) ≈ O(n log n).
 //
-// The calculation proceeds by examining the binary representation of the input
-// `n`, from the most significant bit to the least. For each bit, a "doubling"
-// step is performed, which computes F(2k) and F(2k+1) from the previously
-// calculated F(k) and F(k+1). If the current bit is 1, an additional
-// "addition" step is performed to advance the calculation.
-//
+// Optimization Details:
 // To achieve maximum performance, this implementation incorporates several
 // advanced optimizations:
 //   - Zero-Allocation Strategy: By using a sync.Pool, the calculator reuses
 //     calculationState objects, which significantly reduces memory allocation
-//     and garbage collector overhead.
+//     and garbage collector overhead during the main loop.
 //   - Multi-core Parallelism: For very large numbers (exceeding a configurable
-//     bit threshold), the algorithm parallelizes the three core multiplications
-//     in the doubling step, taking full advantage of modern multi-core processors.
+//     `threshold`), the algorithm parallelizes the three core multiplications
+//     in the doubling step. This threshold defaults to 4096 bits, a value
+//     determined empirically to balance the overhead of goroutine creation
+//     against the gains of parallel computation.
 //   - Adaptive Multiplication: To handle extremely large numbers efficiently,
 //     the calculator dynamically switches to an FFT-based multiplication method
-//     when the numbers exceed a specified fftThreshold.
+//     when the numbers exceed a specified `fftThreshold`. This threshold
+//     defaults to 20000 bits, a conservative value where FFT's superior
+//     asymptotic complexity reliably outperforms standard multiplication.
 type OptimizedFastDoubling struct{}
 
 // Name returns the descriptive name of the algorithm.
