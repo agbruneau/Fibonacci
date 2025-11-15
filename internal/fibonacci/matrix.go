@@ -9,30 +9,38 @@ import (
 )
 
 // MatrixExponentiation offers a classic and efficient approach to calculating
-// Fibonacci numbers, with a time complexity of O(log n).
+// Fibonacci numbers.
+//
+// Mathematical Basis:
 // This method is based on a fundamental property of the Fibonacci sequence,
 // which can be expressed in matrix form:
+//   [ F(n+1) F(n)   ] = [ 1 1 ]^n
+//   [ F(n)   F(n-1) ]   [ 1 0 ]
+// To compute F(n), the algorithm calculates the n-th power of the Q-matrix,
+// [[1, 1], [1, 0]], using binary exponentiation (exponentiation by squaring).
+// This reduces the number of matrix multiplications from O(n) to O(log n).
 //
-//	[ F(n+1) F(n)   ] = [ 1 1 ]^n
-//	[ F(n)   F(n-1) ]   [ 1 0 ]
+// Algorithmic Complexity:
+// The total complexity is O(log n * M(n)), where M(n) is the complexity of
+// multiplying the numbers involved, which are proportional to n bits.
+//   - A classic 2x2 matrix multiplication requires 8 integer multiplications.
+//   - Strassen's algorithm reduces this to 7 multiplications, improving the
+//     constant factor but with higher overhead from additions/subtractions.
+//   - Squaring a symmetric matrix can be done with only 4 multiplications.
 //
-// To compute F(n), the algorithm calculates the n-th power of the matrix
-// Q = [[1, 1], [1, 0]] using a technique known as binary exponentiation (or
-// exponentiation by squaring). This dramatically reduces the number of required
-// matrix multiplications compared to a naive iterative approach.
-//
-// This implementation is further enhanced with several key optimizations:
-//   - Zero-Allocation: A sync.Pool is used to recycle matrixState objects, which
-//     hold the matrices and temporary variables. This practice minimizes memory
-//     allocations and reduces pressure on the garbage collector.
-//   - Parallel Processing: When dealing with matrices containing very large
-//     numbers (as determined by a configurable threshold), the matrix
-//     multiplication process is parallelized to leverage the power of multi-core
-//     processors.
-//   - Symmetric Squaring: The algorithm uses a specialized function,
-//     squareSymmetricMatrix, for squaring symmetric matrices. This optimization
-//     reduces the total number of big.Int multiplications required, leading to
-//     a noticeable performance gain.
+// Optimization Details:
+// This implementation is enhanced with several key optimizations:
+//   - Zero-Allocation: A sync.Pool recycles `matrixState` objects, minimizing
+//     memory allocations and GC pressure.
+//   - Parallel Processing: Matrix multiplications are parallelized above a
+//     `threshold` (default 4096 bits), leveraging multi-core processors.
+//   - Symmetric Squaring: A specialized function, `squareSymmetricMatrix`, is
+//     used for squaring symmetric matrices, reducing the multiplication count.
+//   - Strassen's Algorithm: For matrices with elements larger than a
+//     `strassen-threshold` (default 256 bits), Strassen's algorithm is used to
+//     reduce the number of expensive `big.Int` multiplications from 8 to 7.
+//     The threshold is set to overcome the overhead of the extra additions and
+//     subtractions involved.
 type MatrixExponentiation struct{}
 
 // Name returns the descriptive name of the algorithm.

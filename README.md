@@ -3,7 +3,7 @@
 ![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
-![Coverage Status](https://img.shields.io/badge/coverage-69.7%25-brightgreen)
+![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen)
 
 ## 1. Objectif
 
@@ -129,83 +129,57 @@ L'architecture est organisée comme suit :
 
 Cette conception en couches assure un **faible couplage** entre les différents composants du système, ce qui est la clé d'un logiciel robuste et de haute qualité.
 
-## 6. Patrons de Conception (Design Patterns)
+## 6. Analyse Algorithmique et Complexité
 
-Pour améliorer la modularité et la flexibilité, le projet met en œuvre le **patron de conception Décorateur (Decorator)**. Ce patron permet d'ajouter dynamiquement de nouvelles fonctionnalités à des objets sans en modifier la structure.
+La complexité `O(log n)` souvent citée pour les algorithmes de Fibonacci rapides se réfère au nombre d'opérations arithmétiques. Cependant, lors de l'utilisation de l'arithmétique de précision arbitraire (`math/big`), le coût de la multiplication `M(k)` pour des nombres de `k` bits devient le facteur dominant. Le nombre de bits dans F(n) est proportionnel à `n`.
 
-Dans le paquet `internal/fibonacci`, nous définissons deux interfaces :
+La complexité réelle est donc `O(log n * M(n))`.
 
-1.  **`coreCalculator`**: C'est une interface interne simple qui définit le contrat de base pour tout algorithme de Fibonacci. Elle ne se préoccupe que de la logique de calcul pure.
+-   Avec la multiplication de Karatsuba (utilisée par `math/big`), `M(n) ≈ O(n^1.585)`.
+-   Avec la multiplication basée sur la FFT, `M(n) ≈ O(n log n)`.
 
-    ```go
-    type coreCalculator interface {
-        CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, ...) (*big.Int, error)
-        Name() string
-    }
-    ```
+### Dérivation des Formules de Fast Doubling
 
-2.  **`Calculator`**: C'est l'interface publique utilisée par le reste de l'application.
-
-Le type `FibCalculator` agit comme un **décorateur**. Il encapsule un `coreCalculator` et y ajoute des fonctionnalités transversales :
-
--   **Optimisation par Cache (Lookup Table)** : Pour les petites valeurs de `n`, le décorateur retourne un résultat depuis une table précalculée, court-circuitant l'algorithme de base.
--   **Gestion de la Progression** : Il adapte le canal de progression en une simple fonction de rappel (`ProgressReporter`), simplifiant ainsi l'implémentation des algorithmes de base.
-
-```go
-type FibCalculator struct {
-    core coreCalculator
-}
-
-func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, ...) (*big.Int, error) {
-    // 1. Vérifier la table de cache
-    if n <= MaxFibUint64 {
-        return lookupSmall(n), nil
-    }
-    // 2. Adapter le rapport de progression
-    reporter := func(...) { /* ... */ }
-    // 3. Déléguer à l'algorithme de base
-    return c.core.CalculateCore(ctx, reporter, n, ...)
-}
+Les identités de *Fast Doubling* sont dérivées de la forme matricielle :
 ```
-
-Cette approche permet de conserver des algorithmes de base simples et ciblés, tout en les enrichissant de manière flexible avec des fonctionnalités communes.
+[ F(2k+1) F(2k)   ] = [ F(k+1)²+F(k)²     F(k)(2F(k+1)-F(k)) ]
+[ F(2k)   F(2k-1) ]   [ F(k)(2F(k+1)-F(k)) F(k)²+F(k-1)²     ]
+```
+De là, nous extrayons :
+-   `F(2k) = F(k) * (2*F(k+1) - F(k))`
+-   `F(2k+1) = F(k+1)² + F(k)²`
 
 ## 7. Optimisations de Performance
 
-La performance est un objectif central de ce projet. Plusieurs techniques avancées sont utilisées pour garantir des temps de calcul minimaux, en particulier pour les très grands nombres.
-
 ### Stratégie Zéro-Allocation
 
-Pour minimiser la pression sur le ramasse-miettes (Garbage Collector), qui peut être une source de latence, nous utilisons une **stratégie zéro-allocation** dans les boucles de calcul critiques.
+-   **Pools d'Objets (`sync.Pool`)**: Pour minimiser la pression sur le ramasse-miettes, les états de calcul (`calculationState`, `matrixState`) sont recyclés. Cela élimine presque toutes les allocations de mémoire dans les boucles de calcul critiques.
 
--   **Pools d'Objets (`sync.Pool`)**: Les états de calcul complexes (comme `calculationState` et `matrixState`), qui contiennent de multiples `big.Int`, sont recyclés à l'aide de `sync.Pool`. Au lieu de créer de nouveaux objets pour chaque calcul, nous en réutilisons des anciens, ce qui élimine presque totalement les allocations de mémoire dans les parties les plus intensives du code.
+### Parallélisme et Seuils
 
-### Parallélisme Multi-cœur
-
-Les algorithmes comme le *Fast Doubling* impliquent plusieurs multiplications de grands nombres à chaque étape. Ces opérations sont indépendantes et peuvent donc être exécutées en parallèle.
-
--   **Goroutines et `sync.WaitGroup`**: Lorsque la taille des opérandes dépasse un certain seuil (`-threshold`), nous lançons les multiplications sur des **goroutines** distinctes. Un `sync.WaitGroup` est utilisé pour synchroniser leur achèvement avant de poursuivre. Cette approche permet de distribuer la charge de calcul sur tous les cœurs de processeur disponibles, réduisant ainsi le temps de calcul de manière significative.
-
-### Multiplication Adaptative
-
-La multiplication de très grands entiers est l'opération la plus coûteuse. L'algorithme de multiplication standard a une complexité d'environ O(n^1.585). Cependant, pour les nombres extrêmement grands, les algorithmes basés sur la **Transformation de Fourier Rapide (FFT)** sont asymptotiquement plus rapides (proche de O(n log n)).
-
--   **Seuil Dynamique (`-fft-threshold`)**: Le calculateur surveille la taille (en bits) des nombres à multiplier. S'ils dépassent le `-fft-threshold`, il bascule dynamiquement d'une multiplication standard `big.Int.Mul` à une implémentation basée sur la FFT, garantissant que l'algorithme le plus efficace est toujours utilisé pour la taille des données concernées.
+-   **Parallélisme Multi-cœur**: Les multiplications de grands nombres sont exécutées en parallèle sur plusieurs goroutines.
+-   **Seuils Empiriques**:
+    -   `--threshold` (défaut `4096` bits) : Active le parallélisme. Ce seuil est un compromis entre le coût de la création de goroutines et le gain de la parallélisation.
+    -   `--fft-threshold` (défaut `20000` bits) : Active la multiplication FFT. Ce seuil conservateur garantit que la FFT n'est utilisée que lorsque sa complexité asymptotique est avantageuse.
+    -   `--strassen-threshold` (défaut `256` bits) : Utilise l'algorithme de Strassen pour la multiplication de matrices, réduisant les multiplications de 8 à 7 au prix d'additions supplémentaires.
 
 ## 8. Tests
 
-Le projet inclut une suite de tests complète pour garantir la correction et la stabilité.
+Le projet inclut une suite de tests robuste pour garantir la correction et la stabilité.
 
-- **Lancer tous les tests :**
-  ```bash
-  go test ./... -v
-  ```
+-   **Tests Unitaires**: Valident les cas limites et les petites valeurs de `n`.
+-   **Tests de Propriétés**: Utilisent `gopter` pour effectuer des tests basés sur les propriétés, qui vérifient des identités mathématiques (comme l'identité de Cassini : `F(n-1) * F(n+1) - F(n)² = (-1)ⁿ`) pour un grand nombre d'entrées aléatoires.
+-   **Benchmarks**: Mesurent la performance des différents algorithmes.
 
-- **Lancer les benchmarks :**
-  ```bash
-  go test -bench . ./...
-  ```
+**Exécuter les tests :**
+```bash
+# Exécuter tous les tests (unitaires et propriétés)
+go test ./... -v
 
-## 7. Licence
+# Exécuter les benchmarks
+go test -bench . ./...
+```
+
+## 9. Licence
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
