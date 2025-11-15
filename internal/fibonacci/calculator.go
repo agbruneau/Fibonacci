@@ -38,8 +38,11 @@ type ProgressReporter func(progress float64)
 
 // ProgressReportParams contains the necessary state for calculating progress reporting.
 type ProgressReportParams struct {
+	// NumBits is the number of bits in the input number 'n'.
 	NumBits int
-	Four    *big.Int
+	// Four is a pre-calculated big.Int with the value 4, used in progress
+	// calculations.
+	Four *big.Int
 }
 
 // Cache for frequently used constants
@@ -49,8 +52,14 @@ var (
 	bigIntThree = big.NewInt(3)
 )
 
-// CalcTotalWork calculates the total work (number of weighted steps) for O(log n) algorithms.
-// Optimized to reuse pre-calculated constants
+// CalcTotalWork calculates the total work for O(log n) algorithms.
+// The number of weighted steps is modeled as a geometric series, which allows for
+// a more accurate progress representation. The function is optimized to reuse
+// pre-calculated constants.
+//
+// The number of bits in the input number 'n' is numBits.
+//
+// It returns a *big.Int representing the total work.
 func CalcTotalWork(numBits int) *big.Int {
 	totalWork := new(big.Int)
 	if numBits > 0 {
@@ -60,8 +69,15 @@ func CalcTotalWork(numBits int) *big.Int {
 }
 
 // ReportStepProgress handles harmonized progress reporting for algorithms that
-// iterate over the bits of `n`. It supports both forward (LSB to MSB) and
-// reverse (MSB to LSB) iteration.
+// iterate over the bits of 'n'.
+// It supports both forward (LSB to MSB) and reverse (MSB to LSB) iteration,
+// making it adaptable to different algorithmic approaches.
+//
+// The progress reporting function is progressReporter. The last reported
+// progress value is lastReported. The total work, work done, and work of the
+// current step are totalWork, workDone, and workOfStep, respectively. The
+// current bit index and total number of bits are i and numBits. If reversed is
+// true, the iteration is from MSB to LSB.
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i, numBits int, reversed bool) {
 	const ReportThreshold = 0.01 // Report if progress increases by at least 1%
 	if totalWork.Sign() > 0 {
@@ -102,23 +118,23 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
 	}
 }
 
-// Calculator defines the public interface for a Fibonacci calculator. It is
-// the primary abstraction used by the application's orchestration layer to
+// Calculator defines the public interface for a Fibonacci calculator.
+// It is the primary abstraction used by the application's orchestration layer to
 // interact with different Fibonacci calculation algorithms.
 type Calculator interface {
 	// Calculate executes the calculation of the n-th Fibonacci number. It is
 	// designed for safe concurrent execution and supports cancellation through the
-	// provided context. Progress updates are sent asynchronously to the progressChan.
+	// provided context. Progress updates are sent asynchronously to the
+	// progressChan.
 	//
-	// Parameters:
-	//   - ctx: The context for managing cancellation and deadlines.
-	//   - progressChan: The channel for sending progress updates.
-	//   - calcIndex: A unique index for the calculator instance.
-	//   - n: The index of the Fibonacci number to calculate.
-	//   - threshold: The bit size threshold for parallelizing multiplications.
-	//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+	// The context for managing cancellation and deadlines is ctx. The channel for
+	// sending progress updates is progressChan. A unique index for the
+	// calculator instance is calcIndex. The index of the Fibonacci number to
+	// calculate is n. The bit size threshold for parallelizing multiplications is
+	// threshold. The bit size threshold for using FFT-based multiplication is
+	// fftThreshold.
 	//
-	// Returns the calculated Fibonacci number and an error if one occurred.
+	// It returns the calculated Fibonacci number and an error if one occurred.
 	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 
 	// Name returns the display name of the calculation algorithm (e.g., "Fast Doubling").
@@ -132,18 +148,24 @@ type coreCalculator interface {
 	Name() string
 }
 
-// FibCalculator is an implementation of the `Calculator` interface that uses
-// the Decorator design pattern. It wraps a `coreCalculator` to add cross-cutting
-// concerns, such as the lookup table optimization for small `n` and the adaptation
-// of the progress reporting mechanism.
+// FibCalculator is an implementation of the Calculator interface that uses the
+// Decorator design pattern.
+// It wraps a coreCalculator to add cross-cutting concerns, such as the lookup
+// table optimization for small `n` and the adaptation of the progress reporting
+// mechanism.
 type FibCalculator struct {
 	core coreCalculator
 }
 
 // NewCalculator is a factory function that constructs and returns a new
-// `FibCalculator`. It takes a `coreCalculator` as input, which represents the
-// specific Fibonacci algorithm to be used. This function panics if the core
-// calculator is nil, ensuring system integrity.
+// FibCalculator.
+// It takes a coreCalculator as input, which represents the specific Fibonacci
+// algorithm to be used. This function panics if the core calculator is nil,
+// ensuring system integrity.
+//
+// The core calculator to be wrapped is core.
+//
+// It returns a Calculator interface, implemented by FibCalculator.
 func NewCalculator(core coreCalculator) Calculator {
 	if core == nil {
 		panic("fibonacci: the `coreCalculator` implementation cannot be nil")
@@ -151,17 +173,26 @@ func NewCalculator(core coreCalculator) Calculator {
 	return &FibCalculator{core: core}
 }
 
-// Name returns the name of the encapsulated `coreCalculator`, fulfilling the
-// `Calculator` interface by delegating the call.
+// Name returns the name of the encapsulated coreCalculator, fulfilling the
+// Calculator interface by delegating the call.
 func (c *FibCalculator) Name() string {
 	return c.core.Name()
 }
 
-// Calculate orchestrates the calculation process. It first checks for small
-// values of `n` to leverage the lookup table optimization. For larger values, it
-// adapts the `progressChan` into a `ProgressReporter` callback and delegates the
-// core calculation to the wrapped `coreCalculator`. This method ensures that
-// progress is reported completely upon successful calculation.
+// Calculate orchestrates the calculation process.
+// It first checks for small values of `n` to leverage the lookup table
+// optimization. For larger values, it adapts the progressChan into a
+// ProgressReporter callback and delegates the core calculation to the wrapped
+// coreCalculator. This method ensures that progress is reported completely upon
+// successful calculation.
+//
+// The context for managing cancellation and deadlines is ctx. The channel for
+// sending progress updates is progressChan. A unique index for the calculator
+// instance is calcIndex. The index of the Fibonacci number to calculate is n.
+// The bit size threshold for parallelizing multiplications is threshold. The bit
+// size threshold for using FFT-based multiplication is fftThreshold.
+//
+// It returns the calculated Fibonacci number and an error if one occurred.
 func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	reporter := func(progress float64) {
 		if progressChan == nil {
@@ -213,7 +244,9 @@ type calculationState struct {
 	f_k, f_k1, t1, t2, t3, t4 *big.Int
 }
 
-// Reset resets the state for a new use.
+// Reset prepares the state for a new calculation.
+// It initializes f_k to 0 and f_k1 to 1, which are the base values for the
+// Fast Doubling algorithm.
 func (s *calculationState) Reset() {
 	s.f_k.SetInt64(0)
 	s.f_k1.SetInt64(1)
@@ -244,23 +277,28 @@ func releaseState(s *calculationState) {
 	statePool.Put(s)
 }
 
-// matrix represents a 2x2 matrix of `*big.Int` values. It is a fundamental
-// data structure for the matrix exponentiation algorithm. The fields `a`, `b`,
-// `c`, and `d` correspond to the elements of the matrix:
-//   [ a b ]
-//   [ c d ]
+// matrix represents a 2x2 matrix of *big.Int values.
+// It is a fundamental data structure for the matrix exponentiation algorithm.
+// The fields a, b, c, and d correspond to the elements of the matrix:
+//
+//	[ a b ]
+//	[ c d ]
 type matrix struct{ a, b, c, d *big.Int }
 
-// newMatrix allocates and returns a new 2x2 matrix, initializing each of its
-// elements with a new `*big.Int`. This function is a convenience for ensuring
-// that matrices are correctly instantiated.
+// newMatrix allocates and returns a new 2x2 matrix.
+// It initializes each of its elements with a new *big.Int, which is a
+// convenience for ensuring that matrices are correctly instantiated.
+//
+// It returns a new *matrix.
 func newMatrix() *matrix {
 	return &matrix{new(big.Int), new(big.Int), new(big.Int), new(big.Int)}
 }
 
-// Set copies the values from another matrix (`other`) into the receiver matrix
-// (`m`). This is a deep copy, ensuring that the underlying `*big.Int` values are
+// Set copies the values from another matrix into the receiver matrix.
+// This is a deep copy, ensuring that the underlying *big.Int values are
 // duplicated.
+//
+// The matrix to copy from is other.
 func (m *matrix) Set(other *matrix) {
 	m.a.Set(other.a)
 	m.b.Set(other.b)
@@ -268,10 +306,12 @@ func (m *matrix) Set(other *matrix) {
 	m.d.Set(other.d)
 }
 
-// SetIdentity configures the matrix as an identity matrix, which is defined as:
-//   [ 1 0 ]
-//   [ 0 1 ]
-// The identity matrix is the multiplicative identity for matrix multiplication.
+// SetIdentity configures the matrix as an identity matrix.
+// The identity matrix is the multiplicative identity for matrix multiplication,
+// and is defined as:
+//
+//	[ 1 0 ]
+//	[ 0 1 ]
 func (m *matrix) SetIdentity() {
 	m.a.SetInt64(1) // Same as the neutral element of a matrix
 	m.b.SetInt64(0)
@@ -279,10 +319,12 @@ func (m *matrix) SetIdentity() {
 	m.d.SetInt64(1)
 }
 
-// SetBaseQ configures the matrix as the base Fibonacci matrix, Q, defined as:
-//   [ 1 1 ]
-//   [ 1 0 ]
-// Powers of this matrix are used to generate Fibonacci numbers.
+// SetBaseQ configures the matrix as the base Fibonacci matrix, Q.
+// Powers of this matrix are used to generate Fibonacci numbers. It is defined
+// as:
+//
+//	[ 1 1 ]
+//	[ 1 0 ]
 func (m *matrix) SetBaseQ() {
 	m.a.SetInt64(1) // Base Q of the Fibonacci recurrence
 	m.b.SetInt64(1)

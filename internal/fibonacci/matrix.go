@@ -8,34 +8,39 @@ import (
 	"sync"
 )
 
-// MatrixExponentiation offers a classic and efficient approach to calculating Fibonacci
-// numbers, with a time complexity of O(log n). This method is based on a
-// fundamental property of the Fibonacci sequence, which can be expressed in
-// matrix form:
+// MatrixExponentiation offers a classic and efficient approach to calculating
+// Fibonacci numbers, with a time complexity of O(log n).
+// This method is based on a fundamental property of the Fibonacci sequence,
+// which can be expressed in matrix form:
 //
 //	[ F(n+1) F(n)   ] = [ 1 1 ]^n
 //	[ F(n)   F(n-1) ]   [ 1 0 ]
 //
-// To compute F(n), the algorithm calculates the n-th power of the matrix Q = [[1, 1], [1, 0]]
-// using a technique known as binary exponentiation (or exponentiation by squaring).
-// This dramatically reduces the number of required matrix multiplications compared
-// to a naive iterative approach.
+// To compute F(n), the algorithm calculates the n-th power of the matrix
+// Q = [[1, 1], [1, 0]] using a technique known as binary exponentiation (or
+// exponentiation by squaring). This dramatically reduces the number of required
+// matrix multiplications compared to a naive iterative approach.
 //
 // This implementation is further enhanced with several key optimizations:
-//   - Zero-Allocation: A `sync.Pool` is used to recycle `matrixState` objects,
-//     which hold the matrices and temporary variables. This practice minimizes
-//     memory allocations and reduces pressure on the garbage collector.
-//   - Parallel Processing: When dealing with matrices containing very large numbers
-//     (as determined by a configurable threshold), the matrix multiplication
-//     process is parallelized to leverage the power of multi-core processors.
-//   - Symmetric Squaring: The algorithm uses a specialized function, `squareSymmetricMatrix`,
-//     for squaring symmetric matrices. This optimization reduces the total number
-//     of `big.Int` multiplications required, leading to a noticeable performance gain.
+//   - Zero-Allocation: A sync.Pool is used to recycle matrixState objects, which
+//     hold the matrices and temporary variables. This practice minimizes memory
+//     allocations and reduces pressure on the garbage collector.
+//   - Parallel Processing: When dealing with matrices containing very large
+//     numbers (as determined by a configurable threshold), the matrix
+//     multiplication process is parallelized to leverage the power of multi-core
+//     processors.
+//   - Symmetric Squaring: The algorithm uses a specialized function,
+//     squareSymmetricMatrix, for squaring symmetric matrices. This optimization
+//     reduces the total number of big.Int multiplications required, leading to
+//     a noticeable performance gain.
 type MatrixExponentiation struct{}
 
-// Name returns the descriptive name of the algorithm. This name is displayed in
-// the application's user interface, providing a clear and concise identification
-// of the calculation method, including its key performance characteristics.
+// Name returns the descriptive name of the algorithm.
+// This name is displayed in the application's user interface, providing a clear
+// and concise identification of the calculation method, including its key
+// performance characteristics.
+//
+// It returns a string with the name of the algorithm.
 func (c *MatrixExponentiation) Name() string {
 	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
@@ -46,14 +51,12 @@ func (c *MatrixExponentiation) Name() string {
 // calculate the n-th power of the Fibonacci matrix. It also handles state
 // management through pooling and reports progress to the caller.
 //
-// Parameters:
-//   - ctx: The context for managing cancellation.
-//   - reporter: The function for reporting progress.
-//   - n: The index of the Fibonacci number to calculate.
-//   - threshold: The bit size threshold for parallelizing multiplications.
-//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+// The context for managing cancellation is ctx. The function for reporting
+// progress is reporter. The index of the Fibonacci number to calculate is n.
+// The bit size threshold for parallelizing multiplications is threshold. The bit
+// size threshold for using FFT-based multiplication is fftThreshold.
 //
-// Returns the calculated Fibonacci number and an error if one occurred.
+// It returns the calculated Fibonacci number and an error if one occurred.
 func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil
@@ -109,17 +112,25 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	return new(big.Int).Set(state.res.a), nil
 }
 
-// multiplyMatrices dynamically decides between the classic version (8 multiplications)
-// and the Strassen version (7 multiplications + additions) based on a threshold on
-// the bit size of the operands. For small sizes, the classic version
-// avoids the overhead of Strassen's additions.
-// DefaultStrassenThresholdBits controls the switch to Strassen.
-// Modifiable at startup via configuration.
+// DefaultStrassenThresholdBits controls the switch to Strassen's algorithm.
+// It is the bit size threshold at which matrix multiplication switches from the
+// classic algorithm to the more complex, but asymptotically faster, Strassen's
+// algorithm. This value is modifiable at startup via configuration, allowing for
+// performance tuning based on the specific hardware and workload.
 var DefaultStrassenThresholdBits = 256
 
+// multiplyMatrices dynamically decides between the classic and Strassen
+// multiplication algorithms.
+// The decision is based on a threshold on the bit size of the operands. For
+// smaller sizes, the classic version is used to avoid the overhead of
+// Strassen's additions.
+//
+// The destination matrix is dest. The matrices to be multiplied are m1 and m2.
+// The matrixState provides temporary variables. If inParallel is true, the
+// multiplications are parallelized. The multiplication function is mul.
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
-    strassenThresholdBits := DefaultStrassenThresholdBits
-    if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
+	strassenThresholdBits := DefaultStrassenThresholdBits
+	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
 		multiplyMatricesClassic(dest, m1, m2, state, inParallel, mul)
 		return
 	}
