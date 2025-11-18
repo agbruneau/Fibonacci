@@ -70,52 +70,52 @@ func CalcTotalWork(numBits int) *big.Int {
 
 // ReportStepProgress handles harmonized progress reporting for algorithms that
 // iterate over the bits of 'n'.
-// It supports both forward (LSB to MSB) and reverse (MSB to LSB) iteration,
-// making it adaptable to different algorithmic approaches.
-//
-// The progress reporting function is progressReporter. The last reported
-// progress value is lastReported. The total work, work done, and work of the
-// current step are totalWork, workDone, and workOfStep, respectively. The
-// current bit index and total number of bits are i and numBits. If reversed is
-// true, the iteration is from MSB to LSB.
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i, numBits int, reversed bool) {
-	const ReportThreshold = 0.01 // Report if progress increases by at least 1%
+	const ReportThreshold = 0.01
 	if totalWork.Sign() > 0 {
-		// The computational work of a step `j` (from 0 to numBits-1) is
-		// proportional to 4^j.
-		if workOfStep.Sign() == 0 { // First step
+		if workOfStep.Sign() == 0 {
 			if reversed {
-				// For MSB-to-LSB, the first step has the largest work: 4^(numBits-1)
 				workOfStep.Exp(bigIntFour, big.NewInt(int64(numBits-1)), nil)
 			} else {
-				// For LSB-to-MSB, the first step has the smallest work: 4^0 = 1
 				workOfStep.SetInt64(1)
 			}
-		} else { // Subsequent steps
+		} else {
 			if reversed {
-				// Halve the work twice (equivalent to dividing by 4)
 				workOfStep.Rsh(workOfStep, 2)
 			} else {
-				// Double the work twice (equivalent to multiplying by 4)
 				workOfStep.Lsh(workOfStep, 2)
 			}
 		}
 		workDone.Add(workDone, workOfStep)
 
-		// Optimization: To avoid costly big.Int -> float64 conversions at each
-		// iteration, we only perform the conversion and report progress
-		// periodically or on the final step.
 		if i%8 == 0 || i == numBits-1 {
-			workDoneFloat, _ := new(big.Float).SetInt(workDone).Float64()
-			totalWorkFloat, _ := new(big.Float).SetInt(totalWork).Float64()
-			currentProgress := workDoneFloat / totalWorkFloat
-
+			currentProgress := approxProgress(workDone, totalWork)
 			if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
 				progressReporter(currentProgress)
 				*lastReported = currentProgress
 			}
 		}
 	}
+}
+
+// approxProgress calculates the approximate ratio of num / den as a float64.
+// It avoids large allocations by shifting bits if the numbers are too large.
+func approxProgress(num, den *big.Int) float64 {
+	if den.Sign() == 0 {
+		return 0.0
+	}
+	denLen := den.BitLen()
+	if denLen <= 53 {
+		n := float64(num.Int64())
+		d := float64(den.Int64())
+		return n / d
+	}
+
+	shift := uint(denLen - 53)
+	var n, d big.Int
+	n.Rsh(num, shift)
+	d.Rsh(den, shift)
+	return float64(n.Int64()) / float64(d.Int64())
 }
 
 // Calculator defines the public interface for a Fibonacci calculator.
@@ -368,7 +368,7 @@ var matrixStatePool = sync.Pool{
 			res:        newMatrix(),
 			p:          newMatrix(),
 			tempMatrix: newMatrix(),
-			p1: new(big.Int), p2: new(big.Int), p3: new(big.Int), p4: new(big.Int),
+			p1:         new(big.Int), p2: new(big.Int), p3: new(big.Int), p4: new(big.Int),
 			p5: new(big.Int), p6: new(big.Int), p7: new(big.Int),
 			s1: new(big.Int), s2: new(big.Int), s3: new(big.Int), s4: new(big.Int),
 			s5: new(big.Int), s6: new(big.Int), s7: new(big.Int), s8: new(big.Int),

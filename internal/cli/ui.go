@@ -35,13 +35,15 @@ func FormatExecutionDuration(d time.Duration) string {
 
 const (
 	// ANSI escape codes for text styling.
-	ColorReset   = "\033[0m"
-	ColorGreen   = "\033[32m"
-	ColorYellow  = "\033[33m"
-	ColorBlue    = "\033[34m"
-	ColorMagenta = "\033[35m"
-	ColorCyan    = "\033[36m"
-	ColorBold    = "\033[1m"
+	ColorReset     = "\033[0m"
+	ColorRed       = "\033[31m"
+	ColorGreen     = "\033[32m"
+	ColorYellow    = "\033[33m"
+	ColorBlue      = "\033[34m"
+	ColorMagenta   = "\033[35m"
+	ColorCyan      = "\033[36m"
+	ColorBold      = "\033[1m"
+	ColorUnderline = "\033[4m"
 	// TruncationLimit is the digit threshold from which a result is truncated.
 	TruncationLimit = 100
 	// DisplayEdges specifies the number of digits to display at the beginning
@@ -237,13 +239,11 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 	}
 
 	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ColorBold, ColorReset)
-	if duration > 0 {
-		durationStr := FormatExecutionDuration(duration)
-		if duration == 0 {
-			durationStr = "< 1µs"
-		}
-		fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen, durationStr, ColorReset)
+	durationStr := FormatExecutionDuration(duration)
+	if duration == 0 {
+		durationStr = "< 1µs"
 	}
+	fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen, durationStr, ColorReset)
 
 	resultStr := result.String()
 	numDigits := len(resultStr)

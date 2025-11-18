@@ -10,7 +10,8 @@ import (
 	"io"
 	"strings"
 	"time"
-    apperrors "example.com/fibcalc/internal/errors"
+
+	apperrors "example.com/fibcalc/internal/errors"
 )
 
 const (
@@ -50,6 +51,12 @@ type AppConfig struct {
 	// I18nDir, if provided, is a directory that contains JSON translation
 	// files named like "fr.json", "en.json" to override Messages.
 	I18nDir string
+	// JSONOutput, if true, outputs the result in JSON format.
+	JSONOutput bool
+	// ServerMode, if true, starts the application as an HTTP server.
+	ServerMode bool
+	// Port specifies the port to listen on in server mode.
+	Port string
 }
 
 // Validate checks the semantic consistency of the configuration parameters.
@@ -65,10 +72,10 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 		return apperrors.NewConfigError("timeout value must be strictly positive")
 	}
 	if c.Threshold < 0 {
-        return apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold)
+		return apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold)
 	}
 	if c.FFTThreshold < 0 {
-        return apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold)
+		return apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold)
 	}
 	isAlgoAvailable := false
 	for _, a := range availableAlgos {
@@ -77,9 +84,9 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 			break
 		}
 	}
-    if c.Algo != "all" && !isAlgoAvailable {
-        return apperrors.NewConfigError("unrecognized algorithm: '%s'. Valid algorithms are: 'all' or [%s]", c.Algo, strings.Join(availableAlgos, ", "))
-    }
+	if c.Algo != "all" && !isAlgoAvailable {
+		return apperrors.NewConfigError("unrecognized algorithm: '%s'. Valid algorithms are: 'all' or [%s]", c.Algo, strings.Join(availableAlgos, ", "))
+	}
 	return nil
 }
 
@@ -111,11 +118,14 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Threshold (in bits) for activating parallelism in multiplications.")
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
-    fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
+	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
 	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Enables quick automatic calibration at startup (may increase loading time).")
-    fs.StringVar(&config.Lang, "lang", "en", "Language code for i18n (e.g., fr, en).")
-    fs.StringVar(&config.I18nDir, "i18n-dir", "", "Directory of JSON translation files (e.g., ./locales).")
+	fs.StringVar(&config.Lang, "lang", "en", "Language code for i18n (e.g., fr, en).")
+	fs.StringVar(&config.I18nDir, "i18n-dir", "", "Directory of JSON translation files (e.g., ./locales).")
+	fs.BoolVar(&config.JSONOutput, "json", false, "Output results in JSON format.")
+	fs.BoolVar(&config.ServerMode, "server", false, "Start in HTTP server mode.")
+	fs.StringVar(&config.Port, "port", "8080", "Port to listen on in server mode.")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
