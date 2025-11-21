@@ -56,24 +56,24 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-        // Doubling Step (all multiplications via FFT)
-        // t2 = 2*f_k1 - f_k
-        s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
-        // t3 = f_k * t2
-        mulFFT(s.t3, s.f_k, s.t2)
-        // t1 = f_k1^2
-        mulFFT(s.t1, s.f_k1, s.f_k1)
-        // t4 = f_k^2
-        mulFFT(s.t4, s.f_k, s.f_k)
-        // F(2k+1) = F(k+1)^2 + F(k)^2 -> t2
-        s.t2.Add(s.t1, s.t4)
-        // Swap pointers: f_k <- t3 (F(2k)), f_k1 <- t2 (F(2k+1))
-        s.f_k, s.f_k1, s.t2, s.t3 = s.t3, s.t2, s.f_k, s.f_k1
-        // Addition Step if bit i == 1
-        if (n>>uint(i))&1 == 1 {
-            s.t1.Add(s.f_k, s.f_k1) // new F(k+1)
-            s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
-        }
+		// Doubling Step (all multiplications via FFT)
+		// t2 = 2*f_k1 - f_k
+		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
+		// t3 = f_k * t2
+		s.t3 = mulFFT(s.f_k, s.t2)
+		// t1 = f_k1^2
+		s.t1 = mulFFT(s.f_k1, s.f_k1)
+		// t4 = f_k^2
+		s.t4 = mulFFT(s.f_k, s.f_k)
+		// F(2k+1) = F(k+1)^2 + F(k)^2 -> t2
+		s.t2.Add(s.t1, s.t4)
+		// Swap pointers: f_k <- t3 (F(2k)), f_k1 <- t2 (F(2k+1))
+		s.f_k, s.f_k1, s.t2, s.t3 = s.t3, s.t2, s.f_k, s.f_k1
+		// Addition Step if bit i == 1
+		if (n>>uint(i))&1 == 1 {
+			s.t1.Add(s.f_k, s.f_k1) // new F(k+1)
+			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
+		}
 		// Harmonized reporting via utility function
 		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, true)
 	}

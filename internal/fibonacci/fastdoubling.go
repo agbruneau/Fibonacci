@@ -81,7 +81,11 @@ func (fd *OptimizedFastDoubling) Name() string {
 //
 // It returns the calculated Fibonacci number and an error if one occurred.
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
-	mul := func(dest, x, y *big.Int) {
+	// mul is a closure that performs multiplication.
+	// It returns a pointer to the result.
+	// If FFT is used, it returns a new *big.Int (allocated).
+	// If standard Mul is used, it uses 'dest' for storage and returns it.
+	mul := func(dest, x, y *big.Int) *big.Int {
 		if fftThreshold > 0 {
 			// Use FFT only if both operands exceed the threshold.
 			// Shortcut: compare the min of the bit lengths.
@@ -90,11 +94,10 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 				minBitLen = b
 			}
 			if minBitLen > fftThreshold {
-				mulFFT(dest, x, y)
-				return
+				return mulFFT(x, y)
 			}
 		}
-		dest.Mul(x, y)
+		return dest.Mul(x, y)
 	}
 
 	s := acquireState()
@@ -126,9 +129,9 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		}() {
 			parallelMultiply3Optimized(s, mul)
 		} else {
-			mul(s.t3, s.f_k, s.t2)
-			mul(s.t1, s.f_k1, s.f_k1)
-			mul(s.t4, s.f_k, s.f_k)
+			s.t3 = mul(s.t3, s.f_k, s.t2)
+			s.t1 = mul(s.t1, s.f_k1, s.f_k1)
+			s.t4 = mul(s.t4, s.f_k, s.f_k)
 		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in t2, which is free.
@@ -161,18 +164,18 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 // multiplications of the doubling step. By executing these multiplications in
 // parallel, this function takes advantage of multi-core processors, leading to
 // significant performance improvements for very large numbers.
-func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int)) {
+func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int) *big.Int) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		mul(s.t3, s.f_k, s.t2)
+		s.t3 = mul(s.t3, s.f_k, s.t2)
 	}()
 	go func() {
 		defer wg.Done()
-		mul(s.t1, s.f_k1, s.f_k1)
+		s.t1 = mul(s.t1, s.f_k1, s.f_k1)
 	}()
-	mul(s.t4, s.f_k, s.f_k)
+	s.t4 = mul(s.t4, s.f_k, s.f_k)
 	wg.Wait()
 }
 

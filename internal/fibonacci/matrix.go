@@ -73,7 +73,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	state := acquireMatrixState()
 	defer releaseMatrixState(state)
 
-	mul := func(dest, x, y *big.Int) {
+	mul := func(dest, x, y *big.Int) *big.Int {
 		if fftThreshold > 0 {
 			// Use FFT if the smaller of the two operands exceeds the threshold
 			minBitLen := x.BitLen()
@@ -81,11 +81,10 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 				minBitLen = b
 			}
 			if minBitLen > fftThreshold {
-				mulFFT(dest, x, y)
-				return
+				return mulFFT(x, y)
 			}
 		}
-		dest.Mul(x, y)
+		return dest.Mul(x, y)
 	}
 
 	exponent := n - 1
@@ -136,7 +135,7 @@ var DefaultStrassenThresholdBits = 256
 // The destination matrix is dest. The matrices to be multiplied are m1 and m2.
 // The matrixState provides temporary variables. If inParallel is true, the
 // multiplications are parallelized. The multiplication function is mul.
-func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	strassenThresholdBits := DefaultStrassenThresholdBits
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
 		multiplyMatricesClassic(dest, m1, m2, state, inParallel, mul)
@@ -146,8 +145,8 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 }
 
 // multiplyMatricesStrassen: 2x2 Strassen implementation (7 multiplications)
-func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
-	// Let m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
+func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
+	// m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
 	// The temporary variables from the state object are used to store intermediate results.
 	p1, p2, p3, p4, p5, p6, p7 := state.p1, state.p2, state.p3, state.p4, state.p5, state.p6, state.p7
 	s1, s2, s3, s4, s5, s6, s7, s8, s9, s10 := state.s1, state.s2, state.s3, state.s4, state.s5, state.s6, state.s7, state.s8, state.s9, state.s10
@@ -166,13 +165,13 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 
 	// Execute the 7 multiplications
 	tasks := []func(){
-		func() { mul(p1, m1.a, s1) }, // p1 = a * (f - h)
-		func() { mul(p2, s2, m2.d) }, // p2 = (a + b) * h
-		func() { mul(p3, s3, m2.a) }, // p3 = (c + d) * e
-		func() { mul(p4, m1.d, s4) }, // p4 = d * (g - e)
-		func() { mul(p5, s5, s6) },   // p5 = (a + d) * (e + h)
-		func() { mul(p6, s7, s8) },   // p6 = (b - d) * (g + h)
-		func() { mul(p7, s9, s10) },  // p7 = (a - c) * (e + f)
+		func() { p1 = mul(p1, m1.a, s1) }, // p1 = a * (f - h)
+		func() { p2 = mul(p2, s2, m2.d) }, // p2 = (a + b) * h
+		func() { p3 = mul(p3, s3, m2.a) }, // p3 = (c + d) * e
+		func() { p4 = mul(p4, m1.d, s4) }, // p4 = d * (g - e)
+		func() { p5 = mul(p5, s5, s6) },   // p5 = (a + d) * (e + h)
+		func() { p6 = mul(p6, s7, s8) },   // p6 = (b - d) * (g + h)
+		func() { p7 = mul(p7, s9, s10) },  // p7 = (a - c) * (e + f)
 	}
 	executeTasks(inParallel, tasks)
 
@@ -203,16 +202,16 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 // multiplications required to square a matrix. For a symmetric matrix, where
 // b equals c, some calculations become redundant. This method avoids those
 // redundancies, resulting in a faster computation.
-func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
+func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	b_ad, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
 
 	tasks := []func(){
-		func() { mul(a2, mat.a, mat.a) },
-		func() { mul(b2, mat.b, mat.b) },
-		func() { mul(d2, mat.d, mat.d) },
-		func() { mul(b_ad, mat.b, ad) },
+		func() { a2 = mul(a2, mat.a, mat.a) },
+		func() { b2 = mul(b2, mat.b, mat.b) },
+		func() { d2 = mul(d2, mat.d, mat.d) },
+		func() { b_ad = mul(b_ad, mat.b, ad) },
 	}
 	executeTasks(inParallel, tasks)
 
@@ -223,7 +222,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 }
 
 // multiplyMatricesClassic: naive 2x2 multiplication (8 multiplications)
-func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int)) {
+func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
 	// Uses buffers from the state to avoid allocations
 	// a = a*e + b*g
@@ -238,14 +237,14 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 	cf, dh := state.s1, state.s2
 
 	tasks := []func(){
-		func() { mul(ae, m1.a, m2.a) },
-		func() { mul(bg, m1.b, m2.c) },
-		func() { mul(af, m1.a, m2.b) },
-		func() { mul(bh, m1.b, m2.d) },
-		func() { mul(ce, m1.c, m2.a) },
-		func() { mul(dg, m1.d, m2.c) },
-		func() { mul(cf, m1.c, m2.b) },
-		func() { mul(dh, m1.d, m2.d) },
+		func() { ae = mul(ae, m1.a, m2.a) },
+		func() { bg = mul(bg, m1.b, m2.c) },
+		func() { af = mul(af, m1.a, m2.b) },
+		func() { bh = mul(bh, m1.b, m2.d) },
+		func() { ce = mul(ce, m1.c, m2.a) },
+		func() { dg = mul(dg, m1.d, m2.c) },
+		func() { cf = mul(cf, m1.c, m2.b) },
+		func() { dh = mul(dh, m1.d, m2.d) },
 	}
 	executeTasks(inParallel, tasks)
 
