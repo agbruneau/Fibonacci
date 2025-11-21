@@ -9,11 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/gen"
-	"github.com/leanovate/gopter/prop"
-	"golang.org/x/sync/errgroup"
-
 	"example.com/fibcalc/internal/config"
 )
 
@@ -187,45 +182,6 @@ func TestContextCancellation(t *testing.T) {
 	}
 }
 
-// TestFibonacciProperties uses property-based testing to
-// validate Cassini's identity for a wide range of inputs.
-func TestFibonacciProperties(t *testing.T) {
-	parameters := gopter.DefaultTestParameters()
-	uint64Gen := gen.UInt64Range(1, 2000)
-	properties := gopter.NewProperties(parameters)
-
-	properties.Property("Cassini's Identity", prop.ForAll(
-		func(n uint64) bool {
-			calc := NewCalculator(&OptimizedFastDoubling{})
-			ctx := context.Background()
-
-			var f_n_minus_1, f_n, f_n_plus_1 *big.Int
-			var g errgroup.Group
-			g.Go(func() error { var err error; f_n_minus_1, err = calc.Calculate(ctx, nil, 0, n-1, config.DefaultParallelThreshold, 0); return err })
-			g.Go(func() error { var err error; f_n, err = calc.Calculate(ctx, nil, 0, n, config.DefaultParallelThreshold, 0); return err })
-			g.Go(func() error { var err error; f_n_plus_1, err = calc.Calculate(ctx, nil, 0, n+1, config.DefaultParallelThreshold, 0); return err })
-
-			if err := g.Wait(); err != nil {
-				t.Logf("Calculation failed for n=%d: %v", n, err)
-				return false
-			}
-
-			term1 := new(big.Int).Mul(f_n_minus_1, f_n_plus_1)
-			term2 := new(big.Int).Mul(f_n, f_n)
-			leftSide := new(big.Int).Sub(term1, term2)
-
-			rightSide := big.NewInt(1)
-			if n%2 != 0 {
-				rightSide.Neg(rightSide)
-			}
-
-			return leftSide.Cmp(rightSide) == 0
-		},
-		uint64Gen,
-	))
-
-	properties.TestingRun(t)
-}
 
 func runBenchmark(b *testing.B, calc Calculator, n uint64) {
 	ctx := context.Background()

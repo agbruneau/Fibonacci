@@ -174,6 +174,16 @@ De là, nous extrayons :
   - `--fft-threshold` (défaut `20000` bits) : Active la multiplication FFT.
   - `--strassen-threshold` (défaut `256` bits) : Utilise l'algorithme de Strassen pour la multiplication de matrices.
 
+### Méthodologie de Calibration
+
+Le mode de calibration (`--calibrate`) permet d'ajuster finement les performances du calculateur à l'architecture de la machine hôte.
+
+Le processus fonctionne comme suit :
+
+1. **Benchmark Itératif** : Le calculateur exécute une série de calculs de Fibonacci pour une valeur fixe (par défaut N=10 000 000) en utilisant l'algorithme *Fast Doubling*.
+2. **Variation du Seuil** : À chaque itération, le seuil de parallélisme (`--threshold`) varie parmi une liste prédéfinie de valeurs (séquentiel, 256, 512, ..., 16384 bits).
+3. **Sélection de l'Optimum** : Le temps d'exécution est mesuré pour chaque seuil. Le seuil offrant le temps de calcul le plus court est identifié comme l'optimum pour la configuration matérielle actuelle.
+
 ## 8. Tests
 
 Le projet inclut une suite de tests robuste pour garantir la correction et la stabilité.
