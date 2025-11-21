@@ -175,3 +175,42 @@ func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.In
 	mul(s.t4, s.f_k, s.f_k)
 	wg.Wait()
 }
+
+// calculationState aggregates temporary variables for the "Fast Doubling"
+// algorithm, allowing efficient management via an object pool.
+type calculationState struct {
+	f_k, f_k1, t1, t2, t3, t4 *big.Int
+}
+
+// Reset prepares the state for a new calculation.
+// It initializes f_k to 0 and f_k1 to 1, which are the base values for the
+// Fast Doubling algorithm.
+func (s *calculationState) Reset() {
+	s.f_k.SetInt64(0)
+	s.f_k1.SetInt64(1)
+}
+
+var statePool = sync.Pool{
+	New: func() interface{} {
+		return &calculationState{
+			f_k:  new(big.Int),
+			f_k1: new(big.Int),
+			t1:   new(big.Int),
+			t2:   new(big.Int),
+			t3:   new(big.Int),
+			t4:   new(big.Int),
+		}
+	},
+}
+
+// acquireState gets a state from the pool and resets it.
+func acquireState() *calculationState {
+	s := statePool.Get().(*calculationState)
+	s.Reset()
+	return s
+}
+
+// releaseState puts a state back into the pool.
+func releaseState(s *calculationState) {
+	statePool.Put(s)
+}
