@@ -58,39 +58,67 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 	return results
 }
 
-// AnalyzeComparisonResults processes and displays the final results.
-func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, out io.Writer) int {
-	sort.Slice(results, func(i, j int) bool {
-		if (results[i].Err == nil) != (results[j].Err == nil) {
-			return results[i].Err == nil
+// ComparisonSummary holds the result of the comparison analysis.
+type ComparisonSummary struct {
+	SortedResults []CalculationResult
+	FirstValid    *CalculationResult
+	FirstError    error
+	SuccessCount  int
+	Mismatch      bool
+}
+
+// CompareResults processes the results and returns a summary.
+func CompareResults(results []CalculationResult) ComparisonSummary {
+	// Clone to avoid modifying the input slice in place if needed,
+	// but sort does in-place. We'll copy first.
+	sorted := make([]CalculationResult, len(results))
+	copy(sorted, results)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		if (sorted[i].Err == nil) != (sorted[j].Err == nil) {
+			return sorted[i].Err == nil
 		}
-		return results[i].Duration < results[j].Duration
+		return sorted[i].Duration < sorted[j].Duration
 	})
 
-	var firstValidResult *big.Int
-	var firstValidResultDuration time.Duration
-	var firstError error
-	successCount := 0
+	summary := ComparisonSummary{SortedResults: sorted}
+
+	for i := range sorted {
+		res := &sorted[i] // Use pointer to avoid copying loop var issues (though here it's a slice of structs)
+		if res.Err != nil {
+			if summary.FirstError == nil {
+				summary.FirstError = res.Err
+			}
+		} else {
+			summary.SuccessCount++
+			if summary.FirstValid == nil {
+				summary.FirstValid = res
+			} else {
+				// Check for mismatch against the first valid result
+				if res.Result.Cmp(summary.FirstValid.Result) != 0 {
+					summary.Mismatch = true
+				}
+			}
+		}
+	}
+	return summary
+}
+
+// AnalyzeComparisonResults processes and displays the final results.
+func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, out io.Writer) int {
+	summary := CompareResults(results)
 
 	fmt.Fprintf(out, "\n%s\n", i18n.Messages["ComparisonSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
 		cli.ColorUnderline, cli.ColorReset, cli.ColorUnderline, cli.ColorReset, cli.ColorUnderline, cli.ColorReset)
 
-	for _, res := range results {
+	for _, res := range summary.SortedResults {
 		var status string
 		if res.Err != nil {
 			status = fmt.Sprintf("%s❌ Failure (%v)%s", cli.ColorRed, res.Err, cli.ColorReset)
-			if firstError == nil {
-				firstError = res.Err
-			}
 		} else {
 			status = fmt.Sprintf("%s✅ Success%s", cli.ColorGreen, cli.ColorReset)
-			successCount++
-			if firstValidResult == nil {
-				firstValidResult = res.Result
-				firstValidResultDuration = res.Duration
-			}
 		}
 		duration := cli.FormatExecutionDuration(res.Duration)
 		if res.Duration == 0 {
@@ -103,25 +131,18 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	}
 	tw.Flush()
 
-	if successCount == 0 {
+	if summary.SuccessCount == 0 {
 		fmt.Fprintf(out, "\n%s\n", i18n.Messages["GlobalStatusFailure"])
-		return handleCalculationError(firstError, 0, out)
+		return handleCalculationError(summary.FirstError, 0, out)
 	}
 
-	mismatch := false
-	for _, res := range results {
-		if res.Err == nil && res.Result.Cmp(firstValidResult) != 0 {
-			mismatch = true
-			break
-		}
-	}
-	if mismatch {
+	if summary.Mismatch {
 		fmt.Fprintf(out, "\n%s", i18n.Messages["StatusCriticalMismatch"])
 		return 3 // ExitErrorMismatch
 	}
 
 	fmt.Fprintf(out, "\n%s", i18n.Messages["GlobalStatusSuccess"])
-	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
+	cli.DisplayResult(summary.FirstValid.Result, cfg.N, summary.FirstValid.Duration, cfg.Verbose, cfg.Details, out)
 	return 0 // ExitSuccess
 }
 
