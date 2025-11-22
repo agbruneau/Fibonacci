@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"example.com/fibcalc/internal/config"
+	apperrors "example.com/fibcalc/internal/errors"
 )
 
 // stripAnsiCodes removes ANSI escape codes from a string.
@@ -71,8 +72,8 @@ func TestRunFunction(t *testing.T) {
 		cfg := config.AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: config.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
 		exitCode := run(context.Background(), cfg, &buf)
 
-		if exitCode != ExitSuccess {
-			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
+		if exitCode != apperrors.ExitSuccess {
+			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", apperrors.ExitSuccess, exitCode)
 		}
 		output := stripAnsiCodes(buf.String())
 		if !strings.Contains(output, "F(10) = 55") {
@@ -85,8 +86,8 @@ func TestRunFunction(t *testing.T) {
 		cfg := config.AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: config.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
 		exitCode := run(context.Background(), cfg, &buf)
 
-		if exitCode != ExitSuccess {
-			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", ExitSuccess, exitCode)
+		if exitCode != apperrors.ExitSuccess {
+			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", apperrors.ExitSuccess, exitCode)
 		}
 		output := stripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Comparison Summary") || !strings.Contains(output, "Global Status: Success") {
@@ -102,8 +103,8 @@ func TestRunFunction(t *testing.T) {
 		cfg := config.AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond}
 		exitCode := run(context.Background(), cfg, &buf)
 
-		if exitCode != ExitErrorTimeout {
-			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", ExitErrorTimeout, exitCode)
+		if exitCode != apperrors.ExitErrorTimeout {
+			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", apperrors.ExitErrorTimeout, exitCode)
 		}
 		output := stripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Status: Failure (Timeout)") {
@@ -118,8 +119,8 @@ func TestRunFunction(t *testing.T) {
 		cancel()
 		exitCode := run(ctx, cfg, &buf)
 
-		if exitCode != ExitErrorCanceled {
-			t.Errorf("Incorrect exit code for a cancellation. Expected: %d, Got: %d", ExitErrorCanceled, exitCode)
+		if exitCode != apperrors.ExitErrorCanceled {
+			t.Errorf("Incorrect exit code for a cancellation. Expected: %d, Got: %d", apperrors.ExitErrorCanceled, exitCode)
 		}
 		output := stripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Status: Canceled") {

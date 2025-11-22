@@ -15,6 +15,7 @@ import (
 
 	"example.com/fibcalc/internal/cli"
 	"example.com/fibcalc/internal/config"
+	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
 	"example.com/fibcalc/internal/i18n"
 )
@@ -117,17 +118,17 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	}
 	if mismatch {
 		fmt.Fprintf(out, "\n%s", i18n.Messages["StatusCriticalMismatch"])
-		return 3 // ExitErrorMismatch
+		return apperrors.ExitErrorMismatch
 	}
 
 	fmt.Fprintf(out, "\n%s", i18n.Messages["GlobalStatusSuccess"])
 	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
-	return 0 // ExitSuccess
+	return apperrors.ExitSuccess
 }
 
 func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
-		return 0
+		return apperrors.ExitSuccess
 	}
 	msgSuffix := ""
 	if duration > 0 {
@@ -136,12 +137,12 @@ func handleCalculationError(err error, duration time.Duration, out io.Writer) in
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		fmt.Fprintf(out, "%s\n", i18n.Messages["StatusTimeout"])
-		return 2 // ExitErrorTimeout
+		return apperrors.ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
 		fmt.Fprintf(out, "%s%s%s.%s\n", cli.ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, cli.ColorReset)
-		return 130 // ExitErrorCanceled
+		return apperrors.ExitErrorCanceled
 	}
 	fmt.Fprintf(out, "%s\n", i18n.Messages["StatusFailure"])
-	return 1 // ExitErrorGeneric
+	return apperrors.ExitErrorGeneric
 }
