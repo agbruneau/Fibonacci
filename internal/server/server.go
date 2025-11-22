@@ -3,13 +3,21 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
+	"example.com/fibcalc/internal/config"
 	"example.com/fibcalc/internal/fibonacci"
+)
+
+const (
+	defaultRequestTimeout    = 30 * time.Second
+	defaultReadHeaderTimeout = 5 * time.Second
+	defaultWriteTimeout      = defaultRequestTimeout + 5*time.Second
 )
 
 type Server struct {
@@ -24,15 +32,28 @@ type Response struct {
 }
 
 func (s *Server) Start(port string) error {
-	http.HandleFunc("/calculate", s.handleCalculate)
-	addr := ":" + port
+	if port == "" {
+		port = "8080"
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/calculate", s.handleCalculate)
+
+	httpServer := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		WriteTimeout:      defaultWriteTimeout,
+	}
+
 	fmt.Printf("Starting server on port %s...\n", port)
-	return http.ListenAndServe(addr, nil)
+	return httpServer.ListenAndServe()
 }
 
 func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
-	nStr := r.URL.Query().Get("n")
-	algo := r.URL.Query().Get("algo")
+	query := r.URL.Query()
+	nStr := query.Get("n")
+	algo := query.Get("algo")
 
 	if nStr == "" {
 		http.Error(w, "Missing 'n' parameter", http.StatusBadRequest)
@@ -55,10 +76,41 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.Background()
+	timeout := defaultRequestTimeout
+	if timeoutStr := query.Get("timeout"); timeoutStr != "" {
+		parsed, err := time.ParseDuration(timeoutStr)
+		if err != nil || parsed <= 0 {
+			http.Error(w, "Invalid 'timeout' parameter", http.StatusBadRequest)
+			return
+		}
+		timeout = parsed
+	}
+
+	threshold := config.DefaultParallelThreshold
+	if thresholdStr := query.Get("threshold"); thresholdStr != "" {
+		val, err := strconv.Atoi(thresholdStr)
+		if err != nil || val < 0 {
+			http.Error(w, "Invalid 'threshold' parameter", http.StatusBadRequest)
+			return
+		}
+		threshold = val
+	}
+
+	fftThreshold := config.DefaultFFTThreshold
+	if fftStr := query.Get("fft-threshold"); fftStr != "" {
+		val, err := strconv.Atoi(fftStr)
+		if err != nil || val < 0 {
+			http.Error(w, "Invalid 'fft-threshold' parameter", http.StatusBadRequest)
+			return
+		}
+		fftThreshold = val
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+
 	start := time.Now()
-	// Use default thresholds for server mode for now
-	result, err := calc.Calculate(ctx, nil, 0, n, 4096, 20000)
+	result, err := calc.Calculate(ctx, nil, 0, n, threshold, fftThreshold)
 	duration := time.Since(start)
 
 	resp := Response{
@@ -67,10 +119,20 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 		Duration: duration.String(),
 	}
 
+	statusCode := http.StatusOK
 	if err != nil {
 		resp.Error = err.Error()
+		switch {
+		case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+			statusCode = http.StatusGatewayTimeout
+		default:
+			statusCode = http.StatusInternalServerError
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	w.WriteHeader(statusCode)
+	if encodeErr := json.NewEncoder(w).Encode(resp); encodeErr != nil {
+		fmt.Printf("server: failed to encode response: %v\n", encodeErr)
+	}
 }

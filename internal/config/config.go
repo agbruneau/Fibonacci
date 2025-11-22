@@ -18,6 +18,8 @@ const (
 	// DefaultParallelThreshold defines the bit threshold from which
 	// multiplications of large integers are parallelized.
 	DefaultParallelThreshold = 4096
+	// DefaultFFTThreshold is the bit size at which FFT-based multiplication activates.
+	DefaultFFTThreshold = 20000
 )
 
 // AppConfig aggregates the application's configuration parameters, parsed from
@@ -117,7 +119,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Maximum execution time for the calculation.")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
 	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Threshold (in bits) for activating parallelism in multiplications.")
-	fs.IntVar(&config.FFTThreshold, "fft-threshold", 20000, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", DefaultFFTThreshold, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
 	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 256, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
 	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Enables quick automatic calibration at startup (may increase loading time).")

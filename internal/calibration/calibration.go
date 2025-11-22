@@ -150,8 +150,10 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	bestStrassen := cfg.StrassenThreshold
 	bestStrassenDur := time.Duration(1<<63 - 1)
 	if matCalc != nil {
+		originalStrassen := fibonacci.DefaultStrassenThresholdBits
 		strassenCandidates := []int{192, 256, 384, 512}
 		for _, cand := range strassenCandidates {
+			fibonacci.DefaultStrassenThresholdBits = cand
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 			start := time.Now()
 			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, bestPar, 0)
@@ -160,12 +162,12 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 			if err != nil {
 				continue
 			}
-			fibonacci.DefaultStrassenThresholdBits = cand
 			if dur < bestStrassenDur {
 				bestStrassenDur = dur
 				bestStrassen = cand
 			}
 		}
+		fibonacci.DefaultStrassenThresholdBits = originalStrassen
 	}
 
 	if bestParDur == time.Duration(1<<63-1) && bestFFTDur == time.Duration(1<<63-1) {
@@ -202,13 +204,13 @@ func handleCalculationError(err error, duration time.Duration, out io.Writer) in
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		fmt.Fprintf(out, "%s\n", i18n.Messages["StatusTimeout"])
+		fmt.Fprintf(out, i18n.Messages["StatusTimeout"]+"\n", msgSuffix)
 		return 2 // ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
 		fmt.Fprintf(out, "%s%s%s.%s\n", cli.ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, cli.ColorReset)
 		return 130 // ExitErrorCanceled
 	}
-	fmt.Fprintf(out, "%s\n", i18n.Messages["StatusFailure"])
+	fmt.Fprintf(out, i18n.Messages["StatusFailure"]+"\n", err)
 	return 1 // ExitErrorGeneric
 }

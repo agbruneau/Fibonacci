@@ -135,13 +135,13 @@ func handleCalculationError(err error, duration time.Duration, out io.Writer) in
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		fmt.Fprintf(out, "%s\n", i18n.Messages["StatusTimeout"])
+		fmt.Fprintf(out, i18n.Messages["StatusTimeout"]+"\n", msgSuffix)
 		return 2 // ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
 		fmt.Fprintf(out, "%s%s%s.%s\n", cli.ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, cli.ColorReset)
 		return 130 // ExitErrorCanceled
 	}
-	fmt.Fprintf(out, "%s\n", i18n.Messages["StatusFailure"])
+	fmt.Fprintf(out, i18n.Messages["StatusFailure"]+"\n", err)
 	return 1 // ExitErrorGeneric
 }

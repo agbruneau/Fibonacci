@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"example.com/fibcalc/internal/fibonacci"
 )
@@ -18,6 +19,7 @@ import (
 type MockCalculator struct {
 	Result *big.Int
 	Err    error
+	Delay  time.Duration
 }
 
 func (m *MockCalculator) Name() string {
@@ -26,6 +28,15 @@ func (m *MockCalculator) Name() string {
 
 // Update signature to match fibonacci.Calculator interface
 func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+	if m.Delay > 0 {
+		timer := time.NewTimer(m.Delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
 	return m.Result, m.Err
 }
 
@@ -35,6 +46,7 @@ func TestHandleCalculate(t *testing.T) {
 		queryParams    string
 		mockResult     *big.Int
 		mockErr        error
+		mockDelay      time.Duration
 		expectedStatus int
 		expectedBody   string
 		isJSON         bool
@@ -43,7 +55,6 @@ func TestHandleCalculate(t *testing.T) {
 			name:           "Success",
 			queryParams:    "?n=10",
 			mockResult:     big.NewInt(55),
-			mockErr:        nil,
 			expectedStatus: http.StatusOK,
 			expectedBody:   `55`,
 			isJSON:         true,
@@ -72,11 +83,39 @@ func TestHandleCalculate(t *testing.T) {
 		{
 			name:           "Calculation error",
 			queryParams:    "?n=10",
-			mockResult:     nil,
 			mockErr:        errors.New("calc error"),
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusInternalServerError,
 			expectedBody:   "calc error",
 			isJSON:         true,
+		},
+		{
+			name:           "Request timeout",
+			queryParams:    "?n=10&timeout=1ms",
+			mockDelay:      20 * time.Millisecond,
+			expectedStatus: http.StatusGatewayTimeout,
+			expectedBody:   context.DeadlineExceeded.Error(),
+			isJSON:         true,
+		},
+		{
+			name:           "Invalid timeout parameter",
+			queryParams:    "?n=10&timeout=foobar",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Invalid 'timeout' parameter",
+			isJSON:         false,
+		},
+		{
+			name:           "Invalid threshold parameter",
+			queryParams:    "?n=10&threshold=-1",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Invalid 'threshold' parameter",
+			isJSON:         false,
+		},
+		{
+			name:           "Invalid fft-threshold parameter",
+			queryParams:    "?n=10&fft-threshold=foo",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Invalid 'fft-threshold' parameter",
+			isJSON:         false,
 		},
 	}
 
@@ -85,6 +124,7 @@ func TestHandleCalculate(t *testing.T) {
 			mockCalc := &MockCalculator{
 				Result: tt.mockResult,
 				Err:    tt.mockErr,
+				Delay:  tt.mockDelay,
 			}
 			registry := map[string]fibonacci.Calculator{
 				"fast": mockCalc,
@@ -111,11 +151,14 @@ func TestHandleCalculate(t *testing.T) {
 				if err := json.Unmarshal(bodyBytes, &jsonResp); err != nil {
 					t.Errorf("Failed to unmarshal JSON response: %v", err)
 				}
-				if tt.mockErr != nil {
+				if tt.expectedStatus >= http.StatusBadRequest {
 					if jsonResp.Error != tt.expectedBody {
 						t.Errorf("Expected error message %q, got %q", tt.expectedBody, jsonResp.Error)
 					}
 				} else {
+					if jsonResp.Result == nil {
+						t.Fatalf("Expected a result, got nil")
+					}
 					if jsonResp.Result.Cmp(big.NewInt(55)) != 0 { // assuming 55 for success test
 						t.Errorf("Expected result 55, got %s", jsonResp.Result.String())
 					}
