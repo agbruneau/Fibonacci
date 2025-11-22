@@ -12,6 +12,7 @@ import (
 
 	"example.com/fibcalc/internal/cli"
 	"example.com/fibcalc/internal/config"
+	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
 	"example.com/fibcalc/internal/i18n"
 )
@@ -23,7 +24,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
 		fmt.Fprintf(out, "%sCritical error: the 'fast' algorithm is required for calibration but was not found.%s\n", cli.ColorRed, cli.ColorReset)
-		return 1 // ExitErrorGeneric
+		return apperrors.ExitErrorGeneric
 	}
 
 	thresholdsToTest := []int{0, 256, 512, 1024, 2048, 4096, 8192, 16384}
@@ -44,7 +45,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 	for _, threshold := range thresholdsToTest {
 		if ctx.Err() != nil {
 			fmt.Fprintf(out, "\n%sCalibration interrupted.%s\n", cli.ColorYellow, cli.ColorReset)
-			return 130 // ExitErrorCanceled
+			return apperrors.ExitErrorCanceled
 		}
 
 		startTime := time.Now()
@@ -95,7 +96,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 	tw.Flush()
 	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
 		cli.ColorGreen, cli.ColorYellow, bestThreshold, cli.ColorReset)
-	return 0 // ExitSuccess
+	return apperrors.ExitSuccess
 }
 
 // AutoCalibrate performs a quick calibration of parallelism and FFT thresholds.
@@ -194,7 +195,7 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 
 func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
-		return 0
+		return apperrors.ExitSuccess
 	}
 	msgSuffix := ""
 	if duration > 0 {
@@ -203,12 +204,12 @@ func handleCalculationError(err error, duration time.Duration, out io.Writer) in
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		fmt.Fprintf(out, "%s\n", i18n.Messages["StatusTimeout"])
-		return 2 // ExitErrorTimeout
+		return apperrors.ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
 		fmt.Fprintf(out, "%s%s%s.%s\n", cli.ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, cli.ColorReset)
-		return 130 // ExitErrorCanceled
+		return apperrors.ExitErrorCanceled
 	}
 	fmt.Fprintf(out, "%s\n", i18n.Messages["StatusFailure"])
-	return 1 // ExitErrorGeneric
+	return apperrors.ExitErrorGeneric
 }

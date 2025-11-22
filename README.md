@@ -14,6 +14,7 @@ Les objectifs principaux sont :
 - Servir de référence pour l'implémentation d'algorithmes sophistiqués en Go.
 - Démontrer les meilleures pratiques en architecture logicielle, y compris la modularité et la testabilité.
 - Fournir un exemple pratique de techniques d'optimisation de la performance.
+- Offrir une API REST production-ready avec graceful shutdown et monitoring.
 
 ## 2. Démarrage
 
@@ -22,6 +23,7 @@ Suivez ces étapes pour mettre en service le calculateur de Fibonacci sur votre 
 ### Prérequis
 
 - Go 1.25 ou une version ultérieure
+- Make (optionnel, pour utiliser le Makefile)
 
 ### Installation
 
@@ -33,10 +35,25 @@ Suivez ces étapes pour mettre en service le calculateur de Fibonacci sur votre 
    ```
 
 2. Compilez l'exécutable :
+   
+   **Avec Make (recommandé):**
    ```bash
-   go build -o fibcalc ./cmd/fibcalc
+   make build
    ```
-   Cela créera un binaire `fibcalc` (ou `fibcalc.exe` sur Windows) à la racine du projet.
+   
+   **Sans Make:**
+   ```bash
+   go build -o build/fibcalc ./cmd/fibcalc
+   ```
+   
+   Cela créera un binaire dans le dossier `build/`.
+
+3. (Optionnel) Installer globalement :
+   ```bash
+   make install
+   # ou
+   go install ./cmd/fibcalc
+   ```
 
 ### Démarrage Rapide
 
@@ -58,7 +75,13 @@ Suivez ces étapes pour mettre en service le calculateur de Fibonacci sur votre 
   ```bash
   ./fibcalc --server --port 8080
   ```
-  Puis testez : `curl "http://localhost:8080/calculate?n=1000&algo=fast"`
+  Puis testez :
+  ```bash
+  curl "http://localhost:8080/calculate?n=1000&algo=fast"
+  curl "http://localhost:8080/health"
+  curl "http://localhost:8080/algorithms"
+  ```
+  Voir [API.md](API.md) pour la documentation complète de l'API.
 
 ## 3. Fonctionnalités
 
@@ -190,18 +213,115 @@ Le projet inclut une suite de tests robuste pour garantir la correction et la st
 
 - **Tests Unitaires**: Valident les cas limites et les petites valeurs de `n`.
 - **Tests de Propriétés**: Utilisent `gopter` pour effectuer des tests basés sur les propriétés.
+- **Tests d'Intégration**: Valident le serveur HTTP et ses endpoints.
 - **Benchmarks**: Mesurent la performance des différents algorithmes.
 
 **Exécuter les tests :**
 
 ```bash
-# Exécuter tous les tests (unitaires et propriétés)
+# Avec Make (recommandé)
+make test
+
+# Sans Make
 go test ./... -v
 
 # Exécuter les benchmarks
-go test -bench . ./...
+make benchmark
+# ou
+go test -bench=. -benchmem ./internal/fibonacci/
+
+# Générer un rapport de couverture
+make coverage
+# ou
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
-## 9. Licence
+## 9. Développement
+
+### Makefile
+
+Le projet inclut un Makefile complet pour faciliter le développement :
+
+```bash
+make help          # Afficher toutes les commandes disponibles
+make build         # Compiler le projet
+make test          # Exécuter les tests
+make coverage      # Générer un rapport de couverture
+make benchmark     # Exécuter les benchmarks
+make lint          # Vérifier le code avec golangci-lint
+make format        # Formater le code
+make check         # Exécuter toutes les vérifications
+make run-fast      # Test rapide avec n=1000
+make run-server    # Démarrer le serveur
+make docker-build  # Construire l'image Docker
+```
+
+### Structure du projet
+
+```
+.
+├── cmd/
+│   └── fibcalc/           # Point d'entrée de l'application
+├── internal/
+│   ├── calibration/       # Calibration automatique
+│   ├── cli/               # Interface utilisateur CLI
+│   ├── config/            # Gestion de la configuration
+│   ├── errors/            # Gestion centralisée des erreurs
+│   ├── fibonacci/         # Algorithmes de calcul
+│   ├── i18n/              # Internationalisation
+│   ├── orchestration/     # Orchestration des calculs
+│   └── server/            # Serveur HTTP REST
+├── API.md                 # Documentation de l'API REST
+├── CHANGELOG.md           # Historique des changements
+├── CONTRIBUTING.md        # Guide de contribution
+├── Dockerfile             # Configuration Docker
+├── Makefile               # Commandes de développement
+└── README.md              # Ce fichier
+```
+
+### CI/CD
+
+Le projet utilise GitHub Actions pour l'intégration continue :
+- Tests automatiques sur Go 1.22, 1.23, et 1.25
+- Vérification du linting
+- Build multi-plateforme (Linux, Windows, macOS)
+- Génération de rapports de couverture
+
+## 10. Déploiement
+
+### Docker
+
+```bash
+# Build
+docker build -t fibcalc:latest .
+
+# Run CLI
+docker run --rm fibcalc:latest -n 1000 -algo fast
+
+# Run server
+docker run -d -p 8080:8080 fibcalc:latest --server --port 8080
+```
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  fibcalc:
+    build: .
+    ports:
+      - "8080:8080"
+    command: ["--server", "--port", "8080", "--auto-calibrate"]
+    restart: unless-stopped
+```
+
+## 11. Ressources supplémentaires
+
+- [API Documentation](API.md) - Documentation complète de l'API REST
+- [Changelog](CHANGELOG.md) - Historique des versions et changements
+- [Contributing Guidelines](CONTRIBUTING.md) - Guide pour contribuer au projet
+
+## 12. Licence
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.

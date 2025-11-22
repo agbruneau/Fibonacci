@@ -19,20 +19,11 @@ import (
 	"example.com/fibcalc/internal/calibration"
 	"example.com/fibcalc/internal/cli"
 	"example.com/fibcalc/internal/config"
+	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
 	"example.com/fibcalc/internal/i18n"
 	"example.com/fibcalc/internal/orchestration"
 	"example.com/fibcalc/internal/server"
-)
-
-// Application exit codes define the standard exit statuses for the application.
-const (
-	ExitSuccess       = 0
-	ExitErrorGeneric  = 1
-	ExitErrorTimeout  = 2
-	ExitErrorMismatch = 3
-	ExitErrorConfig   = 4
-	ExitErrorCanceled = 130
 )
 
 var calculatorRegistry = map[string]fibonacci.Calculator{
@@ -63,9 +54,9 @@ func main() {
 	cfg, err := config.ParseConfig(os.Args[0], os.Args[1:], os.Stderr, availableAlgos)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			os.Exit(ExitSuccess)
+			os.Exit(apperrors.ExitSuccess)
 		}
-		os.Exit(ExitErrorConfig)
+		os.Exit(apperrors.ExitErrorConfig)
 	}
 	// Optional i18n loading
 	if cfg.I18nDir != "" {
@@ -77,10 +68,10 @@ func main() {
 	fibonacci.DefaultStrassenThresholdBits = cfg.StrassenThreshold
 
 	if cfg.ServerMode {
-		srv := &server.Server{Registry: calculatorRegistry}
-		if err := srv.Start(cfg.Port); err != nil {
+		srv := server.NewServer(calculatorRegistry, cfg)
+		if err := srv.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-			os.Exit(ExitErrorGeneric)
+			os.Exit(apperrors.ExitErrorGeneric)
 		}
 		return
 	}
@@ -178,7 +169,7 @@ func printJSONResults(results []orchestration.CalculationResult, out io.Writer) 
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(output); err != nil {
-		return ExitErrorGeneric
+		return apperrors.ExitErrorGeneric
 	}
-	return ExitSuccess
+	return apperrors.ExitSuccess
 }
