@@ -104,7 +104,11 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 			return nil, err
 		}
 		// Harmonized reporting via common utility function
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
+		// For Matrix Exponentiation, we iterate from LSB (small work) to MSB (large work).
+		// However, ReportStepProgress assumes `i` counts down from MSB (large work) to LSB.
+		// To correct this, we invert the index passed to ReportStepProgress so that
+		// stepIndex becomes `i`, resulting in increasing work values.
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits)
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
