@@ -616,37 +616,6 @@ godoc -http=:6060
 # Puis ouvrir http://localhost:6060/pkg/example.com/fibcalc/
 ```
 
-### CI/CD
-
-Le projet est prêt pour l'intégration continue avec GitHub Actions. Configuration suggérée :
-
-```yaml
-# .github/workflows/ci.yml (exemple)
-name: CI
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.23', '1.24', '1.25']
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go-version }}
-      - run: make test
-      - run: make benchmark
-      - run: make coverage
-```
-
-**Intégration recommandée :**
-- Tests automatiques sur Go 1.23+
-- Vérification du linting avec `golangci-lint`
-- Build multi-plateforme (Linux, Windows, macOS)
-- Génération de rapports de couverture
-- Tests de build Docker
-
 ## 10. Déploiement
 
 ### Docker
