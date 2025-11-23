@@ -1,7 +1,7 @@
 # Calculateur Haute Performance pour la Suite de Fibonacci
 
 ![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 ![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen)
 
