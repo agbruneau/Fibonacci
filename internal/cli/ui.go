@@ -34,17 +34,26 @@ func FormatExecutionDuration(d time.Duration) string {
 }
 
 const (
-	// ANSI escape codes for text styling.
-	ColorReset     = "\033[0m"
-	ColorRed       = "\033[31m"
-	ColorGreen     = "\033[32m"
-	ColorYellow    = "\033[33m"
-	ColorBlue      = "\033[34m"
-	ColorMagenta   = "\033[35m"
-	ColorCyan      = "\033[36m"
-	ColorBold      = "\033[1m"
+	// ColorReset is the ANSI escape code to reset text formatting.
+	ColorReset = "\033[0m"
+	// ColorRed is the ANSI escape code for red text.
+	ColorRed = "\033[31m"
+	// ColorGreen is the ANSI escape code for green text.
+	ColorGreen = "\033[32m"
+	// ColorYellow is the ANSI escape code for yellow text.
+	ColorYellow = "\033[33m"
+	// ColorBlue is the ANSI escape code for blue text.
+	ColorBlue = "\033[34m"
+	// ColorMagenta is the ANSI escape code for magenta text.
+	ColorMagenta = "\033[35m"
+	// ColorCyan is the ANSI escape code for cyan text.
+	ColorCyan = "\033[36m"
+	// ColorBold is the ANSI escape code for bold text.
+	ColorBold = "\033[1m"
+	// ColorUnderline is the ANSI escape code for underlined text.
 	ColorUnderline = "\033[4m"
-	// TruncationLimit is the digit threshold from which a result is truncated.
+	// TruncationLimit is the digit threshold from which a result is truncated
+	// in standard output to avoid cluttering the terminal.
 	TruncationLimit = 100
 	// DisplayEdges specifies the number of digits to display at the beginning
 	// and end of a truncated number.
@@ -77,14 +86,19 @@ type realSpinner struct {
 	s *spinner.Spinner
 }
 
+// Start begins the spinner animation.
 func (rs *realSpinner) Start() {
 	rs.s.Start()
 }
 
+// Stop halts the spinner animation.
 func (rs *realSpinner) Stop() {
 	rs.s.Stop()
 }
 
+// UpdateSuffix sets the text that is displayed after the spinner.
+//
+// The suffix is the string to display.
 func (rs *realSpinner) UpdateSuffix(suffix string) {
 	rs.s.Suffix = suffix
 }
@@ -148,6 +162,10 @@ func (ps *ProgressState) CalculateAverage() float64 {
 }
 
 // progressBar generates a string representing a textual progress bar.
+//
+// The current progress (0.0 to 1.0) is progress. The width of the bar in characters is length.
+//
+// It returns a string representing the progress bar.
 func progressBar(progress float64, length int) string {
 	if progress > 1.0 {
 		progress = 1.0

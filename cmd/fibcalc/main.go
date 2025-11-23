@@ -32,6 +32,9 @@ var calculatorRegistry = map[string]fibonacci.Calculator{
 	"fft":    fibonacci.NewCalculator(&fibonacci.FFTBasedCalculator{}),
 }
 
+// init initializes the application and verifies the integrity of the calculator
+// registry. It ensures that all registered calculators are properly instantiated
+// before the application starts.
 func init() {
 	for name, calc := range calculatorRegistry {
 		if calc == nil {
@@ -40,6 +43,11 @@ func init() {
 	}
 }
 
+// getSortedCalculatorKeys returns a sorted list of the names of available
+// algorithms. This ensures a consistent order when displaying options or running
+// comparisons.
+//
+// It returns a slice of strings containing the sorted keys.
 func getSortedCalculatorKeys() []string {
 	keys := make([]string, 0, len(calculatorRegistry))
 	for k := range calculatorRegistry {
@@ -49,6 +57,13 @@ func getSortedCalculatorKeys() []string {
 	return keys
 }
 
+// main is the entry point of the application.
+// It performs the following steps:
+// 1. Parses the configuration from command-line arguments.
+// 2. Loads internationalization resources (optional).
+// 3. Configures global settings like the Strassen threshold.
+// 4. Starts the application in either server mode or CLI mode based on the
+//    configuration.
 func main() {
 	availableAlgos := getSortedCalculatorKeys()
 	cfg, err := config.ParseConfig(os.Args[0], os.Args[1:], os.Stderr, availableAlgos)
@@ -80,6 +95,15 @@ func main() {
 	os.Exit(exitCode)
 }
 
+// run orchestrates the execution of the CLI application.
+// It manages the lifecycle of the application, including handling timeouts and
+// termination signals. It delegates the actual work to the calibration,
+// orchestration, or calculation modules based on the user's configuration.
+//
+// The context ctx is used for cancellation. The application configuration is
+// cfg. The writer out is used for standard output.
+//
+// It returns an exit code (0 for success, non-zero for errors).
 func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	if cfg.Calibrate {
 		return calibration.RunCalibration(ctx, out, calculatorRegistry)
@@ -128,6 +152,12 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	return orchestration.AnalyzeComparisonResults(results, cfg, out)
 }
 
+// getCalculatorsToRun determines which calculators should be executed based on
+// the configuration.
+//
+// The application configuration is cfg.
+//
+// It returns a slice of calculators to be executed.
 func getCalculatorsToRun(cfg config.AppConfig) []fibonacci.Calculator {
 	if cfg.Algo == "all" {
 		keys := getSortedCalculatorKeys()
@@ -140,12 +170,24 @@ func getCalculatorsToRun(cfg config.AppConfig) []fibonacci.Calculator {
 	return []fibonacci.Calculator{calculatorRegistry[cfg.Algo]}
 }
 
+// writeOut writes a formatted string to the output writer, handling any write
+// errors by printing to standard error. This ensures that output issues do not
+// crash the application but are reported.
+//
+// The destination writer is out. The format string and arguments are same as
+// fmt.Printf.
 func writeOut(out io.Writer, format string, a ...interface{}) {
 	if _, err := fmt.Fprintf(out, format, a...); err != nil {
 		fmt.Fprintln(os.Stderr, "[Output Error]:", err)
 	}
 }
 
+// printJSONResults formats the calculation results as a JSON array and writes
+// them to the output. This is useful for programmatic consumption of the results.
+//
+// The results to format are results. The destination writer is out.
+//
+// It returns an exit code indicating success or failure.
 func printJSONResults(results []orchestration.CalculationResult, out io.Writer) int {
 	type jsonResult struct {
 		Algorithm string `json:"algorithm"`

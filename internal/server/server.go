@@ -19,19 +19,21 @@ import (
 )
 
 const (
-	// DefaultRequestTimeout is the maximum duration for a single request
+	// DefaultRequestTimeout is the maximum duration for a single request.
 	DefaultRequestTimeout = 5 * time.Minute
-	// DefaultShutdownTimeout is the maximum duration for graceful shutdown
+	// DefaultShutdownTimeout is the maximum duration allowed for graceful shutdown.
 	DefaultShutdownTimeout = 30 * time.Second
-	// DefaultReadTimeout is the maximum duration for reading the request
+	// DefaultReadTimeout is the maximum duration for reading the entire request, including the body.
 	DefaultReadTimeout = 10 * time.Second
-	// DefaultWriteTimeout is the maximum duration for writing the response
+	// DefaultWriteTimeout is the maximum duration before timing out writes of the response.
 	DefaultWriteTimeout = 10 * time.Minute
-	// DefaultIdleTimeout is the maximum duration for idle connections
+	// DefaultIdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled.
 	DefaultIdleTimeout = 2 * time.Minute
 )
 
 // Server represents the HTTP server for the Fibonacci calculator API.
+// It wraps the standard http.Server and adds application-specific configuration
+// and graceful shutdown capabilities.
 type Server struct {
 	registry       map[string]fibonacci.Calculator
 	cfg            config.AppConfig
@@ -40,25 +42,38 @@ type Server struct {
 	shutdownSignal chan os.Signal
 }
 
-// Response represents the JSON response for a calculation request.
+// Response represents the standardized JSON response for a calculation request.
 type Response struct {
-	N        uint64   `json:"n"`
-	Result   *big.Int `json:"result,omitempty"`
-	Duration string   `json:"duration"`
-	Error    string   `json:"error,omitempty"`
-	Algorithm string  `json:"algorithm"`
+	// N is the index of the Fibonacci number requested.
+	N uint64 `json:"n"`
+	// Result is the calculated Fibonacci number. It is omitted if an error occurred.
+	Result *big.Int `json:"result,omitempty"`
+	// Duration is the formatted execution time string.
+	Duration string `json:"duration"`
+	// Error contains the error message if the calculation failed.
+	Error string `json:"error,omitempty"`
+	// Algorithm is the name of the algorithm used for the calculation.
+	Algorithm string `json:"algorithm"`
 }
 
-// ErrorResponse represents the JSON response for an error.
+// ErrorResponse represents the standardized JSON response for an API error.
 type ErrorResponse struct {
-	Error   string `json:"error"`
+	// Error is the short error code or status text.
+	Error string `json:"error"`
+	// Message is a descriptive error message.
 	Message string `json:"message,omitempty"`
 }
 
-// NewServer creates a new server instance with the given calculator registry and configuration.
+// NewServer creates a new Server instance with the given calculator registry and configuration.
+// It initializes the HTTP server with timeouts and a request multiplexer.
+//
+// The registry maps algorithm names to their calculator implementations.
+// The cfg parameter contains the application configuration, including port and thresholds.
+//
+// It returns a pointer to the initialized Server.
 func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig) *Server {
 	logger := log.New(os.Stdout, "[SERVER] ", log.LstdFlags)
-	
+
 	s := &Server{
 		registry:       registry,
 		cfg:            cfg,
@@ -82,7 +97,11 @@ func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig) *
 	return s
 }
 
-// Start starts the HTTP server with graceful shutdown support.
+// Start initializes and starts the HTTP server.
+// It listens for incoming requests on the configured port and handles system
+// signals (SIGINT, SIGTERM) to ensure a graceful shutdown.
+//
+// It returns an error if the server fails to start or shuts down unexpectedly.
 func (s *Server) Start() error {
 	// Setup signal handling for graceful shutdown
 	signal.Notify(s.shutdownSignal, os.Interrupt, syscall.SIGTERM)
@@ -96,7 +115,7 @@ func (s *Server) Start() error {
 		s.logger.Println("  GET /calculate?n=<number>&algo=<algorithm>")
 		s.logger.Println("  GET /health")
 		s.logger.Println("  GET /algorithms")
-		
+
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			s.logger.Fatalf("Server error: %v\n", err)
 		}
@@ -119,20 +138,30 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// loggingMiddleware logs incoming requests and their duration.
+// loggingMiddleware wraps an http.HandlerFunc to log the details of each request.
+// It records the HTTP method, URL path, remote address, and the duration required
+// to process the request.
+//
+// The next handler in the chain is next.
+//
+// It returns an http.HandlerFunc that executes the logging logic before and after
+// calling the next handler.
 func (s *Server) loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		s.logger.Printf("%s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
-		
+
 		next(w, r)
-		
+
 		duration := time.Since(start)
 		s.logger.Printf("%s %s completed in %v", r.Method, r.URL.Path, duration)
 	}
 }
 
-// handleHealth responds with the server health status.
+// handleHealth responds to health check requests.
+// It returns a 200 OK status with a JSON payload indicating the service is healthy.
+//
+// The response writer is w, and the request is r.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.writeErrorResponse(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -140,14 +169,17 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"status": "healthy",
+		"status":    "healthy",
 		"timestamp": time.Now().Unix(),
 	}
-	
+
 	s.writeJSONResponse(w, http.StatusOK, response)
 }
 
-// handleAlgorithms returns the list of available algorithms.
+// handleAlgorithms returns the list of available Fibonacci calculation algorithms.
+// It queries the internal registry and returns the keys as a JSON array.
+//
+// The response writer is w, and the request is r.
 func (s *Server) handleAlgorithms(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.writeErrorResponse(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -162,11 +194,15 @@ func (s *Server) handleAlgorithms(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"algorithms": algorithms,
 	}
-	
+
 	s.writeJSONResponse(w, http.StatusOK, response)
 }
 
-// handleCalculate handles Fibonacci calculation requests.
+// handleCalculate processes requests to calculate Fibonacci numbers.
+// It parses the query parameters 'n' (the index) and 'algo' (the algorithm),
+// executes the calculation, and returns the result in JSON format.
+//
+// The response writer is w, and the request is r.
 func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.writeErrorResponse(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -193,7 +229,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 
 	calc, ok := s.registry[algo]
 	if !ok {
-		s.writeErrorResponse(w, http.StatusBadRequest, 
+		s.writeErrorResponse(w, http.StatusBadRequest,
 			fmt.Sprintf("Invalid 'algo' parameter: '%s' is not a valid algorithm", algo))
 		return
 	}
@@ -224,17 +260,21 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	s.writeJSONResponse(w, http.StatusOK, resp)
 }
 
-// writeJSONResponse writes a JSON response with the given status code.
+// writeJSONResponse helper function to write a JSON response with the correct content type.
+//
+// The response writer is w. The HTTP status code is statusCode. The data to encode is data.
 func (s *Server) writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		s.logger.Printf("Error encoding JSON response: %v", err)
 	}
 }
 
-// writeErrorResponse writes an error response as JSON.
+// writeErrorResponse helper function to write a standardized error response.
+//
+// The response writer is w. The HTTP status code is statusCode. The error message is message.
 func (s *Server) writeErrorResponse(w http.ResponseWriter, statusCode int, message string) {
 	errResp := ErrorResponse{
 		Error:   http.StatusText(statusCode),

@@ -17,7 +17,19 @@ import (
 	"example.com/fibcalc/internal/i18n"
 )
 
-// RunCalibration runs benchmarks to determine the optimal parallelism threshold.
+// RunCalibration executes a comprehensive benchmark to determine the optimal
+// parallelism threshold for the current hardware.
+//
+// It iterates through a predefined set of bit thresholds (from 0 to 16384),
+// executing a standard Fibonacci calculation (N=10,000,000) for each. The
+// execution times are recorded and compared to identify the threshold that yields
+// the fastest performance.
+//
+// The context ctx is used for cancellation. The writer out is used for
+// outputting progress and results. The calculatorRegistry provides access to the
+// "fast" algorithm used for benchmarking.
+//
+// It returns an exit code (0 for success, non-zero for errors).
 func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) int {
 	fmt.Fprintf(out, "%s\n", i18n.Messages["CalibrationTitle"])
 	const calibrationN = 10_000_000
@@ -99,7 +111,21 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 	return apperrors.ExitSuccess
 }
 
-// AutoCalibrate performs a quick calibration of parallelism and FFT thresholds.
+// AutoCalibrate runs a quick startup calibration to fine-tune performance
+// parameters.
+//
+// Unlike the full `RunCalibration`, this function performs a heuristic search
+// for optimal values for parallelism, FFT, and Strassen thresholds using a
+// subset of candidates. It is designed to be fast enough to run at application
+// startup without significant delay.
+//
+// The context parentCtx manages the calibration timeout. The initial
+// configuration cfg provides starting values and constraints. The writer out is
+// used for logging. The calculatorRegistry provides access to the necessary
+// algorithms.
+//
+// It returns the updated configuration and a boolean indicating if calibration
+// was successful.
 func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (config.AppConfig, bool) {
 	calc := calculatorRegistry["fast"]
 	if calc == nil {
@@ -193,6 +219,14 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	return updated, true
 }
 
+// handleCalculationError formats and prints error messages related to failed calculations.
+// It distinguishes between different error types (timeout, cancellation, generic)
+// to provide the user with specific feedback.
+//
+// The error that occurred is err. The duration of the execution before failure is
+// duration. The writer out is used for output.
+//
+// It returns an appropriate exit code based on the error type.
 func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
 		return apperrors.ExitSuccess
