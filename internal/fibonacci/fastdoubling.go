@@ -137,14 +137,32 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			// and running them in parallel causes contention.
 			// We check if the operands are large enough for FFT.
 			// Note: We use the same threshold logic as in mul().
-			minBitLen := s.f_k.BitLen() // Approximate check
-			if minBitLen > fftThreshold && fftThreshold > 0 {
-				return false
+			// If we are using FFT (minBitLen > fftThreshold), we only parallelize
+			// if the numbers are huge (e.g. > 10M bits) to overcome concurrency overhead.
+			// Benchmarks show that at 7M bits (N=10M), sequential is faster (78ms vs 98ms).
+			// At 173M bits (N=250M), parallel is essential.
+			// We set a heuristic threshold of 10M bits for parallel FFT.
+			if fftThreshold > 0 {
+				minBitLen := s.f_k.BitLen()
+				if minBitLen > fftThreshold {
+					return minBitLen > 10_000_000
+				}
 			}
-
 			return bl > threshold
 		}() {
-			parallelMultiply3Optimized(s, mul)
+			// Inline parallel execution to avoid closure allocations
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				s.t3 = mul(s.t3, s.f_k, s.t2)
+				wg.Done()
+			}()
+			go func() {
+				s.t1 = mul(s.t1, s.f_k1, s.f_k1)
+				wg.Done()
+			}()
+			s.t4 = mul(s.t4, s.f_k, s.f_k)
+			wg.Wait()
 		} else {
 			s.t3 = mul(s.t3, s.f_k, s.t2)
 			s.t1 = mul(s.t1, s.f_k1, s.f_k1)
