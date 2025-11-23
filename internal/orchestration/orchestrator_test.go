@@ -1,0 +1,147 @@
+package orchestration
+
+import (
+	"context"
+	"errors"
+	"math/big"
+	"testing"
+	"time"
+
+	"example.com/fibcalc/internal/config"
+	apperrors "example.com/fibcalc/internal/errors"
+	"example.com/fibcalc/internal/fibonacci"
+)
+
+// MockCalculator is a mock implementation of fibonacci.Calculator
+type MockCalculator struct {
+	NameFunc      func() string
+	CalculateFunc func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
+}
+
+func (m *MockCalculator) Name() string {
+	if m.NameFunc != nil {
+		return m.NameFunc()
+	}
+	return "Mock"
+}
+
+func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+	if m.CalculateFunc != nil {
+		// Create a dummy reporter that sends to the channel
+		reporter := func(progress float64) {
+			if progressChan != nil {
+				progressChan <- fibonacci.ProgressUpdate{CalculatorIndex: index, Value: progress}
+			}
+		}
+		return m.CalculateFunc(ctx, reporter, index, n, threshold, fftThreshold)
+	}
+	return big.NewInt(0), nil
+}
+
+func TestExecuteCalculations(t *testing.T) {
+	tests := []struct {
+		name        string
+		calculators []fibonacci.Calculator
+		expectedLen int
+		expectError bool
+	}{
+		{
+			name: "Single success",
+			calculators: []fibonacci.Calculator{
+				&MockCalculator{
+					CalculateFunc: func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+						return big.NewInt(1), nil
+					},
+				},
+			},
+			expectedLen: 1,
+			expectError: false,
+		},
+		{
+			name: "Single failure",
+			calculators: []fibonacci.Calculator{
+				&MockCalculator{
+					CalculateFunc: func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+						return nil, errors.New("mock error")
+					},
+				},
+			},
+			expectedLen: 1,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results := ExecuteCalculations(context.Background(), tt.calculators, config.AppConfig{}, &DiscardWriter{})
+			if len(results) != tt.expectedLen {
+				t.Errorf("expected %d results, got %d", tt.expectedLen, len(results))
+			}
+			if tt.expectError {
+				if results[0].Err == nil {
+					t.Errorf("expected error, got nil")
+				}
+			} else {
+				if results[0].Err != nil {
+					t.Errorf("unexpected error: %v", results[0].Err)
+				}
+			}
+		})
+	}
+}
+
+func TestAnalyzeComparisonResults(t *testing.T) {
+	tests := []struct {
+		name           string
+		results        []CalculationResult
+		expectedStatus int
+	}{
+		{
+			name: "All success",
+			results: []CalculationResult{
+				{Name: "A", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
+				{Name: "B", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
+			},
+			expectedStatus: apperrors.ExitSuccess,
+		},
+		{
+			name: "Mismatch",
+			results: []CalculationResult{
+				{Name: "A", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
+				{Name: "B", Result: big.NewInt(6), Duration: time.Millisecond, Err: nil},
+			},
+			expectedStatus: apperrors.ExitErrorMismatch,
+		},
+		{
+			name: "All failure",
+			results: []CalculationResult{
+				{Name: "A", Result: nil, Duration: time.Millisecond, Err: errors.New("fail")},
+				{Name: "B", Result: nil, Duration: time.Millisecond, Err: errors.New("fail")},
+			},
+			expectedStatus: apperrors.ExitErrorGeneric,
+		},
+		{
+			name: "Mixed success/failure",
+			results: []CalculationResult{
+				{Name: "A", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
+				{Name: "B", Result: nil, Duration: time.Millisecond, Err: errors.New("fail")},
+			},
+			expectedStatus: apperrors.ExitSuccess,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := AnalyzeComparisonResults(tt.results, config.AppConfig{}, &DiscardWriter{})
+			if status != tt.expectedStatus {
+				t.Errorf("expected status %d, got %d", tt.expectedStatus, status)
+			}
+		})
+	}
+}
+
+type DiscardWriter struct{}
+
+func (d *DiscardWriter) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
