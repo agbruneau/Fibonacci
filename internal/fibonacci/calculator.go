@@ -52,10 +52,14 @@ var (
 	bigIntThree = big.NewInt(3)
 )
 
-// CalcTotalWork calculates the total work for O(log n) algorithms.
+// CalcTotalWork calculates the total work expected for O(log n) algorithms.
 // The number of weighted steps is modeled as a geometric series.
-// Since we are iterating bits, the work is roughly proportional to the bit index.
-// We use a float64 approximation which is sufficient for progress bars.
+// Since the algorithms iterate over bits, the work involved is roughly
+// proportional to the bit index.
+//
+// The number of bits in the input is numBits.
+//
+// It returns a float64 representing the estimated total work units.
 func CalcTotalWork(numBits int) float64 {
 	// Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
 	// We use a simplified model where work roughly quadruples each bit.
@@ -91,7 +95,16 @@ func CalcTotalWork(numBits int) float64 {
 	return (math.Pow(4, float64(numBits)) - 1) / 3
 }
 
-// ReportStepProgress handles harmonized progress reporting.
+// ReportStepProgress handles harmonized progress reporting for the calculation algorithms.
+// It calculates the cumulative work done based on the current bit iteration and
+// reports progress via the provided callback if a significant change has occurred.
+//
+// The callback to report progress is progressReporter. A pointer to the last
+// reported progress value is lastReported. The total estimated work is totalWork.
+// The work completed so far is workDone. The current bit index is i. The total
+// number of bits is numBits.
+//
+// It returns the updated cumulative work done.
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone float64, i, numBits int) float64 {
 	const ReportThreshold = 0.01
 

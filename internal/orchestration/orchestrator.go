@@ -21,16 +21,37 @@ import (
 )
 
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
+// It serves as a standardized container for results from different algorithms,
+// facilitating comparison and reporting.
 type CalculationResult struct {
-	Name     string
-	Result   *big.Int
+	// Name is the identifier of the algorithm used (e.g., "Fast Doubling").
+	Name string
+	// Result is the computed Fibonacci number. It is nil if an error occurred.
+	Result *big.Int
+	// Duration is the time taken to complete the calculation.
 	Duration time.Duration
-	Err      error
+	// Err contains any error that occurred during the calculation.
+	Err error
 }
 
+// ProgressBufferMultiplier defines the buffer size multiplier for the progress
+// channel. A larger buffer reduces the likelihood of blocking calculation
+// goroutines when the UI is slow to consume updates.
 const ProgressBufferMultiplier = 5
 
-// ExecuteCalculations orchestrates the concurrent execution of one or more Fibonacci calculations.
+// ExecuteCalculations orchestrates the concurrent execution of one or more
+// Fibonacci calculations.
+//
+// It manages the lifecycle of calculation goroutines, collects their results,
+// and coordinates the display of progress updates. This function is the core of
+// the application's concurrency model.
+//
+// The context ctx is used for cancellation. The list of calculators to run is
+// calculators. The application configuration is cfg. The writer out is used
+// for progress display.
+//
+// It returns a slice of CalculationResult containing the outcomes of all
+// executed calculations.
 func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, out io.Writer) []CalculationResult {
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]CalculationResult, len(calculators))
@@ -59,7 +80,18 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 	return results
 }
 
-// AnalyzeComparisonResults processes and displays the final results.
+// AnalyzeComparisonResults processes the results from multiple algorithms and
+// generates a summary report.
+//
+// It sorts the results by execution time, validates consistency across
+// successful calculations, and displays a comparative table. It handles the
+// logic for determining global success or failure based on the individual
+// outcomes.
+//
+// The results to analyze are results. The application configuration is cfg. The
+// writer out is used for the report output.
+//
+// It returns an exit code (0 for success, non-zero for errors).
 func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, out io.Writer) int {
 	sort.Slice(results, func(i, j int) bool {
 		if (results[i].Err == nil) != (results[j].Err == nil) {
@@ -126,6 +158,12 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	return apperrors.ExitSuccess
 }
 
+// handleCalculationError formats and displays an error message for a failed calculation.
+// It provides specific messages for timeout and cancellation scenarios.
+//
+// The error is err. The execution duration is duration. The writer out is used for output.
+//
+// It returns an appropriate exit code.
 func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
 		return apperrors.ExitSuccess

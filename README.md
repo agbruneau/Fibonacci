@@ -45,6 +45,7 @@
   - [9. Développement](#9-développement)
     - [Makefile](#makefile)
     - [Structure du projet](#structure-du-projet)
+    - [Documentation](#documentation)
     - [CI/CD](#cicd)
   - [10. Déploiement](#10-déploiement)
     - [Docker](#docker-1)
@@ -596,6 +597,23 @@ make docker-build  # Construire l'image Docker
 ├── go.sum                         # 🔒 Checksums des dépendances
 ├── LICENSE                        # ⚖️ Licence MIT
 └── README.md                      # 📚 Ce fichier - Documentation principale
+```
+
+### Documentation
+
+Le code source de ce projet est entièrement documenté selon les conventions GoDoc. Chaque fonction, type et méthode exportés dispose d'une documentation complète expliquant son objectif, ses paramètres et ses valeurs de retour.
+
+Vous pouvez consulter la documentation locale en utilisant l'outil `go doc` :
+
+```bash
+go doc ./...
+```
+
+Ou générer une documentation HTML locale :
+
+```bash
+godoc -http=:6060
+# Puis ouvrir http://localhost:6060/pkg/example.com/fibcalc/
 ```
 
 ### CI/CD
