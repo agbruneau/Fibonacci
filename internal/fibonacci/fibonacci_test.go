@@ -87,13 +87,13 @@ func TestProgressCalculationLogic(t *testing.T) {
 		t.Fatal("Insufficient progress updates received to validate logic.")
 	}
 
-	// The work for the first half of the bits should be overwhelmingly larger
-	// than the second half. Progress should be > 99.9% after the first few updates.
-	// A flawed, inverted logic would show very slow progress initially.
-	// We expect the first reported progress (after the initial 0.0) to be substantial.
+	// The work for the first half of the bits (MSB for Fast Doubling, or LSB for Matrix Exp)
+	// corresponds to operations on small numbers. The work grows exponentially as we proceed.
+	// Therefore, progress should be slow initially and accelerate towards the end.
+	// We expect the first reported progress (after the initial 0.0) to be small.
 	firstReportedProgress := progressUpdates[0]
-	if firstReportedProgress < 0.75 {
-		t.Errorf("Expected initial progress to be very high, reflecting the work of the MSBs."+
+	if firstReportedProgress > 0.25 {
+		t.Errorf("Expected initial progress to be low, reflecting the small work of the early steps."+
 			" Got: %f. This may indicate inverted progress logic.", firstReportedProgress)
 	}
 }
