@@ -9,6 +9,7 @@ package fibonacci
 
 import (
 	"context"
+	"math"
 	"math/big"
 )
 
@@ -52,49 +53,71 @@ var (
 )
 
 // CalcTotalWork calculates the total work for O(log n) algorithms.
-// The number of weighted steps is modeled as a geometric series, which allows for
-// a more accurate progress representation. The function is optimized to reuse
-// pre-calculated constants.
-//
-// The number of bits in the input number 'n' is numBits.
-//
-// It returns a *big.Int representing the total work.
-func CalcTotalWork(numBits int) *big.Int {
-	totalWork := new(big.Int)
-	if numBits > 0 {
-		totalWork.Exp(bigIntFour, big.NewInt(int64(numBits)), nil).Sub(totalWork, bigIntOne).Div(totalWork, bigIntThree)
+// The number of weighted steps is modeled as a geometric series.
+// Since we are iterating bits, the work is roughly proportional to the bit index.
+// We use a float64 approximation which is sufficient for progress bars.
+func CalcTotalWork(numBits int) float64 {
+	// Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
+	// We use a simplified model where work roughly quadruples each bit.
+	// For large n, this can overflow float64, but we only need the ratio.
+	// Actually, for progress bars, we can just sum the weights.
+	// Since we only need a ratio, we can normalize.
+	// However, to avoid overflow for large numBits (though numBits <= 64 for uint64 n),
+	// we can just use the property that the last few steps dominate.
+	// Let's stick to a simple weight model: weight(i) = 1 << (i * 2) ?
+	// No, multiplication cost M(k) is roughly k^1.6.
+	// k grows linearly.
+	// So work at step i (0 to numBits-1) is i^1.6.
+	// Total work is sum(i^1.6).
+	total := 0.0
+	for i := 1; i <= numBits; i++ {
+		total += float64(i) // Approximation: linear growth of bits -> quadratic work?
+		// Actually, let's stick to the existing logic but with floats:
+		// Work doubles or quadruples?
+		// Fast doubling: F(2k) involves multiplication of size k.
+		// Size k doubles every step.
+		// Multiplication cost M(N) approx N^1.6.
+		// So cost scales by 2^1.6 approx 3.
+		// Let's assume factor 3 growth per step.
 	}
-	return totalWork
+	// Reverting to the original logic's assumption of factor 4 (geometric series)
+	// but using float64. 4^64 overflows float64?
+	// 4^64 = 2^128 approx 3e38. Float64 max is 1e308. It fits easily.
+	if numBits == 0 {
+		return 0
+	}
+	// (4^n - 1) / 3
+	// We can compute this iteratively or using Pow.
+	return (math.Pow(4, float64(numBits)) - 1) / 3
 }
 
-// ReportStepProgress handles harmonized progress reporting for algorithms that
-// iterate over the bits of 'n'.
-func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone, workOfStep *big.Int, i, numBits int, reversed bool) {
+// ReportStepProgress handles harmonized progress reporting.
+func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone float64, i, numBits int) float64 {
 	const ReportThreshold = 0.01
-	if totalWork.Sign() > 0 {
-		if workOfStep.Sign() == 0 {
-			if reversed {
-				workOfStep.Exp(bigIntFour, big.NewInt(int64(numBits-1)), nil)
-			} else {
-				workOfStep.SetInt64(1)
-			}
-		} else {
-			if reversed {
-				workOfStep.Rsh(workOfStep, 2)
-			} else {
-				workOfStep.Lsh(workOfStep, 2)
-			}
-		}
-		workDone.Add(workDone, workOfStep)
 
-		if i%8 == 0 || i == numBits-1 {
-			currentProgress := approxProgress(workDone, totalWork)
-			if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
-				progressReporter(currentProgress)
-				*lastReported = currentProgress
-			}
+	// Work for this step (bit i, counting down from numBits-1 to 0)
+	// The step index in the geometric series is (numBits - 1 - i).
+	// Wait, the loop goes i = numBits-1 down to 0.
+	// At i=numBits-1 (start), we are at small numbers? No, we start from MSB.
+	// Fast doubling starts from MSB (small current value) and doubles up.
+	// So at i=numBits-1, we have F(1). Small work.
+	// At i=0, we have F(n). Huge work.
+	// So the work is proportional to 4^(numBits - 1 - i).
+
+	stepIndex := numBits - 1 - i
+	workOfStep := math.Pow(4, float64(stepIndex))
+
+	currentTotalDone := workDone + workOfStep
+
+	// Only report if enough progress or boundaries
+	if totalWork > 0 {
+		currentProgress := currentTotalDone / totalWork
+		if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
+			progressReporter(currentProgress)
+			*lastReported = currentProgress
 		}
 	}
+	return currentTotalDone
 }
 
 // approxProgress calculates the approximate ratio of num / den as a float64.

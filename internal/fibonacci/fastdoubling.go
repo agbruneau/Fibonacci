@@ -15,18 +15,25 @@ import (
 //
 // Formula Derivation:
 // The algorithm's identities can be derived from the matrix exponentiation form:
-//   [ F(n+1) F(n)   ] = [ 1 1 ]^n
-//   [ F(n)   F(n-1) ]   [ 1 0 ]
+//
+//	[ F(n+1) F(n)   ] = [ 1 1 ]^n
+//	[ F(n)   F(n-1) ]   [ 1 0 ]
+//
 // By squaring the matrix for F(k), we get the matrix for F(2k):
-//   [ F(k+1) F(k) ]^2 = [ F(k+1)²+F(k)²     F(k+1)F(k)+F(k)F(k-1) ]
-//   [ F(k)   F(k-1) ]  [ F(k)F(k+1)+F(k-1)F(k) F(k)²+F(k-1)²     ]
+//
+//	[ F(k+1) F(k) ]^2 = [ F(k+1)²+F(k)²     F(k+1)F(k)+F(k)F(k-1) ]
+//	[ F(k)   F(k-1) ]  [ F(k)F(k+1)+F(k-1)F(k) F(k)²+F(k-1)²     ]
+//
 // This simplifies to the matrix for F(2k):
-//   [ F(2k+1) F(2k)   ]
-//   [ F(2k)   F(2k-1) ]
+//
+//	[ F(2k+1) F(2k)   ]
+//	[ F(2k)   F(2k-1) ]
+//
 // From this, we extract the two core identities:
-//   F(2k)   = F(k) * (F(k+1) + F(k-1)) = F(k) * (F(k+1) + (F(k+1) - F(k)))
-//           = F(k) * [2*F(k+1) - F(k)]
-//   F(2k+1) = F(k+1)² + F(k)²
+//
+//	F(2k)   = F(k) * (F(k+1) + F(k-1)) = F(k) * (F(k+1) + (F(k+1) - F(k)))
+//	        = F(k) * [2*F(k+1) - F(k)]
+//	F(2k+1) = F(k+1)² + F(k)²
 //
 // Algorithmic Complexity:
 // The time complexity is often cited as O(log n), which refers to the number of
@@ -108,7 +115,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
-	var workDone, workOfStep big.Int
+	workDone := 0.0
 	lastReportedProgress := -1.0
 
 	for i := numBits - 1; i >= 0; i-- {
@@ -125,6 +132,16 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			if b := s.f_k.BitLen(); b > bl {
 				bl = b
 			}
+			// Disable parallel multiplication if FFT is likely to be used,
+			// as FFT implementations (like bigfft) often saturate CPU cores,
+			// and running them in parallel causes contention.
+			// We check if the operands are large enough for FFT.
+			// Note: We use the same threshold logic as in mul().
+			minBitLen := s.f_k.BitLen() // Approximate check
+			if minBitLen > fftThreshold && fftThreshold > 0 {
+				return false
+			}
+
 			return bl > threshold
 		}() {
 			parallelMultiply3Optimized(s, mul)
@@ -155,7 +172,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		}
 
 		// Harmonized reporting via common utility function
-		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, true)
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
 	}
 	return new(big.Int).Set(s.f_k), nil
 }

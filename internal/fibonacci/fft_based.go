@@ -49,7 +49,7 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 	numBits := bits.Len64(n)
 
 	totalWork := CalcTotalWork(numBits)
-	var workDone, workOfStep big.Int
+	workDone := 0.0
 	lastReportedProgress := -1.0
 
 	for i := numBits - 1; i >= 0; i-- {
@@ -75,7 +75,7 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
 		}
 		// Harmonized reporting via utility function
-		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, true)
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
 	}
 	return new(big.Int).Set(s.f_k), nil
 }

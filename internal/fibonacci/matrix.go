@@ -14,8 +14,10 @@ import (
 // Mathematical Basis:
 // This method is based on a fundamental property of the Fibonacci sequence,
 // which can be expressed in matrix form:
-//   [ F(n+1) F(n)   ] = [ 1 1 ]^n
-//   [ F(n)   F(n-1) ]   [ 1 0 ]
+//
+//	[ F(n+1) F(n)   ] = [ 1 1 ]^n
+//	[ F(n)   F(n-1) ]   [ 1 0 ]
+//
 // To compute F(n), the algorithm calculates the n-th power of the Q-matrix,
 // [[1, 1], [1, 0]], using binary exponentiation (exponentiation by squaring).
 // This reduces the number of matrix multiplications from O(n) to O(log n).
@@ -92,8 +94,9 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	useParallel := runtime.NumCPU() > 1 && threshold > 0
 
 	// Calculate total work for progress reporting via common utility
+	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
-	var workDone, workOfStep big.Int
+	workDone := 0.0
 	lastReportedProgress := -1.0
 
 	for i := 0; i < numBits; i++ {
@@ -101,7 +104,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 			return nil, err
 		}
 		// Harmonized reporting via common utility function
-		ReportStepProgress(reporter, &lastReportedProgress, totalWork, &workDone, &workOfStep, i, numBits, false)
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
@@ -164,16 +167,27 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 	s10.Add(m2.a, m2.b) // e + f
 
 	// Execute the 7 multiplications
-	tasks := []func(){
-		func() { p1 = mul(p1, m1.a, s1) }, // p1 = a * (f - h)
-		func() { p2 = mul(p2, s2, m2.d) }, // p2 = (a + b) * h
-		func() { p3 = mul(p3, s3, m2.a) }, // p3 = (c + d) * e
-		func() { p4 = mul(p4, m1.d, s4) }, // p4 = d * (g - e)
-		func() { p5 = mul(p5, s5, s6) },   // p5 = (a + d) * (e + h)
-		func() { p6 = mul(p6, s7, s8) },   // p6 = (b - d) * (g + h)
-		func() { p7 = mul(p7, s9, s10) },  // p7 = (a - c) * (e + f)
+	// Execute the 7 multiplications
+	if inParallel {
+		var wg sync.WaitGroup
+		wg.Add(7)
+		go func() { p1 = mul(p1, m1.a, s1); wg.Done() }()
+		go func() { p2 = mul(p2, s2, m2.d); wg.Done() }()
+		go func() { p3 = mul(p3, s3, m2.a); wg.Done() }()
+		go func() { p4 = mul(p4, m1.d, s4); wg.Done() }()
+		go func() { p5 = mul(p5, s5, s6); wg.Done() }()
+		go func() { p6 = mul(p6, s7, s8); wg.Done() }()
+		go func() { p7 = mul(p7, s9, s10); wg.Done() }()
+		wg.Wait()
+	} else {
+		p1 = mul(p1, m1.a, s1)
+		p2 = mul(p2, s2, m2.d)
+		p3 = mul(p3, s3, m2.a)
+		p4 = mul(p4, m1.d, s4)
+		p5 = mul(p5, s5, s6)
+		p6 = mul(p6, s7, s8)
+		p7 = mul(p7, s9, s10)
 	}
-	executeTasks(inParallel, tasks)
 
 	// Calculate final matrix elements
 	// Using temporary state variables to avoid modifying destination values prematurely.
@@ -207,13 +221,20 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	b_ad, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
 
-	tasks := []func(){
-		func() { a2 = mul(a2, mat.a, mat.a) },
-		func() { b2 = mul(b2, mat.b, mat.b) },
-		func() { d2 = mul(d2, mat.d, mat.d) },
-		func() { b_ad = mul(b_ad, mat.b, ad) },
+	if inParallel {
+		var wg sync.WaitGroup
+		wg.Add(4)
+		go func() { a2 = mul(a2, mat.a, mat.a); wg.Done() }()
+		go func() { b2 = mul(b2, mat.b, mat.b); wg.Done() }()
+		go func() { d2 = mul(d2, mat.d, mat.d); wg.Done() }()
+		go func() { b_ad = mul(b_ad, mat.b, ad); wg.Done() }()
+		wg.Wait()
+	} else {
+		a2 = mul(a2, mat.a, mat.a)
+		b2 = mul(b2, mat.b, mat.b)
+		d2 = mul(d2, mat.d, mat.d)
+		b_ad = mul(b_ad, mat.b, ad)
 	}
-	executeTasks(inParallel, tasks)
 
 	dest.a.Add(a2, b2)
 	dest.b.Set(b_ad)
@@ -236,17 +257,28 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 	ce, dg := state.p5, state.p6
 	cf, dh := state.s1, state.s2
 
-	tasks := []func(){
-		func() { ae = mul(ae, m1.a, m2.a) },
-		func() { bg = mul(bg, m1.b, m2.c) },
-		func() { af = mul(af, m1.a, m2.b) },
-		func() { bh = mul(bh, m1.b, m2.d) },
-		func() { ce = mul(ce, m1.c, m2.a) },
-		func() { dg = mul(dg, m1.d, m2.c) },
-		func() { cf = mul(cf, m1.c, m2.b) },
-		func() { dh = mul(dh, m1.d, m2.d) },
+	if inParallel {
+		var wg sync.WaitGroup
+		wg.Add(8)
+		go func() { ae = mul(ae, m1.a, m2.a); wg.Done() }()
+		go func() { bg = mul(bg, m1.b, m2.c); wg.Done() }()
+		go func() { af = mul(af, m1.a, m2.b); wg.Done() }()
+		go func() { bh = mul(bh, m1.b, m2.d); wg.Done() }()
+		go func() { ce = mul(ce, m1.c, m2.a); wg.Done() }()
+		go func() { dg = mul(dg, m1.d, m2.c); wg.Done() }()
+		go func() { cf = mul(cf, m1.c, m2.b); wg.Done() }()
+		go func() { dh = mul(dh, m1.d, m2.d); wg.Done() }()
+		wg.Wait()
+	} else {
+		ae = mul(ae, m1.a, m2.a)
+		bg = mul(bg, m1.b, m2.c)
+		af = mul(af, m1.a, m2.b)
+		bh = mul(bh, m1.b, m2.d)
+		ce = mul(ce, m1.c, m2.a)
+		dg = mul(dg, m1.d, m2.c)
+		cf = mul(cf, m1.c, m2.b)
+		dh = mul(dh, m1.d, m2.d)
 	}
-	executeTasks(inParallel, tasks)
 
 	dest.a.Add(ae, bg)
 	dest.b.Add(af, bh)

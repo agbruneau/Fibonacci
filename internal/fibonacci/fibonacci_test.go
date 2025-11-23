@@ -182,7 +182,6 @@ func TestContextCancellation(t *testing.T) {
 	}
 }
 
-
 func runBenchmark(b *testing.B, calc Calculator, n uint64) {
 	ctx := context.Background()
 	b.ReportAllocs()
@@ -206,6 +205,10 @@ func BenchmarkFastDoubling10M(b *testing.B) {
 
 func BenchmarkMatrixExp10M(b *testing.B) {
 	runBenchmark(b, NewCalculator(&MatrixExponentiation{}), 10_000_000)
+}
+
+func BenchmarkFFTBased1M(b *testing.B) {
+	runBenchmark(b, NewCalculator(&FFTBasedCalculator{}), 1_000_000)
 }
 
 func BenchmarkFFTBased10M(b *testing.B) {
