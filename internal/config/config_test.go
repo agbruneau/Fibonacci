@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// TestParseConfig verifies the behavior of the command-line argument parser.
+// It checks that valid arguments are correctly parsed into the AppConfig struct,
+// and that invalid arguments or values trigger the expected errors.
 func TestParseConfig(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -74,6 +77,9 @@ func TestParseConfig(t *testing.T) {
 	}
 }
 
+// TestAppConfig_Validate ensures that the Validate method correctly identifies
+// semantic errors in the configuration, such as negative thresholds or
+// invalid timeout values.
 func TestAppConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name           string

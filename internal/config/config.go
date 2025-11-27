@@ -63,10 +63,13 @@ type AppConfig struct {
 // It ensures that numerical values are within valid ranges and that the chosen
 // algorithm is supported.
 //
-// A slice of the names of the available algorithms is availableAlgos, which is
-// used to validate the Algo field.
+// Parameters:
+//   - availableAlgos: A slice of strings listing the valid algorithm names
+//     (e.g., ["fast", "matrix"]).
 //
-// It returns an error if the configuration is invalid, otherwise nil.
+// Returns:
+//   - error: An error of type ConfigError if the configuration is invalid,
+//     nil otherwise.
 func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
 		return apperrors.NewConfigError("timeout value must be strictly positive")
@@ -98,12 +101,17 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 // The function is designed to be testable by allowing the input arguments and
 // output writer to be specified.
 //
-// The name of the program, used for the help message, is programName. A slice
-// of strings representing the command-line arguments is args. The io.Writer to
-// which parsing errors will be written is errorWriter. A slice of the names of
-// the available algorithms is availableAlgos.
+// Parameters:
+//   - programName: The name of the program, used in the usage message.
+//   - args: A slice of strings representing the command-line arguments
+//     (typically os.Args[1:]).
+//   - errorWriter: An io.Writer where parsing errors and usage information
+//     will be printed.
+//   - availableAlgos: A slice of valid algorithm names for validation.
 //
-// It returns an AppConfig struct and an error if parsing or validation fails.
+// Returns:
+//   - AppConfig: The populated configuration struct.
+//   - error: An error if flag parsing fails or validation fails.
 func ParseConfig(programName string, args []string, errorWriter io.Writer, availableAlgos []string) (AppConfig, error) {
 	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
 	fs.SetOutput(errorWriter)

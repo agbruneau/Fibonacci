@@ -21,7 +21,8 @@ type FFTBasedCalculator struct{}
 
 // Name returns the name of the algorithm, indicating its reliance on FFT.
 //
-// It returns a string with the name of the algorithm.
+// Returns:
+//   - string: The name of the algorithm.
 func (c *FFTBasedCalculator) Name() string {
 	return "FFT-Based Doubling"
 }
@@ -36,12 +37,18 @@ func (c *FFTBasedCalculator) Name() string {
 // expected to be the most performant option, such as with extremely large
 // numbers.
 //
-// The context for managing cancellation is ctx. The function for reporting
-// progress is reporter. The index of the Fibonacci number to calculate is n.
-// The bit size threshold for parallelizing multiplications is threshold. The bit
-// size threshold for using FFT-based multiplication is fftThreshold.
+// Parameters:
+//   - ctx: The context for managing cancellation and deadlines.
+//   - reporter: The function used for reporting progress.
+//   - n: The index of the Fibonacci number to calculate.
+//   - threshold: The bit size threshold for parallelizing multiplications
+//     (ignored in this implementation as it relies purely on FFT).
+//   - fftThreshold: The bit size threshold for using FFT-based multiplication
+//     (ignored in this implementation as it always uses FFT).
 //
-// It returns the calculated Fibonacci number and an error if one occurred.
+// Returns:
+//   - *big.Int: The calculated Fibonacci number.
+//   - error: An error if one occurred (e.g., context cancellation).
 func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	s := acquireState()
 	defer releaseState(s)

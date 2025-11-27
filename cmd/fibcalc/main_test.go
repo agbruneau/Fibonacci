@@ -13,6 +13,7 @@ import (
 )
 
 // stripAnsiCodes removes ANSI escape codes from a string.
+// This helper is used to clean up CLI output for testing assertions.
 func stripAnsiCodes(s string) string {
 	const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
 	re := regexp.MustCompile(ansi)
@@ -20,6 +21,7 @@ func stripAnsiCodes(s string) string {
 }
 
 // TestParseConfig validates the configuration parsing function.
+// It covers nominal cases, argument overrides, and error conditions.
 func TestParseConfig(t *testing.T) {
 	var errorSink bytes.Buffer
 
@@ -65,6 +67,7 @@ func TestParseConfig(t *testing.T) {
 }
 
 // TestRunFunction validates the behavior of the main orchestration function `run`.
+// It tests the integration of configuration, execution, and output generation.
 func TestRunFunction(t *testing.T) {
 
 	t.Run("Simple execution with success", func(t *testing.T) {

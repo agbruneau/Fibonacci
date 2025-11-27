@@ -21,9 +21,11 @@ import (
 // durations less than a second, and the default string representation otherwise.
 // This approach provides a more human-readable output for short durations.
 //
-// The duration to be formatted is d.
+// Parameters:
+//   - d: The duration to format.
 //
-// It returns a string representation of the duration.
+// Returns:
+//   - string: A formatted string representing the duration.
 func FormatExecutionDuration(d time.Duration) string {
 	if d < time.Millisecond {
 		return fmt.Sprintf("%dµs", d.Microseconds())
@@ -76,6 +78,9 @@ type Spinner interface {
 	// Stop halts the spinner animation.
 	Stop()
 	// UpdateSuffix sets the text that is displayed after the spinner.
+	//
+	// Parameters:
+	//   - suffix: The text string to display.
 	UpdateSuffix(suffix string)
 }
 
@@ -98,7 +103,8 @@ func (rs *realSpinner) Stop() {
 
 // UpdateSuffix sets the text that is displayed after the spinner.
 //
-// The suffix is the string to display.
+// Parameters:
+//   - suffix: The string to display.
 func (rs *realSpinner) UpdateSuffix(suffix string) {
 	rs.s.Suffix = suffix
 }
@@ -122,9 +128,11 @@ type ProgressState struct {
 // It sets up the internal storage for tracking the progress of a specified
 // number of calculators.
 //
-// The number of concurrent calculators to track is numCalculators.
+// Parameters:
+//   - numCalculators: The number of calculators to track.
 //
-// It returns a new ProgressState instance.
+// Returns:
+//   - *ProgressState: A pointer to the new progress state object.
 func NewProgressState(numCalculators int) *ProgressState {
 	return &ProgressState{
 		progresses:     make([]float64, numCalculators),
@@ -137,8 +145,9 @@ func NewProgressState(numCalculators int) *ProgressState {
 // implementation it is called sequentially. The method ensures that updates are
 // only applied for valid calculator indices.
 //
-// The index of the calculator providing the update is index. The new progress
-// value, typically between 0.0 and 1.0, is value.
+// Parameters:
+//   - index: The index of the calculator (0 to numCalculators-1).
+//   - value: The progress value (0.0 to 1.0).
 func (ps *ProgressState) Update(index int, value float64) {
 	if index >= 0 && index < len(ps.progresses) {
 		ps.progresses[index] = value
@@ -149,7 +158,8 @@ func (ps *ProgressState) Update(index int, value float64) {
 // This is used to display a single, consolidated progress bar to the user,
 // representing the overall progress of the application.
 //
-// It returns the average progress as a float64 between 0.0 and 1.0.
+// Returns:
+//   - float64: The average progress (0.0 to 1.0).
 func (ps *ProgressState) CalculateAverage() float64 {
 	var totalProgress float64
 	for _, p := range ps.progresses {
@@ -163,9 +173,12 @@ func (ps *ProgressState) CalculateAverage() float64 {
 
 // progressBar generates a string representing a textual progress bar.
 //
-// The current progress (0.0 to 1.0) is progress. The width of the bar in characters is length.
+// Parameters:
+//   - progress: The normalized progress value (0.0 to 1.0).
+//   - length: The total character width of the progress bar.
 //
-// It returns a string representing the progress bar.
+// Returns:
+//   - string: A string representation of the progress bar.
 func progressBar(progress float64, length int) string {
 	if progress > 1.0 {
 		progress = 1.0
@@ -196,10 +209,11 @@ func progressBar(progress float64, length int) string {
 //   - Periodically refreshing the spinner and progress bar.
 //   - Gracefully shutting down when the progress channel is closed.
 //
-// The WaitGroup wg signals completion of the function. The channel for
-// receiving progress updates is progressChan. The number of concurrent
-// calculators being monitored is numCalculators, and out is the output writer
-// for the spinner and progress bar.
+// Parameters:
+//   - wg: A WaitGroup to signal when the display routine is complete.
+//   - progressChan: The channel receiving progress updates.
+//   - numCalculators: The number of calculators contributing to the progress.
+//   - out: The io.Writer to which the progress bar is rendered.
 func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressUpdate, numCalculators int, out io.Writer) {
 	defer wg.Done()
 	if numCalculators <= 0 {
@@ -244,9 +258,13 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 // notation. For very large numbers, it truncates the output unless verbose is
 // true.
 //
-// The calculated Fibonacci number is result. The input number is n, and the
-// execution duration is duration. The verbose and details flags control the
-// level of detail, and out is the output writer.
+// Parameters:
+//   - result: The calculation result.
+//   - n: The index of the Fibonacci number calculated.
+//   - duration: The time taken for the calculation.
+//   - verbose: If true, prints the full number regardless of size.
+//   - details: If true, prints detailed execution metrics.
+//   - out: The io.Writer for the output.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
 	fmt.Fprintf(out, "Result binary size: %s%s%s bits.\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset)
@@ -287,6 +305,12 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 
 // formatNumberString inserts thousand separators into a numeric string.
 // Optimized to reduce memory allocations
+//
+// Parameters:
+//   - s: The numeric string to format.
+//
+// Returns:
+//   - string: The formatted string with comma separators.
 func formatNumberString(s string) string {
 	if len(s) == 0 {
 		return ""

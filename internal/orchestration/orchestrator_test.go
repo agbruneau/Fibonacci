@@ -13,11 +13,13 @@ import (
 )
 
 // MockCalculator is a mock implementation of fibonacci.Calculator
+// used for testing the orchestration logic without invoking real algorithms.
 type MockCalculator struct {
 	NameFunc      func() string
 	CalculateFunc func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 }
 
+// Name returns the mocked name of the calculator.
 func (m *MockCalculator) Name() string {
 	if m.NameFunc != nil {
 		return m.NameFunc()
@@ -25,6 +27,7 @@ func (m *MockCalculator) Name() string {
 	return "Mock"
 }
 
+// Calculate invokes the mocked CalculateFunc.
 func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	if m.CalculateFunc != nil {
 		// Create a dummy reporter that sends to the channel
@@ -38,6 +41,8 @@ func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibo
 	return big.NewInt(0), nil
 }
 
+// TestExecuteCalculations verifies that the orchestrator correctly runs calculators
+// and aggregates their results.
 func TestExecuteCalculations(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -90,6 +95,9 @@ func TestExecuteCalculations(t *testing.T) {
 	}
 }
 
+// TestAnalyzeComparisonResults verifies the logic for comparing results from
+// multiple algorithms. It checks for consistent results, handling of failures,
+// and detection of mismatches.
 func TestAnalyzeComparisonResults(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -140,6 +148,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 	}
 }
 
+// DiscardWriter is a helper that implements io.Writer and discards all data.
 type DiscardWriter struct{}
 
 func (d *DiscardWriter) Write(p []byte) (n int, err error) {

@@ -22,15 +22,17 @@ type MockCalculator struct {
 	Err    error
 }
 
+// Name returns the mock calculator's name.
 func (m *MockCalculator) Name() string {
 	return "Mock"
 }
 
-// Calculate implements the fibonacci.Calculator interface
+// Calculate implements the fibonacci.Calculator interface returning predefined results.
 func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	return m.Result, m.Err
 }
 
+// createTestServer initializes a server instance for testing with default configuration.
 func createTestServer(registry map[string]fibonacci.Calculator) *Server {
 	cfg := config.AppConfig{
 		Port:              "8080",
@@ -41,6 +43,8 @@ func createTestServer(registry map[string]fibonacci.Calculator) *Server {
 	return NewServer(registry, cfg)
 }
 
+// TestHandleCalculate verifies the behavior of the calculation endpoint.
+// It tests successful calculations, validation errors, and calculation failures.
 func TestHandleCalculate(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -165,31 +169,33 @@ func TestHandleCalculate(t *testing.T) {
 	}
 }
 
+// TestHandleHealth verifies the health check endpoint.
 func TestHandleHealth(t *testing.T) {
 	server := createTestServer(nil)
-	
+
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
-	
+
 	server.handleHealth(w, req)
-	
+
 	resp := w.Result()
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
-	
+
 	var healthResp map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&healthResp); err != nil {
 		t.Errorf("Failed to decode health response: %v", err)
 	}
-	
+
 	if healthResp["status"] != "healthy" {
 		t.Errorf("Expected status=healthy, got %v", healthResp["status"])
 	}
 }
 
+// TestHandleAlgorithms verifies the algorithms listing endpoint.
 func TestHandleAlgorithms(t *testing.T) {
 	mockCalc := &MockCalculator{Result: big.NewInt(1)}
 	registry := map[string]fibonacci.Calculator{
@@ -198,37 +204,38 @@ func TestHandleAlgorithms(t *testing.T) {
 		"fft":    mockCalc,
 	}
 	server := createTestServer(registry)
-	
+
 	req := httptest.NewRequest("GET", "/algorithms", nil)
 	w := httptest.NewRecorder()
-	
+
 	server.handleAlgorithms(w, req)
-	
+
 	resp := w.Result()
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
-	
+
 	var algoResp map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&algoResp); err != nil {
 		t.Errorf("Failed to decode algorithms response: %v", err)
 	}
-	
+
 	algos, ok := algoResp["algorithms"].([]interface{})
 	if !ok {
 		t.Fatal("Expected algorithms to be an array")
 	}
-	
+
 	if len(algos) != 3 {
 		t.Errorf("Expected 3 algorithms, got %d", len(algos))
 	}
 }
 
+// TestMethodNotAllowed verifies that non-GET methods are rejected.
 func TestMethodNotAllowed(t *testing.T) {
 	server := createTestServer(nil)
-	
+
 	tests := []struct {
 		name     string
 		endpoint string
@@ -238,12 +245,12 @@ func TestMethodNotAllowed(t *testing.T) {
 		{"Health POST", "/health", "POST"},
 		{"Algorithms POST", "/algorithms", "POST"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.endpoint, nil)
 			w := httptest.NewRecorder()
-			
+
 			switch tt.endpoint {
 			case "/calculate":
 				server.handleCalculate(w, req)
@@ -252,10 +259,10 @@ func TestMethodNotAllowed(t *testing.T) {
 			case "/algorithms":
 				server.handleAlgorithms(w, req)
 			}
-			
+
 			resp := w.Result()
 			defer resp.Body.Close()
-			
+
 			if resp.StatusCode != http.StatusMethodNotAllowed {
 				t.Errorf("Expected status 405, got %d", resp.StatusCode)
 			}
@@ -263,27 +270,28 @@ func TestMethodNotAllowed(t *testing.T) {
 	}
 }
 
+// TestLoggingMiddleware verifies that the logging middleware executes the next handler.
 func TestLoggingMiddleware(t *testing.T) {
 	server := createTestServer(nil)
-	
+
 	handlerCalled := false
 	testHandler := func(w http.ResponseWriter, r *http.Request) {
 		handlerCalled = true
 		w.WriteHeader(http.StatusOK)
 	}
-	
+
 	wrapped := server.loggingMiddleware(testHandler)
-	
+
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
-	
+
 	// Give the logger a bit of time
 	done := make(chan bool)
 	go func() {
 		wrapped(w, req)
 		done <- true
 	}()
-	
+
 	select {
 	case <-done:
 		if !handlerCalled {

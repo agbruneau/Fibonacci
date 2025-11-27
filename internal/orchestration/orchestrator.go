@@ -46,12 +46,14 @@ const ProgressBufferMultiplier = 5
 // and coordinates the display of progress updates. This function is the core of
 // the application's concurrency model.
 //
-// The context ctx is used for cancellation. The list of calculators to run is
-// calculators. The application configuration is cfg. The writer out is used
-// for progress display.
+// Parameters:
+//   - ctx: The context for managing cancellation and deadlines.
+//   - calculators: A slice of calculators to execute.
+//   - cfg: The application configuration (N, thresholds, etc.).
+//   - out: The io.Writer for displaying progress updates.
 //
-// It returns a slice of CalculationResult containing the outcomes of all
-// executed calculations.
+// Returns:
+//   - []CalculationResult: A slice containing the results of each calculation.
 func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, out io.Writer) []CalculationResult {
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]CalculationResult, len(calculators))
@@ -88,10 +90,13 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 // logic for determining global success or failure based on the individual
 // outcomes.
 //
-// The results to analyze are results. The application configuration is cfg. The
-// writer out is used for the report output.
+// Parameters:
+//   - results: The slice of calculation results to analyze.
+//   - cfg: The application configuration.
+//   - out: The io.Writer for the summary report.
 //
-// It returns an exit code (0 for success, non-zero for errors).
+// Returns:
+//   - int: An exit code indicating success (0) or the type of failure.
 func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, out io.Writer) int {
 	sort.Slice(results, func(i, j int) bool {
 		if (results[i].Err == nil) != (results[j].Err == nil) {
@@ -161,9 +166,13 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 // handleCalculationError formats and displays an error message for a failed calculation.
 // It provides specific messages for timeout and cancellation scenarios.
 //
-// The error is err. The execution duration is duration. The writer out is used for output.
+// Parameters:
+//   - err: The error that occurred.
+//   - duration: The duration of the calculation before it failed.
+//   - out: The io.Writer for the error message.
 //
-// It returns an appropriate exit code.
+// Returns:
+//   - int: The appropriate exit code.
 func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
 	if err == nil {
 		return apperrors.ExitSuccess

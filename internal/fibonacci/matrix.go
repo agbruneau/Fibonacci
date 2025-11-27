@@ -27,7 +27,7 @@ import (
 // multiplying the numbers involved, which are proportional to n bits.
 //   - A classic 2x2 matrix multiplication requires 8 integer multiplications.
 //   - Strassen's algorithm reduces this to 7 multiplications, improving the
-//     constant factor but with higher overhead from additions/subtractions.
+//     constant factor but with higher overhead from additions and subtractions.
 //   - Squaring a symmetric matrix can be done with only 4 multiplications.
 //
 // Optimization Details:
@@ -50,7 +50,8 @@ type MatrixExponentiation struct{}
 // and concise identification of the calculation method, including its key
 // performance characteristics.
 //
-// It returns a string with the name of the algorithm.
+// Returns:
+//   - string: The name of the algorithm.
 func (c *MatrixExponentiation) Name() string {
 	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
@@ -61,12 +62,16 @@ func (c *MatrixExponentiation) Name() string {
 // calculate the n-th power of the Fibonacci matrix. It also handles state
 // management through pooling and reports progress to the caller.
 //
-// The context for managing cancellation is ctx. The function for reporting
-// progress is reporter. The index of the Fibonacci number to calculate is n.
-// The bit size threshold for parallelizing multiplications is threshold. The bit
-// size threshold for using FFT-based multiplication is fftThreshold.
+// Parameters:
+//   - ctx: The context for managing cancellation and deadlines.
+//   - reporter: The function used for reporting progress.
+//   - n: The index of the Fibonacci number to calculate.
+//   - threshold: The bit size threshold for parallelizing multiplications.
+//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
 //
-// It returns the calculated Fibonacci number and an error if one occurred.
+// Returns:
+//   - *big.Int: The calculated Fibonacci number.
+//   - error: An error if one occurred (e.g., context cancellation).
 func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil
@@ -93,7 +98,6 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	numBits := bits.Len64(exponent)
 	useParallel := runtime.NumCPU() > 1 && threshold > 0
 
-	// Calculate total work for progress reporting via common utility
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
 	workDone := 0.0
@@ -139,9 +143,13 @@ var DefaultStrassenThresholdBits = 256
 // smaller sizes, the classic version is used to avoid the overhead of
 // Strassen's additions.
 //
-// The destination matrix is dest. The matrices to be multiplied are m1 and m2.
-// The matrixState provides temporary variables. If inParallel is true, the
-// multiplications are parallelized. The multiplication function is mul.
+// Parameters:
+//   - dest: The destination matrix.
+//   - m1: The first matrix operand.
+//   - m2: The second matrix operand.
+//   - state: The matrix state providing temporary storage.
+//   - inParallel: Whether to execute the operation in parallel.
+//   - mul: The function used for big integer multiplication.
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	strassenThresholdBits := DefaultStrassenThresholdBits
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
@@ -151,7 +159,16 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, mul)
 }
 
-// multiplyMatricesStrassen: 2x2 Strassen implementation (7 multiplications)
+// multiplyMatricesStrassen implements Strassen's algorithm for 2x2 matrices
+// to reduce the number of multiplications from 8 to 7.
+//
+// Parameters:
+//   - dest: The destination matrix.
+//   - m1: The first matrix operand.
+//   - m2: The second matrix operand.
+//   - state: The matrix state providing temporary storage.
+//   - inParallel: Whether to execute the operation in parallel.
+//   - mul: The function used for big integer multiplication.
 func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	// m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
 	// The temporary variables from the state object are used to store intermediate results.
@@ -170,7 +187,6 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 	s9.Sub(m1.a, m1.c)  // a - c
 	s10.Add(m2.a, m2.b) // e + f
 
-	// Execute the 7 multiplications
 	// Execute the 7 multiplications
 	if inParallel {
 		var wg sync.WaitGroup
@@ -220,6 +236,13 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 // multiplications required to square a matrix. For a symmetric matrix, where
 // b equals c, some calculations become redundant. This method avoids those
 // redundancies, resulting in a faster computation.
+//
+// Parameters:
+//   - dest: The destination matrix.
+//   - mat: The symmetric matrix to square.
+//   - state: The matrix state providing temporary storage.
+//   - inParallel: Whether to execute the operation in parallel.
+//   - mul: The function used for big integer multiplication.
 func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	b_ad, ad := state.t4, state.t5
@@ -246,7 +269,16 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	dest.d.Add(b2, d2)
 }
 
-// multiplyMatricesClassic: naive 2x2 multiplication (8 multiplications)
+// multiplyMatricesClassic performs a naive 2x2 matrix multiplication.
+// It requires 8 integer multiplications.
+//
+// Parameters:
+//   - dest: The destination matrix.
+//   - m1: The first matrix operand.
+//   - m2: The second matrix operand.
+//   - state: The matrix state providing temporary storage.
+//   - inParallel: Whether to execute the operation in parallel.
+//   - mul: The function used for big integer multiplication.
 func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
 	// Uses buffers from the state to avoid allocations
@@ -291,6 +323,13 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 }
 
 // maxBitLenMatrix returns the maximum bit length among the 4 elements
+// of the matrix.
+//
+// Parameters:
+//   - m: The matrix to check.
+//
+// Returns:
+//   - int: The maximum bit length found.
 func maxBitLenMatrix(m *matrix) int {
 	max := m.a.BitLen()
 	if b := m.b.BitLen(); b > max {
@@ -305,7 +344,15 @@ func maxBitLenMatrix(m *matrix) int {
 	return max
 }
 
-// maxBitLenTwoMatrices returns the maximum bit length between two matrices
+// maxBitLenTwoMatrices returns the maximum bit length between all elements
+// of two matrices.
+//
+// Parameters:
+//   - m1: The first matrix.
+//   - m2: The second matrix.
+//
+// Returns:
+//   - int: The overall maximum bit length.
 func maxBitLenTwoMatrices(m1, m2 *matrix) int {
 	max := maxBitLenMatrix(m1)
 	if v := maxBitLenMatrix(m2); v > max {
@@ -315,6 +362,10 @@ func maxBitLenTwoMatrices(m1, m2 *matrix) int {
 }
 
 // executeTasks executes a set of tasks, in parallel if specified.
+//
+// Parameters:
+//   - inParallel: Whether to execute tasks concurrently using goroutines.
+//   - tasks: A slice of functions to execute.
 func executeTasks(inParallel bool, tasks []func()) {
 	if !inParallel || len(tasks) < 2 {
 		for _, task := range tasks {
@@ -346,7 +397,8 @@ type matrix struct{ a, b, c, d *big.Int }
 // It initializes each of its elements with a new *big.Int, which is a
 // convenience for ensuring that matrices are correctly instantiated.
 //
-// It returns a new *matrix.
+// Returns:
+//   - *matrix: A pointer to the newly created matrix.
 func newMatrix() *matrix {
 	return &matrix{new(big.Int), new(big.Int), new(big.Int), new(big.Int)}
 }
@@ -355,7 +407,8 @@ func newMatrix() *matrix {
 // This is a deep copy, ensuring that the underlying *big.Int values are
 // duplicated.
 //
-// The matrix to copy from is other.
+// Parameters:
+//   - other: The source matrix to copy from.
 func (m *matrix) Set(other *matrix) {
 	m.a.Set(other.a)
 	m.b.Set(other.b)
@@ -409,6 +462,7 @@ type matrixState struct {
 }
 
 // Reset resets the state for a new use.
+// It sets the result matrix to identity and the base power matrix to Q.
 func (s *matrixState) Reset() {
 	s.res.SetIdentity()
 	s.p.SetBaseQ()
@@ -438,6 +492,9 @@ var matrixStatePool = sync.Pool{
 }
 
 // acquireMatrixState gets a state from the pool and resets it.
+//
+// Returns:
+//   - *matrixState: A fresh or reused matrixState.
 func acquireMatrixState() *matrixState {
 	s := matrixStatePool.Get().(*matrixState)
 	s.Reset()
@@ -445,6 +502,9 @@ func acquireMatrixState() *matrixState {
 }
 
 // releaseMatrixState puts a state back into the pool.
+//
+// Parameters:
+//   - s: The matrixState to return to the pool.
 func releaseMatrixState(s *matrixState) {
 	matrixStatePool.Put(s)
 }
