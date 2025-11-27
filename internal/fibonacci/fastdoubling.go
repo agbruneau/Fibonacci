@@ -86,26 +86,25 @@ func (fd *OptimizedFastDoubling) Name() string {
 //   - ctx: The context for managing cancellation and deadlines.
 //   - reporter: The function used for reporting progress.
 //   - n: The index of the Fibonacci number to calculate.
-//   - threshold: The bit size threshold for parallelizing multiplications.
-//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+//   - opts: Configuration options for the calculation.
 //
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, opts Options) (*big.Int, error) {
 	// mul is a closure that performs multiplication.
 	// It returns a pointer to the result.
 	// If FFT is used, it returns a new *big.Int (allocated).
 	// If standard Mul is used, it uses 'dest' for storage and returns it.
 	mul := func(dest, x, y *big.Int) *big.Int {
-		if fftThreshold > 0 {
+		if opts.FFTThreshold > 0 {
 			// Use FFT only if both operands exceed the threshold.
 			// Shortcut: compare the min of the bit lengths.
 			minBitLen := x.BitLen()
 			if b := y.BitLen(); b < minBitLen {
 				minBitLen = b
 			}
-			if minBitLen > fftThreshold {
+			if minBitLen > opts.FFTThreshold {
 				return mulFFT(x, y)
 			}
 		}
@@ -116,7 +115,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	defer releaseState(s)
 
 	numBits := bits.Len64(n)
-	useParallel := runtime.GOMAXPROCS(0) > 1 && threshold > 0
+	useParallel := runtime.GOMAXPROCS(0) > 1 && opts.ParallelThreshold > 0
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
@@ -147,13 +146,13 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			// Benchmarks show that at 7M bits (N=10M), sequential is faster (78ms vs 98ms).
 			// At 173M bits (N=250M), parallel is essential.
 			// We set a heuristic threshold of 10M bits for parallel FFT.
-			if fftThreshold > 0 {
+			if opts.FFTThreshold > 0 {
 				minBitLen := s.f_k.BitLen()
-				if minBitLen > fftThreshold {
+				if minBitLen > opts.FFTThreshold {
 					return minBitLen > 10_000_000
 				}
 			}
-			return bl > threshold
+			return bl > opts.ParallelThreshold
 		}() {
 			// Inline parallel execution to avoid closure allocations
 			var wg sync.WaitGroup

@@ -41,7 +41,7 @@ func TestFibonacciCalculators(t *testing.T) {
 					t.Parallel()
 					expected := new(big.Int)
 					expected.SetString(testCase.result, 10)
-					result, err := calc.Calculate(ctx, nil, 0, testCase.n, config.DefaultParallelThreshold, 0)
+					result, err := calc.Calculate(ctx, nil, 0, testCase.n, Options{ParallelThreshold: config.DefaultParallelThreshold})
 
 					if err != nil {
 						t.Fatalf("Unexpected error: %v", err)
@@ -75,7 +75,7 @@ func TestProgressCalculationLogic(t *testing.T) {
 		}
 	}()
 
-	_, err := calc.Calculate(context.Background(), progressChan, 0, n, config.DefaultParallelThreshold, 0)
+	_, err := calc.Calculate(context.Background(), progressChan, 0, n, Options{ParallelThreshold: config.DefaultParallelThreshold})
 	close(progressChan)
 	wg.Wait()
 
@@ -148,7 +148,7 @@ func TestProgressReporter(t *testing.T) {
 				}
 			}()
 
-			_, err := calc.Calculate(context.Background(), progressChan, 0, 10000, config.DefaultParallelThreshold, 0)
+			_, err := calc.Calculate(context.Background(), progressChan, 0, 10000, Options{ParallelThreshold: config.DefaultParallelThreshold})
 			close(progressChan)
 			wg.Wait()
 
@@ -174,7 +174,7 @@ func TestContextCancellation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 			defer cancel()
-			_, err := calc.Calculate(ctx, nil, 0, 100_000_000, config.DefaultParallelThreshold, 0)
+			_, err := calc.Calculate(ctx, nil, 0, 100_000_000, Options{ParallelThreshold: config.DefaultParallelThreshold})
 			if !errors.Is(err, context.DeadlineExceeded) {
 				t.Fatalf("Expected error: %v, Got: %v", context.DeadlineExceeded, err)
 			}
@@ -187,7 +187,7 @@ func runBenchmark(b *testing.B, calc Calculator, n uint64) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = calc.Calculate(ctx, nil, 0, n, config.DefaultParallelThreshold, 0)
+		_, _ = calc.Calculate(ctx, nil, 0, n, Options{ParallelThreshold: config.DefaultParallelThreshold})
 	}
 }
 
@@ -222,7 +222,7 @@ func ExampleCalculator_Calculate() {
 	calculator := NewCalculator(&OptimizedFastDoubling{})
 
 	// Calculate the 20th Fibonacci number.
-	result, err := calculator.Calculate(context.Background(), nil, 0, 20, config.DefaultParallelThreshold, 0)
+	result, err := calculator.Calculate(context.Background(), nil, 0, 20, Options{ParallelThreshold: config.DefaultParallelThreshold})
 	if err != nil {
 		fmt.Printf("Calculation error: %v\n", err)
 		return

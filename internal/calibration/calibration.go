@@ -64,7 +64,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 		}
 
 		startTime := time.Now()
-		_, err := calculator.Calculate(ctx, progressChan, 0, calibrationN, threshold, 0)
+		_, err := calculator.Calculate(ctx, progressChan, 0, calibrationN, fibonacci.Options{ParallelThreshold: threshold})
 		duration := time.Since(startTime)
 
 		if err != nil {
@@ -148,7 +148,7 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 		defer cancel()
 		start := time.Now()
-		_, err := calc.Calculate(ctx, nil, 0, nForCalibration, threshold, fftThreshold)
+		_, err := calc.Calculate(ctx, nil, 0, nForCalibration, fibonacci.Options{ParallelThreshold: threshold, FFTThreshold: fftThreshold})
 		return time.Since(start), err
 	}
 
@@ -186,7 +186,7 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		for _, cand := range strassenCandidates {
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 			start := time.Now()
-			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, bestPar, 0)
+			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, fibonacci.Options{ParallelThreshold: bestPar})
 			cancel()
 			dur := time.Since(start)
 			if err != nil {

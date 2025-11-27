@@ -41,15 +41,12 @@ func (c *FFTBasedCalculator) Name() string {
 //   - ctx: The context for managing cancellation and deadlines.
 //   - reporter: The function used for reporting progress.
 //   - n: The index of the Fibonacci number to calculate.
-//   - threshold: The bit size threshold for parallelizing multiplications
-//     (ignored in this implementation as it relies purely on FFT).
-//   - fftThreshold: The bit size threshold for using FFT-based multiplication
-//     (ignored in this implementation as it always uses FFT).
+//   - opts: Configuration options for the calculation (thresholds ignored).
 //
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, opts Options) (*big.Int, error) {
 	s := acquireState()
 	defer releaseState(s)
 

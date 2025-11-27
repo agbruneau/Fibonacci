@@ -46,17 +46,17 @@ func TestCassinisIdentity_PropertyBased(t *testing.T) {
 				progressReporter := func(progress float64) {}
 
 				// Calculate F(n-1), F(n), and F(n+1)
-				fnMinus1, err := calculator.CalculateCore(ctx, progressReporter, n-1, 4096, 20000)
+				fnMinus1, err := calculator.CalculateCore(ctx, progressReporter, n-1, Options{ParallelThreshold: 4096, FFTThreshold: 20000})
 				if err != nil {
 					t.Logf("Error calculating F(%d-1): %v", n, err)
 					return false
 				}
-				fn, err := calculator.CalculateCore(ctx, progressReporter, n, 4096, 20000)
+				fn, err := calculator.CalculateCore(ctx, progressReporter, n, Options{ParallelThreshold: 4096, FFTThreshold: 20000})
 				if err != nil {
 					t.Logf("Error calculating F(%d): %v", n, err)
 					return false
 				}
-				fnPlus1, err := calculator.CalculateCore(ctx, progressReporter, n+1, 4096, 20000)
+				fnPlus1, err := calculator.CalculateCore(ctx, progressReporter, n+1, Options{ParallelThreshold: 4096, FFTThreshold: 20000})
 				if err != nil {
 					t.Logf("Error calculating F(%d+1): %v", n, err)
 					return false

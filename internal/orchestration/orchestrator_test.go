@@ -16,7 +16,7 @@ import (
 // used for testing the orchestration logic without invoking real algorithms.
 type MockCalculator struct {
 	NameFunc      func() string
-	CalculateFunc func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
+	CalculateFunc func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, opts fibonacci.Options) (*big.Int, error)
 }
 
 // Name returns the mocked name of the calculator.
@@ -28,7 +28,7 @@ func (m *MockCalculator) Name() string {
 }
 
 // Calculate invokes the mocked CalculateFunc.
-func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
 	if m.CalculateFunc != nil {
 		// Create a dummy reporter that sends to the channel
 		reporter := func(progress float64) {
@@ -36,7 +36,7 @@ func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibo
 				progressChan <- fibonacci.ProgressUpdate{CalculatorIndex: index, Value: progress}
 			}
 		}
-		return m.CalculateFunc(ctx, reporter, index, n, threshold, fftThreshold)
+		return m.CalculateFunc(ctx, reporter, index, n, opts)
 	}
 	return big.NewInt(0), nil
 }
@@ -54,7 +54,7 @@ func TestExecuteCalculations(t *testing.T) {
 			name: "Single success",
 			calculators: []fibonacci.Calculator{
 				&MockCalculator{
-					CalculateFunc: func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+					CalculateFunc: func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
 						return big.NewInt(1), nil
 					},
 				},
@@ -66,7 +66,7 @@ func TestExecuteCalculations(t *testing.T) {
 			name: "Single failure",
 			calculators: []fibonacci.Calculator{
 				&MockCalculator{
-					CalculateFunc: func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+					CalculateFunc: func(ctx context.Context, reporter fibonacci.ProgressReporter, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
 						return nil, errors.New("mock error")
 					},
 				},

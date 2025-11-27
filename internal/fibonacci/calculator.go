@@ -163,6 +163,16 @@ func approxProgress(num, den *big.Int) float64 {
 	return float64(n.Int64()) / float64(d.Int64())
 }
 
+// Options configures the Fibonacci calculation.
+type Options struct {
+	// ParallelThreshold is the bit size threshold for parallelizing multiplications.
+	// If 0, a default value may be used by the implementation.
+	ParallelThreshold int
+	// FFTThreshold is the bit size threshold for using FFT-based multiplication.
+	// If 0, a default value may be used by the implementation.
+	FFTThreshold int
+}
+
 // Calculator defines the public interface for a Fibonacci calculator.
 // It is the primary abstraction used by the application's orchestration layer to
 // interact with different Fibonacci calculation algorithms.
@@ -177,13 +187,12 @@ type Calculator interface {
 	//   - progressChan: The channel for sending progress updates.
 	//   - calcIndex: A unique index for the calculator instance.
 	//   - n: The index of the Fibonacci number to calculate.
-	//   - threshold: The bit size threshold for parallelizing multiplications.
-	//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+	//   - opts: Configuration options for the calculation.
 	//
 	// Returns:
 	//   - *big.Int: The calculated Fibonacci number.
 	//   - error: An error if one occurred (e.g., context cancellation).
-	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
+	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error)
 
 	// Name returns the display name of the calculation algorithm (e.g., "Fast Doubling").
 	//
@@ -195,7 +204,7 @@ type Calculator interface {
 // coreCalculator defines the internal interface for a pure calculation
 // algorithm.
 type coreCalculator interface {
-	CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error)
+	CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, opts Options) (*big.Int, error)
 	Name() string
 }
 
@@ -247,13 +256,12 @@ func (c *FibCalculator) Name() string {
 //   - progressChan: The channel for sending progress updates.
 //   - calcIndex: A unique index for the calculator instance.
 //   - n: The index of the Fibonacci number to calculate.
-//   - threshold: The bit size threshold for parallelizing multiplications.
-//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+//   - opts: Configuration options for the calculation.
 //
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
-func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error) {
 	reporter := func(progress float64) {
 		if progressChan == nil {
 			return
@@ -273,7 +281,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		return lookupSmall(n), nil
 	}
 
-	result, err := c.core.CalculateCore(ctx, reporter, n, threshold, fftThreshold)
+	result, err := c.core.CalculateCore(ctx, reporter, n, opts)
 	if err == nil && result != nil {
 		reporter(1.0)
 	}

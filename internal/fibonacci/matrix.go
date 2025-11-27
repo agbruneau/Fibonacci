@@ -66,13 +66,12 @@ func (c *MatrixExponentiation) Name() string {
 //   - ctx: The context for managing cancellation and deadlines.
 //   - reporter: The function used for reporting progress.
 //   - n: The index of the Fibonacci number to calculate.
-//   - threshold: The bit size threshold for parallelizing multiplications.
-//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
+//   - opts: Configuration options for the calculation.
 //
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, opts Options) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil
 	}
@@ -81,13 +80,13 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	defer releaseMatrixState(state)
 
 	mul := func(dest, x, y *big.Int) *big.Int {
-		if fftThreshold > 0 {
+		if opts.FFTThreshold > 0 {
 			// Use FFT if the smaller of the two operands exceeds the threshold
 			minBitLen := x.BitLen()
 			if b := y.BitLen(); b < minBitLen {
 				minBitLen = b
 			}
-			if minBitLen > fftThreshold {
+			if minBitLen > opts.FFTThreshold {
 				return mulFFT(x, y)
 			}
 		}
@@ -96,7 +95,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 
 	exponent := n - 1
 	numBits := bits.Len64(exponent)
-	useParallel := runtime.NumCPU() > 1 && threshold > 0
+	useParallel := runtime.NumCPU() > 1 && opts.ParallelThreshold > 0
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
@@ -116,13 +115,13 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
-			inParallel := useParallel && maxBitLenMatrix(state.p) > threshold
+			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
 			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, mul)
 			state.res, state.tempMatrix = state.tempMatrix, state.res
 		}
 
 		if i < numBits-1 {
-			inParallel := useParallel && maxBitLenMatrix(state.p) > threshold
+			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
 			squareSymmetricMatrix(state.tempMatrix, state.p, state, inParallel, mul)
 			state.p, state.tempMatrix = state.tempMatrix, state.p
 		}

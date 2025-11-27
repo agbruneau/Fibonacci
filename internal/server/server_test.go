@@ -28,7 +28,7 @@ func (m *MockCalculator) Name() string {
 }
 
 // Calculate implements the fibonacci.Calculator interface returning predefined results.
-func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
+func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
 	return m.Result, m.Err
 }
 
