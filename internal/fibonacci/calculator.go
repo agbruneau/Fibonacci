@@ -34,6 +34,9 @@ type ProgressUpdate struct {
 // callback. This simplified interface is used by core calculation algorithms to
 // report their progress without being coupled to the channel-based communication
 // mechanism of the broader application.
+//
+// Parameters:
+//   - progress: The normalized progress value (0.0 to 1.0).
 type ProgressReporter func(progress float64)
 
 // ProgressReportParams contains the necessary state for calculating progress reporting.
@@ -57,9 +60,11 @@ var (
 // Since the algorithms iterate over bits, the work involved is roughly
 // proportional to the bit index.
 //
-// The number of bits in the input is numBits.
+// Parameters:
+//   - numBits: The number of bits in the input number n.
 //
-// It returns a float64 representing the estimated total work units.
+// Returns:
+//   - float64: A value representing the estimated total work units.
 func CalcTotalWork(numBits int) float64 {
 	// Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
 	// We use a simplified model where work roughly quadruples each bit.
@@ -99,12 +104,17 @@ func CalcTotalWork(numBits int) float64 {
 // It calculates the cumulative work done based on the current bit iteration and
 // reports progress via the provided callback if a significant change has occurred.
 //
-// The callback to report progress is progressReporter. A pointer to the last
-// reported progress value is lastReported. The total estimated work is totalWork.
-// The work completed so far is workDone. The current bit index is i. The total
-// number of bits is numBits.
+// Parameters:
+//   - progressReporter: The callback function to report progress.
+//   - lastReported: A pointer to the last reported progress value to avoid
+//     redundant updates.
+//   - totalWork: The total estimated work units for the calculation.
+//   - workDone: The accumulated work units completed so far.
+//   - i: The current bit index being processed.
+//   - numBits: The total number of bits in n.
 //
-// It returns the updated cumulative work done.
+// Returns:
+//   - float64: The updated cumulative work done.
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone float64, i, numBits int) float64 {
 	const ReportThreshold = 0.01
 
@@ -162,17 +172,23 @@ type Calculator interface {
 	// provided context. Progress updates are sent asynchronously to the
 	// progressChan.
 	//
-	// The context for managing cancellation and deadlines is ctx. The channel for
-	// sending progress updates is progressChan. A unique index for the
-	// calculator instance is calcIndex. The index of the Fibonacci number to
-	// calculate is n. The bit size threshold for parallelizing multiplications is
-	// threshold. The bit size threshold for using FFT-based multiplication is
-	// fftThreshold.
+	// Parameters:
+	//   - ctx: The context for managing cancellation and deadlines.
+	//   - progressChan: The channel for sending progress updates.
+	//   - calcIndex: A unique index for the calculator instance.
+	//   - n: The index of the Fibonacci number to calculate.
+	//   - threshold: The bit size threshold for parallelizing multiplications.
+	//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
 	//
-	// It returns the calculated Fibonacci number and an error if one occurred.
+	// Returns:
+	//   - *big.Int: The calculated Fibonacci number.
+	//   - error: An error if one occurred (e.g., context cancellation).
 	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error)
 
 	// Name returns the display name of the calculation algorithm (e.g., "Fast Doubling").
+	//
+	// Returns:
+	//   - string: The name of the algorithm.
 	Name() string
 }
 
@@ -198,9 +214,11 @@ type FibCalculator struct {
 // algorithm to be used. This function panics if the core calculator is nil,
 // ensuring system integrity.
 //
-// The core calculator to be wrapped is core.
+// Parameters:
+//   - core: The core calculator to be wrapped.
 //
-// It returns a Calculator interface, implemented by FibCalculator.
+// Returns:
+//   - Calculator: A new FibCalculator instance implementing the Calculator interface.
 func NewCalculator(core coreCalculator) Calculator {
 	if core == nil {
 		panic("fibonacci: the `coreCalculator` implementation cannot be nil")
@@ -210,6 +228,9 @@ func NewCalculator(core coreCalculator) Calculator {
 
 // Name returns the name of the encapsulated coreCalculator, fulfilling the
 // Calculator interface by delegating the call.
+//
+// Returns:
+//   - string: The name of the algorithm.
 func (c *FibCalculator) Name() string {
 	return c.core.Name()
 }
@@ -221,13 +242,17 @@ func (c *FibCalculator) Name() string {
 // coreCalculator. This method ensures that progress is reported completely upon
 // successful calculation.
 //
-// The context for managing cancellation and deadlines is ctx. The channel for
-// sending progress updates is progressChan. A unique index for the calculator
-// instance is calcIndex. The index of the Fibonacci number to calculate is n.
-// The bit size threshold for parallelizing multiplications is threshold. The bit
-// size threshold for using FFT-based multiplication is fftThreshold.
+// Parameters:
+//   - ctx: The context for managing cancellation and deadlines.
+//   - progressChan: The channel for sending progress updates.
+//   - calcIndex: A unique index for the calculator instance.
+//   - n: The index of the Fibonacci number to calculate.
+//   - threshold: The bit size threshold for parallelizing multiplications.
+//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
 //
-// It returns the calculated Fibonacci number and an error if one occurred.
+// Returns:
+//   - *big.Int: The calculated Fibonacci number.
+//   - error: An error if one occurred.
 func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	reporter := func(progress float64) {
 		if progressChan == nil {

@@ -67,7 +67,8 @@ type OptimizedFastDoubling struct{}
 // and concise identification of the calculation method, including its key
 // performance characteristics.
 //
-// It returns a string with the name of the algorithm.
+// Returns:
+//   - string: The name of the algorithm.
 func (fd *OptimizedFastDoubling) Name() string {
 	return "Fast Doubling (O(log n), Parallel, Zero-Alloc)"
 }
@@ -81,12 +82,16 @@ func (fd *OptimizedFastDoubling) Name() string {
 //   - Reporting progress to the caller.
 //   - Returning the final result, F(n).
 //
-// The context for managing cancellation is ctx. The function for reporting
-// progress is reporter. The index of the Fibonacci number to calculate is n.
-// The bit size threshold for parallelizing multiplications is threshold. The bit
-// size threshold for using FFT-based multiplication is fftThreshold.
+// Parameters:
+//   - ctx: The context for managing cancellation and deadlines.
+//   - reporter: The function used for reporting progress.
+//   - n: The index of the Fibonacci number to calculate.
+//   - threshold: The bit size threshold for parallelizing multiplications.
+//   - fftThreshold: The bit size threshold for using FFT-based multiplication.
 //
-// It returns the calculated Fibonacci number and an error if one occurred.
+// Returns:
+//   - *big.Int: The calculated Fibonacci number.
+//   - error: An error if one occurred (e.g., context cancellation).
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, threshold int, fftThreshold int) (*big.Int, error) {
 	// mul is a closure that performs multiplication.
 	// It returns a pointer to the result.
@@ -199,6 +204,10 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 // multiplications of the doubling step. By executing these multiplications in
 // parallel, this function takes advantage of multi-core processors, leading to
 // significant performance improvements for very large numbers.
+//
+// Parameters:
+//   - s: The current calculation state.
+//   - mul: The multiplication function to use.
 func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int) *big.Int) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -242,6 +251,9 @@ var statePool = sync.Pool{
 }
 
 // acquireState gets a state from the pool and resets it.
+//
+// Returns:
+//   - *calculationState: A ready-to-use calculation state.
 func acquireState() *calculationState {
 	s := statePool.Get().(*calculationState)
 	s.Reset()
@@ -249,6 +261,9 @@ func acquireState() *calculationState {
 }
 
 // releaseState puts a state back into the pool.
+//
+// Parameters:
+//   - s: The calculation state to return to the pool.
 func releaseState(s *calculationState) {
 	statePool.Put(s)
 }

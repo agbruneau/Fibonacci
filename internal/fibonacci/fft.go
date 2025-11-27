@@ -14,7 +14,12 @@ import (
 // high-performance alternative to the standard big.Int.Mul method for numbers
 // exceeding a certain size threshold.
 //
-// The operands are x and y. It returns the product.
+// Parameters:
+//   - x: The first operand.
+//   - y: The second operand.
+//
+// Returns:
+//   - *big.Int: The product of x and y.
 func mulFFT(x, y *big.Int) *big.Int {
 	return bigfft.Mul(x, y)
 }

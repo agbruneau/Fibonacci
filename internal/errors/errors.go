@@ -6,55 +6,78 @@ package apperrors
 import "fmt"
 
 // Application exit codes define the standard exit statuses for the application.
+// These codes are used to signal the outcome of the program execution to the OS.
 const (
-	ExitSuccess       = 0
-	ExitErrorGeneric  = 1
-	ExitErrorTimeout  = 2
-	ExitErrorMismatch = 3
-	ExitErrorConfig   = 4
-	ExitErrorCanceled = 130
+	ExitSuccess       = 0   // Indicates successful execution.
+	ExitErrorGeneric  = 1   // Indicates a generic error.
+	ExitErrorTimeout  = 2   // Indicates the operation timed out.
+	ExitErrorMismatch = 3   // Indicates a result mismatch between algorithms.
+	ExitErrorConfig   = 4   // Indicates a configuration error.
+	ExitErrorCanceled = 130 // Indicates the operation was canceled (e.g., SIGINT).
 )
 
 // ConfigError represents a user configuration error, such as invalid flags or
-// values.
+// values. It indicates that the application cannot proceed due to incorrect user input.
 type ConfigError struct {
+	// Message explains the specific configuration error.
 	Message string
 }
 
 // Error returns the error message for a ConfigError.
+//
+// Returns:
+//   - string: The error message string.
 func (e ConfigError) Error() string { return e.Message }
 
 // NewConfigError creates a new ConfigError with a formatted message.
 // It allows for the creation of configuration-specific errors with dynamic
 // content.
 //
-// The format string and arguments are the same as for fmt.Sprintf.
+// Parameters:
+//   - format: A format string (see fmt.Sprintf).
+//   - a: Arguments to be formatted into the string.
 //
-// It returns an error of type ConfigError.
+// Returns:
+//   - error: A new ConfigError instance containing the formatted message.
 func NewConfigError(format string, a ...interface{}) error {
 	return ConfigError{Message: fmt.Sprintf(format, a...)}
 }
 
 // CalculationError encapsulates a calculation error while preserving the
-// original cause. This allows for structured error handling and inspection.
+// original cause. This allows for structured error handling and inspection
+// of what went wrong during the Fibonacci calculation.
 type CalculationError struct {
+	// Cause is the underlying error that triggered this calculation error.
 	Cause error
 }
 
 // Error returns the error message from the underlying cause.
+//
+// Returns:
+//   - string: The error message string from the wrapped error.
 func (e CalculationError) Error() string { return e.Cause.Error() }
 
 // Unwrap returns the original wrapped error, allowing for error chain
-// inspection.
+// inspection (e.g., using errors.Is or errors.As).
+//
+// Returns:
+//   - error: The underlying cause of the CalculationError.
 func (e CalculationError) Unwrap() error { return e.Cause }
 
-// ServerError represents errors that occur in the HTTP server.
+// ServerError represents errors that occur in the HTTP server component.
+// It wraps an underlying error with additional context specific to the server operation.
 type ServerError struct {
+	// Message is a descriptive message about the server error.
 	Message string
-	Cause   error
+	// Cause is the underlying error, if any.
+	Cause error
 }
 
 // Error returns the error message for a ServerError.
+// It combines the descriptive message and the underlying cause if present.
+//
+// Returns:
+//   - string: The complete error message.
 func (e ServerError) Error() string {
 	if e.Cause != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Cause)
@@ -63,9 +86,19 @@ func (e ServerError) Error() string {
 }
 
 // Unwrap returns the underlying error.
+//
+// Returns:
+//   - error: The cause of the ServerError, or nil if there is none.
 func (e ServerError) Unwrap() error { return e.Cause }
 
 // NewServerError creates a new ServerError with a message and optional cause.
+//
+// Parameters:
+//   - message: A description of the error context.
+//   - cause: The underlying error that occurred (can be nil).
+//
+// Returns:
+//   - error: A new ServerError instance.
 func NewServerError(message string, cause error) error {
 	return ServerError{Message: message, Cause: cause}
 }

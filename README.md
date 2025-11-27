@@ -14,6 +14,7 @@
   - [2. Démarrage](#2-démarrage)
     - [Prérequis](#prérequis)
     - [Installation](#installation)
+    - [Vérification](#vérification)
     - [Démarrage Rapide](#démarrage-rapide)
       - [Test rapide (30 secondes)](#test-rapide-30-secondes)
       - [Utilisation CLI](#utilisation-cli)
@@ -131,6 +132,18 @@ Suivez ces étapes pour mettre en service le calculateur de Fibonacci sur votre 
    # ou
    go install ./cmd/fibcalc
    ```
+
+### Vérification
+
+Une fois le projet installé, il est recommandé de vérifier que tout fonctionne correctement en exécutant la suite de tests :
+
+```bash
+make test
+# ou si Make n'est pas disponible :
+go test ./...
+```
+
+Cette étape validera que votre environnement est correctement configuré et que le code est fonctionnel sur votre architecture.
 
 ### Démarrage Rapide
 
