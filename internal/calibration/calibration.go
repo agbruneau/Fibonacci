@@ -186,13 +186,12 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		for _, cand := range strassenCandidates {
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 			start := time.Now()
-			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, fibonacci.Options{ParallelThreshold: bestPar})
+			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, fibonacci.Options{ParallelThreshold: bestPar, StrassenThreshold: cand})
 			cancel()
 			dur := time.Since(start)
 			if err != nil {
 				continue
 			}
-			fibonacci.DefaultStrassenThresholdBits = cand
 			if dur < bestStrassenDur {
 				bestStrassenDur = dur
 				bestStrassen = cand
@@ -213,7 +212,6 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	}
 	if bestStrassenDur != time.Duration(1<<63-1) {
 		updated.StrassenThreshold = bestStrassen
-		fibonacci.DefaultStrassenThresholdBits = bestStrassen
 	}
 
 	fmt.Fprintf(out, "%sAuto-calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
