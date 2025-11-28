@@ -102,7 +102,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold)
+			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold, opts.StrassenThreshold)
 			state.res, state.tempMatrix = state.tempMatrix, state.res
 		}
 
@@ -135,8 +135,12 @@ var DefaultStrassenThresholdBits = 256
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
 //   - fftThreshold: The threshold for using FFT-based multiplication.
-func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) {
-	strassenThresholdBits := DefaultStrassenThresholdBits
+//   - strassenThreshold: The bit size threshold to switch to Strassen's algorithm.
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) {
+	strassenThresholdBits := strassenThreshold
+	if strassenThresholdBits == 0 {
+		strassenThresholdBits = DefaultStrassenThresholdBits
+	}
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
 		multiplyMatricesClassic(dest, m1, m2, state, inParallel, fftThreshold)
 		return

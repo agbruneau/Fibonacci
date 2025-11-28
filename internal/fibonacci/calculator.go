@@ -163,6 +163,9 @@ type Options struct {
 	// FFTThreshold is the bit size threshold for using FFT-based multiplication.
 	// If 0, a default value may be used by the implementation.
 	FFTThreshold int
+	// StrassenThreshold is the bit size threshold for switching to Strassen's algorithm.
+	// If 0, a default value may be used by the implementation.
+	StrassenThreshold int
 }
 
 // Calculator defines the public interface for a Fibonacci calculator.
