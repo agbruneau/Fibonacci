@@ -212,9 +212,9 @@ curl "http://localhost:8080/calculate?n=1000"
 
 - **Support des Grands Nombres** : Utilise `math/big` pour une arithmétique de précision arbitraire.
 - **Algorithmes Multiples** : Implémente plusieurs algorithmes en O(log n) :
-  - **Fast Doubling** (`fast`)
-  - **Exponentiation Matricielle** (`matrix`)
-  - **Fast Doubling Basé sur la FFT** (`fft`)
+  - **Fast Doubling** (`fast`): Optimisé, adaptatif (standard/FFT), parallèle.
+  - **Exponentiation Matricielle** (`matrix`): Optimisé avec l'algorithme de Strassen.
+  - **FFT-Based Doubling** (`fft`): Utilise exclusivement la multiplication FFT (pour benchmarks/très grands nombres).
 - **Nouveautés** :
   - **Mode Serveur HTTP** : Expose une API REST pour effectuer des calculs à la demande.
   - **Sortie JSON** : Formatage structuré pour une intégration facile avec d'autres outils.
@@ -258,8 +258,8 @@ Le calculateur est contrôlé via des drapeaux de ligne de commande :
 | `-algo`                |             | Algorithme à utiliser : `fast`, `matrix`, `fft`, ou `all`. | `all`       |
 | `-timeout`             |             | Temps d'exécution maximum (ex: `10s`, `1m30s`).            | `5m`        |
 | `-threshold`           |             | Seuil en bits pour paralléliser les multiplications.       | `4096`      |
-| `-fft-threshold`       |             | Seuil en bits pour activer la multiplication FFT.          | `20000`     |
-| `--strassen-threshold` |             | Seuil en bits pour basculer vers l'algorithme de Strassen. | `256`       |
+| `-fft-threshold`       |             | Seuil en bits pour activer la multiplication FFT.          | `1000000`   |
+| `--strassen-threshold` |             | Seuil en bits pour basculer vers l'algorithme de Strassen. | `3072`      |
 | `-d`                   | `--details` | Afficher les détails de performance et les métadonnées.    | `false`     |
 | `-v`                   |             | Afficher le résultat complet (peut être très long).        | `false`     |
 | `--calibrate`          |             | Calibrer le seuil de parallélisme optimal.                 | `false`     |
@@ -334,8 +334,8 @@ De là, nous extrayons :
 - **Parallélisme Multi-cœur**: Les multiplications de grands nombres sont exécutées en parallèle sur plusieurs goroutines.
 - **Seuils Empiriques**:
   - `--threshold` (défaut `4096` bits) : Active le parallélisme.
-  - `--fft-threshold` (défaut `20000` bits) : Active la multiplication FFT.
-  - `--strassen-threshold` (défaut `256` bits) : Utilise l'algorithme de Strassen pour la multiplication de matrices.
+  - `--fft-threshold` (défaut `1000000` bits) : Active la multiplication FFT.
+  - `--strassen-threshold` (défaut `3072` bits) : Utilise l'algorithme de Strassen pour la multiplication de matrices.
 
 ### Méthodologie de Calibration
 
@@ -608,7 +608,7 @@ make docker-build  # Construire l'image Docker
 ├── Makefile                       # 🔧 Commandes de développement
 ├── go.mod                         # 📦 Dépendances Go modules
 ├── go.sum                         # 🔒 Checksums des dépendances
-├── LICENSE                        # ⚖️ Licence MIT
+├── LICENSE                        # ⚖️ Licence Apache 2.0
 └── README.md                      # 📚 Ce fichier - Documentation principale
 ```
 
@@ -666,4 +666,4 @@ services:
 
 ## 12. Licence
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+Ce projet est sous licence Apache 2.0. Voir le fichier `LICENSE` pour plus de détails.
