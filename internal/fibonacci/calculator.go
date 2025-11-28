@@ -66,37 +66,11 @@ var (
 // Returns:
 //   - float64: A value representing the estimated total work units.
 func CalcTotalWork(numBits int) float64 {
-	// Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
-	// We use a simplified model where work roughly quadruples each bit.
-	// For large n, this can overflow float64, but we only need the ratio.
-	// Actually, for progress bars, we can just sum the weights.
-	// Since we only need a ratio, we can normalize.
-	// However, to avoid overflow for large numBits (though numBits <= 64 for uint64 n),
-	// we can just use the property that the last few steps dominate.
-	// Let's stick to a simple weight model: weight(i) = 1 << (i * 2) ?
-	// No, multiplication cost M(k) is roughly k^1.6.
-	// k grows linearly.
-	// So work at step i (0 to numBits-1) is i^1.6.
-	// Total work is sum(i^1.6).
-	total := 0.0
-	for i := 1; i <= numBits; i++ {
-		total += float64(i) // Approximation: linear growth of bits -> quadratic work?
-		// Actually, let's stick to the existing logic but with floats:
-		// Work doubles or quadruples?
-		// Fast doubling: F(2k) involves multiplication of size k.
-		// Size k doubles every step.
-		// Multiplication cost M(N) approx N^1.6.
-		// So cost scales by 2^1.6 approx 3.
-		// Let's assume factor 3 growth per step.
-	}
-	// Reverting to the original logic's assumption of factor 4 (geometric series)
-	// but using float64. 4^64 overflows float64?
-	// 4^64 = 2^128 approx 3e38. Float64 max is 1e308. It fits easily.
 	if numBits == 0 {
 		return 0
 	}
-	// (4^n - 1) / 3
-	// We can compute this iteratively or using Pow.
+	// Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
+	// We use a simplified model where work roughly quadruples each bit.
 	return (math.Pow(4, float64(numBits)) - 1) / 3
 }
 
@@ -161,6 +135,24 @@ func approxProgress(num, den *big.Int) float64 {
 	n.Rsh(num, shift)
 	d.Rsh(den, shift)
 	return float64(n.Int64()) / float64(d.Int64())
+}
+
+// smartMultiply performs multiplication of two *big.Int instances, choosing
+// between standard Karatsuba multiplication and FFT-based multiplication
+// depending on the size of the operands and the configured threshold.
+func smartMultiply(dest, x, y *big.Int, fftThreshold int) *big.Int {
+	if fftThreshold > 0 {
+		// Use FFT only if both operands exceed the threshold.
+		// Shortcut: compare the min of the bit lengths.
+		minBitLen := x.BitLen()
+		if b := y.BitLen(); b < minBitLen {
+			minBitLen = b
+		}
+		if minBitLen > fftThreshold {
+			return mulFFT(x, y)
+		}
+	}
+	return dest.Mul(x, y)
 }
 
 // Options configures the Fibonacci calculation.

@@ -92,24 +92,6 @@ func (fd *OptimizedFastDoubling) Name() string {
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, opts Options) (*big.Int, error) {
-	// mul is a closure that performs multiplication.
-	// It returns a pointer to the result.
-	// If FFT is used, it returns a new *big.Int (allocated).
-	// If standard Mul is used, it uses 'dest' for storage and returns it.
-	mul := func(dest, x, y *big.Int) *big.Int {
-		if opts.FFTThreshold > 0 {
-			// Use FFT only if both operands exceed the threshold.
-			// Shortcut: compare the min of the bit lengths.
-			minBitLen := x.BitLen()
-			if b := y.BitLen(); b < minBitLen {
-				minBitLen = b
-			}
-			if minBitLen > opts.FFTThreshold {
-				return mulFFT(x, y)
-			}
-		}
-		return dest.Mul(x, y)
-	}
 
 	s := acquireState()
 	defer releaseState(s)
@@ -154,23 +136,11 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			}
 			return bl > opts.ParallelThreshold
 		}() {
-			// Inline parallel execution to avoid closure allocations
-			var wg sync.WaitGroup
-			wg.Add(2)
-			go func() {
-				s.t3 = mul(s.t3, s.f_k, s.t2)
-				wg.Done()
-			}()
-			go func() {
-				s.t1 = mul(s.t1, s.f_k1, s.f_k1)
-				wg.Done()
-			}()
-			s.t4 = mul(s.t4, s.f_k, s.f_k)
-			wg.Wait()
+			parallelMultiply3Optimized(s, opts.FFTThreshold)
 		} else {
-			s.t3 = mul(s.t3, s.f_k, s.t2)
-			s.t1 = mul(s.t1, s.f_k1, s.f_k1)
-			s.t4 = mul(s.t4, s.f_k, s.f_k)
+			s.t3 = smartMultiply(s.t3, s.f_k, s.t2, opts.FFTThreshold)
+			s.t1 = smartMultiply(s.t1, s.f_k1, s.f_k1, opts.FFTThreshold)
+			s.t4 = smartMultiply(s.t4, s.f_k, s.f_k, opts.FFTThreshold)
 		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in t2, which is free.
@@ -206,19 +176,19 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 //
 // Parameters:
 //   - s: The current calculation state.
-//   - mul: The multiplication function to use.
-func parallelMultiply3Optimized(s *calculationState, mul func(dest, x, y *big.Int) *big.Int) {
+//   - fftThreshold: The threshold for using FFT-based multiplication.
+func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		s.t3 = mul(s.t3, s.f_k, s.t2)
+		s.t3 = smartMultiply(s.t3, s.f_k, s.t2, fftThreshold)
 	}()
 	go func() {
 		defer wg.Done()
-		s.t1 = mul(s.t1, s.f_k1, s.f_k1)
+		s.t1 = smartMultiply(s.t1, s.f_k1, s.f_k1, fftThreshold)
 	}()
-	s.t4 = mul(s.t4, s.f_k, s.f_k)
+	s.t4 = smartMultiply(s.t4, s.f_k, s.f_k, fftThreshold)
 	wg.Wait()
 }
 

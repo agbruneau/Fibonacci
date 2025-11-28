@@ -79,20 +79,6 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	state := acquireMatrixState()
 	defer releaseMatrixState(state)
 
-	mul := func(dest, x, y *big.Int) *big.Int {
-		if opts.FFTThreshold > 0 {
-			// Use FFT if the smaller of the two operands exceeds the threshold
-			minBitLen := x.BitLen()
-			if b := y.BitLen(); b < minBitLen {
-				minBitLen = b
-			}
-			if minBitLen > opts.FFTThreshold {
-				return mulFFT(x, y)
-			}
-		}
-		return dest.Mul(x, y)
-	}
-
 	exponent := n - 1
 	numBits := bits.Len64(exponent)
 	useParallel := runtime.NumCPU() > 1 && opts.ParallelThreshold > 0
@@ -116,13 +102,13 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, mul)
+			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold)
 			state.res, state.tempMatrix = state.tempMatrix, state.res
 		}
 
 		if i < numBits-1 {
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			squareSymmetricMatrix(state.tempMatrix, state.p, state, inParallel, mul)
+			squareSymmetricMatrix(state.tempMatrix, state.p, state, inParallel, opts.FFTThreshold)
 			state.p, state.tempMatrix = state.tempMatrix, state.p
 		}
 	}
@@ -148,14 +134,14 @@ var DefaultStrassenThresholdBits = 256
 //   - m2: The second matrix operand.
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
-//   - mul: The function used for big integer multiplication.
-func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
+//   - fftThreshold: The threshold for using FFT-based multiplication.
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) {
 	strassenThresholdBits := DefaultStrassenThresholdBits
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
-		multiplyMatricesClassic(dest, m1, m2, state, inParallel, mul)
+		multiplyMatricesClassic(dest, m1, m2, state, inParallel, fftThreshold)
 		return
 	}
-	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, mul)
+	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, fftThreshold)
 }
 
 // multiplyMatricesStrassen implements Strassen's algorithm for 2x2 matrices
@@ -167,8 +153,8 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 //   - m2: The second matrix operand.
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
-//   - mul: The function used for big integer multiplication.
-func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
+//   - fftThreshold: The threshold for using FFT-based multiplication.
+func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) {
 	// m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
 	// The temporary variables from the state object are used to store intermediate results.
 	p1, p2, p3, p4, p5, p6, p7 := state.p1, state.p2, state.p3, state.p4, state.p5, state.p6, state.p7
@@ -190,22 +176,22 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 	if inParallel {
 		var wg sync.WaitGroup
 		wg.Add(7)
-		go func() { p1 = mul(p1, m1.a, s1); wg.Done() }()
-		go func() { p2 = mul(p2, s2, m2.d); wg.Done() }()
-		go func() { p3 = mul(p3, s3, m2.a); wg.Done() }()
-		go func() { p4 = mul(p4, m1.d, s4); wg.Done() }()
-		go func() { p5 = mul(p5, s5, s6); wg.Done() }()
-		go func() { p6 = mul(p6, s7, s8); wg.Done() }()
-		go func() { p7 = mul(p7, s9, s10); wg.Done() }()
+		go func() { p1 = smartMultiply(p1, m1.a, s1, fftThreshold); wg.Done() }()
+		go func() { p2 = smartMultiply(p2, s2, m2.d, fftThreshold); wg.Done() }()
+		go func() { p3 = smartMultiply(p3, s3, m2.a, fftThreshold); wg.Done() }()
+		go func() { p4 = smartMultiply(p4, m1.d, s4, fftThreshold); wg.Done() }()
+		go func() { p5 = smartMultiply(p5, s5, s6, fftThreshold); wg.Done() }()
+		go func() { p6 = smartMultiply(p6, s7, s8, fftThreshold); wg.Done() }()
+		go func() { p7 = smartMultiply(p7, s9, s10, fftThreshold); wg.Done() }()
 		wg.Wait()
 	} else {
-		p1 = mul(p1, m1.a, s1)
-		p2 = mul(p2, s2, m2.d)
-		p3 = mul(p3, s3, m2.a)
-		p4 = mul(p4, m1.d, s4)
-		p5 = mul(p5, s5, s6)
-		p6 = mul(p6, s7, s8)
-		p7 = mul(p7, s9, s10)
+		p1 = smartMultiply(p1, m1.a, s1, fftThreshold)
+		p2 = smartMultiply(p2, s2, m2.d, fftThreshold)
+		p3 = smartMultiply(p3, s3, m2.a, fftThreshold)
+		p4 = smartMultiply(p4, m1.d, s4, fftThreshold)
+		p5 = smartMultiply(p5, s5, s6, fftThreshold)
+		p6 = smartMultiply(p6, s7, s8, fftThreshold)
+		p7 = smartMultiply(p7, s9, s10, fftThreshold)
 	}
 
 	// Calculate final matrix elements
@@ -241,8 +227,8 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 //   - mat: The symmetric matrix to square.
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
-//   - mul: The function used for big integer multiplication.
-func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
+//   - fftThreshold: The threshold for using FFT-based multiplication.
+func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	b_ad, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
@@ -250,16 +236,16 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	if inParallel {
 		var wg sync.WaitGroup
 		wg.Add(4)
-		go func() { a2 = mul(a2, mat.a, mat.a); wg.Done() }()
-		go func() { b2 = mul(b2, mat.b, mat.b); wg.Done() }()
-		go func() { d2 = mul(d2, mat.d, mat.d); wg.Done() }()
-		go func() { b_ad = mul(b_ad, mat.b, ad); wg.Done() }()
+		go func() { a2 = smartMultiply(a2, mat.a, mat.a, fftThreshold); wg.Done() }()
+		go func() { b2 = smartMultiply(b2, mat.b, mat.b, fftThreshold); wg.Done() }()
+		go func() { d2 = smartMultiply(d2, mat.d, mat.d, fftThreshold); wg.Done() }()
+		go func() { b_ad = smartMultiply(b_ad, mat.b, ad, fftThreshold); wg.Done() }()
 		wg.Wait()
 	} else {
-		a2 = mul(a2, mat.a, mat.a)
-		b2 = mul(b2, mat.b, mat.b)
-		d2 = mul(d2, mat.d, mat.d)
-		b_ad = mul(b_ad, mat.b, ad)
+		a2 = smartMultiply(a2, mat.a, mat.a, fftThreshold)
+		b2 = smartMultiply(b2, mat.b, mat.b, fftThreshold)
+		d2 = smartMultiply(d2, mat.d, mat.d, fftThreshold)
+		b_ad = smartMultiply(b_ad, mat.b, ad, fftThreshold)
 	}
 
 	dest.a.Add(a2, b2)
@@ -277,8 +263,8 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 //   - m2: The second matrix operand.
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
-//   - mul: The function used for big integer multiplication.
-func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, mul func(dest, x, y *big.Int) *big.Int) {
+//   - fftThreshold: The threshold for using FFT-based multiplication.
+func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
 	// Uses buffers from the state to avoid allocations
 	// a = a*e + b*g
@@ -295,24 +281,24 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 	if inParallel {
 		var wg sync.WaitGroup
 		wg.Add(8)
-		go func() { ae = mul(ae, m1.a, m2.a); wg.Done() }()
-		go func() { bg = mul(bg, m1.b, m2.c); wg.Done() }()
-		go func() { af = mul(af, m1.a, m2.b); wg.Done() }()
-		go func() { bh = mul(bh, m1.b, m2.d); wg.Done() }()
-		go func() { ce = mul(ce, m1.c, m2.a); wg.Done() }()
-		go func() { dg = mul(dg, m1.d, m2.c); wg.Done() }()
-		go func() { cf = mul(cf, m1.c, m2.b); wg.Done() }()
-		go func() { dh = mul(dh, m1.d, m2.d); wg.Done() }()
+		go func() { ae = smartMultiply(ae, m1.a, m2.a, fftThreshold); wg.Done() }()
+		go func() { bg = smartMultiply(bg, m1.b, m2.c, fftThreshold); wg.Done() }()
+		go func() { af = smartMultiply(af, m1.a, m2.b, fftThreshold); wg.Done() }()
+		go func() { bh = smartMultiply(bh, m1.b, m2.d, fftThreshold); wg.Done() }()
+		go func() { ce = smartMultiply(ce, m1.c, m2.a, fftThreshold); wg.Done() }()
+		go func() { dg = smartMultiply(dg, m1.d, m2.c, fftThreshold); wg.Done() }()
+		go func() { cf = smartMultiply(cf, m1.c, m2.b, fftThreshold); wg.Done() }()
+		go func() { dh = smartMultiply(dh, m1.d, m2.d, fftThreshold); wg.Done() }()
 		wg.Wait()
 	} else {
-		ae = mul(ae, m1.a, m2.a)
-		bg = mul(bg, m1.b, m2.c)
-		af = mul(af, m1.a, m2.b)
-		bh = mul(bh, m1.b, m2.d)
-		ce = mul(ce, m1.c, m2.a)
-		dg = mul(dg, m1.d, m2.c)
-		cf = mul(cf, m1.c, m2.b)
-		dh = mul(dh, m1.d, m2.d)
+		ae = smartMultiply(ae, m1.a, m2.a, fftThreshold)
+		bg = smartMultiply(bg, m1.b, m2.c, fftThreshold)
+		af = smartMultiply(af, m1.a, m2.b, fftThreshold)
+		bh = smartMultiply(bh, m1.b, m2.d, fftThreshold)
+		ce = smartMultiply(ce, m1.c, m2.a, fftThreshold)
+		dg = smartMultiply(dg, m1.d, m2.c, fftThreshold)
+		cf = smartMultiply(cf, m1.c, m2.b, fftThreshold)
+		dh = smartMultiply(dh, m1.d, m2.d, fftThreshold)
 	}
 
 	dest.a.Add(ae, bg)
