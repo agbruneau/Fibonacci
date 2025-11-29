@@ -165,9 +165,9 @@ func GenerateAdaptiveThresholds() []int {
 
 ---
 
-## 2. 🌐 Améliorations du Serveur HTTP
+## DONE 2. 🌐 Améliorations du Serveur HTTP
 
-### 2.1 Nouveaux endpoints
+### DONE 2.1 Nouveaux endpoints
 
 | Endpoint | Méthode | Description | Priorité |
 |----------|---------|-------------|----------|
@@ -247,7 +247,7 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### 2.2 Sécurité et observabilité
+### DONE 2.2 Sécurité et observabilité
 
 | Amélioration | Description | Priorité | Fichier(s) |
 |--------------|-------------|----------|------------|
@@ -304,7 +304,7 @@ var (
 )
 ```
 
-### 2.3 Rate Limiter amélioré
+### DONE 2.3 Rate Limiter amélioré
 
 **Fichier concerné :** `internal/server/middleware.go`
 
