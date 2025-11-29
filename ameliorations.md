@@ -21,7 +21,7 @@ Ce projet est un calculateur de Fibonacci haute performance en Go, implémentant
 
 ---
 
-## 1. 🔧 Améliorations Techniques
+## DONE 1. 🔧 Améliorations Techniques
 
 ### DONE 1.1 Gestion de la mémoire et performances
 
@@ -53,7 +53,7 @@ func releasePoly(p *poly) {
 }
 ```
 
-### 1.2 Amélioration des algorithmes
+### DONE 1.2 Amélioration des algorithmes
 
 | Amélioration | Description | Priorité |
 |--------------|-------------|----------|
@@ -90,7 +90,7 @@ func (c *LucasCalculator) CalculateCore(ctx context.Context, reporter ProgressRe
 }
 ```
 
-### 1.3 Calibration améliorée
+### DONE 1.3 Calibration améliorée
 
 **Problème actuel :** Les seuils de calibration sont codés en dur dans `internal/calibration/calibration.go`.
 
