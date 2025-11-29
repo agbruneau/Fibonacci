@@ -340,4 +340,3 @@ func BenchmarkServerHealth(b *testing.B) {
 		}
 	})
 }
-

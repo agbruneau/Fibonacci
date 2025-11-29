@@ -255,4 +255,3 @@ func TestMulToWithPooling(t *testing.T) {
 		t.Errorf("MulTo for large numbers failed")
 	}
 }
-

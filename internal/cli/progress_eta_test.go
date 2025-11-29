@@ -193,7 +193,7 @@ func TestProgressWithETAEdgeCases(t *testing.T) {
 // TestETACapping verifies that ETA is capped at reasonable values.
 func TestETACapping(t *testing.T) {
 	p := NewProgressWithETA(1)
-	p.Update(0, 0.001) // Very small progress
+	p.Update(0, 0.001)         // Very small progress
 	p.progressRate = 0.0000001 // Very slow rate
 
 	eta := p.GetETA()
@@ -217,4 +217,3 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
-

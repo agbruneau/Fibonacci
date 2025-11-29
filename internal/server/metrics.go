@@ -22,44 +22,44 @@ type Metrics struct {
 	startTime time.Time
 
 	// Counters
-	calculationsTotal   map[string]*uint64 // key: "algorithm:status"
-	calculationsMu      sync.RWMutex
+	calculationsTotal map[string]*uint64 // key: "algorithm:status"
+	calculationsMu    sync.RWMutex
 
 	// Histograms (duration buckets in seconds)
-	durationHistogram   map[string]*histogram // key: algorithm
-	durationMu          sync.RWMutex
+	durationHistogram map[string]*histogram // key: algorithm
+	durationMu        sync.RWMutex
 
 	// Gauges
-	activeRequests      int64
-	totalRequests       uint64
+	activeRequests int64
+	totalRequests  uint64
 }
 
 // histogram represents a simple histogram for duration tracking.
 type histogram struct {
-	buckets []float64         // bucket boundaries in seconds
-	counts  []uint64          // count per bucket
-	sum     float64           // sum of all observed values
-	count   uint64            // total count
+	buckets []float64 // bucket boundaries in seconds
+	counts  []uint64  // count per bucket
+	sum     float64   // sum of all observed values
+	count   uint64    // total count
 	mu      sync.Mutex
 }
 
 // defaultBuckets defines the default histogram buckets (in seconds).
 var defaultBuckets = []float64{
-	0.001,  // 1ms
-	0.005,  // 5ms
-	0.01,   // 10ms
-	0.025,  // 25ms
-	0.05,   // 50ms
-	0.1,    // 100ms
-	0.25,   // 250ms
-	0.5,    // 500ms
-	1.0,    // 1s
-	2.5,    // 2.5s
-	5.0,    // 5s
-	10.0,   // 10s
-	30.0,   // 30s
-	60.0,   // 1min
-	300.0,  // 5min
+	0.001, // 1ms
+	0.005, // 5ms
+	0.01,  // 10ms
+	0.025, // 25ms
+	0.05,  // 50ms
+	0.1,   // 100ms
+	0.25,  // 250ms
+	0.5,   // 500ms
+	1.0,   // 1s
+	2.5,   // 2.5s
+	5.0,   // 5s
+	10.0,  // 10s
+	30.0,  // 30s
+	60.0,  // 1min
+	300.0, // 5min
 }
 
 // NewMetrics creates a new Metrics instance.
@@ -260,4 +260,3 @@ func (s *Server) metricsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
-

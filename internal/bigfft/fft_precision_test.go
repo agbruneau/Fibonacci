@@ -419,4 +419,3 @@ func BenchmarkMulToReuse(b *testing.B) {
 		MulTo(z, a, bInt)
 	}
 }
-

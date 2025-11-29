@@ -196,10 +196,10 @@ func TestValidateCombinedErrors(t *testing.T) {
 
 	// Multiple issues - validation should catch at least one
 	cfg := AppConfig{
-		Timeout:      0,               // Invalid
-		Threshold:    -1,              // Invalid
-		FFTThreshold: -1,              // Invalid
-		Algo:         "nonexistent",   // Invalid
+		Timeout:      0,             // Invalid
+		Threshold:    -1,            // Invalid
+		FFTThreshold: -1,            // Invalid
+		Algo:         "nonexistent", // Invalid
 	}
 
 	err := cfg.Validate(algos)
@@ -443,7 +443,7 @@ func TestParseConfigValidationErrors(t *testing.T) {
 		{
 			"NegativeThreshold",
 			[]string{"-threshold", "-1"},
-			"",  // Just needs to error
+			"", // Just needs to error
 		},
 		{
 			"NegativeFFTThreshold",
@@ -627,4 +627,3 @@ func TestParseConfigBoundaryValues(t *testing.T) {
 		})
 	}
 }
-

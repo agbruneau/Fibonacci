@@ -151,13 +151,13 @@ func TestEstimateOptimalStrassenThreshold(t *testing.T) {
 
 func TestValidateThresholds(t *testing.T) {
 	tests := []struct {
-		name           string
-		parallel       int
-		fft            int
-		strassen       int
-		wantParallel   int
-		wantFFT        int
-		wantStrassen   int
+		name         string
+		parallel     int
+		fft          int
+		strassen     int
+		wantParallel int
+		wantFFT      int
+		wantStrassen int
 	}{
 		{"normal values", 4096, 1000000, 256, 4096, 1000000, 256},
 		{"negative parallel", -100, 1000000, 256, 0, 1000000, 256},
@@ -274,4 +274,3 @@ func BenchmarkEstimatedThresholds(b *testing.B) {
 		_, _, _ = EstimatedThresholds()
 	}
 }
-

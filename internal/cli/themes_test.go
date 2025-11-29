@@ -188,4 +188,3 @@ func TestColorFunctions(t *testing.T) {
 		}
 	})
 }
-

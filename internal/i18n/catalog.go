@@ -284,21 +284,21 @@ var frenchMessages = map[string]string{
 	"StatusFailure":          "Statut : Échec. Une erreur inattendue s'est produite : %v",
 
 	// New CLI messages
-	"InteractiveWelcome":    "Bienvenue dans le mode interactif !",
-	"InteractiveHelp":       "Tapez 'help' pour voir les commandes disponibles.",
-	"InteractiveGoodbye":    "Au revoir !",
-	"QuietModeResult":       "F(%d) calculé en %s",
-	"OutputSaved":           "Résultat sauvegardé dans : %s",
-	"OutputError":           "Erreur lors de l'écriture du fichier : %v",
+	"InteractiveWelcome": "Bienvenue dans le mode interactif !",
+	"InteractiveHelp":    "Tapez 'help' pour voir les commandes disponibles.",
+	"InteractiveGoodbye": "Au revoir !",
+	"QuietModeResult":    "F(%d) calculé en %s",
+	"OutputSaved":        "Résultat sauvegardé dans : %s",
+	"OutputError":        "Erreur lors de l'écriture du fichier : %v",
 
 	// Pluralization examples
-	"AlgorithmCount_zero":   "Aucun algorithme disponible",
-	"AlgorithmCount_one":    "%d algorithme disponible",
-	"AlgorithmCount_other":  "%d algorithmes disponibles",
+	"AlgorithmCount_zero":  "Aucun algorithme disponible",
+	"AlgorithmCount_one":   "%d algorithme disponible",
+	"AlgorithmCount_other": "%d algorithmes disponibles",
 
-	"DigitCount_zero":       "Aucun chiffre",
-	"DigitCount_one":        "%d chiffre",
-	"DigitCount_other":      "%d chiffres",
+	"DigitCount_zero":  "Aucun chiffre",
+	"DigitCount_one":   "%d chiffre",
+	"DigitCount_other": "%d chiffres",
 
 	"CalculationTime_one":   "Calcul terminé en %d seconde",
 	"CalculationTime_other": "Calcul terminé en %d secondes",
@@ -320,17 +320,17 @@ var spanishMessages = map[string]string{
 	"StatusFailure":          "Estado: Fallo. Ocurrió un error inesperado: %v",
 
 	// New CLI messages
-	"InteractiveWelcome":    "¡Bienvenido al modo interactivo!",
-	"InteractiveHelp":       "Escriba 'help' para ver los comandos disponibles.",
-	"InteractiveGoodbye":    "¡Hasta luego!",
-	"QuietModeResult":       "F(%d) calculado en %s",
-	"OutputSaved":           "Resultado guardado en: %s",
-	"OutputError":           "Error al escribir el archivo: %v",
+	"InteractiveWelcome": "¡Bienvenido al modo interactivo!",
+	"InteractiveHelp":    "Escriba 'help' para ver los comandos disponibles.",
+	"InteractiveGoodbye": "¡Hasta luego!",
+	"QuietModeResult":    "F(%d) calculado en %s",
+	"OutputSaved":        "Resultado guardado en: %s",
+	"OutputError":        "Error al escribir el archivo: %v",
 
 	// Pluralization examples
-	"AlgorithmCount_zero":   "Ningún algoritmo disponible",
-	"AlgorithmCount_one":    "%d algoritmo disponible",
-	"AlgorithmCount_other":  "%d algoritmos disponibles",
+	"AlgorithmCount_zero":  "Ningún algoritmo disponible",
+	"AlgorithmCount_one":   "%d algoritmo disponible",
+	"AlgorithmCount_other": "%d algoritmos disponibles",
 }
 
 // germanMessages contains German translations.
@@ -349,16 +349,15 @@ var germanMessages = map[string]string{
 	"StatusFailure":          "Status: Fehler. Ein unerwarteter Fehler ist aufgetreten: %v",
 
 	// New CLI messages
-	"InteractiveWelcome":    "Willkommen im interaktiven Modus!",
-	"InteractiveHelp":       "Geben Sie 'help' ein, um die verfügbaren Befehle anzuzeigen.",
-	"InteractiveGoodbye":    "Auf Wiedersehen!",
-	"QuietModeResult":       "F(%d) berechnet in %s",
-	"OutputSaved":           "Ergebnis gespeichert in: %s",
-	"OutputError":           "Fehler beim Schreiben der Datei: %v",
+	"InteractiveWelcome": "Willkommen im interaktiven Modus!",
+	"InteractiveHelp":    "Geben Sie 'help' ein, um die verfügbaren Befehle anzuzeigen.",
+	"InteractiveGoodbye": "Auf Wiedersehen!",
+	"QuietModeResult":    "F(%d) berechnet in %s",
+	"OutputSaved":        "Ergebnis gespeichert in: %s",
+	"OutputError":        "Fehler beim Schreiben der Datei: %v",
 
 	// Pluralization examples
-	"AlgorithmCount_zero":   "Keine Algorithmen verfügbar",
-	"AlgorithmCount_one":    "%d Algorithmus verfügbar",
-	"AlgorithmCount_other":  "%d Algorithmen verfügbar",
+	"AlgorithmCount_zero":  "Keine Algorithmen verfügbar",
+	"AlgorithmCount_one":   "%d Algorithmus verfügbar",
+	"AlgorithmCount_other": "%d Algorithmen verfügbar",
 }
-

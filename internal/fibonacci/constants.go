@@ -71,4 +71,3 @@ const (
 	// A value of 0.01 (1%) provides smooth progress updates without overhead.
 	ProgressReportThreshold = 0.01
 )
-

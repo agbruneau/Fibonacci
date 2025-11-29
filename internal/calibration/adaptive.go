@@ -93,11 +93,11 @@ func GenerateFFTThresholds() []int {
 	if wordSize == 64 {
 		// 64-bit systems typically have higher crossover points
 		thresholds = append(thresholds,
-			500000,   // ~500K bits
-			750000,   // ~750K bits
-			1000000,  // ~1M bits (default)
-			1500000,  // ~1.5M bits
-			2000000,  // ~2M bits
+			500000,  // ~500K bits
+			750000,  // ~750K bits
+			1000000, // ~1M bits (default)
+			1500000, // ~1.5M bits
+			2000000, // ~2M bits
 		)
 	} else {
 		// 32-bit systems have lower crossover points
@@ -273,4 +273,3 @@ func (t *ThresholdSet) SortThresholds() {
 	sort.Ints(t.FFT)
 	sort.Ints(t.Strassen)
 }
-

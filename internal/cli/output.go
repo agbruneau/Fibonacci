@@ -150,4 +150,3 @@ func DisplayResultWithConfig(out io.Writer, result *big.Int, n uint64, duration 
 
 	return nil
 }
-

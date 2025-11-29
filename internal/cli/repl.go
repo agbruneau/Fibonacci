@@ -31,11 +31,11 @@ type REPLConfig struct {
 
 // REPL represents an interactive Fibonacci calculator session.
 type REPL struct {
-	config     REPLConfig
-	registry   map[string]fibonacci.Calculator
+	config      REPLConfig
+	registry    map[string]fibonacci.Calculator
 	currentAlgo string
-	in         io.Reader
-	out        io.Writer
+	in          io.Reader
+	out         io.Writer
 }
 
 // NewREPL creates a new REPL instance.
@@ -112,7 +112,7 @@ func (r *REPL) Start() {
 // printBanner displays the REPL welcome banner.
 func (r *REPL) printBanner() {
 	fmt.Fprintf(r.out, "\n%s╔══════════════════════════════════════════════════════════╗%s\n", ColorCyan(), ColorReset())
-	fmt.Fprintf(r.out, "%s║%s     %s🔢 Fibonacci Calculator - Mode Interactif%s            %s║%s\n", 
+	fmt.Fprintf(r.out, "%s║%s     %s🔢 Fibonacci Calculator - Mode Interactif%s            %s║%s\n",
 		ColorCyan(), ColorReset(), ColorBold(), ColorReset(), ColorCyan(), ColorReset())
 	fmt.Fprintf(r.out, "%s╚══════════════════════════════════════════════════════════╝%s\n\n", ColorCyan(), ColorReset())
 }
@@ -303,7 +303,7 @@ func (r *REPL) cmdCompare(args []string) {
 
 	for name, calc := range r.registry {
 		ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
-		
+
 		// Create a progress channel for this calculation
 		progressChan := make(chan fibonacci.ProgressUpdate, 10)
 		go func() {
@@ -385,4 +385,3 @@ func (r *REPL) cmdStatus() {
 	fmt.Fprintf(r.out, "  Hexadécimal:    %s%s%s\n", ColorCyan(), hexStatus, ColorReset())
 	fmt.Fprintln(r.out)
 }
-

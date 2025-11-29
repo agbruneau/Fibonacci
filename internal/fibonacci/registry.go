@@ -233,4 +233,3 @@ func GlobalFactory() *DefaultFactory {
 func RegisterCalculator(name string, creator func() coreCalculator) {
 	globalFactory.Register(name, creator)
 }
-

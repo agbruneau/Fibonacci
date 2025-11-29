@@ -17,8 +17,8 @@ func FuzzFastDoublingConsistency(f *testing.F) {
 	f.Add(uint64(2))
 	f.Add(uint64(10))
 	f.Add(uint64(50))
-	f.Add(uint64(92))  // Near max uint64 Fibonacci
-	f.Add(uint64(93))  // Max Fibonacci that fits in uint64
+	f.Add(uint64(92)) // Near max uint64 Fibonacci
+	f.Add(uint64(93)) // Max Fibonacci that fits in uint64
 	f.Add(uint64(100))
 	f.Add(uint64(500))
 	f.Add(uint64(1000))
@@ -241,4 +241,3 @@ func FuzzProgressMonotonicity(f *testing.F) {
 		}
 	})
 }
-

@@ -306,4 +306,3 @@ Register-ArgumentCompleter -CommandName 'fibcalc' -Native -ScriptBlock {
 	_, err := fmt.Fprintf(out, script, algoList)
 	return err
 }
-

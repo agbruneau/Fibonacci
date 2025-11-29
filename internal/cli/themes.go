@@ -125,4 +125,3 @@ func InitTheme(noColor bool) {
 	// Default to dark theme
 	CurrentTheme = DarkTheme
 }
-

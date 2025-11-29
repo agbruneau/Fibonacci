@@ -16,12 +16,12 @@ import (
 // to allow validation of cached results.
 type CalibrationProfile struct {
 	// Hardware identification
-	CPUModel    string `json:"cpu_model"`
-	NumCPU      int    `json:"num_cpu"`
-	GOARCH      string `json:"goarch"`
-	GOOS        string `json:"goos"`
-	GoVersion   string `json:"go_version"`
-	WordSize    int    `json:"word_size"` // 32 or 64
+	CPUModel  string `json:"cpu_model"`
+	NumCPU    int    `json:"num_cpu"`
+	GOARCH    string `json:"goarch"`
+	GOOS      string `json:"goos"`
+	GoVersion string `json:"go_version"`
+	WordSize  int    `json:"word_size"` // 32 or 64
 
 	// Calibrated thresholds
 	OptimalParallelThreshold int `json:"optimal_parallel_threshold"`
@@ -201,4 +201,3 @@ func ProfileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
-

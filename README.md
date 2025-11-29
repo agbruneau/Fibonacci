@@ -548,13 +548,9 @@ make upgrade       # Mettre à jour les dépendances
 │   ├── PERFORMANCE.md             # Guide de performance
 │   └── SECURITY.md                # Politique de sécurité
 │
-├── build/                         # Binaires compilés
 ├── API.md                         # 📖 Documentation API REST
-├── ameliorations.md               # 📝 Document d'améliorations
-├── CHANGELOG.md                   # 📜 Historique des versions
 ├── CONTRIBUTING.md                # 🤝 Guide de contribution
 ├── Dockerfile                     # 🐳 Configuration Docker
-├── EVALUATION.md                  # 📊 Critères d'évaluation
 ├── go.mod                         # Dépendances Go
 ├── go.sum                         # Checksums des dépendances
 ├── LICENSE                        # Licence Apache 2.0
@@ -638,7 +634,6 @@ Le projet supporte plusieurs langues :
 |----------|-------------|
 | [README.md](README.md) | Documentation principale |
 | [API.md](API.md) | Documentation de l'API REST |
-| [CHANGELOG.md](CHANGELOG.md) | Historique des changements |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Guide de contribution |
 | [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) | Architecture du projet |
 | [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md) | Guide de performance |

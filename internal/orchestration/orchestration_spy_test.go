@@ -28,7 +28,7 @@ func TestExecuteCalculationsRespectsStrassenConfig(t *testing.T) {
 	cfg := config.AppConfig{
 		N:                 10,
 		StrassenThreshold: 12345, // Unique value to verify
-		Algo:             "matrix",
+		Algo:              "matrix",
 	}
 
 	ExecuteCalculations(context.Background(), calculators, cfg, io.Discard)

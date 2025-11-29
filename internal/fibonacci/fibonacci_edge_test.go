@@ -308,8 +308,8 @@ func TestStrassenThresholdVariations(t *testing.T) {
 	for _, threshold := range thresholds {
 		t.Run("StrassenThreshold="+string(rune(threshold)), func(t *testing.T) {
 			opts := Options{
-				ParallelThreshold:  DefaultParallelThreshold,
-				StrassenThreshold:  threshold,
+				ParallelThreshold: DefaultParallelThreshold,
+				StrassenThreshold: threshold,
 			}
 			result, err := calc.Calculate(ctx, nil, 0, n, opts)
 			if err != nil {
@@ -581,4 +581,3 @@ func TestRegistryCustomCalculator(t *testing.T) {
 		t.Errorf("Expected 55, got %s", result.String())
 	}
 }
-

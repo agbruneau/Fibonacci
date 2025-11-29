@@ -177,4 +177,3 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
 	return apperrors.ExitSuccess
 }
-

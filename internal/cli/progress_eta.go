@@ -170,4 +170,3 @@ func FormatProgressBarWithETA(progress float64, eta time.Duration, width int) st
 	etaStr := FormatETA(eta)
 	return fmt.Sprintf("%6.2f%% [%s] ETA: %s", progress*100, bar, etaStr)
 }
-
