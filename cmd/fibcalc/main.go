@@ -80,8 +80,6 @@ func main() {
 			fmt.Fprintln(os.Stderr, "[i18n] failed to load translations:", err)
 		}
 	}
-	// Setting the Strassen threshold for the matrix algorithm
-	fibonacci.SetDefaultStrassenThreshold(cfg.StrassenThreshold)
 
 	if cfg.ServerMode {
 		srv := server.NewServer(calculatorRegistry, cfg)
