@@ -28,26 +28,18 @@
   - [5. Architecture Logicielle](#5-architecture-logicielle)
   - [6. Analyse Algorithmique et Complexité](#6-analyse-algorithmique-et-complexité)
     - [Dérivation des Formules de Fast Doubling](#dérivation-des-formules-de-fast-doubling)
+    - [Optimisation de Strassen](#optimisation-de-strassen)
   - [7. Optimisations de Performance](#7-optimisations-de-performance)
     - [Stratégie Zéro-Allocation](#stratégie-zéro-allocation)
-    - [Parallélisme et Seuils](#parallélisme-et-seuils)
+    - [Parallélisme et Seuils Adaptatifs](#parallélisme-et-seuils-adaptatifs)
     - [Méthodologie de Calibration](#méthodologie-de-calibration)
   - [8. Tests](#8-tests)
     - [8.1 Exécuter les tests](#81-exécuter-les-tests)
-      - [Tests unitaires](#tests-unitaires)
-      - [Benchmarks de performance](#benchmarks-de-performance)
-      - [Couverture de code](#couverture-de-code)
     - [8.2 Exécuter l'application](#82-exécuter-lapplication)
-      - [Compilation](#compilation)
-      - [Mode CLI - Exemples d'utilisation](#mode-cli---exemples-dutilisation)
-      - [Mode Serveur HTTP](#mode-serveur-http)
-      - [Mode Docker](#mode-docker)
-      - [Mode production](#mode-production)
   - [9. Développement](#9-développement)
     - [Makefile](#makefile)
     - [Structure du projet](#structure-du-projet)
     - [Documentation](#documentation)
-    - [CI/CD](#cicd)
   - [10. Déploiement](#10-déploiement)
     - [Docker](#docker-1)
     - [Docker Compose](#docker-compose)
@@ -89,10 +81,10 @@ Ce projet est un calculateur de Fibonacci haute performance et une étude de cas
 
 Les objectifs principaux sont :
 
-- Servir de référence pour l'implémentation d'algorithmes sophistiqués en Go.
-- Démontrer les meilleures pratiques en architecture logicielle, y compris la modularité et la testabilité.
-- Fournir un exemple pratique de techniques d'optimisation de la performance.
-- Offrir une API REST production-ready avec graceful shutdown et monitoring.
+- **Référence Technique** : Servir d'implémentation de référence pour des algorithmes mathématiques complexes (Fast Doubling, Strassen, FFT).
+- **Architecture Propre** : Démontrer une architecture modulaire, testable et découplée (Clean Architecture).
+- **Performance Extrême** : Illustrer des techniques d'optimisation avancées comme le recyclage de mémoire (`sync.Pool`), la concurrence fine et l'arithmétique adaptée au matériel.
+- **Production-Ready** : Offrir une CLI robuste et une API REST avec gestion gracieuse de l'arrêt, monitoring et configuration dynamique.
 
 ## 2. Démarrage
 
@@ -210,22 +202,18 @@ curl "http://localhost:8080/calculate?n=1000"
 
 ## 3. Fonctionnalités
 
-- **Support des Grands Nombres** : Utilise `math/big` pour une arithmétique de précision arbitraire.
-- **Algorithmes Multiples** : Implémente plusieurs algorithmes en O(log n) :
-  - **Fast Doubling** (`fast`): Optimisé, adaptatif (standard/FFT), parallèle.
-  - **Exponentiation Matricielle** (`matrix`): Optimisé avec l'algorithme de Strassen.
-  - **FFT-Based Doubling** (`fft`): Utilise exclusivement la multiplication FFT (pour benchmarks/très grands nombres).
-- **Nouveautés** :
-  - **Mode Serveur HTTP** : Expose une API REST pour effectuer des calculs à la demande.
-  - **Sortie JSON** : Formatage structuré pour une intégration facile avec d'autres outils.
+- **Support des Grands Nombres** : Utilise `math/big` pour une arithmétique de précision arbitraire, capable de calculer des nombres de Fibonacci avec des millions de chiffres.
+- **Algorithmes Multiples** :
+  - **Fast Doubling (`fast`)** : L'algorithme par défaut. Combine complexité logarithmique, parallélisme et multiplication hybride (Karatsuba/FFT).
+  - **Exponentiation Matricielle (`matrix`)** : Utilise la décomposition binaire de la puissance et l'algorithme de Strassen pour les grandes matrices.
+  - **FFT-Based Doubling (`fft`)** : Force l'utilisation de la multiplication FFT pour tous les calculs (utile pour les benchmarks sur très grands N).
+- **Mode Serveur HTTP** : Expose une API REST performante pour effectuer des calculs à la demande.
+- **Sortie Structurée** : Support natif du format JSON (`--json`) pour l'intégration dans des pipelines de données.
 - **Optimisations de Performance** :
-  - **Stratégie Zéro-Allocation** : Emploie `sync.Pool` pour minimiser la surcharge du ramasse-miettes.
-  - **Parallélisme** : Tire parti des cœurs multiples pour des performances améliorées.
-  - **Multiplication FFT Adaptative** : Bascule vers la multiplication basée sur la FFT pour les très grands nombres.
-- **Architecture Modulaire** :
-  - **Séparation des Préoccupations** : Découple la logique, la présentation et l'orchestration.
-  - **Arrêt Propre** : Gère le cycle de vie de l'application avec `context`.
-  - **Concurrence Structurée** : Utilise `golang.org/x/sync/errgroup` pour l'orchestration.
+  - **Stratégie Zéro-Allocation** : Emploie `sync.Pool` pour recycler les objets `big.Int` et minimiser la pression sur le GC.
+  - **Parallélisme Adaptatif** : Utilisation intelligente des cœurs CPU basée sur des seuils configurables ou auto-calibrés.
+  - **Algorithme de Strassen** : Réduit la complexité de la multiplication matricielle pour les grandes dimensions.
+- **Architecture Modulaire** : Conception robuste avec séparation stricte des couches (Configuration, Calcul, Orchestration, Présentation).
 
 ## 4. Utilisation
 
@@ -323,19 +311,26 @@ De là, nous extrayons :
 - `F(2k) = F(k) * (2*F(k+1) - F(k))`
 - `F(2k+1) = F(k+1)² + F(k)²`
 
+### Optimisation de Strassen
+
+Pour l'algorithme d'Exponentiation Matricielle, nous employons l'algorithme de Strassen lorsque la taille des nombres dépasse un certain seuil (`--strassen-threshold`).
+Bien que la complexité standard de la multiplication matricielle soit $O(N^3)$ (ici N=2, donc constant), l'impact se situe au niveau des opérations sur les `big.Int`. Strassen réduit le nombre de multiplications scalaires de 8 à 7, ce qui, pour de très grands nombres, compense largement le coût des additions supplémentaires.
+
 ## 7. Optimisations de Performance
 
 ### Stratégie Zéro-Allocation
 
 - **Pools d'Objets (`sync.Pool`)**: Pour minimiser la pression sur le ramasse-miettes, les états de calcul (`calculationState`, `matrixState`) sont recyclés. Cela élimine presque toutes les allocations de mémoire dans les boucles de calcul critiques.
+- **Mise au Carré Symétrique** : Dans l'algorithme matriciel, une fonction spécialisée `squareSymmetricMatrix` est utilisée pour réduire le nombre de multiplications à seulement 4 (contre 8 en méthode naïve) lors de l'élévation au carré de matrices symétriques.
 
-### Parallélisme et Seuils
+### Parallélisme et Seuils Adaptatifs
 
 - **Parallélisme Multi-cœur**: Les multiplications de grands nombres sont exécutées en parallèle sur plusieurs goroutines.
+- **Limitation FFT** : Une heuristique interne désactive le parallélisme si la multiplication FFT est utilisée sur des nombres inférieurs à **10 millions de bits**, afin d'éviter la saturation des ressources CPU (contention).
 - **Seuils Empiriques**:
-  - `--threshold` (défaut `4096` bits) : Active le parallélisme.
+  - `--threshold` (défaut `4096` bits) : Active le parallélisme pour les multiplications classiques.
   - `--fft-threshold` (défaut `1000000` bits) : Active la multiplication FFT.
-  - `--strassen-threshold` (défaut `3072` bits) : Utilise l'algorithme de Strassen pour la multiplication de matrices.
+  - `--strassen-threshold` (défaut `3072` bits) : Bascule vers l'algorithme de Strassen.
 
 ### Méthodologie de Calibration
 
@@ -351,195 +346,28 @@ Le processus fonctionne comme suit :
 
 Le projet inclut une suite de tests robuste pour garantir la correction et la stabilité.
 
-- **Tests Unitaires**: Valident les cas limites et les petites valeurs de `n`.
-- **Tests de Propriétés**: Utilisent `gopter` pour effectuer des tests basés sur les propriétés.
-- **Tests d'Intégration**: Valident le serveur HTTP et ses endpoints.
-- **Benchmarks**: Mesurent la performance des différents algorithmes.
-
 ### 8.1 Exécuter les tests
 
-#### Tests unitaires
-
 ```bash
-# Exécuter tous les tests (recommandé avec Make)
+# Exécuter tous les tests (recommandé)
 make test
 
-# Ou sans Make
-go test ./... -v
-
-# Tests courts uniquement (sans les tests longs)
-make test-short
-# Ou
+# Tests unitaires courts
 go test -v -short ./...
 
-# Tests avec affichage de la couverture
-go test -v -cover ./...
-
-# Tests avec détection de race conditions
-go test -race ./...
-```
-
-#### Benchmarks de performance
-
-```bash
-# Exécuter les benchmarks (recommandé avec Make)
-make benchmark
-
-# Ou sans Make
+# Tests de propriété (gopter) et benchmarks
 go test -bench=. -benchmem ./internal/fibonacci/
 
-# Benchmarks complets avec statistiques détaillées
-go test -bench=. -benchmem -benchtime=10s ./internal/fibonacci/
-
-# Benchmark d'un algorithme spécifique
-go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
-```
-
-#### Couverture de code
-
-```bash
-# Générer et visualiser le rapport de couverture HTML
+# Vérification de la couverture
 make coverage
-
-# Ou manuellement
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out -o coverage.html
-
-# Afficher la couverture par fonction
-go tool cover -func=coverage.out
-
-# Couverture avec seuil minimum
-go test -cover -coverprofile=coverage.out ./... && \
-  go tool cover -func=coverage.out | grep total | \
-  awk '{if ($3+0 < 70) {print "Coverage below 70%"; exit 1}}'
 ```
 
 ### 8.2 Exécuter l'application
 
-#### Compilation
-
-```bash
-# Compilation pour la plateforme actuelle
-make build
-
-# Ou sans Make
-go build -o build/fibcalc ./cmd/fibcalc
-
-# Compilation optimisée (binaire plus léger)
-go build -ldflags="-s -w" -o build/fibcalc ./cmd/fibcalc
-
-# Compilation pour toutes les plateformes
-make build-all
-
-# Installation globale dans $GOPATH/bin
-make install
-# Ou
-go install ./cmd/fibcalc
-```
-
-#### Mode CLI - Exemples d'utilisation
-
-```bash
-# Calcul simple avec l'algorithme Fast Doubling
-./build/fibcalc -n 1000 -algo fast
-
-# Calcul avec affichage des détails de performance
-./build/fibcalc -n 1000 -algo fast -d
-
-# Calcul avec affichage du résultat complet
-./build/fibcalc -n 100 -algo fast -v
-
-# Comparaison de tous les algorithmes
-./build/fibcalc -n 10000000 -algo all
-
-# Calcul avec un timeout personnalisé
-./build/fibcalc -n 500000000 -algo fast -d --timeout 10m
-
-# Sortie au format JSON
-./build/fibcalc -n 1000 -algo fast --json
-
-# Test rapide prédéfini (avec Make)
-make run-fast
-
-# Calibration des seuils de performance
-./build/fibcalc --calibrate
-# Ou avec Make
-make run-calibrate
-
-# Calibration automatique rapide au démarrage
-./build/fibcalc -n 10000000 -algo fast --auto-calibrate -d
-```
-
-#### Mode Serveur HTTP
-
-```bash
-# Démarrer le serveur (recommandé avec Make)
-make run-server
-
-# Ou manuellement
-./build/fibcalc --server --port 8080
-
-# Avec configuration personnalisée
-./build/fibcalc --server --port 8080 \
-  --threshold 8192 \
-  --fft-threshold 25000 \
-  --strassen-threshold 512
-
-# Avec auto-calibration
-./build/fibcalc --server --port 8080 --auto-calibrate
-
-# Tester les endpoints de l'API
-curl "http://localhost:8080/calculate?n=1000&algo=fast"
-curl "http://localhost:8080/health"
-curl "http://localhost:8080/algorithms"
-
-# Calcul avec jq pour formater le JSON
-curl -s "http://localhost:8080/calculate?n=100" | jq .
-```
-
-#### Mode Docker
-
-```bash
-# Construire l'image Docker
-make docker-build
-# Ou
-docker build -t fibcalc:1.0.0 .
-
-# Exécution CLI dans Docker
-docker run --rm fibcalc:1.0.0 -n 1000 -algo fast -d
-
-# Exécution serveur dans Docker (daemon)
-docker run -d -p 8080:8080 --name fibcalc-server \
-  fibcalc:1.0.0 --server --port 8080
-
-# Voir les logs du serveur
-docker logs -f fibcalc-server
-
-# Arrêter le serveur
-docker stop fibcalc-server
-
-# Supprimer le conteneur
-docker rm fibcalc-server
-
-# Test de l'API dans Docker
-curl "http://localhost:8080/calculate?n=1000&algo=fast"
-```
-
-#### Mode production
-
-```bash
-# Construction optimisée pour production
-CGO_ENABLED=0 go build -ldflags="-s -w" -o fibcalc ./cmd/fibcalc
-
-# Avec variables d'environnement
-export GOMAXPROCS=8
-./fibcalc --server --port 8080 --threshold 8192
-
-# Exécution en arrière-plan avec nohup
-nohup ./fibcalc --server --port 8080 > server.log 2>&1 &
-
-# Avec systemd (créer un fichier /etc/systemd/system/fibcalc.service)
-```
+Voir la section [Utilisation](#4-utilisation) pour les détails complets. Les modes principaux incluent :
+- **CLI** : Pour des calculs ponctuels ou scripts.
+- **Serveur** : Pour une utilisation en tant que micro-service.
+- **Docker** : Pour le déploiement conteneurisé.
 
 ## 9. Développement
 
@@ -572,75 +400,32 @@ make docker-build  # Construire l'image Docker
 │
 ├── internal/                      # Packages internes de l'application
 │   ├── calibration/               # Calibration automatique des performances
-│   │   └── calibration.go
 │   ├── cli/                       # Interface utilisateur CLI (spinner, barres)
-│   │   ├── ui.go
-│   │   └── ui_test.go
 │   ├── config/                    # Gestion de la configuration et flags CLI
-│   │   └── config.go
 │   ├── errors/                    # Gestion centralisée des erreurs
-│   │   └── errors.go
-│   ├── fibonacci/                 # Cœur des algorithmes de calcul
-│   │   ├── calculator.go          # Interface Calculator et wrapper
-│   │   ├── fastdoubling.go        # Fast Doubling (O(log n), parallèle)
-│   │   ├── matrix.go              # Exponentiation matricielle (Strassen)
-│   │   ├── fft_based.go           # Calculateur basé FFT
-│   │   ├── fft.go                 # Multiplication FFT pour grands nombres
-│   │   ├── fibonacci_test.go      # Tests unitaires
-│   │   └── fibonacci_property_test.go  # Property-based testing
+│   ├── fibonacci/                 # Cœur des algorithmes de calcul (Fast Doubling, Matrix, FFT)
 │   ├── i18n/                      # Internationalisation (i18n)
-│   │   └── messages.go
 │   ├── orchestration/             # Orchestration des calculs concurrents
-│   │   └── orchestrator.go
 │   └── server/                    # Serveur HTTP REST API
-│       ├── server.go              # Implémentation serveur avec graceful shutdown
-│       └── server_test.go         # Tests des endpoints
 │
-├── build/                         # Binaires compilés (créé par make build)
-│
-├── Books/                         # Documentation technique (PDFs)
-│
+├── build/                         # Binaires compilés
 ├── API.md                         # 📖 Documentation complète de l'API REST
-├── CHANGELOG.md                   # 📝 Historique des versions et changements
-├── CONTRIBUTING.md                # 🤝 Guide pour contribuer au projet
-├── Dockerfile                     # 🐳 Configuration Docker multi-stage
-├── .dockerignore                  # Fichiers exclus du contexte Docker
+├── CHANGELOG.md                   # 📝 Historique des versions
+├── Dockerfile                     # 🐳 Configuration Docker
 ├── Makefile                       # 🔧 Commandes de développement
-├── go.mod                         # 📦 Dépendances Go modules
-├── go.sum                         # 🔒 Checksums des dépendances
-├── LICENSE                        # ⚖️ Licence Apache 2.0
-└── README.md                      # 📚 Ce fichier - Documentation principale
+└── README.md                      # 📚 Documentation principale
 ```
 
 ### Documentation
 
-Le code source de ce projet est entièrement documenté selon les conventions GoDoc. Chaque fonction, type et méthode exportés dispose d'une documentation complète expliquant son objectif, ses paramètres et ses valeurs de retour.
-
-Vous pouvez consulter la documentation locale en utilisant l'outil `go doc` :
-
-```bash
-go doc ./...
-```
-
-Ou générer une documentation HTML locale :
-
-```bash
-godoc -http=:6060
-# Puis ouvrir http://localhost:6060/pkg/example.com/fibcalc/
-```
+Le code source est documenté selon les conventions GoDoc. Utilisez `go doc ./...` pour lire la documentation des packages.
 
 ## 10. Déploiement
 
 ### Docker
 
 ```bash
-# Build
 docker build -t fibcalc:latest .
-
-# Run CLI
-docker run --rm fibcalc:latest -n 1000 -algo fast
-
-# Run server
 docker run -d -p 8080:8080 fibcalc:latest --server --port 8080
 ```
 
@@ -651,18 +436,15 @@ version: '3.8'
 services:
   fibcalc:
     build: .
-    ports:
-      - "8080:8080"
+    ports: ["8080:8080"]
     command: ["--server", "--port", "8080", "--auto-calibrate"]
-    restart: unless-stopped
 ```
 
 ## 11. Ressources supplémentaires
 
-- **[API.md](API.md)** - Documentation complète de l'API REST avec exemples d'intégration
-- **[CHANGELOG.md](CHANGELOG.md)** - Historique des versions et changements
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guide pour contribuer au projet
-- **[Makefile](Makefile)** - Commandes de développement disponibles (voir section 9)
+- **[API.md](API.md)** - Documentation complète de l'API REST
+- **[CHANGELOG.md](CHANGELOG.md)** - Historique des changements
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guide de contribution
 
 ## 12. Licence
 
