@@ -536,7 +536,11 @@ func (c *MessageCatalog) GetPlural(key string, count int) string {
 
 ---
 
+<<<<<<< Updated upstream
 ## 4. DONE 🧪 Améliorations des Tests
+=======
+## DONE 4. 🧪 Améliorations des Tests
+>>>>>>> Stashed changes
 
 ### DONE 4.1 Objectifs de couverture
 
@@ -549,7 +553,7 @@ func (c *MessageCatalog) GetPlural(key string, count int) string {
 | `cli` | ~75% | 85% | Tests output formatting |
 | `config` | ~85% | 90% | Tests validation exhaustifs |
 
-### 4.2 Tests de Fuzzing (Go 1.18+)
+### DONE 4.2 Tests de Fuzzing (Go 1.18+)
 
 ```go
 // internal/fibonacci/fibonacci_fuzz_test.go
@@ -680,7 +684,11 @@ func TestServerUnderLoad(t *testing.T) {
 }
 ```
 
+<<<<<<< Updated upstream
 ### DONHE 4.4 Benchmarks de régression CI
+=======
+### DONE 4.4 Benchmarks de régression CI
+>>>>>>> Stashed changes
 
 ```yaml
 # .github/workflows/benchmark.yml
