@@ -18,6 +18,21 @@ func FromDecimalString(s string) *big.Int {
 type scanner struct {
 	// powers[i] is 10^(2^i * quadraticScanThreshold).
 	powers []*big.Int
+	// pool is a stack of reusable *big.Int to reduce allocations.
+	pool []*big.Int
+}
+
+func (s *scanner) getInt() *big.Int {
+	if len(s.pool) > 0 {
+		z := s.pool[len(s.pool)-1]
+		s.pool = s.pool[:len(s.pool)-1]
+		return z
+	}
+	return new(big.Int)
+}
+
+func (s *scanner) putInt(z *big.Int) {
+	s.pool = append(s.pool, z)
 }
 
 func (s *scanner) chunkSize(size int) (int, *big.Int) {
@@ -56,11 +71,21 @@ func (s *scanner) scan(z *big.Int, str string) {
 	sz, pow := s.chunkSize(len(str))
 	// Scan the left half.
 	s.scan(z, str[:len(str)-sz])
-	// FIXME: reuse temporaries.
-	left := Mul(z, pow)
-	// Scan the right half
-	s.scan(z, str[len(str)-sz:])
-	z.Add(z, left)
+
+	// Multiply High part (z) by pow.
+	// We use MulTo to reuse z's memory and avoid a large allocation.
+	MulTo(z, z, pow)
+
+	// Scan the right half into a temporary.
+	// We reuse temporaries from a pool to avoid repetitive allocations.
+	right := s.getInt()
+	s.scan(right, str[len(str)-sz:])
+
+	// Add the parts: z = (High * pow) + Low
+	z.Add(z, right)
+
+	// Return temporary to the pool
+	s.putInt(right)
 }
 
 // quadraticScanThreshold is the number of digits
