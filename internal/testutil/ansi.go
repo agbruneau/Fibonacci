@@ -4,11 +4,9 @@ package testutil
 import "regexp"
 
 // ansiRegex matches ANSI escape codes for stripping from output.
-// This pattern covers:
-// - CSI (Control Sequence Introducer) sequences
-// - OSC (Operating System Command) sequences
-// - Single-character control codes
-var ansiRegex = regexp.MustCompile(`[\x1B\x9B][[\\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\x07|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))`)
+// This pattern matches the Control Sequence Introducer (CSI) sequences which generally start with ESC [
+// and end with a letter, possibly with intermediate characters.
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // StripAnsiCodes removes ANSI escape codes from a string.
 // This is useful for testing CLI output without color codes interfering
@@ -22,4 +20,3 @@ var ansiRegex = regexp.MustCompile(`[\x1B\x9B][[\\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[
 func StripAnsiCodes(s string) string {
 	return ansiRegex.ReplaceAllString(s, "")
 }
-
