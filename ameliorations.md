@@ -1419,9 +1419,9 @@ func SetTheme(name string) {
 
 ---
 
-## 9. 🔄 Refactoring suggéré
+## DONE 9. 🔄 Refactoring suggéré
 
-### 9.1 Code à refactorer
+### DONE 9.1 Code à refactorer
 
 | Fichier | Ligne(s) | Problème | Solution |
 |---------|----------|----------|----------|
@@ -1431,7 +1431,7 @@ func SetTheme(name string) {
 | `calibration.go` | 168-213 | Fonction trop longue | Découper en sous-fonctions |
 | `middleware.go` | 169-188 | Parsing IP complexe | Utiliser `net.SplitHostPort` |
 
-### 9.2 Factory Pattern pour le Registry
+### DONE 9.2 Factory Pattern pour le Registry
 
 ```go
 // internal/fibonacci/registry.go
