@@ -536,11 +536,7 @@ func (c *MessageCatalog) GetPlural(key string, count int) string {
 
 ---
 
-<<<<<<< Updated upstream
-## 4. DONE 🧪 Améliorations des Tests
-=======
 ## DONE 4. 🧪 Améliorations des Tests
->>>>>>> Stashed changes
 
 ### DONE 4.1 Objectifs de couverture
 
@@ -684,11 +680,7 @@ func TestServerUnderLoad(t *testing.T) {
 }
 ```
 
-<<<<<<< Updated upstream
-### DONHE 4.4 Benchmarks de régression CI
-=======
 ### DONE 4.4 Benchmarks de régression CI
->>>>>>> Stashed changes
 
 ```yaml
 # .github/workflows/benchmark.yml
