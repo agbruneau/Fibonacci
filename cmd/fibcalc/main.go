@@ -78,8 +78,7 @@ func getSortedCalculatorKeys() []string {
 //  1. Parses the configuration from command-line arguments.
 //  2. Loads internationalization resources (optional).
 //  3. Configures global settings like the Strassen threshold.
-//  4. Starts the application in either server mode or CLI mode based on the
-//     configuration.
+//  4. Starts the application in the appropriate mode (server, interactive, or CLI).
 func main() {
 	// Check for version flag in any position
 	if hasVersionFlag(os.Args[1:]) {
@@ -95,6 +94,16 @@ func main() {
 		}
 		os.Exit(apperrors.ExitErrorConfig)
 	}
+
+	// Handle completion script generation
+	if cfg.Completion != "" {
+		if err := cli.GenerateCompletion(os.Stdout, cfg.Completion, availableAlgos); err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating completion: %v\n", err)
+			os.Exit(apperrors.ExitErrorConfig)
+		}
+		os.Exit(apperrors.ExitSuccess)
+	}
+
 	// Optional i18n loading
 	if cfg.I18nDir != "" {
 		if err := i18n.LoadFromDir(cfg.I18nDir, cfg.Lang); err != nil {
@@ -105,6 +114,7 @@ func main() {
 	// Initialize CLI theme (respects --no-color flag and NO_COLOR env var)
 	cli.InitTheme(cfg.NoColor)
 
+	// Server mode
 	if cfg.ServerMode {
 		srv := server.NewServer(getCalculatorRegistry(), cfg)
 		if err := srv.Start(); err != nil {
@@ -112,6 +122,19 @@ func main() {
 			os.Exit(apperrors.ExitErrorGeneric)
 		}
 		return
+	}
+
+	// Interactive REPL mode
+	if cfg.Interactive {
+		repl := cli.NewREPL(getCalculatorRegistry(), cli.REPLConfig{
+			DefaultAlgo:  cfg.Algo,
+			Timeout:      cfg.Timeout,
+			Threshold:    cfg.Threshold,
+			FFTThreshold: cfg.FFTThreshold,
+			HexOutput:    cfg.HexOutput,
+		})
+		repl.Start()
+		os.Exit(apperrors.ExitSuccess)
 	}
 
 	exitCode := run(context.Background(), cfg, os.Stdout)
@@ -163,18 +186,33 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	cfg = runAutoCalibrationIfEnabled(ctx, cfg, out)
 	calculatorsToRun := getCalculatorsToRun(cfg)
 
-	if !cfg.JSONOutput {
+	// Skip verbose output in quiet mode
+	if !cfg.JSONOutput && !cfg.Quiet {
 		printExecutionConfig(cfg, out)
 		printExecutionMode(calculatorsToRun, out)
 	}
 
-	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, cfg, out)
+	// In quiet mode, use a discard writer for progress display
+	progressOut := out
+	if cfg.Quiet {
+		progressOut = io.Discard
+	}
+
+	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, cfg, progressOut)
 
 	if cfg.JSONOutput {
 		return printJSONResults(results, out)
 	}
 
-	return orchestration.AnalyzeComparisonResults(results, cfg, out)
+	// Build output config for the new CLI options
+	outputCfg := cli.OutputConfig{
+		OutputFile: cfg.OutputFile,
+		HexOutput:  cfg.HexOutput,
+		Quiet:      cfg.Quiet,
+		Verbose:    cfg.Verbose,
+	}
+
+	return analyzeResultsWithOutput(results, cfg, outputCfg, out)
 }
 
 // runAutoCalibrationIfEnabled runs auto-calibration if it's enabled in the configuration.
@@ -262,6 +300,81 @@ func writeOut(out io.Writer, format string, a ...interface{}) {
 	if _, err := fmt.Fprintf(out, format, a...); err != nil {
 		fmt.Fprintln(os.Stderr, "[Output Error]:", err)
 	}
+}
+
+// analyzeResultsWithOutput processes results and handles output configuration.
+// It wraps orchestration.AnalyzeComparisonResults with support for the new
+// CLI options like file output, hex format, and quiet mode.
+//
+// Parameters:
+//   - results: The calculation results to analyze.
+//   - cfg: The application configuration.
+//   - outputCfg: Output configuration for the new CLI options.
+//   - out: The destination writer.
+//
+// Returns:
+//   - int: An exit code indicating success or failure.
+func analyzeResultsWithOutput(results []orchestration.CalculationResult, cfg config.AppConfig, outputCfg cli.OutputConfig, out io.Writer) int {
+	// Find the first successful result
+	var bestResult *orchestration.CalculationResult
+	for i := range results {
+		if results[i].Err == nil {
+			if bestResult == nil || results[i].Duration < bestResult.Duration {
+				bestResult = &results[i]
+			}
+		}
+	}
+
+	// Handle quiet mode for single result
+	if outputCfg.Quiet && bestResult != nil {
+		cli.DisplayQuietResult(out, bestResult.Result, cfg.N, bestResult.Duration, outputCfg.HexOutput)
+
+		// Save to file if requested
+		if outputCfg.OutputFile != "" {
+			if err := cli.WriteResultToFile(bestResult.Result, cfg.N, bestResult.Duration, bestResult.Name, outputCfg); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
+				return apperrors.ExitErrorGeneric
+			}
+		}
+
+		if bestResult.Err != nil {
+			return apperrors.ExitErrorGeneric
+		}
+		return apperrors.ExitSuccess
+	}
+
+	// Use standard analysis for non-quiet mode
+	exitCode := orchestration.AnalyzeComparisonResults(results, cfg, out)
+
+	// Handle file output and hex display for non-quiet mode
+	if bestResult != nil && exitCode == apperrors.ExitSuccess {
+		// Display hex format if requested
+		if outputCfg.HexOutput {
+			fmt.Fprintf(out, "\n%s--- Hexadecimal Format ---%s\n", cli.ColorBold(), cli.ColorReset())
+			hexStr := bestResult.Result.Text(16)
+			if len(hexStr) > 100 && !cfg.Verbose {
+				fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s...%s%s\n",
+					cli.ColorMagenta(), cfg.N, cli.ColorReset(),
+					cli.ColorGreen(), hexStr[:40], hexStr[len(hexStr)-40:], cli.ColorReset())
+			} else {
+				fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s%s\n",
+					cli.ColorMagenta(), cfg.N, cli.ColorReset(),
+					cli.ColorGreen(), hexStr, cli.ColorReset())
+			}
+		}
+
+		// Save to file if requested
+		if outputCfg.OutputFile != "" {
+			if err := cli.WriteResultToFile(bestResult.Result, cfg.N, bestResult.Duration, bestResult.Name, outputCfg); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
+				return apperrors.ExitErrorGeneric
+			}
+			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
+				cli.ColorGreen(), cli.ColorCyan(), outputCfg.OutputFile, cli.ColorReset())
+		}
+	}
+
+	return exitCode
 }
 
 // printJSONResults formats the calculation results as a JSON array and writes

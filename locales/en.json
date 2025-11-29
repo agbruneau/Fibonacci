@@ -1,0 +1,43 @@
+{
+  "CalibrationTitle": "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---",
+  "CalibrationSummary": "--- Calibration Summary ---",
+  "OptimalRecommendation": "✅ Recommendation for this machine: --threshold %d",
+  "ExecConfigTitle": "--- Execution Configuration ---",
+  "ExecStartTitle": "--- Starting Execution ---",
+  "ComparisonSummary": "--- Comparison Summary ---",
+  "GlobalStatusSuccess": "Global Status: Success. All valid results are consistent.",
+  "GlobalStatusFailure": "Global Status: Failure. No algorithm could complete the calculation.",
+  "StatusCriticalMismatch": "Global Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.",
+  "StatusCanceled": "Status: Canceled",
+  "StatusTimeout": "Status: Failure (Timeout). The execution limit of %s was reached%s.",
+  "StatusFailure": "Status: Failure. An unexpected error occurred: %v",
+  
+  "InteractiveWelcome": "Welcome to interactive mode!",
+  "InteractiveHelp": "Type 'help' to see available commands.",
+  "InteractiveGoodbye": "Goodbye!",
+  "QuietModeResult": "F(%d) calculated in %s",
+  "OutputSaved": "Result saved to: %s",
+  "OutputError": "Error writing file: %v",
+  
+  "AlgorithmCount_zero": "No algorithms available",
+  "AlgorithmCount_one": "%d algorithm available",
+  "AlgorithmCount_other": "%d algorithms available",
+  
+  "DigitCount_zero": "No digits",
+  "DigitCount_one": "%d digit",
+  "DigitCount_other": "%d digits",
+  
+  "CalculationTime_one": "Calculation completed in %d second",
+  "CalculationTime_other": "Calculation completed in %d seconds",
+  
+  "REPLCommands": "Available commands:",
+  "REPLCalc": "calc <n>     - Calculate F(n) with current algorithm",
+  "REPLAlgo": "algo <name>  - Change algorithm",
+  "REPLCompare": "compare <n>  - Compare all algorithms for F(n)",
+  "REPLList": "list         - List available algorithms",
+  "REPLHex": "hex          - Toggle hexadecimal display",
+  "REPLStatus": "status       - Show current configuration",
+  "REPLHelp": "help         - Show this help",
+  "REPLExit": "exit / quit  - Exit interactive mode"
+}
+

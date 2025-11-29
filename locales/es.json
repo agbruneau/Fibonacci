@@ -1,0 +1,43 @@
+{
+  "CalibrationTitle": "--- Modo Calibración: Buscando el umbral de paralelismo óptimo ---",
+  "CalibrationSummary": "--- Resumen de la calibración ---",
+  "OptimalRecommendation": "✅ Recomendación para esta máquina: --threshold %d",
+  "ExecConfigTitle": "--- Configuración de ejecución ---",
+  "ExecStartTitle": "--- Iniciando ejecución ---",
+  "ComparisonSummary": "--- Resumen de la comparación ---",
+  "GlobalStatusSuccess": "Estado global: Éxito. Todos los resultados válidos son consistentes.",
+  "GlobalStatusFailure": "Estado global: Fallo. Ningún algoritmo pudo completar el cálculo.",
+  "StatusCriticalMismatch": "Estado global: ¡ERROR CRÍTICO! Se detectó una inconsistencia entre los resultados de los algoritmos.",
+  "StatusCanceled": "Estado: Cancelado",
+  "StatusTimeout": "Estado: Fallo (Timeout). Se alcanzó el límite de ejecución de %s%s.",
+  "StatusFailure": "Estado: Fallo. Ocurrió un error inesperado: %v",
+  
+  "InteractiveWelcome": "¡Bienvenido al modo interactivo!",
+  "InteractiveHelp": "Escriba 'help' para ver los comandos disponibles.",
+  "InteractiveGoodbye": "¡Hasta luego!",
+  "QuietModeResult": "F(%d) calculado en %s",
+  "OutputSaved": "Resultado guardado en: %s",
+  "OutputError": "Error al escribir el archivo: %v",
+  
+  "AlgorithmCount_zero": "Ningún algoritmo disponible",
+  "AlgorithmCount_one": "%d algoritmo disponible",
+  "AlgorithmCount_other": "%d algoritmos disponibles",
+  
+  "DigitCount_zero": "Sin dígitos",
+  "DigitCount_one": "%d dígito",
+  "DigitCount_other": "%d dígitos",
+  
+  "CalculationTime_one": "Cálculo completado en %d segundo",
+  "CalculationTime_other": "Cálculo completado en %d segundos",
+  
+  "REPLCommands": "Comandos disponibles:",
+  "REPLCalc": "calc <n>     - Calcula F(n) con el algoritmo actual",
+  "REPLAlgo": "algo <nom>   - Cambia el algoritmo",
+  "REPLCompare": "compare <n>  - Compara todos los algoritmos para F(n)",
+  "REPLList": "list         - Lista los algoritmos disponibles",
+  "REPLHex": "hex          - Activa/desactiva la visualización hexadecimal",
+  "REPLStatus": "status       - Muestra la configuración actual",
+  "REPLHelp": "help         - Muestra esta ayuda",
+  "REPLExit": "exit / quit  - Sale del modo interactivo"
+}
+

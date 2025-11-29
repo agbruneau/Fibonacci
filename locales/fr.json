@@ -1,0 +1,43 @@
+{
+  "CalibrationTitle": "--- Mode Calibration : Recherche du seuil de parallélisme optimal ---",
+  "CalibrationSummary": "--- Résumé de la calibration ---",
+  "OptimalRecommendation": "✅ Recommandation pour cette machine : --threshold %d",
+  "ExecConfigTitle": "--- Configuration d'exécution ---",
+  "ExecStartTitle": "--- Démarrage de l'exécution ---",
+  "ComparisonSummary": "--- Résumé de la comparaison ---",
+  "GlobalStatusSuccess": "Statut global : Succès. Tous les résultats valides sont cohérents.",
+  "GlobalStatusFailure": "Statut global : Échec. Aucun algorithme n'a pu terminer le calcul.",
+  "StatusCriticalMismatch": "Statut global : ERREUR CRITIQUE ! Une incohérence a été détectée entre les résultats des algorithmes.",
+  "StatusCanceled": "Statut : Annulé",
+  "StatusTimeout": "Statut : Échec (Timeout). La limite d'exécution de %s a été atteinte%s.",
+  "StatusFailure": "Statut : Échec. Une erreur inattendue s'est produite : %v",
+  
+  "InteractiveWelcome": "Bienvenue dans le mode interactif !",
+  "InteractiveHelp": "Tapez 'help' pour voir les commandes disponibles.",
+  "InteractiveGoodbye": "Au revoir !",
+  "QuietModeResult": "F(%d) calculé en %s",
+  "OutputSaved": "Résultat sauvegardé dans : %s",
+  "OutputError": "Erreur lors de l'écriture du fichier : %v",
+  
+  "AlgorithmCount_zero": "Aucun algorithme disponible",
+  "AlgorithmCount_one": "%d algorithme disponible",
+  "AlgorithmCount_other": "%d algorithmes disponibles",
+  
+  "DigitCount_zero": "Aucun chiffre",
+  "DigitCount_one": "%d chiffre",
+  "DigitCount_other": "%d chiffres",
+  
+  "CalculationTime_one": "Calcul terminé en %d seconde",
+  "CalculationTime_other": "Calcul terminé en %d secondes",
+  
+  "REPLCommands": "Commandes disponibles :",
+  "REPLCalc": "calc <n>     - Calcule F(n) avec l'algorithme actuel",
+  "REPLAlgo": "algo <nom>   - Change l'algorithme",
+  "REPLCompare": "compare <n>  - Compare tous les algorithmes pour F(n)",
+  "REPLList": "list         - Liste les algorithmes disponibles",
+  "REPLHex": "hex          - Active/désactive l'affichage hexadécimal",
+  "REPLStatus": "status       - Affiche la configuration actuelle",
+  "REPLHelp": "help         - Affiche cette aide",
+  "REPLExit": "exit / quit  - Quitte le mode interactif"
+}
+

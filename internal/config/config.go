@@ -64,6 +64,19 @@ type AppConfig struct {
 	// NoColor, if true, disables all color output in the CLI.
 	// Also respects the NO_COLOR environment variable.
 	NoColor bool
+
+	// OutputFile, if specified, saves the result to this file path.
+	OutputFile string
+	// Quiet mode - minimal output for scripting purposes.
+	// Suppresses progress bars, banners, and informational messages.
+	Quiet bool
+	// HexOutput, if true, displays the result in hexadecimal format.
+	HexOutput bool
+	// Interactive, if true, starts the application in REPL mode.
+	Interactive bool
+	// Completion, if set, generates shell completion script for the specified shell.
+	// Valid values are: "bash", "zsh", "fish", "powershell".
+	Completion string
 }
 
 // Validate checks the semantic consistency of the configuration parameters.
@@ -143,6 +156,15 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.BoolVar(&config.ServerMode, "server", false, "Start in HTTP server mode.")
 	fs.StringVar(&config.Port, "port", "8080", "Port to listen on in server mode.")
 	fs.BoolVar(&config.NoColor, "no-color", false, "Disable colored output (also respects NO_COLOR env var).")
+
+	// New CLI enhancement flags
+	fs.StringVar(&config.OutputFile, "output", "", "Output file path for the result.")
+	fs.StringVar(&config.OutputFile, "o", "", "Output file path (shorthand).")
+	fs.BoolVar(&config.Quiet, "quiet", false, "Quiet mode - minimal output for scripts.")
+	fs.BoolVar(&config.Quiet, "q", false, "Quiet mode (shorthand).")
+	fs.BoolVar(&config.HexOutput, "hex", false, "Display result in hexadecimal format.")
+	fs.BoolVar(&config.Interactive, "interactive", false, "Start in interactive REPL mode.")
+	fs.StringVar(&config.Completion, "completion", "", "Generate shell completion script (bash, zsh, fish, powershell).")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
