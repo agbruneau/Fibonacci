@@ -1,0 +1,340 @@
+openapi: 3.0.3
+info:
+  title: Fibonacci Calculator API
+  description: |
+    API REST haute performance pour le calcul de nombres de Fibonacci.
+    
+    Cette API permet de calculer le Nième nombre de Fibonacci en utilisant
+    différents algorithmes optimisés (Fast Doubling, Matrix Exponentiation, FFT).
+    
+    ## Fonctionnalités
+    
+    - Calcul de F(N) pour N jusqu'à 1 milliard
+    - Choix de l'algorithme de calcul
+    - Rate limiting pour prévenir les abus
+    - Métriques de performance
+    
+    ## Rate Limiting
+    
+    L'API implémente un rate limiter de 10 requêtes/seconde par IP avec un burst de 20.
+    Les requêtes excédentaires reçoivent une réponse 429 Too Many Requests.
+    
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8080
+    description: Serveur de développement local
+  - url: https://api.example.com
+    description: Serveur de production
+
+tags:
+  - name: Calculation
+    description: Opérations de calcul de Fibonacci
+  - name: System
+    description: Endpoints système (santé, métriques)
+
+paths:
+  /calculate:
+    get:
+      tags:
+        - Calculation
+      summary: Calculer un nombre de Fibonacci
+      description: |
+        Calcule le Nième nombre de Fibonacci en utilisant l'algorithme spécifié.
+        
+        Le résultat est retourné en JSON avec le nombre calculé (sous forme de string
+        pour les très grands nombres), la durée du calcul et l'algorithme utilisé.
+      operationId: calculateFibonacci
+      parameters:
+        - name: n
+          in: query
+          required: true
+          description: |
+            L'index du nombre de Fibonacci à calculer.
+            Doit être un entier positif. Maximum: 1,000,000,000 (configurable).
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            maximum: 1000000000
+          example: 1000
+        - name: algo
+          in: query
+          required: false
+          description: |
+            L'algorithme à utiliser pour le calcul.
+            - `fast`: Fast Doubling (par défaut, le plus rapide)
+            - `matrix`: Exponentiation matricielle avec Strassen
+            - `fft`: Force l'utilisation de la multiplication FFT
+          schema:
+            type: string
+            enum:
+              - fast
+              - matrix
+              - fft
+            default: fast
+          example: fast
+      responses:
+        '200':
+          description: Calcul effectué avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResponse'
+              examples:
+                small:
+                  summary: Petit nombre
+                  value:
+                    n: 100
+                    result: 354224848179261915075
+                    duration: "125.5µs"
+                    algorithm: "fast"
+                large:
+                  summary: Grand nombre (tronqué)
+                  value:
+                    n: 1000000
+                    result: "1953282128707757731632..."
+                    duration: "85.2ms"
+                    algorithm: "fast"
+        '400':
+          description: Paramètres invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_n:
+                  summary: Paramètre n manquant
+                  value:
+                    error: "Bad Request"
+                    message: "Missing 'n' parameter"
+                invalid_n:
+                  summary: N invalide
+                  value:
+                    error: "Bad Request"
+                    message: "Invalid 'n' parameter: must be a positive integer"
+                n_too_large:
+                  summary: N trop grand
+                  value:
+                    error: "Bad Request"
+                    message: "Value of 'n' exceeds maximum allowed (1000000000)"
+                invalid_algo:
+                  summary: Algorithme invalide
+                  value:
+                    error: "Bad Request"
+                    message: "Invalid 'algo' parameter: 'unknown' is not a valid algorithm"
+        '429':
+          description: Rate limit dépassé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Too Many Requests"
+                message: "Rate limit exceeded. Please slow down."
+        '405':
+          description: Méthode non autorisée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Method Not Allowed"
+                message: "Method not allowed"
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Vérification de santé
+      description: |
+        Vérifie que le serveur est en ligne et fonctionnel.
+        Utilisé par les load balancers et systèmes de monitoring.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Le serveur est en bonne santé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                timestamp: 1701234567
+
+  /algorithms:
+    get:
+      tags:
+        - System
+      summary: Lister les algorithmes disponibles
+      description: |
+        Retourne la liste des algorithmes de calcul disponibles sur ce serveur.
+      operationId: listAlgorithms
+      responses:
+        '200':
+          description: Liste des algorithmes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlgorithmsResponse'
+              example:
+                algorithms:
+                  - "fast"
+                  - "fft"
+                  - "matrix"
+
+  /metrics:
+    get:
+      tags:
+        - System
+      summary: Métriques du serveur
+      description: |
+        Retourne les métriques de performance du serveur au format JSON.
+        Inclut le nombre de requêtes, calculs effectués et durées.
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Métriques du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+              example:
+                total_requests: 1523
+                total_calculations: 1450
+                calculation_stats:
+                  fast:
+                    count: 1200
+                    success: 1195
+                    errors: 5
+                    avg_duration_ms: 125.5
+                  matrix:
+                    count: 150
+                    success: 150
+                    errors: 0
+                    avg_duration_ms: 180.2
+                  fft:
+                    count: 100
+                    success: 98
+                    errors: 2
+                    avg_duration_ms: 145.8
+
+components:
+  schemas:
+    CalculationResponse:
+      type: object
+      required:
+        - n
+        - duration
+        - algorithm
+      properties:
+        n:
+          type: integer
+          format: int64
+          description: L'index du nombre de Fibonacci calculé
+          example: 1000
+        result:
+          type: integer
+          description: |
+            Le nombre de Fibonacci calculé. Pour les très grands nombres,
+            peut être retourné sous forme de string.
+          example: 354224848179261915075
+        duration:
+          type: string
+          description: Durée du calcul (format Go duration)
+          example: "125.5µs"
+        algorithm:
+          type: string
+          description: Nom de l'algorithme utilisé
+          example: "fast"
+        error:
+          type: string
+          description: Message d'erreur si le calcul a échoué
+          example: "context deadline exceeded"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Code d'erreur HTTP textuel
+          example: "Bad Request"
+        message:
+          type: string
+          description: Message d'erreur détaillé
+          example: "Missing 'n' parameter"
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          description: État de santé du serveur
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+          example: "healthy"
+        timestamp:
+          type: integer
+          format: int64
+          description: Timestamp Unix de la vérification
+          example: 1701234567
+
+    AlgorithmsResponse:
+      type: object
+      required:
+        - algorithms
+      properties:
+        algorithms:
+          type: array
+          description: Liste des noms d'algorithmes disponibles
+          items:
+            type: string
+          example:
+            - "fast"
+            - "fft"
+            - "matrix"
+
+    MetricsResponse:
+      type: object
+      properties:
+        total_requests:
+          type: integer
+          description: Nombre total de requêtes traitées
+          example: 1523
+        total_calculations:
+          type: integer
+          description: Nombre total de calculs effectués
+          example: 1450
+        calculation_stats:
+          type: object
+          description: Statistiques par algorithme
+          additionalProperties:
+            type: object
+            properties:
+              count:
+                type: integer
+                description: Nombre de calculs
+              success:
+                type: integer
+                description: Calculs réussis
+              errors:
+                type: integer
+                description: Calculs en erreur
+              avg_duration_ms:
+                type: number
+                format: float
+                description: Durée moyenne en millisecondes
+

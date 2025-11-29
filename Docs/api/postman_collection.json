@@ -1,0 +1,401 @@
+{
+	"info": {
+		"_postman_id": "fibonacci-calculator-api",
+		"name": "Fibonacci Calculator API",
+		"description": "Collection Postman pour tester l'API REST du Calculateur Fibonacci.\n\n## Configuration\n\nAvant d'utiliser cette collection, assurez-vous que le serveur est démarré :\n\n```bash\n./fibcalc --server --port 8080\n```\n\n## Variables\n\n- `baseUrl` : URL de base du serveur (défaut: http://localhost:8080)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Calculation",
+			"description": "Endpoints de calcul de Fibonacci",
+			"item": [
+				{
+					"name": "Calculate F(100) with Fast Doubling",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=100&algo=fast",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "100",
+									"description": "Index du nombre de Fibonacci"
+								},
+								{
+									"key": "algo",
+									"value": "fast",
+									"description": "Algorithme à utiliser"
+								}
+							]
+						},
+						"description": "Calcule F(100) en utilisant l'algorithme Fast Doubling."
+					},
+					"response": [
+						{
+							"name": "Success",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{baseUrl}}/calculate?n=100&algo=fast",
+									"host": ["{{baseUrl}}"],
+									"path": ["calculate"],
+									"query": [
+										{"key": "n", "value": "100"},
+										{"key": "algo", "value": "fast"}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"body": "{\n  \"n\": 100,\n  \"result\": 354224848179261915075,\n  \"duration\": \"125.5µs\",\n  \"algorithm\": \"fast\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Calculate F(1000) with Matrix",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=1000&algo=matrix",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "1000"
+								},
+								{
+									"key": "algo",
+									"value": "matrix"
+								}
+							]
+						},
+						"description": "Calcule F(1000) en utilisant l'exponentiation matricielle."
+					}
+				},
+				{
+					"name": "Calculate F(10000) with FFT",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=10000&algo=fft",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "10000"
+								},
+								{
+									"key": "algo",
+									"value": "fft"
+								}
+							]
+						},
+						"description": "Calcule F(10000) en forçant l'utilisation de la multiplication FFT."
+					}
+				},
+				{
+					"name": "Calculate with default algorithm",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=500",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "500"
+								}
+							]
+						},
+						"description": "Calcule F(500) avec l'algorithme par défaut (fast)."
+					}
+				},
+				{
+					"name": "Calculate large N",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=1000000&algo=fast",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "1000000"
+								},
+								{
+									"key": "algo",
+									"value": "fast"
+								}
+							]
+						},
+						"description": "Calcule F(1,000,000) - peut prendre quelques secondes."
+					}
+				}
+			]
+		},
+		{
+			"name": "Error Cases",
+			"description": "Tests des cas d'erreur",
+			"item": [
+				{
+					"name": "Missing n parameter",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"]
+						},
+						"description": "Teste la réponse quand le paramètre n est manquant."
+					},
+					"response": [
+						{
+							"name": "Bad Request",
+							"status": "Bad Request",
+							"code": 400,
+							"body": "{\n  \"error\": \"Bad Request\",\n  \"message\": \"Missing 'n' parameter\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Invalid n (negative)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=-5",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "-5"
+								}
+							]
+						},
+						"description": "Teste la réponse avec un n négatif."
+					}
+				},
+				{
+					"name": "Invalid n (not a number)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=abc",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "abc"
+								}
+							]
+						},
+						"description": "Teste la réponse avec un n non numérique."
+					}
+				},
+				{
+					"name": "Invalid algorithm",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=100&algo=unknown",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "100"
+								},
+								{
+									"key": "algo",
+									"value": "unknown"
+								}
+							]
+						},
+						"description": "Teste la réponse avec un algorithme invalide."
+					}
+				},
+				{
+					"name": "N too large",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=9999999999999",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "9999999999999"
+								}
+							]
+						},
+						"description": "Teste la réponse quand n dépasse la limite maximale."
+					}
+				},
+				{
+					"name": "Wrong HTTP method",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=100",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{
+									"key": "n",
+									"value": "100"
+								}
+							]
+						},
+						"description": "Teste la réponse avec une méthode HTTP incorrecte."
+					}
+				}
+			]
+		},
+		{
+			"name": "System",
+			"description": "Endpoints système",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Vérifie la santé du serveur."
+					},
+					"response": [
+						{
+							"name": "Healthy",
+							"status": "OK",
+							"code": 200,
+							"body": "{\n  \"status\": \"healthy\",\n  \"timestamp\": 1701234567\n}"
+						}
+					]
+				},
+				{
+					"name": "List Algorithms",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/algorithms",
+							"host": ["{{baseUrl}}"],
+							"path": ["algorithms"]
+						},
+						"description": "Liste les algorithmes de calcul disponibles."
+					},
+					"response": [
+						{
+							"name": "Success",
+							"status": "OK",
+							"code": 200,
+							"body": "{\n  \"algorithms\": [\n    \"fast\",\n    \"fft\",\n    \"matrix\"\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/metrics",
+							"host": ["{{baseUrl}}"],
+							"path": ["metrics"]
+						},
+						"description": "Récupère les métriques de performance du serveur."
+					}
+				}
+			]
+		},
+		{
+			"name": "Performance Tests",
+			"description": "Tests de performance",
+			"item": [
+				{
+					"name": "Benchmark - Small N",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=1000&algo=fast",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{"key": "n", "value": "1000"},
+								{"key": "algo", "value": "fast"}
+							]
+						},
+						"description": "Benchmark avec un petit N pour mesurer l'overhead."
+					}
+				},
+				{
+					"name": "Benchmark - Medium N",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=100000&algo=fast",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{"key": "n", "value": "100000"},
+								{"key": "algo", "value": "fast"}
+							]
+						},
+						"description": "Benchmark avec un N moyen."
+					}
+				},
+				{
+					"name": "Benchmark - Large N",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/calculate?n=10000000&algo=fast",
+							"host": ["{{baseUrl}}"],
+							"path": ["calculate"],
+							"query": [
+								{"key": "n", "value": "10000000"},
+								{"key": "algo", "value": "fast"}
+							]
+						},
+						"description": "Benchmark avec un grand N - peut prendre plusieurs secondes."
+					}
+				}
+			]
+		}
+	]
+}
+
