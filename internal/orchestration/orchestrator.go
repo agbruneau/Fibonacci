@@ -19,11 +19,11 @@ import (
 	"example.com/fibcalc/internal/i18n"
 )
 
-// cliColorProvider implements apperrors.ColorProvider using cli constants.
+// cliColorProvider implements apperrors.ColorProvider using cli theme functions.
 type cliColorProvider struct{}
 
-func (c cliColorProvider) Yellow() string { return cli.ColorYellow }
-func (c cliColorProvider) Reset() string  { return cli.ColorReset }
+func (c cliColorProvider) Yellow() string { return cli.ColorYellow() }
+func (c cliColorProvider) Reset() string  { return cli.ColorReset() }
 
 // i18nMessageProvider implements apperrors.ErrorMessageProvider using i18n.Messages.
 type i18nMessageProvider struct{}
@@ -128,17 +128,17 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	fmt.Fprintf(out, "\n%s\n", i18n.Messages["ComparisonSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
-		cli.ColorUnderline, cli.ColorReset, cli.ColorUnderline, cli.ColorReset, cli.ColorUnderline, cli.ColorReset)
+		cli.ColorUnderline(), cli.ColorReset(), cli.ColorUnderline(), cli.ColorReset(), cli.ColorUnderline(), cli.ColorReset())
 
 	for _, res := range results {
 		var status string
 		if res.Err != nil {
-			status = fmt.Sprintf("%s❌ Failure (%v)%s", cli.ColorRed, res.Err, cli.ColorReset)
+			status = fmt.Sprintf("%s❌ Failure (%v)%s", cli.ColorRed(), res.Err, cli.ColorReset())
 			if firstError == nil {
 				firstError = res.Err
 			}
 		} else {
-			status = fmt.Sprintf("%s✅ Success%s", cli.ColorGreen, cli.ColorReset)
+			status = fmt.Sprintf("%s✅ Success%s", cli.ColorGreen(), cli.ColorReset())
 			successCount++
 			if firstValidResult == nil {
 				firstValidResult = res.Result
@@ -150,8 +150,8 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 			duration = "< 1µs"
 		}
 		fmt.Fprintf(tw, "%s%s%s\t%s%s%s\t%s\n",
-			cli.ColorBlue, res.Name, cli.ColorReset,
-			cli.ColorYellow, duration, cli.ColorReset,
+			cli.ColorBlue(), res.Name, cli.ColorReset(),
+			cli.ColorYellow(), duration, cli.ColorReset(),
 			status)
 	}
 	tw.Flush()

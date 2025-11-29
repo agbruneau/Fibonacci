@@ -36,24 +36,6 @@ func FormatExecutionDuration(d time.Duration) string {
 }
 
 const (
-	// ColorReset is the ANSI escape code to reset text formatting.
-	ColorReset = "\033[0m"
-	// ColorRed is the ANSI escape code for red text.
-	ColorRed = "\033[31m"
-	// ColorGreen is the ANSI escape code for green text.
-	ColorGreen = "\033[32m"
-	// ColorYellow is the ANSI escape code for yellow text.
-	ColorYellow = "\033[33m"
-	// ColorBlue is the ANSI escape code for blue text.
-	ColorBlue = "\033[34m"
-	// ColorMagenta is the ANSI escape code for magenta text.
-	ColorMagenta = "\033[35m"
-	// ColorCyan is the ANSI escape code for cyan text.
-	ColorCyan = "\033[36m"
-	// ColorBold is the ANSI escape code for bold text.
-	ColorBold = "\033[1m"
-	// ColorUnderline is the ANSI escape code for underlined text.
-	ColorUnderline = "\033[4m"
 	// TruncationLimit is the digit threshold from which a result is truncated
 	// in standard output to avoid cluttering the terminal.
 	TruncationLimit = 100
@@ -66,6 +48,36 @@ const (
 	// ProgressBarWidth defines the width in characters of the progress bar.
 	ProgressBarWidth = 40
 )
+
+// Color functions return ANSI escape codes from the current theme.
+// These provide backward compatibility while allowing theme switching.
+
+// ColorReset returns the reset escape code from the current theme.
+func ColorReset() string { return CurrentTheme.Reset }
+
+// ColorRed returns the error color from the current theme.
+func ColorRed() string { return CurrentTheme.Error }
+
+// ColorGreen returns the success color from the current theme.
+func ColorGreen() string { return CurrentTheme.Success }
+
+// ColorYellow returns the warning color from the current theme.
+func ColorYellow() string { return CurrentTheme.Warning }
+
+// ColorBlue returns the primary color from the current theme.
+func ColorBlue() string { return CurrentTheme.Primary }
+
+// ColorMagenta returns the info color from the current theme.
+func ColorMagenta() string { return CurrentTheme.Info }
+
+// ColorCyan returns the secondary color from the current theme.
+func ColorCyan() string { return CurrentTheme.Secondary }
+
+// ColorBold returns the bold escape code from the current theme.
+func ColorBold() string { return CurrentTheme.Bold }
+
+// ColorUnderline returns the underline escape code from the current theme.
+func ColorUnderline() string { return CurrentTheme.Underline }
 
 // Spinner is an interface that abstracts the behavior of a terminal spinner.
 // This allows for the decoupling of the `DisplayProgress` function from a
@@ -206,6 +218,7 @@ func progressBar(progress float64, length int) string {
 // The function's responsibilities include:
 //   - Receiving progress updates from a channel.
 //   - Aggregating these updates to calculate the average progress.
+//   - Calculating and displaying the estimated time remaining (ETA).
 //   - Periodically refreshing the spinner and progress bar.
 //   - Gracefully shutting down when the progress channel is closed.
 //
@@ -222,7 +235,7 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 		return
 	}
 
-	state := NewProgressState(numCalculators)
+	state := NewProgressWithETA(numCalculators)
 	s := newSpinner(spinner.WithWriter(out))
 	s.Start()
 	defer s.Stop()
@@ -239,15 +252,17 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 				time.Sleep(ProgressRefreshRate)
 				return
 			}
-			state.Update(update.CalculatorIndex, update.Value)
+			state.UpdateWithETA(update.CalculatorIndex, update.Value)
 		case <-ticker.C:
 			avgProgress := state.CalculateAverage()
+			eta := state.GetETA()
 			bar := progressBar(avgProgress, ProgressBarWidth)
 			label := "Progress"
 			if numCalculators > 1 {
-				label = "Average progress"
+				label = "Avg progress"
 			}
-			s.UpdateSuffix(fmt.Sprintf(" %s: %6.2f%% [%s]", label, avgProgress*100, bar))
+			etaStr := FormatETA(eta)
+			s.UpdateSuffix(fmt.Sprintf(" %s: %6.2f%% [%s] ETA: %s", label, avgProgress*100, bar, etaStr))
 		}
 	}
 }
@@ -267,39 +282,39 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 //   - out: The io.Writer for the output.
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
 	bitLen := result.BitLen()
-	fmt.Fprintf(out, "Result binary size: %s%s%s bits.\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset)
+	fmt.Fprintf(out, "Result binary size: %s%s%s bits.\n", ColorCyan(), formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset())
 
 	if !details {
-		fmt.Fprintf(out, "(Tip: use the %s-d%s or %s--details%s option for a full report)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
+		fmt.Fprintf(out, "(Tip: use the %s-d%s or %s--details%s option for a full report)\n", ColorYellow(), ColorReset(), ColorYellow(), ColorReset())
 		return
 	}
 
-	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ColorBold, ColorReset)
+	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ColorBold(), ColorReset())
 	durationStr := FormatExecutionDuration(duration)
 	if duration == 0 {
 		durationStr = "< 1µs"
 	}
-	fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen, durationStr, ColorReset)
+	fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen(), durationStr, ColorReset())
 
 	resultStr := result.String()
 	numDigits := len(resultStr)
-	fmt.Fprintf(out, "Number of digits      : %s%s%s\n", ColorCyan, formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset)
+	fmt.Fprintf(out, "Number of digits      : %s%s%s\n", ColorCyan(), formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset())
 
 	if numDigits > 6 {
 		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Scientific notation    : %s%.6e%s\n", ColorCyan, f, ColorReset)
+		fmt.Fprintf(out, "Scientific notation    : %s%.6e%s\n", ColorCyan(), f, ColorReset())
 	}
 
-	fmt.Fprintf(out, "\n%s--- Calculated value ---%s\n", ColorBold, ColorReset)
+	fmt.Fprintf(out, "\n%s--- Calculated value ---%s\n", ColorBold(), ColorReset())
 	if verbose {
-		fmt.Fprintf(out, "F(%s%d%s) =\n%s%s%s\n", ColorMagenta, n, ColorReset, ColorGreen, formatNumberString(resultStr), ColorReset)
+		fmt.Fprintf(out, "F(%s%d%s) =\n%s%s%s\n", ColorMagenta(), n, ColorReset(), ColorGreen(), formatNumberString(resultStr), ColorReset())
 	} else if numDigits > TruncationLimit {
 		fmt.Fprintf(out, "F(%s%d%s) (truncated) = %s%s...%s%s\n",
-			ColorMagenta, n, ColorReset,
-			ColorGreen, resultStr[:DisplayEdges], resultStr[numDigits-DisplayEdges:], ColorReset)
-		fmt.Fprintf(out, "(Tip: use the %s-v%s or %s--verbose%s option to display the full value)\n", ColorYellow, ColorReset, ColorYellow, ColorReset)
+			ColorMagenta(), n, ColorReset(),
+			ColorGreen(), resultStr[:DisplayEdges], resultStr[numDigits-DisplayEdges:], ColorReset())
+		fmt.Fprintf(out, "(Tip: use the %s-v%s or %s--verbose%s option to display the full value)\n", ColorYellow(), ColorReset(), ColorYellow(), ColorReset())
 	} else {
-		fmt.Fprintf(out, "F(%s%d%s) = %s%s%s\n", ColorMagenta, n, ColorReset, ColorGreen, formatNumberString(resultStr), ColorReset)
+		fmt.Fprintf(out, "F(%s%d%s) = %s%s%s\n", ColorMagenta(), n, ColorReset(), ColorGreen(), formatNumberString(resultStr), ColorReset())
 	}
 }
 

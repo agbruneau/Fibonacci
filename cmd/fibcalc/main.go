@@ -102,6 +102,9 @@ func main() {
 		}
 	}
 
+	// Initialize CLI theme (respects --no-color flag and NO_COLOR env var)
+	cli.InitTheme(cfg.NoColor)
+
 	if cfg.ServerMode {
 		srv := server.NewServer(calculatorRegistry, cfg)
 		if err := srv.Start(); err != nil {
@@ -203,11 +206,11 @@ func runAutoCalibrationIfEnabled(ctx context.Context, cfg config.AppConfig, out 
 func printExecutionConfig(cfg config.AppConfig, out io.Writer) {
 	writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
 	writeOut(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
-		cli.ColorMagenta, cfg.N, cli.ColorReset, cli.ColorYellow, cfg.Timeout, cli.ColorReset)
+		cli.ColorMagenta(), cfg.N, cli.ColorReset(), cli.ColorYellow(), cfg.Timeout, cli.ColorReset())
 	writeOut(out, "Environment: %s%d%s logical processors, Go %s%s%s.\n",
-		cli.ColorCyan, runtime.NumCPU(), cli.ColorReset, cli.ColorCyan, runtime.Version(), cli.ColorReset)
+		cli.ColorCyan(), runtime.NumCPU(), cli.ColorReset(), cli.ColorCyan(), runtime.Version(), cli.ColorReset())
 	writeOut(out, "Optimization thresholds: Parallelism=%s%d%s bits, FFT=%s%d%s bits.\n",
-		cli.ColorCyan, cfg.Threshold, cli.ColorReset, cli.ColorCyan, cfg.FFTThreshold, cli.ColorReset)
+		cli.ColorCyan(), cfg.Threshold, cli.ColorReset(), cli.ColorCyan(), cfg.FFTThreshold, cli.ColorReset())
 }
 
 // printExecutionMode displays the execution mode (single algorithm vs comparison).
@@ -221,7 +224,7 @@ func printExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 		modeDesc = "Parallel comparison of all algorithms"
 	} else {
 		modeDesc = fmt.Sprintf("Single calculation with the %s%s%s algorithm",
-			cli.ColorGreen, calculators[0].Name(), cli.ColorReset)
+			cli.ColorGreen(), calculators[0].Name(), cli.ColorReset())
 	}
 	writeOut(out, "Execution mode: %s.\n", modeDesc)
 	writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])

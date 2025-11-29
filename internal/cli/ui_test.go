@@ -137,11 +137,14 @@ func TestDisplayProgress(t *testing.T) {
 	time.Sleep(ProgressRefreshRate * 2)
 
 	mock.mu.Lock()
-	if !strings.Contains(mock.suffix, "Average progress") {
-		t.Errorf("The spinner suffix should show the 'Average progress' label. Got: %q", mock.suffix)
+	if !strings.Contains(mock.suffix, "Avg progress") {
+		t.Errorf("The spinner suffix should show the 'Avg progress' label. Got: %q", mock.suffix)
 	}
 	if !strings.Contains(mock.suffix, "37.50%") {
 		t.Errorf("The spinner suffix should show the correct average percentage. Got: %q", mock.suffix)
+	}
+	if !strings.Contains(mock.suffix, "ETA:") {
+		t.Errorf("The spinner suffix should show ETA. Got: %q", mock.suffix)
 	}
 	mock.mu.Unlock()
 

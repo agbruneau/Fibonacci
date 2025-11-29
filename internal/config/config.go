@@ -61,6 +61,9 @@ type AppConfig struct {
 	ServerMode bool
 	// Port specifies the port to listen on in server mode.
 	Port string
+	// NoColor, if true, disables all color output in the CLI.
+	// Also respects the NO_COLOR environment variable.
+	NoColor bool
 }
 
 // Validate checks the semantic consistency of the configuration parameters.
@@ -139,6 +142,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.BoolVar(&config.JSONOutput, "json", false, "Output results in JSON format.")
 	fs.BoolVar(&config.ServerMode, "server", false, "Start in HTTP server mode.")
 	fs.StringVar(&config.Port, "port", "8080", "Port to listen on in server mode.")
+	fs.BoolVar(&config.NoColor, "no-color", false, "Disable colored output (also respects NO_COLOR env var).")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err
