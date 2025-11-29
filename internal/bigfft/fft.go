@@ -149,7 +149,12 @@ type poly struct {
 // with 1<<k coefficients made of m words.
 func polyFromNat(x nat, k uint, m int) poly {
 	p := poly{k: k, m: m}
-	length := len(x)/m + 1
+	// Calculate exact length needed to avoid over-allocation
+	// We need ceil(len(x) / m) coefficients
+	length := (len(x) + m - 1) / m
+	if length == 0 {
+		length = 1 // At least one coefficient for zero
+	}
 	p.a = make([]nat, length)
 	for i := range p.a {
 		if len(x) < m {
@@ -222,12 +227,18 @@ type polValues struct {
 // θ is a K-th primitive root of unity in Z/(b^n+1)Z.
 func (p *poly) Transform(n int) polValues {
 	k := p.k
-	inputbits := make([]big.Word, (n+1)<<k)
-	input := make([]fermat, 1<<k)
-	// Now computed q(ω^i) for i = 0 ... K-1
-	valbits := make([]big.Word, (n+1)<<k)
-	values := make([]fermat, 1<<k)
-	for i := range values {
+	K := 1 << k
+	wordCount := (n + 1) * K
+
+	// Use pooled slices for temporary input buffers
+	inputbits := acquireWordSlice(wordCount)
+	input := acquireFermatSlice(K)
+
+	// Use regular allocation for output buffers (they are returned and cannot be pooled)
+	valbits := make([]big.Word, wordCount)
+	values := make([]fermat, K)
+
+	for i := 0; i < K; i++ {
 		input[i] = inputbits[i*(n+1) : (i+1)*(n+1)]
 		if i < len(p.a) {
 			copy(input[i], p.a[i])
@@ -235,6 +246,11 @@ func (p *poly) Transform(n int) polValues {
 		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
 	}
 	fourier(values, input, false, n, k)
+
+	// Release temporary input buffers
+	releaseWordSlice(inputbits)
+	releaseFermatSlice(input)
+
 	return polValues{k, n, values}
 }
 
@@ -242,22 +258,32 @@ func (p *poly) Transform(n int) polValues {
 // values at θ^i for i = 0..K-1.
 func (v *polValues) InvTransform() poly {
 	k, n := v.k, v.n
+	K := 1 << k
+	wordCount := (n + 1) * K
 
 	// Perform an inverse Fourier transform to recover p.
-	pbits := make([]big.Word, (n+1)<<k)
-	p := make([]fermat, 1<<k)
-	for i := range p {
+	// Use regular allocation since pbits data is returned via a[i]
+	pbits := make([]big.Word, wordCount)
+	p := make([]fermat, K)
+	for i := 0; i < K; i++ {
 		p[i] = fermat(pbits[i*(n+1) : (i+1)*(n+1)])
 	}
 	fourier(p, v.values, true, n, k)
+
 	// Divide by K, and untwist q to recover p.
-	u := make(fermat, n+1)
-	a := make([]nat, 1<<k)
-	for i := range p {
+	// Use pooled buffer for temporary u
+	u := acquireFermat(n + 1)
+	// Use regular allocation for a since it's returned
+	a := make([]nat, K)
+	for i := 0; i < K; i++ {
 		u.Shift(p[i], -int(k))
 		copy(p[i], u)
 		a[i] = nat(p[i])
 	}
+
+	// Release temporary buffer
+	releaseFermat(u)
+
 	return poly{k: k, m: 0, a: a}
 }
 
@@ -331,9 +357,25 @@ func (v *polValues) InvNTransform() poly {
 // of src, a length 1<<k vector of numbers modulo b^n+1
 // where b = 1<<_W.
 func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) {
+	fourierWithState(dst, src, backward, n, k, nil)
+}
+
+// fourierWithState performs the Fourier transform with optional pre-allocated state.
+// If state is nil, temporary buffers are allocated from the pool.
+func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) {
 	var rec func(dst, src []fermat, size uint)
-	tmp := make(fermat, n+1)  // pre-allocate temporary variables.
-	tmp2 := make(fermat, n+1) // pre-allocate temporary variables.
+
+	// Use pooled state if not provided
+	var tmp, tmp2 fermat
+	if state != nil {
+		tmp = state.tmp
+		tmp2 = state.tmp2
+	} else {
+		tmp = acquireFermat(n + 1)
+		tmp2 = acquireFermat(n + 1)
+		defer releaseFermat(tmp)
+		defer releaseFermat(tmp2)
+	}
 
 	// The recursion function of the FFT.
 	// The root of unity used in the transform is ω=1<<(ω2shift/2).
@@ -388,14 +430,25 @@ func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) {
 // Mul returns the pointwise product of p and q.
 func (p *polValues) Mul(q *polValues) (r polValues) {
 	n := p.n
+	K := len(p.values)
 	r.k, r.n = p.k, p.n
-	r.values = make([]fermat, len(p.values))
-	bits := make([]big.Word, len(p.values)*(n+1))
-	buf := make(fermat, 8*n)
-	for i := range r.values {
+
+	// Use regular allocation for returned data
+	r.values = make([]fermat, K)
+	wordCount := K * (n + 1)
+	bits := make([]big.Word, wordCount)
+
+	// Use pooled buffer for temporary multiplication result
+	buf := acquireFermat(8 * n)
+
+	for i := 0; i < K; i++ {
 		r.values[i] = bits[i*(n+1) : (i+1)*(n+1)]
 		z := buf.Mul(p.values[i], q.values[i])
 		copy(r.values[i], z)
 	}
+
+	// Release temporary buffer
+	releaseFermat(buf)
+
 	return
 }

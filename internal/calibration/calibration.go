@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -33,13 +34,31 @@ func (m i18nMessageProvider) GetMessage(key string) string {
 	return key
 }
 
+// CalibrationOptions configures the calibration process.
+type CalibrationOptions struct {
+	// ProfilePath is the path to save/load the calibration profile.
+	// If empty, uses the default path.
+	ProfilePath string
+	// SaveProfile indicates whether to save the calibration results.
+	SaveProfile bool
+	// LoadProfile indicates whether to try loading an existing profile.
+	LoadProfile bool
+}
+
+// calibrationResult holds the result of a single threshold test.
+type calibrationResult struct {
+	Threshold int
+	Duration  time.Duration
+	Err       error
+}
+
 // RunCalibration executes a comprehensive benchmark to determine the optimal
 // parallelism threshold for the current hardware.
 //
-// It iterates through a predefined set of bit thresholds (from 0 to 16384),
-// executing a standard Fibonacci calculation (N=10,000,000) for each. The
-// execution times are recorded and compared to identify the threshold that yields
-// the fastest performance.
+// It uses adaptive threshold generation based on CPU characteristics and
+// iterates through the generated thresholds, executing a standard Fibonacci
+// calculation (N=10,000,000) for each. The execution times are recorded and
+// compared to identify the threshold that yields the fastest performance.
 //
 // Parameters:
 //   - ctx: The context for managing cancellation and deadlines.
@@ -50,31 +69,55 @@ func (m i18nMessageProvider) GetMessage(key string) string {
 // Returns:
 //   - int: The exit code (0 for success, non-zero for errors).
 func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) int {
+	return RunCalibrationWithOptions(ctx, out, calculatorRegistry, CalibrationOptions{
+		SaveProfile: true,
+		LoadProfile: false, // Full calibration should run fresh
+	})
+}
+
+// RunCalibrationWithOptions executes calibration with the specified options.
+func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, opts CalibrationOptions) int {
 	fmt.Fprintf(out, "%s\n", i18n.Messages["CalibrationTitle"])
+
+	// Try to load existing profile if requested
+	if opts.LoadProfile {
+		profile, loaded := LoadOrCreateProfile(opts.ProfilePath)
+		if loaded && profile.IsValid() {
+			fmt.Fprintf(out, "%sLoaded existing calibration profile from %s%s\n",
+				cli.ColorGreen, GetDefaultProfilePath(), cli.ColorReset)
+			fmt.Fprintf(out, "Profile: %s\n", profile.String())
+			fmt.Fprintf(out, "\n%s✅ Using cached calibration: %s--threshold %d%s\n",
+				cli.ColorGreen, cli.ColorYellow, profile.OptimalParallelThreshold, cli.ColorReset)
+			return apperrors.ExitSuccess
+		}
+	}
+
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
 		fmt.Fprintf(out, "%sCritical error: the 'fast' algorithm is required for calibration but was not found.%s\n", cli.ColorRed, cli.ColorReset)
 		return apperrors.ExitErrorGeneric
 	}
 
-	thresholdsToTest := []int{0, 256, 512, 1024, 2048, 4096, 8192, 16384}
-	type calibrationResult struct {
-		Threshold int
-		Duration  time.Duration
-		Err       error
-	}
+	// Use adaptive thresholds based on CPU characteristics
+	thresholdsToTest := GenerateParallelThresholds()
+	fmt.Fprintf(out, "%sUsing adaptive thresholds for %d CPU cores%s\n",
+		cli.ColorCyan, runtime.NumCPU(), cli.ColorReset)
+
 	results := make([]calibrationResult, 0, len(thresholdsToTest))
 	bestDuration := time.Duration(1<<63 - 1)
 	bestThreshold := 0
+	calibrationStart := time.Now()
 
 	var wg sync.WaitGroup
-	progressChan := make(chan fibonacci.ProgressUpdate, 5) // Buffer size 5
+	progressChan := make(chan fibonacci.ProgressUpdate, 5)
 	wg.Add(1)
 	go cli.DisplayProgress(&wg, progressChan, 1, out)
 
 	for _, threshold := range thresholdsToTest {
 		if ctx.Err() != nil {
 			fmt.Fprintf(out, "\n%sCalibration interrupted.%s\n", cli.ColorYellow, cli.ColorReset)
+			close(progressChan)
+			wg.Wait()
 			return apperrors.ExitErrorCanceled
 		}
 
@@ -101,6 +144,37 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 	close(progressChan)
 	wg.Wait()
 
+	calibrationDuration := time.Since(calibrationStart)
+
+	// Print results table
+	printCalibrationResults(out, results, bestThreshold)
+
+	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
+		cli.ColorGreen, cli.ColorYellow, bestThreshold, cli.ColorReset)
+
+	// Save profile if requested
+	if opts.SaveProfile {
+		profile := NewProfile()
+		profile.OptimalParallelThreshold = bestThreshold
+		profile.OptimalFFTThreshold = EstimateOptimalFFTThreshold()
+		profile.OptimalStrassenThreshold = EstimateOptimalStrassenThreshold()
+		profile.CalibrationN = fibonacci.CalibrationN
+		profile.CalibrationTime = calibrationDuration.String()
+
+		if err := profile.SaveProfile(opts.ProfilePath); err != nil {
+			fmt.Fprintf(out, "%sWarning: failed to save profile: %v%s\n",
+				cli.ColorYellow, err, cli.ColorReset)
+		} else {
+			fmt.Fprintf(out, "%sCalibration profile saved to %s%s\n",
+				cli.ColorGreen, GetDefaultProfilePath(), cli.ColorReset)
+		}
+	}
+
+	return apperrors.ExitSuccess
+}
+
+// printCalibrationResults formats and prints the calibration results table.
+func printCalibrationResults(out io.Writer, results []calibrationResult, bestThreshold int) {
 	fmt.Fprintf(out, "\n%s\n", i18n.Messages["CalibrationSummary"])
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(tw, "  %sThreshold%s    │ %sExecution Time%s\n", cli.ColorUnderline, cli.ColorReset, cli.ColorUnderline, cli.ColorReset)
@@ -124,9 +198,6 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 		fmt.Fprintf(tw, "  %s%-12s%s │ %s%s%s%s\n", cli.ColorCyan, thresholdLabel, cli.ColorReset, cli.ColorYellow, durationStr, cli.ColorReset, highlight)
 	}
 	tw.Flush()
-	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
-		cli.ColorGreen, cli.ColorYellow, bestThreshold, cli.ColorReset)
-	return apperrors.ExitSuccess
 }
 
 // AutoCalibrate runs a quick startup calibration to fine-tune performance
@@ -134,8 +205,13 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 //
 // Unlike the full `RunCalibration`, this function performs a heuristic search
 // for optimal values for parallelism, FFT, and Strassen thresholds using a
-// subset of candidates. It is designed to be fast enough to run at application
-// startup without significant delay.
+// subset of candidates generated adaptively based on CPU characteristics.
+// It is designed to be fast enough to run at application startup without
+// significant delay.
+//
+// The function first checks for an existing valid calibration profile. If found
+// and valid for the current hardware, it uses the cached values instead of
+// running benchmarks.
 //
 // Parameters:
 //   - parentCtx: The context used to manage the calibration timeout.
@@ -147,6 +223,27 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 //   - config.AppConfig: The updated configuration with optimized thresholds.
 //   - bool: True if calibration was successful, false otherwise.
 func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (config.AppConfig, bool) {
+	return AutoCalibrateWithProfile(parentCtx, cfg, out, calculatorRegistry, cfg.CalibrationProfile)
+}
+
+// AutoCalibrateWithProfile runs auto-calibration with a specific profile path.
+func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (config.AppConfig, bool) {
+	// Try to load existing profile first
+	if profile, loaded := LoadOrCreateProfile(profilePath); loaded && profile.IsValid() {
+		// Use cached calibration
+		updated := cfg
+		updated.Threshold = profile.OptimalParallelThreshold
+		updated.FFTThreshold = profile.OptimalFFTThreshold
+		updated.StrassenThreshold = profile.OptimalStrassenThreshold
+
+		fmt.Fprintf(out, "%sUsing cached calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
+			cli.ColorGreen, cli.ColorReset,
+			cli.ColorYellow, updated.Threshold, cli.ColorReset,
+			cli.ColorYellow, updated.FFTThreshold, cli.ColorReset,
+			cli.ColorYellow, updated.StrassenThreshold, cli.ColorReset)
+		return updated, true
+	}
+
 	calc := calculatorRegistry["fast"]
 	if calc == nil {
 		return cfg, false
@@ -165,7 +262,8 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		return time.Since(start), err
 	}
 
-	parallelCandidates := []int{0, 2048, 4096, 8192, 16384}
+	// Use adaptive thresholds
+	parallelCandidates := GenerateQuickParallelThresholds()
 	bestPar := cfg.Threshold
 	bestParDur := time.Duration(1<<63 - 1)
 	for _, cand := range parallelCandidates {
@@ -178,7 +276,7 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		}
 	}
 
-	fftCandidates := []int{0, 16000, 20000, 28000}
+	fftCandidates := GenerateQuickFFTThresholds()
 	bestFFT := cfg.FFTThreshold
 	bestFFTDur := time.Duration(1<<63 - 1)
 	for _, cand := range fftCandidates {
@@ -195,7 +293,7 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	bestStrassen := cfg.StrassenThreshold
 	bestStrassenDur := time.Duration(1<<63 - 1)
 	if matCalc != nil {
-		strassenCandidates := []int{192, 256, 384, 512}
+		strassenCandidates := GenerateQuickStrassenThresholds()
 		for _, cand := range strassenCandidates {
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 			start := time.Now()
@@ -227,10 +325,38 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		updated.StrassenThreshold = bestStrassen
 	}
 
+	// Save the calibration profile for future use
+	profile := NewProfile()
+	profile.OptimalParallelThreshold = updated.Threshold
+	profile.OptimalFFTThreshold = updated.FFTThreshold
+	profile.OptimalStrassenThreshold = updated.StrassenThreshold
+	profile.CalibrationN = fibonacci.CalibrationN
+	if err := profile.SaveProfile(profilePath); err != nil {
+		// Non-fatal: just log and continue
+		fmt.Fprintf(out, "%sWarning: could not save calibration profile: %v%s\n",
+			cli.ColorYellow, err, cli.ColorReset)
+	}
+
 	fmt.Fprintf(out, "%sAuto-calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
 		cli.ColorGreen, cli.ColorReset,
 		cli.ColorYellow, updated.Threshold, cli.ColorReset,
 		cli.ColorYellow, updated.FFTThreshold, cli.ColorReset,
 		cli.ColorYellow, updated.StrassenThreshold, cli.ColorReset)
+	return updated, true
+}
+
+// LoadCachedCalibration attempts to load a cached calibration profile and
+// apply it to the configuration. Returns the updated config and true if
+// a valid cached profile was found.
+func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (config.AppConfig, bool) {
+	profile, loaded := LoadOrCreateProfile(profilePath)
+	if !loaded || !profile.IsValid() {
+		return cfg, false
+	}
+
+	updated := cfg
+	updated.Threshold = profile.OptimalParallelThreshold
+	updated.FFTThreshold = profile.OptimalFFTThreshold
+	updated.StrassenThreshold = profile.OptimalStrassenThreshold
 	return updated, true
 }

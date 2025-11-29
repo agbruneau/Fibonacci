@@ -46,6 +46,10 @@ type AppConfig struct {
 	// AutoCalibrate, if true, runs a short automatic calibration at startup to
 	// refine Threshold and FFTThreshold for the current machine.
 	AutoCalibrate bool
+	// CalibrationProfile is the path to a calibration profile file.
+	// If set, the application will load/save calibration results from/to this file.
+	// If empty, uses the default path (~/.fibcalc_calibration.json).
+	CalibrationProfile string
 	// Lang specifies the i18n language code to use (e.g., "fr", "en").
 	Lang string
 	// I18nDir, if provided, is a directory that contains JSON translation
@@ -129,6 +133,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 3072, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
 	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Enables quick automatic calibration at startup (may increase loading time).")
+	fs.StringVar(&config.CalibrationProfile, "calibration-profile", "", "Path to calibration profile file (default: ~/.fibcalc_calibration.json).")
 	fs.StringVar(&config.Lang, "lang", "en", "Language code for i18n (e.g., fr, en).")
 	fs.StringVar(&config.I18nDir, "i18n-dir", "", "Directory of JSON translation files (e.g., ./locales).")
 	fs.BoolVar(&config.JSONOutput, "json", false, "Output results in JSON format.")
