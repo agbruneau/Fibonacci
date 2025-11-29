@@ -1014,9 +1014,9 @@ jobs:
 
 ---
 
-## 6. 📚 Améliorations Documentation
+## DONE 6. 📚 Améliorations Documentation
 
-### 6.1 Nouveaux documents à créer
+### DONE 6.1 Nouveaux documents à créer
 
 | Document | Description | Priorité |
 |----------|-------------|----------|
@@ -1027,7 +1027,7 @@ jobs:
 | `docs/algorithms/MATRIX.md` | Explication de l'exponentiation matricielle | Moyenne |
 | `docs/algorithms/FFT.md` | Explication de la multiplication FFT | Moyenne |
 
-### 6.2 Structure documentation proposée
+### DONE 6.2 Structure documentation proposée
 
 ```
 docs/
@@ -1047,7 +1047,7 @@ docs/
     └── KUBERNETES.md        # Guide Kubernetes
 ```
 
-### 6.3 Génération documentation API
+### DONE 6.3 Génération documentation API
 
 ```yaml
 # docs/api/openapi.yaml
