@@ -23,7 +23,7 @@ Ce projet est un calculateur de Fibonacci haute performance en Go, implémentant
 
 ## 1. 🔧 Améliorations Techniques
 
-### 1.1 Gestion de la mémoire et performances
+### DONE 1.1 Gestion de la mémoire et performances
 
 | Amélioration | Description | Priorité | Fichier(s) concerné(s) |
 |--------------|-------------|----------|------------------------|
