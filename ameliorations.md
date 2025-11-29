@@ -536,9 +536,9 @@ func (c *MessageCatalog) GetPlural(key string, count int) string {
 
 ---
 
-## 4. 🧪 Améliorations des Tests
+## 4. DONE 🧪 Améliorations des Tests
 
-### 4.1 Objectifs de couverture
+### DONE 4.1 Objectifs de couverture
 
 | Package | Couverture actuelle | Cible | Actions requises |
 |---------|---------------------|-------|------------------|
@@ -609,7 +609,7 @@ func FuzzFFTMultiplication(f *testing.F) {
 }
 ```
 
-### 4.3 Tests de charge automatisés
+### DONE 4.3 Tests de charge automatisés
 
 ```go
 // internal/server/server_stress_test.go
@@ -680,7 +680,7 @@ func TestServerUnderLoad(t *testing.T) {
 }
 ```
 
-### 4.4 Benchmarks de régression CI
+### DONHE 4.4 Benchmarks de régression CI
 
 ```yaml
 # .github/workflows/benchmark.yml
