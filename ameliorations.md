@@ -21,7 +21,7 @@ Ce projet est un calculateur de Fibonacci haute performance en Go, implémentant
 
 ---
 
-## 1. 🔧 Améliorations Techniques
+## DONE 1. 🔧 Améliorations Techniques
 
 ### DONE 1.1 Gestion de la mémoire et performances
 
@@ -53,7 +53,7 @@ func releasePoly(p *poly) {
 }
 ```
 
-### 1.2 Amélioration des algorithmes
+### DONE 1.2 Amélioration des algorithmes
 
 | Amélioration | Description | Priorité |
 |--------------|-------------|----------|
@@ -90,7 +90,7 @@ func (c *LucasCalculator) CalculateCore(ctx context.Context, reporter ProgressRe
 }
 ```
 
-### 1.3 Calibration améliorée
+### DONE 1.3 Calibration améliorée
 
 **Problème actuel :** Les seuils de calibration sont codés en dur dans `internal/calibration/calibration.go`.
 
@@ -165,9 +165,9 @@ func GenerateAdaptiveThresholds() []int {
 
 ---
 
-## 2. 🌐 Améliorations du Serveur HTTP
+## DONE 2. 🌐 Améliorations du Serveur HTTP
 
-### 2.1 Nouveaux endpoints
+### DONE 2.1 Nouveaux endpoints
 
 | Endpoint | Méthode | Description | Priorité |
 |----------|---------|-------------|----------|
@@ -247,7 +247,7 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### 2.2 Sécurité et observabilité
+### DONE 2.2 Sécurité et observabilité
 
 | Amélioration | Description | Priorité | Fichier(s) |
 |--------------|-------------|----------|------------|
@@ -304,7 +304,7 @@ var (
 )
 ```
 
-### 2.3 Rate Limiter amélioré
+### DONE 2.3 Rate Limiter amélioré
 
 **Fichier concerné :** `internal/server/middleware.go`
 
@@ -716,9 +716,9 @@ jobs:
 
 ---
 
-## 5. 📦 Améliorations DevOps & Infrastructure
+## DONE 5. 📦 Améliorations DevOps & Infrastructure
 
-### 5.1 Dockerfile amélioré
+### DONE 5.1 Dockerfile amélioré
 
 ```dockerfile
 # Dockerfile.improved
@@ -797,7 +797,7 @@ ENTRYPOINT ["/app/fibcalc"]
 CMD ["--help"]
 ```
 
-### 5.2 Docker Compose complet
+### DONE 5.2 Docker Compose complet
 
 ```yaml
 # docker-compose.yml
@@ -857,7 +857,7 @@ volumes:
   grafana-data:
 ```
 
-### 5.3 Kubernetes Manifests
+### DONE 5.3 Kubernetes Manifests
 
 ```yaml
 # kubernetes/deployment.yaml
@@ -940,7 +940,7 @@ spec:
           averageUtilization: 70
 ```
 
-### 5.4 GitHub Actions CI/CD
+### DONE 5.4 GitHub Actions CI/CD
 
 ```yaml
 # .github/workflows/ci.yml
@@ -1149,9 +1149,9 @@ components:
 
 ---
 
-## 7. 🔐 Améliorations Sécurité
+## 7. DONE 🔐 Améliorations Sécurité
 
-### 7.1 Validations et protections
+### DONE 7.1 Validations et protections
 
 | Amélioration | Description | Priorité |
 |--------------|-------------|----------|
@@ -1161,7 +1161,7 @@ components:
 | **Audit logging** | Journalisation structurée des accès | Moyenne |
 | **Input sanitization** | Validation stricte des entrées | Haute |
 
-### 7.2 Timeout dynamique
+### DONE 7.2 Timeout dynamique
 
 ```go
 // internal/server/timeout.go
@@ -1207,7 +1207,7 @@ func DynamicTimeout(n uint64, baseTimeout time.Duration) time.Duration {
 }
 ```
 
-### 7.3 Audit Logging
+### DONE 7.3 Audit Logging
 
 ```go
 // internal/server/audit.go
@@ -1268,9 +1268,9 @@ func (a *AuditLogger) Close() error {
 
 ---
 
-## 8. 🎨 Améliorations UX/UI CLI
+## DONE 8. 🎨 Améliorations UX/UI CLI
 
-### 8.1 Barre de progression avec ETA
+### DONE 8.1 Barre de progression avec ETA
 
 ```go
 // internal/cli/progress_eta.go
@@ -1344,7 +1344,7 @@ func FormatProgressBarWithETA(progress float64, eta time.Duration, width int) st
 }
 ```
 
-### 8.2 Thèmes de couleur
+### DONE 8.2 Thèmes de couleur
 
 ```go
 // internal/cli/themes.go
