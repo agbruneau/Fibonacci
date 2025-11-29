@@ -137,23 +137,6 @@ func approxProgress(num, den *big.Int) float64 {
 	return float64(n.Int64()) / float64(d.Int64())
 }
 
-// smartMultiply performs multiplication of two *big.Int instances, choosing
-// between standard Karatsuba multiplication and FFT-based multiplication
-// depending on the size of the operands and the configured threshold.
-func smartMultiply(dest, x, y *big.Int, fftThreshold int) *big.Int {
-	if fftThreshold > 0 {
-		// Use FFT only if both operands exceed the threshold.
-		// Shortcut: compare the min of the bit lengths.
-		minBitLen := x.BitLen()
-		if b := y.BitLen(); b < minBitLen {
-			minBitLen = b
-		}
-		if minBitLen > fftThreshold {
-			return mulFFT(x, y)
-		}
-	}
-	return dest.Mul(x, y)
-}
 
 // Options configures the Fibonacci calculation.
 type Options struct {

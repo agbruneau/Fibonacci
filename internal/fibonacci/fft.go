@@ -3,7 +3,7 @@ package fibonacci
 import (
 	"math/big"
 
-	"github.com/remyoudompheng/bigfft"
+	"example.com/fibcalc/internal/bigfft"
 )
 
 // mulFFT performs the multiplication of two *big.Int instances, x and y.
@@ -22,4 +22,29 @@ import (
 //   - *big.Int: The product of x and y.
 func mulFFT(x, y *big.Int) *big.Int {
 	return bigfft.Mul(x, y)
+}
+
+// smartMultiply performs multiplication, choosing between Karatsuba (math/big)
+// and FFT (internal/bigfft) based on the size of the operands.
+// It also attempts to reuse the storage of `z` if `MulTo` is available/used.
+//
+// Parameters:
+//   - z: The destination big.Int.
+//   - x: The first operand.
+//   - y: The second operand.
+//   - threshold: The bit length threshold for switching to FFT.
+//
+// Returns:
+//   - *big.Int: The result of x * y.
+func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
+	// Optimization: use MulTo if FFT is used to avoid allocation.
+	// But first, check if we should use FFT.
+	if threshold > 0 {
+		bx := x.BitLen()
+		by := y.BitLen()
+		if bx > threshold && by > threshold {
+			return bigfft.MulTo(z, x, y)
+		}
+	}
+	return z.Mul(x, y)
 }
