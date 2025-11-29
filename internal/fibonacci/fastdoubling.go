@@ -124,14 +124,13 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			// We check if the operands are large enough for FFT.
 			// Note: We use the same threshold logic as in mul().
 			// If we are using FFT (minBitLen > fftThreshold), we only parallelize
-			// if the numbers are huge (e.g. > 10M bits) to overcome concurrency overhead.
-			// Benchmarks show that at 7M bits (N=10M), sequential is faster (78ms vs 98ms).
-			// At 173M bits (N=250M), parallel is essential.
-			// We set a heuristic threshold of 10M bits for parallel FFT.
+			// if the numbers are huge (> ParallelFFTThreshold bits) to overcome
+			// concurrency overhead.
+			// See constants.go for empirical benchmark results.
 			if opts.FFTThreshold > 0 {
 				minBitLen := s.f_k.BitLen()
 				if minBitLen > opts.FFTThreshold {
-					return minBitLen > 10_000_000
+					return minBitLen > ParallelFFTThreshold
 				}
 			}
 			return bl > opts.ParallelThreshold

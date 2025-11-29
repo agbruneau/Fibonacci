@@ -74,12 +74,8 @@ func CalcTotalWork(numBits int) float64 {
 // Returns:
 //   - float64: The updated cumulative work done.
 func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone float64, i, numBits int) float64 {
-	const ReportThreshold = 0.01
-
 	// Work for this step (bit i, counting down from numBits-1 to 0)
 	// The step index in the geometric series is (numBits - 1 - i).
-	// Wait, the loop goes i = numBits-1 down to 0.
-	// At i=numBits-1 (start), we are at small numbers? No, we start from MSB.
 	// Fast doubling starts from MSB (small current value) and doubles up.
 	// So at i=numBits-1, we have F(1). Small work.
 	// At i=0, we have F(n). Huge work.
@@ -91,9 +87,10 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
 	currentTotalDone := workDone + workOfStep
 
 	// Only report if enough progress or boundaries
+	// Use ProgressReportThreshold constant to avoid magic numbers
 	if totalWork > 0 {
 		currentProgress := currentTotalDone / totalWork
-		if currentProgress-*lastReported >= ReportThreshold || i == 0 || i == numBits-1 {
+		if currentProgress-*lastReported >= ProgressReportThreshold || i == 0 || i == numBits-1 {
 			progressReporter(currentProgress)
 			*lastReported = currentProgress
 		}

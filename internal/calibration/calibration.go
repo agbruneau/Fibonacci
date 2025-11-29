@@ -51,7 +51,6 @@ func (m i18nMessageProvider) GetMessage(key string) string {
 //   - int: The exit code (0 for success, non-zero for errors).
 func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) int {
 	fmt.Fprintf(out, "%s\n", i18n.Messages["CalibrationTitle"])
-	const calibrationN = 10_000_000
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
 		fmt.Fprintf(out, "%sCritical error: the 'fast' algorithm is required for calibration but was not found.%s\n", cli.ColorRed, cli.ColorReset)
@@ -80,7 +79,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 		}
 
 		startTime := time.Now()
-		_, err := calculator.Calculate(ctx, progressChan, 0, calibrationN, fibonacci.Options{ParallelThreshold: threshold})
+		_, err := calculator.Calculate(ctx, progressChan, 0, fibonacci.CalibrationN, fibonacci.Options{ParallelThreshold: threshold})
 		duration := time.Since(startTime)
 
 		if err != nil {
@@ -158,13 +157,11 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		perTrial = 2 * time.Second
 	}
 
-	const nForCalibration = 10_000_000
-
 	tryRun := func(threshold, fftThreshold int) (time.Duration, error) {
 		ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 		defer cancel()
 		start := time.Now()
-		_, err := calc.Calculate(ctx, nil, 0, nForCalibration, fibonacci.Options{ParallelThreshold: threshold, FFTThreshold: fftThreshold})
+		_, err := calc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, fibonacci.Options{ParallelThreshold: threshold, FFTThreshold: fftThreshold})
 		return time.Since(start), err
 	}
 
@@ -202,7 +199,7 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		for _, cand := range strassenCandidates {
 			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
 			start := time.Now()
-			_, err := matCalc.Calculate(ctx, nil, 0, nForCalibration, fibonacci.Options{ParallelThreshold: bestPar, StrassenThreshold: cand})
+			_, err := matCalc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, fibonacci.Options{ParallelThreshold: bestPar, StrassenThreshold: cand})
 			cancel()
 			dur := time.Since(start)
 			if err != nil {

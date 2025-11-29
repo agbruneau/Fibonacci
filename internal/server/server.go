@@ -40,6 +40,9 @@ type Server struct {
 	httpServer     *http.Server
 	logger         *log.Logger
 	shutdownSignal chan os.Signal
+	rateLimiter    *RateLimiter
+	securityConfig SecurityConfig
+	metrics        *Metrics
 }
 
 // ServerOption defines a functional option for configuring a Server.
@@ -99,6 +102,8 @@ func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig, o
 		cfg:            cfg,
 		logger:         log.New(os.Stdout, "[SERVER] ", log.LstdFlags), // Default logger
 		shutdownSignal: make(chan os.Signal, 1),
+		securityConfig: DefaultSecurityConfig(),
+		metrics:        NewMetrics(),
 	}
 
 	// Apply any provided options
@@ -106,10 +111,18 @@ func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig, o
 		opt(s)
 	}
 
+	// Create default rate limiter if not provided
+	if s.rateLimiter == nil {
+		s.rateLimiter = NewRateLimiter(DefaultRateLimiterConfig())
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/calculate", s.loggingMiddleware(s.handleCalculate))
-	mux.HandleFunc("/health", s.loggingMiddleware(s.handleHealth))
-	mux.HandleFunc("/algorithms", s.loggingMiddleware(s.handleAlgorithms))
+
+	// Apply middleware chain: Security -> RateLimit -> Logging -> Metrics -> Handler
+	mux.HandleFunc("/calculate", s.wrapWithMiddleware(s.handleCalculate))
+	mux.HandleFunc("/health", s.wrapWithMiddleware(s.handleHealth))
+	mux.HandleFunc("/algorithms", s.wrapWithMiddleware(s.handleAlgorithms))
+	mux.HandleFunc("/metrics", s.wrapWithMiddleware(s.handleMetrics))
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -120,6 +133,16 @@ func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig, o
 	}
 
 	return s
+}
+
+// wrapWithMiddleware applies the full middleware chain to a handler.
+func (s *Server) wrapWithMiddleware(handler http.HandlerFunc) http.HandlerFunc {
+	// Apply in reverse order: Security -> RateLimit -> Logging -> Metrics -> Handler
+	wrapped := s.metricsMiddleware(handler)
+	wrapped = s.loggingMiddleware(wrapped)
+	wrapped = RateLimitMiddleware(s.rateLimiter, wrapped)
+	wrapped = SecurityMiddleware(s.securityConfig, wrapped)
+	return wrapped
 }
 
 // Start initializes and starts the HTTP server.
@@ -255,6 +278,13 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate n against maximum allowed value (DoS protection)
+	if s.securityConfig.MaxNValue > 0 && n > s.securityConfig.MaxNValue {
+		s.writeErrorResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("Value of 'n' exceeds maximum allowed (%d). This limit prevents resource exhaustion.", s.securityConfig.MaxNValue))
+		return
+	}
+
 	algo := r.URL.Query().Get("algo")
 	if algo == "" {
 		algo = "fast" // Default algorithm
@@ -275,6 +305,13 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	result, err := calc.Calculate(ctx, nil, 0, n, fibonacci.Options{ParallelThreshold: s.cfg.Threshold, FFTThreshold: s.cfg.FFTThreshold})
 	duration := time.Since(start)
+
+	// Record metrics
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+	s.metrics.RecordCalculation(algo, status, duration)
 
 	// Build the response
 	resp := Response{

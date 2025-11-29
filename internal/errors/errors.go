@@ -1,9 +1,17 @@
 // Package apperrors defines structured application error types,
 // allowing for a clear distinction between error classes (configuration,
 // calculation, etc.) and for carrying the underlying cause.
+//
+// Error Wrapping Guidelines:
+// This package follows Go's error wrapping conventions using fmt.Errorf with %w.
+// All error types implement the Unwrap() method to support errors.Is() and errors.As().
 package apperrors
 
-import "fmt"
+import (
+	"context"
+	"errors"
+	"fmt"
+)
 
 // Application exit codes define the standard exit statuses for the application.
 // These codes are used to signal the outcome of the program execution to the OS.
@@ -101,4 +109,66 @@ func (e ServerError) Unwrap() error { return e.Cause }
 //   - error: A new ServerError instance.
 func NewServerError(message string, cause error) error {
 	return ServerError{Message: message, Cause: cause}
+}
+
+// WrapError wraps an error with additional context using fmt.Errorf and %w.
+// This allows the wrapped error to be unwrapped with errors.Unwrap() and
+// checked with errors.Is() and errors.As().
+//
+// Parameters:
+//   - err: The error to wrap.
+//   - format: A format string for the context message.
+//   - args: Arguments for the format string.
+//
+// Returns:
+//   - error: The wrapped error, or nil if err is nil.
+func WrapError(err error, format string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	message := fmt.Sprintf(format, args...)
+	return fmt.Errorf("%s: %w", message, err)
+}
+
+// IsContextError checks if the error is a context cancellation or deadline exceeded error.
+//
+// Parameters:
+//   - err: The error to check.
+//
+// Returns:
+//   - bool: true if the error is a context error.
+func IsContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+// ValidationError represents an error due to invalid input validation.
+// It is used for API request validation and configuration validation.
+type ValidationError struct {
+	// Field is the name of the field that failed validation.
+	Field string
+	// Message describes why validation failed.
+	Message string
+	// Value is the invalid value (optional, may be nil).
+	Value interface{}
+}
+
+// Error returns the error message for a ValidationError.
+func (e ValidationError) Error() string {
+	if e.Field != "" {
+		return fmt.Sprintf("validation error for '%s': %s", e.Field, e.Message)
+	}
+	return fmt.Sprintf("validation error: %s", e.Message)
+}
+
+// NewValidationError creates a new ValidationError.
+//
+// Parameters:
+//   - field: The name of the field that failed validation.
+//   - message: A description of why validation failed.
+//   - value: The invalid value (optional).
+//
+// Returns:
+//   - error: A new ValidationError instance.
+func NewValidationError(field, message string, value interface{}) error {
+	return ValidationError{Field: field, Message: message, Value: value}
 }

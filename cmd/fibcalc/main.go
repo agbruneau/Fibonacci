@@ -26,6 +26,21 @@ import (
 	"example.com/fibcalc/internal/server"
 )
 
+// Build-time variables set via -ldflags.
+// These are populated during CI/CD builds to provide version information.
+//
+// Example build command:
+//
+//	go build -ldflags="-X main.Version=v1.2.3 -X main.Commit=abc123 -X main.BuildDate=2025-01-01T00:00:00Z"
+var (
+	// Version is the semantic version of the application (e.g., "v1.0.0").
+	Version = "dev"
+	// Commit is the short Git commit hash (e.g., "abc123").
+	Commit = "unknown"
+	// BuildDate is the ISO 8601 timestamp of the build (e.g., "2025-01-01T00:00:00Z").
+	BuildDate = "unknown"
+)
+
 var calculatorRegistry = map[string]fibonacci.Calculator{
 	"fast":   fibonacci.NewCalculator(&fibonacci.OptimizedFastDoubling{}),
 	"matrix": fibonacci.NewCalculator(&fibonacci.MatrixExponentiation{}),
@@ -66,6 +81,12 @@ func getSortedCalculatorKeys() []string {
 //  4. Starts the application in either server mode or CLI mode based on the
 //     configuration.
 func main() {
+	// Check for version flag in any position
+	if hasVersionFlag(os.Args[1:]) {
+		printVersion(os.Stdout)
+		os.Exit(apperrors.ExitSuccess)
+	}
+
 	availableAlgos := getSortedCalculatorKeys()
 	cfg, err := config.ParseConfig(os.Args[0], os.Args[1:], os.Stderr, availableAlgos)
 	if err != nil {
@@ -92,6 +113,26 @@ func main() {
 
 	exitCode := run(context.Background(), cfg, os.Stdout)
 	os.Exit(exitCode)
+}
+
+// hasVersionFlag checks if any argument is a version flag.
+// This allows --version to work in any position (e.g., "fibcalc --server --version").
+func hasVersionFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == "--version" || arg == "-version" || arg == "-V" {
+			return true
+		}
+	}
+	return false
+}
+
+// printVersion outputs version information to the given writer.
+func printVersion(out io.Writer) {
+	fmt.Fprintf(out, "fibcalc %s\n", Version)
+	fmt.Fprintf(out, "  Commit:     %s\n", Commit)
+	fmt.Fprintf(out, "  Built:      %s\n", BuildDate)
+	fmt.Fprintf(out, "  Go version: %s\n", runtime.Version())
+	fmt.Fprintf(out, "  OS/Arch:    %s/%s\n", runtime.GOOS, runtime.GOARCH)
 }
 
 // run orchestrates the execution of the CLI application.

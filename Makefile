@@ -5,11 +5,21 @@
 BINARY_NAME=fibcalc
 BINARY_UNIX=$(BINARY_NAME)_unix
 BINARY_WIN=$(BINARY_NAME).exe
-VERSION?=1.0.0
 BUILD_DIR=./build
 CMD_DIR=./cmd/fibcalc
 GO=go
-GOFLAGS=-ldflags="-s -w"
+
+# Version information (can be overridden via environment variables)
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Linker flags for version injection
+LDFLAGS=-ldflags="-s -w \
+	-X main.Version=$(VERSION) \
+	-X main.Commit=$(COMMIT) \
+	-X main.BuildDate=$(BUILD_DATE)"
+GOFLAGS=$(LDFLAGS)
 
 .PHONY: all build clean test coverage benchmark run help install lint format check
 
@@ -18,10 +28,14 @@ all: clean build test
 
 ## build: Build the application for current platform
 build:
-	@echo "Building $(BINARY_NAME)..."
+	@echo "Building $(BINARY_NAME) version $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+
+## version: Display version information
+version: build
+	@$(BUILD_DIR)/$(BINARY_NAME) --version
 
 ## build-all: Build for all platforms
 build-all: build-linux build-windows build-darwin
