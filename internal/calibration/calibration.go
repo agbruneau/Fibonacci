@@ -17,6 +17,22 @@ import (
 	"example.com/fibcalc/internal/i18n"
 )
 
+// cliColorProvider implements apperrors.ColorProvider using cli constants.
+type cliColorProvider struct{}
+
+func (c cliColorProvider) Yellow() string { return cli.ColorYellow }
+func (c cliColorProvider) Reset() string  { return cli.ColorReset }
+
+// i18nMessageProvider implements apperrors.ErrorMessageProvider using i18n.Messages.
+type i18nMessageProvider struct{}
+
+func (m i18nMessageProvider) GetMessage(key string) string {
+	if msg, ok := i18n.Messages[key]; ok {
+		return msg
+	}
+	return key
+}
+
 // RunCalibration executes a comprehensive benchmark to determine the optimal
 // parallelism threshold for the current hardware.
 //
@@ -73,7 +89,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
 				wg.Wait()
-				return handleCalculationError(err, duration, out)
+				return apperrors.HandleCalculationError(err, duration, out, cliColorProvider{}, i18nMessageProvider{})
 			}
 			continue
 		}
@@ -222,34 +238,3 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	return updated, true
 }
 
-// handleCalculationError formats and prints error messages related to failed calculations.
-// It distinguishes between different error types (timeout, cancellation, generic)
-// to provide the user with specific feedback.
-//
-// Parameters:
-//   - err: The error that occurred.
-//   - duration: The duration of the calculation before it failed.
-//   - out: The io.Writer to which the error message will be written.
-//
-// Returns:
-//   - int: The appropriate exit code for the error type.
-func handleCalculationError(err error, duration time.Duration, out io.Writer) int {
-	if err == nil {
-		return apperrors.ExitSuccess
-	}
-	msgSuffix := ""
-	if duration > 0 {
-		msgSuffix = fmt.Sprintf(" after %s%s%s", cli.ColorYellow, duration, cli.ColorReset)
-	}
-
-	if errors.Is(err, context.DeadlineExceeded) {
-		fmt.Fprintf(out, "%s\n", i18n.Messages["StatusTimeout"])
-		return apperrors.ExitErrorTimeout
-	}
-	if errors.Is(err, context.Canceled) {
-		fmt.Fprintf(out, "%s%s%s.%s\n", cli.ColorYellow, i18n.Messages["StatusCanceled"], msgSuffix, cli.ColorReset)
-		return apperrors.ExitErrorCanceled
-	}
-	fmt.Fprintf(out, "%s\n", i18n.Messages["StatusFailure"])
-	return apperrors.ExitErrorGeneric
-}

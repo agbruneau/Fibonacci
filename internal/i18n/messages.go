@@ -9,12 +9,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
-// Messages groups user-facing messages for basic i18n.
-// Centralizing these labels facilitates maintenance, consistency, and a
-// potential multi-language translation in the future.
-var Messages = map[string]string{
+// messageStore holds the messages map and provides thread-safe access.
+type messageStore struct {
+	mu       sync.RWMutex
+	messages map[string]string
+}
+
+// defaultMessages contains the built-in English messages.
+var defaultMessages = map[string]string{
 	"CalibrationTitle":       "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---",
 	"CalibrationSummary":     "--- Calibration Summary ---",
 	"OptimalRecommendation":  "✅ Recommendation for this machine: --threshold %d",
@@ -29,10 +34,59 @@ var Messages = map[string]string{
 	"StatusFailure":          "Status: Failure. An unexpected error occurred: %v",
 }
 
+// store is the global message store instance.
+var store = &messageStore{
+	messages: make(map[string]string),
+}
+
+func init() {
+	// Initialize with default messages
+	for k, v := range defaultMessages {
+		store.messages[k] = v
+	}
+}
+
+// Messages provides backward-compatible access to messages.
+// Note: Direct map access is not thread-safe. Use GetMessage() for concurrent access.
+// This variable is kept for backward compatibility with existing code.
+var Messages = store.messages
+
+// GetMessage retrieves a message by key in a thread-safe manner.
+// If the key is not found, it returns the key itself as a fallback,
+// which helps identify missing translations during development.
+//
+// Parameters:
+//   - key: The message key to look up.
+//
+// Returns:
+//   - string: The message text, or the key if not found.
+func GetMessage(key string) string {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if msg, ok := store.messages[key]; ok {
+		return msg
+	}
+	return key // Fallback to key if message not found
+}
+
+// SetMessage sets a message value in a thread-safe manner.
+//
+// Parameters:
+//   - key: The message key.
+//   - value: The message text.
+func SetMessage(key, value string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.messages[key] = value
+}
+
 // LoadFromDir loads a JSON translation file from a given directory.
 // On success, it replaces existing entries in Messages with those from the file,
 // falling back on already present values. The expected format is a JSON object
 // of the form { "Key": "Value", ... }.
+//
+// This function is thread-safe.
 //
 // Parameters:
 //   - dir: The directory containing the translation files.
@@ -57,9 +111,22 @@ func LoadFromDir(dir string, lang string) error {
 	if err := dec.Decode(&loaded); err != nil {
 		return err
 	}
-	// Merge: loaded entries replace default values
+
+	// Merge: loaded entries replace default values (thread-safe)
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	for k, v := range loaded {
-		Messages[k] = v
+		store.messages[k] = v
 	}
 	return nil
+}
+
+// ResetToDefaults resets all messages to their default values.
+// This is primarily useful for testing.
+func ResetToDefaults() {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for k, v := range defaultMessages {
+		store.messages[k] = v
+	}
 }

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-	"regexp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"example.com/fibcalc/internal/fibonacci"
+	"example.com/fibcalc/internal/testutil"
 	"github.com/briandowns/spinner"
 )
 
@@ -65,13 +65,6 @@ func TestFormatNumberString(t *testing.T) {
 	}
 }
 
-// stripAnsiCodes removes ANSI escape codes from a string.
-func stripAnsiCodes(s string) string {
-	const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
-	re := regexp.MustCompile(ansi)
-	return re.ReplaceAllString(s, "")
-}
-
 // TestDisplayResult checks the formatting of the result output.
 func TestDisplayResult(t *testing.T) {
 	duration := 123 * time.Millisecond
@@ -80,7 +73,7 @@ func TestDisplayResult(t *testing.T) {
 	t.Run("Output without details", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, false, false, &buf)
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Result binary size: 34 bits.") {
 			t.Errorf("The basic output is incorrect. Expected: 'Result binary size: 34 bits.', Got: %q", output)
 		}
@@ -94,7 +87,7 @@ func TestDisplayResult(t *testing.T) {
 		longNumStr := strings.Repeat("1", 101) // String longer than TruncationLimit
 		longResult, _ := new(big.Int).SetString(longNumStr, 10)
 		DisplayResult(longResult, 500, duration, false, true, &buf)
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 
 		if !strings.Contains(output, "(truncated)") {
 			t.Errorf("The detailed non-verbose output should be truncated. Got: %q", output)
@@ -108,7 +101,7 @@ func TestDisplayResult(t *testing.T) {
 	t.Run("Detailed and verbose output (full)", func(t *testing.T) {
 		var buf bytes.Buffer
 		DisplayResult(result, 50, duration, true, true, &buf)
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 
 		if strings.Contains(output, "(truncated)") {
 			t.Errorf("The verbose output should not be truncated. Got: %q", output)

@@ -3,22 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"example.com/fibcalc/internal/config"
 	apperrors "example.com/fibcalc/internal/errors"
+	"example.com/fibcalc/internal/testutil"
 )
-
-// stripAnsiCodes removes ANSI escape codes from a string.
-// This helper is used to clean up CLI output for testing assertions.
-func stripAnsiCodes(s string) string {
-	const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
-	re := regexp.MustCompile(ansi)
-	return re.ReplaceAllString(s, "")
-}
 
 // TestParseConfig validates the configuration parsing function.
 // It covers nominal cases, argument overrides, and error conditions.
@@ -78,7 +70,7 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", apperrors.ExitSuccess, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 		if !strings.Contains(output, "F(10) = 55") {
 			t.Errorf("The detailed output does not contain the expected result 'F(10) = 55'. Output:\n%s", output)
 		}
@@ -92,7 +84,7 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", apperrors.ExitSuccess, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Comparison Summary") || !strings.Contains(output, "Global Status: Success") {
 			t.Errorf("The comparison mode output is incorrect. Output:\n%s", output)
 		}
@@ -109,7 +101,7 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != apperrors.ExitErrorTimeout {
 			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", apperrors.ExitErrorTimeout, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Status: Failure (Timeout)") {
 			t.Errorf("The output should explicitly mention the timeout failure. Output:\n%s", output)
 		}
@@ -125,7 +117,7 @@ func TestRunFunction(t *testing.T) {
 		if exitCode != apperrors.ExitErrorCanceled {
 			t.Errorf("Incorrect exit code for a cancellation. Expected: %d, Got: %d", apperrors.ExitErrorCanceled, exitCode)
 		}
-		output := stripAnsiCodes(buf.String())
+		output := testutil.StripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Status: Canceled") {
 			t.Errorf("The output should explicitly mention the cancellation. Output:\n%s", output)
 		}

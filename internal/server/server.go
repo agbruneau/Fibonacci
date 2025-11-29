@@ -42,6 +42,25 @@ type Server struct {
 	shutdownSignal chan os.Signal
 }
 
+// ServerOption defines a functional option for configuring a Server.
+type ServerOption func(*Server)
+
+// WithLogger sets a custom logger for the server.
+// This is useful for testing or integrating with existing logging infrastructure.
+//
+// Parameters:
+//   - logger: The logger to use. If nil, the default logger is used.
+//
+// Returns:
+//   - ServerOption: A functional option that configures the server's logger.
+func WithLogger(logger *log.Logger) ServerOption {
+	return func(s *Server) {
+		if logger != nil {
+			s.logger = logger
+		}
+	}
+}
+
 // Response represents the standardized JSON response for a calculation request.
 type Response struct {
 	// N is the index of the Fibonacci number requested.
@@ -70,17 +89,21 @@ type ErrorResponse struct {
 // Parameters:
 //   - registry: A map of algorithm names to their calculator implementations.
 //   - cfg: The application configuration (port, thresholds, etc.).
+//   - opts: Optional functional options for customizing the server (e.g., WithLogger).
 //
 // Returns:
 //   - *Server: A pointer to the initialized Server.
-func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig) *Server {
-	logger := log.New(os.Stdout, "[SERVER] ", log.LstdFlags)
-
+func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig, opts ...ServerOption) *Server {
 	s := &Server{
 		registry:       registry,
 		cfg:            cfg,
-		logger:         logger,
+		logger:         log.New(os.Stdout, "[SERVER] ", log.LstdFlags), // Default logger
 		shutdownSignal: make(chan os.Signal, 1),
+	}
+
+	// Apply any provided options
+	for _, opt := range opts {
+		opt(s)
 	}
 
 	mux := http.NewServeMux()

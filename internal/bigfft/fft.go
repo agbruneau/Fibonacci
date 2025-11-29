@@ -19,12 +19,17 @@ func (n nat) String() string {
 	return v.String()
 }
 
-// fftThreshold is the size (in words) above which FFT is used over
-// Karatsuba from math/big.
+// defaultFFTThresholdWords is the default size (in words) above which FFT is
+// used over Karatsuba from math/big.
 //
 // TestCalibrate seems to indicate a threshold of 60kbits on 32-bit
-// arches and 110kbits on 64-bit arches.
-var fftThreshold = 1800
+// arches and 110kbits on 64-bit arches. The value 1800 words corresponds to
+// approximately 115kbits on 64-bit systems (1800 * 64 = 115200 bits).
+const defaultFFTThresholdWords = 1800
+
+// fftThreshold is the size (in words) above which FFT is used over
+// Karatsuba from math/big. This can be modified for tuning purposes.
+var fftThreshold = defaultFFTThresholdWords
 
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of

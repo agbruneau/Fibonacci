@@ -6,6 +6,7 @@ import (
 	"math/bits"
 	"runtime"
 	"sync"
+	"sync/atomic"
 )
 
 // MatrixExponentiation offers a classic and efficient approach to calculating
@@ -115,12 +116,29 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 	return new(big.Int).Set(state.res.a), nil
 }
 
-// DefaultStrassenThresholdBits controls the switch to Strassen's algorithm.
+// defaultStrassenThresholdBits controls the switch to Strassen's algorithm.
 // It is the bit size threshold at which matrix multiplication switches from the
 // classic algorithm to the more complex, but asymptotically faster, Strassen's
 // algorithm. This value is modifiable at startup via configuration, allowing for
 // performance tuning based on the specific hardware and workload.
-var DefaultStrassenThresholdBits = 256
+// Access is thread-safe via atomic operations.
+var defaultStrassenThresholdBits atomic.Int32
+
+func init() {
+	defaultStrassenThresholdBits.Store(256)
+}
+
+// SetDefaultStrassenThreshold sets the default Strassen threshold in bits.
+// This function is thread-safe.
+func SetDefaultStrassenThreshold(bits int) {
+	defaultStrassenThresholdBits.Store(int32(bits))
+}
+
+// GetDefaultStrassenThreshold returns the current default Strassen threshold in bits.
+// This function is thread-safe.
+func GetDefaultStrassenThreshold() int {
+	return int(defaultStrassenThresholdBits.Load())
+}
 
 // multiplyMatrices dynamically decides between the classic and Strassen
 // multiplication algorithms.
@@ -139,7 +157,7 @@ var DefaultStrassenThresholdBits = 256
 func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) {
 	strassenThresholdBits := strassenThreshold
 	if strassenThresholdBits == 0 {
-		strassenThresholdBits = DefaultStrassenThresholdBits
+		strassenThresholdBits = GetDefaultStrassenThreshold()
 	}
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
 		multiplyMatricesClassic(dest, m1, m2, state, inParallel, fftThreshold)
@@ -350,30 +368,6 @@ func maxBitLenTwoMatrices(m1, m2 *matrix) int {
 	return max
 }
 
-// executeTasks executes a set of tasks, in parallel if specified.
-//
-// Parameters:
-//   - inParallel: Whether to execute tasks concurrently using goroutines.
-//   - tasks: A slice of functions to execute.
-func executeTasks(inParallel bool, tasks []func()) {
-	if !inParallel || len(tasks) < 2 {
-		for _, task := range tasks {
-			task()
-		}
-		return
-	}
-	var wg sync.WaitGroup
-	wg.Add(len(tasks) - 1)
-	for i := 0; i < len(tasks)-1; i++ {
-		go func(i int) {
-			defer wg.Done()
-			tasks[i]()
-		}(i)
-	}
-	tasks[len(tasks)-1]()
-	wg.Wait()
-}
-
 // matrix represents a 2x2 matrix of *big.Int values.
 // It is a fundamental data structure for the matrix exponentiation algorithm.
 // The fields a, b, c, and d correspond to the elements of the matrix:
@@ -431,10 +425,6 @@ func (m *matrix) SetBaseQ() {
 	m.d.SetInt64(0)
 }
 
-// In the progress logic (see CalcTotalWork):
-// We use base 4 to model the number of operations via the algorithm's structure
-// (1 addition and 3 multiplications at each bit), so we have 4^k.
-// +1 in the LUT because the LUT contains F(0) to F(93) inclusive.
 // matrixState aggregates variables for the matrix exponentiation algorithm.
 // The temporary variables (p1-p7, s1-s10) are specifically designed to support
 // the memory requirements of Strassen's matrix multiplication algorithm,

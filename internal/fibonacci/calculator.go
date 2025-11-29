@@ -39,22 +39,6 @@ type ProgressUpdate struct {
 //   - progress: The normalized progress value (0.0 to 1.0).
 type ProgressReporter func(progress float64)
 
-// ProgressReportParams contains the necessary state for calculating progress reporting.
-type ProgressReportParams struct {
-	// NumBits is the number of bits in the input number 'n'.
-	NumBits int
-	// Four is a pre-calculated big.Int with the value 4, used in progress
-	// calculations.
-	Four *big.Int
-}
-
-// Cache for frequently used constants
-var (
-	bigIntFour  = big.NewInt(4)
-	bigIntOne   = big.NewInt(1)
-	bigIntThree = big.NewInt(3)
-)
-
 // CalcTotalWork calculates the total work expected for O(log n) algorithms.
 // The number of weighted steps is modeled as a geometric series.
 // Since the algorithms iterate over bits, the work involved is roughly
@@ -116,27 +100,6 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
 	}
 	return currentTotalDone
 }
-
-// approxProgress calculates the approximate ratio of num / den as a float64.
-// It avoids large allocations by shifting bits if the numbers are too large.
-func approxProgress(num, den *big.Int) float64 {
-	if den.Sign() == 0 {
-		return 0.0
-	}
-	denLen := den.BitLen()
-	if denLen <= 53 {
-		n := float64(num.Int64())
-		d := float64(den.Int64())
-		return n / d
-	}
-
-	shift := uint(denLen - 53)
-	var n, d big.Int
-	n.Rsh(num, shift)
-	d.Rsh(den, shift)
-	return float64(n.Int64()) / float64(d.Int64())
-}
-
 
 // Options configures the Fibonacci calculation.
 type Options struct {

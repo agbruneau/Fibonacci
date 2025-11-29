@@ -60,11 +60,11 @@ func getSortedCalculatorKeys() []string {
 
 // main is the entry point of the application.
 // It performs the following steps:
-// 1. Parses the configuration from command-line arguments.
-// 2. Loads internationalization resources (optional).
-// 3. Configures global settings like the Strassen threshold.
-// 4. Starts the application in either server mode or CLI mode based on the
-//    configuration.
+//  1. Parses the configuration from command-line arguments.
+//  2. Loads internationalization resources (optional).
+//  3. Configures global settings like the Strassen threshold.
+//  4. Starts the application in either server mode or CLI mode based on the
+//     configuration.
 func main() {
 	availableAlgos := getSortedCalculatorKeys()
 	cfg, err := config.ParseConfig(os.Args[0], os.Args[1:], os.Stderr, availableAlgos)
@@ -81,7 +81,7 @@ func main() {
 		}
 	}
 	// Setting the Strassen threshold for the matrix algorithm
-	fibonacci.DefaultStrassenThresholdBits = cfg.StrassenThreshold
+	fibonacci.SetDefaultStrassenThreshold(cfg.StrassenThreshold)
 
 	if cfg.ServerMode {
 		srv := server.NewServer(calculatorRegistry, cfg)
@@ -112,39 +112,18 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	if cfg.Calibrate {
 		return calibration.RunCalibration(ctx, out, calculatorRegistry)
 	}
+
 	ctx, cancelTimeout := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancelTimeout()
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 
-	// Quick auto-calibration at startup (if enabled)
-	if cfg.AutoCalibrate {
-		if updated, ok := calibration.AutoCalibrate(ctx, cfg, out, calculatorRegistry); ok {
-			cfg = updated
-		}
-	}
-
-	if !cfg.JSONOutput {
-		writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
-		writeOut(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
-			cli.ColorMagenta, cfg.N, cli.ColorReset, cli.ColorYellow, cfg.Timeout, cli.ColorReset)
-		writeOut(out, "Environment: %s%d%s logical processors, Go %s%s%s.\n",
-			cli.ColorCyan, runtime.NumCPU(), cli.ColorReset, cli.ColorCyan, runtime.Version(), cli.ColorReset)
-		writeOut(out, "Optimization thresholds: Parallelism=%s%d%s bits, FFT=%s%d%s bits.\n",
-			cli.ColorCyan, cfg.Threshold, cli.ColorReset, cli.ColorCyan, cfg.FFTThreshold, cli.ColorReset)
-	}
-
+	cfg = runAutoCalibrationIfEnabled(ctx, cfg, out)
 	calculatorsToRun := getCalculatorsToRun(cfg)
+
 	if !cfg.JSONOutput {
-		var modeDesc string
-		if len(calculatorsToRun) > 1 {
-			modeDesc = "Parallel comparison of all algorithms"
-		} else {
-			modeDesc = fmt.Sprintf("Single calculation with the %s%s%s algorithm",
-				cli.ColorGreen, calculatorsToRun[0].Name(), cli.ColorReset)
-		}
-		writeOut(out, "Execution mode: %s.\n", modeDesc)
-		writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])
+		printExecutionConfig(cfg, out)
+		printExecutionMode(calculatorsToRun, out)
 	}
 
 	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, cfg, out)
@@ -154,6 +133,59 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	}
 
 	return orchestration.AnalyzeComparisonResults(results, cfg, out)
+}
+
+// runAutoCalibrationIfEnabled runs auto-calibration if it's enabled in the configuration.
+// Returns the potentially updated configuration.
+//
+// Parameters:
+//   - ctx: The context for managing cancellation.
+//   - cfg: The current application configuration.
+//   - out: The writer for standard output.
+//
+// Returns:
+//   - config.AppConfig: The configuration, possibly updated with calibrated values.
+func runAutoCalibrationIfEnabled(ctx context.Context, cfg config.AppConfig, out io.Writer) config.AppConfig {
+	if cfg.AutoCalibrate {
+		if updated, ok := calibration.AutoCalibrate(ctx, cfg, out, calculatorRegistry); ok {
+			return updated
+		}
+	}
+	return cfg
+}
+
+// printExecutionConfig displays the current execution configuration to the user.
+// It shows the target Fibonacci number, timeout, environment details, and
+// optimization thresholds.
+//
+// Parameters:
+//   - cfg: The application configuration.
+//   - out: The writer for standard output.
+func printExecutionConfig(cfg config.AppConfig, out io.Writer) {
+	writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
+	writeOut(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
+		cli.ColorMagenta, cfg.N, cli.ColorReset, cli.ColorYellow, cfg.Timeout, cli.ColorReset)
+	writeOut(out, "Environment: %s%d%s logical processors, Go %s%s%s.\n",
+		cli.ColorCyan, runtime.NumCPU(), cli.ColorReset, cli.ColorCyan, runtime.Version(), cli.ColorReset)
+	writeOut(out, "Optimization thresholds: Parallelism=%s%d%s bits, FFT=%s%d%s bits.\n",
+		cli.ColorCyan, cfg.Threshold, cli.ColorReset, cli.ColorCyan, cfg.FFTThreshold, cli.ColorReset)
+}
+
+// printExecutionMode displays the execution mode (single algorithm vs comparison).
+//
+// Parameters:
+//   - calculators: The slice of calculators that will be executed.
+//   - out: The writer for standard output.
+func printExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
+	var modeDesc string
+	if len(calculators) > 1 {
+		modeDesc = "Parallel comparison of all algorithms"
+	} else {
+		modeDesc = fmt.Sprintf("Single calculation with the %s%s%s algorithm",
+			cli.ColorGreen, calculators[0].Name(), cli.ColorReset)
+	}
+	writeOut(out, "Execution mode: %s.\n", modeDesc)
+	writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])
 }
 
 // getCalculatorsToRun determines which calculators should be executed based on
