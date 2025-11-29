@@ -2,7 +2,9 @@
 package server
 
 import (
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -166,47 +168,71 @@ func RateLimitMiddleware(rl *RateLimiter, next http.HandlerFunc) http.HandlerFun
 
 // getClientIP extracts the client IP address from the request.
 // It checks X-Forwarded-For and X-Real-IP headers for proxied requests.
+//
+// The function follows this priority:
+//  1. X-Forwarded-For header (first IP in the comma-separated list)
+//  2. X-Real-IP header
+//  3. RemoteAddr (with port stripped)
+//
+// Parameters:
+//   - r: The HTTP request.
+//
+// Returns:
+//   - string: The client IP address.
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header (common for proxies/load balancers)
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP in the list
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
-			}
-		}
-		return xff
+		// Take the first IP in the list (client's original IP)
+		return extractFirstIP(xff)
 	}
 
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		return strings.TrimSpace(xri)
 	}
 
 	// Fall back to RemoteAddr (strip port if present)
 	return stripPort(r.RemoteAddr)
 }
 
-// stripPort removes the port from an address string (e.g., "127.0.0.1:8080" -> "127.0.0.1").
-func stripPort(addr string) string {
-	// Handle IPv6 addresses like "[::1]:8080"
-	if len(addr) > 0 && addr[0] == '[' {
-		// IPv6 with brackets
-		for i := len(addr) - 1; i >= 0; i-- {
-			if addr[i] == ']' {
-				return addr[:i+1]
-			}
-		}
-		return addr
+// extractFirstIP extracts the first IP address from a comma-separated list.
+// This is typically used for X-Forwarded-For headers where the first IP
+// represents the original client.
+//
+// Parameters:
+//   - xff: A comma-separated list of IP addresses.
+//
+// Returns:
+//   - string: The first IP address, trimmed of whitespace.
+func extractFirstIP(xff string) string {
+	if idx := strings.IndexByte(xff, ','); idx != -1 {
+		return strings.TrimSpace(xff[:idx])
 	}
+	return strings.TrimSpace(xff)
+}
 
-	// Handle IPv4 or hostname:port
-	for i := len(addr) - 1; i >= 0; i-- {
-		if addr[i] == ':' {
-			return addr[:i]
-		}
+// stripPort removes the port from an address string.
+// It uses net.SplitHostPort for proper handling of both IPv4 and IPv6 addresses.
+//
+// Examples:
+//   - "127.0.0.1:8080" -> "127.0.0.1"
+//   - "[::1]:8080" -> "::1"
+//   - "192.168.1.1" -> "192.168.1.1" (no port)
+//
+// Parameters:
+//   - addr: The address string, potentially with a port.
+//
+// Returns:
+//   - string: The IP address without the port.
+func stripPort(addr string) string {
+	// Use net.SplitHostPort for proper IPv4/IPv6 handling
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// If parsing fails, the address might not have a port
+		// Return as-is after removing any brackets from IPv6
+		return strings.Trim(addr, "[]")
 	}
-	return addr
+	return host
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

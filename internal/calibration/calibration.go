@@ -226,6 +226,183 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 	return AutoCalibrateWithProfile(parentCtx, cfg, out, calculatorRegistry, cfg.CalibrationProfile)
 }
 
+// calibrationRunner encapsulates the trial run logic for calibration.
+type calibrationRunner struct {
+	ctx      context.Context
+	perTrial time.Duration
+}
+
+// newCalibrationRunner creates a new calibration runner.
+func newCalibrationRunner(ctx context.Context, timeout time.Duration) *calibrationRunner {
+	perTrial := timeout / 6
+	if perTrial < 2*time.Second {
+		perTrial = 2 * time.Second
+	}
+	return &calibrationRunner{ctx: ctx, perTrial: perTrial}
+}
+
+// runTrial executes a single calibration trial with the given calculator and options.
+//
+// Parameters:
+//   - calc: The calculator to use for the trial.
+//   - opts: The options for the calculation.
+//
+// Returns:
+//   - time.Duration: The duration of the calculation.
+//   - error: An error if the calculation failed or timed out.
+func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.Options) (time.Duration, error) {
+	ctx, cancel := context.WithTimeout(r.ctx, r.perTrial)
+	defer cancel()
+	start := time.Now()
+	_, err := calc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, opts)
+	return time.Since(start), err
+}
+
+// findBestParallelThreshold finds the optimal parallel threshold.
+//
+// Parameters:
+//   - calc: The calculator to use for testing.
+//   - defaultThreshold: The default threshold to use if no better one is found.
+//
+// Returns:
+//   - int: The best parallel threshold found.
+//   - time.Duration: The duration achieved with the best threshold.
+func (r *calibrationRunner) findBestParallelThreshold(calc fibonacci.Calculator, defaultThreshold int) (int, time.Duration) {
+	candidates := GenerateQuickParallelThresholds()
+	best := defaultThreshold
+	bestDur := time.Duration(1<<63 - 1)
+
+	for _, cand := range candidates {
+		dur, err := r.runTrial(calc, fibonacci.Options{ParallelThreshold: cand, FFTThreshold: 0})
+		if err != nil {
+			continue
+		}
+		if dur < bestDur {
+			bestDur, best = dur, cand
+		}
+	}
+	return best, bestDur
+}
+
+// findBestFFTThreshold finds the optimal FFT threshold.
+//
+// Parameters:
+//   - calc: The calculator to use for testing.
+//   - parallelThreshold: The parallel threshold to use during testing.
+//   - defaultThreshold: The default threshold to use if no better one is found.
+//
+// Returns:
+//   - int: The best FFT threshold found.
+//   - time.Duration: The duration achieved with the best threshold.
+func (r *calibrationRunner) findBestFFTThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (int, time.Duration) {
+	candidates := GenerateQuickFFTThresholds()
+	best := defaultThreshold
+	bestDur := time.Duration(1<<63 - 1)
+
+	for _, cand := range candidates {
+		dur, err := r.runTrial(calc, fibonacci.Options{ParallelThreshold: parallelThreshold, FFTThreshold: cand})
+		if err != nil {
+			continue
+		}
+		if dur < bestDur {
+			bestDur, best = dur, cand
+		}
+	}
+	return best, bestDur
+}
+
+// findBestStrassenThreshold finds the optimal Strassen threshold.
+//
+// Parameters:
+//   - calc: The calculator to use for testing.
+//   - parallelThreshold: The parallel threshold to use during testing.
+//   - defaultThreshold: The default threshold to use if no better one is found.
+//
+// Returns:
+//   - int: The best Strassen threshold found.
+//   - time.Duration: The duration achieved with the best threshold.
+func (r *calibrationRunner) findBestStrassenThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (int, time.Duration) {
+	candidates := GenerateQuickStrassenThresholds()
+	best := defaultThreshold
+	bestDur := time.Duration(1<<63 - 1)
+
+	for _, cand := range candidates {
+		dur, err := r.runTrial(calc, fibonacci.Options{ParallelThreshold: parallelThreshold, StrassenThreshold: cand})
+		if err != nil {
+			continue
+		}
+		if dur < bestDur {
+			bestDur, best = dur, cand
+		}
+	}
+	return best, bestDur
+}
+
+// applyCalibrationResults updates the configuration with the calibration results.
+//
+// Parameters:
+//   - cfg: The original configuration.
+//   - bestPar: The best parallel threshold found.
+//   - bestParDur: The duration achieved with the best parallel threshold.
+//   - bestFFT: The best FFT threshold found.
+//   - bestFFTDur: The duration achieved with the best FFT threshold.
+//   - bestStrassen: The best Strassen threshold found.
+//   - bestStrassenDur: The duration achieved with the best Strassen threshold.
+//
+// Returns:
+//   - config.AppConfig: The updated configuration.
+//   - bool: true if any valid results were found, false otherwise.
+func applyCalibrationResults(cfg config.AppConfig, bestPar int, bestParDur time.Duration, bestFFT int, bestFFTDur time.Duration, bestStrassen int, bestStrassenDur time.Duration) (config.AppConfig, bool) {
+	maxDuration := time.Duration(1<<63 - 1)
+	if bestParDur == maxDuration && bestFFTDur == maxDuration {
+		return cfg, false
+	}
+
+	updated := cfg
+	if bestParDur != maxDuration {
+		updated.Threshold = bestPar
+	}
+	if bestFFTDur != maxDuration {
+		updated.FFTThreshold = bestFFT
+	}
+	if bestStrassenDur != maxDuration {
+		updated.StrassenThreshold = bestStrassen
+	}
+	return updated, true
+}
+
+// saveCalibrationProfile saves the calibration results to a profile.
+//
+// Parameters:
+//   - cfg: The updated configuration with calibration results.
+//   - profilePath: The path to save the profile.
+//   - out: The writer for warning messages.
+func saveCalibrationProfile(cfg config.AppConfig, profilePath string, out io.Writer) {
+	profile := NewProfile()
+	profile.OptimalParallelThreshold = cfg.Threshold
+	profile.OptimalFFTThreshold = cfg.FFTThreshold
+	profile.OptimalStrassenThreshold = cfg.StrassenThreshold
+	profile.CalibrationN = fibonacci.CalibrationN
+
+	if err := profile.SaveProfile(profilePath); err != nil {
+		fmt.Fprintf(out, "%sWarning: could not save calibration profile: %v%s\n",
+			cli.ColorYellow(), err, cli.ColorReset())
+	}
+}
+
+// printCalibrationOutput prints the calibration results.
+//
+// Parameters:
+//   - cfg: The updated configuration with calibration results.
+//   - out: The writer for output.
+func printCalibrationOutput(cfg config.AppConfig, out io.Writer) {
+	fmt.Fprintf(out, "%sAuto-calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
+		cli.ColorGreen(), cli.ColorReset(),
+		cli.ColorYellow(), cfg.Threshold, cli.ColorReset(),
+		cli.ColorYellow(), cfg.FFTThreshold, cli.ColorReset(),
+		cli.ColorYellow(), cfg.StrassenThreshold, cli.ColorReset())
+}
+
 // AutoCalibrateWithProfile runs auto-calibration with a specific profile path.
 func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (config.AppConfig, bool) {
 	// Try to load existing profile first
@@ -244,104 +421,34 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 		return updated, true
 	}
 
-	calc := calculatorRegistry["fast"]
-	if calc == nil {
+	fastCalc := calculatorRegistry["fast"]
+	if fastCalc == nil {
 		return cfg, false
 	}
 
-	perTrial := cfg.Timeout / 6
-	if perTrial < 2*time.Second {
-		perTrial = 2 * time.Second
-	}
+	runner := newCalibrationRunner(parentCtx, cfg.Timeout)
 
-	tryRun := func(threshold, fftThreshold int) (time.Duration, error) {
-		ctx, cancel := context.WithTimeout(parentCtx, perTrial)
-		defer cancel()
-		start := time.Now()
-		_, err := calc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, fibonacci.Options{ParallelThreshold: threshold, FFTThreshold: fftThreshold})
-		return time.Since(start), err
-	}
+	// Find optimal thresholds
+	bestPar, bestParDur := runner.findBestParallelThreshold(fastCalc, cfg.Threshold)
+	bestFFT, bestFFTDur := runner.findBestFFTThreshold(fastCalc, bestPar, cfg.FFTThreshold)
 
-	// Use adaptive thresholds
-	parallelCandidates := GenerateQuickParallelThresholds()
-	bestPar := cfg.Threshold
-	bestParDur := time.Duration(1<<63 - 1)
-	for _, cand := range parallelCandidates {
-		dur, err := tryRun(cand, 0)
-		if err != nil {
-			continue
-		}
-		if dur < bestParDur {
-			bestParDur, bestPar = dur, cand
-		}
-	}
-
-	fftCandidates := GenerateQuickFFTThresholds()
-	bestFFT := cfg.FFTThreshold
-	bestFFTDur := time.Duration(1<<63 - 1)
-	for _, cand := range fftCandidates {
-		dur, err := tryRun(bestPar, cand)
-		if err != nil {
-			continue
-		}
-		if dur < bestFFTDur {
-			bestFFTDur, bestFFT = dur, cand
-		}
-	}
-
-	matCalc := calculatorRegistry["matrix"]
+	// Find optimal Strassen threshold using matrix calculator
 	bestStrassen := cfg.StrassenThreshold
 	bestStrassenDur := time.Duration(1<<63 - 1)
-	if matCalc != nil {
-		strassenCandidates := GenerateQuickStrassenThresholds()
-		for _, cand := range strassenCandidates {
-			ctx, cancel := context.WithTimeout(parentCtx, perTrial)
-			start := time.Now()
-			_, err := matCalc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, fibonacci.Options{ParallelThreshold: bestPar, StrassenThreshold: cand})
-			cancel()
-			dur := time.Since(start)
-			if err != nil {
-				continue
-			}
-			if dur < bestStrassenDur {
-				bestStrassenDur = dur
-				bestStrassen = cand
-			}
-		}
+	if matCalc := calculatorRegistry["matrix"]; matCalc != nil {
+		bestStrassen, bestStrassenDur = runner.findBestStrassenThreshold(matCalc, bestPar, cfg.StrassenThreshold)
 	}
 
-	if bestParDur == time.Duration(1<<63-1) && bestFFTDur == time.Duration(1<<63-1) {
+	// Apply results and check if calibration was successful
+	updated, ok := applyCalibrationResults(cfg, bestPar, bestParDur, bestFFT, bestFFTDur, bestStrassen, bestStrassenDur)
+	if !ok {
 		return cfg, false
 	}
 
-	updated := cfg
-	if bestParDur != time.Duration(1<<63-1) {
-		updated.Threshold = bestPar
-	}
-	if bestFFTDur != time.Duration(1<<63-1) {
-		updated.FFTThreshold = bestFFT
-	}
-	if bestStrassenDur != time.Duration(1<<63-1) {
-		updated.StrassenThreshold = bestStrassen
-	}
+	// Save profile and print output
+	saveCalibrationProfile(updated, profilePath, out)
+	printCalibrationOutput(updated, out)
 
-	// Save the calibration profile for future use
-	profile := NewProfile()
-	profile.OptimalParallelThreshold = updated.Threshold
-	profile.OptimalFFTThreshold = updated.FFTThreshold
-	profile.OptimalStrassenThreshold = updated.StrassenThreshold
-	profile.CalibrationN = fibonacci.CalibrationN
-	if err := profile.SaveProfile(profilePath); err != nil {
-		// Non-fatal: just log and continue
-		fmt.Fprintf(out, "%sWarning: could not save calibration profile: %v%s\n",
-			cli.ColorYellow(), err, cli.ColorReset())
-	}
-
-	fmt.Fprintf(out, "%sAuto-calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
-		cli.ColorGreen(), cli.ColorReset(),
-		cli.ColorYellow(), updated.Threshold, cli.ColorReset(),
-		cli.ColorYellow(), updated.FFTThreshold, cli.ColorReset(),
-		cli.ColorYellow(), updated.StrassenThreshold, cli.ColorReset())
 	return updated, true
 }
 

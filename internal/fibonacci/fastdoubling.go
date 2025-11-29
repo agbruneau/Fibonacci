@@ -113,28 +113,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
 
 		// Parallelize when at least one of the main operands is large
-		if useParallel && func() bool {
-			bl := s.f_k1.BitLen()
-			if b := s.f_k.BitLen(); b > bl {
-				bl = b
-			}
-			// Disable parallel multiplication if FFT is likely to be used,
-			// as FFT implementations (like bigfft) often saturate CPU cores,
-			// and running them in parallel causes contention.
-			// We check if the operands are large enough for FFT.
-			// Note: We use the same threshold logic as in mul().
-			// If we are using FFT (minBitLen > fftThreshold), we only parallelize
-			// if the numbers are huge (> ParallelFFTThreshold bits) to overcome
-			// concurrency overhead.
-			// See constants.go for empirical benchmark results.
-			if opts.FFTThreshold > 0 {
-				minBitLen := s.f_k.BitLen()
-				if minBitLen > opts.FFTThreshold {
-					return minBitLen > ParallelFFTThreshold
-				}
-			}
-			return bl > opts.ParallelThreshold
-		}() {
+		if useParallel && shouldParallelizeMultiplication(s, opts) {
 			parallelMultiply3Optimized(s, opts.FFTThreshold)
 		} else {
 			s.t3 = smartMultiply(s.t3, s.f_k, s.t2, opts.FFTThreshold)
@@ -166,6 +145,48 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
 	}
 	return new(big.Int).Set(s.f_k), nil
+}
+
+// shouldParallelizeMultiplication determines whether the multiplication operations
+// should be parallelized based on the operand sizes and configuration options.
+//
+// This function encapsulates the complex decision logic for parallelization:
+//   - It checks if the operands are large enough to benefit from parallelism.
+//   - It considers FFT threshold to avoid contention when FFT is in use,
+//     as FFT implementations often saturate CPU cores.
+//   - For FFT-sized operands, parallelism is only enabled for very large
+//     numbers (> ParallelFFTThreshold bits) to overcome concurrency overhead.
+//
+// Parameters:
+//   - s: The current calculation state containing the operands.
+//   - opts: Configuration options including thresholds.
+//
+// Returns:
+//   - bool: true if multiplication should be parallelized, false otherwise.
+func shouldParallelizeMultiplication(s *calculationState, opts Options) bool {
+	// Determine the maximum bit length of the main operands
+	maxBitLen := s.f_k1.BitLen()
+	if bitLen := s.f_k.BitLen(); bitLen > maxBitLen {
+		maxBitLen = bitLen
+	}
+
+	// Disable parallel multiplication if FFT is likely to be used,
+	// as FFT implementations (like bigfft) often saturate CPU cores,
+	// and running them in parallel causes contention.
+	// We check if the operands are large enough for FFT.
+	// Note: We use the same threshold logic as in mul().
+	// If we are using FFT (minBitLen > fftThreshold), we only parallelize
+	// if the numbers are huge (> ParallelFFTThreshold bits) to overcome
+	// concurrency overhead.
+	// See constants.go for empirical benchmark results.
+	if opts.FFTThreshold > 0 {
+		minBitLen := s.f_k.BitLen()
+		if minBitLen > opts.FFTThreshold {
+			return minBitLen > ParallelFFTThreshold
+		}
+	}
+
+	return maxBitLen > opts.ParallelThreshold
 }
 
 // parallelMultiply3Optimized leverages concurrency to accelerate the three key

@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sort"
 	"syscall"
 
 	"example.com/fibcalc/internal/calibration"
@@ -41,17 +40,23 @@ var (
 	BuildDate = "unknown"
 )
 
-var calculatorRegistry = map[string]fibonacci.Calculator{
-	"fast":   fibonacci.NewCalculator(&fibonacci.OptimizedFastDoubling{}),
-	"matrix": fibonacci.NewCalculator(&fibonacci.MatrixExponentiation{}),
-	"fft":    fibonacci.NewCalculator(&fibonacci.FFTBasedCalculator{}),
+// calculatorFactory is the global factory for creating Fibonacci calculators.
+// It uses the Factory pattern to provide flexible calculator instantiation and
+// registration, enabling better testability and extensibility.
+var calculatorFactory = fibonacci.NewDefaultFactory()
+
+// getCalculatorRegistry returns a map of all registered calculators.
+// This function bridges the factory pattern with code that expects a map.
+func getCalculatorRegistry() map[string]fibonacci.Calculator {
+	return calculatorFactory.GetAll()
 }
 
 // init initializes the application and verifies the integrity of the calculator
-// registry. It ensures that all registered calculators are properly instantiated
+// factory. It ensures that all registered calculators are properly instantiated
 // before the application starts.
 func init() {
-	for name, calc := range calculatorRegistry {
+	registry := getCalculatorRegistry()
+	for name, calc := range registry {
 		if calc == nil {
 			panic(fmt.Sprintf("Critical initialization error: the calculator registered under the name '%s' is nil.", name))
 		}
@@ -65,12 +70,7 @@ func init() {
 // Returns:
 //   - []string: A slice containing the sorted names of the available algorithms.
 func getSortedCalculatorKeys() []string {
-	keys := make([]string, 0, len(calculatorRegistry))
-	for k := range calculatorRegistry {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
+	return calculatorFactory.List()
 }
 
 // main is the entry point of the application.
@@ -106,7 +106,7 @@ func main() {
 	cli.InitTheme(cfg.NoColor)
 
 	if cfg.ServerMode {
-		srv := server.NewServer(calculatorRegistry, cfg)
+		srv := server.NewServer(getCalculatorRegistry(), cfg)
 		if err := srv.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 			os.Exit(apperrors.ExitErrorGeneric)
@@ -152,7 +152,7 @@ func printVersion(out io.Writer) {
 //   - int: An exit code (0 for success, non-zero for errors).
 func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	if cfg.Calibrate {
-		return calibration.RunCalibration(ctx, out, calculatorRegistry)
+		return calibration.RunCalibration(ctx, out, getCalculatorRegistry())
 	}
 
 	ctx, cancelTimeout := context.WithTimeout(ctx, cfg.Timeout)
@@ -189,7 +189,7 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 //   - config.AppConfig: The configuration, possibly updated with calibrated values.
 func runAutoCalibrationIfEnabled(ctx context.Context, cfg config.AppConfig, out io.Writer) config.AppConfig {
 	if cfg.AutoCalibrate {
-		if updated, ok := calibration.AutoCalibrate(ctx, cfg, out, calculatorRegistry); ok {
+		if updated, ok := calibration.AutoCalibrate(ctx, cfg, out, getCalculatorRegistry()); ok {
 			return updated
 		}
 	}
@@ -240,14 +240,14 @@ func printExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 //   - []fibonacci.Calculator: A slice of calculators to be executed.
 func getCalculatorsToRun(cfg config.AppConfig) []fibonacci.Calculator {
 	if cfg.Algo == "all" {
-		keys := getSortedCalculatorKeys()
+		keys := calculatorFactory.List()
 		calculators := make([]fibonacci.Calculator, len(keys))
 		for i, k := range keys {
-			calculators[i] = calculatorRegistry[k]
+			calculators[i] = calculatorFactory.MustGet(k)
 		}
 		return calculators
 	}
-	return []fibonacci.Calculator{calculatorRegistry[cfg.Algo]}
+	return []fibonacci.Calculator{calculatorFactory.MustGet(cfg.Algo)}
 }
 
 // writeOut writes a formatted string to the output writer, handling any write

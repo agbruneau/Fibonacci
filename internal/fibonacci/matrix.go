@@ -166,6 +166,41 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, fftThreshold)
 }
 
+// multiplicationTask represents a single multiplication operation
+// to be executed either sequentially or in parallel.
+type multiplicationTask struct {
+	dest         **big.Int
+	a, b         *big.Int
+	fftThreshold int
+}
+
+// executeMultiplications executes a batch of multiplication tasks either
+// sequentially or in parallel based on the inParallel flag.
+// This is a template method that eliminates code duplication between
+// parallel and sequential execution paths.
+//
+// Parameters:
+//   - tasks: The list of multiplication tasks to execute.
+//   - inParallel: Whether to execute tasks in parallel.
+func executeMultiplications(tasks []multiplicationTask, inParallel bool) {
+	if inParallel {
+		var wg sync.WaitGroup
+		wg.Add(len(tasks))
+		for i := range tasks {
+			go func(t *multiplicationTask) {
+				defer wg.Done()
+				*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
+			}(&tasks[i])
+		}
+		wg.Wait()
+	} else {
+		for i := range tasks {
+			t := &tasks[i]
+			*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
+		}
+	}
+}
+
 // multiplyMatricesStrassen implements Strassen's algorithm for 2x2 matrices
 // to reduce the number of multiplications from 8 to 7.
 //
@@ -194,27 +229,17 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 	s9.Sub(m1.a, m1.c)  // a - c
 	s10.Add(m2.a, m2.b) // e + f
 
-	// Execute the 7 multiplications
-	if inParallel {
-		var wg sync.WaitGroup
-		wg.Add(7)
-		go func() { p1 = smartMultiply(p1, m1.a, s1, fftThreshold); wg.Done() }()
-		go func() { p2 = smartMultiply(p2, s2, m2.d, fftThreshold); wg.Done() }()
-		go func() { p3 = smartMultiply(p3, s3, m2.a, fftThreshold); wg.Done() }()
-		go func() { p4 = smartMultiply(p4, m1.d, s4, fftThreshold); wg.Done() }()
-		go func() { p5 = smartMultiply(p5, s5, s6, fftThreshold); wg.Done() }()
-		go func() { p6 = smartMultiply(p6, s7, s8, fftThreshold); wg.Done() }()
-		go func() { p7 = smartMultiply(p7, s9, s10, fftThreshold); wg.Done() }()
-		wg.Wait()
-	} else {
-		p1 = smartMultiply(p1, m1.a, s1, fftThreshold)
-		p2 = smartMultiply(p2, s2, m2.d, fftThreshold)
-		p3 = smartMultiply(p3, s3, m2.a, fftThreshold)
-		p4 = smartMultiply(p4, m1.d, s4, fftThreshold)
-		p5 = smartMultiply(p5, s5, s6, fftThreshold)
-		p6 = smartMultiply(p6, s7, s8, fftThreshold)
-		p7 = smartMultiply(p7, s9, s10, fftThreshold)
+	// Execute the 7 multiplications using the template method
+	tasks := []multiplicationTask{
+		{&p1, m1.a, s1, fftThreshold},
+		{&p2, s2, m2.d, fftThreshold},
+		{&p3, s3, m2.a, fftThreshold},
+		{&p4, m1.d, s4, fftThreshold},
+		{&p5, s5, s6, fftThreshold},
+		{&p6, s7, s8, fftThreshold},
+		{&p7, s9, s10, fftThreshold},
 	}
+	executeMultiplications(tasks, inParallel)
 
 	// Calculate final matrix elements
 	// Using temporary state variables to avoid modifying destination values prematurely.
@@ -255,20 +280,14 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	b_ad, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
 
-	if inParallel {
-		var wg sync.WaitGroup
-		wg.Add(4)
-		go func() { a2 = smartMultiply(a2, mat.a, mat.a, fftThreshold); wg.Done() }()
-		go func() { b2 = smartMultiply(b2, mat.b, mat.b, fftThreshold); wg.Done() }()
-		go func() { d2 = smartMultiply(d2, mat.d, mat.d, fftThreshold); wg.Done() }()
-		go func() { b_ad = smartMultiply(b_ad, mat.b, ad, fftThreshold); wg.Done() }()
-		wg.Wait()
-	} else {
-		a2 = smartMultiply(a2, mat.a, mat.a, fftThreshold)
-		b2 = smartMultiply(b2, mat.b, mat.b, fftThreshold)
-		d2 = smartMultiply(d2, mat.d, mat.d, fftThreshold)
-		b_ad = smartMultiply(b_ad, mat.b, ad, fftThreshold)
+	// Execute the 4 multiplications using the template method
+	tasks := []multiplicationTask{
+		{&a2, mat.a, mat.a, fftThreshold},
+		{&b2, mat.b, mat.b, fftThreshold},
+		{&d2, mat.d, mat.d, fftThreshold},
+		{&b_ad, mat.b, ad, fftThreshold},
 	}
+	executeMultiplications(tasks, inParallel)
 
 	dest.a.Add(a2, b2)
 	dest.b.Set(b_ad)
@@ -300,28 +319,18 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 	ce, dg := state.p5, state.p6
 	cf, dh := state.s1, state.s2
 
-	if inParallel {
-		var wg sync.WaitGroup
-		wg.Add(8)
-		go func() { ae = smartMultiply(ae, m1.a, m2.a, fftThreshold); wg.Done() }()
-		go func() { bg = smartMultiply(bg, m1.b, m2.c, fftThreshold); wg.Done() }()
-		go func() { af = smartMultiply(af, m1.a, m2.b, fftThreshold); wg.Done() }()
-		go func() { bh = smartMultiply(bh, m1.b, m2.d, fftThreshold); wg.Done() }()
-		go func() { ce = smartMultiply(ce, m1.c, m2.a, fftThreshold); wg.Done() }()
-		go func() { dg = smartMultiply(dg, m1.d, m2.c, fftThreshold); wg.Done() }()
-		go func() { cf = smartMultiply(cf, m1.c, m2.b, fftThreshold); wg.Done() }()
-		go func() { dh = smartMultiply(dh, m1.d, m2.d, fftThreshold); wg.Done() }()
-		wg.Wait()
-	} else {
-		ae = smartMultiply(ae, m1.a, m2.a, fftThreshold)
-		bg = smartMultiply(bg, m1.b, m2.c, fftThreshold)
-		af = smartMultiply(af, m1.a, m2.b, fftThreshold)
-		bh = smartMultiply(bh, m1.b, m2.d, fftThreshold)
-		ce = smartMultiply(ce, m1.c, m2.a, fftThreshold)
-		dg = smartMultiply(dg, m1.d, m2.c, fftThreshold)
-		cf = smartMultiply(cf, m1.c, m2.b, fftThreshold)
-		dh = smartMultiply(dh, m1.d, m2.d, fftThreshold)
+	// Execute the 8 multiplications using the template method
+	tasks := []multiplicationTask{
+		{&ae, m1.a, m2.a, fftThreshold},
+		{&bg, m1.b, m2.c, fftThreshold},
+		{&af, m1.a, m2.b, fftThreshold},
+		{&bh, m1.b, m2.d, fftThreshold},
+		{&ce, m1.c, m2.a, fftThreshold},
+		{&dg, m1.d, m2.c, fftThreshold},
+		{&cf, m1.c, m2.b, fftThreshold},
+		{&dh, m1.d, m2.d, fftThreshold},
 	}
+	executeMultiplications(tasks, inParallel)
 
 	dest.a.Add(ae, bg)
 	dest.b.Add(af, bh)
