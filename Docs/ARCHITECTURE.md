@@ -1,6 +1,6 @@
 # Architecture du Calculateur Fibonacci
 
-> **Version** : 1.0.0  
+> **Version** : 1.1.0  
 > **Dernière mise à jour** : Novembre 2025
 
 ## Vue d'ensemble
@@ -11,23 +11,25 @@ Le Calculateur Fibonacci est conçu selon les principes de la **Clean Architectu
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           POINT D'ENTRÉE                                │
+│                           POINTS D'ENTRÉE                               │
 │                                                                         │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                 │
-│  │   CLI Mode  │    │ Server Mode │    │   Docker    │                 │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                 │
-│         │                  │                  │                        │
-│         └──────────────────┼──────────────────┘                        │
-│                            ▼                                           │
-│                    ┌───────────────┐                                   │
-│                    │ cmd/fibcalc   │                                   │
-│                    │   main.go     │                                   │
-│                    └───────┬───────┘                                   │
-└────────────────────────────┼────────────────────────────────────────────┘
-                             │
-┌────────────────────────────┼────────────────────────────────────────────┐
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │   CLI Mode  │  │ Server Mode │  │   Docker    │  │ REPL Mode   │    │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘    │
+│         │                │                │                │           │
+│         └────────────────┼────────────────┼────────────────┘           │
+│                          ▼                ▼                            │
+│                    ┌───────────────┐ ┌────────────────┐                │
+│                    │ cmd/fibcalc   │ │ internal/cli   │                │
+│                    │   main.go     │ │   repl.go      │                │
+│                    └───────┬───────┘ └───────┬────────┘                │
+└────────────────────────────┼─────────────────┼──────────────────────────┘
+                             │                 │
+                             └────────┬────────┘
+                                      │
+┌─────────────────────────────────────┼───────────────────────────────────┐
 │                   COUCHE ORCHESTRATION                                  │
-│                            ▼                                           │
+│                                     ▼                                   │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                    internal/orchestration                        │   │
 │  │  • ExecuteCalculations() - Exécution parallèle des algorithmes  │   │
@@ -137,8 +139,14 @@ Serveur HTTP REST :
 Interface utilisateur en ligne de commande :
 - Spinner animé avec barre de progression
 - Estimation du temps restant (ETA)
-- Système de thèmes de couleur
+- Système de thèmes de couleur (dark, light, none)
 - Formatage des grands nombres
+- **Mode REPL** (`repl.go`) : Session interactive pour calculs multiples
+  - Commandes : `calc`, `algo`, `compare`, `list`, `hex`, `status`, `help`, `exit`
+  - Changement d'algorithme à la volée
+  - Comparaison temps réel des algorithmes
+- Génération de scripts d'autocomplétion (bash, zsh, fish, powershell)
+- Support de la variable d'environnement `NO_COLOR`
 
 ### `internal/config`
 
@@ -235,6 +243,25 @@ Internationalisation :
    d. metricsMiddleware enregistre les métriques
    e. handleCalculate() exécute le calcul
 4. Le résultat est retourné en JSON
+```
+
+### Mode Interactif (REPL)
+
+```
+1. main() détecte --interactive et appelle cli.NewREPL()
+2. REPL.Start() affiche la bannière et l'aide
+3. Boucle principale :
+   a. Affiche le prompt "fib> "
+   b. Lit l'entrée utilisateur
+   c. Parse et exécute la commande :
+      - calc <n> : Calcul avec l'algorithme courant
+      - algo <name> : Change l'algorithme actif
+      - compare <n> : Compare tous les algorithmes
+      - list : Liste les algorithmes
+      - hex : Toggle format hexadécimal
+      - status : Affiche la configuration
+      - exit : Termine la session
+4. Répète jusqu'à exit ou EOF
 ```
 
 ## Considérations de Performance
