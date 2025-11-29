@@ -24,7 +24,7 @@ type RateLimiter struct {
 
 // clientLimiter tracks the request count and window start time for a single client.
 type clientLimiter struct {
-	tokens     int
+	tokens      int
 	windowStart time.Time
 }
 
@@ -91,7 +91,7 @@ func (rl *RateLimiter) Allow(clientIP string) bool {
 
 	if !exists {
 		rl.clients[clientIP] = &clientLimiter{
-			tokens:     rl.rate - 1,
+			tokens:      rl.rate - 1,
 			windowStart: now,
 		}
 		return true
@@ -347,4 +347,3 @@ func WithMaxN(maxN uint64) ServerOption {
 		s.securityConfig.MaxNValue = maxN
 	}
 }
-

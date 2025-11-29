@@ -234,4 +234,3 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 		cli.ColorYellow, updated.StrassenThreshold, cli.ColorReset)
 	return updated, true
 }
-
