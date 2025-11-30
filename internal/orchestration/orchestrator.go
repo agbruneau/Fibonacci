@@ -16,7 +16,6 @@ import (
 	"example.com/fibcalc/internal/config"
 	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
-	"example.com/fibcalc/internal/i18n"
 )
 
 // cliColorProvider implements apperrors.ColorProvider using cli theme functions.
@@ -24,16 +23,6 @@ type cliColorProvider struct{}
 
 func (c cliColorProvider) Yellow() string { return cli.ColorYellow() }
 func (c cliColorProvider) Reset() string  { return cli.ColorReset() }
-
-// i18nMessageProvider implements apperrors.ErrorMessageProvider using i18n.Messages.
-type i18nMessageProvider struct{}
-
-func (m i18nMessageProvider) GetMessage(key string) string {
-	if msg, ok := i18n.Messages[key]; ok {
-		return msg
-	}
-	return key
-}
 
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
 // It serves as a standardized container for results from different algorithms,
@@ -125,7 +114,7 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	var firstError error
 	successCount := 0
 
-	fmt.Fprintf(out, "\n%s\n", i18n.Messages["ComparisonSummary"])
+	fmt.Fprintf(out, "\n--- Comparison Summary ---\n")
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
 		cli.ColorUnderline(), cli.ColorReset(), cli.ColorUnderline(), cli.ColorReset(), cli.ColorUnderline(), cli.ColorReset())
@@ -157,8 +146,8 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	tw.Flush()
 
 	if successCount == 0 {
-		fmt.Fprintf(out, "\n%s\n", i18n.Messages["GlobalStatusFailure"])
-		return apperrors.HandleCalculationError(firstError, 0, out, cliColorProvider{}, i18nMessageProvider{})
+		fmt.Fprintf(out, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")
+		return apperrors.HandleCalculationError(firstError, 0, out, cliColorProvider{})
 	}
 
 	mismatch := false
@@ -169,11 +158,11 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 		}
 	}
 	if mismatch {
-		fmt.Fprintf(out, "\n%s", i18n.Messages["StatusCriticalMismatch"])
+		fmt.Fprintf(out, "\nGlobal Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.")
 		return apperrors.ExitErrorMismatch
 	}
 
-	fmt.Fprintf(out, "\n%s", i18n.Messages["GlobalStatusSuccess"])
+	fmt.Fprintf(out, "\nGlobal Status: Success. All valid results are consistent.")
 	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
 	return apperrors.ExitSuccess
 }

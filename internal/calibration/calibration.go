@@ -15,7 +15,6 @@ import (
 	"example.com/fibcalc/internal/config"
 	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
-	"example.com/fibcalc/internal/i18n"
 )
 
 // cliColorProvider implements apperrors.ColorProvider using cli theme functions.
@@ -23,16 +22,6 @@ type cliColorProvider struct{}
 
 func (c cliColorProvider) Yellow() string { return cli.ColorYellow() }
 func (c cliColorProvider) Reset() string  { return cli.ColorReset() }
-
-// i18nMessageProvider implements apperrors.ErrorMessageProvider using i18n.Messages.
-type i18nMessageProvider struct{}
-
-func (m i18nMessageProvider) GetMessage(key string) string {
-	if msg, ok := i18n.Messages[key]; ok {
-		return msg
-	}
-	return key
-}
 
 // CalibrationOptions configures the calibration process.
 type CalibrationOptions struct {
@@ -77,7 +66,7 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 
 // RunCalibrationWithOptions executes calibration with the specified options.
 func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, opts CalibrationOptions) int {
-	fmt.Fprintf(out, "%s\n", i18n.Messages["CalibrationTitle"])
+	fmt.Fprintf(out, "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---\n")
 
 	// Try to load existing profile if requested
 	if opts.LoadProfile {
@@ -131,7 +120,7 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
 				wg.Wait()
-				return apperrors.HandleCalculationError(err, duration, out, cliColorProvider{}, i18nMessageProvider{})
+				return apperrors.HandleCalculationError(err, duration, out, cliColorProvider{})
 			}
 			continue
 		}
@@ -175,7 +164,7 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 
 // printCalibrationResults formats and prints the calibration results table.
 func printCalibrationResults(out io.Writer, results []calibrationResult, bestThreshold int) {
-	fmt.Fprintf(out, "\n%s\n", i18n.Messages["CalibrationSummary"])
+	fmt.Fprintf(out, "\n--- Calibration Summary ---\n")
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(tw, "  %sThreshold%s    │ %sExecution Time%s\n", cli.ColorUnderline(), cli.ColorReset(), cli.ColorUnderline(), cli.ColorReset())
 	fmt.Fprintf(tw, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))

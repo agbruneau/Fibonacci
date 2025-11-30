@@ -42,7 +42,7 @@ _fibcalc_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main options
-    opts="--help -h --version -V -n -v -d --details --timeout --algo --threshold --fft-threshold --strassen-threshold --calibrate --auto-calibrate --calibration-profile --lang --i18n-dir --json --server --port --no-color --output -o --quiet -q --hex --interactive --completion"
+    opts="--help -h --version -V -n -v -d --details --timeout --algo --threshold --fft-threshold --strassen-threshold --calibrate --auto-calibrate --calibration-profile --json --server --port --no-color --output -o --quiet -q --hex --interactive --completion"
 
     # Available algorithms
     algorithms="%s all"
@@ -56,11 +56,7 @@ _fibcalc_completions() {
             COMPREPLY=( $(compgen -W "bash zsh fish powershell" -- "${cur}") )
             return 0
             ;;
-        --lang)
-            COMPREPLY=( $(compgen -W "en fr es de zh ja" -- "${cur}") )
-            return 0
-            ;;
-        --output|-o|--calibration-profile|--i18n-dir)
+        --output|-o|--calibration-profile)
             # File/directory completion
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
@@ -124,8 +120,6 @@ _fibcalc() {
         '--calibrate[Run calibration mode]' \
         '--auto-calibrate[Enable auto-calibration]' \
         '--calibration-profile[Calibration profile file]:file:_files' \
-        '--lang[Language code]:language:(en fr es de zh ja)' \
-        '--i18n-dir[Translation files directory]:directory:_files -/' \
         '--json[Output in JSON format]' \
         '--server[Start HTTP server mode]' \
         '--port[Server port]:port:(8080 3000 5000 9000)' \
@@ -177,10 +171,6 @@ complete -c fibcalc -l strassen-threshold -d 'Strassen threshold' -xa '1024 2048
 complete -c fibcalc -l calibrate -d 'Run calibration mode'
 complete -c fibcalc -l auto-calibrate -d 'Enable auto-calibration'
 complete -c fibcalc -l calibration-profile -d 'Calibration profile file' -rF
-
-# Internationalization
-complete -c fibcalc -l lang -d 'Language code' -xa 'en fr es de zh ja'
-complete -c fibcalc -l i18n-dir -d 'Translation files directory' -ra '(__fish_complete_directories)'
 
 # Output options
 complete -c fibcalc -l json -d 'Output in JSON format'
@@ -236,8 +226,6 @@ Register-ArgumentCompleter -CommandName 'fibcalc' -Native -ScriptBlock {
         @{Name = '--calibrate'; Description = 'Run calibration mode' }
         @{Name = '--auto-calibrate'; Description = 'Enable auto-calibration' }
         @{Name = '--calibration-profile'; Description = 'Calibration profile file' }
-        @{Name = '--lang'; Description = 'Language code' }
-        @{Name = '--i18n-dir'; Description = 'Translation files directory' }
         @{Name = '--json'; Description = 'Output in JSON format' }
         @{Name = '--server'; Description = 'Start HTTP server mode' }
         @{Name = '--port'; Description = 'Server port' }
@@ -265,12 +253,6 @@ Register-ArgumentCompleter -CommandName 'fibcalc' -Native -ScriptBlock {
         }
         '--completion' {
             @('bash', 'zsh', 'fish', 'powershell') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
-                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-            }
-            return
-        }
-        '--lang' {
-            @('en', 'fr', 'es', 'de', 'zh', 'ja') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
                 [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
             }
             return

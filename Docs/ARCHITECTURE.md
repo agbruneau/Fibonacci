@@ -77,11 +77,6 @@ Le Calculateur Fibonacci est conçu selon les principes de la **Clean Architectu
 │  │  • Thèmes de couleur (dark/light/none)                          │   │
 │  │  • Support NO_COLOR                                              │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                      internal/i18n                               │   │
-│  │  • Internationalisation (EN, FR, ...)                           │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -160,13 +155,6 @@ Gestion de la configuration :
 Gestion centralisée des erreurs :
 - Types d'erreurs personnalisés
 - Codes de sortie standardisés
-- Messages d'erreur localisés
-
-### `internal/i18n`
-
-Internationalisation :
-- Messages multilingues
-- Support de fichiers de traduction externes
 
 ## Décisions d'Architecture (ADR)
 

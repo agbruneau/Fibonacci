@@ -20,7 +20,6 @@ import (
 	"example.com/fibcalc/internal/config"
 	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
-	"example.com/fibcalc/internal/i18n"
 	"example.com/fibcalc/internal/orchestration"
 	"example.com/fibcalc/internal/server"
 )
@@ -102,13 +101,6 @@ func main() {
 			os.Exit(apperrors.ExitErrorConfig)
 		}
 		os.Exit(apperrors.ExitSuccess)
-	}
-
-	// Optional i18n loading
-	if cfg.I18nDir != "" {
-		if err := i18n.LoadFromDir(cfg.I18nDir, cfg.Lang); err != nil {
-			fmt.Fprintln(os.Stderr, "[i18n] failed to load translations:", err)
-		}
 	}
 
 	// Initialize CLI theme (respects --no-color flag and NO_COLOR env var)
@@ -242,7 +234,7 @@ func runAutoCalibrationIfEnabled(ctx context.Context, cfg config.AppConfig, out 
 //   - cfg: The application configuration.
 //   - out: The writer for standard output.
 func printExecutionConfig(cfg config.AppConfig, out io.Writer) {
-	writeOut(out, "%s\n", i18n.Messages["ExecConfigTitle"])
+	writeOut(out, "--- Execution Configuration ---\n")
 	writeOut(out, "Calculating %sF(%d)%s with a timeout of %s%s%s.\n",
 		cli.ColorMagenta(), cfg.N, cli.ColorReset(), cli.ColorYellow(), cfg.Timeout, cli.ColorReset())
 	writeOut(out, "Environment: %s%d%s logical processors, Go %s%s%s.\n",
@@ -265,7 +257,7 @@ func printExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 			cli.ColorGreen(), calculators[0].Name(), cli.ColorReset())
 	}
 	writeOut(out, "Execution mode: %s.\n", modeDesc)
-	writeOut(out, "\n%s\n", i18n.Messages["ExecStartTitle"])
+	writeOut(out, "\n--- Starting Execution ---\n")
 }
 
 // getCalculatorsToRun determines which calculators should be executed based on

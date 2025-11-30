@@ -29,9 +29,8 @@
   - [8. Tests](#8-tests)
   - [9. Développement](#9-développement)
   - [10. Déploiement](#10-déploiement)
-  - [11. Internationalisation (i18n)](#11-internationalisation-i18n)
-  - [12. Documentation](#12-documentation)
-  - [13. Licence](#13-licence)
+  - [11. Documentation](#11-documentation)
+  - [12. Licence](#12-licence)
 
 ---
 
@@ -166,7 +165,6 @@ make build
   - **Algorithme de Strassen** : Réduit la complexité de la multiplication matricielle.
   - **Calibration Automatique** : Détection des seuils optimaux pour le matériel.
 - **Sécurité** : Rate limiting, validation des entrées, headers de sécurité HTTP, protection DoS.
-- **Internationalisation** : Support multilingue (FR, EN, ES, DE, JA, ZH).
 
 ## 4. Utilisation
 
@@ -215,8 +213,6 @@ Le calculateur est contrôlé via des drapeaux de ligne de commande :
 | `--hex` | | Afficher le résultat en hexadécimal. | `false` |
 | `--no-color` | | Désactiver les couleurs (respecte aussi `NO_COLOR`). | `false` |
 | `--completion` | | Générer un script d'autocomplétion (bash, zsh, fish, powershell). | `""` |
-| `--lang` | | Langue pour l'i18n (ex: `fr`, `en`). | `en` |
-| `--i18n-dir` | | Répertoire des fichiers de traduction. | `""` |
 | `--version` | `-V` | Afficher la version du programme. | |
 
 ### Mode Interactif (REPL)
@@ -396,7 +392,6 @@ Ce projet est structuré selon les meilleures pratiques de l'ingénierie logicie
 - **`internal/bigfft`** : Multiplication FFT pour très grands nombres.
 - **`internal/config`** : Gestion de la configuration et validation des flags.
 - **`internal/errors`** : Gestion centralisée des erreurs.
-- **`internal/i18n`** : Internationalisation.
 
 Voir [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) pour les détails complets.
 
@@ -519,18 +514,9 @@ make upgrade       # Mettre à jour les dépendances
 │   ├── config/                    # Configuration et flags
 │   ├── errors/                    # Gestion centralisée des erreurs
 │   ├── fibonacci/                 # Algorithmes de calcul
-│   ├── i18n/                      # Internationalisation
 │   ├── orchestration/             # Orchestration des calculs
 │   ├── server/                    # Serveur HTTP REST
 │   └── testutil/                  # Utilitaires de test
-│
-├── locales/                       # Fichiers de traduction i18n
-│   ├── de.json                    # Allemand
-│   ├── en.json                    # Anglais
-│   ├── es.json                    # Espagnol
-│   ├── fr.json                    # Français
-│   ├── ja.json                    # Japonais
-│   └── zh.json                    # Chinois
 │
 ├── Docs/                          # Documentation détaillée
 │   ├── algorithms/                # Documentation algorithmique
@@ -609,26 +595,7 @@ Voir [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) pour les man
 | Moyen (N < 10M) | 2 cœurs | 1 GB |
 | Grand (N > 10M) | 4+ cœurs | 2+ GB |
 
-## 11. Internationalisation (i18n)
-
-Le projet supporte plusieurs langues :
-
-| Code | Langue | Fichier |
-|------|--------|---------|
-| `en` | Anglais | `locales/en.json` |
-| `fr` | Français | `locales/fr.json` |
-| `es` | Espagnol | `locales/es.json` |
-| `de` | Allemand | `locales/de.json` |
-| `ja` | Japonais | `locales/ja.json` |
-| `zh` | Chinois | `locales/zh.json` |
-
-**Utilisation :**
-```bash
-./build/fibcalc -n 1000 --lang fr
-./build/fibcalc -n 1000 --lang en --i18n-dir ./locales
-```
-
-## 12. Documentation
+## 11. Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -641,7 +608,7 @@ Le projet supporte plusieurs langues :
 | [Docs/algorithms/](Docs/algorithms/) | Documentation des algorithmes |
 | [Docs/deployment/](Docs/deployment/) | Guides de déploiement |
 
-## 13. Licence
+## 12. Licence
 
 Ce projet est sous licence Apache 2.0. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 

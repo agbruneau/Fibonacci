@@ -253,9 +253,6 @@ func TestParseConfigDefaults(t *testing.T) {
 	if cfg.AutoCalibrate {
 		t.Error("Default AutoCalibrate should be false")
 	}
-	if cfg.Lang != "en" {
-		t.Errorf("Default Lang: expected 'en', got '%s'", cfg.Lang)
-	}
 	if cfg.JSONOutput {
 		t.Error("Default JSONOutput should be false")
 	}
@@ -287,8 +284,6 @@ func TestParseConfigAllFlags(t *testing.T) {
 		"-calibrate",
 		"-auto-calibrate",
 		"-calibration-profile", "/path/to/profile.json",
-		"-lang", "fr",
-		"-i18n-dir", "/path/to/locales",
 		"-json",
 		"-server",
 		"-port", "9090",
@@ -333,12 +328,6 @@ func TestParseConfigAllFlags(t *testing.T) {
 	}
 	if cfg.CalibrationProfile != "/path/to/profile.json" {
 		t.Errorf("CalibrationProfile: expected '/path/to/profile.json', got '%s'", cfg.CalibrationProfile)
-	}
-	if cfg.Lang != "fr" {
-		t.Errorf("Lang: expected 'fr', got '%s'", cfg.Lang)
-	}
-	if cfg.I18nDir != "/path/to/locales" {
-		t.Errorf("I18nDir: expected '/path/to/locales', got '%s'", cfg.I18nDir)
 	}
 	if !cfg.JSONOutput {
 		t.Error("JSONOutput should be true")
