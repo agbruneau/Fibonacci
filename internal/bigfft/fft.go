@@ -46,20 +46,17 @@ func Mul(x, y *big.Int) *big.Int {
 // MulTo computes the product x*y and stores the result in z.
 // This allows reusing the allocated memory of z, which is more
 // efficient than Mul when z is already allocated and large enough.
-// This function addresses the memory optimization critique.
+//
+// Optimization: When FFT multiplication is used, the existing buffer of z
+// is passed through to the final IntTo() call, potentially avoiding a
+// large allocation if z already has sufficient capacity.
 func MulTo(z, x, y *big.Int) *big.Int {
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	if xwords > fftThreshold && ywords > fftThreshold {
-		// mulFFT returns a new big.Int, so we have to copy the bits
-		// to z to respect the contract, or we can optimize mulFFT to write to z.
-		// For now, let's reuse the internal logic.
-		// Optimized approach: call mulFFT but we need to see if we can adapt it.
-		// Looking at mulFFT, it calls fftmul which returns a `nat`.
-		// `nat` is just `[]big.Word`.
-		// So we can set z's bits to this nat.
 		var xb, yb nat = x.Bits(), y.Bits()
-		zb := fftmul(xb, yb)
+		// Reuse z's existing buffer if available
+		zb := fftmulTo(z.Bits(), xb, yb)
 		z.SetBits(zb)
 		if x.Sign()*y.Sign() < 0 {
 			z.Neg(z)
@@ -84,11 +81,18 @@ func mulFFT(x, y *big.Int) *big.Int {
 // N = x.Bitlen() + y.Bitlen().
 
 func fftmul(x, y nat) nat {
+	return fftmulTo(nil, x, y)
+}
+
+// fftmulTo performs FFT multiplication of x and y, reusing dst as the
+// destination buffer if it has sufficient capacity. This reduces allocations
+// in iterative multiplication scenarios.
+func fftmulTo(dst, x, y nat) nat {
 	k, m := fftSize(x, y)
 	xp := polyFromNat(x, k, m)
 	yp := polyFromNat(y, k, m)
 	rp := xp.Mul(&yp)
-	return rp.Int()
+	return rp.IntTo(dst)
 }
 
 // fftSizeThreshold[i] is the maximal size (in bits) where we should use
@@ -170,11 +174,34 @@ func polyFromNat(x nat, k uint, m int) poly {
 
 // Int evaluates back a poly to its integer value.
 func (p *poly) Int() nat {
+	return p.IntTo(nil)
+}
+
+// IntTo evaluates back a poly to its integer value, reusing the provided
+// destination buffer if it has sufficient capacity. If dst is nil or too
+// small, a new slice is allocated.
+//
+// This optimization reduces memory allocations when the caller already has
+// a buffer that can be reused, which is common in iterative multiplication
+// scenarios like Fibonacci calculations.
+func (p *poly) IntTo(dst nat) nat {
 	length := len(p.a)*p.m + 1
 	if na := len(p.a); na > 0 {
 		length += len(p.a[na-1])
 	}
-	n := make(nat, length)
+
+	// Reuse dst if it has sufficient capacity, otherwise allocate new
+	var n nat
+	if cap(dst) >= length {
+		n = dst[:length]
+		// Clear the buffer before use
+		for i := range n {
+			n[i] = 0
+		}
+	} else {
+		n = make(nat, length)
+	}
+
 	m := p.m
 	np := n
 	for i := range p.a {

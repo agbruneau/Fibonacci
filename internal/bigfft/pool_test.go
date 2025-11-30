@@ -255,3 +255,194 @@ func TestMulToWithPooling(t *testing.T) {
 		t.Errorf("MulTo for large numbers failed")
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests for IntTo buffer reuse optimization
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestIntToBufferReuse(t *testing.T) {
+	// Create a polynomial that would produce a result of known size
+	p := &poly{
+		k: 2,
+		m: 4,
+		a: []nat{
+			{1, 2, 3, 4},
+			{5, 6, 7, 8},
+		},
+	}
+
+	// Test 1: IntTo with nil dst should work like Int
+	result1 := p.IntTo(nil)
+	result2 := p.Int()
+
+	if len(result1) != len(result2) {
+		t.Errorf("IntTo(nil) produced different length: got %d, want %d", len(result1), len(result2))
+	}
+
+	for i := range result1 {
+		if result1[i] != result2[i] {
+			t.Errorf("IntTo(nil) differs from Int() at index %d: got %v, want %v", i, result1[i], result2[i])
+		}
+	}
+}
+
+func TestIntToBufferReuseWithLargeBuffer(t *testing.T) {
+	// Create a polynomial
+	p := &poly{
+		k: 2,
+		m: 4,
+		a: []nat{
+			{1, 2, 3, 4},
+			{5, 6, 7, 8},
+		},
+	}
+
+	// Create a buffer larger than needed
+	largeDst := make(nat, 1000)
+	// Put some marker values to verify buffer was reused
+	for i := range largeDst {
+		largeDst[i] = 0xDEADBEEF
+	}
+
+	// Get expected result
+	expected := p.Int()
+
+	// Call IntTo with large buffer
+	result := p.IntTo(largeDst)
+
+	// Verify correctness
+	if len(result) != len(expected) {
+		t.Errorf("IntTo with large buffer produced different length: got %d, want %d", len(result), len(expected))
+	}
+
+	for i := range expected {
+		if result[i] != expected[i] {
+			t.Errorf("IntTo with large buffer differs at index %d: got %v, want %v", i, result[i], expected[i])
+		}
+	}
+}
+
+func TestIntToBufferTooSmall(t *testing.T) {
+	// Create a polynomial that needs more space
+	p := &poly{
+		k: 3,
+		m: 8,
+		a: []nat{
+			{1, 2, 3, 4, 5, 6, 7, 8},
+			{1, 2, 3, 4, 5, 6, 7, 8},
+			{1, 2, 3, 4, 5, 6, 7, 8},
+		},
+	}
+
+	// Create a buffer that's too small
+	smallDst := make(nat, 2)
+
+	// Get expected result
+	expected := p.Int()
+
+	// Call IntTo with small buffer - should allocate new
+	result := p.IntTo(smallDst)
+
+	// Verify correctness
+	if len(result) != len(expected) {
+		t.Errorf("IntTo with small buffer produced different length: got %d, want %d", len(result), len(expected))
+	}
+
+	for i := range expected {
+		if result[i] != expected[i] {
+			t.Errorf("IntTo with small buffer differs at index %d: got %v, want %v", i, result[i], expected[i])
+		}
+	}
+}
+
+func TestMulToBufferReuse(t *testing.T) {
+	// Test that MulTo produces correct results when z has existing capacity
+	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+	y := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+	expected := new(big.Int).Mul(x, y)
+
+	// Pre-allocate z with a large buffer
+	z := new(big.Int).Exp(big.NewInt(2), big.NewInt(200000), nil)
+
+	result := MulTo(z, x, y)
+	if result.Cmp(expected) != 0 {
+		t.Errorf("MulTo with pre-allocated buffer failed: got %d bits, want %d bits",
+			result.BitLen(), expected.BitLen())
+	}
+}
+
+func TestMulToConsistency(t *testing.T) {
+	// Verify MulTo produces same results as Mul for various sizes
+	testCases := []int64{50000, 100000, 150000}
+
+	for _, bits := range testCases {
+		t.Run("", func(t *testing.T) {
+			x := new(big.Int).Exp(big.NewInt(2), big.NewInt(bits), nil)
+			y := new(big.Int).Exp(big.NewInt(2), big.NewInt(bits), nil)
+
+			mulResult := Mul(x, y)
+
+			z := new(big.Int)
+			mulToResult := MulTo(z, x, y)
+
+			if mulResult.Cmp(mulToResult) != 0 {
+				t.Errorf("Mul and MulTo produce different results for %d bits", bits)
+			}
+		})
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Benchmarks for buffer reuse optimization
+// ─────────────────────────────────────────────────────────────────────────────
+
+func BenchmarkMulToWithReuse(b *testing.B) {
+	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+	y := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+
+	// Pre-allocate z with large buffer to enable reuse
+	z := new(big.Int).Exp(big.NewInt(2), big.NewInt(200000), nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MulTo(z, x, y)
+	}
+}
+
+func BenchmarkMulToWithoutReuse(b *testing.B) {
+	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+	y := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Fresh z each time - no buffer to reuse
+		z := new(big.Int)
+		MulTo(z, x, y)
+	}
+}
+
+func BenchmarkMulVsMulTo(b *testing.B) {
+	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+	y := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
+
+	b.Run("Mul", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			Mul(x, y)
+		}
+	})
+
+	b.Run("MulTo_fresh", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			z := new(big.Int)
+			MulTo(z, x, y)
+		}
+	})
+
+	b.Run("MulTo_reuse", func(b *testing.B) {
+		z := new(big.Int).Exp(big.NewInt(2), big.NewInt(200000), nil)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulTo(z, x, y)
+		}
+	})
+}
