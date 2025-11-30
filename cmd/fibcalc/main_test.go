@@ -9,6 +9,7 @@ import (
 
 	"example.com/fibcalc/internal/config"
 	apperrors "example.com/fibcalc/internal/errors"
+	"example.com/fibcalc/internal/fibonacci"
 	"example.com/fibcalc/internal/testutil"
 )
 
@@ -36,7 +37,7 @@ func TestParseConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			availableAlgos := getSortedCalculatorKeys()
+			availableAlgos := fibonacci.GlobalFactory().List()
 			cfg, err := config.ParseConfig("test", tc.args, &errorSink, availableAlgos)
 
 			if tc.expectErr {

@@ -39,39 +39,6 @@ var (
 	BuildDate = "unknown"
 )
 
-// calculatorFactory is the global factory for creating Fibonacci calculators.
-// It uses the Factory pattern to provide flexible calculator instantiation and
-// registration, enabling better testability and extensibility.
-var calculatorFactory = fibonacci.NewDefaultFactory()
-
-// getCalculatorRegistry returns a map of all registered calculators.
-// This function bridges the factory pattern with code that expects a map.
-func getCalculatorRegistry() map[string]fibonacci.Calculator {
-	return calculatorFactory.GetAll()
-}
-
-// init initializes the application and verifies the integrity of the calculator
-// factory. It ensures that all registered calculators are properly instantiated
-// before the application starts.
-func init() {
-	registry := getCalculatorRegistry()
-	for name, calc := range registry {
-		if calc == nil {
-			panic(fmt.Sprintf("Critical initialization error: the calculator registered under the name '%s' is nil.", name))
-		}
-	}
-}
-
-// getSortedCalculatorKeys returns a sorted list of the names of available
-// algorithms. This ensures a consistent order when displaying options or running
-// comparisons.
-//
-// Returns:
-//   - []string: A slice containing the sorted names of the available algorithms.
-func getSortedCalculatorKeys() []string {
-	return calculatorFactory.List()
-}
-
 // main is the entry point of the application.
 // It performs the following steps:
 //  1. Parses the configuration from command-line arguments.
@@ -85,7 +52,7 @@ func main() {
 		os.Exit(apperrors.ExitSuccess)
 	}
 
-	availableAlgos := getSortedCalculatorKeys()
+	availableAlgos := fibonacci.GlobalFactory().List()
 	cfg, err := config.ParseConfig(os.Args[0], os.Args[1:], os.Stderr, availableAlgos)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -108,7 +75,7 @@ func main() {
 
 	// Server mode
 	if cfg.ServerMode {
-		srv := server.NewServer(getCalculatorRegistry(), cfg)
+		srv := server.NewServer(fibonacci.GlobalFactory().GetAll(), cfg)
 		if err := srv.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 			os.Exit(apperrors.ExitErrorGeneric)
@@ -118,7 +85,7 @@ func main() {
 
 	// Interactive REPL mode
 	if cfg.Interactive {
-		repl := cli.NewREPL(getCalculatorRegistry(), cli.REPLConfig{
+		repl := cli.NewREPL(fibonacci.GlobalFactory().GetAll(), cli.REPLConfig{
 			DefaultAlgo:  cfg.Algo,
 			Timeout:      cfg.Timeout,
 			Threshold:    cfg.Threshold,
@@ -167,7 +134,7 @@ func printVersion(out io.Writer) {
 //   - int: An exit code (0 for success, non-zero for errors).
 func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 	if cfg.Calibrate {
-		return calibration.RunCalibration(ctx, out, getCalculatorRegistry())
+		return calibration.RunCalibration(ctx, out, fibonacci.GlobalFactory().GetAll())
 	}
 
 	ctx, cancelTimeout := context.WithTimeout(ctx, cfg.Timeout)
@@ -219,7 +186,7 @@ func run(ctx context.Context, cfg config.AppConfig, out io.Writer) int {
 //   - config.AppConfig: The configuration, possibly updated with calibrated values.
 func runAutoCalibrationIfEnabled(ctx context.Context, cfg config.AppConfig, out io.Writer) config.AppConfig {
 	if cfg.AutoCalibrate {
-		if updated, ok := calibration.AutoCalibrate(ctx, cfg, out, getCalculatorRegistry()); ok {
+		if updated, ok := calibration.AutoCalibrate(ctx, cfg, out, fibonacci.GlobalFactory().GetAll()); ok {
 			return updated
 		}
 	}
@@ -261,23 +228,19 @@ func printExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 }
 
 // getCalculatorsToRun determines which calculators should be executed based on
-// the configuration.
-//
-// Parameters:
-//   - cfg: The application configuration specifying the selected algorithm.
-//
-// Returns:
-//   - []fibonacci.Calculator: A slice of calculators to be executed.
+// the configuration. Returns calculators in alphabetically sorted order for
+// consistent, reproducible behavior.
 func getCalculatorsToRun(cfg config.AppConfig) []fibonacci.Calculator {
+	factory := fibonacci.GlobalFactory()
 	if cfg.Algo == "all" {
-		keys := calculatorFactory.List()
+		keys := factory.List() // List() returns sorted keys
 		calculators := make([]fibonacci.Calculator, len(keys))
 		for i, k := range keys {
-			calculators[i] = calculatorFactory.MustGet(k)
+			calculators[i] = factory.MustGet(k)
 		}
 		return calculators
 	}
-	return []fibonacci.Calculator{calculatorFactory.MustGet(cfg.Algo)}
+	return []fibonacci.Calculator{factory.MustGet(cfg.Algo)}
 }
 
 // writeOut writes a formatted string to the output writer, handling any write
@@ -329,9 +292,6 @@ func analyzeResultsWithOutput(results []orchestration.CalculationResult, cfg con
 			}
 		}
 
-		if bestResult.Err != nil {
-			return apperrors.ExitErrorGeneric
-		}
 		return apperrors.ExitSuccess
 	}
 
