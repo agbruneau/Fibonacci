@@ -1,0 +1,305 @@
+package app
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"example.com/fibcalc/internal/calibration"
+	"example.com/fibcalc/internal/cli"
+	"example.com/fibcalc/internal/config"
+	apperrors "example.com/fibcalc/internal/errors"
+	"example.com/fibcalc/internal/fibonacci"
+	"example.com/fibcalc/internal/orchestration"
+	"example.com/fibcalc/internal/server"
+)
+
+// Application represents the fibcalc application instance.
+// It encapsulates the configuration and provides methods to run
+// the application in various modes (CLI, server, REPL).
+type Application struct {
+	// Config holds the parsed application configuration.
+	Config config.AppConfig
+	// Factory provides access to the Fibonacci calculator implementations.
+	Factory *fibonacci.DefaultFactory
+	// ErrWriter is the writer for error output (typically os.Stderr).
+	ErrWriter io.Writer
+}
+
+// New creates a new Application instance by parsing command-line arguments.
+// It validates the configuration and returns an error if parsing or validation fails.
+//
+// Parameters:
+//   - args: The command-line arguments (typically os.Args).
+//   - errWriter: The writer for error output.
+//
+// Returns:
+//   - *Application: A new application instance.
+//   - error: An error if configuration parsing or validation fails.
+func New(args []string, errWriter io.Writer) (*Application, error) {
+	factory := fibonacci.GlobalFactory()
+	availableAlgos := factory.List()
+
+	// args[0] is program name, args[1:] are the actual arguments
+	programName := "fibcalc"
+	cmdArgs := args[1:]
+	if len(args) > 0 {
+		programName = args[0]
+	}
+
+	cfg, err := config.ParseConfig(programName, cmdArgs, errWriter, availableAlgos)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Application{
+		Config:    cfg,
+		Factory:   factory,
+		ErrWriter: errWriter,
+	}, nil
+}
+
+// Run executes the application based on the configured mode.
+// It dispatches to the appropriate handler (completion, server, REPL, or CLI).
+//
+// Parameters:
+//   - ctx: The context for managing cancellation and timeouts.
+//   - out: The writer for standard output.
+//
+// Returns:
+//   - int: An exit code (0 for success, non-zero for errors).
+func (a *Application) Run(ctx context.Context, out io.Writer) int {
+	// Handle completion script generation
+	if a.Config.Completion != "" {
+		return a.runCompletion(out)
+	}
+
+	// Initialize CLI theme (respects --no-color flag and NO_COLOR env var)
+	cli.InitTheme(a.Config.NoColor)
+
+	// Server mode
+	if a.Config.ServerMode {
+		return a.runServer()
+	}
+
+	// Interactive REPL mode
+	if a.Config.Interactive {
+		return a.runREPL()
+	}
+
+	// Calibration mode
+	if a.Config.Calibrate {
+		return a.runCalibration(ctx, out)
+	}
+
+	// Run auto-calibration if enabled
+	a.Config = a.runAutoCalibrationIfEnabled(ctx, out)
+
+	// Standard CLI calculation mode
+	return a.runCalculate(ctx, out)
+}
+
+// runCompletion generates shell completion scripts.
+func (a *Application) runCompletion(out io.Writer) int {
+	availableAlgos := a.Factory.List()
+	if err := cli.GenerateCompletion(out, a.Config.Completion, availableAlgos); err != nil {
+		fmt.Fprintf(a.ErrWriter, "Error generating completion: %v\n", err)
+		return apperrors.ExitErrorConfig
+	}
+	return apperrors.ExitSuccess
+}
+
+// runServer starts the HTTP server mode.
+func (a *Application) runServer() int {
+	srv := server.NewServer(a.Factory.GetAll(), a.Config)
+	if err := srv.Start(); err != nil {
+		fmt.Fprintf(a.ErrWriter, "Server error: %v\n", err)
+		return apperrors.ExitErrorGeneric
+	}
+	return apperrors.ExitSuccess
+}
+
+// runREPL starts the interactive REPL mode.
+func (a *Application) runREPL() int {
+	repl := cli.NewREPL(a.Factory.GetAll(), cli.REPLConfig{
+		DefaultAlgo:  a.Config.Algo,
+		Timeout:      a.Config.Timeout,
+		Threshold:    a.Config.Threshold,
+		FFTThreshold: a.Config.FFTThreshold,
+		HexOutput:    a.Config.HexOutput,
+	})
+	repl.Start()
+	return apperrors.ExitSuccess
+}
+
+// runCalibration runs the full calibration mode.
+func (a *Application) runCalibration(ctx context.Context, out io.Writer) int {
+	return calibration.RunCalibration(ctx, out, a.Factory.GetAll())
+}
+
+// runAutoCalibrationIfEnabled runs auto-calibration if enabled in the configuration.
+// Returns the potentially updated configuration with calibrated threshold values.
+func (a *Application) runAutoCalibrationIfEnabled(ctx context.Context, out io.Writer) config.AppConfig {
+	if a.Config.AutoCalibrate {
+		if updated, ok := calibration.AutoCalibrate(ctx, a.Config, out, a.Factory.GetAll()); ok {
+			return updated
+		}
+	}
+	return a.Config
+}
+
+// runCalculate orchestrates the execution of the CLI calculation command.
+func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
+	// Setup lifecycle (timeout + signals)
+	ctx, cancelTimeout := context.WithTimeout(ctx, a.Config.Timeout)
+	defer cancelTimeout()
+	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stopSignals()
+
+	// Get calculators to run
+	calculatorsToRun := cli.GetCalculatorsToRun(a.Config, a.Factory)
+
+	// Skip verbose output in quiet mode
+	if !a.Config.JSONOutput && !a.Config.Quiet {
+		cli.PrintExecutionConfig(a.Config, out)
+		cli.PrintExecutionMode(calculatorsToRun, out)
+	}
+
+	// In quiet mode, use a discard writer for progress display
+	progressOut := out
+	if a.Config.Quiet {
+		progressOut = io.Discard
+	}
+
+	// Execute calculations
+	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, a.Config, progressOut)
+
+	// Handle JSON output
+	if a.Config.JSONOutput {
+		return printJSONResults(results, out)
+	}
+
+	// Build output config for the CLI options
+	outputCfg := cli.OutputConfig{
+		OutputFile: a.Config.OutputFile,
+		HexOutput:  a.Config.HexOutput,
+		Quiet:      a.Config.Quiet,
+		Verbose:    a.Config.Verbose,
+	}
+
+	return a.analyzeResultsWithOutput(results, outputCfg, out)
+}
+
+// analyzeResultsWithOutput processes results and handles output configuration.
+func (a *Application) analyzeResultsWithOutput(results []orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) int {
+	// Find the best successful result (fastest)
+	var bestResult *orchestration.CalculationResult
+	for i := range results {
+		if results[i].Err == nil {
+			if bestResult == nil || results[i].Duration < bestResult.Duration {
+				bestResult = &results[i]
+			}
+		}
+	}
+
+	// Handle quiet mode for single result
+	if outputCfg.Quiet && bestResult != nil {
+		cli.DisplayQuietResult(out, bestResult.Result, a.Config.N, bestResult.Duration, outputCfg.HexOutput)
+
+		// Save to file if requested
+		if outputCfg.OutputFile != "" {
+			if err := cli.WriteResultToFile(bestResult.Result, a.Config.N, bestResult.Duration, bestResult.Name, outputCfg); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
+				return apperrors.ExitErrorGeneric
+			}
+		}
+
+		return apperrors.ExitSuccess
+	}
+
+	// Use standard analysis for non-quiet mode
+	exitCode := orchestration.AnalyzeComparisonResults(results, a.Config, out)
+
+	// Handle file output and hex display for non-quiet mode
+	if bestResult != nil && exitCode == apperrors.ExitSuccess {
+		// Display hex format if requested
+		if outputCfg.HexOutput {
+			fmt.Fprintf(out, "\n%s--- Hexadecimal Format ---%s\n", cli.ColorBold(), cli.ColorReset())
+			hexStr := bestResult.Result.Text(16)
+			if len(hexStr) > 100 && !a.Config.Verbose {
+				fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s...%s%s\n",
+					cli.ColorMagenta(), a.Config.N, cli.ColorReset(),
+					cli.ColorGreen(), hexStr[:40], hexStr[len(hexStr)-40:], cli.ColorReset())
+			} else {
+				fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s%s\n",
+					cli.ColorMagenta(), a.Config.N, cli.ColorReset(),
+					cli.ColorGreen(), hexStr, cli.ColorReset())
+			}
+		}
+
+		// Save to file if requested
+		if outputCfg.OutputFile != "" {
+			if err := cli.WriteResultToFile(bestResult.Result, a.Config.N, bestResult.Duration, bestResult.Name, outputCfg); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
+				return apperrors.ExitErrorGeneric
+			}
+			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
+				cli.ColorGreen(), cli.ColorCyan(), outputCfg.OutputFile, cli.ColorReset())
+		}
+	}
+
+	return exitCode
+}
+
+// IsHelpError checks if the error is a help flag error (--help was used).
+// This is useful for determining if the application should exit with success
+// after displaying help text.
+//
+// Parameters:
+//   - err: The error to check.
+//
+// Returns:
+//   - bool: True if the error indicates help was requested.
+func IsHelpError(err error) bool {
+	return errors.Is(err, flag.ErrHelp)
+}
+
+// jsonResult represents a single calculation result in JSON format.
+type jsonResult struct {
+	Algorithm string `json:"algorithm"`
+	Duration  string `json:"duration"`
+	Result    string `json:"result,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// printJSONResults formats the calculation results as a JSON array and writes
+// them to the output. This is useful for programmatic consumption of the results.
+func printJSONResults(results []orchestration.CalculationResult, out io.Writer) int {
+	output := make([]jsonResult, len(results))
+	for i, res := range results {
+		jr := jsonResult{
+			Algorithm: res.Name,
+			Duration:  res.Duration.String(),
+		}
+		if res.Err != nil {
+			jr.Error = res.Err.Error()
+		} else {
+			jr.Result = res.Result.String()
+		}
+		output[i] = jr
+	}
+
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(output); err != nil {
+		return apperrors.ExitErrorGeneric
+	}
+	return apperrors.ExitSuccess
+}
+

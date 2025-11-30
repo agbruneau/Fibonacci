@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"example.com/fibcalc/internal/app"
 	"example.com/fibcalc/internal/config"
 	apperrors "example.com/fibcalc/internal/errors"
 	"example.com/fibcalc/internal/fibonacci"
@@ -59,14 +60,25 @@ func TestParseConfig(t *testing.T) {
 	}
 }
 
-// TestRunFunction validates the behavior of the main orchestration function `run`.
+// TestApplicationRun validates the behavior of the application's Run method.
 // It tests the integration of configuration, execution, and output generation.
-func TestRunFunction(t *testing.T) {
+func TestApplicationRun(t *testing.T) {
 
 	t.Run("Simple execution with success", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := config.AppConfig{N: 10, Algo: "fast", Timeout: 1 * time.Minute, Threshold: config.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
-		exitCode := run(context.Background(), cfg, &buf)
+		application := &app.Application{
+			Config: config.AppConfig{
+				N:            10,
+				Algo:         "fast",
+				Timeout:      1 * time.Minute,
+				Threshold:    config.DefaultParallelThreshold,
+				FFTThreshold: 20000,
+				Details:      true,
+			},
+			Factory:   fibonacci.GlobalFactory(),
+			ErrWriter: &bytes.Buffer{},
+		}
+		exitCode := application.Run(context.Background(), &buf)
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", apperrors.ExitSuccess, exitCode)
@@ -79,8 +91,19 @@ func TestRunFunction(t *testing.T) {
 
 	t.Run("Parallel comparison with success", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := config.AppConfig{N: 20, Algo: "all", Timeout: 1 * time.Minute, Threshold: config.DefaultParallelThreshold, FFTThreshold: 20000, Details: true}
-		exitCode := run(context.Background(), cfg, &buf)
+		application := &app.Application{
+			Config: config.AppConfig{
+				N:            20,
+				Algo:         "all",
+				Timeout:      1 * time.Minute,
+				Threshold:    config.DefaultParallelThreshold,
+				FFTThreshold: 20000,
+				Details:      true,
+			},
+			Factory:   fibonacci.GlobalFactory(),
+			ErrWriter: &bytes.Buffer{},
+		}
+		exitCode := application.Run(context.Background(), &buf)
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Incorrect exit code. Expected: %d, Got: %d", apperrors.ExitSuccess, exitCode)
@@ -96,8 +119,16 @@ func TestRunFunction(t *testing.T) {
 
 	t.Run("Failure due to timeout", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := config.AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Millisecond}
-		exitCode := run(context.Background(), cfg, &buf)
+		application := &app.Application{
+			Config: config.AppConfig{
+				N:       100_000_000,
+				Algo:    "fast",
+				Timeout: 1 * time.Millisecond,
+			},
+			Factory:   fibonacci.GlobalFactory(),
+			ErrWriter: &bytes.Buffer{},
+		}
+		exitCode := application.Run(context.Background(), &buf)
 
 		if exitCode != apperrors.ExitErrorTimeout {
 			t.Errorf("Incorrect exit code for a timeout. Expected: %d, Got: %d", apperrors.ExitErrorTimeout, exitCode)
@@ -110,10 +141,18 @@ func TestRunFunction(t *testing.T) {
 
 	t.Run("Failure due to context cancellation", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := config.AppConfig{N: 100_000_000, Algo: "fast", Timeout: 1 * time.Minute}
+		application := &app.Application{
+			Config: config.AppConfig{
+				N:       100_000_000,
+				Algo:    "fast",
+				Timeout: 1 * time.Minute,
+			},
+			Factory:   fibonacci.GlobalFactory(),
+			ErrWriter: &bytes.Buffer{},
+		}
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		exitCode := run(ctx, cfg, &buf)
+		exitCode := application.Run(ctx, &buf)
 
 		if exitCode != apperrors.ExitErrorCanceled {
 			t.Errorf("Incorrect exit code for a cancellation. Expected: %d, Got: %d", apperrors.ExitErrorCanceled, exitCode)
@@ -123,4 +162,27 @@ func TestRunFunction(t *testing.T) {
 			t.Errorf("The output should explicitly mention the cancellation. Output:\n%s", output)
 		}
 	})
+}
+
+// TestVersionFlag tests that version flag detection works correctly.
+func TestVersionFlag(t *testing.T) {
+	testCases := []struct {
+		name     string
+		args     []string
+		expected bool
+	}{
+		{"No version flag", []string{"-n", "100"}, false},
+		{"Long version flag", []string{"--version"}, true},
+		{"Short version flag", []string{"-V"}, true},
+		{"Version flag in middle", []string{"-n", "100", "--version"}, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := app.HasVersionFlag(tc.args)
+			if result != tc.expected {
+				t.Errorf("HasVersionFlag(%v) = %v, want %v", tc.args, result, tc.expected)
+			}
+		})
+	}
 }
