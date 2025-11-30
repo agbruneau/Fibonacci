@@ -58,11 +58,50 @@ func New(args []string, errWriter io.Writer) (*Application, error) {
 		return nil, err
 	}
 
+	// Apply adaptive thresholds based on hardware characteristics.
+	// This provides automatic optimization without requiring --auto-calibrate.
+	cfg = applyAdaptiveThresholds(cfg)
+
 	return &Application{
 		Config:    cfg,
 		Factory:   factory,
 		ErrWriter: errWriter,
 	}, nil
+}
+
+// applyAdaptiveThresholds adjusts the configuration thresholds based on
+// hardware characteristics (CPU cores, architecture) when default values
+// are detected. This provides automatic performance optimization without
+// requiring explicit calibration.
+//
+// The function only modifies thresholds that are set to their static default
+// values, preserving any user-specified overrides via command-line flags.
+//
+// Parameters:
+//   - cfg: The initial configuration with potentially default threshold values.
+//
+// Returns:
+//   - config.AppConfig: The configuration with adaptive thresholds applied.
+func applyAdaptiveThresholds(cfg config.AppConfig) config.AppConfig {
+	// Only adjust thresholds if they're at the static default values.
+	// This preserves explicit user overrides via --threshold, --fft-threshold, etc.
+
+	// Parallel threshold: adapt based on CPU core count
+	if cfg.Threshold == config.DefaultParallelThreshold {
+		cfg.Threshold = calibration.EstimateOptimalParallelThreshold()
+	}
+
+	// FFT threshold: adapt based on architecture (32-bit vs 64-bit)
+	if cfg.FFTThreshold == 1_000_000 { // Default value from ParseConfig
+		cfg.FFTThreshold = calibration.EstimateOptimalFFTThreshold()
+	}
+
+	// Strassen threshold: adapt based on CPU core count
+	if cfg.StrassenThreshold == 3072 { // Default value from ParseConfig
+		cfg.StrassenThreshold = calibration.EstimateOptimalStrassenThreshold()
+	}
+
+	return cfg
 }
 
 // Run executes the application based on the configured mode.
@@ -302,4 +341,3 @@ func printJSONResults(results []orchestration.CalculationResult, out io.Writer) 
 	}
 	return apperrors.ExitSuccess
 }
-
