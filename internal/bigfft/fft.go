@@ -66,6 +66,78 @@ func MulTo(z, x, y *big.Int) *big.Int {
 	return z.Mul(x, y)
 }
 
+// Sqr computes x*x and returns the result as a new *big.Int.
+// Squaring is optimized because we only need to transform x once,
+// which saves approximately 33% of the FFT computation compared to Mul.
+func Sqr(x *big.Int) *big.Int {
+	xwords := len(x.Bits())
+	if xwords > fftThreshold {
+		return sqrFFT(x)
+	}
+	return new(big.Int).Mul(x, x)
+}
+
+// SqrTo computes x*x and stores the result in z.
+// This allows reusing the allocated memory of z, which is more
+// efficient than Sqr when z is already allocated and large enough.
+//
+// Optimization: Squaring only requires one FFT transform instead of two,
+// saving approximately 33% of the computation time for large numbers.
+func SqrTo(z, x *big.Int) *big.Int {
+	xwords := len(x.Bits())
+	if xwords > fftThreshold {
+		var xb nat = x.Bits()
+		zb := fftsqrTo(z.Bits(), xb)
+		z.SetBits(zb)
+		// x*x is always non-negative, no sign handling needed
+		return z
+	}
+	return z.Mul(x, x)
+}
+
+func sqrFFT(x *big.Int) *big.Int {
+	var xb nat = x.Bits()
+	zb := fftsqr(xb)
+	z := new(big.Int)
+	z.SetBits(zb)
+	// x*x is always non-negative
+	return z
+}
+
+func fftsqr(x nat) nat {
+	return fftsqrTo(nil, x)
+}
+
+// fftsqrTo performs FFT squaring of x, reusing dst as the destination buffer
+// if it has sufficient capacity. This is optimized compared to fftmulTo
+// because we only need to transform x once.
+func fftsqrTo(dst, x nat) nat {
+	k, m := fftSizeSqr(x)
+	xp := polyFromNat(x, k, m)
+	n := valueSize(k, m, 2)
+	xv := xp.Transform(n)
+	rv := xv.Sqr() // Pointwise squaring - no need for second transform
+	r := rv.InvTransform()
+	r.m = m
+	return r.IntTo(dst)
+}
+
+// fftSizeSqr returns the FFT parameters for squaring x.
+// For squaring, the result size is 2*len(x) words.
+func fftSizeSqr(x nat) (k uint, m int) {
+	words := 2 * len(x) // x*x has at most 2*len(x) words
+	bits := int64(words) * int64(_W)
+	k = uint(len(fftSizeThreshold))
+	for i := range fftSizeThreshold {
+		if fftSizeThreshold[i] > bits {
+			k = uint(i)
+			break
+		}
+	}
+	m = words>>k + 1
+	return
+}
+
 func mulFFT(x, y *big.Int) *big.Int {
 	var xb, yb nat = x.Bits(), y.Bits()
 	zb := fftmul(xb, yb)
@@ -471,6 +543,34 @@ func (p *polValues) Mul(q *polValues) (r polValues) {
 	for i := 0; i < K; i++ {
 		r.values[i] = bits[i*(n+1) : (i+1)*(n+1)]
 		z := buf.Mul(p.values[i], q.values[i])
+		copy(r.values[i], z)
+	}
+
+	// Release temporary buffer
+	releaseFermat(buf)
+
+	return
+}
+
+// Sqr returns the pointwise square of p (p[i] * p[i] for each i).
+// This is optimized for squaring as we don't need a second set of values.
+func (p *polValues) Sqr() (r polValues) {
+	n := p.n
+	K := len(p.values)
+	r.k, r.n = p.k, p.n
+
+	// Use regular allocation for returned data
+	r.values = make([]fermat, K)
+	wordCount := K * (n + 1)
+	bits := make([]big.Word, wordCount)
+
+	// Use pooled buffer for temporary multiplication result
+	buf := acquireFermat(8 * n)
+
+	for i := 0; i < K; i++ {
+		r.values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		// Square: multiply p.values[i] by itself
+		z := buf.Mul(p.values[i], p.values[i])
 		copy(r.values[i], z)
 	}
 

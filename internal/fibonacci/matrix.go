@@ -174,6 +174,16 @@ type multiplicationTask struct {
 	fftThreshold int
 }
 
+// squaringTask represents a single squaring operation (x * x)
+// to be executed either sequentially or in parallel.
+// Squaring is optimized compared to general multiplication because
+// it exploits the symmetry of the computation.
+type squaringTask struct {
+	dest         **big.Int
+	x            *big.Int
+	fftThreshold int
+}
+
 // executeMultiplications executes a batch of multiplication tasks either
 // sequentially or in parallel based on the inParallel flag.
 // This is a template method that eliminates code duplication between
@@ -197,6 +207,33 @@ func executeMultiplications(tasks []multiplicationTask, inParallel bool) {
 		for i := range tasks {
 			t := &tasks[i]
 			*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
+		}
+	}
+}
+
+// executeSquarings executes a batch of squaring tasks either
+// sequentially or in parallel based on the inParallel flag.
+// This uses the optimized smartSquare function which saves approximately
+// 33% of FFT computation time compared to general multiplication.
+//
+// Parameters:
+//   - tasks: The list of squaring tasks to execute.
+//   - inParallel: Whether to execute tasks in parallel.
+func executeSquarings(tasks []squaringTask, inParallel bool) {
+	if inParallel {
+		var wg sync.WaitGroup
+		wg.Add(len(tasks))
+		for i := range tasks {
+			go func(t *squaringTask) {
+				defer wg.Done()
+				*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
+			}(&tasks[i])
+		}
+		wg.Wait()
+	} else {
+		for i := range tasks {
+			t := &tasks[i]
+			*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
 		}
 	}
 }
@@ -269,6 +306,9 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 // b equals c, some calculations become redundant. This method avoids those
 // redundancies, resulting in a faster computation.
 //
+// The three squaring operations (a², b², d²) use optimized smartSquare which
+// saves approximately 33% of FFT computation time compared to general multiplication.
+//
 // Parameters:
 //   - dest: The destination matrix.
 //   - mat: The symmetric matrix to square.
@@ -280,14 +320,37 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	b_ad, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
 
-	// Execute the 4 multiplications using the template method
-	tasks := []multiplicationTask{
-		{&a2, mat.a, mat.a, fftThreshold},
-		{&b2, mat.b, mat.b, fftThreshold},
-		{&d2, mat.d, mat.d, fftThreshold},
+	// Execute the 3 squaring operations using optimized squaring
+	sqrTasks := []squaringTask{
+		{&a2, mat.a, fftThreshold},
+		{&b2, mat.b, fftThreshold},
+		{&d2, mat.d, fftThreshold},
+	}
+
+	// Execute the 1 general multiplication (b * (a+d))
+	mulTasks := []multiplicationTask{
 		{&b_ad, mat.b, ad, fftThreshold},
 	}
-	executeMultiplications(tasks, inParallel)
+
+	if inParallel {
+		// Execute all 4 operations in parallel
+		var wg sync.WaitGroup
+		wg.Add(4)
+		for i := range sqrTasks {
+			go func(t *squaringTask) {
+				defer wg.Done()
+				*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
+			}(&sqrTasks[i])
+		}
+		go func() {
+			defer wg.Done()
+			*mulTasks[0].dest = smartMultiply(*mulTasks[0].dest, mulTasks[0].a, mulTasks[0].b, mulTasks[0].fftThreshold)
+		}()
+		wg.Wait()
+	} else {
+		executeSquarings(sqrTasks, false)
+		executeMultiplications(mulTasks, false)
+	}
 
 	dest.a.Add(a2, b2)
 	dest.b.Set(b_ad)

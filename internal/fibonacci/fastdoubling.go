@@ -117,8 +117,9 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 			parallelMultiply3Optimized(s, opts.FFTThreshold)
 		} else {
 			s.t3 = smartMultiply(s.t3, s.f_k, s.t2, opts.FFTThreshold)
-			s.t1 = smartMultiply(s.t1, s.f_k1, s.f_k1, opts.FFTThreshold)
-			s.t4 = smartMultiply(s.t4, s.f_k, s.f_k, opts.FFTThreshold)
+			// Use optimized squaring for f_k1² and f_k²
+			s.t1 = smartSquare(s.t1, s.f_k1, opts.FFTThreshold)
+			s.t4 = smartSquare(s.t4, s.f_k, opts.FFTThreshold)
 		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in t2, which is free.
@@ -201,6 +202,9 @@ func shouldParallelizeMultiplication(s *calculationState, opts Options) bool {
 // parallel, this function takes advantage of multi-core processors, leading to
 // significant performance improvements for very large numbers.
 //
+// The two squaring operations (f_k1² and f_k²) use optimized smartSquare which
+// saves approximately 33% of FFT computation time compared to general multiplication.
+//
 // Parameters:
 //   - s: The current calculation state.
 //   - fftThreshold: The threshold for using FFT-based multiplication.
@@ -213,9 +217,11 @@ func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
 	}()
 	go func() {
 		defer wg.Done()
-		s.t1 = smartMultiply(s.t1, s.f_k1, s.f_k1, fftThreshold)
+		// Use optimized squaring for f_k1²
+		s.t1 = smartSquare(s.t1, s.f_k1, fftThreshold)
 	}()
-	s.t4 = smartMultiply(s.t4, s.f_k, s.f_k, fftThreshold)
+	// Use optimized squaring for f_k²
+	s.t4 = smartSquare(s.t4, s.f_k, fftThreshold)
 	wg.Wait()
 }
 

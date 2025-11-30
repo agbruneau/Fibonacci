@@ -24,6 +24,20 @@ func mulFFT(x, y *big.Int) *big.Int {
 	return bigfft.Mul(x, y)
 }
 
+// sqrFFT performs optimized squaring of a *big.Int using FFT.
+// Squaring is more efficient than general multiplication because
+// we only need to transform x once, saving approximately 33% of
+// the FFT computation time for large numbers.
+//
+// Parameters:
+//   - x: The operand to square.
+//
+// Returns:
+//   - *big.Int: The result of x * x.
+func sqrFFT(x *big.Int) *big.Int {
+	return bigfft.Sqr(x)
+}
+
 // smartMultiply performs multiplication, choosing between Karatsuba (math/big)
 // and FFT (internal/bigfft) based on the size of the operands.
 // It also attempts to reuse the storage of `z` if `MulTo` is available/used.
@@ -47,4 +61,24 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 		}
 	}
 	return z.Mul(x, y)
+}
+
+// smartSquare performs optimized squaring, choosing between Karatsuba (math/big)
+// and FFT (internal/bigfft) based on the size of the operand.
+// Squaring is more efficient than general multiplication because we can
+// exploit the symmetry of the computation (x * x).
+//
+// Parameters:
+//   - z: The destination big.Int (may be reused for storage).
+//   - x: The operand to square.
+//   - threshold: The bit length threshold for switching to FFT.
+//
+// Returns:
+//   - *big.Int: The result of x * x.
+func smartSquare(z, x *big.Int, threshold int) *big.Int {
+	// Use FFT-based squaring for large numbers
+	if threshold > 0 && x.BitLen() > threshold {
+		return bigfft.SqrTo(z, x)
+	}
+	return z.Mul(x, x)
 }
