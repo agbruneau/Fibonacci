@@ -20,6 +20,7 @@
   - [4. Utilisation](#4-utilisation)
     - [Commandes Essentielles](#commandes-essentielles)
     - [Options CLI Complètes](#options-cli-complètes)
+    - [Configuration par Variables d'Environnement](#configuration-par-variables-denvironnement)
     - [Mode Interactif (REPL)](#mode-interactif-repl)
     - [Mode Serveur API](#mode-serveur-api)
     - [Exemples d'utilisation](#exemples-dutilisation)
@@ -214,6 +215,63 @@ Le calculateur est contrôlé via des drapeaux de ligne de commande :
 | `--no-color` | | Désactiver les couleurs (respecte aussi `NO_COLOR`). | `false` |
 | `--completion` | | Générer un script d'autocomplétion (bash, zsh, fish, powershell). | `""` |
 | `--version` | `-V` | Afficher la version du programme. | |
+
+### Configuration par Variables d'Environnement
+
+En plus des flags CLI, `fibcalc` peut être configuré via des variables d'environnement. Ceci est particulièrement utile pour les déploiements Docker et Kubernetes, conformément aux bonnes pratiques [12-Factor App](https://12factor.net/config).
+
+**Priorité de configuration :** Flags CLI > Variables d'environnement > Valeurs par défaut
+
+| Variable | Type | Description | Défaut |
+|----------|------|-------------|--------|
+| `FIBCALC_N` | uint64 | Index du nombre de Fibonacci | `250000000` |
+| `FIBCALC_ALGO` | string | Algorithme (fast, matrix, fft, all) | `all` |
+| `FIBCALC_PORT` | string | Port du serveur HTTP | `8080` |
+| `FIBCALC_TIMEOUT` | duration | Timeout (ex: "5m", "30s") | `5m` |
+| `FIBCALC_THRESHOLD` | int | Seuil de parallélisme (bits) | `4096` |
+| `FIBCALC_FFT_THRESHOLD` | int | Seuil FFT (bits) | `1000000` |
+| `FIBCALC_STRASSEN_THRESHOLD` | int | Seuil Strassen (bits) | `3072` |
+| `FIBCALC_SERVER` | bool | Mode serveur (true/false) | `false` |
+| `FIBCALC_JSON` | bool | Sortie JSON | `false` |
+| `FIBCALC_VERBOSE` | bool | Mode verbeux | `false` |
+| `FIBCALC_QUIET` | bool | Mode silencieux | `false` |
+| `FIBCALC_HEX` | bool | Sortie hexadécimale | `false` |
+| `FIBCALC_INTERACTIVE` | bool | Mode REPL | `false` |
+| `FIBCALC_NO_COLOR` | bool | Désactiver les couleurs | `false` |
+| `FIBCALC_OUTPUT` | string | Fichier de sortie | `""` |
+| `FIBCALC_CALIBRATION_PROFILE` | string | Fichier de calibration | `""` |
+
+**Exemples :**
+
+```bash
+# Calcul simple via variable d'environnement
+FIBCALC_N=1000 FIBCALC_ALGO=fast ./build/fibcalc
+
+# Serveur avec configuration par environnement
+export FIBCALC_SERVER=true
+export FIBCALC_PORT=9090
+export FIBCALC_THRESHOLD=8192
+./build/fibcalc
+
+# Les flags CLI ont toujours la priorité
+FIBCALC_N=99999 ./build/fibcalc -n 100  # Utilisera n=100
+```
+
+**Docker Compose :**
+
+```yaml
+services:
+  fibcalc:
+    image: fibcalc:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - FIBCALC_SERVER=true
+      - FIBCALC_PORT=8080
+      - FIBCALC_THRESHOLD=8192
+      - FIBCALC_FFT_THRESHOLD=500000
+      - FIBCALC_TIMEOUT=10m
+```
 
 ### Mode Interactif (REPL)
 
