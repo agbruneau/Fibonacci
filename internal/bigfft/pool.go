@@ -289,3 +289,60 @@ func releaseFFTState(state *fftState) {
 	// Keep the allocations for reuse
 	fftStatePool.Put(state)
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pool Pre-warming
+// ─────────────────────────────────────────────────────────────────────────────
+
+// PreWarmPools pre-allocates buffers in the pools based on estimated memory
+// needs for calculating F(n). This reduces allocation overhead during the
+// calculation by ensuring pools have ready-to-use buffers.
+//
+// The function estimates the required buffer sizes and pre-allocates a small
+// number of buffers in each relevant pool size class. This is particularly
+// beneficial for large calculations where the same buffer sizes are reused
+// frequently.
+//
+// Parameters:
+//   - n: The Fibonacci index to calculate (used for estimation).
+func PreWarmPools(n uint64) {
+	est := EstimateMemoryNeeds(n)
+	
+	// Pre-warm word slice pools
+	// Pre-allocate 2-3 buffers in the relevant size classes
+	wordIdx := getWordSlicePoolIndex(est.MaxWordSliceSize)
+	if wordIdx >= 0 {
+		// Pre-allocate a couple of buffers
+		for i := 0; i < 2; i++ {
+			buf := make([]big.Word, wordSliceSizes[wordIdx])
+			wordSlicePools[wordIdx].Put(buf)
+		}
+	}
+	
+	// Pre-warm fermat pools
+	fermatIdx := getFermatPoolIndex(est.MaxFermatSize)
+	if fermatIdx >= 0 {
+		for i := 0; i < 2; i++ {
+			buf := make(fermat, fermatSizes[fermatIdx])
+			fermatPools[fermatIdx].Put(buf)
+		}
+	}
+	
+	// Pre-warm nat slice pools
+	natIdx := getNatSlicePoolIndex(est.MaxNatSliceSize)
+	if natIdx >= 0 {
+		for i := 0; i < 2; i++ {
+			buf := make([]nat, natSliceSizes[natIdx])
+			natSlicePools[natIdx].Put(buf)
+		}
+	}
+	
+	// Pre-warm fermat slice pools
+	fermatSliceIdx := getFermatSlicePoolIndex(est.MaxFermatSliceSize)
+	if fermatSliceIdx >= 0 {
+		for i := 0; i < 2; i++ {
+			buf := make([]fermat, fermatSliceSizes[fermatSliceIdx])
+			fermatSlicePools[fermatSliceIdx].Put(buf)
+		}
+	}
+}

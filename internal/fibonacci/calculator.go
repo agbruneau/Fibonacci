@@ -11,6 +11,8 @@ import (
 	"context"
 	"math"
 	"math/big"
+
+	"example.com/fibcalc/internal/bigfft"
 )
 
 // MaxFibUint64 = 93 because F(93) is the largest Fibonacci number that fits in a uint64,
@@ -109,6 +111,9 @@ type Options struct {
 	// StrassenThreshold is the bit size threshold for switching to Strassen's algorithm.
 	// If 0, a default value may be used by the implementation.
 	StrassenThreshold int
+	// Arena is an optional arena allocator for memory management.
+	// If nil, global pools are used.
+	Arena *bigfft.CalculationArena
 }
 
 // Calculator defines the public interface for a Fibonacci calculator.
@@ -219,6 +224,13 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		return lookupSmall(n), nil
 	}
 
+	// Pre-warm pools and create arena for large calculations
+	arena := bigfft.NewCalculationArena(n)
+	bigfft.PreWarmPools(n)
+	defer arena.Release()
+
+	// Pass arena via Options
+	opts.Arena = arena
 	result, err := c.core.CalculateCore(ctx, reporter, n, opts)
 	if err == nil && result != nil {
 		reporter(1.0)

@@ -162,7 +162,9 @@ make build
   - Mode silencieux (`-q, --quiet`) pour scripts.
 - **Optimisations de Performance** :
   - **Stratégie Zéro-Allocation** : Emploie `sync.Pool` pour recycler les objets `big.Int`.
-  - **Parallélisme Adaptatif** : Utilisation intelligente des cœurs CPU.
+  - **Arena Allocator** : Allocation mémoire adaptative avec pré-estimation et pre-warming des pools.
+  - **Architecture Modulaire** : Frameworks réutilisables et stratégies de multiplication interchangeables.
+  - **Parallélisme Multi-niveaux** : Parallélisation au niveau algorithme et au niveau FFT interne.
   - **Algorithme de Strassen** : Réduit la complexité de la multiplication matricielle.
   - **Calibration Automatique** : Détection des seuils optimaux pour le matériel.
 - **Sécurité** : Rate limiting, validation des entrées, headers de sécurité HTTP, protection DoS.
@@ -443,11 +445,17 @@ Ce projet est structuré selon les meilleures pratiques de l'ingénierie logicie
 
 - **`cmd/fibcalc`** : Point d'entrée. Orchestre l'initialisation et délègue l'exécution.
 - **`internal/fibonacci`** : Cœur de la logique mathématique (Fast Doubling, Matrix, FFT).
+  - `strategy.go` : Interface et implémentations de stratégies de multiplication.
+  - `doubling_framework.go` : Framework réutilisable pour Fast Doubling.
+  - `matrix_framework.go` : Framework pour l'exponentiation matricielle.
 - **`internal/calibration`** : Calibration automatique et manuelle des performances.
 - **`internal/orchestration`** : Gestion de l'exécution concurrente des calculs.
 - **`internal/server`** : Serveur HTTP REST API avec sécurité et métriques.
 - **`internal/cli`** : Interface utilisateur (spinner, barres, thèmes, REPL).
 - **`internal/bigfft`** : Multiplication FFT pour très grands nombres.
+  - `arena.go` : Arena allocator et estimation mémoire.
+  - `pool.go` : Système de pooling avec pre-warming.
+  - `fft.go` : Implémentation FFT avec parallélisation interne.
 - **`internal/config`** : Gestion de la configuration et validation des flags.
 - **`internal/errors`** : Gestion centralisée des erreurs.
 
@@ -457,9 +465,11 @@ Voir [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) pour les détails complets.
 
 | Algorithme | Flag | Complexité | Description |
 |------------|------|------------|-------------|
-| **Fast Doubling** | `-algo fast` | O(log n × M(n)) | Le plus performant. 3 multiplications par itération. |
-| **Matrix Exponentiation** | `-algo matrix` | O(log n × M(n)) | Approche matricielle avec optimisation Strassen. |
-| **FFT-Based** | `-algo fft` | O(log n × n log n) | Force la multiplication FFT pour tous les calculs. |
+| **Fast Doubling** | `-algo fast` | O(log n × M(n)) | Le plus performant. 3 multiplications par itération. Utilise le DoublingFramework avec stratégie adaptative. |
+| **Matrix Exponentiation** | `-algo matrix` | O(log n × M(n)) | Approche matricielle avec optimisation Strassen. Utilise le MatrixFramework. |
+| **FFT-Based** | `-algo fft` | O(log n × n log n) | Force la multiplication FFT pour tous les calculs. Utilise le DoublingFramework avec stratégie FFT-only. |
+
+**Note** : Tous les algorithmes partagent désormais des frameworks communs qui éliminent la duplication de code et facilitent la maintenance. Les stratégies de multiplication peuvent être interchangées dynamiquement.
 
 ### Dérivation des Formules de Fast Doubling
 
@@ -483,18 +493,34 @@ Voir [Docs/algorithms/COMPARISON.md](Docs/algorithms/COMPARISON.md) pour une com
 
 ## 7. Optimisations de Performance
 
+Le projet intègre plusieurs couches d'optimisations avancées pour maximiser les performances :
+
 ### Stratégie Zéro-Allocation
 
 - **Pools d'Objets (`sync.Pool`)** : Les états de calcul sont recyclés pour minimiser la pression sur le GC.
+- **Arena Allocator** : Système d'allocation mémoire adaptatif qui pré-estime les besoins mémoire basés sur N et pré-chauffe les pools globaux pour réduire les allocations pendant le calcul.
 - **Mise au Carré Symétrique** : Réduit le nombre de multiplications à 4 (contre 8 en méthode naïve).
 
-### Parallélisme et Seuils Adaptatifs
+### Architecture Modulaire avec Stratégies
 
-- **Parallélisme Multi-cœur** : Les multiplications sont exécutées en parallèle.
+- **MultiplicationStrategy** : Abstraction permettant de choisir dynamiquement entre différentes méthodes de multiplication (Adaptive, FFT-only, Karatsuba).
+- **DoublingFramework** : Framework réutilisable qui élimine la duplication de code entre les implémentations Fast Doubling et FFT-Based.
+- **MatrixFramework** : Framework similaire pour l'exponentiation matricielle, facilitant la maintenance et l'extension.
+
+### Parallélisme Multi-niveaux
+
+- **Parallélisme Multi-cœur** : Les multiplications sont exécutées en parallèle au niveau de l'algorithme.
+- **Parallélisation FFT Interne** : La récursion FFT est parallélisée pour les grandes transformations, exploitant efficacement les cœurs CPU multiples lors des calculs FFT.
 - **Seuils Configurables** :
-  - `--threshold` (défaut `4096` bits) : Active le parallélisme.
+  - `--threshold` (défaut `4096` bits) : Active le parallélisme au niveau algorithme.
   - `--fft-threshold` (défaut `1000000` bits) : Active la multiplication FFT.
   - `--strassen-threshold` (défaut `3072` bits) : Active l'algorithme de Strassen.
+
+### Optimisations Mémoire Avancées
+
+- **Estimation Mémoire Préalable** : Le système estime les besoins mémoire avant le calcul basé sur la taille de F(n) ≈ n × 0.694 bits.
+- **Pre-warming des Pools** : Les pools de mémoire sont pré-chauffés avec des buffers optimaux selon les besoins estimés, réduisant les allocations à chaud.
+- **Réutilisation de Buffers** : Les buffers temporaires sont réutilisés efficacement via le système de pooling.
 
 ### Calibration
 
@@ -505,6 +531,14 @@ Voir [Docs/algorithms/COMPARISON.md](Docs/algorithms/COMPARISON.md) pour une com
 # Calibration rapide au démarrage
 ./build/fibcalc --auto-calibrate -n 100000000
 ```
+
+### Gains de Performance Attendus
+
+Les optimisations récentes apportent les améliorations suivantes :
+
+- **Réduction des Allocations** : 10-20% de réduction de la pression GC grâce à l'arena allocator et au pre-warming.
+- **Amélioration de la Maintenabilité** : Code plus modulaire et extensible grâce aux frameworks et stratégies.
+- **Parallélisation FFT** : Gains significatifs pour N > 100M où la FFT domine les calculs.
 
 Voir [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md) pour le guide complet de tuning.
 

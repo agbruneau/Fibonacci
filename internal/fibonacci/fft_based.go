@@ -3,7 +3,6 @@ package fibonacci
 import (
 	"context"
 	"math/big"
-	"math/bits"
 )
 
 // FFTBasedCalculator is a specialized Fibonacci calculator that uses the Fast
@@ -28,12 +27,11 @@ func (c *FFTBasedCalculator) Name() string {
 }
 
 // CalculateCore computes F(n) using the Fast Doubling algorithm, with all
-// multiplications performed via mulFFT.
+// multiplications performed via FFT.
 //
-// While the high-level logic of this function is similar to
-// OptimizedFastDoubling, it differs in its multiplication strategy. Instead of
-// adaptively choosing the multiplication method, it consistently uses FFT-based
-// multiplication. This design makes it ideal for scenarios where FFT is
+// This implementation uses the DoublingFramework with FFTOnlyStrategy to
+// consistently use FFT-based multiplication for all operations, regardless
+// of operand size. This design makes it ideal for scenarios where FFT is
 // expected to be the most performant option, such as with extremely large
 // numbers.
 //
@@ -50,36 +48,10 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 	s := acquireState()
 	defer releaseState(s)
 
-	numBits := bits.Len64(n)
+	// Use framework with FFT-only strategy
+	strategy := &FFTOnlyStrategy{}
+	framework := NewDoublingFramework(strategy)
 
-	totalWork := CalcTotalWork(numBits)
-	workDone := 0.0
-	lastReportedProgress := -1.0
-
-	for i := numBits - 1; i >= 0; i-- {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		// Doubling Step (all multiplications via FFT)
-		// t2 = 2*f_k1 - f_k
-		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
-		// t3 = f_k * t2
-		s.t3 = mulFFT(s.f_k, s.t2)
-		// t1 = f_k1^2 (using optimized FFT squaring)
-		s.t1 = sqrFFT(s.f_k1)
-		// t4 = f_k^2 (using optimized FFT squaring)
-		s.t4 = sqrFFT(s.f_k)
-		// F(2k+1) = F(k+1)^2 + F(k)^2 -> t2
-		s.t2.Add(s.t1, s.t4)
-		// Swap pointers: f_k <- t3 (F(2k)), f_k1 <- t2 (F(2k+1))
-		s.f_k, s.f_k1, s.t2, s.t3 = s.t3, s.t2, s.f_k, s.f_k1
-		// Addition Step if bit i == 1
-		if (n>>uint(i))&1 == 1 {
-			s.t1.Add(s.f_k, s.f_k1) // new F(k+1)
-			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
-		}
-		// Harmonized reporting via utility function
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
-	}
-	return new(big.Int).Set(s.f_k), nil
+	// Execute the doubling loop (no parallelization for FFT-based)
+	return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s)
 }

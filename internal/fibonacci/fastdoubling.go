@@ -3,7 +3,6 @@ package fibonacci
 import (
 	"context"
 	"math/big"
-	"math/bits"
 	"runtime"
 	"sync"
 )
@@ -77,8 +76,8 @@ func (fd *OptimizedFastDoubling) Name() string {
 //
 // This function orchestrates the entire calculation process, which includes:
 //   - Acquiring a calculationState from the object pool to avoid allocations.
-//   - Iterating over the bits of `n` from most significant to least
-//     significant.
+//   - Using the DoublingFramework with adaptive strategy for the core loop.
+//   - Applying parallelization optimizations when beneficial.
 //   - Reporting progress to the caller.
 //   - Returning the final result, F(n).
 //
@@ -92,63 +91,20 @@ func (fd *OptimizedFastDoubling) Name() string {
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
 func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressReporter, n uint64, opts Options) (*big.Int, error) {
-
 	s := acquireState()
 	defer releaseState(s)
 
-	numBits := bits.Len64(n)
 	useParallel := runtime.GOMAXPROCS(0) > 1 && opts.ParallelThreshold > 0
 
-	// Calculate total work for progress reporting via common utility
-	totalWork := CalcTotalWork(numBits)
-	workDone := 0.0
-	lastReportedProgress := -1.0
+	// Use framework with adaptive strategy for the main loop
+	strategy := &AdaptiveStrategy{}
+	framework := NewDoublingFramework(strategy)
 
-	for i := numBits - 1; i >= 0; i-- {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-
-		// Doubling Step
-		s.t2.Lsh(s.f_k1, 1).Sub(s.t2, s.f_k)
-
-		// Parallelize when at least one of the main operands is large
-		if useParallel && shouldParallelizeMultiplication(s, opts) {
-			parallelMultiply3Optimized(s, opts.FFTThreshold)
-		} else {
-			s.t3 = smartMultiply(s.t3, s.f_k, s.t2, opts.FFTThreshold)
-			// Use optimized squaring for f_k1² and f_k²
-			s.t1 = smartSquare(s.t1, s.f_k1, opts.FFTThreshold)
-			s.t4 = smartSquare(s.t4, s.f_k, opts.FFTThreshold)
-		}
-
-		// F(2k+1) = F(k+1)² + F(k)². Store result in t2, which is free.
-		s.t2.Add(s.t1, s.t4)
-		// Swap the pointers for the next iteration.
-		// f_k becomes F(2k) (from t3), f_k1 becomes F(2k+1) (from t2).
-		// t2 and t3 become the old f_k and f_k1, now temporaries.
-		s.f_k, s.f_k1, s.t2, s.t3 = s.t3, s.t2, s.f_k, s.f_k1
-
-		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
-		// F(k) <- F(k+1)
-		// F(k+1) <- F(k) + F(k+1)
-		if (n>>uint(i))&1 == 1 {
-			// s.t1 temporarily stores the new F(k+1)
-			s.t1.Add(s.f_k, s.f_k1)
-			// Swap pointers to avoid large allocations:
-			// s.f_k becomes the old s.f_k1
-			// s.f_k1 becomes the new sum (s.t1)
-			// s.t1 becomes the old s.f_k, now a temporary
-			s.f_k, s.f_k1, s.t1 = s.f_k1, s.t1, s.f_k
-		}
-
-		// Harmonized reporting via common utility function
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
-	}
-	return new(big.Int).Set(s.f_k), nil
+	// Execute the doubling loop with parallelization support
+	return framework.ExecuteDoublingLoopWithParallel(ctx, reporter, n, opts, s, useParallel)
 }
 
-// shouldParallelizeMultiplication determines whether the multiplication operations
+// ShouldParallelizeMultiplication determines whether the multiplication operations
 // should be parallelized based on the operand sizes and configuration options.
 //
 // This function encapsulates the complex decision logic for parallelization:
@@ -164,12 +120,12 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 //
 // Returns:
 //   - bool: true if multiplication should be parallelized, false otherwise.
-func shouldParallelizeMultiplication(s *calculationState, opts Options) bool {
+func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 	// Cache BitLen() values to avoid redundant calls.
 	// BitLen() traverses the internal representation of big.Int, so caching
 	// these values provides a measurable performance improvement (2-5%).
-	fkBitLen := s.f_k.BitLen()
-	fk1BitLen := s.f_k1.BitLen()
+	fkBitLen := s.F_k.BitLen()
+	fk1BitLen := s.F_k1.BitLen()
 
 	// Determine the maximum bit length of the main operands
 	maxBitLen := fk1BitLen
@@ -197,75 +153,61 @@ func shouldParallelizeMultiplication(s *calculationState, opts Options) bool {
 	return maxBitLen > opts.ParallelThreshold
 }
 
-// parallelMultiply3Optimized leverages concurrency to accelerate the three key
-// multiplications of the doubling step. By executing these multiplications in
-// parallel, this function takes advantage of multi-core processors, leading to
-// significant performance improvements for very large numbers.
-//
-// The two squaring operations (f_k1² and f_k²) use optimized smartSquare which
-// saves approximately 33% of FFT computation time compared to general multiplication.
-//
-// Parameters:
-//   - s: The current calculation state.
-//   - fftThreshold: The threshold for using FFT-based multiplication.
-func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		s.t3 = smartMultiply(s.t3, s.f_k, s.t2, fftThreshold)
-	}()
-	go func() {
-		defer wg.Done()
-		// Use optimized squaring for f_k1²
-		s.t1 = smartSquare(s.t1, s.f_k1, fftThreshold)
-	}()
-	// Use optimized squaring for f_k²
-	s.t4 = smartSquare(s.t4, s.f_k, fftThreshold)
-	wg.Wait()
-}
+// parallelMultiply3Optimized is deprecated. The parallelization logic is now
+// handled by DoublingFramework.ExecuteDoublingLoopWithParallel.
+// This function is kept for reference but is no longer used.
 
-// calculationState aggregates temporary variables for the "Fast Doubling"
+// CalculationState aggregates temporary variables for the "Fast Doubling"
 // algorithm, allowing efficient management via an object pool.
-type calculationState struct {
-	f_k, f_k1, t1, t2, t3, t4 *big.Int
+type CalculationState struct {
+	F_k, F_k1, T1, T2, T3, T4 *big.Int
 }
 
 // Reset prepares the state for a new calculation.
-// It initializes f_k to 0 and f_k1 to 1, which are the base values for the
+// It initializes F_k to 0 and F_k1 to 1, which are the base values for the
 // Fast Doubling algorithm.
-func (s *calculationState) Reset() {
-	s.f_k.SetInt64(0)
-	s.f_k1.SetInt64(1)
+func (s *CalculationState) Reset() {
+	s.F_k.SetInt64(0)
+	s.F_k1.SetInt64(1)
 }
 
 var statePool = sync.Pool{
 	New: func() interface{} {
-		return &calculationState{
-			f_k:  new(big.Int),
-			f_k1: new(big.Int),
-			t1:   new(big.Int),
-			t2:   new(big.Int),
-			t3:   new(big.Int),
-			t4:   new(big.Int),
+		return &CalculationState{
+			F_k:  new(big.Int),
+			F_k1: new(big.Int),
+			T1:   new(big.Int),
+			T2:   new(big.Int),
+			T3:   new(big.Int),
+			T4:   new(big.Int),
 		}
 	},
 }
 
-// acquireState gets a state from the pool and resets it.
+// AcquireState gets a state from the pool and resets it.
 //
 // Returns:
-//   - *calculationState: A ready-to-use calculation state.
-func acquireState() *calculationState {
-	s := statePool.Get().(*calculationState)
+//   - *CalculationState: A ready-to-use calculation state.
+func AcquireState() *CalculationState {
+	s := statePool.Get().(*CalculationState)
 	s.Reset()
 	return s
 }
 
-// releaseState puts a state back into the pool.
+// ReleaseState puts a state back into the pool.
 //
 // Parameters:
 //   - s: The calculation state to return to the pool.
-func releaseState(s *calculationState) {
+func ReleaseState(s *CalculationState) {
 	statePool.Put(s)
+}
+
+// acquireState is a convenience wrapper for backward compatibility.
+func acquireState() *CalculationState {
+	return AcquireState()
+}
+
+// releaseState is a convenience wrapper for backward compatibility.
+func releaseState(s *CalculationState) {
+	ReleaseState(s)
 }

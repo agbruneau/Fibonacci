@@ -6,10 +6,21 @@ package bigfft
 
 import (
 	"math/big"
+	"sync"
 	"unsafe"
 )
 
 const _W = int(unsafe.Sizeof(big.Word(0)) * 8)
+
+// ParallelFFTRecursionThreshold is the minimum size (in bits of k, where K=2^k)
+// for which FFT recursion should be parallelized. Below this threshold, the
+// overhead of goroutine creation exceeds the benefits of parallelism.
+const ParallelFFTRecursionThreshold uint = 4
+
+// MaxParallelFFTDepth limits the maximum depth of parallel recursion to avoid
+// excessive goroutine creation. Once this depth is reached, recursion continues
+// sequentially.
+const MaxParallelFFTDepth uint = 3
 
 type nat []big.Word
 
@@ -462,8 +473,6 @@ func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) {
 // fourierWithState performs the Fourier transform with optional pre-allocated state.
 // If state is nil, temporary buffers are allocated from the pool.
 func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) {
-	var rec func(dst, src []fermat, size uint)
-
 	// Use pooled state if not provided
 	var tmp, tmp2 fermat
 	if state != nil {
@@ -480,7 +489,8 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 	// The root of unity used in the transform is ω=1<<(ω2shift/2).
 	// The source array may use shifted indices (i.e. the i-th
 	// element is src[i << idxShift]).
-	rec = func(dst, src []fermat, size uint) {
+	var rec func(dst, src []fermat, size uint, depth uint)
+	rec = func(dst, src []fermat, size uint, depth uint) {
 		idxShift := k - size
 		ω2shift := (4 * n * _W) >> size
 		if backward {
@@ -509,9 +519,97 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 		// Split destination vectors in halves.
 		dst1 := dst[:1<<(size-1)]
 		dst2 := dst[1<<(size-1):]
-		// Transform Q1 and Q2 in the halves.
-		rec(dst1, src, size-1)
-		rec(dst2, src[1<<idxShift:], size-1)
+		
+		// Parallelize recursion if size is large enough and depth limit not reached
+		// We only parallelize when depth is 0 to avoid sharing tmp/tmp2 buffers
+		// which would cause race conditions. This is a conservative but safe approach.
+		shouldParallelize := size >= ParallelFFTRecursionThreshold && depth == 0
+		if shouldParallelize {
+			// Allocate separate temporary buffers for each goroutine to avoid race conditions
+			tmp1 := acquireFermat(n + 1)
+			tmp2_1 := acquireFermat(n + 1)
+			tmp1_2 := acquireFermat(n + 1)
+			tmp2_2 := acquireFermat(n + 1)
+			defer releaseFermat(tmp1)
+			defer releaseFermat(tmp2_1)
+			defer releaseFermat(tmp1_2)
+			defer releaseFermat(tmp2_2)
+			
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				// Create a local recursive function with its own temporaries
+				var recLocal func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat)
+				recLocal = func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat) {
+					idxShiftLocal := k - sizeLocal
+					ω2shiftLocal := (4 * n * _W) >> sizeLocal
+					if backward {
+						ω2shiftLocal = -ω2shiftLocal
+					}
+					if len(src[0]) != n+1 || len(dst[0]) != n+1 {
+						panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
+					}
+					switch sizeLocal {
+					case 0:
+						copy(dst[0], src[0])
+						return
+					case 1:
+						dst[0].Add(src[0], src[1<<idxShiftLocal])
+						dst[1].Sub(src[0], src[1<<idxShiftLocal])
+						return
+					}
+					dst1Local := dst[:1<<(sizeLocal-1)]
+					dst2Local := dst[1<<(sizeLocal-1):]
+					recLocal(dst1Local, src, sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
+					recLocal(dst2Local, src[1<<idxShiftLocal:], sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
+					for i := range dst1Local {
+						tmpLocal.ShiftHalf(dst2Local[i], i*ω2shiftLocal, tmp2Local)
+						dst2Local[i].Sub(dst1Local[i], tmpLocal)
+						dst1Local[i].Add(dst1Local[i], tmpLocal)
+					}
+				}
+				recLocal(dst1, src, size-1, depth+1, tmp1, tmp2_1)
+			}()
+			go func() {
+				defer wg.Done()
+				var recLocal func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat)
+				recLocal = func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat) {
+					idxShiftLocal := k - sizeLocal
+					ω2shiftLocal := (4 * n * _W) >> sizeLocal
+					if backward {
+						ω2shiftLocal = -ω2shiftLocal
+					}
+					if len(src[0]) != n+1 || len(dst[0]) != n+1 {
+						panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
+					}
+					switch sizeLocal {
+					case 0:
+						copy(dst[0], src[0])
+						return
+					case 1:
+						dst[0].Add(src[0], src[1<<idxShiftLocal])
+						dst[1].Sub(src[0], src[1<<idxShiftLocal])
+						return
+					}
+					dst1Local := dst[:1<<(sizeLocal-1)]
+					dst2Local := dst[1<<(sizeLocal-1):]
+					recLocal(dst1Local, src, sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
+					recLocal(dst2Local, src[1<<idxShiftLocal:], sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
+					for i := range dst1Local {
+						tmpLocal.ShiftHalf(dst2Local[i], i*ω2shiftLocal, tmp2Local)
+						dst2Local[i].Sub(dst1Local[i], tmpLocal)
+						dst1Local[i].Add(dst1Local[i], tmpLocal)
+					}
+				}
+				recLocal(dst2, src[1<<idxShift:], size-1, depth+1, tmp1_2, tmp2_2)
+			}()
+			wg.Wait()
+		} else {
+			// Transform Q1 and Q2 in the halves sequentially.
+			rec(dst1, src, size-1, depth+1)
+			rec(dst2, src[1<<idxShift:], size-1, depth+1)
+		}
 
 		// Reconstruct P's transform from transforms of Q1 and Q2.
 		// dst[i]            is dst1[i] + ω^i * dst2[i]
@@ -523,7 +621,7 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 			dst1[i].Add(dst1[i], tmp)
 		}
 	}
-	rec(dst, src, k)
+	rec(dst, src, k, 0)
 }
 
 // Mul returns the pointwise product of p and q.
