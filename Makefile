@@ -33,6 +33,13 @@ build:
 	$(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
+## build-pgo: Build with Profile-Guided Optimization (PGO)
+build-pgo:
+	@echo "Building $(BINARY_NAME) with PGO..."
+	@mkdir -p $(BUILD_DIR)
+	$(GO) build $(GOFLAGS) -pgo=./cmd/fibcalc/default.pgo -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
+	@echo "PGO Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+
 ## version: Display version information
 version: build
 	@$(BUILD_DIR)/$(BINARY_NAME) --version
