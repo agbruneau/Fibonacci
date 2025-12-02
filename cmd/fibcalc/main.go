@@ -7,8 +7,8 @@ import (
 	"context"
 	"os"
 
-	"example.com/fibcalc/internal/app"
-	apperrors "example.com/fibcalc/internal/errors"
+	"github.com/agbru/fibcalc/internal/app"
+	apperrors "github.com/agbru/fibcalc/internal/errors"
 )
 
 func main() {

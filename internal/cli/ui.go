@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"example.com/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/briandowns/spinner"
 )
 

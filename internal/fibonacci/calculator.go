@@ -12,7 +12,7 @@ import (
 	"math"
 	"math/big"
 
-	"example.com/fibcalc/internal/bigfft"
+	"github.com/agbru/fibcalc/internal/bigfft"
 )
 
 // MaxFibUint64 = 93 because F(93) is the largest Fibonacci number that fits in a uint64,

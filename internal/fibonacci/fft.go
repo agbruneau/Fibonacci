@@ -3,7 +3,7 @@ package fibonacci
 import (
 	"math/big"
 
-	"example.com/fibcalc/internal/bigfft"
+	"github.com/agbru/fibcalc/internal/bigfft"
 )
 
 // mulFFT performs the multiplication of two *big.Int instances, x and y.

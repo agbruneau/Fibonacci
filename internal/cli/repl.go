@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"example.com/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
 // REPLConfig holds configuration for the REPL session.

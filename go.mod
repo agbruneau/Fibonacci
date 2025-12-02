@@ -1,6 +1,6 @@
-module example.com/fibcalc
+module github.com/agbru/fibcalc
 
-go 1.25.0
+go 1.24.0
 
 require golang.org/x/sync v0.17.0
 

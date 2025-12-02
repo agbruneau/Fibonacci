@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"example.com/fibcalc/internal/config"
+	"github.com/agbru/fibcalc/internal/config"
 )
 
 // knownFibResults is a test oracle containing reference values

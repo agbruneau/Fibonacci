@@ -13,7 +13,8 @@ This document describes the security measures implemented in the Fibonacci Calcu
 
 If you discover a security vulnerability, please contact us responsibly:
 
-- **Email**: security@example.com
+- **Email**: agbru@users.noreply.github.com
+- **GitHub Issues**: For non-sensitive issues, use GitHub Issues with the "security" label
 - **PGP Key**: Available upon request
 
 ### Disclosure Process

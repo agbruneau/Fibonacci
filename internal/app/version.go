@@ -13,7 +13,7 @@ import (
 //
 // Example build command:
 //
-//	go build -ldflags="-X example.com/fibcalc/internal/app.Version=v1.2.3 -X example.com/fibcalc/internal/app.Commit=abc123 -X example.com/fibcalc/internal/app.BuildDate=2025-01-01T00:00:00Z"
+//	go build -ldflags="-X github.com/agbru/fibcalc/internal/app.Version=v1.2.3 -X github.com/agbru/fibcalc/internal/app.Commit=abc123 -X github.com/agbru/fibcalc/internal/app.BuildDate=2025-01-01T00:00:00Z"
 var (
 	// Version is the semantic version of the application (e.g., "v1.0.0").
 	Version = "dev"

@@ -11,13 +11,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"example.com/fibcalc/internal/calibration"
-	"example.com/fibcalc/internal/cli"
-	"example.com/fibcalc/internal/config"
-	apperrors "example.com/fibcalc/internal/errors"
-	"example.com/fibcalc/internal/fibonacci"
-	"example.com/fibcalc/internal/orchestration"
-	"example.com/fibcalc/internal/server"
+	"github.com/agbru/fibcalc/internal/calibration"
+	"github.com/agbru/fibcalc/internal/cli"
+	"github.com/agbru/fibcalc/internal/config"
+	apperrors "github.com/agbru/fibcalc/internal/errors"
+	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/server"
 )
 
 // Application represents the fibcalc application instance.

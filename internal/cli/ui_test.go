@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"example.com/fibcalc/internal/fibonacci"
-	"example.com/fibcalc/internal/testutil"
+	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/testutil"
 	"github.com/briandowns/spinner"
 )
 

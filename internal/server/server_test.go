@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"example.com/fibcalc/internal/config"
-	"example.com/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
 // MockCalculator is a mock implementation of fibonacci.Calculator for testing.

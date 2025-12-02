@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	apperrors "example.com/fibcalc/internal/errors"
+	apperrors "github.com/agbru/fibcalc/internal/errors"
 )
 
 const (

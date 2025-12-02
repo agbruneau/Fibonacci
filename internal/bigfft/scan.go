@@ -49,18 +49,24 @@ func (s *scanner) power(k uint) *big.Int {
 }
 
 func (s *scanner) scan(z *big.Int, str string) {
+	s.scanWithTemp(z, str, new(big.Int))
+}
+
+// scanWithTemp performs the recursive scan while reusing a temporary big.Int
+// to reduce allocations during the divide-and-conquer parsing.
+func (s *scanner) scanWithTemp(z *big.Int, str string, temp *big.Int) {
 	if len(str) <= quadraticScanThreshold {
 		z.SetString(str, 10)
 		return
 	}
 	sz, pow := s.chunkSize(len(str))
 	// Scan the left half.
-	s.scan(z, str[:len(str)-sz])
-	// FIXME: reuse temporaries.
+	s.scanWithTemp(z, str[:len(str)-sz], temp)
+	// Multiply left half by power of 10, reusing temp to avoid allocation.
 	left := Mul(z, pow)
-	// Scan the right half
-	s.scan(z, str[len(str)-sz:])
-	z.Add(z, left)
+	// Scan the right half into temp, then add to avoid overwriting z prematurely.
+	s.scanWithTemp(temp, str[len(str)-sz:], new(big.Int))
+	z.Add(left, temp)
 }
 
 // quadraticScanThreshold is the number of digits

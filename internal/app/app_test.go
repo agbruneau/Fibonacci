@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"example.com/fibcalc/internal/config"
-	apperrors "example.com/fibcalc/internal/errors"
-	"example.com/fibcalc/internal/fibonacci"
-	"example.com/fibcalc/internal/testutil"
+	"github.com/agbru/fibcalc/internal/config"
+	apperrors "github.com/agbru/fibcalc/internal/errors"
+	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/testutil"
 )
 
 // TestNew tests the New function for creating Application instances.
