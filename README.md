@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg?style=for-the-badge&logo=go)
+![Go version](https://img.shields.io/badge/Go-1.23+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
 ![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen?style=for-the-badge)
@@ -105,7 +105,7 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.23 or later
 - Make (optional, to use the Makefile)
 
 ### Installation
@@ -704,16 +704,16 @@ See [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) for complete 
 
 ## 11. Documentation
 
-| Document                                     | Description               |
-| -------------------------------------------- | ------------------------- |
-| [README.md](README.md)                       | Main documentation        |
-| [API.md](API.md)                             | REST API documentation    |
-| [CONTRIBUTING.md](CONTRIBUTING.md)           | Contribution guide        |
-| [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) | Project architecture      |
-| [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)   | Performance guide         |
-| [Docs/SECURITY.md](Docs/SECURITY.md)         | Security policy           |
-| [Docs/algorithms/](Docs/algorithms/)         | Algorithm documentation   |
-| [Docs/deployment/](Docs/deployment/)         | Deployment guides         |
+| Document                                     | Description                |
+| -------------------------------------------- | -------------------------- |
+| [README.md](README.md)                       | Main documentation         |
+| [API.md](API.md)                             | REST API documentation     |
+| [CONTRIBUTING.md](CONTRIBUTING.md)           | Contribution guide         |
+| [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) | Project architecture       |
+| [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)   | Performance guide          |
+| [Docs/SECURITY.md](Docs/SECURITY.md)         | Security policy            |
+| [Docs/algorithms/](Docs/algorithms/)         | Algorithm documentation    |
+| [Docs/deployment/](Docs/deployment/)         | Deployment guides          |
 
 ## 12. Licence
 

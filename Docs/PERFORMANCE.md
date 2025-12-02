@@ -14,7 +14,7 @@ This document describes the optimisation techniques used in the Fibonacci Calcul
 - **CPU**: AMD Ryzen 9 5900X (12 cores, 24 threads)
 - **RAM**: 32 GB DDR4-3600
 - **OS**: Linux 6.1
-- **Go**: 1.25
+- **Go**: 1.23
 
 ### Results
 
