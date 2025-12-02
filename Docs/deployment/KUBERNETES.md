@@ -1,18 +1,18 @@
-# Guide de Déploiement Kubernetes
+# Kubernetes Deployment Guide
 
-> **Version** : 1.0.0  
-> **Dernière mise à jour** : Novembre 2025
+> **Version**: 1.0.0  
+> **Last Updated**: November 2025
 
-## Prérequis
+## Prerequisites
 
-- Cluster Kubernetes 1.25+
-- kubectl configuré
-- Helm 3+ (optionnel)
-- Image Docker disponible dans un registre accessible
+- Kubernetes 1.25+ cluster
+- kubectl configured
+- Helm 3+ (optional)
+- Docker image available in an accessible registry
 
-## Déploiement Rapide
+## Quick Deployment
 
-### Manifest Minimal
+### Minimal Manifest
 
 ```yaml
 # fibcalc-deployment.yaml
@@ -63,7 +63,7 @@ spec:
 kubectl apply -f fibcalc-deployment.yaml
 ```
 
-## Déploiement Complet
+## Complete Deployment
 
 ### Namespace
 
@@ -203,7 +203,7 @@ spec:
       protocol: TCP
 ```
 
-### Ingress (avec nginx-ingress)
+### Ingress (with nginx-ingress)
 
 ```yaml
 # ingress.yaml
@@ -334,15 +334,15 @@ spec:
           port: 53  # DNS
 ```
 
-## Déploiement
+## Deployment
 
-### Application des Manifests
+### Applying Manifests
 
 ```bash
-# Créer le namespace
+# Create the namespace
 kubectl apply -f namespace.yaml
 
-# Appliquer les configurations
+# Apply configurations
 kubectl apply -f configmap.yaml
 kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
@@ -350,27 +350,27 @@ kubectl apply -f hpa.yaml
 kubectl apply -f pdb.yaml
 kubectl apply -f networkpolicy.yaml
 
-# Optionnel: Ingress
+# Optional: Ingress
 kubectl apply -f ingress.yaml
 ```
 
-### Vérification
+### Verification
 
 ```bash
-# État des pods
+# Pod status
 kubectl get pods -n fibcalc
 
 # Logs
 kubectl logs -f deployment/fibcalc -n fibcalc
 
-# Port-forward pour test local
+# Port-forward for local testing
 kubectl port-forward svc/fibcalc 8080:80 -n fibcalc
 
 # Test
 curl http://localhost:8080/health
 ```
 
-## Helm Chart (Optionnel)
+## Helm Chart (Optional)
 
 ### Structure
 
@@ -448,10 +448,10 @@ config:
 # Installation
 helm install fibcalc ./charts/fibcalc -n fibcalc --create-namespace
 
-# Mise à jour
+# Upgrade
 helm upgrade fibcalc ./charts/fibcalc -n fibcalc
 
-# Avec valeurs personnalisées
+# With custom values
 helm install fibcalc ./charts/fibcalc \
   -n fibcalc \
   --set replicaCount=5 \
@@ -482,7 +482,7 @@ spec:
       interval: 15s
 ```
 
-### Alertes
+### Alerts
 
 ```yaml
 # prometheusrule.yaml
@@ -520,49 +520,48 @@ spec:
             summary: "High error rate on Fibcalc"
 ```
 
-## Dépannage
+## Troubleshooting
 
-### Pod ne démarre pas
+### Pod Won't Start
 
 ```bash
-# Décrire le pod
+# Describe the pod
 kubectl describe pod -l app=fibcalc -n fibcalc
 
-# Événements
+# Events
 kubectl get events -n fibcalc --sort-by='.lastTimestamp'
 
-# Logs du pod précédent (si crash)
+# Previous pod logs (if crashed)
 kubectl logs -l app=fibcalc -n fibcalc --previous
 ```
 
-### Problèmes de ressources
+### Resource Issues
 
 ```bash
-# Métriques de ressources
+# Resource metrics
 kubectl top pods -n fibcalc
 
-# Ajuster les limites
+# Adjust limits
 kubectl set resources deployment/fibcalc -n fibcalc \
   --limits=cpu=4000m,memory=4Gi \
   --requests=cpu=1000m,memory=1Gi
 ```
 
-### Problèmes réseau
+### Network Issues
 
 ```bash
-# Tester la connectivité
+# Test connectivity
 kubectl run test --rm -it --image=busybox -n fibcalc -- wget -qO- http://fibcalc/health
 
-# Vérifier les endpoints
+# Check endpoints
 kubectl get endpoints fibcalc -n fibcalc
 ```
 
-## Meilleures Pratiques
+## Best Practices
 
-1. **Haute Disponibilité** : Utilisez au moins 2 réplicas avec PodDisruptionBudget
-2. **Autoscaling** : Configurez HPA basé sur CPU/mémoire
-3. **Sécurité** : Utilisez NetworkPolicy et SecurityContext
-4. **Observabilité** : Activez les métriques Prometheus
-5. **Ressources** : Définissez toujours requests et limits
-6. **Mise à jour** : Utilisez RollingUpdate avec maxUnavailable: 0
-
+1. **High Availability**: Use at least 2 replicas with PodDisruptionBudget
+2. **Autoscaling**: Configure HPA based on CPU/memory
+3. **Security**: Use NetworkPolicy and SecurityContext
+4. **Observability**: Enable Prometheus metrics
+5. **Resources**: Always define requests and limits
+6. **Updates**: Use RollingUpdate with maxUnavailable: 0

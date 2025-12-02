@@ -1,50 +1,50 @@
-# Comparaison des Algorithmes
+# Algorithm Comparison
 
-> **Dernière mise à jour** : Novembre 2025
+> **Last Updated**: November 2025
 
-## Vue d'ensemble
+## Overview
 
-Ce document compare les trois algorithmes de calcul de Fibonacci implémentés dans FibCalc.
+This document compares the three Fibonacci calculation algorithms implemented in FibCalc.
 
-## Algorithmes Disponibles
+## Available Algorithms
 
-| Algorithme | Flag | Description |
-|------------|------|-------------|
-| Fast Doubling | `-algo fast` | Algorithme principal, le plus performant |
-| Matrix Exponentiation | `-algo matrix` | Approche matricielle avec Strassen |
-| FFT-Based | `-algo fft` | Force la multiplication FFT |
+| Algorithm | Flag | Description |
+|-----------|------|-------------|
+| Fast Doubling | `-algo fast` | Main algorithm, most performant |
+| Matrix Exponentiation | `-algo matrix` | Matrix approach with Strassen |
+| FFT-Based | `-algo fft` | Forces FFT multiplication |
 
-## Comparaison Théorique
+## Theoretical Comparison
 
-### Complexité
+### Complexity
 
-Tous les algorithmes ont la même complexité asymptotique :
+All algorithms have the same asymptotic complexity:
 
 ```
 O(log n × M(n))
 ```
 
-Où M(n) est le coût de multiplication de nombres de n bits.
+Where M(n) is the cost of multiplying numbers of n bits.
 
-Cependant, les constantes multiplicatives diffèrent :
+However, the multiplicative constants differ:
 
-| Algorithme | Multiplications par itération | Notes |
-|------------|-------------------------------|-------|
-| Fast Doubling | 3 | Minimum théorique |
-| Matrix Exp. (classique) | 8 | Sans optimisation |
-| Matrix Exp. (symétrique) | 4 | Élévation au carré optimisée |
-| Matrix Exp. (Strassen) | 7 | Multiplication générale |
+| Algorithm | Multiplications per iteration | Notes |
+|-----------|-------------------------------|-------|
+| Fast Doubling | 3 | Theoretical minimum |
+| Matrix Exp. (classic) | 8 | Without optimisation |
+| Matrix Exp. (symmetric) | 4 | Optimised squaring |
+| Matrix Exp. (Strassen) | 7 | General multiplication |
 
-### Mémoire
+### Memory
 
-| Algorithme | Variables temporaires | Pool objects |
-|------------|----------------------|--------------|
+| Algorithm | Temporary variables | Pool objects |
+|-----------|---------------------|--------------|
 | Fast Doubling | 6 big.Int | calculationState |
 | Matrix Exp. | 3 matrices + ~22 big.Int | matrixState |
 
 ## Benchmarks
 
-### Configuration de Test
+### Test Configuration
 
 ```
 CPU: AMD Ryzen 9 5900X (12 cores)
@@ -53,9 +53,9 @@ Go: 1.25
 OS: Linux 6.1
 ```
 
-### Résultats (temps moyens sur 10 exécutions)
+### Results (average times over 10 runs)
 
-#### Petits N (N ≤ 10,000)
+#### Small N (N ≤ 10,000)
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based |
 |---|---------------|-------------|-----------|
@@ -63,9 +63,9 @@ OS: Linux 6.1
 | 1,000 | 15µs | 18µs | 45µs |
 | 10,000 | 180µs | 220µs | 350µs |
 
-**Gagnant** : Fast Doubling (3-4× plus rapide que FFT-Based)
+**Winner**: Fast Doubling (3-4× faster than FFT-Based)
 
-#### N Moyens (10,000 < N ≤ 1,000,000)
+#### Medium N (10,000 < N ≤ 1,000,000)
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based |
 |---|---------------|-------------|-----------|
@@ -73,9 +73,9 @@ OS: Linux 6.1
 | 500,000 | 35ms | 48ms | 42ms |
 | 1,000,000 | 85ms | 110ms | 95ms |
 
-**Gagnant** : Fast Doubling, mais écart réduit avec FFT-Based
+**Winner**: Fast Doubling, but gap narrowed with FFT-Based
 
-#### Grands N (N > 1,000,000)
+#### Large N (N > 1,000,000)
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based |
 |---|---------------|-------------|-----------|
@@ -84,21 +84,21 @@ OS: Linux 6.1
 | 50,000,000 | 18s | 25s | 19s |
 | 100,000,000 | 45s | 62s | 48s |
 
-**Gagnant** : Fast Doubling de justesse (FFT-Based très proche)
+**Winner**: Fast Doubling narrowly (FFT-Based very close)
 
-#### Très Grands N (N > 100,000,000)
+#### Very Large N (N > 100,000,000)
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based |
 |---|---------------|-------------|-----------|
 | 250,000,000 | 3m12s | 4m25s | 3m28s |
 | 500,000,000 | 8m45s | 12m10s | 9m15s |
 
-**Gagnant** : Fast Doubling (toujours ~10% plus rapide)
+**Winner**: Fast Doubling (still ~10% faster)
 
-## Graphique de Performance
+## Performance Graph
 
 ```
-Temps (log)
+Time (log)
     │
   1h├                                    /
     │                                   / ← Matrix
@@ -120,14 +120,14 @@ Temps (log)
         10K   100K    1M   10M  100M    N
 ```
 
-## Quand Utiliser Chaque Algorithme
+## When to Use Each Algorithm
 
 ### Fast Doubling (`-algo fast`)
 
-✅ **Recommandé pour** :
-- Usage général (défaut)
-- Performance maximale
-- Tous les ordres de grandeur de N
+✅ **Recommended for**:
+- General usage (default)
+- Maximum performance
+- All orders of magnitude of N
 
 ```bash
 ./fibcalc -n 10000000 -algo fast
@@ -135,10 +135,10 @@ Temps (log)
 
 ### Matrix Exponentiation (`-algo matrix`)
 
-✅ **Recommandé pour** :
-- Compréhension pédagogique
-- Vérification croisée des résultats
-- Quand vous voulez tester l'algorithme de Strassen
+✅ **Recommended for**:
+- Educational understanding
+- Cross-verification of results
+- When you want to test the Strassen algorithm
 
 ```bash
 ./fibcalc -n 10000000 -algo matrix --strassen-threshold 2048
@@ -146,23 +146,23 @@ Temps (log)
 
 ### FFT-Based (`-algo fft`)
 
-✅ **Recommandé pour** :
-- Benchmarking de la multiplication FFT
-- Tests de très grands nombres (N > 100M)
-- Comparaison des performances FFT vs Karatsuba
+✅ **Recommended for**:
+- FFT multiplication benchmarking
+- Very large number tests (N > 100M)
+- FFT vs Karatsuba performance comparison
 
 ```bash
 ./fibcalc -n 100000000 -algo fft
 ```
 
-## Comparaison Complète
+## Complete Comparison
 
 ```bash
-# Comparer tous les algorithmes sur un même N
+# Compare all algorithms on the same N
 ./fibcalc -n 10000000 -algo all -d
 ```
 
-Sortie typique :
+Typical output:
 
 ```
 === Execution Configuration ===
@@ -181,43 +181,42 @@ Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)   2.8s       ✅ Success
 Result binary size: 6,942,420 bits.
 ```
 
-## Recommandations de Configuration
+## Configuration Recommendations
 
-### Pour Petits Calculs (N < 100,000)
+### For Small Calculations (N < 100,000)
 
 ```bash
 ./fibcalc -n 50000 -algo fast --threshold 0 --fft-threshold 0
 ```
 
-- Désactiver le parallélisme (overhead > gains)
-- Désactiver FFT (trop petit)
+- Disable parallelism (overhead > gains)
+- Disable FFT (too small)
 
-### Pour Calculs Moyens (100,000 < N < 10,000,000)
+### For Medium Calculations (100,000 < N < 10,000,000)
 
 ```bash
 ./fibcalc -n 5000000 -algo fast --threshold 4096
 ```
 
-- Parallélisme activé
-- FFT pour les opérations les plus grandes
+- Parallelism enabled
+- FFT for the largest operations
 
-### Pour Grands Calculs (N > 10,000,000)
+### For Large Calculations (N > 10,000,000)
 
 ```bash
 ./fibcalc -n 100000000 -algo fast --auto-calibrate --timeout 30m
 ```
 
-- Auto-calibration pour seuils optimaux
-- Timeout étendu
+- Auto-calibration for optimal thresholds
+- Extended timeout
 
 ## Conclusion
 
-| Critère | Fast Doubling | Matrix Exp. | FFT-Based |
-|---------|---------------|-------------|-----------|
+| Criterion | Fast Doubling | Matrix Exp. | FFT-Based |
+|-----------|---------------|-------------|-----------|
 | **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Mémoire** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Simplicité** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Pédagogie** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ |
+| **Memory** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Simplicity** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Educational** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ |
 
-**Recommandation générale** : Utilisez **Fast Doubling** (`-algo fast`) pour tous les cas d'usage, sauf besoins spécifiques de tests ou comparaisons.
-
+**General recommendation**: Use **Fast Doubling** (`-algo fast`) for all use cases, except for specific testing or comparison needs.

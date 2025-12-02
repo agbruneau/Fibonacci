@@ -1,23 +1,23 @@
-# Documentation de l'API REST
+# REST API Documentation
 
-> **Version** : 1.0.0  
-> **Dernière mise à jour** : Novembre 2025
+> **Version**: 1.0.0  
+> **Last Updated**: November 2025
 
-Ce document décrit les endpoints disponibles dans l'API REST du Calculateur Fibonacci.
+This document describes the endpoints available in the Fibonacci Calculator REST API.
 
-## Vue d'ensemble
+## Overview
 
-L'API REST permet d'effectuer des calculs de nombres de Fibonacci via HTTP. Elle inclut des protections de sécurité (rate limiting, validation des entrées) et expose des métriques de performance.
+The REST API allows you to perform Fibonacci number calculations via HTTP. It includes security protections (rate limiting, input validation) and exposes performance metrics.
 
-### URL de base
+### Base URL
 
 ```
 http://localhost:8080
 ```
 
-### Headers de Sécurité
+### Security Headers
 
-Tous les endpoints retournent les headers de sécurité suivants :
+All endpoints return the following security headers:
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
 - `X-XSS-Protection: 1; mode=block`
@@ -26,37 +26,37 @@ Tous les endpoints retournent les headers de sécurité suivants :
 
 ### Rate Limiting
 
-L'API implémente un rate limiter par IP :
-- **Requêtes par seconde** : 10
-- **Burst autorisé** : 20
+The API implements per-IP rate limiting:
+- **Requests per second**: 10
+- **Allowed burst**: 20
 
-Les requêtes excédant la limite reçoivent une réponse `429 Too Many Requests`.
+Requests exceeding the limit receive a `429 Too Many Requests` response.
 
 ---
 
 ## Endpoints
 
-### 1. Calculer un nombre de Fibonacci
+### 1. Calculate a Fibonacci Number
 
-Effectue le calcul du Nième nombre de Fibonacci en utilisant l'algorithme spécifié.
+Calculates the Nth Fibonacci number using the specified algorithm.
 
-**URL** : `/calculate`  
-**Méthode** : `GET`
+**URL**: `/calculate`  
+**Method**: `GET`
 
-#### Paramètres de Requête (Query Parameters)
+#### Query Parameters
 
-| Paramètre | Type   | Requis | Description |
-|-----------|--------|--------|-------------|
-| `n`       | uint64 | Oui    | L'index du nombre de Fibonacci à calculer (doit être positif, max: 1,000,000,000). |
-| `algo`    | string | Non    | L'algorithme à utiliser. Défaut: `fast`. Valeurs possibles : `fast`, `matrix`, `fft`. |
+| Parameter | Type   | Required | Description |
+|-----------|--------|----------|-------------|
+| `n`       | uint64 | Yes      | The index of the Fibonacci number to calculate (must be positive, max: 1,000,000,000). |
+| `algo`    | string | No       | The algorithm to use. Default: `fast`. Possible values: `fast`, `matrix`, `fft`. |
 
-#### Exemple de Requête
+#### Request Example
 
 ```bash
 curl "http://localhost:8080/calculate?n=100&algo=fast"
 ```
 
-#### Réponse de Succès (200 OK)
+#### Success Response (200 OK)
 
 ```json
 {
@@ -67,19 +67,19 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
 }
 ```
 
-#### Schéma de Réponse
+#### Response Schema
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `n` | uint64 | L'index du nombre de Fibonacci demandé |
-| `result` | string/number | Le nombre de Fibonacci calculé (peut être très grand) |
-| `duration` | string | Durée du calcul formatée |
-| `algorithm` | string | L'algorithme utilisé pour le calcul |
-| `error` | string | Message d'erreur (si applicable) |
+| `n` | uint64 | The requested Fibonacci number index |
+| `result` | string/number | The calculated Fibonacci number (can be very large) |
+| `duration` | string | Formatted calculation duration |
+| `algorithm` | string | The algorithm used for the calculation |
+| `error` | string | Error message (if applicable) |
 
-#### Réponse d'Erreur (400 Bad Request)
+#### Error Response (400 Bad Request)
 
-**Paramètre `n` manquant :**
+**Missing `n` parameter:**
 ```json
 {
   "error": "Bad Request",
@@ -87,7 +87,7 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
 }
 ```
 
-**Paramètre `n` invalide :**
+**Invalid `n` parameter:**
 ```json
 {
   "error": "Bad Request",
@@ -95,7 +95,7 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
 }
 ```
 
-**Valeur de `n` trop grande :**
+**`n` value too large:**
 ```json
 {
   "error": "Bad Request",
@@ -103,7 +103,7 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
 }
 ```
 
-**Algorithme invalide :**
+**Invalid algorithm:**
 ```json
 {
   "error": "Bad Request",
@@ -111,7 +111,7 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
 }
 ```
 
-#### Réponse Rate Limit (429 Too Many Requests)
+#### Rate Limit Response (429 Too Many Requests)
 
 ```json
 {
@@ -122,20 +122,20 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
 
 ---
 
-### 2. Vérification de Santé (Health Check)
+### 2. Health Check
 
-Vérifie si le serveur est en ligne et fonctionnel.
+Checks if the server is online and operational.
 
-**URL** : `/health`  
-**Méthode** : `GET`
+**URL**: `/health`  
+**Method**: `GET`
 
-#### Exemple de Requête
+#### Request Example
 
 ```bash
 curl "http://localhost:8080/health"
 ```
 
-#### Réponse de Succès (200 OK)
+#### Success Response (200 OK)
 
 ```json
 {
@@ -144,29 +144,29 @@ curl "http://localhost:8080/health"
 }
 ```
 
-#### Schéma de Réponse
+#### Response Schema
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | État de santé du service ("healthy") |
-| `timestamp` | int64 | Timestamp Unix de la réponse |
+| `status` | string | Service health status ("healthy") |
+| `timestamp` | int64 | Unix timestamp of the response |
 
 ---
 
-### 3. Lister les Algorithmes
+### 3. List Algorithms
 
-Renvoie la liste des algorithmes de calcul disponibles sur le serveur.
+Returns the list of calculation algorithms available on the server.
 
-**URL** : `/algorithms`  
-**Méthode** : `GET`
+**URL**: `/algorithms`  
+**Method**: `GET`
 
-#### Exemple de Requête
+#### Request Example
 
 ```bash
 curl "http://localhost:8080/algorithms"
 ```
 
-#### Réponse de Succès (200 OK)
+#### Success Response (200 OK)
 
 ```json
 {
@@ -178,28 +178,28 @@ curl "http://localhost:8080/algorithms"
 }
 ```
 
-#### Schéma de Réponse
+#### Response Schema
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `algorithms` | []string | Liste des noms d'algorithmes disponibles |
+| `algorithms` | []string | List of available algorithm names |
 
 ---
 
-### 4. Métriques du Serveur
+### 4. Server Metrics
 
-Expose les métriques de performance du serveur pour le monitoring.
+Exposes server performance metrics for monitoring.
 
-**URL** : `/metrics`  
-**Méthode** : `GET`
+**URL**: `/metrics`  
+**Method**: `GET`
 
-#### Exemple de Requête
+#### Request Example
 
 ```bash
 curl "http://localhost:8080/metrics"
 ```
 
-#### Réponse de Succès (200 OK)
+#### Success Response (200 OK)
 
 ```json
 {
@@ -234,120 +234,120 @@ curl "http://localhost:8080/metrics"
 }
 ```
 
-#### Schéma de Réponse
+#### Response Schema
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `uptime` | string | Temps depuis le démarrage du serveur |
-| `total_requests` | int64 | Nombre total de requêtes HTTP reçues |
-| `total_calculations` | int64 | Nombre total de calculs effectués |
-| `calculations_by_algorithm` | object | Statistiques détaillées par algorithme |
-| `rate_limit_hits` | int64 | Nombre de requêtes bloquées par rate limiting |
-| `active_connections` | int | Nombre de connexions actives |
+| `uptime` | string | Time since server startup |
+| `total_requests` | int64 | Total number of HTTP requests received |
+| `total_calculations` | int64 | Total number of calculations performed |
+| `calculations_by_algorithm` | object | Detailed statistics per algorithm |
+| `rate_limit_hits` | int64 | Number of requests blocked by rate limiting |
+| `active_connections` | int | Number of active connections |
 
-#### Statistiques par Algorithme
+#### Per-Algorithm Statistics
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `count` | int64 | Nombre total de calculs |
-| `success` | int64 | Nombre de calculs réussis |
-| `errors` | int64 | Nombre de calculs en erreur |
-| `total_duration` | string | Durée totale cumulée |
-| `avg_duration` | string | Durée moyenne par calcul |
+| `count` | int64 | Total number of calculations |
+| `success` | int64 | Number of successful calculations |
+| `errors` | int64 | Number of failed calculations |
+| `total_duration` | string | Cumulative total duration |
+| `avg_duration` | string | Average duration per calculation |
 
 ---
 
-## Codes de Statut HTTP
+## HTTP Status Codes
 
-| Code | Signification |
-|------|---------------|
-| `200 OK` | Requête réussie |
-| `400 Bad Request` | Paramètres invalides |
-| `405 Method Not Allowed` | Méthode HTTP non supportée |
-| `429 Too Many Requests` | Rate limit dépassé |
-| `500 Internal Server Error` | Erreur interne du serveur |
+| Code | Meaning |
+|------|---------|
+| `200 OK` | Successful request |
+| `400 Bad Request` | Invalid parameters |
+| `405 Method Not Allowed` | HTTP method not supported |
+| `429 Too Many Requests` | Rate limit exceeded |
+| `500 Internal Server Error` | Internal server error |
 
 ---
 
-## Exemples avec cURL
+## cURL Examples
 
-### Calcul simple
+### Simple Calculation
 
 ```bash
 curl "http://localhost:8080/calculate?n=50"
 ```
 
-### Calcul avec algorithme spécifique
+### Calculation with Specific Algorithm
 
 ```bash
 curl "http://localhost:8080/calculate?n=10000&algo=matrix"
 ```
 
-### Calcul d'un très grand nombre
+### Calculation of a Very Large Number
 
 ```bash
 curl "http://localhost:8080/calculate?n=1000000&algo=fast"
 ```
 
-### Pipeline avec jq
+### Pipeline with jq
 
 ```bash
-# Extraire uniquement le résultat
+# Extract only the result
 curl -s "http://localhost:8080/calculate?n=100&algo=fast" | jq '.result'
 
-# Extraire la durée
+# Extract the duration
 curl -s "http://localhost:8080/calculate?n=100000&algo=fast" | jq '.duration'
 ```
 
 ---
 
-## Configuration du Serveur
+## Server Configuration
 
-### Démarrage
+### Startup
 
 ```bash
-# Port par défaut (8080)
+# Default port (8080)
 ./fibcalc --server
 
-# Port personnalisé
+# Custom port
 ./fibcalc --server --port 3000
 
-# Avec auto-calibration
+# With auto-calibration
 ./fibcalc --server --port 8080 --auto-calibrate
 
-# Avec timeout personnalisé
+# With custom timeout
 ./fibcalc --server --port 8080 --timeout 10m
 ```
 
-### Variables d'Environnement
+### Environment Variables
 
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `FIBCALC_MAX_N` | Limite maximale pour N | 1,000,000,000 |
-| `FIBCALC_RATE_LIMIT` | Requêtes par seconde | 10 |
-| `FIBCALC_TIMEOUT` | Timeout des calculs | 5m |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FIBCALC_MAX_N` | Maximum limit for N | 1,000,000,000 |
+| `FIBCALC_RATE_LIMIT` | Requests per second | 10 |
+| `FIBCALC_TIMEOUT` | Calculation timeout | 5m |
 
 ### Timeouts
 
-| Paramètre | Valeur | Description |
-|-----------|--------|-------------|
-| Request Timeout | 5 minutes | Timeout maximum par calcul |
-| Read Timeout | 10 secondes | Timeout lecture requête |
-| Write Timeout | 10 minutes | Timeout écriture réponse |
-| Idle Timeout | 2 minutes | Timeout connexion inactive |
-| Shutdown Timeout | 30 secondes | Timeout arrêt gracieux |
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Request Timeout | 5 minutes | Maximum timeout per calculation |
+| Read Timeout | 10 seconds | Request read timeout |
+| Write Timeout | 10 minutes | Response write timeout |
+| Idle Timeout | 2 minutes | Inactive connection timeout |
+| Shutdown Timeout | 30 seconds | Graceful shutdown timeout |
 
 ---
 
-## Intégration
+## Integration
 
 ### Docker
 
 ```bash
-# Démarrer le serveur
+# Start the server
 docker run -d -p 8080:8080 fibcalc:latest --server --port 8080
 
-# Tester
+# Test
 curl "http://localhost:8080/health"
 ```
 
@@ -380,23 +380,23 @@ spec:
 
 ---
 
-## Sécurité
+## Security
 
-### Protection DoS
+### DoS Protection
 
-- **Limite sur N** : La valeur maximale de N est limitée à 1 milliard.
-- **Rate Limiting** : 10 requêtes/seconde par IP avec burst de 20.
-- **Timeouts** : Tous les calculs ont un timeout configurable.
+- **Limit on N**: The maximum value of N is limited to 1 billion.
+- **Rate Limiting**: 10 requests/second per IP with burst of 20.
+- **Timeouts**: All calculations have a configurable timeout.
 
-### Validation des Entrées
+### Input Validation
 
-Toutes les entrées utilisateur sont strictement validées :
-- Le paramètre `n` doit être un entier positif.
-- Le paramètre `algo` doit correspondre à un algorithme enregistré.
+All user inputs are strictly validated:
+- The `n` parameter must be a positive integer.
+- The `algo` parameter must match a registered algorithm.
 
 ### Logging
 
-Le serveur journalise toutes les requêtes :
+The server logs all requests:
 ```
 [SERVER] 2025/11/29 10:15:32 GET /calculate from 192.168.1.100
 [SERVER] 2025/11/29 10:15:32 GET /calculate completed in 125.5ms
@@ -404,9 +404,9 @@ Le serveur journalise toutes les requêtes :
 
 ---
 
-## Voir aussi
+## See Also
 
-- [README.md](README.md) - Documentation principale
-- [Docs/SECURITY.md](Docs/SECURITY.md) - Politique de sécurité complète
-- [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md) - Guide de performance
-- [Docs/api/openapi.yaml](Docs/api/openapi.yaml) - Spécification OpenAPI
+- [README.md](README.md) - Main documentation
+- [Docs/SECURITY.md](Docs/SECURITY.md) - Complete security policy
+- [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md) - Performance guide
+- [Docs/api/openapi.yaml](Docs/api/openapi.yaml) - OpenAPI specification

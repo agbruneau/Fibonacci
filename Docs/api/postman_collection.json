@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "fibonacci-calculator-api",
 		"name": "Fibonacci Calculator API",
-		"description": "Collection Postman pour tester l'API REST du Calculateur Fibonacci.\n\n## Configuration\n\nAvant d'utiliser cette collection, assurez-vous que le serveur est démarré :\n\n```bash\n./fibcalc --server --port 8080\n```\n\n## Variables\n\n- `baseUrl` : URL de base du serveur (défaut: http://localhost:8080)",
+		"description": "Postman collection for testing the Fibonacci Calculator REST API.\n\n## Configuration\n\nBefore using this collection, ensure the server is started:\n\n```bash\n./fibcalc --server --port 8080\n```\n\n## Variables\n\n- `baseUrl`: Server base URL (default: http://localhost:8080)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -15,7 +15,7 @@
 	"item": [
 		{
 			"name": "Calculation",
-			"description": "Endpoints de calcul de Fibonacci",
+			"description": "Fibonacci calculation endpoints",
 			"item": [
 				{
 					"name": "Calculate F(100) with Fast Doubling",
@@ -30,16 +30,16 @@
 								{
 									"key": "n",
 									"value": "100",
-									"description": "Index du nombre de Fibonacci"
+									"description": "Index of the Fibonacci number"
 								},
 								{
 									"key": "algo",
 									"value": "fast",
-									"description": "Algorithme à utiliser"
+									"description": "Algorithm to use"
 								}
 							]
 						},
-						"description": "Calcule F(100) en utilisant l'algorithme Fast Doubling."
+						"description": "Calculates F(100) using the Fast Doubling algorithm."
 					},
 					"response": [
 						{
@@ -82,7 +82,7 @@
 								}
 							]
 						},
-						"description": "Calcule F(1000) en utilisant l'exponentiation matricielle."
+						"description": "Calculates F(1000) using matrix exponentiation."
 					}
 				},
 				{
@@ -105,7 +105,7 @@
 								}
 							]
 						},
-						"description": "Calcule F(10000) en forçant l'utilisation de la multiplication FFT."
+						"description": "Calculates F(10000) forcing FFT multiplication."
 					}
 				},
 				{
@@ -124,7 +124,7 @@
 								}
 							]
 						},
-						"description": "Calcule F(500) avec l'algorithme par défaut (fast)."
+						"description": "Calculates F(500) with the default algorithm (fast)."
 					}
 				},
 				{
@@ -147,14 +147,14 @@
 								}
 							]
 						},
-						"description": "Calcule F(1,000,000) - peut prendre quelques secondes."
+						"description": "Calculates F(1,000,000) - may take a few seconds."
 					}
 				}
 			]
 		},
 		{
 			"name": "Error Cases",
-			"description": "Tests des cas d'erreur",
+			"description": "Error case tests",
 			"item": [
 				{
 					"name": "Missing n parameter",
@@ -166,7 +166,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["calculate"]
 						},
-						"description": "Teste la réponse quand le paramètre n est manquant."
+						"description": "Tests the response when the n parameter is missing."
 					},
 					"response": [
 						{
@@ -193,7 +193,7 @@
 								}
 							]
 						},
-						"description": "Teste la réponse avec un n négatif."
+						"description": "Tests the response with a negative n."
 					}
 				},
 				{
@@ -212,7 +212,7 @@
 								}
 							]
 						},
-						"description": "Teste la réponse avec un n non numérique."
+						"description": "Tests the response with a non-numeric n."
 					}
 				},
 				{
@@ -235,7 +235,7 @@
 								}
 							]
 						},
-						"description": "Teste la réponse avec un algorithme invalide."
+						"description": "Tests the response with an invalid algorithm."
 					}
 				},
 				{
@@ -254,7 +254,7 @@
 								}
 							]
 						},
-						"description": "Teste la réponse quand n dépasse la limite maximale."
+						"description": "Tests the response when n exceeds the maximum limit."
 					}
 				},
 				{
@@ -273,14 +273,14 @@
 								}
 							]
 						},
-						"description": "Teste la réponse avec une méthode HTTP incorrecte."
+						"description": "Tests the response with an incorrect HTTP method."
 					}
 				}
 			]
 		},
 		{
 			"name": "System",
-			"description": "Endpoints système",
+			"description": "System endpoints",
 			"item": [
 				{
 					"name": "Health Check",
@@ -292,7 +292,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["health"]
 						},
-						"description": "Vérifie la santé du serveur."
+						"description": "Checks server health."
 					},
 					"response": [
 						{
@@ -313,7 +313,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["algorithms"]
 						},
-						"description": "Liste les algorithmes de calcul disponibles."
+						"description": "Lists available calculation algorithms."
 					},
 					"response": [
 						{
@@ -334,14 +334,14 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["metrics"]
 						},
-						"description": "Récupère les métriques de performance du serveur."
+						"description": "Retrieves server performance metrics."
 					}
 				}
 			]
 		},
 		{
 			"name": "Performance Tests",
-			"description": "Tests de performance",
+			"description": "Performance tests",
 			"item": [
 				{
 					"name": "Benchmark - Small N",
@@ -357,7 +357,7 @@
 								{"key": "algo", "value": "fast"}
 							]
 						},
-						"description": "Benchmark avec un petit N pour mesurer l'overhead."
+						"description": "Benchmark with small N to measure overhead."
 					}
 				},
 				{
@@ -374,7 +374,7 @@
 								{"key": "algo", "value": "fast"}
 							]
 						},
-						"description": "Benchmark avec un N moyen."
+						"description": "Benchmark with medium N."
 					}
 				},
 				{
@@ -391,11 +391,10 @@
 								{"key": "algo", "value": "fast"}
 							]
 						},
-						"description": "Benchmark avec un grand N - peut prendre plusieurs secondes."
+						"description": "Benchmark with large N - may take several seconds."
 					}
 				}
 			]
 		}
 	]
 }
-

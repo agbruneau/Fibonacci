@@ -2,22 +2,22 @@ openapi: 3.0.3
 info:
   title: Fibonacci Calculator API
   description: |
-    API REST haute performance pour le calcul de nombres de Fibonacci.
+    High-performance REST API for Fibonacci number calculations.
     
-    Cette API permet de calculer le Nième nombre de Fibonacci en utilisant
-    différents algorithmes optimisés (Fast Doubling, Matrix Exponentiation, FFT).
+    This API allows you to calculate the Nth Fibonacci number using
+    different optimised algorithms (Fast Doubling, Matrix Exponentiation, FFT).
     
-    ## Fonctionnalités
+    ## Features
     
-    - Calcul de F(N) pour N jusqu'à 1 milliard
-    - Choix de l'algorithme de calcul
-    - Rate limiting pour prévenir les abus
-    - Métriques de performance
+    - Calculate F(N) for N up to 1 billion
+    - Choice of calculation algorithm
+    - Rate limiting to prevent abuse
+    - Performance metrics
     
     ## Rate Limiting
     
-    L'API implémente un rate limiter de 10 requêtes/seconde par IP avec un burst de 20.
-    Les requêtes excédentaires reçoivent une réponse 429 Too Many Requests.
+    The API implements rate limiting of 10 requests/second per IP with a burst of 20.
+    Excess requests receive a 429 Too Many Requests response.
     
   version: 1.0.0
   license:
@@ -29,35 +29,35 @@ info:
 
 servers:
   - url: http://localhost:8080
-    description: Serveur de développement local
+    description: Local development server
   - url: https://api.example.com
-    description: Serveur de production
+    description: Production server
 
 tags:
   - name: Calculation
-    description: Opérations de calcul de Fibonacci
+    description: Fibonacci calculation operations
   - name: System
-    description: Endpoints système (santé, métriques)
+    description: System endpoints (health, metrics)
 
 paths:
   /calculate:
     get:
       tags:
         - Calculation
-      summary: Calculer un nombre de Fibonacci
+      summary: Calculate a Fibonacci number
       description: |
-        Calcule le Nième nombre de Fibonacci en utilisant l'algorithme spécifié.
+        Calculates the Nth Fibonacci number using the specified algorithm.
         
-        Le résultat est retourné en JSON avec le nombre calculé (sous forme de string
-        pour les très grands nombres), la durée du calcul et l'algorithme utilisé.
+        The result is returned as JSON with the calculated number (as a string
+        for very large numbers), the calculation duration, and the algorithm used.
       operationId: calculateFibonacci
       parameters:
         - name: n
           in: query
           required: true
           description: |
-            L'index du nombre de Fibonacci à calculer.
-            Doit être un entier positif. Maximum: 1,000,000,000 (configurable).
+            The index of the Fibonacci number to calculate.
+            Must be a positive integer. Maximum: 1,000,000,000 (configurable).
           schema:
             type: integer
             format: int64
@@ -68,10 +68,10 @@ paths:
           in: query
           required: false
           description: |
-            L'algorithme à utiliser pour le calcul.
-            - `fast`: Fast Doubling (par défaut, le plus rapide)
-            - `matrix`: Exponentiation matricielle avec Strassen
-            - `fft`: Force l'utilisation de la multiplication FFT
+            The algorithm to use for calculation.
+            - `fast`: Fast Doubling (default, fastest)
+            - `matrix`: Matrix exponentiation with Strassen
+            - `fft`: Forces FFT multiplication
           schema:
             type: string
             enum:
@@ -82,55 +82,55 @@ paths:
           example: fast
       responses:
         '200':
-          description: Calcul effectué avec succès
+          description: Calculation completed successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CalculationResponse'
               examples:
                 small:
-                  summary: Petit nombre
+                  summary: Small number
                   value:
                     n: 100
                     result: 354224848179261915075
                     duration: "125.5µs"
                     algorithm: "fast"
                 large:
-                  summary: Grand nombre (tronqué)
+                  summary: Large number (truncated)
                   value:
                     n: 1000000
                     result: "1953282128707757731632..."
                     duration: "85.2ms"
                     algorithm: "fast"
         '400':
-          description: Paramètres invalides
+          description: Invalid parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
                 missing_n:
-                  summary: Paramètre n manquant
+                  summary: Missing n parameter
                   value:
                     error: "Bad Request"
                     message: "Missing 'n' parameter"
                 invalid_n:
-                  summary: N invalide
+                  summary: Invalid N
                   value:
                     error: "Bad Request"
                     message: "Invalid 'n' parameter: must be a positive integer"
                 n_too_large:
-                  summary: N trop grand
+                  summary: N too large
                   value:
                     error: "Bad Request"
                     message: "Value of 'n' exceeds maximum allowed (1000000000)"
                 invalid_algo:
-                  summary: Algorithme invalide
+                  summary: Invalid algorithm
                   value:
                     error: "Bad Request"
                     message: "Invalid 'algo' parameter: 'unknown' is not a valid algorithm"
         '429':
-          description: Rate limit dépassé
+          description: Rate limit exceeded
           content:
             application/json:
               schema:
@@ -139,7 +139,7 @@ paths:
                 error: "Too Many Requests"
                 message: "Rate limit exceeded. Please slow down."
         '405':
-          description: Méthode non autorisée
+          description: Method not allowed
           content:
             application/json:
               schema:
@@ -152,14 +152,14 @@ paths:
     get:
       tags:
         - System
-      summary: Vérification de santé
+      summary: Health check
       description: |
-        Vérifie que le serveur est en ligne et fonctionnel.
-        Utilisé par les load balancers et systèmes de monitoring.
+        Checks that the server is online and operational.
+        Used by load balancers and monitoring systems.
       operationId: healthCheck
       responses:
         '200':
-          description: Le serveur est en bonne santé
+          description: Server is healthy
           content:
             application/json:
               schema:
@@ -172,13 +172,13 @@ paths:
     get:
       tags:
         - System
-      summary: Lister les algorithmes disponibles
+      summary: List available algorithms
       description: |
-        Retourne la liste des algorithmes de calcul disponibles sur ce serveur.
+        Returns the list of calculation algorithms available on this server.
       operationId: listAlgorithms
       responses:
         '200':
-          description: Liste des algorithmes
+          description: List of algorithms
           content:
             application/json:
               schema:
@@ -193,14 +193,14 @@ paths:
     get:
       tags:
         - System
-      summary: Métriques du serveur
+      summary: Server metrics
       description: |
-        Retourne les métriques de performance du serveur au format JSON.
-        Inclut le nombre de requêtes, calculs effectués et durées.
+        Returns server performance metrics in JSON format.
+        Includes request counts, calculations performed, and durations.
       operationId: getMetrics
       responses:
         '200':
-          description: Métriques du serveur
+          description: Server metrics
           content:
             application/json:
               schema:
@@ -237,25 +237,25 @@ components:
         n:
           type: integer
           format: int64
-          description: L'index du nombre de Fibonacci calculé
+          description: The index of the calculated Fibonacci number
           example: 1000
         result:
           type: integer
           description: |
-            Le nombre de Fibonacci calculé. Pour les très grands nombres,
-            peut être retourné sous forme de string.
+            The calculated Fibonacci number. For very large numbers,
+            may be returned as a string.
           example: 354224848179261915075
         duration:
           type: string
-          description: Durée du calcul (format Go duration)
+          description: Calculation duration (Go duration format)
           example: "125.5µs"
         algorithm:
           type: string
-          description: Nom de l'algorithme utilisé
+          description: Name of the algorithm used
           example: "fast"
         error:
           type: string
-          description: Message d'erreur si le calcul a échoué
+          description: Error message if calculation failed
           example: "context deadline exceeded"
 
     ErrorResponse:
@@ -265,11 +265,11 @@ components:
       properties:
         error:
           type: string
-          description: Code d'erreur HTTP textuel
+          description: HTTP error code as text
           example: "Bad Request"
         message:
           type: string
-          description: Message d'erreur détaillé
+          description: Detailed error message
           example: "Missing 'n' parameter"
 
     HealthResponse:
@@ -280,7 +280,7 @@ components:
       properties:
         status:
           type: string
-          description: État de santé du serveur
+          description: Server health status
           enum:
             - healthy
             - degraded
@@ -289,7 +289,7 @@ components:
         timestamp:
           type: integer
           format: int64
-          description: Timestamp Unix de la vérification
+          description: Unix timestamp of the check
           example: 1701234567
 
     AlgorithmsResponse:
@@ -299,7 +299,7 @@ components:
       properties:
         algorithms:
           type: array
-          description: Liste des noms d'algorithmes disponibles
+          description: List of available algorithm names
           items:
             type: string
           example:
@@ -312,29 +312,28 @@ components:
       properties:
         total_requests:
           type: integer
-          description: Nombre total de requêtes traitées
+          description: Total number of requests processed
           example: 1523
         total_calculations:
           type: integer
-          description: Nombre total de calculs effectués
+          description: Total number of calculations performed
           example: 1450
         calculation_stats:
           type: object
-          description: Statistiques par algorithme
+          description: Statistics per algorithm
           additionalProperties:
             type: object
             properties:
               count:
                 type: integer
-                description: Nombre de calculs
+                description: Number of calculations
               success:
                 type: integer
-                description: Calculs réussis
+                description: Successful calculations
               errors:
                 type: integer
-                description: Calculs en erreur
+                description: Failed calculations
               avg_duration_ms:
                 type: number
                 format: float
-                description: Durée moyenne en millisecondes
-
+                description: Average duration in milliseconds

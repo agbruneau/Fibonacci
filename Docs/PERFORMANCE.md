@@ -1,25 +1,25 @@
-# Guide de Performance
+# Performance Guide
 
-> **Version** : 1.0.0  
-> **Dernière mise à jour** : Novembre 2025
+> **Version**: 1.0.0  
+> **Last Updated**: November 2025
 
-## Vue d'ensemble
+## Overview
 
-Ce document décrit les techniques d'optimisation utilisées dans le Calculateur Fibonacci et fournit des conseils pour obtenir les meilleures performances sur votre matériel.
+This document describes the optimisation techniques used in the Fibonacci Calculator and provides advice on achieving the best performance on your hardware.
 
-## Benchmarks de Référence
+## Reference Benchmarks
 
-### Configuration de test
+### Test Configuration
 
-- **CPU** : AMD Ryzen 9 5900X (12 cores, 24 threads)
-- **RAM** : 32 GB DDR4-3600
-- **OS** : Linux 6.1
-- **Go** : 1.25
+- **CPU**: AMD Ryzen 9 5900X (12 cores, 24 threads)
+- **RAM**: 32 GB DDR4-3600
+- **OS**: Linux 6.1
+- **Go**: 1.25
 
-### Résultats
+### Results
 
-| N | Fast Doubling | Matrix Exp. | FFT-Based | Résultat (chiffres) |
-|---|---------------|-------------|-----------|---------------------|
+| N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
+|---|---------------|-------------|-----------|-----------------|
 | 1,000 | 15µs | 18µs | 45µs | 209 |
 | 10,000 | 180µs | 220µs | 350µs | 2,090 |
 | 100,000 | 3.2ms | 4.1ms | 5.8ms | 20,899 |
@@ -28,17 +28,17 @@ Ce document décrit les techniques d'optimisation utilisées dans le Calculateur
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
 | 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,909 |
 
-> **Note** : Les temps varient selon le matériel. Utilisez `--calibrate` pour des mesures précises sur votre système.
+> **Note**: Times vary depending on hardware. Use `--calibrate` for accurate measurements on your system.
 
-## Optimisations Implémentées
+## Implemented Optimisations
 
-### 1. Stratégie Zero-Allocation
+### 1. Zero-Allocation Strategy
 
-#### Problème
-Les calculs de Fibonacci pour de grands N créent des millions d'objets `big.Int` temporaires, causant une pression excessive sur le garbage collector.
+#### Problem
+Fibonacci calculations for large N create millions of temporary `big.Int` objects, causing excessive garbage collector pressure.
 
 #### Solution
-Utilisation de `sync.Pool` pour recycler les états de calcul :
+Using `sync.Pool` to recycle calculation states:
 
 ```go
 var statePool = sync.Pool{
@@ -64,23 +64,23 @@ func releaseState(s *calculationState) {
 ```
 
 #### Impact
-- Réduction des allocations de 95%+
-- Amélioration des performances de 20-30%
-- Temps de pause GC réduits
+- 95%+ reduction in allocations
+- 20-30% performance improvement
+- Reduced GC pause times
 
-### 2. Multiplication Adaptative (Karatsuba vs FFT)
+### 2. Adaptive Multiplication (Karatsuba vs FFT)
 
-#### Complexité comparative
+#### Comparative Complexity
 
-| Algorithme | Complexité | Meilleur pour |
-|------------|------------|---------------|
-| Standard | O(n²) | Petits nombres |
-| Karatsuba | O(n^1.585) | Nombres moyens |
-| FFT | O(n log n) | Très grands nombres |
+| Algorithm | Complexity | Best for |
+|-----------|------------|----------|
+| Standard | O(n²) | Small numbers |
+| Karatsuba | O(n^1.585) | Medium numbers |
+| FFT | O(n log n) | Very large numbers |
 
-#### Seuil de basculement
+#### Switching Threshold
 
-Le paramètre `--fft-threshold` (défaut: 1,000,000 bits) contrôle quand la multiplication FFT est utilisée :
+The `--fft-threshold` parameter (default: 1,000,000 bits) controls when FFT multiplication is used:
 
 ```go
 func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
@@ -95,11 +95,11 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 }
 ```
 
-### 3. Parallélisme Multi-cœurs
+### 3. Multi-core Parallelism
 
-#### Stratégie
+#### Strategy
 
-Les trois multiplications principales de l'algorithme Fast Doubling sont parallélisées :
+The three main multiplications in the Fast Doubling algorithm are parallelised:
 
 ```go
 func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
@@ -118,30 +118,30 @@ func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
 }
 ```
 
-#### Considérations
+#### Considerations
 
-- **Seuil d'activation** : `--threshold` (défaut: 4096 bits)
-- **Désactivation avec FFT** : Le parallélisme est désactivé quand FFT est utilisé car FFT sature déjà le CPU
-- **Seuil FFT parallèle** : Réactivé au-dessus de 10 millions de bits
+- **Activation threshold**: `--threshold` (default: 4096 bits)
+- **Disabled with FFT**: Parallelism is disabled when FFT is used as FFT already saturates the CPU
+- **Parallel FFT threshold**: Re-enabled above 10 million bits
 
-### 4. Algorithme de Strassen
+### 4. Strassen Algorithm
 
-Pour l'exponentiation matricielle, l'algorithme de Strassen réduit le nombre de multiplications de 8 à 7 :
+For matrix exponentiation, the Strassen algorithm reduces the number of multiplications from 8 to 7:
 
 ```
-Multiplication classique 2x2 : 8 multiplications
-Strassen 2x2 : 7 multiplications + 18 additions
+Classic 2x2 multiplication: 8 multiplications
+Strassen 2x2: 7 multiplications + 18 additions
 ```
 
-Activé via `--strassen-threshold` (défaut: 3072 bits) quand les éléments de la matrice sont suffisamment grands pour que l'économie de multiplications compense les additions supplémentaires.
+Enabled via `--strassen-threshold` (default: 3072 bits) when matrix elements are large enough for the multiplication savings to compensate for additional additions.
 
-### 5. Mise au Carré de Matrices Symétriques
+### 5. Symmetric Matrix Squaring
 
-Optimisation spécifique pour l'élévation au carré de matrices symétriques (où b = c) :
+Specific optimisation for squaring symmetric matrices (where b = c):
 
 ```go
-// Carré classique : 8 multiplications
-// Carré symétrique : 4 multiplications
+// Classic square: 8 multiplications
+// Symmetric square: 4 multiplications
 func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) {
     a2 = smartMultiply(a2, mat.a, mat.a, fftThreshold)  // a²
     b2 = smartMultiply(b2, mat.b, mat.b, fftThreshold)  // b²
@@ -150,76 +150,76 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
     
     dest.a.Add(a2, b2)    // a² + b²
     dest.b.Set(b_ad)      // b(a+d)
-    dest.c.Set(b_ad)      // = dest.b (symétrie)
+    dest.c.Set(b_ad)      // = dest.b (symmetry)
     dest.d.Add(b2, d2)    // b² + d²
 }
 ```
 
-## Guide de Tuning
+## Tuning Guide
 
-### Calibration Automatique
+### Automatic Calibration
 
 ```bash
-# Calibration complète (recommandé pour production)
+# Full calibration (recommended for production)
 ./fibcalc --calibrate
 
-# Calibration rapide au démarrage
+# Quick calibration at startup
 ./fibcalc --auto-calibrate -n 100000000
 ```
 
-La calibration teste différents seuils et détermine les valeurs optimales pour votre matériel.
+Calibration tests different thresholds and determines optimal values for your hardware.
 
-### Paramètres de Configuration
+### Configuration Parameters
 
-| Paramètre | Défaut | Description | Ajustement |
-|-----------|--------|-------------|------------|
-| `--threshold` | 4096 | Seuil parallélisme (bits) | ↑ sur CPU lent, ↓ sur many-core |
-| `--fft-threshold` | 1000000 | Seuil FFT (bits) | ↓ sur CPU avec cache L3 large |
-| `--strassen-threshold` | 3072 | Seuil Strassen (bits) | ↑ si overhead d'additions visible |
+| Parameter | Default | Description | Adjustment |
+|-----------|---------|-------------|------------|
+| `--threshold` | 4096 | Parallelism threshold (bits) | ↑ on slow CPU, ↓ on many-core |
+| `--fft-threshold` | 1000000 | FFT threshold (bits) | ↓ on CPU with large L3 cache |
+| `--strassen-threshold` | 3072 | Strassen threshold (bits) | ↑ if addition overhead visible |
 
-### Recommandations par Type de Charge
+### Recommendations by Workload Type
 
-#### Petits calculs (N < 10,000)
+#### Small Calculations (N < 10,000)
 
 ```bash
-./fibcalc -n 5000 --threshold 0  # Désactiver le parallélisme
+./fibcalc -n 5000 --threshold 0  # Disable parallelism
 ```
 
-#### Calculs moyens (10,000 < N < 1,000,000)
+#### Medium Calculations (10,000 < N < 1,000,000)
 
 ```bash
 ./fibcalc -n 500000 --threshold 2048
 ```
 
-#### Grands calculs (N > 1,000,000)
+#### Large Calculations (N > 1,000,000)
 
 ```bash
 ./fibcalc -n 10000000 --auto-calibrate
 ```
 
-#### Très grands calculs (N > 100,000,000)
+#### Very Large Calculations (N > 100,000,000)
 
 ```bash
 ./fibcalc -n 250000000 --fft-threshold 500000 --timeout 30m
 ```
 
-## Monitoring des Performances
+## Performance Monitoring
 
-### Mode Serveur
+### Server Mode
 
-Le serveur expose des métriques sur `/metrics` :
+The server exposes metrics on `/metrics`:
 
 ```bash
 curl http://localhost:8080/metrics
 ```
 
-Métriques disponibles :
-- `total_requests` : Nombre total de requêtes
-- `total_calculations` : Nombre de calculs effectués
-- `calculation_duration_*` : Distribution des durées par algorithme
-- `errors_*` : Compteurs d'erreurs
+Available metrics:
+- `total_requests`: Total number of requests
+- `total_calculations`: Number of calculations performed
+- `calculation_duration_*`: Duration distribution per algorithm
+- `errors_*`: Error counters
 
-### Profiling Go
+### Go Profiling
 
 ```bash
 # CPU profiling
@@ -228,75 +228,74 @@ go test -cpuprofile=cpu.prof -bench=BenchmarkFastDoubling ./internal/fibonacci/
 # Memory profiling
 go test -memprofile=mem.prof -bench=BenchmarkFastDoubling ./internal/fibonacci/
 
-# Analyse
+# Analysis
 go tool pprof cpu.prof
 ```
 
-## Comparaison des Algorithmes
+## Algorithm Comparison
 
 ### Fast Doubling
 
-✅ **Avantages** :
-- Le plus rapide pour la majorité des cas
-- Parallélisation efficace
-- Moins de multiplications que Matrix
+✅ **Advantages**:
+- Fastest for the majority of cases
+- Efficient parallelisation
+- Fewer multiplications than Matrix
 
-⚠️ **Inconvénients** :
-- Code plus complexe
+⚠️ **Disadvantages**:
+- More complex code
 
 ### Matrix Exponentiation
 
-✅ **Avantages** :
-- Implémentation élégante et mathématiquement claire
-- Optimisation Strassen efficace pour grands nombres
+✅ **Advantages**:
+- Elegant and mathematically clear implementation
+- Efficient Strassen optimisation for large numbers
 
-⚠️ **Inconvénients** :
-- 8 multiplications par itération vs 3 pour Fast Doubling
-- Plus lent en pratique
+⚠️ **Disadvantages**:
+- 8 multiplications per iteration vs 3 for Fast Doubling
+- Slower in practice
 
 ### FFT-Based
 
-✅ **Avantages** :
-- Force l'utilisation de FFT pour toutes les multiplications
-- Utile pour benchmarking de FFT
+✅ **Advantages**:
+- Forces FFT use for all multiplications
+- Useful for FFT benchmarking
 
-⚠️ **Inconvénients** :
-- Overhead significatif pour petits nombres
-- Principalement utilisé pour tests
+⚠️ **Disadvantages**:
+- Significant overhead for small numbers
+- Primarily used for testing
 
-## Conseils d'Optimisation Avancée
+## Advanced Optimisation Tips
 
-### 1. Affinité CPU (Linux)
+### 1. CPU Affinity (Linux)
 
 ```bash
-# Forcer l'utilisation de cœurs spécifiques
+# Force use of specific cores
 taskset -c 0-7 ./fibcalc -n 100000000
 ```
 
-### 2. Désactiver le scaling de fréquence
+### 2. Disable Frequency Scaling
 
 ```bash
-# Mode performance
+# Performance mode
 echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 ```
 
 ### 3. GOMAXPROCS
 
 ```bash
-# Limiter le nombre de threads Go
+# Limit number of Go threads
 GOMAXPROCS=8 ./fibcalc -n 100000000
 ```
 
-### 4. Compilation optimisée
+### 4. Optimised Compilation
 
 ```bash
-# Build avec optimisations agressives
+# Build with aggressive optimisations
 go build -ldflags="-s -w" -gcflags="-B" ./cmd/fibcalc
 ```
 
-## Limites Connues
+## Known Limitations
 
-1. **Mémoire** : F(1 milliard) nécessite ~25 GB de RAM pour le résultat seul
-2. **Temps** : Les calculs pour N > 500M peuvent prendre des heures
-3. **FFT Contention** : L'algorithme FFT sature les cœurs, limitant le parallélisme externe
-
+1. **Memory**: F(1 billion) requires ~25 GB of RAM for the result alone
+2. **Time**: Calculations for N > 500M can take hours
+3. **FFT Contention**: The FFT algorithm saturates cores, limiting external parallelism

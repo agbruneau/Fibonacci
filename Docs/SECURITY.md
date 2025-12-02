@@ -1,52 +1,52 @@
-# Politique de Sécurité
+# Security Policy
 
-> **Version** : 1.0.0  
-> **Dernière mise à jour** : Novembre 2025
+> **Version**: 1.0.0  
+> **Last Updated**: November 2025
 
-## Vue d'ensemble
+## Overview
 
-Ce document décrit les mesures de sécurité implémentées dans le Calculateur Fibonacci et les bonnes pratiques pour son déploiement en production.
+This document describes the security measures implemented in the Fibonacci Calculator and best practices for production deployment.
 
-## Signalement de Vulnérabilités
+## Vulnerability Reporting
 
 ### Contact
 
-Si vous découvrez une vulnérabilité de sécurité, veuillez nous contacter de manière responsable :
+If you discover a security vulnerability, please contact us responsibly:
 
-- **Email** : security@example.com
-- **PGP Key** : Disponible sur demande
+- **Email**: security@example.com
+- **PGP Key**: Available upon request
 
-### Processus de Divulgation
+### Disclosure Process
 
-1. **Signalement** : Envoyez un email détaillant la vulnérabilité
-2. **Accusé de réception** : Réponse sous 48 heures
-3. **Évaluation** : Analyse sous 7 jours
-4. **Correction** : Développement d'un correctif
-5. **Publication** : Release coordonnée avec crédit au découvreur
+1. **Report**: Send an email detailing the vulnerability
+2. **Acknowledgement**: Response within 48 hours
+3. **Assessment**: Analysis within 7 days
+4. **Fix**: Patch development
+5. **Publication**: Coordinated release with credit to the discoverer
 
-### Informations à Fournir
+### Information to Provide
 
-- Description détaillée de la vulnérabilité
-- Étapes de reproduction
-- Impact potentiel
-- Suggestions de correction (optionnel)
+- Detailed description of the vulnerability
+- Reproduction steps
+- Potential impact
+- Fix suggestions (optional)
 
-## Mesures de Sécurité Implémentées
+## Implemented Security Measures
 
-### 1. Protection contre les Attaques par Déni de Service (DoS)
+### 1. Denial of Service (DoS) Attack Protection
 
-#### Limite sur la valeur de N
+#### Limit on N Value
 
-Le serveur limite la valeur maximale de N pour prévenir l'épuisement des ressources :
+The server limits the maximum value of N to prevent resource exhaustion:
 
 ```go
-// SecurityConfig dans internal/server/middleware.go
+// SecurityConfig in internal/server/middleware.go
 type SecurityConfig struct {
-    MaxNValue uint64 // Défaut: 1_000_000_000
+    MaxNValue uint64 // Default: 1_000_000_000
 }
 ```
 
-Requêtes avec N trop élevé retournent une erreur 400 :
+Requests with N too high return a 400 error:
 
 ```json
 {
@@ -57,16 +57,16 @@ Requêtes avec N trop élevé retournent une erreur 400 :
 
 #### Rate Limiting
 
-Le serveur implémente un rate limiter par IP :
+The server implements per-IP rate limiting:
 
 ```go
 type RateLimiterConfig struct {
-    RequestsPerSecond float64 // Défaut: 10
-    BurstSize         int     // Défaut: 20
+    RequestsPerSecond float64 // Default: 10
+    BurstSize         int     // Default: 20
 }
 ```
 
-Les requêtes excédant la limite reçoivent une réponse 429 :
+Requests exceeding the limit receive a 429 response:
 
 ```json
 {
@@ -77,7 +77,7 @@ Les requêtes excédant la limite reçoivent une réponse 429 :
 
 #### Timeouts
 
-Tous les calculs ont un timeout configurable :
+All calculations have a configurable timeout:
 
 ```go
 const (
@@ -89,14 +89,14 @@ const (
 )
 ```
 
-### 2. En-têtes de Sécurité HTTP
+### 2. HTTP Security Headers
 
-Le middleware de sécurité ajoute des en-têtes protecteurs :
+The security middleware adds protective headers:
 
 ```go
 func SecurityMiddleware(config SecurityConfig, next http.HandlerFunc) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        // En-têtes de sécurité
+        // Security headers
         w.Header().Set("X-Content-Type-Options", "nosniff")
         w.Header().Set("X-Frame-Options", "DENY")
         w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -108,12 +108,12 @@ func SecurityMiddleware(config SecurityConfig, next http.HandlerFunc) http.Handl
 }
 ```
 
-### 3. Validation des Entrées
+### 3. Input Validation
 
-Toutes les entrées utilisateur sont validées :
+All user inputs are validated:
 
 ```go
-// Validation du paramètre 'n'
+// Validation of 'n' parameter
 n, err := strconv.ParseUint(nStr, 10, 64)
 if err != nil {
     s.writeErrorResponse(w, http.StatusBadRequest, 
@@ -121,7 +121,7 @@ if err != nil {
     return
 }
 
-// Validation du paramètre 'algo'
+// Validation of 'algo' parameter
 calc, ok := s.registry[algo]
 if !ok {
     s.writeErrorResponse(w, http.StatusBadRequest,
@@ -130,31 +130,31 @@ if !ok {
 }
 ```
 
-### 4. Isolation Docker
+### 4. Docker Isolation
 
-Le Dockerfile implémente les bonnes pratiques de sécurité :
+The Dockerfile implements security best practices:
 
 ```dockerfile
-# Utilisateur non-root
+# Non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# Image minimale (Alpine)
+# Minimal image (Alpine)
 FROM alpine:latest
 
-# Pas de shell pour l'utilisateur
+# No interactive shell for user
 ENTRYPOINT ["/app/fibcalc"]
 ```
 
 ### 5. Graceful Shutdown
 
-Le serveur gère proprement les signaux d'arrêt pour éviter les interruptions brutales :
+The server properly handles shutdown signals to avoid abrupt interruptions:
 
 ```go
 func (s *Server) Start() error {
     signal.Notify(s.shutdownSignal, os.Interrupt, syscall.SIGTERM)
     
-    // ... démarrage du serveur ...
+    // ... server startup ...
     
     <-s.shutdownSignal
     s.logger.Println("Shutdown signal received...")
@@ -166,34 +166,34 @@ func (s *Server) Start() error {
 }
 ```
 
-## Configuration Sécurisée
+## Secure Configuration
 
-### Variables d'Environnement
+### Environment Variables
 
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `FIBCALC_MAX_N` | Limite maximale pour N | 1,000,000,000 |
-| `FIBCALC_RATE_LIMIT` | Requêtes par seconde | 10 |
-| `FIBCALC_TIMEOUT` | Timeout des calculs | 5m |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FIBCALC_MAX_N` | Maximum limit for N | 1,000,000,000 |
+| `FIBCALC_RATE_LIMIT` | Requests per second | 10 |
+| `FIBCALC_TIMEOUT` | Calculation timeout | 5m |
 
-### Flags de Ligne de Commande
+### Command-Line Flags
 
 ```bash
-# Configuration sécurisée recommandée
+# Recommended secure configuration
 ./fibcalc --server \
     --port 8080 \
     --timeout 2m
 ```
 
-## Recommandations de Déploiement
+## Deployment Recommendations
 
 ### 1. Reverse Proxy (Nginx)
 
-Placez le serveur derrière un reverse proxy pour :
-- Terminaison TLS
-- Rate limiting additionnel
-- Logging des accès
-- Protection DDoS
+Place the server behind a reverse proxy for:
+- TLS termination
+- Additional rate limiting
+- Access logging
+- DDoS protection
 
 ```nginx
 server {
@@ -218,7 +218,7 @@ server {
 
 ### 2. Kubernetes
 
-Utilisez des NetworkPolicies pour isoler le pod :
+Use NetworkPolicies to isolate the pod:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -239,12 +239,12 @@ spec:
               role: frontend
       ports:
         - port: 8080
-  egress: []  # Pas de sortie nécessaire
+  egress: []  # No egress needed
 ```
 
-### 3. Ressources Limitées
+### 3. Resource Limits
 
-Configurez des limites de ressources pour prévenir l'épuisement :
+Configure resource limits to prevent exhaustion:
 
 ```yaml
 resources:
@@ -256,61 +256,60 @@ resources:
     memory: "2Gi"
 ```
 
-### 4. Logging et Audit
+### 4. Logging and Audit
 
-Le serveur log toutes les requêtes :
+The server logs all requests:
 
 ```
 [SERVER] 2025/11/29 10:15:32 GET /calculate from 192.168.1.100
 [SERVER] 2025/11/29 10:15:32 GET /calculate completed in 125.5ms
 ```
 
-Pour un audit complet, configurez un collecteur de logs externe (Fluentd, Loki, etc.).
+For a complete audit, configure an external log collector (Fluentd, Loki, etc.).
 
-## Checklist de Sécurité
+## Security Checklist
 
-### Avant le déploiement
+### Before Deployment
 
-- [ ] TLS configuré (certificats valides)
-- [ ] Rate limiting activé
-- [ ] Limites de ressources configurées
-- [ ] Utilisateur non-root dans Docker
-- [ ] NetworkPolicy appliquée (Kubernetes)
-- [ ] Logs centralisés
-- [ ] Monitoring des erreurs
+- [ ] TLS configured (valid certificates)
+- [ ] Rate limiting enabled
+- [ ] Resource limits configured
+- [ ] Non-root user in Docker
+- [ ] NetworkPolicy applied (Kubernetes)
+- [ ] Centralised logging
+- [ ] Error monitoring
 
-### En production
+### In Production
 
-- [ ] Mises à jour régulières des dépendances
-- [ ] Analyse des logs pour anomalies
-- [ ] Tests de pénétration périodiques
-- [ ] Sauvegardes des profils de calibration
-- [ ] Révision des accès
+- [ ] Regular dependency updates
+- [ ] Log analysis for anomalies
+- [ ] Periodic penetration testing
+- [ ] Calibration profile backups
+- [ ] Access review
 
-## Versions Supportées
+## Supported Versions
 
-| Version | Supportée | Fin de support |
+| Version | Supported | End of Support |
 |---------|-----------|----------------|
-| 1.0.x | ✅ | Décembre 2026 |
+| 1.0.x | ✅ | December 2026 |
 | < 1.0 | ❌ | N/A |
 
-## Dépendances
+## Dependencies
 
-Les dépendances sont régulièrement auditées. Exécutez :
+Dependencies are regularly audited. Run:
 
 ```bash
-# Vérifier les vulnérabilités connues
+# Check for known vulnerabilities
 go list -m all | nancy sleuth
 
-# Ou avec govulncheck
+# Or with govulncheck
 govulncheck ./...
 ```
 
-## Conformité
+## Compliance
 
-Ce projet suit les bonnes pratiques de :
+This project follows best practices from:
 
-- **OWASP** : Top 10 API Security Risks
-- **CWE** : Common Weakness Enumeration
-- **Go Security** : Recommandations officielles Go
-
+- **OWASP**: Top 10 API Security Risks
+- **CWE**: Common Weakness Enumeration
+- **Go Security**: Official Go recommendations

@@ -1,63 +1,63 @@
-# Multiplication FFT pour Grands Entiers
+# FFT Multiplication for Large Integers
 
-> **Complexité** : O(n log n) pour la multiplication de deux nombres de n bits  
-> **Utilisée par** : Fast Doubling et Matrix Exp. pour très grands nombres
+> **Complexity**: O(n log n) for multiplying two numbers of n bits  
+> **Used by**: Fast Doubling and Matrix Exp. for very large numbers
 
 ## Introduction
 
-La **Transformée de Fourier Rapide (FFT)** permet de multiplier deux grands entiers en O(n log n) au lieu de O(n²) pour la multiplication naïve ou O(n^1.585) pour Karatsuba. Cette optimisation devient cruciale pour les nombres dépassant environ 1 million de bits.
+The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n²) for naive multiplication or O(n^1.585) for Karatsuba. This optimisation becomes crucial for numbers exceeding approximately 1 million bits.
 
-## Principe Mathématique
+## Mathematical Principle
 
-### Convolution et Multiplication
+### Convolution and Multiplication
 
-La multiplication de deux entiers peut être vue comme une **convolution** de leurs chiffres :
+Multiplication of two integers can be viewed as a **convolution** of their digits:
 
 ```
 A = Σᵢ aᵢ × B^i
 B = Σⱼ bⱼ × B^j
 
-A × B = Σₖ cₖ × B^k  où  cₖ = Σᵢ aᵢ × b(k-i)
+A × B = Σₖ cₖ × B^k  where  cₖ = Σᵢ aᵢ × b(k-i)
 ```
 
-Le terme cₖ est la **convolution discrète** des séquences {aᵢ} et {bⱼ}.
+The term cₖ is the **discrete convolution** of sequences {aᵢ} and {bⱼ}.
 
-### Théorème de Convolution
+### Convolution Theorem
 
-Le théorème de convolution stipule que :
+The convolution theorem states that:
 
 ```
-DFT(a * b) = DFT(a) × DFT(b)  (multiplication point par point)
+DFT(a * b) = DFT(a) × DFT(b)  (pointwise multiplication)
 ```
 
-Où `*` est la convolution et DFT est la Transformée de Fourier Discrète.
+Where `*` is convolution and DFT is the Discrete Fourier Transform.
 
-Donc :
+Therefore:
 ```
 a * b = IDFT(DFT(a) × DFT(b))
 ```
 
-### Algorithme de Multiplication FFT
+### FFT Multiplication Algorithm
 
-1. **Padding** : Étendre les nombres à une longueur puissance de 2
-2. **DFT** : Calculer la FFT des deux séquences de chiffres
-3. **Multiplication** : Multiplier point par point dans le domaine fréquentiel
-4. **IDFT** : Calculer la FFT inverse
-5. **Propagation** : Gérer les retenues
+1. **Padding**: Extend numbers to a power of 2 length
+2. **DFT**: Compute FFT of both digit sequences
+3. **Multiplication**: Multiply pointwise in the frequency domain
+4. **IDFT**: Compute inverse FFT
+5. **Carry Propagation**: Handle carries
 
-## Implémentation dans FibCalc
+## Implementation in FibCalc
 
-### Module `internal/bigfft`
+### `internal/bigfft` Module
 
-Le module bigfft implémente une multiplication FFT spécialisée pour `big.Int` :
+The bigfft module implements specialised FFT multiplication for `big.Int`:
 
 ```go
-// mulFFT effectue x × y via FFT
+// mulFFT performs x × y via FFT
 func mulFFT(x, y *big.Int) *big.Int {
     return bigfft.Mul(x, y)
 }
 
-// smartMultiply choisit la méthode optimale
+// smartMultiply chooses the optimal method
 func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
     if threshold > 0 {
         bx := x.BitLen()
@@ -70,80 +70,80 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 }
 ```
 
-### Structure du Code
+### Code Structure
 
 ```
 internal/bigfft/
-├── fft.go      # Algorithme FFT principal
-├── fermat.go   # Arithmétique modulaire pour FFT
-├── scan.go     # Conversion entre big.Int et représentation FFT
-├── pool.go     # Pools d'objets pour performance
-└── arith_decl.go  # Déclarations d'arithmétique bas niveau
+├── fft.go      # Main FFT algorithm
+├── fermat.go   # Modular arithmetic for FFT
+├── scan.go     # Conversion between big.Int and FFT representation
+├── pool.go     # Object pools for performance
+└── arith_decl.go  # Low-level arithmetic declarations
 ```
 
-### FFT de Fermat
+### Fermat FFT
 
-L'implémentation utilise une **FFT de Fermat** qui opère dans l'anneau Z/(2^k + 1) :
+The implementation uses a **Fermat FFT** operating in the ring Z/(2^k + 1):
 
-- Les racines de l'unité sont des puissances de 2
-- Les multiplications deviennent des décalages de bits
-- Plus efficace que FFT à nombres complexes pour les entiers
+- Roots of unity are powers of 2
+- Multiplications become bit shifts
+- More efficient than complex number FFT for integers
 
-## Seuil d'Activation
+## Activation Threshold
 
 ### Configuration
 
 ```bash
-# Seuil par défaut : 1,000,000 bits
+# Default threshold: 1,000,000 bits
 ./fibcalc -n 100000000 --fft-threshold 1000000
 
-# Forcer FFT plus tôt (nombres > 500,000 bits)
+# Force earlier FFT (numbers > 500,000 bits)
 ./fibcalc -n 100000000 --fft-threshold 500000
 
-# Désactiver FFT
+# Disable FFT
 ./fibcalc -n 100000000 --fft-threshold 0
 ```
 
-### Choix du Seuil
+### Threshold Selection
 
-Le seuil optimal dépend de plusieurs facteurs :
+The optimal threshold depends on several factors:
 
-| Facteur | Impact |
-|---------|--------|
-| Taille du cache L3 | Cache plus grand → seuil plus bas |
-| Fréquence CPU | Plus rapide → seuil légèrement plus haut |
-| Nombre de cœurs | Plus de cœurs → FFT moins avantageux (car saturant) |
+| Factor | Impact |
+|--------|--------|
+| L3 cache size | Larger cache → lower threshold |
+| CPU frequency | Faster → slightly higher threshold |
+| Number of cores | More cores → FFT less advantageous (saturating) |
 
-Pour déterminer le seuil optimal :
+To determine the optimal threshold:
 
 ```bash
 ./fibcalc --calibrate
 ```
 
-## Interaction avec le Parallélisme
+## Interaction with Parallelism
 
-### Problème de Contention
+### Contention Problem
 
-L'algorithme FFT a tendance à **saturer les ressources CPU** car il effectue beaucoup d'opérations mémoire parallèles en interne. Exécuter plusieurs multiplications FFT en parallèle cause de la contention.
+The FFT algorithm tends to **saturate CPU resources** as it performs many parallel memory operations internally. Running multiple FFT multiplications in parallel causes contention.
 
-### Solution Implémentée
+### Implemented Solution
 
 ```go
-// Désactiver le parallélisme externe quand FFT est utilisé
-// sauf pour de très très grands nombres
+// Disable external parallelism when FFT is used
+// except for very very large numbers
 if opts.FFTThreshold > 0 {
     minBitLen := s.f_k.BitLen()
     if minBitLen > opts.FFTThreshold {
-        // FFT va être utilisé - désactiver parallélisme
-        // sauf si nombres > ParallelFFTThreshold (10M bits)
+        // FFT will be used - disable parallelism
+        // except if numbers > ParallelFFTThreshold (10M bits)
         return minBitLen > ParallelFFTThreshold
     }
 }
 ```
 
-## Calculateur FFT-Based
+## FFT-Based Calculator
 
-Le calculateur `fft` force l'utilisation de FFT pour toutes les multiplications :
+The `fft` calculator forces FFT use for all multiplications:
 
 ```go
 type FFTBasedCalculator struct{}
@@ -155,70 +155,69 @@ func (c *FFTBasedCalculator) Name() string {
 func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressReporter,
     n uint64, opts Options) (*big.Int, error) {
     
-    // Force FFT en mettant threshold très bas
+    // Force FFT by setting threshold very low
     opts.FFTThreshold = 1
     
-    // Utilise le même algorithme que Fast Doubling
+    // Uses the same algorithm as Fast Doubling
     fd := &OptimizedFastDoubling{}
     return fd.CalculateCore(ctx, reporter, n, opts)
 }
 ```
 
-Ce calculateur est principalement utilisé pour :
-- Benchmarking de la performance FFT
-- Tests de régression
-- Comparaison des algorithmes de multiplication
+This calculator is primarily used for:
+- FFT performance benchmarking
+- Regression testing
+- Multiplication algorithm comparison
 
-## Analyse de Complexité
+## Complexity Analysis
 
-### Multiplication de deux nombres de n bits
+### Multiplication of two numbers of n bits
 
-| Algorithme | Complexité | Constante cachée |
-|------------|------------|------------------|
-| Naïf | O(n²) | Faible |
-| Karatsuba | O(n^1.585) | Moyenne |
-| Toom-Cook 3 | O(n^1.465) | Élevée |
-| FFT | O(n log n) | Très élevée |
+| Algorithm | Complexity | Hidden constant |
+|-----------|------------|-----------------|
+| Naive | O(n²) | Low |
+| Karatsuba | O(n^1.585) | Medium |
+| Toom-Cook 3 | O(n^1.465) | High |
+| FFT | O(n log n) | Very high |
 
-### Point de Croisement
+### Crossover Point
 
 ```
                     │
-    Temps           │     /
-     de             │    /  ← Karatsuba O(n^1.585)
-   calcul           │   /
+    Calculation     │     /
+     time           │    /  ← Karatsuba O(n^1.585)
+                    │   /
                     │  /
                     │ /          ← FFT O(n log n)
                     │/     _______
                     └─────────────────────
-                          ~1M bits      Taille (bits)
+                          ~1M bits      Size (bits)
 ```
 
-### Overhead FFT
+### FFT Overhead
 
-L'overhead de FFT provient de :
-1. Conversion big.Int → représentation FFT
-2. Padding à la puissance de 2 suivante
-3. FFT aller et retour
-4. Propagation des retenues
+FFT overhead comes from:
+1. Conversion big.Int → FFT representation
+2. Padding to next power of 2
+3. Forward and inverse FFT
+4. Carry propagation
 
-## Utilisation
+## Usage
 
 ```bash
-# Forcer l'utilisation de FFT pour toutes les multiplications
+# Force FFT use for all multiplications
 ./fibcalc -n 10000000 -algo fft -d
 
-# Ajuster le seuil FFT pour Fast Doubling
+# Adjust FFT threshold for Fast Doubling
 ./fibcalc -n 100000000 -algo fast --fft-threshold 800000
 
-# Benchmark comparatif
+# Comparative benchmark
 ./fibcalc -n 50000000 -algo all -d
 ```
 
-## Références
+## References
 
 1. Cooley, J. W., & Tukey, J. W. (1965). "An algorithm for the machine calculation of complex Fourier series". *Mathematics of Computation*.
 2. Schönhage, A., & Strassen, V. (1971). "Schnelle Multiplikation großer Zahlen". *Computing*.
 3. [GMP Library - FFT Multiplication](https://gmplib.org/manual/FFT-Multiplication)
 4. [Go bigfft package documentation](https://pkg.go.dev/github.com/ncw/gmp)
-

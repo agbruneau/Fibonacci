@@ -1,17 +1,17 @@
-# Exponentiation Matricielle
+# Matrix Exponentiation
 
-> **Complexité** : O(log n) opérations matricielles  
-> **Complexité réelle** : O(log n × M(n)) où M(n) est le coût de multiplication
+> **Complexity**: O(log n) matrix operations  
+> **Actual Complexity**: O(log n × M(n)) where M(n) is the multiplication cost
 
 ## Introduction
 
-L'**exponentiation matricielle** est une méthode élégante pour calculer les nombres de Fibonacci basée sur la représentation matricielle de la suite. Cette approche exploite l'exponentiation rapide (squaring) pour réduire le nombre d'opérations à O(log n).
+**Matrix exponentiation** is an elegant method for calculating Fibonacci numbers based on the matrix representation of the sequence. This approach exploits fast exponentiation (squaring) to reduce the number of operations to O(log n).
 
-## Fondement Mathématique
+## Mathematical Foundation
 
-### Matrice Q de Fibonacci
+### Fibonacci Q Matrix
 
-La suite de Fibonacci satisfait la relation matricielle :
+The Fibonacci sequence satisfies the matrix relation:
 
 ```
 [ F(n+1) ]   [ 1  1 ]   [ F(n)   ]
@@ -19,7 +19,7 @@ La suite de Fibonacci satisfait la relation matricielle :
 [ F(n)   ]   [ 1  0 ]   [ F(n-1) ]
 ```
 
-En appliquant cette relation n fois depuis les conditions initiales F(1) = 1, F(0) = 0 :
+Applying this relation n times from initial conditions F(1) = 1, F(0) = 0:
 
 ```
 [ F(n+1)  F(n)   ]   [ 1  1 ]^n
@@ -27,25 +27,25 @@ En appliquant cette relation n fois depuis les conditions initiales F(1) = 1, F(
 [ F(n)    F(n-1) ]   [ 1  0 ]
 ```
 
-La matrice `Q = [[1,1], [1,0]]` est appelée **matrice Q de Fibonacci**.
+The matrix `Q = [[1,1], [1,0]]` is called the **Fibonacci Q matrix**.
 
-### Propriétés de Q
+### Properties of Q
 
-1. **Déterminant** : det(Q^n) = (-1)^n
-2. **Symétrie** : Q^n est toujours une matrice symétrique (Q^n[0][1] = Q^n[1][0])
-3. **Relation de Cassini** : F(n+1)×F(n-1) - F(n)² = (-1)^n
+1. **Determinant**: det(Q^n) = (-1)^n
+2. **Symmetry**: Q^n is always a symmetric matrix (Q^n[0][1] = Q^n[1][0])
+3. **Cassini's Identity**: F(n+1)×F(n-1) - F(n)² = (-1)^n
 
-## Algorithme
+## Algorithm
 
-### Exponentiation Rapide (Binary Exponentiation)
+### Fast Exponentiation (Binary Exponentiation)
 
-L'idée clé est d'utiliser la décomposition binaire de l'exposant :
+The key idea is to use binary decomposition of the exponent:
 
 ```
-n = Σ bᵢ × 2^i  (où bᵢ ∈ {0, 1})
+n = Σ bᵢ × 2^i  (where bᵢ ∈ {0, 1})
 ```
 
-Alors :
+Then:
 ```
 Q^n = Q^(Σ bᵢ × 2^i) = Π Q^(bᵢ × 2^i)
 ```
@@ -54,24 +54,24 @@ Q^n = Q^(Σ bᵢ × 2^i) = Π Q^(bᵢ × 2^i)
 
 ```
 MatrixFibonacci(n):
-    si n == 0:
-        retourner 0
+    if n == 0:
+        return 0
     
-    result = matrice identité I
+    result = identity matrix I
     base = Q = [[1,1], [1,0]]
     
-    exposant = n - 1
+    exponent = n - 1
     
-    tant que exposant > 0:
-        si exposant est impair:
+    while exponent > 0:
+        if exponent is odd:
             result = result × base
-        base = base × base  // Élévation au carré
-        exposant = exposant / 2
+        base = base × base  // Squaring
+        exponent = exponent / 2
     
-    retourner result[0][0]  // C'est F(n)
+    return result[0][0]  // This is F(n)
 ```
 
-### Implémentation Go
+### Go Implementation
 
 ```go
 func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressReporter, 
@@ -87,8 +87,8 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
     exponent := n - 1
     numBits := bits.Len64(exponent)
     
-    // state.res = matrice identité
-    // state.p = matrice Q = [[1,1],[1,0]]
+    // state.res = identity matrix
+    // state.p = Q matrix = [[1,1],[1,0]]
     
     for i := 0; i < numBits; i++ {
         if (exponent >> i) & 1 == 1 {
@@ -106,14 +106,14 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 }
 ```
 
-## Optimisations Implémentées
+## Implemented Optimisations
 
-### 1. Algorithme de Strassen
+### 1. Strassen Algorithm
 
-Pour les matrices 2×2 avec de grands éléments, l'algorithme de Strassen réduit le nombre de multiplications de 8 à 7 :
+For 2×2 matrices with large elements, the Strassen algorithm reduces the number of multiplications from 8 to 7:
 
 ```
-Multiplication classique 2×2:
+Classic 2×2 multiplication:
   C[0][0] = A[0][0]×B[0][0] + A[0][1]×B[1][0]  (2 mult)
   C[0][1] = A[0][0]×B[0][1] + A[0][1]×B[1][1]  (2 mult)
   C[1][0] = A[1][0]×B[0][0] + A[1][1]×B[1][0]  (2 mult)
@@ -136,11 +136,11 @@ Strassen 2×2:
   Total: 7 multiplications + 18 additions
 ```
 
-L'implémentation bascule vers Strassen quand les éléments dépassent `--strassen-threshold` (défaut: 3072 bits).
+The implementation switches to Strassen when elements exceed `--strassen-threshold` (default: 3072 bits).
 
-### 2. Élévation au Carré de Matrices Symétriques
+### 2. Symmetric Matrix Squaring
 
-Pour une matrice symétrique (b = c), le carré peut être calculé avec seulement 4 multiplications :
+For a symmetric matrix (b = c), the square can be calculated with only 4 multiplications:
 
 ```
 [ a  b ]²   [ a²+b²    b(a+d) ]
@@ -161,20 +161,20 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState,
     
     dest.a.Add(a2, b2)    // a² + b²
     dest.b.Set(b_ad)      // b(a+d)
-    dest.c.Set(b_ad)      // symétrique
+    dest.c.Set(b_ad)      // symmetric
     dest.d.Add(b2, d2)    // b² + d²
 }
 ```
 
-### 3. Zero-Allocation avec sync.Pool
+### 3. Zero-Allocation with sync.Pool
 
 ```go
 type matrixState struct {
     res, p, tempMatrix *matrix
-    // Temporaires pour Strassen
+    // Temporaries for Strassen
     p1, p2, p3, p4, p5, p6, p7 *big.Int
     s1, s2, s3, s4, s5, s6, s7, s8, s9, s10 *big.Int
-    // Temporaires pour carré symétrique
+    // Temporaries for symmetric square
     t1, t2, t3, t4, t5 *big.Int
 }
 
@@ -189,14 +189,14 @@ var matrixStatePool = sync.Pool{
 }
 ```
 
-### 4. Parallélisme
+### 4. Parallelism
 
-Les multiplications indépendantes sont parallélisées :
+Independent multiplications are parallelised:
 
 ```go
 if inParallel {
     var wg sync.WaitGroup
-    wg.Add(7)  // Strassen: 7 multiplications parallèles
+    wg.Add(7)  // Strassen: 7 parallel multiplications
     go func() { p1 = smartMultiply(p1, m1.a, s1); wg.Done() }()
     go func() { p2 = smartMultiply(p2, s2, m2.d); wg.Done() }()
     // ...
@@ -204,50 +204,49 @@ if inParallel {
 }
 ```
 
-## Analyse de Complexité
+## Complexity Analysis
 
-### Opérations par Itération
+### Operations per Iteration
 
-| Opération | Classique | Strassen | Carré Symétrique |
-|-----------|-----------|----------|------------------|
+| Operation | Classic | Strassen | Symmetric Square |
+|-----------|---------|----------|------------------|
 | Multiplications | 8 | 7 | 4 |
 | Additions | 4 | 18 | 4 |
 
-### Nombre d'Itérations
+### Number of Iterations
 
-- log₂(n) itérations
-- À chaque itération : 1 élévation au carré + potentiellement 1 multiplication
+- log₂(n) iterations
+- At each iteration: 1 squaring + potentially 1 multiplication
 
-### Complexité Totale
+### Total Complexity
 
-- **Avec Karatsuba** : O(log n × n^1.585)
-- **Avec FFT** : O(log n × n log n)
+- **With Karatsuba**: O(log n × n^1.585)
+- **With FFT**: O(log n × n log n)
 
-## Comparaison avec Fast Doubling
+## Comparison with Fast Doubling
 
-| Critère | Matrix Exp. | Fast Doubling |
-|---------|-------------|---------------|
+| Criterion | Matrix Exp. | Fast Doubling |
+|-----------|-------------|---------------|
 | Multiplications/iter (base) | 8 | 3 |
-| Multiplications/iter (optimisé) | 4-7 | 3 |
-| Complexité mathématique | Plus intuitive | Plus compacte |
-| Performance pratique | Plus lent | Plus rapide |
+| Multiplications/iter (optimised) | 4-7 | 3 |
+| Mathematical complexity | More intuitive | More compact |
+| Practical performance | Slower | Faster |
 
-## Utilisation
+## Usage
 
 ```bash
-# Calcul avec Matrix Exponentiation
+# Calculation with Matrix Exponentiation
 ./fibcalc -n 1000000 -algo matrix -d
 
-# Ajuster le seuil Strassen
+# Adjust Strassen threshold
 ./fibcalc -n 10000000 -algo matrix --strassen-threshold 2048
 
-# Désactiver Strassen (multiplication classique uniquement)
+# Disable Strassen (classic multiplication only)
 ./fibcalc -n 1000000 -algo matrix --strassen-threshold 999999999
 ```
 
-## Références
+## References
 
 1. Erickson, J. (2019). *Algorithms*. Chapter on Recursion and Backtracking.
 2. Cormen, T. H. et al. (2009). *Introduction to Algorithms*. Section 31.2: Matrix Exponentiation.
 3. Strassen, V. (1969). "Gaussian Elimination is not Optimal". *Numerische Mathematik*.
-

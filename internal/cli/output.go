@@ -143,7 +143,7 @@ func DisplayResultWithConfig(out io.Writer, result *big.Int, n uint64, duration 
 			return err
 		}
 		if !config.Quiet {
-			fmt.Fprintf(out, "\n%s✓ Résultat sauvegardé dans: %s%s%s\n",
+			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
 				ColorGreen(), ColorCyan(), config.OutputFile, ColorReset())
 		}
 	}

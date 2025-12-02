@@ -1,17 +1,17 @@
-# Architecture du Calculateur Fibonacci
+# Fibonacci Calculator Architecture
 
-> **Version** : 1.1.0  
-> **Dernière mise à jour** : Novembre 2025
+> **Version**: 1.1.0  
+> **Last Updated**: November 2025
 
-## Vue d'ensemble
+## Overview
 
-Le Calculateur Fibonacci est conçu selon les principes de la **Clean Architecture**, avec une séparation stricte des responsabilités et un faible couplage entre les modules. Cette architecture permet une testabilité maximale, une évolutivité aisée et une maintenance simplifiée.
+The Fibonacci Calculator is designed according to **Clean Architecture** principles, with strict separation of responsibilities and low coupling between modules. This architecture enables maximum testability, easy scalability, and simplified maintenance.
 
-## Diagramme d'Architecture
+## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           POINTS D'ENTRÉE                               │
+│                           ENTRY POINTS                                  │
 │                                                                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
 │  │   CLI Mode  │  │ Server Mode │  │   Docker    │  │ REPL Mode   │    │
@@ -28,12 +28,12 @@ Le Calculateur Fibonacci est conçu selon les principes de la **Clean Architectu
                              └────────┬────────┘
                                       │
 ┌─────────────────────────────────────┼───────────────────────────────────┐
-│                   COUCHE ORCHESTRATION                                  │
+│                   ORCHESTRATION LAYER                                   │
 │                                     ▼                                   │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                    internal/orchestration                        │   │
-│  │  • ExecuteCalculations() - Exécution parallèle des algorithmes  │   │
-│  │  • AnalyzeComparisonResults() - Analyse et comparaison          │   │
+│  │  • ExecuteCalculations() - Parallel algorithm execution         │   │
+│  │  • AnalyzeComparisonResults() - Analysis and comparison         │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                            │                                           │
 │  ┌─────────────────────────┼───────────────────────────────────────┐   │
@@ -46,7 +46,7 @@ Le Calculateur Fibonacci est conçu selon les principes de la **Clean Architectu
 └────────────────────────────┼────────────────────────────────────────────┘
                              │
 ┌────────────────────────────┼────────────────────────────────────────────┐
-│                      COUCHE MÉTIER                                      │
+│                      BUSINESS LAYER                                     │
 │                            ▼                                           │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                    internal/fibonacci                            │   │
@@ -61,216 +61,215 @@ Le Calculateur Fibonacci est conçu selon les principes de la **Clean Architectu
 │  │                            ▼                                     │   │
 │  │  ┌─────────────────────────────────────────────────────────────┐│   │
 │  │  │                    internal/bigfft                          ││   │
-│  │  │  • Multiplication FFT pour très grands nombres              ││   │
-│  │  │  • Complexité O(n log n) vs O(n^1.585) pour Karatsuba       ││   │
+│  │  │  • FFT multiplication for very large numbers                ││   │
+│  │  │  • Complexity O(n log n) vs O(n^1.585) for Karatsuba        ││   │
 │  │  └─────────────────────────────────────────────────────────────┘│   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └────────────────────────────┼────────────────────────────────────────────┘
                              │
 ┌────────────────────────────┼────────────────────────────────────────────┐
-│                   COUCHE PRÉSENTATION                                   │
+│                   PRESENTATION LAYER                                    │
 │                            ▼                                           │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                      internal/cli                                │   │
-│  │  • Spinner et barre de progression avec ETA                     │   │
-│  │  • Formatage des résultats                                       │   │
-│  │  • Thèmes de couleur (dark/light/none)                          │   │
-│  │  • Support NO_COLOR                                              │   │
+│  │  • Spinner and progress bar with ETA                            │   │
+│  │  • Result formatting                                             │   │
+│  │  • Colour themes (dark/light/none)                              │   │
+│  │  • NO_COLOR support                                              │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Structure des Packages
+## Package Structure
 
 ### `cmd/fibcalc`
 
-Point d'entrée de l'application. Responsabilités :
-- Parsing des arguments de ligne de commande
-- Initialisation des composants
-- Routage vers le mode CLI ou serveur
-- Gestion des signaux système
+Application entry point. Responsibilities:
+- Command-line argument parsing
+- Component initialisation
+- Routing to CLI or server mode
+- System signal handling
 
 ### `internal/fibonacci`
 
-Cœur métier de l'application. Contient :
-- **`calculator.go`** : Interface `Calculator` et wrapper générique
-- **`fastdoubling.go`** : Algorithme Fast Doubling optimisé
-- **`matrix.go`** : Exponentiation matricielle avec Strassen
-- **`fft_based.go`** : Calculateur forçant la multiplication FFT
-- **`fft.go`** : Logique de sélection de multiplication (standard vs FFT)
-- **`constants.go`** : Seuils et constantes de configuration
+Business core of the application. Contains:
+- **`calculator.go`**: `Calculator` interface and generic wrapper
+- **`fastdoubling.go`**: Optimised Fast Doubling algorithm
+- **`matrix.go`**: Matrix exponentiation with Strassen
+- **`fft_based.go`**: Calculator forcing FFT multiplication
+- **`fft.go`**: Multiplication selection logic (standard vs FFT)
+- **`constants.go`**: Thresholds and configuration constants
 
 ### `internal/bigfft`
 
-Implémentation de la multiplication FFT pour `big.Int` :
-- **`fft.go`** : Algorithme FFT principal
-- **`fermat.go`** : Arithmétique modulaire pour FFT
-- **`pool.go`** : Pools d'objets pour réduction des allocations
+FFT multiplication implementation for `big.Int`:
+- **`fft.go`**: Main FFT algorithm
+- **`fermat.go`**: Modular arithmetic for FFT
+- **`pool.go`**: Object pools to reduce allocations
 
 ### `internal/orchestration`
 
-Gestion de l'exécution concurrente :
-- Exécution parallèle de plusieurs algorithmes
-- Agrégation et comparaison des résultats
-- Gestion des erreurs et timeouts
+Concurrent execution management:
+- Parallel execution of multiple algorithms
+- Result aggregation and comparison
+- Error and timeout handling
 
 ### `internal/calibration`
 
-Système de calibration automatique :
-- Détection des seuils optimaux pour le matériel
-- Persistance des profils de calibration
-- Génération adaptative des seuils selon le CPU
+Automatic calibration system:
+- Optimal threshold detection for the hardware
+- Calibration profile persistence
+- Adaptive threshold generation based on CPU
 
 ### `internal/server`
 
-Serveur HTTP REST :
-- Endpoints `/calculate`, `/health`, `/algorithms`, `/metrics`
-- Rate limiting et sécurité
-- Middleware de logging et métriques
+HTTP REST server:
+- `/calculate`, `/health`, `/algorithms`, `/metrics` endpoints
+- Rate limiting and security
+- Logging and metrics middleware
 - Graceful shutdown
 
 ### `internal/cli`
 
-Interface utilisateur en ligne de commande :
-- Spinner animé avec barre de progression
-- Estimation du temps restant (ETA)
-- Système de thèmes de couleur (dark, light, none)
-- Formatage des grands nombres
-- **Mode REPL** (`repl.go`) : Session interactive pour calculs multiples
-  - Commandes : `calc`, `algo`, `compare`, `list`, `hex`, `status`, `help`, `exit`
-  - Changement d'algorithme à la volée
-  - Comparaison temps réel des algorithmes
-- Génération de scripts d'autocomplétion (bash, zsh, fish, powershell)
-- Support de la variable d'environnement `NO_COLOR`
+Command-line user interface:
+- Animated spinner with progress bar
+- Estimated time remaining (ETA)
+- Colour theme system (dark, light, none)
+- Large number formatting
+- **REPL Mode** (`repl.go`): Interactive session for multiple calculations
+  - Commands: `calc`, `algo`, `compare`, `list`, `hex`, `status`, `help`, `exit`
+  - On-the-fly algorithm switching
+  - Real-time algorithm comparison
+- Autocompletion script generation (bash, zsh, fish, powershell)
+- `NO_COLOR` environment variable support
 
 ### `internal/config`
 
-Gestion de la configuration :
-- Parsing des flags CLI
-- Validation des paramètres
-- Valeurs par défaut
+Configuration management:
+- CLI flag parsing
+- Parameter validation
+- Default values
 
 ### `internal/errors`
 
-Gestion centralisée des erreurs :
-- Types d'erreurs personnalisés
-- Codes de sortie standardisés
+Centralised error handling:
+- Custom error types
+- Standardised exit codes
 
-## Décisions d'Architecture (ADR)
+## Architecture Decision Records (ADR)
 
-### ADR-001 : Utilisation de `sync.Pool` pour les états de calcul
+### ADR-001: Using `sync.Pool` for Calculation States
 
-**Contexte** : Les calculs de Fibonacci pour de grands N nécessitent de nombreux objets `big.Int` temporaires.
+**Context**: Fibonacci calculations for large N require numerous temporary `big.Int` objects.
 
-**Décision** : Utiliser `sync.Pool` pour recycler les états de calcul (`calculationState`, `matrixState`).
+**Decision**: Use `sync.Pool` to recycle calculation states (`calculationState`, `matrixState`).
 
-**Conséquences** :
-- ✅ Réduction drastique des allocations mémoire
-- ✅ Diminution de la pression sur le GC
-- ✅ Amélioration des performances de 20-30%
-- ⚠️ Complexité accrue du code
+**Consequences**:
+- ✅ Drastic reduction in memory allocations
+- ✅ Decreased GC pressure
+- ✅ 20-30% performance improvement
+- ⚠️ Increased code complexity
 
-### ADR-002 : Sélection dynamique de l'algorithme de multiplication
+### ADR-002: Dynamic Multiplication Algorithm Selection
 
-**Contexte** : La multiplication FFT est plus efficace que Karatsuba pour les très grands nombres, mais a un overhead significatif pour les petits nombres.
+**Context**: FFT multiplication is more efficient than Karatsuba for very large numbers, but has significant overhead for small numbers.
 
-**Décision** : Implémenter une fonction `smartMultiply` qui sélectionne l'algorithme basé sur la taille des opérandes.
+**Decision**: Implement a `smartMultiply` function that selects the algorithm based on operand size.
 
-**Conséquences** :
-- ✅ Performance optimale sur toute la plage de valeurs
+**Consequences**:
+- ✅ Optimal performance across the entire value range
 - ✅ Configurable via `--fft-threshold`
-- ⚠️ Nécessite une calibration pour chaque architecture
+- ⚠️ Requires calibration for each architecture
 
-### ADR-003 : Architecture hexagonale pour le serveur
+### ADR-003: Hexagonal Architecture for the Server
 
-**Contexte** : Le serveur doit être testable et extensible.
+**Context**: The server must be testable and extensible.
 
-**Décision** : Utiliser des interfaces et l'injection de dépendances via des options fonctionnelles.
+**Decision**: Use interfaces and dependency injection via functional options.
 
-**Conséquences** :
-- ✅ Tests unitaires facilités
-- ✅ Middleware facilement composable
-- ✅ Configuration flexible
+**Consequences**:
+- ✅ Facilitated unit testing
+- ✅ Easily composable middleware
+- ✅ Flexible configuration
 
-### ADR-004 : Parallélisme adaptatif
+### ADR-004: Adaptive Parallelism
 
-**Contexte** : Le parallélisme a un coût de synchronisation qui peut dépasser les gains pour de petits calculs.
+**Context**: Parallelism has a synchronisation cost that can exceed gains for small calculations.
 
-**Décision** : Activer le parallélisme uniquement au-dessus d'un seuil configurable (`--threshold`).
+**Decision**: Enable parallelism only above a configurable threshold (`--threshold`).
 
-**Conséquences** :
-- ✅ Performance optimale selon la taille du calcul
-- ✅ Évite la saturation CPU pour les petits N
-- ⚠️ Désactivation du parallélisme quand FFT est utilisé (FFT sature déjà le CPU)
+**Consequences**:
+- ✅ Optimal performance according to calculation size
+- ✅ Avoids CPU saturation for small N
+- ⚠️ Parallelism disabled when FFT is used (FFT already saturates CPU)
 
-## Flux de Données
+## Data Flow
 
-### Mode CLI
-
-```
-1. main() parse les arguments → config.AppConfig
-2. Si --calibrate : calibration.RunCalibration() et exit
-3. Si --auto-calibrate : calibration.AutoCalibrate() met à jour config
-4. getCalculatorsToRun() sélectionne les algorithmes
-5. orchestration.ExecuteCalculations() lance les calculs en parallèle
-   - Chaque Calculator.Calculate() s'exécute dans une goroutine
-   - Les mises à jour de progression sont envoyées sur un channel
-   - cli.DisplayProgress() affiche la progression
-6. orchestration.AnalyzeComparisonResults() compare et affiche les résultats
-```
-
-### Mode Serveur
+### CLI Mode
 
 ```
-1. main() détecte --server et appelle server.NewServer()
-2. Server.Start() démarre le serveur HTTP avec graceful shutdown
-3. Pour chaque requête /calculate :
-   a. SecurityMiddleware vérifie les en-têtes
-   b. RateLimitMiddleware applique le rate limiting
-   c. loggingMiddleware journalise la requête
-   d. metricsMiddleware enregistre les métriques
-   e. handleCalculate() exécute le calcul
-4. Le résultat est retourné en JSON
+1. main() parses arguments → config.AppConfig
+2. If --calibrate: calibration.RunCalibration() and exit
+3. If --auto-calibrate: calibration.AutoCalibrate() updates config
+4. getCalculatorsToRun() selects algorithms
+5. orchestration.ExecuteCalculations() launches parallel calculations
+   - Each Calculator.Calculate() executes in a goroutine
+   - Progress updates are sent on a channel
+   - cli.DisplayProgress() displays progress
+6. orchestration.AnalyzeComparisonResults() compares and displays results
 ```
 
-### Mode Interactif (REPL)
+### Server Mode
 
 ```
-1. main() détecte --interactive et appelle cli.NewREPL()
-2. REPL.Start() affiche la bannière et l'aide
-3. Boucle principale :
-   a. Affiche le prompt "fib> "
-   b. Lit l'entrée utilisateur
-   c. Parse et exécute la commande :
-      - calc <n> : Calcul avec l'algorithme courant
-      - algo <name> : Change l'algorithme actif
-      - compare <n> : Compare tous les algorithmes
-      - list : Liste les algorithmes
-      - hex : Toggle format hexadécimal
-      - status : Affiche la configuration
-      - exit : Termine la session
-4. Répète jusqu'à exit ou EOF
+1. main() detects --server and calls server.NewServer()
+2. Server.Start() starts HTTP server with graceful shutdown
+3. For each /calculate request:
+   a. SecurityMiddleware checks headers
+   b. RateLimitMiddleware applies rate limiting
+   c. loggingMiddleware logs the request
+   d. metricsMiddleware records metrics
+   e. handleCalculate() executes the calculation
+4. Result is returned as JSON
 ```
 
-## Considérations de Performance
+### Interactive Mode (REPL)
 
-1. **Zero-Allocation** : Les pools d'objets évitent les allocations dans les boucles critiques
-2. **Parallélisme intelligent** : Activé uniquement quand bénéfique
-3. **FFT adaptatif** : Utilisé pour les très grands nombres uniquement
-4. **Strassen** : Activé pour les matrices avec grands éléments
-5. **Mise au carré symétrique** : Optimisation spécifique réduisant les multiplications
+```
+1. main() detects --interactive and calls cli.NewREPL()
+2. REPL.Start() displays banner and help
+3. Main loop:
+   a. Displays "fib> " prompt
+   b. Reads user input
+   c. Parses and executes command:
+      - calc <n>: Calculation with current algorithm
+      - algo <name>: Changes active algorithm
+      - compare <n>: Compares all algorithms
+      - list: Lists algorithms
+      - hex: Toggles hexadecimal format
+      - status: Displays configuration
+      - exit: Ends session
+4. Repeats until exit or EOF
+```
 
-## Extensibilité
+## Performance Considerations
 
-Pour ajouter un nouvel algorithme :
+1. **Zero-Allocation**: Object pools avoid allocations in critical loops
+2. **Smart Parallelism**: Enabled only when beneficial
+3. **Adaptive FFT**: Used for very large numbers only
+4. **Strassen**: Enabled for matrices with large elements
+5. **Symmetric Squaring**: Specific optimisation reducing multiplications
 
-1. Créer une structure implémentant l'interface `coreCalculator` dans `internal/fibonacci`
-2. Enregistrer le calculateur dans `calculatorRegistry` dans `main.go`
-3. Ajouter les tests correspondants
+## Extensibility
 
-Pour ajouter un nouveau endpoint API :
+To add a new algorithm:
 
-1. Ajouter le handler dans `internal/server/server.go`
-2. Enregistrer la route dans `NewServer()`
-3. Mettre à jour la documentation OpenAPI
+1. Create a structure implementing the `coreCalculator` interface in `internal/fibonacci`
+2. Register the calculator in `calculatorRegistry` in `main.go`
+3. Add corresponding tests
 
+To add a new API endpoint:
+
+1. Add the handler in `internal/server/server.go`
+2. Register the route in `NewServer()`
+3. Update the OpenAPI documentation

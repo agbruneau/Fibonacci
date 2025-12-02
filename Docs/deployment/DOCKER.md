@@ -1,30 +1,30 @@
-# Guide de Déploiement Docker
+# Docker Deployment Guide
 
-> **Version** : 1.0.0  
-> **Dernière mise à jour** : Novembre 2025
+> **Version**: 1.0.0  
+> **Last Updated**: November 2025
 
-## Prérequis
+## Prerequisites
 
 - Docker 20.10+
-- Docker Compose 2.0+ (optionnel)
-- 512 MB RAM minimum (2 GB recommandé pour grands calculs)
+- Docker Compose 2.0+ (optional)
+- 512 MB RAM minimum (2 GB recommended for large calculations)
 
-## Construction de l'Image
+## Building the Image
 
-### Build Standard
+### Standard Build
 
 ```bash
-# Build l'image avec le tag par défaut
+# Build the image with default tag
 docker build -t fibcalc:latest .
 
-# Build avec un tag de version spécifique
+# Build with a specific version tag
 docker build -t fibcalc:1.0.0 .
 ```
 
-### Build avec Arguments
+### Build with Arguments
 
 ```bash
-# Build avec informations de version injectées
+# Build with injected version information
 docker build \
   --build-arg VERSION=1.0.0 \
   --build-arg COMMIT=$(git rev-parse --short HEAD) \
@@ -35,61 +35,61 @@ docker build \
 ### Multi-architecture
 
 ```bash
-# Build pour multiple architectures (AMD64 + ARM64)
+# Build for multiple architectures (AMD64 + ARM64)
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t fibcalc:1.0.0 \
   --push .
 ```
 
-## Exécution
+## Running
 
-### Mode CLI
+### CLI Mode
 
 ```bash
-# Calcul simple
+# Simple calculation
 docker run --rm fibcalc:latest -n 1000 -algo fast -d
 
-# Calcul avec tous les algorithmes
+# Calculation with all algorithms
 docker run --rm fibcalc:latest -n 10000 -algo all
 
-# Sortie JSON
+# JSON output
 docker run --rm fibcalc:latest -n 1000 --json
 
 # Calibration
 docker run --rm fibcalc:latest --calibrate
 ```
 
-### Mode Serveur
+### Server Mode
 
 ```bash
-# Démarrer le serveur sur le port 8080
+# Start the server on port 8080
 docker run -d \
   --name fibcalc-server \
   -p 8080:8080 \
   fibcalc:latest --server --port 8080
 
-# Vérifier que le serveur fonctionne
+# Verify the server is running
 curl http://localhost:8080/health
 
-# Voir les logs
+# View logs
 docker logs -f fibcalc-server
 
-# Arrêter le serveur
+# Stop the server
 docker stop fibcalc-server
 docker rm fibcalc-server
 ```
 
-### Options Avancées
+### Advanced Options
 
 ```bash
-# Avec auto-calibration au démarrage
+# With auto-calibration at startup
 docker run -d \
   --name fibcalc-server \
   -p 8080:8080 \
   fibcalc:latest --server --port 8080 --auto-calibrate
 
-# Avec limites de ressources
+# With resource limits
 docker run -d \
   --name fibcalc-server \
   -p 8080:8080 \
@@ -97,7 +97,7 @@ docker run -d \
   --cpus=4 \
   fibcalc:latest --server --port 8080
 
-# Avec timeout personnalisé
+# With custom timeout
 docker run -d \
   --name fibcalc-server \
   -p 8080:8080 \
@@ -106,9 +106,9 @@ docker run -d \
 
 ## Docker Compose
 
-### Configuration Simple
+### Simple Configuration
 
-Créez un fichier `docker-compose.yml` :
+Create a `docker-compose.yml` file:
 
 ```yaml
 version: '3.8'
@@ -131,17 +131,17 @@ services:
 ```
 
 ```bash
-# Démarrer
+# Start
 docker-compose up -d
 
-# Voir les logs
+# View logs
 docker-compose logs -f
 
-# Arrêter
+# Stop
 docker-compose down
 ```
 
-### Configuration avec Monitoring
+### Configuration with Monitoring
 
 ```yaml
 version: '3.8'
@@ -211,7 +211,7 @@ volumes:
   grafana-data:
 ```
 
-Fichier `prometheus.yml` correspondant :
+Corresponding `prometheus.yml` file:
 
 ```yaml
 global:
@@ -224,82 +224,82 @@ scrape_configs:
     metrics_path: '/metrics'
 ```
 
-## Dockerfile Expliqué
+## Dockerfile Explained
 
 ```dockerfile
 # Stage 1: Build
 FROM golang:1.25-alpine AS builder
 
-# Dépendances de build
+# Build dependencies
 RUN apk add --no-cache git make
 
 WORKDIR /app
 
-# Cache des dépendances Go
+# Cache Go dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copie du code source
+# Copy source code
 COPY . .
 
-# Build optimisé
+# Optimised build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w" \
     -o /app/fibcalc \
     ./cmd/fibcalc
 
-# Stage 2: Runtime (image minimale)
+# Stage 2: Runtime (minimal image)
 FROM alpine:latest
 
-# Certificats pour HTTPS
+# Certificates for HTTPS
 RUN apk --no-cache add ca-certificates
 
-# Utilisateur non-root (sécurité)
+# Non-root user (security)
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-# Copie du binaire depuis le builder
+# Copy binary from builder
 COPY --from=builder /app/fibcalc .
 
 # Permissions
 RUN chown -R appuser:appgroup /app
 
-# Exécution en non-root
+# Run as non-root
 USER appuser
 
-# Port exposé
+# Exposed port
 EXPOSE 8080
 
-# Point d'entrée
+# Entry point
 ENTRYPOINT ["/app/fibcalc"]
 CMD ["--help"]
 ```
 
-## Bonnes Pratiques
+## Best Practices
 
-### 1. Taille de l'Image
+### 1. Image Size
 
-L'image finale fait environ 15 MB grâce à :
+The final image is approximately 15 MB thanks to:
 - Multi-stage build
-- Image de base Alpine
-- Binaire Go statique (CGO_ENABLED=0)
-- Stripping des symboles (-ldflags="-s -w")
+- Alpine base image
+- Static Go binary (CGO_ENABLED=0)
+- Symbol stripping (-ldflags="-s -w")
 
-### 2. Sécurité
+### 2. Security
 
-- Utilisateur non-root (`appuser`)
-- Image de base minimale (Alpine)
-- Pas de shell interactif nécessaire
-- Healthcheck intégré
+- Non-root user (`appuser`)
+- Minimal base image (Alpine)
+- No interactive shell needed
+- Built-in healthcheck
 
-### 3. Performances
+### 3. Performance
 
 ```bash
-# Recommandations de ressources
-# - Petit usage : 1 CPU, 512 MB RAM
-# - Usage moyen : 2 CPUs, 1 GB RAM
-# - Grands calculs : 4+ CPUs, 2+ GB RAM
+# Resource recommendations
+# - Small usage: 1 CPU, 512 MB RAM
+# - Medium usage: 2 CPUs, 1 GB RAM
+# - Large calculations: 4+ CPUs, 2+ GB RAM
 
 docker run -d \
   --cpus=4 \
@@ -309,46 +309,46 @@ docker run -d \
   fibcalc:latest --server --port 8080
 ```
 
-### 4. Persistance de la Calibration
+### 4. Calibration Persistence
 
 ```bash
-# Monter un volume pour persister le profil de calibration
+# Mount a volume to persist the calibration profile
 docker run -d \
   -v fibcalc-data:/home/appuser \
   -p 8080:8080 \
   fibcalc:latest --server --port 8080 --auto-calibrate
 ```
 
-## Dépannage
+## Troubleshooting
 
-### Le conteneur ne démarre pas
+### Container Won't Start
 
 ```bash
-# Vérifier les logs
+# Check logs
 docker logs fibcalc-server
 
-# Exécuter en mode interactif
+# Run in interactive mode
 docker run --rm -it fibcalc:latest --help
 ```
 
-### Performances dégradées
+### Degraded Performance
 
 ```bash
-# Vérifier les ressources
+# Check resources
 docker stats fibcalc-server
 
-# Augmenter les limites
+# Increase limits
 docker update --cpus=8 --memory=4g fibcalc-server
 ```
 
-### Port déjà utilisé
+### Port Already in Use
 
 ```bash
-# Utiliser un autre port
+# Use a different port
 docker run -d -p 9090:8080 fibcalc:latest --server --port 8080
 ```
 
-## Intégration CI/CD
+## CI/CD Integration
 
 ### GitHub Actions
 
@@ -389,7 +389,7 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
 ```
 
-## Registres Supportés
+## Supported Registries
 
 ```bash
 # Docker Hub
@@ -404,4 +404,3 @@ docker push ghcr.io/username/fibcalc:latest
 docker tag fibcalc:latest 123456789.dkr.ecr.us-east-1.amazonaws.com/fibcalc:latest
 docker push 123456789.dkr.ecr.us-east-1.amazonaws.com/fibcalc:latest
 ```
-

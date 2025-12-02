@@ -1,17 +1,17 @@
-# Algorithme Fast Doubling
+# Fast Doubling Algorithm
 
-> **Complexité** : O(log n) opérations arithmétiques  
-> **Complexité réelle** : O(log n × M(n)) où M(n) est le coût de multiplication
+> **Complexity**: O(log n) arithmetic operations  
+> **Actual Complexity**: O(log n × M(n)) where M(n) is the multiplication cost
 
 ## Introduction
 
-L'algorithme **Fast Doubling** (ou "doublement rapide") est l'une des méthodes les plus efficaces pour calculer les nombres de Fibonacci. Il exploite les propriétés mathématiques de la suite pour réduire le nombre d'opérations à O(log n).
+The **Fast Doubling** algorithm is one of the most efficient methods for calculating Fibonacci numbers. It exploits the mathematical properties of the sequence to reduce the number of operations to O(log n).
 
-## Fondement Mathématique
+## Mathematical Foundation
 
-### Forme Matricielle de Fibonacci
+### Matrix Form of Fibonacci
 
-La suite de Fibonacci peut être exprimée sous forme matricielle :
+The Fibonacci sequence can be expressed in matrix form:
 
 ```
 [ F(n+1)  F(n)   ]   [ 1  1 ]^n
@@ -19,11 +19,11 @@ La suite de Fibonacci peut être exprimée sous forme matricielle :
 [ F(n)    F(n-1) ]   [ 1  0 ]
 ```
 
-Cette relation est connue sous le nom de **matrice Q de Fibonacci**.
+This relation is known as the **Fibonacci Q matrix**.
 
-### Dérivation des Formules de Doublement
+### Derivation of Doubling Formulae
 
-En élevant au carré la matrice pour F(k), on obtient la matrice pour F(2k) :
+By squaring the matrix for F(k), we obtain the matrix for F(2k):
 
 ```
 [ F(k+1)  F(k)  ]²   [ F(k+1)² + F(k)²        F(k+1)F(k) + F(k)F(k-1) ]
@@ -31,7 +31,7 @@ En élevant au carré la matrice pour F(k), on obtient la matrice pour F(2k) :
 [ F(k)    F(k-1)]    [ F(k)F(k+1) + F(k-1)F(k)   F(k)² + F(k-1)²       ]
 ```
 
-Ce qui correspond à :
+Which corresponds to:
 
 ```
 [ F(2k+1)  F(2k)   ]
@@ -39,46 +39,46 @@ Ce qui correspond à :
 [ F(2k)    F(2k-1) ]
 ```
 
-De cette égalité, on extrait les **identités de Fast Doubling** :
+From this equality, we extract the **Fast Doubling identities**:
 
 ```
 F(2k)   = F(k) × [2×F(k+1) - F(k)]
 F(2k+1) = F(k+1)² + F(k)²
 ```
 
-### Démonstration
+### Proof
 
-1. **Pour F(2k)** :
-   - De la matrice : F(2k) = F(k) × F(k+1) + F(k) × F(k-1)
-   - Or F(k-1) = F(k+1) - F(k) (définition de Fibonacci)
-   - Donc : F(2k) = F(k) × [F(k+1) + F(k+1) - F(k)]
+1. **For F(2k)**:
+   - From the matrix: F(2k) = F(k) × F(k+1) + F(k) × F(k-1)
+   - Now F(k-1) = F(k+1) - F(k) (Fibonacci definition)
+   - Therefore: F(2k) = F(k) × [F(k+1) + F(k+1) - F(k)]
    - **F(2k) = F(k) × [2×F(k+1) - F(k)]**
 
-2. **Pour F(2k+1)** :
-   - De la matrice : F(2k+1) = F(k+1)² + F(k)²
-   - Cette formule découle directement de l'élément (1,1) de la matrice carrée
+2. **For F(2k+1)**:
+   - From the matrix: F(2k+1) = F(k+1)² + F(k)²
+   - This formula follows directly from element (1,1) of the squared matrix
 
-## Algorithme
+## Algorithm
 
 ### Pseudocode
 
 ```
 FastDoubling(n):
-    si n == 0:
-        retourner (0, 1)  // (F(0), F(1))
+    if n == 0:
+        return (0, 1)  // (F(0), F(1))
     
-    (a, b) = FastDoubling(n // 2)  // (F(k), F(k+1)) où k = n/2
+    (a, b) = FastDoubling(n // 2)  // (F(k), F(k+1)) where k = n/2
     
     c = a × (2×b - a)      // F(2k)
     d = a² + b²            // F(2k+1)
     
-    si n est pair:
-        retourner (c, d)   // (F(n), F(n+1))
-    sinon:
-        retourner (d, c+d) // (F(n), F(n+1))
+    if n is even:
+        return (c, d)   // (F(n), F(n+1))
+    else:
+        return (d, c+d) // (F(n), F(n+1))
 ```
 
-### Implémentation Go (Simplifiée)
+### Go Implementation (Simplified)
 
 ```go
 func FastDoublingSimple(n uint64) (*big.Int, *big.Int) {
@@ -105,18 +105,18 @@ func FastDoublingSimple(n uint64) (*big.Int, *big.Int) {
 }
 ```
 
-## Optimisations Implémentées
+## Implemented Optimisations
 
-### 1. Version Itérative
+### 1. Iterative Version
 
-La version récursive est convertie en itérative pour éviter le coût des appels de fonction :
+The recursive version is converted to iterative to avoid function call overhead:
 
 ```go
 func (fd *OptimizedFastDoubling) CalculateCore(...) (*big.Int, error) {
     numBits := bits.Len64(n)
     
     for i := numBits - 1; i >= 0; i-- {
-        // Étape de doublement
+        // Doubling step
         t2.Lsh(f_k1, 1).Sub(t2, f_k)       // t2 = 2×F(k+1) - F(k)
         
         t3 = smartMultiply(t3, f_k, t2)    // F(2k) = F(k) × t2
@@ -126,7 +126,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(...) (*big.Int, error) {
         
         f_k, f_k1 = t3, t2
         
-        // Étape d'addition (si bit = 1)
+        // Addition step (if bit = 1)
         if (n >> i) & 1 == 1 {
             t1.Add(f_k, f_k1)
             f_k, f_k1 = f_k1, t1
@@ -137,9 +137,9 @@ func (fd *OptimizedFastDoubling) CalculateCore(...) (*big.Int, error) {
 }
 ```
 
-### 2. Zero-Allocation avec sync.Pool
+### 2. Zero-Allocation with sync.Pool
 
-Les états de calcul sont recyclés :
+Calculation states are recycled:
 
 ```go
 type calculationState struct {
@@ -157,9 +157,9 @@ var statePool = sync.Pool{
 }
 ```
 
-### 3. Parallélisme des Multiplications
+### 3. Multiplication Parallelism
 
-Les trois multiplications sont exécutées en parallèle sur multi-cœur :
+The three multiplications are executed in parallel on multi-core:
 
 ```go
 func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
@@ -172,9 +172,9 @@ func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
 }
 ```
 
-### 4. Multiplication Adaptative
+### 4. Adaptive Multiplication
 
-Basculement automatique entre Karatsuba et FFT :
+Automatic switching between Karatsuba and FFT:
 
 ```go
 func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
@@ -185,56 +185,55 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 }
 ```
 
-## Analyse de Complexité
+## Complexity Analysis
 
-### Nombre d'Opérations
+### Number of Operations
 
-À chaque itération de la boucle principale :
-- 1 décalage à gauche (O(n) bits)
-- 1 soustraction (O(n) bits)
-- 3 multiplications de grands entiers
+At each iteration of the main loop:
+- 1 left shift (O(n) bits)
+- 1 subtraction (O(n) bits)
+- 3 large integer multiplications
 - 1 addition (O(n) bits)
-- Potentiellement 1 addition supplémentaire (si bit = 1)
+- Potentially 1 additional addition (if bit = 1)
 
-Nombre d'itérations : log₂(n)
+Number of iterations: log₂(n)
 
-### Coût de Multiplication
+### Multiplication Cost
 
-Le coût de chaque multiplication dépend de la taille des opérandes :
-- F(n) a environ n × log₂(φ) ≈ 0.694 × n bits
-- Karatsuba : O(n^1.585)
-- FFT : O(n log n)
+The cost of each multiplication depends on the operand size:
+- F(n) has approximately n × log₂(φ) ≈ 0.694 × n bits
+- Karatsuba: O(n^1.585)
+- FFT: O(n log n)
 
-### Complexité Totale
+### Total Complexity
 
-- **Avec Karatsuba** : O(log n × n^1.585)
-- **Avec FFT** : O(log n × n log n)
+- **With Karatsuba**: O(log n × n^1.585)
+- **With FFT**: O(log n × n log n)
 
-## Comparaison avec les Autres Méthodes
+## Comparison with Other Methods
 
-| Méthode | Complexité | Multiplications/itération | Avantage |
-|---------|------------|---------------------------|----------|
-| Fast Doubling | O(log n × M(n)) | 3 | Le plus rapide |
-| Matrix Exp. | O(log n × M(n)) | 4-8 | Plus intuitif |
-| Récursion naive | O(φⁿ) | 0 | Simple mais impraticable |
-| Itération | O(n) | 0 | Simple, lent pour grand n |
+| Method | Complexity | Multiplications/iteration | Advantage |
+|--------|------------|---------------------------|-----------|
+| Fast Doubling | O(log n × M(n)) | 3 | Fastest |
+| Matrix Exp. | O(log n × M(n)) | 4-8 | More intuitive |
+| Naive recursion | O(φⁿ) | 0 | Simple but impractical |
+| Iteration | O(n) | 0 | Simple, slow for large n |
 
-## Utilisation
+## Usage
 
 ```bash
-# Calcul avec Fast Doubling
+# Calculation with Fast Doubling
 ./fibcalc -n 1000000 -algo fast -d
 
-# Avec parallélisme activé (défaut)
+# With parallelism enabled (default)
 ./fibcalc -n 10000000 -algo fast --threshold 4096
 
-# Forcer le mode séquentiel
+# Force sequential mode
 ./fibcalc -n 1000000 -algo fast --threshold 0
 ```
 
-## Références
+## References
 
 1. Knuth, D. E. (1997). *The Art of Computer Programming, Volume 2: Seminumerical Algorithms*. Section 4.6.3.
 2. [Fast Fibonacci algorithms](https://www.nayuki.io/page/fast-fibonacci-algorithms) - Nayuki
 3. [Project Nayuki - Fast Doubling](https://www.nayuki.io/res/fast-fibonacci-algorithms/FastFibonacci.java)
-
