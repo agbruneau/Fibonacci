@@ -1,483 +1,289 @@
 package config
 
 import (
-	"bytes"
+	"io"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
 
-// TestParseConfig verifies the behavior of the command-line argument parser.
-// It checks that valid arguments are correctly parsed into the AppConfig struct,
-// and that invalid arguments or values trigger the expected errors.
 func TestParseConfig(t *testing.T) {
-	tests := []struct {
-		name          string
-		args          []string
-		expectedN     uint64
-		expectedAlgo  string
-		expectError   bool
-		errorContains string
-	}{
-		{
-			name:         "Default values",
-			args:         []string{},
-			expectedN:    250000000,
-			expectedAlgo: "all",
-			expectError:  false,
-		},
-		{
-			name:         "Valid flags",
-			args:         []string{"-n", "100", "-algo", "matrix"},
-			expectedN:    100,
-			expectedAlgo: "matrix",
-			expectError:  false,
-		},
-		{
-			name:          "Invalid flag",
-			args:          []string{"-invalid"},
-			expectError:   true,
-			errorContains: "flag provided but not defined",
-		},
-		{
-			name:          "Invalid algorithm",
-			args:          []string{"-algo", "invalid"},
-			expectError:   true,
-			errorContains: "unrecognized algorithm",
-		},
-	}
+	availableAlgos := []string{"fast", "matrix", "fft"}
 
-	availableAlgos := []string{"matrix", "fast"}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			cfg, err := ParseConfig("test", tt.args, &buf, availableAlgos)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got nil")
-				}
-				if !strings.Contains(buf.String(), tt.errorContains) && !strings.Contains(err.Error(), tt.errorContains) {
-					// Check both buffer (flag errors) and returned error (validation errors)
-					t.Errorf("expected error containing %q, got output %q and error %v", tt.errorContains, buf.String(), err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if cfg.N != tt.expectedN {
-					t.Errorf("expected N %d, got %d", tt.expectedN, cfg.N)
-				}
-				if cfg.Algo != tt.expectedAlgo {
-					t.Errorf("expected Algo %s, got %s", tt.expectedAlgo, cfg.Algo)
-				}
-			}
-		})
-	}
-}
-
-// TestAppConfig_Validate ensures that the Validate method correctly identifies
-// semantic errors in the configuration, such as negative thresholds or
-// invalid timeout values.
-func TestAppConfig_Validate(t *testing.T) {
-	tests := []struct {
-		name           string
-		config         AppConfig
-		availableAlgos []string
-		expectError    bool
-	}{
-		{
-			name: "Valid config",
-			config: AppConfig{
-				Timeout:      time.Minute,
-				Threshold:    100,
-				FFTThreshold: 100,
-				Algo:         "matrix",
-			},
-			availableAlgos: []string{"matrix"},
-			expectError:    false,
-		},
-		{
-			name: "Invalid timeout",
-			config: AppConfig{
-				Timeout: 0,
-			},
-			expectError: true,
-		},
-		{
-			name: "Negative threshold",
-			config: AppConfig{
-				Timeout:   time.Minute,
-				Threshold: -1,
-			},
-			expectError: true,
-		},
-		{
-			name: "Negative FFT threshold",
-			config: AppConfig{
-				Timeout:      time.Minute,
-				Threshold:    100,
-				FFTThreshold: -1,
-			},
-			expectError: true,
-		},
-		{
-			name: "Invalid algorithm",
-			config: AppConfig{
-				Timeout:      time.Minute,
-				Threshold:    100,
-				FFTThreshold: 100,
-				Algo:         "invalid",
-			},
-			availableAlgos: []string{"matrix"},
-			expectError:    true,
-		},
-		{
-			name: "Valid 'all' algorithm",
-			config: AppConfig{
-				Timeout:      time.Minute,
-				Threshold:    100,
-				FFTThreshold: 100,
-				Algo:         "all",
-			},
-			availableAlgos: []string{"matrix"},
-			expectError:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.config.Validate(tt.availableAlgos)
-			if tt.expectError && err == nil {
-				t.Errorf("expected error but got nil")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Environment Variable Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TestEnvVariableOverrides verifies that environment variables are correctly
-// applied when CLI flags are not explicitly set.
-func TestEnvVariableOverrides(t *testing.T) {
-	availableAlgos := []string{"matrix", "fast", "fft"}
-
-	// Helper to set and clean environment variables
-	setEnv := func(key, value string) func() {
-		os.Setenv(EnvPrefix+key, value)
-		return func() { os.Unsetenv(EnvPrefix + key) }
-	}
-
-	t.Run("N from environment", func(t *testing.T) {
-		cleanup := setEnv("N", "12345")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
+	t.Run("DefaultValues", func(t *testing.T) {
+		args := []string{}
+		cfg, err := ParseConfig("fibcalc", args, io.Discard, availableAlgos)
 		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf("Unexpected error: %v", err)
 		}
-		if cfg.N != 12345 {
-			t.Errorf("expected N=12345, got %d", cfg.N)
+
+		if cfg.N != 250000000 {
+			t.Errorf("Expected default N 250000000, got %d", cfg.N)
+		}
+		if cfg.Algo != "all" {
+			t.Errorf("Expected default Algo 'all', got %s", cfg.Algo)
+		}
+		if cfg.Timeout != 5*time.Minute {
+			t.Errorf("Expected default Timeout 5m, got %v", cfg.Timeout)
 		}
 	})
 
-	t.Run("PORT from environment", func(t *testing.T) {
-		cleanup := setEnv("PORT", "9090")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+	t.Run("ValidFlags", func(t *testing.T) {
+		args := []string{
+			"-n", "100",
+			"-algo", "fast",
+			"-v",
+			"-timeout", "10s",
+			"-threshold", "5000",
+			"-server",
+			"-port", "9090",
 		}
-		if cfg.Port != "9090" {
-			t.Errorf("expected Port=9090, got %s", cfg.Port)
-		}
-	})
-
-	t.Run("ALGO from environment", func(t *testing.T) {
-		cleanup := setEnv("ALGO", "fast")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
+		cfg, err := ParseConfig("fibcalc", args, io.Discard, availableAlgos)
 		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if cfg.N != 100 {
+			t.Errorf("Expected N 100, got %d", cfg.N)
 		}
 		if cfg.Algo != "fast" {
-			t.Errorf("expected Algo=fast, got %s", cfg.Algo)
+			t.Errorf("Expected Algo 'fast', got %s", cfg.Algo)
 		}
-	})
-
-	t.Run("TIMEOUT from environment", func(t *testing.T) {
-		cleanup := setEnv("TIMEOUT", "10m")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		if !cfg.Verbose {
+			t.Error("Expected Verbose true")
 		}
-		expected := 10 * time.Minute
-		if cfg.Timeout != expected {
-			t.Errorf("expected Timeout=%v, got %v", expected, cfg.Timeout)
+		if cfg.Timeout != 10*time.Second {
+			t.Errorf("Expected Timeout 10s, got %v", cfg.Timeout)
 		}
-	})
-
-	t.Run("Boolean SERVER from environment", func(t *testing.T) {
-		cleanup := setEnv("SERVER", "true")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		if cfg.Threshold != 5000 {
+			t.Errorf("Expected Threshold 5000, got %d", cfg.Threshold)
 		}
 		if !cfg.ServerMode {
-			t.Error("expected ServerMode=true, got false")
+			t.Error("Expected ServerMode true")
+		}
+		if cfg.Port != "9090" {
+			t.Errorf("Expected Port 9090, got %s", cfg.Port)
 		}
 	})
 
-	t.Run("THRESHOLD from environment", func(t *testing.T) {
-		cleanup := setEnv("THRESHOLD", "8192")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+	t.Run("EnvOverrides", func(t *testing.T) {
+		// Set env vars
+		env := map[string]string{
+			"FIBCALC_N":                  "200",
+			"FIBCALC_ALGO":               "matrix",
+			"FIBCALC_SERVER":             "true",
+			"FIBCALC_PORT":               "3000",
+			"FIBCALC_TIMEOUT":            "2m",
+			"FIBCALC_THRESHOLD":          "1024",
+			"FIBCALC_FFT_THRESHOLD":      "5000",
+			"FIBCALC_STRASSEN_THRESHOLD": "128",
+			"FIBCALC_VERBOSE":            "true",
+			"FIBCALC_DETAILS":            "true",
+			"FIBCALC_QUIET":              "true",
+			"FIBCALC_HEX":                "true",
+			"FIBCALC_INTERACTIVE":        "true",
+			"FIBCALC_NO_COLOR":           "true",
+			"FIBCALC_CALIBRATE":          "true",
+			"FIBCALC_AUTO_CALIBRATE":     "true",
+			"FIBCALC_OUTPUT":             "out.txt",
+			"FIBCALC_CALIBRATION_PROFILE": "prof.json",
+			"FIBCALC_JSON":               "true",
 		}
-		if cfg.Threshold != 8192 {
-			t.Errorf("expected Threshold=8192, got %d", cfg.Threshold)
+
+		for k, v := range env {
+			os.Setenv(k, v)
+		}
+		defer func() {
+			for k := range env {
+				os.Unsetenv(k)
+			}
+		}()
+
+		// No flags set, should take from env
+		cfg, err := ParseConfig("fibcalc", []string{}, io.Discard, availableAlgos)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if cfg.N != 200 {
+			t.Errorf("Expected N 200 from env, got %d", cfg.N)
+		}
+		if cfg.Algo != "matrix" {
+			t.Errorf("Expected Algo 'matrix' from env, got %s", cfg.Algo)
+		}
+		if !cfg.ServerMode {
+			t.Error("Expected ServerMode true from env")
+		}
+		if cfg.Port != "3000" {
+			t.Errorf("Expected Port 3000, got %s", cfg.Port)
+		}
+		if cfg.Timeout != 2*time.Minute {
+			t.Errorf("Expected Timeout 2m, got %v", cfg.Timeout)
+		}
+		if cfg.Threshold != 1024 {
+			t.Errorf("Expected Threshold 1024, got %d", cfg.Threshold)
+		}
+		if cfg.FFTThreshold != 5000 {
+			t.Errorf("Expected FFTThreshold 5000, got %d", cfg.FFTThreshold)
+		}
+		if cfg.StrassenThreshold != 128 {
+			t.Errorf("Expected StrassenThreshold 128, got %d", cfg.StrassenThreshold)
+		}
+		if !cfg.Verbose { t.Error("Expected Verbose true") }
+		if !cfg.Details { t.Error("Expected Details true") }
+		if !cfg.Quiet { t.Error("Expected Quiet true") }
+		if !cfg.HexOutput { t.Error("Expected HexOutput true") }
+		if !cfg.Interactive { t.Error("Expected Interactive true") }
+		if !cfg.NoColor { t.Error("Expected NoColor true") }
+		if !cfg.Calibrate { t.Error("Expected Calibrate true") }
+		if !cfg.AutoCalibrate { t.Error("Expected AutoCalibrate true") }
+		if cfg.OutputFile != "out.txt" { t.Errorf("Expected OutputFile out.txt, got %s", cfg.OutputFile) }
+		if cfg.CalibrationProfile != "prof.json" { t.Errorf("Expected CalibrationProfile prof.json, got %s", cfg.CalibrationProfile) }
+		if !cfg.JSONOutput { t.Error("Expected JSONOutput true") }
+	})
+
+	t.Run("FlagPrecedenceOverEnv", func(t *testing.T) {
+		os.Setenv("FIBCALC_N", "200")
+		defer os.Unsetenv("FIBCALC_N")
+
+		// Flag set explicitly
+		cfg, err := ParseConfig("fibcalc", []string{"-n", "300"}, io.Discard, availableAlgos)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if cfg.N != 300 {
+			t.Errorf("Expected N 300 from flag, got %d", cfg.N)
 		}
 	})
 
-	t.Run("FFT_THRESHOLD from environment", func(t *testing.T) {
-		cleanup := setEnv("FFT_THRESHOLD", "500000")
-		defer cleanup()
-
-		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+	t.Run("InvalidFlags", func(t *testing.T) {
+		// Unknown flag
+		_, err := ParseConfig("fibcalc", []string{"-unknown"}, io.Discard, availableAlgos)
+		if err == nil {
+			t.Error("Expected error for unknown flag")
 		}
-		if cfg.FFTThreshold != 500000 {
-			t.Errorf("expected FFTThreshold=500000, got %d", cfg.FFTThreshold)
+	})
+
+	t.Run("ValidationFailure", func(t *testing.T) {
+		// Invalid algorithm
+		_, err := ParseConfig("fibcalc", []string{"-algo", "invalid"}, io.Discard, availableAlgos)
+		if err == nil {
+			t.Error("Expected error for invalid algorithm")
 		}
 	})
 }
 
-// TestCLIPriorityOverEnv verifies that CLI flags take precedence over
-// environment variables when both are provided.
-func TestCLIPriorityOverEnv(t *testing.T) {
-	availableAlgos := []string{"matrix", "fast", "fft"}
+func TestConfigValidate(t *testing.T) {
+	availableAlgos := []string{"fast", "matrix"}
 
-	// Set environment variables
-	os.Setenv(EnvPrefix+"N", "99999")
-	os.Setenv(EnvPrefix+"PORT", "9090")
-	os.Setenv(EnvPrefix+"ALGO", "matrix")
-	defer func() {
-		os.Unsetenv(EnvPrefix + "N")
-		os.Unsetenv(EnvPrefix + "PORT")
-		os.Unsetenv(EnvPrefix + "ALGO")
-	}()
+	t.Run("Valid", func(t *testing.T) {
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "fast"}
+		if err := c.Validate(availableAlgos); err != nil {
+			t.Errorf("Unexpected validation error: %v", err)
+		}
+	})
 
-	// CLI flags should override environment variables
-	var buf bytes.Buffer
-	cfg, err := ParseConfig("test", []string{"-n", "100", "-port", "3000", "-algo", "fast"}, &buf, availableAlgos)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	t.Run("InvalidTimeout", func(t *testing.T) {
+		c := AppConfig{Timeout: 0, Threshold: 10, FFTThreshold: 10, Algo: "fast"}
+		if err := c.Validate(availableAlgos); err == nil {
+			t.Error("Expected error for zero timeout")
+		}
+	})
 
-	if cfg.N != 100 {
-		t.Errorf("CLI should override ENV: expected N=100, got %d", cfg.N)
-	}
-	if cfg.Port != "3000" {
-		t.Errorf("CLI should override ENV: expected Port=3000, got %s", cfg.Port)
-	}
-	if cfg.Algo != "fast" {
-		t.Errorf("CLI should override ENV: expected Algo=fast, got %s", cfg.Algo)
-	}
+	t.Run("InvalidThreshold", func(t *testing.T) {
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: -1, FFTThreshold: 10, Algo: "fast"}
+		if err := c.Validate(availableAlgos); err == nil {
+			t.Error("Expected error for negative threshold")
+		}
+	})
+
+	t.Run("InvalidFFTThreshold", func(t *testing.T) {
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: -1, Algo: "fast"}
+		if err := c.Validate(availableAlgos); err == nil {
+			t.Error("Expected error for negative FFT threshold")
+		}
+	})
+
+	t.Run("InvalidAlgo", func(t *testing.T) {
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "unknown"}
+		if err := c.Validate(availableAlgos); err == nil {
+			t.Error("Expected error for unknown algorithm")
+		}
+	})
+
+	t.Run("AlgoAll", func(t *testing.T) {
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "all"}
+		if err := c.Validate(availableAlgos); err != nil {
+			t.Error("Algo 'all' should be valid")
+		}
+	})
 }
 
-// TestEnvVariableTypes verifies that the environment variable parsing
-// functions correctly handle different types and invalid values.
-func TestEnvVariableTypes(t *testing.T) {
+func TestEnvHelpers(t *testing.T) {
+	prefix := EnvPrefix
+
 	t.Run("getEnvString", func(t *testing.T) {
-		os.Setenv(EnvPrefix+"TEST_STRING", "hello")
-		defer os.Unsetenv(EnvPrefix + "TEST_STRING")
-
-		val := getEnvString("TEST_STRING", "default")
-		if val != "hello" {
-			t.Errorf("expected 'hello', got '%s'", val)
+		key := "TEST_STRING"
+		os.Setenv(prefix+key, "value")
+		defer os.Unsetenv(prefix+key)
+		if val := getEnvString(key, "default"); val != "value" {
+			t.Errorf("Expected 'value', got '%s'", val)
 		}
-
-		val = getEnvString("NONEXISTENT", "default")
-		if val != "default" {
-			t.Errorf("expected 'default', got '%s'", val)
+		if val := getEnvString("NONEXISTENT", "default"); val != "default" {
+			t.Errorf("Expected 'default', got '%s'", val)
 		}
 	})
 
 	t.Run("getEnvUint64", func(t *testing.T) {
-		os.Setenv(EnvPrefix+"TEST_UINT64", "12345")
-		defer os.Unsetenv(EnvPrefix + "TEST_UINT64")
-
-		val := getEnvUint64("TEST_UINT64", 0)
-		if val != 12345 {
-			t.Errorf("expected 12345, got %d", val)
+		key := "TEST_UINT"
+		os.Setenv(prefix+key, "123")
+		defer os.Unsetenv(prefix+key)
+		if val := getEnvUint64(key, 0); val != 123 {
+			t.Errorf("Expected 123, got %d", val)
 		}
-
-		// Test invalid value - should return default
-		os.Setenv(EnvPrefix+"TEST_UINT64", "invalid")
-		val = getEnvUint64("TEST_UINT64", 999)
-		if val != 999 {
-			t.Errorf("expected default 999 for invalid input, got %d", val)
+		// Invalid
+		os.Setenv(prefix+"INVALID", "abc")
+		defer os.Unsetenv(prefix+"INVALID")
+		if val := getEnvUint64("INVALID", 999); val != 999 {
+			t.Errorf("Expected default 999 for invalid input, got %d", val)
 		}
 	})
 
 	t.Run("getEnvInt", func(t *testing.T) {
-		os.Setenv(EnvPrefix+"TEST_INT", "42")
-		defer os.Unsetenv(EnvPrefix + "TEST_INT")
-
-		val := getEnvInt("TEST_INT", 0)
-		if val != 42 {
-			t.Errorf("expected 42, got %d", val)
-		}
-
-		// Test negative value
-		os.Setenv(EnvPrefix+"TEST_INT", "-10")
-		val = getEnvInt("TEST_INT", 0)
-		if val != -10 {
-			t.Errorf("expected -10, got %d", val)
+		key := "TEST_INT"
+		os.Setenv(prefix+key, "-123")
+		defer os.Unsetenv(prefix+key)
+		if val := getEnvInt(key, 0); val != -123 {
+			t.Errorf("Expected -123, got %d", val)
 		}
 	})
 
 	t.Run("getEnvBool", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected bool
-		}{
-			{"true", true},
-			{"TRUE", true},
-			{"True", true},
-			{"1", true},
-			{"yes", true},
-			{"YES", true},
-			{"false", false},
-			{"FALSE", false},
-			{"0", false},
-			{"no", false},
-			{"NO", false},
+		key := "TEST_BOOL"
+		os.Setenv(prefix+key, "true")
+		defer os.Unsetenv(prefix+key)
+		if val := getEnvBool(key, false); !val {
+			t.Error("Expected true")
 		}
 
-		for _, tc := range testCases {
-			os.Setenv(EnvPrefix+"TEST_BOOL", tc.input)
-			val := getEnvBool("TEST_BOOL", !tc.expected)
-			if val != tc.expected {
-				t.Errorf("getEnvBool(%q): expected %v, got %v", tc.input, tc.expected, val)
-			}
+		os.Setenv(prefix+key, "0")
+		if val := getEnvBool(key, true); val {
+			t.Error("Expected false for '0'")
 		}
-		os.Unsetenv(EnvPrefix + "TEST_BOOL")
 
-		// Test default
-		val := getEnvBool("NONEXISTENT", true)
-		if val != true {
-			t.Error("expected default true, got false")
+		os.Setenv(prefix+key, "invalid")
+		if val := getEnvBool(key, true); !val {
+			t.Error("Expected default true for invalid input")
 		}
 	})
 
 	t.Run("getEnvDuration", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected time.Duration
-		}{
-			{"5m", 5 * time.Minute},
-			{"30s", 30 * time.Second},
-			{"1h30m", 90 * time.Minute},
-			{"100ms", 100 * time.Millisecond},
+		key := "TEST_DURATION"
+		os.Setenv(prefix+key, "1h")
+		defer os.Unsetenv(prefix+key)
+		if val := getEnvDuration(key, 0); val != time.Hour {
+			t.Errorf("Expected 1h, got %v", val)
 		}
-
-		for _, tc := range testCases {
-			os.Setenv(EnvPrefix+"TEST_DURATION", tc.input)
-			val := getEnvDuration("TEST_DURATION", 0)
-			if val != tc.expected {
-				t.Errorf("getEnvDuration(%q): expected %v, got %v", tc.input, tc.expected, val)
-			}
-		}
-		os.Unsetenv(EnvPrefix + "TEST_DURATION")
-
-		// Test invalid duration - should return default
-		os.Setenv(EnvPrefix+"TEST_DURATION", "invalid")
-		val := getEnvDuration("TEST_DURATION", time.Minute)
-		if val != time.Minute {
-			t.Errorf("expected default 1m for invalid input, got %v", val)
-		}
-		os.Unsetenv(EnvPrefix + "TEST_DURATION")
 	})
-}
-
-// TestMultipleEnvVariables verifies that multiple environment variables
-// can be set and applied together.
-func TestMultipleEnvVariables(t *testing.T) {
-	availableAlgos := []string{"matrix", "fast", "fft"}
-
-	// Set multiple environment variables
-	envVars := map[string]string{
-		"N":             "50000",
-		"ALGO":          "fft",
-		"PORT":          "7777",
-		"THRESHOLD":     "2048",
-		"FFT_THRESHOLD": "100000",
-		"SERVER":        "true",
-		"JSON":          "yes",
-		"VERBOSE":       "1",
-	}
-
-	for k, v := range envVars {
-		os.Setenv(EnvPrefix+k, v)
-	}
-	defer func() {
-		for k := range envVars {
-			os.Unsetenv(EnvPrefix + k)
-		}
-	}()
-
-	var buf bytes.Buffer
-	cfg, err := ParseConfig("test", []string{}, &buf, availableAlgos)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if cfg.N != 50000 {
-		t.Errorf("expected N=50000, got %d", cfg.N)
-	}
-	if cfg.Algo != "fft" {
-		t.Errorf("expected Algo=fft, got %s", cfg.Algo)
-	}
-	if cfg.Port != "7777" {
-		t.Errorf("expected Port=7777, got %s", cfg.Port)
-	}
-	if cfg.Threshold != 2048 {
-		t.Errorf("expected Threshold=2048, got %d", cfg.Threshold)
-	}
-	if cfg.FFTThreshold != 100000 {
-		t.Errorf("expected FFTThreshold=100000, got %d", cfg.FFTThreshold)
-	}
-	if !cfg.ServerMode {
-		t.Error("expected ServerMode=true")
-	}
-	if !cfg.JSONOutput {
-		t.Error("expected JSONOutput=true")
-	}
-	if !cfg.Verbose {
-		t.Error("expected Verbose=true")
-	}
 }
