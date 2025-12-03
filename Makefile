@@ -119,11 +119,21 @@ run-server: build
 run-calibrate: build
 	$(BUILD_DIR)/$(BINARY_NAME) --calibrate
 
-## lint: Run linter (requires golangci-lint)
+## lint: Run linter (golangci-lint)
 lint:
 	@echo "Running linter..."
-	@which golangci-lint > /dev/null || (echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
-	golangci-lint run ./...
+	@golangci-lint run ./...
+
+## security: Run security audit (gosec)
+security:
+	@echo "Running security audit..."
+	@gosec ./...
+
+## install-tools: Install development tools (golangci-lint, gosec)
+install-tools:
+	@echo "Installing tools..."
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 ## format: Format Go code
 format:
