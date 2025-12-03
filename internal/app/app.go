@@ -92,12 +92,12 @@ func applyAdaptiveThresholds(cfg config.AppConfig) config.AppConfig {
 	}
 
 	// FFT threshold: adapt based on architecture (32-bit vs 64-bit)
-	if cfg.FFTThreshold == 1_000_000 { // Default value from ParseConfig
+	if cfg.FFTThreshold == fibonacci.DefaultFFTThreshold {
 		cfg.FFTThreshold = calibration.EstimateOptimalFFTThreshold()
 	}
 
 	// Strassen threshold: adapt based on CPU core count
-	if cfg.StrassenThreshold == 3072 { // Default value from ParseConfig
+	if cfg.StrassenThreshold == fibonacci.DefaultStrassenThreshold {
 		cfg.StrassenThreshold = calibration.EstimateOptimalStrassenThreshold()
 	}
 

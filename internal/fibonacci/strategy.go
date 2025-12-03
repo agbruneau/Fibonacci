@@ -7,6 +7,17 @@ import (
 	"math/big"
 )
 
+// setOrReturn sets z to result if z is non-nil, otherwise returns result directly.
+// This is a common pattern for methods that optionally reuse a destination buffer,
+// eliminating code duplication in strategy implementations.
+func setOrReturn(z, result *big.Int) *big.Int {
+	if z != nil {
+		z.Set(result)
+		return z
+	}
+	return result
+}
+
 // MultiplicationStrategy defines the interface for multiplication and squaring
 // operations used in Fibonacci calculations. Different strategies can choose
 // between Karatsuba, FFT, or other multiplication algorithms.
@@ -72,24 +83,12 @@ func (s *FFTOnlyStrategy) Name() string {
 
 // Multiply performs FFT-based multiplication using mulFFT.
 func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) *big.Int {
-	// For FFT-only, we ignore z and always allocate new
-	result := mulFFT(x, y)
-	if z != nil {
-		z.Set(result)
-		return z
-	}
-	return result
+	return setOrReturn(z, mulFFT(x, y))
 }
 
 // Square performs FFT-based squaring using sqrFFT.
 func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) *big.Int {
-	// For FFT-only, we ignore z and always allocate new
-	result := sqrFFT(x)
-	if z != nil {
-		z.Set(result)
-		return z
-	}
-	return result
+	return setOrReturn(z, sqrFFT(x))
 }
 
 // KaratsubaStrategy forces Karatsuba multiplication (via math/big) for all
@@ -117,4 +116,3 @@ func (s *KaratsubaStrategy) Square(z, x *big.Int, opts Options) *big.Int {
 	}
 	return z.Mul(x, x)
 }
-

@@ -129,12 +129,24 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, fftThreshold)
 }
 
+// task defines a common interface for executable tasks.
+// This allows using generics to eliminate code duplication between
+// multiplication and squaring task execution.
+type task interface {
+	execute()
+}
+
 // multiplicationTask represents a single multiplication operation
 // to be executed either sequentially or in parallel.
 type multiplicationTask struct {
 	dest         **big.Int
 	a, b         *big.Int
 	fftThreshold int
+}
+
+// execute performs the multiplication task.
+func (t *multiplicationTask) execute() {
+	*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
 }
 
 // squaringTask represents a single squaring operation (x * x)
@@ -147,56 +159,40 @@ type squaringTask struct {
 	fftThreshold int
 }
 
-// executeMultiplications executes a batch of multiplication tasks either
-// sequentially or in parallel based on the inParallel flag.
-// This is a template method that eliminates code duplication between
-// parallel and sequential execution paths.
-//
-// Parameters:
-//   - tasks: The list of multiplication tasks to execute.
-//   - inParallel: Whether to execute tasks in parallel.
-func executeMultiplications(tasks []multiplicationTask, inParallel bool) {
-	if inParallel {
-		var wg sync.WaitGroup
-		wg.Add(len(tasks))
-		for i := range tasks {
-			go func(t *multiplicationTask) {
-				defer wg.Done()
-				*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
-			}(&tasks[i])
-		}
-		wg.Wait()
-	} else {
-		for i := range tasks {
-			t := &tasks[i]
-			*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
-		}
-	}
+// execute performs the squaring task.
+func (t *squaringTask) execute() {
+	*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
 }
 
-// executeSquarings executes a batch of squaring tasks either
+// executeTasks executes a batch of tasks (multiplication or squaring) either
 // sequentially or in parallel based on the inParallel flag.
-// This uses the optimized smartSquare function which saves approximately
-// 33% of FFT computation time compared to general multiplication.
+// This generic function eliminates code duplication between different task types
+// by using Go 1.18+ generics with a pointer constraint pattern.
+//
+// Type Parameters:
+//   - T: The value type of the task (e.g., multiplicationTask, squaringTask).
+//   - PT: A pointer type to T that implements the task interface.
 //
 // Parameters:
-//   - tasks: The list of squaring tasks to execute.
+//   - tasks: The slice of tasks to execute (values, not pointers).
 //   - inParallel: Whether to execute tasks in parallel.
-func executeSquarings(tasks []squaringTask, inParallel bool) {
+func executeTasks[T any, PT interface {
+	*T
+	task
+}](tasks []T, inParallel bool) {
 	if inParallel {
 		var wg sync.WaitGroup
 		wg.Add(len(tasks))
 		for i := range tasks {
-			go func(t *squaringTask) {
+			go func(t PT) {
 				defer wg.Done()
-				*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
-			}(&tasks[i])
+				t.execute()
+			}(PT(&tasks[i]))
 		}
 		wg.Wait()
 	} else {
 		for i := range tasks {
-			t := &tasks[i]
-			*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
+			PT(&tasks[i]).execute()
 		}
 	}
 }
@@ -229,7 +225,7 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 	s9.Sub(m1.a, m1.c)  // a - c
 	s10.Add(m2.a, m2.b) // e + f
 
-	// Execute the 7 multiplications using the template method
+	// Execute the 7 multiplications using the generic task executor
 	tasks := []multiplicationTask{
 		{&p1, m1.a, s1, fftThreshold},
 		{&p2, s2, m2.d, fftThreshold},
@@ -239,7 +235,7 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 		{&p6, s7, s8, fftThreshold},
 		{&p7, s9, s10, fftThreshold},
 	}
-	executeMultiplications(tasks, inParallel)
+	executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel)
 
 	// Calculate final matrix elements
 	// Using temporary state variables to avoid modifying destination values prematurely.
@@ -311,8 +307,8 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 		}()
 		wg.Wait()
 	} else {
-		executeSquarings(sqrTasks, false)
-		executeMultiplications(mulTasks, false)
+		executeTasks[squaringTask, *squaringTask](sqrTasks, false)
+		executeTasks[multiplicationTask, *multiplicationTask](mulTasks, false)
 	}
 
 	dest.a.Add(a2, b2)
@@ -345,7 +341,7 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 	ce, dg := state.p5, state.p6
 	cf, dh := state.s1, state.s2
 
-	// Execute the 8 multiplications using the template method
+	// Execute the 8 multiplications using the generic task executor
 	tasks := []multiplicationTask{
 		{&ae, m1.a, m2.a, fftThreshold},
 		{&bg, m1.b, m2.c, fftThreshold},
@@ -356,7 +352,7 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 		{&cf, m1.c, m2.b, fftThreshold},
 		{&dh, m1.d, m2.d, fftThreshold},
 	}
-	executeMultiplications(tasks, inParallel)
+	executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel)
 
 	dest.a.Add(ae, bg)
 	dest.b.Add(af, bh)
