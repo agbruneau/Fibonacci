@@ -43,6 +43,8 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
+	// Pre-compute powers of 4 for O(1) progress calculation
+	powers := PrecomputePowers4(numBits)
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
@@ -55,7 +57,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 		// However, ReportStepProgress assumes `i` counts down from MSB (large work) to LSB.
 		// To correct this, we invert the index passed to ReportStepProgress so that
 		// stepIndex becomes `i`, resulting in increasing work values.
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits)
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits, powers)
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved

@@ -60,6 +60,28 @@ func CalcTotalWork(numBits int) float64 {
 	return (math.Pow(4, float64(numBits)) - 1) / 3
 }
 
+// PrecomputePowers4 pre-calculates powers of 4 from 0 to numBits-1.
+// This optimization avoids repeated calls to math.Pow(4, x) during the
+// progress reporting loop, providing O(1) lookup instead of expensive
+// floating-point exponentiation at each iteration.
+//
+// Parameters:
+//   - numBits: The number of powers to compute (0 to numBits-1).
+//
+// Returns:
+//   - []float64: A slice where powers[i] = 4^i.
+func PrecomputePowers4(numBits int) []float64 {
+	if numBits <= 0 {
+		return nil
+	}
+	powers := make([]float64, numBits)
+	powers[0] = 1.0
+	for i := 1; i < numBits; i++ {
+		powers[i] = powers[i-1] * 4.0
+	}
+	return powers
+}
+
 // ReportStepProgress handles harmonized progress reporting for the calculation algorithms.
 // It calculates the cumulative work done based on the current bit iteration and
 // reports progress via the provided callback if a significant change has occurred.
@@ -72,10 +94,11 @@ func CalcTotalWork(numBits int) float64 {
 //   - workDone: The accumulated work units completed so far.
 //   - i: The current bit index being processed.
 //   - numBits: The total number of bits in n.
+//   - powers: Pre-computed powers of 4 (from PrecomputePowers4) for O(1) lookup.
 //
 // Returns:
 //   - float64: The updated cumulative work done.
-func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone float64, i, numBits int) float64 {
+func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64, totalWork, workDone float64, i, numBits int, powers []float64) float64 {
 	// Work for this step (bit i, counting down from numBits-1 to 0)
 	// The step index in the geometric series is (numBits - 1 - i).
 	// Fast doubling starts from MSB (small current value) and doubles up.
@@ -84,7 +107,7 @@ func ReportStepProgress(progressReporter ProgressReporter, lastReported *float64
 	// So the work is proportional to 4^(numBits - 1 - i).
 
 	stepIndex := numBits - 1 - i
-	workOfStep := math.Pow(4, float64(stepIndex))
+	workOfStep := powers[stepIndex] // O(1) lookup instead of math.Pow
 
 	currentTotalDone := workDone + workOfStep
 

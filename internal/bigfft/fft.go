@@ -470,6 +470,58 @@ func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) {
 	fourierWithState(dst, src, backward, n, k, nil)
 }
 
+// fourierRecursive is the extracted recursive FFT function used for parallel execution.
+// It takes its own temporary buffers to avoid race conditions when called from goroutines.
+// This function eliminates code duplication that previously existed in parallel goroutines.
+//
+// Parameters:
+//   - dst: destination slice for FFT results
+//   - src: source slice of fermat numbers
+//   - backward: true for inverse transform
+//   - n: coefficient length
+//   - k: log2 of FFT size
+//   - size: current recursion size
+//   - depth: current recursion depth
+//   - tmp, tmp2: temporary buffers for this goroutine
+func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) {
+	idxShift := k - size
+	ω2shift := (4 * n * _W) >> size
+	if backward {
+		ω2shift = -ω2shift
+	}
+
+	// Validation
+	if len(src[0]) != n+1 || len(dst[0]) != n+1 {
+		panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
+	}
+
+	// Base cases
+	switch size {
+	case 0:
+		copy(dst[0], src[0])
+		return
+	case 1:
+		dst[0].Add(src[0], src[1<<idxShift])
+		dst[1].Sub(src[0], src[1<<idxShift])
+		return
+	}
+
+	// Split destination vectors in halves
+	dst1 := dst[:1<<(size-1)]
+	dst2 := dst[1<<(size-1):]
+
+	// Recursive calls
+	fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
+	fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2)
+
+	// Reconstruct transform
+	for i := range dst1 {
+		tmp.ShiftHalf(dst2[i], i*ω2shift, tmp2)
+		dst2[i].Sub(dst1[i], tmp)
+		dst1[i].Add(dst1[i], tmp)
+	}
+}
+
 // fourierWithState performs the Fourier transform with optional pre-allocated state.
 // If state is nil, temporary buffers are allocated from the pool.
 func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) {
@@ -539,70 +591,11 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 			wg.Add(2)
 			go func() {
 				defer wg.Done()
-				// Create a local recursive function with its own temporaries
-				var recLocal func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat)
-				recLocal = func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat) {
-					idxShiftLocal := k - sizeLocal
-					ω2shiftLocal := (4 * n * _W) >> sizeLocal
-					if backward {
-						ω2shiftLocal = -ω2shiftLocal
-					}
-					if len(src[0]) != n+1 || len(dst[0]) != n+1 {
-						panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
-					}
-					switch sizeLocal {
-					case 0:
-						copy(dst[0], src[0])
-						return
-					case 1:
-						dst[0].Add(src[0], src[1<<idxShiftLocal])
-						dst[1].Sub(src[0], src[1<<idxShiftLocal])
-						return
-					}
-					dst1Local := dst[:1<<(sizeLocal-1)]
-					dst2Local := dst[1<<(sizeLocal-1):]
-					recLocal(dst1Local, src, sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
-					recLocal(dst2Local, src[1<<idxShiftLocal:], sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
-					for i := range dst1Local {
-						tmpLocal.ShiftHalf(dst2Local[i], i*ω2shiftLocal, tmp2Local)
-						dst2Local[i].Sub(dst1Local[i], tmpLocal)
-						dst1Local[i].Add(dst1Local[i], tmpLocal)
-					}
-				}
-				recLocal(dst1, src, size-1, depth+1, tmp1, tmp2_1)
+				fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp1, tmp2_1)
 			}()
 			go func() {
 				defer wg.Done()
-				var recLocal func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat)
-				recLocal = func(dst, src []fermat, sizeLocal uint, depthLocal uint, tmpLocal, tmp2Local fermat) {
-					idxShiftLocal := k - sizeLocal
-					ω2shiftLocal := (4 * n * _W) >> sizeLocal
-					if backward {
-						ω2shiftLocal = -ω2shiftLocal
-					}
-					if len(src[0]) != n+1 || len(dst[0]) != n+1 {
-						panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
-					}
-					switch sizeLocal {
-					case 0:
-						copy(dst[0], src[0])
-						return
-					case 1:
-						dst[0].Add(src[0], src[1<<idxShiftLocal])
-						dst[1].Sub(src[0], src[1<<idxShiftLocal])
-						return
-					}
-					dst1Local := dst[:1<<(sizeLocal-1)]
-					dst2Local := dst[1<<(sizeLocal-1):]
-					recLocal(dst1Local, src, sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
-					recLocal(dst2Local, src[1<<idxShiftLocal:], sizeLocal-1, depthLocal+1, tmpLocal, tmp2Local)
-					for i := range dst1Local {
-						tmpLocal.ShiftHalf(dst2Local[i], i*ω2shiftLocal, tmp2Local)
-						dst2Local[i].Sub(dst1Local[i], tmpLocal)
-						dst1Local[i].Add(dst1Local[i], tmpLocal)
-					}
-				}
-				recLocal(dst2, src[1<<idxShift:], size-1, depth+1, tmp1_2, tmp2_2)
+				fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp1_2, tmp2_2)
 			}()
 			wg.Wait()
 		} else {

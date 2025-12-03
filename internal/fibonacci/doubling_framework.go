@@ -50,6 +50,8 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
+	// Pre-compute powers of 4 for O(1) progress calculation
+	powers := PrecomputePowers4(numBits)
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
@@ -91,7 +93,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		}
 
 		// Harmonized reporting via common utility function
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
 	}
 	return new(big.Int).Set(s.F_k), nil
 }
@@ -116,6 +118,8 @@ func (f *DoublingFramework) ExecuteDoublingLoopWithParallel(ctx context.Context,
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
+	// Pre-compute powers of 4 for O(1) progress calculation
+	powers := PrecomputePowers4(numBits)
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
@@ -161,7 +165,7 @@ func (f *DoublingFramework) ExecuteDoublingLoopWithParallel(ctx context.Context,
 		}
 
 		// Harmonized reporting via common utility function
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits)
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
 	}
 	return new(big.Int).Set(s.F_k), nil
 }
