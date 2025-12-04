@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Go version](https://img.shields.io/badge/Go-1.23+-blue.svg?style=for-the-badge&logo=go)
+![Go version](https://img.shields.io/badge/Go-1.24+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
 ![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen?style=for-the-badge)
@@ -105,7 +105,7 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.24 or later
 - Make (optional, to use the Makefile)
 
 ### Installation
@@ -113,7 +113,7 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/fibcalc.git
+   git clone https://github.com/agbru/fibcalc.git
    cd fibcalc
    ```
 
@@ -169,6 +169,7 @@ This step will validate that your environment is correctly configured and that t
   - Export to file (`-o, --output`).
   - Hexadecimal display (`--hex`).
   - Quiet mode (`-q, --quiet`) for scripts.
+  - Display calculated value (`-c, --calculate`).
 - **Performance Optimisations**:
   - **Zero-Allocation Strategy**: Uses `sync.Pool` to recycle `big.Int` objects.
   - **Modular Architecture**: Reusable frameworks and interchangeable multiplication strategies.
@@ -214,6 +215,7 @@ The calculator is controlled via command-line flags:
 | `--strassen-threshold`  |             | Bit threshold for the Strassen algorithm.                        | `3072`                        |
 | `-d`                    | `--details` | Display performance details.                                     | `false`                       |
 | `-v`                    |             | Display the full result (can be very long).                      | `false`                       |
+| `-c`                    | `--calculate` | Display the calculated value (disabled by default).            | `false`                       |
 | `--calibrate`           |             | Calibrate the optimal parallelism threshold.                     | `false`                       |
 | `--auto-calibrate`      |             | Quick calibration at startup.                                    | `false`                       |
 | `--calibration-profile` |             | Path to the calibration profile file.                            | `~/.fibcalc_calibration.json` |
@@ -252,6 +254,7 @@ In addition to CLI flags, `fibcalc` can be configured via environment variables.
 | `FIBCALC_NO_COLOR`            | bool     | Disable colours                    | `false`     |
 | `FIBCALC_OUTPUT`              | string   | Output file                        | `""`        |
 | `FIBCALC_CALIBRATION_PROFILE` | string   | Calibration file                   | `""`        |
+| `FIBCALC_CALCULATE`           | bool     | Display calculated value           | `false`     |
 
 **Examples:**
 
@@ -371,6 +374,12 @@ See [API.md](API.md) for the complete API documentation.
 
 ### Usage Examples
 
+**Display calculated value:**
+
+```bash
+./build/fibcalc -n 1000 -c
+```
+
 **JSON output for integration:**
 
 ```bash
@@ -463,6 +472,7 @@ This project is structured according to Go software engineering best practices, 
 **Main packages:**
 
 - **`cmd/fibcalc`**: Entry point. Orchestrates initialisation and delegates execution.
+- **`internal/app`**: Application lifecycle management, signal handling, and version information.
 - **`internal/fibonacci`**: Core mathematical logic (Fast Doubling, Matrix, FFT).
   - `strategy.go`: Interface and multiplication strategy implementations.
   - `doubling_framework.go`: Reusable framework for Fast Doubling.
@@ -476,6 +486,7 @@ This project is structured according to Go software engineering best practices, 
   - `fft.go`: FFT implementation with internal parallelisation.
 - **`internal/config`**: Configuration management and flag validation.
 - **`internal/errors`**: Centralised error handling.
+- **`internal/pool`**: Global memory pooling for `big.Int` objects.
 
 See [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) for complete details.
 
@@ -596,6 +607,7 @@ go test -fuzz=FuzzFastDoublingConsistency ./internal/fibonacci/
 make help          # Display all commands
 make build         # Compile the project
 make build-all     # Compile for all platforms
+make build-pgo     # Build with Profile-Guided Optimization
 make test          # Run tests
 make coverage      # Generate coverage report
 make benchmark     # Run benchmarks
@@ -614,9 +626,11 @@ make upgrade       # Update dependencies
 ├── cmd/
 │   └── fibcalc/                   # Application entry point
 │       ├── main.go                # Main logic
-│       └── main_test.go           # Integration tests
+│       ├── main_test.go           # Integration tests
+│       └── default.pgo            # PGO profile
 │
 ├── internal/                      # Internal packages
+│   ├── app/                       # Application lifecycle
 │   ├── bigfft/                    # FFT multiplication for big.Int
 │   ├── calibration/               # Automatic calibration
 │   ├── cli/                       # CLI interface (spinner, REPL, themes)
@@ -624,6 +638,7 @@ make upgrade       # Update dependencies
 │   ├── errors/                    # Centralised error handling
 │   ├── fibonacci/                 # Calculation algorithms
 │   ├── orchestration/             # Calculation orchestration
+│   ├── pool/                      # Global memory pooling
 │   ├── server/                    # HTTP REST server
 │   └── testutil/                  # Test utilities
 │
@@ -632,7 +647,7 @@ make upgrade       # Update dependencies
 │   │   ├── COMPARISON.md
 │   │   ├── FAST_DOUBLING.md
 │   │   ├── FFT.md
-│   │   ├── MATRIX.md
+│   │   └── MATRIX.md
 │   ├── api/                       # API documentation
 │   │   ├── openapi.yaml
 │   │   └── postman_collection.json
@@ -723,4 +738,4 @@ This project is licensed under the Apache 2.0 licence. See the [LICENSE](LICENSE
 
 ---
 
-_Developed with ❤️ in Go - November 2025_
+_Developed with ❤️ in Go - December 2024_

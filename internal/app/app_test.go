@@ -76,6 +76,7 @@ func TestApplicationRun(t *testing.T) {
 				Threshold:    config.DefaultParallelThreshold,
 				FFTThreshold: 20000,
 				Details:      true,
+				Concise:      true,
 			},
 			Factory:   fibonacci.GlobalFactory(),
 			ErrWriter: &bytes.Buffer{},
