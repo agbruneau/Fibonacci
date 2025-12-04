@@ -279,8 +279,9 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 //   - duration: The time taken for the calculation.
 //   - verbose: If true, prints the full number regardless of size.
 //   - details: If true, prints detailed execution metrics.
+//   - concise: If true, displays the calculated value section (disabled by default).
 //   - out: The io.Writer for the output.
-func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details bool, out io.Writer) {
+func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details, concise bool, out io.Writer) {
 	bitLen := result.BitLen()
 	fmt.Fprintf(out, "Result binary size: %s%s%s bits.\n", ColorCyan(), formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset())
 
@@ -300,6 +301,11 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 			f := new(big.Float).SetInt(result)
 			fmt.Fprintf(out, "Scientific notation    : %s%.6e%s\n", ColorCyan(), f, ColorReset())
 		}
+	}
+
+	// Skip calculated value display unless -c/--calculate flag is set
+	if !concise {
+		return
 	}
 
 	resultStr := result.String()

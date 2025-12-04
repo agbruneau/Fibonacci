@@ -189,6 +189,9 @@ func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "auto-calibrate") {
 		config.AutoCalibrate = getEnvBool("AUTO_CALIBRATE", config.AutoCalibrate)
 	}
+	if !isFlagSet(fs, "calculate") && !isFlagSet(fs, "c") {
+		config.Concise = getEnvBool("CALCULATE", config.Concise)
+	}
 }
 
 // AppConfig aggregates the application's configuration parameters, parsed from
@@ -243,6 +246,9 @@ type AppConfig struct {
 	// Completion, if set, generates shell completion script for the specified shell.
 	// Valid values are: "bash", "zsh", "fish", "powershell".
 	Completion string
+	// Concise, if false (default), suppresses the display of the calculated value section.
+	// Set to true with -c/--calculate to display the calculated value.
+	Concise bool
 }
 
 // Validate checks the semantic consistency of the configuration parameters.
@@ -329,6 +335,8 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.BoolVar(&config.HexOutput, "hex", false, "Display result in hexadecimal format.")
 	fs.BoolVar(&config.Interactive, "interactive", false, "Start in interactive REPL mode.")
 	fs.StringVar(&config.Completion, "completion", "", "Generate shell completion script (bash, zsh, fish, powershell).")
+	fs.BoolVar(&config.Concise, "calculate", false, "Display the calculated value (disabled by default).")
+	fs.BoolVar(&config.Concise, "c", false, "Display the calculated value (shorthand).")
 
 	if err := fs.Parse(args); err != nil {
 		return AppConfig{}, err

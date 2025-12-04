@@ -157,6 +157,6 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	}
 
 	fmt.Fprintf(out, "\nGlobal Status: Success. All valid results are consistent.")
-	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, out)
+	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, cfg.Concise, out)
 	return apperrors.ExitSuccess
 }
