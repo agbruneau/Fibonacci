@@ -76,13 +76,13 @@ Algorithm: Fast Doubling (O(log n), Parallel)
 Execution time comparison on a standard processor (Ryzen 9 5900X).
 The **Fast Doubling** algorithm significantly outperforms the standard matrix approach for large numbers.
 
-| N (Index) | Fast Doubling | Matrix Exp. | Speedup |
-|-----------|---------------|-------------|---------|
-| 1,000 | **15µs** | 18µs | 1.2x |
-| 100,000 | **3.2ms** | 4.1ms | 1.3x |
-| 1,000,000 | **85ms** | 110ms | 1.3x |
-| 10,000,000 | **2.1s** | 2.8s | 1.35x |
-| 100,000,000 | **45s** | 62s | **1.4x** |
+| N (Index)   | Fast Doubling | Matrix Exp. | Speedup  |
+| ----------- | ------------- | ----------- | -------- |
+| 1,000       | **15µs**      | 18µs        | 1.2x     |
+| 100,000     | **3.2ms**     | 4.1ms       | 1.3x     |
+| 1,000,000   | **85ms**      | 110ms       | 1.3x     |
+| 10,000,000  | **2.1s**      | 2.8s        | 1.35x    |
+| 100,000,000 | **45s**       | 62s         | **1.4x** |
 
 > **Note:** A naive iterative implementation (O(n)) would take **years** to calculate F(100,000,000). Our logarithmic algorithms (O(log n)) do it in under a minute.
 
@@ -174,7 +174,9 @@ This step will validate that your environment is correctly configured and that t
   - **Arena Allocator**: Adaptive memory allocation with pre-estimation and pool pre-warming.
   - **Modular Architecture**: Reusable frameworks and interchangeable multiplication strategies.
   - **Multi-level Parallelism**: Parallelisation at both algorithm and internal FFT levels.
-  - **Strassen Algorithm**: Reduces matrix multiplication complexity.
+  - **Strassen-Winograd Algorithm**: Optimized matrix multiplication reducing additions/subtractions by 17%.
+  - **Global Memory Pooling**: Unified `sync.Pool` for `big.Int` across all algorithms to minimize GC pressure.
+  - **Robust Error Handling**: Panic-free architecture with explicit error propagation.
   - **Automatic Calibration**: Detection of optimal thresholds for the hardware.
 - **Security**: Rate limiting, input validation, HTTP security headers, DoS protection.
 
@@ -188,44 +190,44 @@ The calculator is controlled via command-line flags:
 
 ### Essential Commands
 
-| Command              | Description                    |
-| -------------------- | ------------------------------ |
-| `make build`         | Compile the project            |
-| `make test`          | Run all tests                  |
-| `make run-fast`      | Quick test (n=1000)            |
-| `make run-server`    | Start the HTTP server          |
-| `make run-calibrate` | Calibrate performance          |
-| `make coverage`      | HTML coverage report           |
-| `make benchmark`     | Run benchmarks                 |
-| `make docker-build`  | Build the Docker image         |
-| `make clean`         | Clean build artefacts          |
-| `make help`          | Display all commands           |
+| Command              | Description            |
+| -------------------- | ---------------------- |
+| `make build`         | Compile the project    |
+| `make test`          | Run all tests          |
+| `make run-fast`      | Quick test (n=1000)    |
+| `make run-server`    | Start the HTTP server  |
+| `make run-calibrate` | Calibrate performance  |
+| `make coverage`      | HTML coverage report   |
+| `make benchmark`     | Run benchmarks         |
+| `make docker-build`  | Build the Docker image |
+| `make clean`         | Clean build artefacts  |
+| `make help`          | Display all commands   |
 
 ### Complete CLI Options
 
-| Flag                    | Alias       | Description                                                          | Default                       |
-| ----------------------- | ----------- | -------------------------------------------------------------------- | ----------------------------- |
-| `-n`                    |             | Index of the Fibonacci number to calculate.                          | `250000000`                   |
-| `-algo`                 |             | Algorithm: `fast`, `matrix`, `fft`, or `all`.                        | `all`                         |
-| `-timeout`              |             | Maximum execution time (e.g., `10s`, `1m30s`).                       | `5m`                          |
-| `-threshold`            |             | Bit threshold to parallelise multiplications.                        | `4096`                        |
-| `-fft-threshold`        |             | Bit threshold to enable FFT multiplication.                          | `1000000`                     |
-| `--strassen-threshold`  |             | Bit threshold for the Strassen algorithm.                            | `3072`                        |
-| `-d`                    | `--details` | Display performance details.                                         | `false`                       |
-| `-v`                    |             | Display the full result (can be very long).                          | `false`                       |
-| `--calibrate`           |             | Calibrate the optimal parallelism threshold.                         | `false`                       |
-| `--auto-calibrate`      |             | Quick calibration at startup.                                        | `false`                       |
-| `--calibration-profile` |             | Path to the calibration profile file.                                | `~/.fibcalc_calibration.json` |
-| `--json`                |             | Output in JSON format.                                               | `false`                       |
-| `--server`              |             | Start in HTTP server mode.                                           | `false`                       |
-| `--port`                |             | Listening port for server mode.                                      | `8080`                        |
-| `--interactive`         |             | Start in interactive mode (REPL).                                    | `false`                       |
-| `-o`                    | `--output`  | Save the result to a file.                                           | `""`                          |
-| `-q`                    | `--quiet`   | Quiet mode (minimal output).                                         | `false`                       |
-| `--hex`                 |             | Display the result in hexadecimal.                                   | `false`                       |
-| `--no-color`            |             | Disable colours (also respects `NO_COLOR`).                          | `false`                       |
-| `--completion`          |             | Generate an autocompletion script (bash, zsh, fish, powershell).     | `""`                          |
-| `--version`             | `-V`        | Display the program version.                                         |                               |
+| Flag                    | Alias       | Description                                                      | Default                       |
+| ----------------------- | ----------- | ---------------------------------------------------------------- | ----------------------------- |
+| `-n`                    |             | Index of the Fibonacci number to calculate.                      | `250000000`                   |
+| `-algo`                 |             | Algorithm: `fast`, `matrix`, `fft`, or `all`.                    | `all`                         |
+| `-timeout`              |             | Maximum execution time (e.g., `10s`, `1m30s`).                   | `5m`                          |
+| `-threshold`            |             | Bit threshold to parallelise multiplications.                    | `4096`                        |
+| `-fft-threshold`        |             | Bit threshold to enable FFT multiplication.                      | `1000000`                     |
+| `--strassen-threshold`  |             | Bit threshold for the Strassen algorithm.                        | `3072`                        |
+| `-d`                    | `--details` | Display performance details.                                     | `false`                       |
+| `-v`                    |             | Display the full result (can be very long).                      | `false`                       |
+| `--calibrate`           |             | Calibrate the optimal parallelism threshold.                     | `false`                       |
+| `--auto-calibrate`      |             | Quick calibration at startup.                                    | `false`                       |
+| `--calibration-profile` |             | Path to the calibration profile file.                            | `~/.fibcalc_calibration.json` |
+| `--json`                |             | Output in JSON format.                                           | `false`                       |
+| `--server`              |             | Start in HTTP server mode.                                       | `false`                       |
+| `--port`                |             | Listening port for server mode.                                  | `8080`                        |
+| `--interactive`         |             | Start in interactive mode (REPL).                                | `false`                       |
+| `-o`                    | `--output`  | Save the result to a file.                                       | `""`                          |
+| `-q`                    | `--quiet`   | Quiet mode (minimal output).                                     | `false`                       |
+| `--hex`                 |             | Display the result in hexadecimal.                               | `false`                       |
+| `--no-color`            |             | Disable colours (also respects `NO_COLOR`).                      | `false`                       |
+| `--completion`          |             | Generate an autocompletion script (bash, zsh, fish, powershell). | `""`                          |
+| `--version`             | `-V`        | Display the program version.                                     |                               |
 
 ### Configuration via Environment Variables
 
@@ -233,24 +235,24 @@ In addition to CLI flags, `fibcalc` can be configured via environment variables.
 
 **Configuration Priority:** CLI Flags > Environment Variables > Default Values
 
-| Variable                      | Type     | Description                           | Default     |
-| ----------------------------- | -------- | ------------------------------------- | ----------- |
-| `FIBCALC_N`                   | uint64   | Fibonacci number index                | `250000000` |
-| `FIBCALC_ALGO`                | string   | Algorithm (fast, matrix, fft, all)    | `all`       |
-| `FIBCALC_PORT`                | string   | HTTP server port                      | `8080`      |
-| `FIBCALC_TIMEOUT`             | duration | Timeout (e.g., "5m", "30s")           | `5m`        |
-| `FIBCALC_THRESHOLD`           | int      | Parallelism threshold (bits)          | `4096`      |
-| `FIBCALC_FFT_THRESHOLD`       | int      | FFT threshold (bits)                  | `1000000`   |
-| `FIBCALC_STRASSEN_THRESHOLD`  | int      | Strassen threshold (bits)             | `3072`      |
-| `FIBCALC_SERVER`              | bool     | Server mode (true/false)              | `false`     |
-| `FIBCALC_JSON`                | bool     | JSON output                           | `false`     |
-| `FIBCALC_VERBOSE`             | bool     | Verbose mode                          | `false`     |
-| `FIBCALC_QUIET`               | bool     | Quiet mode                            | `false`     |
-| `FIBCALC_HEX`                 | bool     | Hexadecimal output                    | `false`     |
-| `FIBCALC_INTERACTIVE`         | bool     | REPL mode                             | `false`     |
-| `FIBCALC_NO_COLOR`            | bool     | Disable colours                       | `false`     |
-| `FIBCALC_OUTPUT`              | string   | Output file                           | `""`        |
-| `FIBCALC_CALIBRATION_PROFILE` | string   | Calibration file                      | `""`        |
+| Variable                      | Type     | Description                        | Default     |
+| ----------------------------- | -------- | ---------------------------------- | ----------- |
+| `FIBCALC_N`                   | uint64   | Fibonacci number index             | `250000000` |
+| `FIBCALC_ALGO`                | string   | Algorithm (fast, matrix, fft, all) | `all`       |
+| `FIBCALC_PORT`                | string   | HTTP server port                   | `8080`      |
+| `FIBCALC_TIMEOUT`             | duration | Timeout (e.g., "5m", "30s")        | `5m`        |
+| `FIBCALC_THRESHOLD`           | int      | Parallelism threshold (bits)       | `4096`      |
+| `FIBCALC_FFT_THRESHOLD`       | int      | FFT threshold (bits)               | `1000000`   |
+| `FIBCALC_STRASSEN_THRESHOLD`  | int      | Strassen threshold (bits)          | `3072`      |
+| `FIBCALC_SERVER`              | bool     | Server mode (true/false)           | `false`     |
+| `FIBCALC_JSON`                | bool     | JSON output                        | `false`     |
+| `FIBCALC_VERBOSE`             | bool     | Verbose mode                       | `false`     |
+| `FIBCALC_QUIET`               | bool     | Quiet mode                         | `false`     |
+| `FIBCALC_HEX`                 | bool     | Hexadecimal output                 | `false`     |
+| `FIBCALC_INTERACTIVE`         | bool     | REPL mode                          | `false`     |
+| `FIBCALC_NO_COLOR`            | bool     | Disable colours                    | `false`     |
+| `FIBCALC_OUTPUT`              | string   | Output file                        | `""`        |
+| `FIBCALC_CALIBRATION_PROFILE` | string   | Calibration file                   | `""`        |
 
 **Examples:**
 
@@ -294,16 +296,16 @@ The interactive mode allows you to perform multiple calculations in a session:
 
 **Commands available in the REPL:**
 
-| Command                     | Description                              |
-| --------------------------- | ---------------------------------------- |
+| Command                     | Description                               |
+| --------------------------- | ----------------------------------------- |
 | `calc <n>` or `c <n>`       | Calculate F(n) with the current algorithm |
-| `algo <name>` or `a <name>` | Change the algorithm (fast, matrix, fft) |
-| `compare <n>` or `cmp <n>`  | Compare all algorithms for F(n)          |
-| `list` or `ls`              | List available algorithms                |
-| `hex`                       | Toggle hexadecimal display               |
-| `status` or `st`            | Display current configuration            |
-| `help` or `h`               | Display help                             |
-| `exit` or `quit`            | Exit interactive mode                    |
+| `algo <name>` or `a <name>` | Change the algorithm (fast, matrix, fft)  |
+| `compare <n>` or `cmp <n>`  | Compare all algorithms for F(n)           |
+| `list` or `ls`              | List available algorithms                 |
+| `hex`                       | Toggle hexadecimal display                |
+| `status` or `st`            | Display current configuration             |
+| `help` or `h`               | Display help                              |
+| `exit` or `quit`            | Exit interactive mode                     |
 
 **Example REPL session:**
 
@@ -343,12 +345,12 @@ make run-server
 
 **Available endpoints:**
 
-| Endpoint      | Method | Description                              |
-| ------------- | ------ | ---------------------------------------- |
+| Endpoint      | Method | Description                                 |
+| ------------- | ------ | ------------------------------------------- |
 | `/calculate`  | GET    | Calculate F(n) with the specified algorithm |
-| `/health`     | GET    | Server health check                      |
-| `/algorithms` | GET    | List available algorithms                |
-| `/metrics`    | GET    | Server performance metrics               |
+| `/health`     | GET    | Server health check                         |
+| `/algorithms` | GET    | List available algorithms                   |
+| `/metrics`    | GET    | Server performance metrics                  |
 
 **Request examples:**
 
@@ -481,11 +483,11 @@ See [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) for complete details.
 
 ## 6. Algorithms
 
-| Algorithm                 | Flag           | Complexity         | Description                                                                                                    |
-| ------------------------- | -------------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Fast Doubling**         | `-algo fast`   | O(log n × M(n))    | Most performant. 3 multiplications per iteration. Uses DoublingFramework with adaptive strategy.               |
-| **Matrix Exponentiation** | `-algo matrix` | O(log n × M(n))    | Matrix approach with Strassen optimisation. Uses MatrixFramework.                                              |
-| **FFT-Based**             | `-algo fft`    | O(log n × n log n) | Forces FFT multiplication for all calculations. Uses DoublingFramework with FFT-only strategy.                 |
+| Algorithm                 | Flag           | Complexity         | Description                                                                                      |
+| ------------------------- | -------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| **Fast Doubling**         | `-algo fast`   | O(log n × M(n))    | Most performant. 3 multiplications per iteration. Uses DoublingFramework with adaptive strategy. |
+| **Matrix Exponentiation** | `-algo matrix` | O(log n × M(n))    | Matrix approach with Strassen-Winograd optimisation. Uses MatrixFramework.                       |
+| **FFT-Based**             | `-algo fft`    | O(log n × n log n) | Forces FFT multiplication for all calculations. Uses DoublingFramework with FFT-only strategy.   |
 
 **Note**: All algorithms now share common frameworks that eliminate code duplication and facilitate maintenance. Multiplication strategies can be dynamically interchanged.
 
@@ -505,12 +507,15 @@ The project integrates several layers of advanced optimisations to maximise perf
 ### Zero-Allocation Strategy
 
 - **Object Pools (`sync.Pool`)**: Calculation states are recycled to minimise GC pressure.
+- **Global Memory Pooling**: A unified `internal/pool` package provides recycled `big.Int` objects to all algorithms (`matrix`, `fastdoubling`), significantly reducing allocation overhead.
 - **Arena Allocator**: Adaptive memory allocation system that pre-estimates memory needs based on N and pre-warms global pools to reduce allocations during calculation.
 - **Symmetric Squaring**: Reduces the number of multiplications to 4 (compared to 8 with the naive method).
+- **Strassen-Winograd**: An improved variant of Strassen's algorithm that reduces the number of additions/subtractions from 18 to 15, while maintaining 7 multiplications.
 
 ### PGO Optimisation (Profile-Guided Optimization)
 
 The project supports profile-guided optimisation (PGO), available since Go 1.20.
+
 - **Principle**: The compiler uses a real execution profile (`default.pgo`) to optimise critical code paths (inlining, devirtualisation).
 - **Gain**: **~5-10%** performance improvement on large calculations.
 - **Usage**: `make build-pgo` automatically uses the included profile.
@@ -696,24 +701,24 @@ See [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) for complete 
 
 ### Resource Recommendations
 
-| Usage             | CPU      | RAM    |
-| ----------------- | -------- | ------ |
-| Small (N < 100K)  | 1 core   | 512 MB |
-| Medium (N < 10M)  | 2 cores  | 1 GB   |
-| Large (N > 10M)   | 4+ cores | 2+ GB  |
+| Usage            | CPU      | RAM    |
+| ---------------- | -------- | ------ |
+| Small (N < 100K) | 1 core   | 512 MB |
+| Medium (N < 10M) | 2 cores  | 1 GB   |
+| Large (N > 10M)  | 4+ cores | 2+ GB  |
 
 ## 11. Documentation
 
-| Document                                     | Description                |
-| -------------------------------------------- | -------------------------- |
-| [README.md](README.md)                       | Main documentation         |
-| [API.md](API.md)                             | REST API documentation     |
-| [CONTRIBUTING.md](CONTRIBUTING.md)           | Contribution guide         |
-| [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) | Project architecture       |
-| [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)   | Performance guide          |
-| [Docs/SECURITY.md](Docs/SECURITY.md)         | Security policy            |
-| [Docs/algorithms/](Docs/algorithms/)         | Algorithm documentation    |
-| [Docs/deployment/](Docs/deployment/)         | Deployment guides          |
+| Document                                     | Description             |
+| -------------------------------------------- | ----------------------- |
+| [README.md](README.md)                       | Main documentation      |
+| [API.md](API.md)                             | REST API documentation  |
+| [CONTRIBUTING.md](CONTRIBUTING.md)           | Contribution guide      |
+| [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) | Project architecture    |
+| [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)   | Performance guide       |
+| [Docs/SECURITY.md](Docs/SECURITY.md)         | Security policy         |
+| [Docs/algorithms/](Docs/algorithms/)         | Algorithm documentation |
+| [Docs/deployment/](Docs/deployment/)         | Deployment guides       |
 
 ## 12. Licence
 
