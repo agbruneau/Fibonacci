@@ -17,7 +17,6 @@ import (
 	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
-
 // CalibrationOptions configures the calibration process.
 type CalibrationOptions struct {
 	// ProfilePath is the path to save/load the calibration profile.

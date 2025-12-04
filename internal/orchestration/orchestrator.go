@@ -18,7 +18,6 @@ import (
 	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
-
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
 // It serves as a standardized container for results from different algorithms,
 // facilitating comparison and reporting.

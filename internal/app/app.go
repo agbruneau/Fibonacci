@@ -58,9 +58,15 @@ func New(args []string, errWriter io.Writer) (*Application, error) {
 		return nil, err
 	}
 
-	// Apply adaptive thresholds based on hardware characteristics.
-	// This provides automatic optimization without requiring --auto-calibrate.
-	cfg = applyAdaptiveThresholds(cfg)
+	// Try to load cached calibration profile first
+	// This allows the application to use optimal thresholds found in previous runs
+	if cfgWithProfile, loaded := calibration.LoadCachedCalibration(cfg, cfg.CalibrationProfile); loaded {
+		cfg = cfgWithProfile
+	} else {
+		// Fallback to adaptive thresholds based on hardware characteristics
+		// This provides automatic optimization without requiring --auto-calibrate
+		cfg = applyAdaptiveThresholds(cfg)
+	}
 
 	return &Application{
 		Config:    cfg,
