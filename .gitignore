@@ -33,3 +33,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Coverage files (non-standard extensions)
+cover
+coverage
+coverage_new
