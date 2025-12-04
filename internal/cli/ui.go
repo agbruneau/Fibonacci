@@ -284,26 +284,26 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 	bitLen := result.BitLen()
 	fmt.Fprintf(out, "Result binary size: %s%s%s bits.\n", ColorCyan(), formatNumberString(fmt.Sprintf("%d", bitLen)), ColorReset())
 
-	if !details {
-		fmt.Fprintf(out, "(Tip: use the %s-d%s or %s--details%s option for a full report)\n", ColorYellow(), ColorReset(), ColorYellow(), ColorReset())
-		return
-	}
+	if details {
+		fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ColorBold(), ColorReset())
+		durationStr := FormatExecutionDuration(duration)
+		if duration == 0 {
+			durationStr = "< 1µs"
+		}
+		fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen(), durationStr, ColorReset())
 
-	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ColorBold(), ColorReset())
-	durationStr := FormatExecutionDuration(duration)
-	if duration == 0 {
-		durationStr = "< 1µs"
+		resultStr := result.String()
+		numDigits := len(resultStr)
+		fmt.Fprintf(out, "Number of digits      : %s%s%s\n", ColorCyan(), formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset())
+
+		if numDigits > 6 {
+			f := new(big.Float).SetInt(result)
+			fmt.Fprintf(out, "Scientific notation    : %s%.6e%s\n", ColorCyan(), f, ColorReset())
+		}
 	}
-	fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ColorGreen(), durationStr, ColorReset())
 
 	resultStr := result.String()
 	numDigits := len(resultStr)
-	fmt.Fprintf(out, "Number of digits      : %s%s%s\n", ColorCyan(), formatNumberString(fmt.Sprintf("%d", numDigits)), ColorReset())
-
-	if numDigits > 6 {
-		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Scientific notation    : %s%.6e%s\n", ColorCyan(), f, ColorReset())
-	}
 
 	fmt.Fprintf(out, "\n%s--- Calculated value ---%s\n", ColorBold(), ColorReset())
 	if verbose {

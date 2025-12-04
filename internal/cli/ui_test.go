@@ -77,8 +77,9 @@ func TestDisplayResult(t *testing.T) {
 		if !strings.Contains(output, "Result binary size: 34 bits.") {
 			t.Errorf("The basic output is incorrect. Expected: 'Result binary size: 34 bits.', Got: %q", output)
 		}
-		if !strings.Contains(output, "(Tip: use the -d or --details option") {
-			t.Errorf("The basic output should contain help for the details mode. Got: %q", output)
+		expectedValue := "F(50) = 12,586,269,025"
+		if !strings.Contains(output, expectedValue) {
+			t.Errorf("The basic output missing calculated value.\nExpected to contain: %q\nGot:\n%s", expectedValue, output)
 		}
 	})
 
