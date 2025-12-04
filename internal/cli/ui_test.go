@@ -70,24 +70,24 @@ func TestDisplayResult(t *testing.T) {
 	duration := 123 * time.Millisecond
 	result, _ := new(big.Int).SetString("12586269025", 10) // F(50)
 
-	t.Run("Output without details", func(t *testing.T) {
+	t.Run("Output without details (default: no calculated value)", func(t *testing.T) {
 		var buf bytes.Buffer
-		DisplayResult(result, 50, duration, false, false, &buf)
+		DisplayResult(result, 50, duration, false, false, false, &buf)
 		output := testutil.StripAnsiCodes(buf.String())
 		if !strings.Contains(output, "Result binary size: 34 bits.") {
 			t.Errorf("The basic output is incorrect. Expected: 'Result binary size: 34 bits.', Got: %q", output)
 		}
-		expectedValue := "F(50) = 12,586,269,025"
-		if !strings.Contains(output, expectedValue) {
-			t.Errorf("The basic output missing calculated value.\nExpected to contain: %q\nGot:\n%s", expectedValue, output)
+		// By default (concise=false), calculated value should NOT be shown
+		if strings.Contains(output, "--- Calculated value ---") {
+			t.Errorf("Default mode should NOT show calculated value section. Got: %q", output)
 		}
 	})
 
-	t.Run("Detailed but non-verbose output (truncation)", func(t *testing.T) {
+	t.Run("Detailed but non-verbose output with -c flag (truncation)", func(t *testing.T) {
 		var buf bytes.Buffer
 		longNumStr := strings.Repeat("1", 101) // String longer than TruncationLimit
 		longResult, _ := new(big.Int).SetString(longNumStr, 10)
-		DisplayResult(longResult, 500, duration, false, true, &buf)
+		DisplayResult(longResult, 500, duration, false, true, true, &buf) // concise=true means show value
 		output := testutil.StripAnsiCodes(buf.String())
 
 		if !strings.Contains(output, "(truncated)") {
@@ -99,9 +99,9 @@ func TestDisplayResult(t *testing.T) {
 		}
 	})
 
-	t.Run("Detailed and verbose output (full)", func(t *testing.T) {
+	t.Run("Detailed and verbose output with -c flag (full)", func(t *testing.T) {
 		var buf bytes.Buffer
-		DisplayResult(result, 50, duration, true, true, &buf)
+		DisplayResult(result, 50, duration, true, true, true, &buf) // concise=true means show value
 		output := testutil.StripAnsiCodes(buf.String())
 
 		if strings.Contains(output, "(truncated)") {
@@ -110,6 +110,22 @@ func TestDisplayResult(t *testing.T) {
 		expectedValue := "F(50) =\n12,586,269,025"
 		if !strings.Contains(output, expectedValue) {
 			t.Errorf("The value in the verbose output is incorrect.\nExpected (containing): %q\nGot: %s", expectedValue, output)
+		}
+	})
+
+	t.Run("With -c flag shows calculated value", func(t *testing.T) {
+		var buf bytes.Buffer
+		DisplayResult(result, 50, duration, false, false, true, &buf) // concise=true means show value
+		output := testutil.StripAnsiCodes(buf.String())
+		if !strings.Contains(output, "Result binary size: 34 bits.") {
+			t.Errorf("Should still show binary size. Got: %q", output)
+		}
+		if !strings.Contains(output, "--- Calculated value ---") {
+			t.Errorf("With -c flag should show calculated value section. Got: %q", output)
+		}
+		expectedValue := "F(50) = 12,586,269,025"
+		if !strings.Contains(output, expectedValue) {
+			t.Errorf("With -c flag should show F(n) value.\nExpected to contain: %q\nGot:\n%s", expectedValue, output)
 		}
 	})
 }

@@ -20,6 +20,8 @@ type OutputConfig struct {
 	Quiet bool
 	// Verbose shows the full result value.
 	Verbose bool
+	// Concise enables the calculated value display when true (disabled by default).
+	Concise bool
 }
 
 // WriteResultToFile writes a calculation result to a file.
@@ -121,7 +123,7 @@ func DisplayResultWithConfig(out io.Writer, result *big.Int, n uint64, duration 
 		DisplayQuietResult(out, result, n, duration, config.HexOutput)
 	} else {
 		// Use standard display
-		DisplayResult(result, n, duration, config.Verbose, true, out)
+		DisplayResult(result, n, duration, config.Verbose, true, config.Concise, out)
 
 		// Show hex format if requested
 		if config.HexOutput && !config.Quiet {
