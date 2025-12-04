@@ -3,9 +3,84 @@
 package bigfft
 
 import (
+	"math"
 	"math/big"
 	"sync"
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Memory Estimation
+// ─────────────────────────────────────────────────────────────────────────────
+
+// MemoryEstimate holds estimated memory requirements for a Fibonacci calculation.
+// These estimates are based on the approximate size of F(n) and FFT buffer needs.
+type MemoryEstimate struct {
+	// MaxWordSliceSize is the maximum size (in words) needed for word slices
+	// during the calculation. This accounts for FFT buffers which can be
+	// 2^(k) * (n+1) words where k depends on the number size.
+	MaxWordSliceSize int
+	// MaxFermatSize is the maximum size (in words) needed for fermat numbers.
+	// Typically n+1 words where n is derived from FFT parameters.
+	MaxFermatSize int
+	// MaxNatSliceSize is the maximum size needed for []nat slices (polynomial coefficients).
+	MaxNatSliceSize int
+	// MaxFermatSliceSize is the maximum size needed for []fermat slices (polynomial values).
+	MaxFermatSliceSize int
+}
+
+// EstimateMemoryNeeds calculates memory requirements for calculating F(n).
+//
+// Estimation formula:
+//   - F(n) has approximately n * log10(φ) ≈ n * 0.694 bits
+//   - For FFT: buffers of size 2^(k) * (n+1) words where k is chosen based on size
+//   - We estimate conservatively to avoid reallocations
+//
+// Parameters:
+//   - n: The Fibonacci index to calculate.
+//
+// Returns:
+//   - MemoryEstimate: Estimated memory requirements.
+func EstimateMemoryNeeds(n uint64) MemoryEstimate {
+	// Estimate bits in F(n): approximately n * log10(φ) / log10(2)
+	// Using φ ≈ 1.618, log10(φ) ≈ 0.2089, so log2(φ) ≈ 0.694
+	// F(n) ≈ n * 0.694 bits
+	estimatedBits := float64(n) * 0.694
+
+	// Convert to words (assuming 64-bit words)
+	estimatedWords := int(math.Ceil(estimatedBits / 64))
+
+	// For FFT, we need buffers that can hold 2^(k) * (n+1) words
+	// where k is chosen such that 2^k is about 2*sqrt(N) for N = estimatedBits
+	// We estimate k conservatively: find the smallest k where 2^k >= 2*sqrt(estimatedWords)
+	sqrtWords := math.Sqrt(float64(estimatedWords))
+	k := uint(0)
+	for (1 << k) < int(2*sqrtWords) {
+		k++
+	}
+	if k > 15 {
+		k = 15 // Cap at reasonable maximum
+	}
+
+	// FFT buffer size: 2^k * (n+1) words, but we use estimatedWords instead of n
+	// to account for the actual size of F(n)
+	fftBufferSize := (1 << k) * (estimatedWords + 1)
+	if fftBufferSize < 1024 {
+		fftBufferSize = 1024 // Minimum reasonable size
+	}
+
+	// Estimate polynomial coefficient count: typically K = 2^k
+	polynomialCoeffs := 1 << k
+	if polynomialCoeffs < 8 {
+		polynomialCoeffs = 8
+	}
+
+	return MemoryEstimate{
+		MaxWordSliceSize:   fftBufferSize,
+		MaxFermatSize:      estimatedWords + 1,
+		MaxNatSliceSize:    polynomialCoeffs,
+		MaxFermatSliceSize: polynomialCoeffs,
+	}
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Word Slice Pools
