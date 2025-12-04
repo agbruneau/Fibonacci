@@ -18,11 +18,6 @@ import (
 	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
-// cliColorProvider implements apperrors.ColorProvider using cli theme functions.
-type cliColorProvider struct{}
-
-func (c cliColorProvider) Yellow() string { return cli.ColorYellow() }
-func (c cliColorProvider) Reset() string  { return cli.ColorReset() }
 
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
 // It serves as a standardized container for results from different algorithms,
@@ -147,7 +142,7 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 
 	if successCount == 0 {
 		fmt.Fprintf(out, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")
-		return apperrors.HandleCalculationError(firstError, 0, out, cliColorProvider{})
+		return apperrors.HandleCalculationError(firstError, 0, out, cli.CLIColorProvider{})
 	}
 
 	mismatch := false

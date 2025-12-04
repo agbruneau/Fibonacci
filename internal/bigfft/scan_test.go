@@ -130,11 +130,3 @@ func TestFromDecimalString_Performance(t *testing.T) {
 		t.Error("Large input conversion failed")
 	}
 }
-
-// Helper function for min
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

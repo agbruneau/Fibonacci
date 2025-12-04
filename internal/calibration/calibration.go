@@ -17,11 +17,6 @@ import (
 	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
-// cliColorProvider implements apperrors.ColorProvider using cli theme functions.
-type cliColorProvider struct{}
-
-func (c cliColorProvider) Yellow() string { return cli.ColorYellow() }
-func (c cliColorProvider) Reset() string  { return cli.ColorReset() }
 
 // CalibrationOptions configures the calibration process.
 type CalibrationOptions struct {
@@ -120,7 +115,7 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
 				wg.Wait()
-				return apperrors.HandleCalculationError(err, duration, out, cliColorProvider{})
+				return apperrors.HandleCalculationError(err, duration, out, cli.CLIColorProvider{})
 			}
 			continue
 		}
