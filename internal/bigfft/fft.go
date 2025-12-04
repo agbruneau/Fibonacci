@@ -6,9 +6,24 @@ package bigfft
 
 import (
 	"math/big"
+	"runtime"
 	"sync"
 	"unsafe"
 )
+
+// concurrencySemaphore is a buffered channel used to limit the number of
+// concurrent goroutines in the FFT recursion.
+var concurrencySemaphore chan struct{}
+var concurrencyOnce sync.Once
+
+// getSemaphore returns the global concurrency semaphore, initializing it
+// to runtime.NumCPU() on the first call.
+func getSemaphore() chan struct{} {
+	concurrencyOnce.Do(func() {
+		concurrencySemaphore = make(chan struct{}, runtime.NumCPU())
+	})
+	return concurrencySemaphore
+}
 
 const _W = int(unsafe.Sizeof(big.Word(0)) * 8)
 
@@ -510,10 +525,42 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 	dst1 := dst[:1<<(size-1)]
 	dst2 := dst[1<<(size-1):]
 
-	// Recursive calls
+	// Try to acquire token for parallelism
+	// We only try to parallelize if the size is large enough to justify overhead
+	if size >= ParallelFFTRecursionThreshold {
+		select {
+		case getSemaphore() <- struct{}{}:
+			// Got token, run second half in parallel
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer func() { <-getSemaphore() }()
+
+				// Allocate new temps for this branch to avoid race conditions
+				t1 := acquireFermat(n + 1)
+				t2 := acquireFermat(n + 1)
+				defer releaseFermat(t1)
+				defer releaseFermat(t2)
+
+				fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
+			}()
+
+			// Run first half in current thread with current temps
+			fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
+
+			wg.Wait()
+			goto Reconstruct
+		default:
+			// Fallthrough to sequential
+		}
+	}
+
+	// Recursive calls (Sequential)
 	fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
 	fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2)
 
+Reconstruct:
 	// Reconstruct transform
 	for i := range dst1 {
 		tmp.ShiftHalf(dst2[i], i*ω2shift, tmp2)
@@ -537,84 +584,8 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 		defer releaseFermat(tmp2)
 	}
 
-	// The recursion function of the FFT.
-	// The root of unity used in the transform is ω=1<<(ω2shift/2).
-	// The source array may use shifted indices (i.e. the i-th
-	// element is src[i << idxShift]).
-	var rec func(dst, src []fermat, size uint, depth uint)
-	rec = func(dst, src []fermat, size uint, depth uint) {
-		idxShift := k - size
-		ω2shift := (4 * n * _W) >> size
-		if backward {
-			ω2shift = -ω2shift
-		}
-
-		// Easy cases.
-		if len(src[0]) != n+1 || len(dst[0]) != n+1 {
-			panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
-		}
-		switch size {
-		case 0:
-			copy(dst[0], src[0])
-			return
-		case 1:
-			dst[0].Add(src[0], src[1<<idxShift]) // dst[0] = src[0] + src[1]
-			dst[1].Sub(src[0], src[1<<idxShift]) // dst[1] = src[0] - src[1]
-			return
-		}
-
-		// Let P(x) = src[0] + src[1<<idxShift] * x + ... + src[K-1 << idxShift] * x^(K-1)
-		// The P(x) = Q1(x²) + x*Q2(x²)
-		// where Q1's coefficients are src with indices shifted by 1
-		// where Q2's coefficients are src[1<<idxShift:] with indices shifted by 1
-
-		// Split destination vectors in halves.
-		dst1 := dst[:1<<(size-1)]
-		dst2 := dst[1<<(size-1):]
-		
-		// Parallelize recursion if size is large enough and depth limit not reached
-		// We only parallelize when depth is 0 to avoid sharing tmp/tmp2 buffers
-		// which would cause race conditions. This is a conservative but safe approach.
-		shouldParallelize := size >= ParallelFFTRecursionThreshold && depth == 0
-		if shouldParallelize {
-			// Allocate separate temporary buffers for each goroutine to avoid race conditions
-			tmp1 := acquireFermat(n + 1)
-			tmp2_1 := acquireFermat(n + 1)
-			tmp1_2 := acquireFermat(n + 1)
-			tmp2_2 := acquireFermat(n + 1)
-			defer releaseFermat(tmp1)
-			defer releaseFermat(tmp2_1)
-			defer releaseFermat(tmp1_2)
-			defer releaseFermat(tmp2_2)
-			
-			var wg sync.WaitGroup
-			wg.Add(2)
-			go func() {
-				defer wg.Done()
-				fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp1, tmp2_1)
-			}()
-			go func() {
-				defer wg.Done()
-				fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp1_2, tmp2_2)
-			}()
-			wg.Wait()
-		} else {
-			// Transform Q1 and Q2 in the halves sequentially.
-			rec(dst1, src, size-1, depth+1)
-			rec(dst2, src[1<<idxShift:], size-1, depth+1)
-		}
-
-		// Reconstruct P's transform from transforms of Q1 and Q2.
-		// dst[i]            is dst1[i] + ω^i * dst2[i]
-		// dst[i + 1<<(k-1)] is dst1[i] + ω^(i+K/2) * dst2[i]
-		//
-		for i := range dst1 {
-			tmp.ShiftHalf(dst2[i], i*ω2shift, tmp2) // ω^i * dst2[i]
-			dst2[i].Sub(dst1[i], tmp)
-			dst1[i].Add(dst1[i], tmp)
-		}
-	}
-	rec(dst, src, k, 0)
+	// Call the recursive FFT function
+	fourierRecursive(dst, src, backward, n, k, k, 0, tmp, tmp2)
 }
 
 // Mul returns the pointwise product of p and q.
