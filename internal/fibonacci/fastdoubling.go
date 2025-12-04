@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"runtime"
 	"sync"
+
+	"github.com/agbru/fibcalc/internal/pool"
 )
 
 // OptimizedFastDoubling provides a high-performance implementation of the "Fast
@@ -174,12 +176,7 @@ func (s *CalculationState) Reset() {
 var statePool = sync.Pool{
 	New: func() interface{} {
 		return &CalculationState{
-			F_k:  new(big.Int),
-			F_k1: new(big.Int),
-			T1:   new(big.Int),
-			T2:   new(big.Int),
-			T3:   new(big.Int),
-			T4:   new(big.Int),
+			// Fields will be populated from the global pool in AcquireState
 		}
 	},
 }
@@ -190,6 +187,14 @@ var statePool = sync.Pool{
 //   - *CalculationState: A ready-to-use calculation state.
 func AcquireState() *CalculationState {
 	s := statePool.Get().(*CalculationState)
+
+	s.F_k = pool.AcquireBigInt()
+	s.F_k1 = pool.AcquireBigInt()
+	s.T1 = pool.AcquireBigInt()
+	s.T2 = pool.AcquireBigInt()
+	s.T3 = pool.AcquireBigInt()
+	s.T4 = pool.AcquireBigInt()
+
 	s.Reset()
 	return s
 }
@@ -199,6 +204,16 @@ func AcquireState() *CalculationState {
 // Parameters:
 //   - s: The calculation state to return to the pool.
 func ReleaseState(s *CalculationState) {
+	pool.ReleaseBigInt(s.F_k)
+	pool.ReleaseBigInt(s.F_k1)
+	pool.ReleaseBigInt(s.T1)
+	pool.ReleaseBigInt(s.T2)
+	pool.ReleaseBigInt(s.T3)
+	pool.ReleaseBigInt(s.T4)
+
+	s.F_k, s.F_k1 = nil, nil
+	s.T1, s.T2, s.T3, s.T4 = nil, nil, nil, nil
+
 	statePool.Put(s)
 }
 
