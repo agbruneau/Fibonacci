@@ -12,7 +12,8 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // wordSlicePool pools []big.Word slices by size class.
-// We use size classes to avoid fragmentation: 64, 256, 1K, 4K, 16K, 64K, 256K words.
+// We use size classes to avoid fragmentation: 64, 256, 1K, 4K, 16K, 64K, 256K, 1M, 4M, 16M words.
+// Extended size classes support very large Fibonacci calculations (F > 10M).
 var wordSlicePools = [...]sync.Pool{
 	{New: func() interface{} { return make([]big.Word, 64) }},
 	{New: func() interface{} { return make([]big.Word, 256) }},
@@ -21,10 +22,13 @@ var wordSlicePools = [...]sync.Pool{
 	{New: func() interface{} { return make([]big.Word, 16384) }},
 	{New: func() interface{} { return make([]big.Word, 65536) }},
 	{New: func() interface{} { return make([]big.Word, 262144) }},
+	{New: func() interface{} { return make([]big.Word, 1048576) }},  // 1M words = 8MB on 64-bit
+	{New: func() interface{} { return make([]big.Word, 4194304) }},  // 4M words = 32MB on 64-bit
+	{New: func() interface{} { return make([]big.Word, 16777216) }}, // 16M words = 128MB on 64-bit
 }
 
 // wordSliceSizes defines the size classes for word slice pools.
-var wordSliceSizes = [...]int{64, 256, 1024, 4096, 16384, 65536, 262144}
+var wordSliceSizes = [...]int{64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216}
 
 // getWordSlicePoolIndex returns the pool index for a given size.
 // Returns -1 if the size is too large for pooling.
@@ -76,6 +80,7 @@ func releaseWordSlice(slice []big.Word) {
 
 // fermatPool pools fermat slices by size class.
 // Fermat numbers are typically n+1 words where n is derived from FFT parameters.
+// Extended size classes support very large FFT operations.
 var fermatPools = [...]sync.Pool{
 	{New: func() interface{} { return make(fermat, 32) }},
 	{New: func() interface{} { return make(fermat, 128) }},
@@ -83,10 +88,13 @@ var fermatPools = [...]sync.Pool{
 	{New: func() interface{} { return make(fermat, 2048) }},
 	{New: func() interface{} { return make(fermat, 8192) }},
 	{New: func() interface{} { return make(fermat, 32768) }},
+	{New: func() interface{} { return make(fermat, 131072) }},  // 128K
+	{New: func() interface{} { return make(fermat, 524288) }},  // 512K
+	{New: func() interface{} { return make(fermat, 2097152) }}, // 2M
 }
 
 // fermatSizes defines the size classes for fermat pools.
-var fermatSizes = [...]int{32, 128, 512, 2048, 8192, 32768}
+var fermatSizes = [...]int{32, 128, 512, 2048, 8192, 32768, 131072, 524288, 2097152}
 
 // getFermatPoolIndex returns the pool index for a given size.
 // Returns -1 if the size is too large for pooling.
@@ -131,16 +139,19 @@ func releaseFermat(f fermat) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // natSlicePool pools []nat slices used for polynomial coefficients.
+// Extended to support larger FFT sizes.
 var natSlicePools = [...]sync.Pool{
 	{New: func() interface{} { return make([]nat, 8) }},
 	{New: func() interface{} { return make([]nat, 32) }},
 	{New: func() interface{} { return make([]nat, 128) }},
 	{New: func() interface{} { return make([]nat, 512) }},
 	{New: func() interface{} { return make([]nat, 2048) }},
+	{New: func() interface{} { return make([]nat, 8192) }},
+	{New: func() interface{} { return make([]nat, 32768) }},
 }
 
 // natSliceSizes defines the size classes for nat slice pools.
-var natSliceSizes = [...]int{8, 32, 128, 512, 2048}
+var natSliceSizes = [...]int{8, 32, 128, 512, 2048, 8192, 32768}
 
 // getNatSlicePoolIndex returns the pool index for a given size.
 func getNatSlicePoolIndex(size int) int {
@@ -183,16 +194,19 @@ func releaseNatSlice(slice []nat) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // fermatSlicePool pools []fermat slices used for polynomial values.
+// Extended to support larger FFT sizes.
 var fermatSlicePools = [...]sync.Pool{
 	{New: func() interface{} { return make([]fermat, 8) }},
 	{New: func() interface{} { return make([]fermat, 32) }},
 	{New: func() interface{} { return make([]fermat, 128) }},
 	{New: func() interface{} { return make([]fermat, 512) }},
 	{New: func() interface{} { return make([]fermat, 2048) }},
+	{New: func() interface{} { return make([]fermat, 8192) }},
+	{New: func() interface{} { return make([]fermat, 32768) }},
 }
 
 // fermatSliceSizes defines the size classes for []fermat pools.
-var fermatSliceSizes = [...]int{8, 32, 128, 512, 2048}
+var fermatSliceSizes = [...]int{8, 32, 128, 512, 2048, 8192, 32768}
 
 // getFermatSlicePoolIndex returns the pool index for a given size.
 func getFermatSlicePoolIndex(size int) int {

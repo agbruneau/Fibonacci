@@ -32,15 +32,28 @@ func EstimateMemoryNeeds(n uint64) MemoryEstimate {
 	// Max fermat size depends on K and m.
 	// For very large N, fermat size can be significant.
 	// We'll use a conservative estimate based on word length.
+	// Extended to support new larger pool sizes.
 	maxFermat := 2048 // Default reasonable max for pool warming
-	if wordLen > 100000 {
-		maxFermat = 8192
+	if wordLen > 1000000 {
+		maxFermat = 2097152 // Use largest fermat pool
+	} else if wordLen > 100000 {
+		maxFermat = 524288
+	} else if wordLen > 10000 {
+		maxFermat = 131072
 	}
 
 	// Max slice sizes (number of coefficients)
 	// Typically K, which can be 1024, 2048, etc.
+	// Extended to support new larger pool sizes.
 	maxNatSlice := 2048
 	maxFermatSlice := 2048
+	if wordLen > 1000000 {
+		maxNatSlice = 32768
+		maxFermatSlice = 32768
+	} else if wordLen > 100000 {
+		maxNatSlice = 8192
+		maxFermatSlice = 8192
+	}
 
 	// Determine K roughly
 	if wordLen > 0 {

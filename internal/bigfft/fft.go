@@ -160,22 +160,28 @@ func fftsqr(x nat) (nat, error) {
 // fftsqrTo performs FFT squaring of x, reusing dst as the destination buffer
 // if it has sufficient capacity. This is optimized compared to fftmulTo
 // because we only need to transform x once.
-// fftsqrTo performs FFT squaring of x, reusing dst as the destination buffer
-// if it has sufficient capacity. This is optimized compared to fftmulTo
-// because we only need to transform x once.
+//
+// Uses a bump allocator for temporary allocations to minimize GC pressure
+// and improve cache locality during the FFT computation.
 func fftsqrTo(dst, x nat) (nat, error) {
 	k, m := fftSizeSqr(x)
+
+	// Estimate and acquire bump allocator for temporary allocations
+	wordLen := 2 * len(x)
+	ba := AcquireBumpAllocator(EstimateBumpCapacity(wordLen))
+	defer ReleaseBumpAllocator(ba)
+
 	xp := polyFromNat(x, k, m)
 	n := valueSize(k, m, 2)
-	xv, err := xp.Transform(n)
+	xv, err := xp.TransformWithBump(n, ba)
 	if err != nil {
 		return nil, err
 	}
-	rv, err := xv.Sqr() // Pointwise squaring - no need for second transform
+	rv, err := xv.SqrWithBump(ba) // Pointwise squaring - no need for second transform
 	if err != nil {
 		return nil, err
 	}
-	r, err := rv.InvTransform()
+	r, err := rv.InvTransformWithBump(ba)
 	if err != nil {
 		return nil, err
 	}
@@ -223,14 +229,20 @@ func fftmul(x, y nat) (nat, error) {
 // fftmulTo performs FFT multiplication of x and y, reusing dst as the
 // destination buffer if it has sufficient capacity. This reduces allocations
 // in iterative multiplication scenarios.
-// fftmulTo performs FFT multiplication of x and y, reusing dst as the
-// destination buffer if it has sufficient capacity. This reduces allocations
-// in iterative multiplication scenarios.
+//
+// Uses a bump allocator for temporary allocations to minimize GC pressure
+// and improve cache locality during the FFT computation.
 func fftmulTo(dst, x, y nat) (nat, error) {
 	k, m := fftSize(x, y)
+
+	// Estimate and acquire bump allocator for temporary allocations
+	wordLen := len(x) + len(y)
+	ba := AcquireBumpAllocator(EstimateBumpCapacity(wordLen))
+	defer ReleaseBumpAllocator(ba)
+
 	xp := polyFromNat(x, k, m)
 	yp := polyFromNat(y, k, m)
-	rp, err := xp.Mul(&yp)
+	rp, err := xp.MulWithBump(&yp, ba)
 	if err != nil {
 		return nil, err
 	}
@@ -397,6 +409,31 @@ func (p *poly) Mul(q *poly) (poly, error) {
 	return r, nil
 }
 
+// MulWithBump multiplies p and q using a bump allocator for temporary allocations.
+// This provides better cache locality and reduces GC pressure.
+func (p *poly) MulWithBump(q *poly, ba *BumpAllocator) (poly, error) {
+	n := valueSize(p.k, p.m, 2)
+
+	pv, err := p.TransformWithBump(n, ba)
+	if err != nil {
+		return poly{}, err
+	}
+	qv, err := q.TransformWithBump(n, ba)
+	if err != nil {
+		return poly{}, err
+	}
+	rv, err := pv.MulWithBump(&qv, ba)
+	if err != nil {
+		return poly{}, err
+	}
+	r, err := rv.InvTransformWithBump(ba)
+	if err != nil {
+		return poly{}, err
+	}
+	r.m = p.m
+	return r, nil
+}
+
 // A polValues represents the value of a poly at the powers of a
 // K-th root of unity θ=2^(l/2) in Z/(b^n+1)Z, where b^n = 2^(K/4*l).
 type polValues struct {
@@ -404,9 +441,6 @@ type polValues struct {
 	n      int      // the length of coefficients, n*_W a multiple of K/4.
 	values []fermat // a slice of K (n+1)-word values
 }
-
-// Transform evaluates p at θ^i for i = 0...K-1, where
-// θ is a K-th primitive root of unity in Z/(b^n+1)Z.
 
 // Transform evaluates p at θ^i for i = 0...K-1, where
 // θ is a K-th primitive root of unity in Z/(b^n+1)Z.
@@ -438,6 +472,35 @@ func (p *poly) Transform(n int) (polValues, error) {
 	releaseWordSlice(inputbits)
 	releaseFermatSlice(input)
 
+	return polValues{k, n, values}, nil
+}
+
+// TransformWithBump evaluates p at θ^i for i = 0...K-1, using a bump allocator
+// for temporary allocations. This provides better cache locality and reduces
+// GC pressure compared to Transform().
+func (p *poly) TransformWithBump(n int, ba *BumpAllocator) (polValues, error) {
+	k := p.k
+	K := 1 << k
+	wordCount := (n + 1) * K
+
+	// Use bump allocator for temporary input buffers
+	input, _ := ba.AllocFermatSlice(K, n)
+
+	// Use regular allocation for output buffers (they are returned and cannot be pooled)
+	valbits := make([]big.Word, wordCount)
+	values := make([]fermat, K)
+
+	for i := 0; i < K; i++ {
+		if i < len(p.a) {
+			copy(input[i], p.a[i])
+		}
+		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
+	}
+	if err := fourierWithBump(values, input, false, n, k, ba); err != nil {
+		return polValues{}, err
+	}
+
+	// No need to release - bump allocator handles all temp memory
 	return polValues{k, n, values}, nil
 }
 
@@ -473,6 +536,39 @@ func (v *polValues) InvTransform() (poly, error) {
 	// Release temporary buffer
 	releaseFermat(u)
 
+	return poly{k: k, m: 0, a: a}, nil
+}
+
+// InvTransformWithBump reconstructs p (modulo X^K - 1) from its values,
+// using a bump allocator for temporary allocations.
+func (v *polValues) InvTransformWithBump(ba *BumpAllocator) (poly, error) {
+	k, n := v.k, v.n
+	K := 1 << k
+	wordCount := (n + 1) * K
+
+	// Perform an inverse Fourier transform to recover p.
+	// Use regular allocation since pbits data is returned via a[i]
+	pbits := make([]big.Word, wordCount)
+	p := make([]fermat, K)
+	for i := 0; i < K; i++ {
+		p[i] = fermat(pbits[i*(n+1) : (i+1)*(n+1)])
+	}
+	if err := fourierWithBump(p, v.values, true, n, k, ba); err != nil {
+		return poly{}, err
+	}
+
+	// Divide by K, and untwist q to recover p.
+	// Use bump allocator for temporary u
+	u := ba.AllocFermat(n)
+	// Use regular allocation for a since it's returned
+	a := make([]nat, K)
+	for i := 0; i < K; i++ {
+		u.Shift(p[i], -int(k))
+		copy(p[i], u)
+		a[i] = nat(p[i])
+	}
+
+	// No release needed - bump allocator handles cleanup
 	return poly{k: k, m: 0, a: a}, nil
 }
 
@@ -664,6 +760,101 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 	return fourierRecursive(dst, src, backward, n, k, k, 0, tmp, tmp2)
 }
 
+// fourierWithBump performs the Fourier transform using a bump allocator for
+// temporary buffers. This provides better cache locality than fourierWithState.
+func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
+	tmp := ba.AllocFermat(n)
+	tmp2 := ba.AllocFermat(n)
+
+	// Call the recursive FFT function with bump-allocated temps
+	return fourierRecursiveWithBump(dst, src, backward, n, k, k, 0, tmp, tmp2, ba)
+}
+
+// fourierRecursiveWithBump is the bump-allocator variant of fourierRecursive.
+// It allocates new temp buffers from the bump allocator for parallel goroutines.
+func fourierRecursiveWithBump(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, ba *BumpAllocator) error {
+	idxShift := k - size
+	ω2shift := (4 * n * _W) >> size
+	if backward {
+		ω2shift = -ω2shift
+	}
+
+	// Validation
+	if len(src[0]) != n+1 || len(dst[0]) != n+1 {
+		return fmt.Errorf("len(src[0]) != n+1 || len(dst[0]) != n+1")
+	}
+
+	// Base cases
+	switch size {
+	case 0:
+		copy(dst[0], src[0])
+		return nil
+	case 1:
+		dst[0].Add(src[0], src[1<<idxShift])
+		dst[1].Sub(src[0], src[1<<idxShift])
+		return nil
+	}
+
+	// Split destination vectors in halves
+	dst1 := dst[:1<<(size-1)]
+	dst2 := dst[1<<(size-1):]
+
+	// Try to acquire token for parallelism
+	if size >= ParallelFFTRecursionThreshold {
+		select {
+		case getSemaphore() <- struct{}{}:
+			// Got token, run second half in parallel
+			var wg sync.WaitGroup
+			wg.Add(1)
+			var errAsync error
+			go func() {
+				defer wg.Done()
+				defer func() { <-getSemaphore() }()
+
+				// Allocate new temps for this branch from bump allocator
+				// Note: Since bump allocator is not thread-safe, we fall back to pool here
+				t1 := acquireFermat(n + 1)
+				t2 := acquireFermat(n + 1)
+				defer releaseFermat(t1)
+				defer releaseFermat(t2)
+
+				errAsync = fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
+			}()
+
+			// Run first half in current thread with current temps
+			errSync := fourierRecursiveWithBump(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, ba)
+
+			wg.Wait()
+			if errAsync != nil {
+				return errAsync
+			}
+			if errSync != nil {
+				return errSync
+			}
+			goto Reconstruct
+		default:
+			// Fallthrough to sequential
+		}
+	}
+
+	// Recursive calls (Sequential)
+	if err := fourierRecursiveWithBump(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, ba); err != nil {
+		return err
+	}
+	if err := fourierRecursiveWithBump(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2, ba); err != nil {
+		return err
+	}
+
+Reconstruct:
+	// Reconstruct transform
+	for i := range dst1 {
+		tmp.ShiftHalf(dst2[i], i*ω2shift, tmp2)
+		dst2[i].Sub(dst1[i], tmp)
+		dst1[i].Add(dst1[i], tmp)
+	}
+	return nil
+}
+
 // Mul returns the pointwise product of p and q.
 func (p *polValues) Mul(q *polValues) (polValues, error) {
 	n := p.n
@@ -688,6 +879,32 @@ func (p *polValues) Mul(q *polValues) (polValues, error) {
 	// Release temporary buffer
 	releaseFermat(buf)
 
+	return r, nil
+}
+
+// MulWithBump returns the pointwise product of p and q, using a bump allocator
+// for temporary buffers.
+func (p *polValues) MulWithBump(q *polValues, ba *BumpAllocator) (polValues, error) {
+	n := p.n
+	K := len(p.values)
+	var r polValues
+	r.k, r.n = p.k, p.n
+
+	// Use regular allocation for returned data
+	r.values = make([]fermat, K)
+	wordCount := K * (n + 1)
+	bits := make([]big.Word, wordCount)
+
+	// Use bump allocator for temporary multiplication result
+	buf := ba.AllocFermat(8*n - 1)
+
+	for i := 0; i < K; i++ {
+		r.values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		z := buf.Mul(p.values[i], q.values[i])
+		copy(r.values[i], z)
+	}
+
+	// No release needed - bump allocator handles cleanup
 	return r, nil
 }
 
@@ -717,5 +934,32 @@ func (p *polValues) Sqr() (polValues, error) {
 	// Release temporary buffer
 	releaseFermat(buf)
 
+	return r, nil
+}
+
+// SqrWithBump returns the pointwise square of p, using a bump allocator
+// for temporary buffers.
+func (p *polValues) SqrWithBump(ba *BumpAllocator) (polValues, error) {
+	n := p.n
+	K := len(p.values)
+	var r polValues
+	r.k, r.n = p.k, p.n
+
+	// Use regular allocation for returned data
+	r.values = make([]fermat, K)
+	wordCount := K * (n + 1)
+	bits := make([]big.Word, wordCount)
+
+	// Use bump allocator for temporary multiplication result
+	buf := ba.AllocFermat(8*n - 1)
+
+	for i := 0; i < K; i++ {
+		r.values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		// Square: multiply p.values[i] by itself
+		z := buf.Mul(p.values[i], p.values[i])
+		copy(r.values[i], z)
+	}
+
+	// No release needed - bump allocator handles cleanup
 	return r, nil
 }
