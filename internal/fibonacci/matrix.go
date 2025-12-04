@@ -218,8 +218,9 @@ func executeTasks[T any, PT interface {
 	return nil
 }
 
-// multiplyMatricesStrassen implements Strassen's algorithm for 2x2 matrices
-// to reduce the number of multiplications from 8 to 7.
+// multiplyMatricesStrassen implements the Strassen-Winograd algorithm for 2x2 matrices.
+// This variant reduces the number of additions/subtractions from 18 to 15 compared to
+// the standard Strassen algorithm, while maintaining 7 multiplications.
 //
 // Parameters:
 //   - dest: The destination matrix.
@@ -232,56 +233,88 @@ func executeTasks[T any, PT interface {
 // Returns:
 //   - error: An error if the calculation failed.
 func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
-	// m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
-	// The temporary variables from the state object are used to store intermediate results.
-	p1, p2, p3, p4, p5, p6, p7 := state.p1, state.p2, state.p3, state.p4, state.p5, state.p6, state.p7
-	s1, s2, s3, s4, s5, s6, s7, s8, s9, s10 := state.s1, state.s2, state.s3, state.s4, state.s5, state.s6, state.s7, state.s8, state.s9, state.s10
+	// Winograd's variant uses 7 multiplications and 15 additions/subtractions.
+	//
+	// Pre-computations (8 additions/subtractions):
+	// S1 = A21 + A22
+	// S2 = S1 - A11
+	// S3 = A11 - A21
+	// S4 = A12 - S2
+	// S5 = B12 - B11
+	// S6 = B22 - S5
+	// S7 = B22 - B12
+	// S8 = S6 - B21
+	//
+	// Multiplications (7 multiplications):
+	// P1 = S2 * S6
+	// P2 = A11 * B11
+	// P3 = A12 * B21
+	// P4 = S3 * S7
+	// P5 = S1 * S5
+	// P6 = S4 * B22
+	// P7 = A22 * S8
+	//
+	// Post-computations (7 additions/subtractions):
+	// T1 = P1 + P2
+	// T2 = T1 + P4
+	// C11 = P2 + P3
+	// C12 = T1 + P5 + P6
+	// C21 = T2 - P7
+	// C22 = T2 + P5
 
-	// Pre-calculate sums and differences
-	s1.Sub(m2.b, m2.d)  // f - h
-	s2.Add(m1.a, m1.b)  // a + b
-	s3.Add(m1.c, m1.d)  // c + d
-	s4.Sub(m2.c, m2.a)  // g - e
-	s5.Add(m1.a, m1.d)  // a + d
-	s6.Add(m2.a, m2.d)  // e + h
-	s7.Sub(m1.b, m1.d)  // b - d
-	s8.Add(m2.c, m2.d)  // g + h
-	s9.Sub(m1.a, m1.c)  // a - c
-	s10.Add(m2.a, m2.b) // e + f
+	// Map temporaries to state variables
+	s1, s2, s3, s4 := state.s1, state.s2, state.s3, state.s4
+	s5, s6, s7, s8 := state.s5, state.s6, state.s7, state.s8
+	p1, p2, p3, p4 := state.p1, state.p2, state.p3, state.p4
+	p5, p6, p7 := state.p5, state.p6, state.p7
+	t1, t2 := state.t1, state.t2
+
+	// Pre-computations
+	s1.Add(m1.c, m1.d) // S1 = A21 + A22
+	s2.Sub(s1, m1.a)   // S2 = S1 - A11
+	s3.Sub(m1.a, m1.c) // S3 = A11 - A21
+	s4.Sub(m1.b, s2)   // S4 = A12 - S2
+	s5.Sub(m2.b, m2.a) // S5 = B12 - B11
+	s6.Sub(m2.d, s5)   // S6 = B22 - S5
+	s7.Sub(m2.d, m2.b) // S7 = B22 - B12
+	s8.Sub(s6, m2.c)   // S8 = S6 - B21
 
 	// Execute the 7 multiplications using the generic task executor
 	tasks := []multiplicationTask{
-		{&p1, m1.a, s1, fftThreshold},
-		{&p2, s2, m2.d, fftThreshold},
-		{&p3, s3, m2.a, fftThreshold},
-		{&p4, m1.d, s4, fftThreshold},
-		{&p5, s5, s6, fftThreshold},
-		{&p6, s7, s8, fftThreshold},
-		{&p7, s9, s10, fftThreshold},
+		{&p1, s2, s6, fftThreshold},
+		{&p2, m1.a, m2.a, fftThreshold},
+		{&p3, m1.b, m2.c, fftThreshold},
+		{&p4, s3, s7, fftThreshold},
+		{&p5, s1, s5, fftThreshold},
+		{&p6, s4, m2.d, fftThreshold},
+		{&p7, m1.d, s8, fftThreshold},
 	}
 	if err := executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel); err != nil {
 		return err
 	}
 
+	// Post-computations
+	t1.Add(p1, p2) // T1 = P1 + P2
+	t2.Add(t1, p4) // T2 = T1 + P4
+
 	// Calculate final matrix elements
-	// Using temporary state variables to avoid modifying destination values prematurely.
-	valA, valB, valC, valD := state.s1, state.s2, state.s3, state.s4
-	valA.Add(p5, p4)
-	valA.Sub(valA, p2)
-	valA.Add(valA, p6)
+	// Use temporaries for C12 and C22 to avoid overwriting if dest aliases inputs (though unlikely here)
+	// But dest.a/b/c/d are distinct pointers so we can write directly if we are careful.
+	// However, standard practice is to compute fully then assign.
 
-	valB.Add(p1, p2)
+	// C11 = P2 + P3
+	dest.a.Add(p2, p3)
 
-	valC.Add(p3, p4)
+	// C12 = T1 + P5 + P6
+	dest.b.Add(t1, p5)
+	dest.b.Add(dest.b, p6)
 
-	valD.Add(p5, p1)
-	valD.Sub(valD, p3)
-	valD.Sub(valD, p7)
+	// C21 = T2 - P7
+	dest.c.Sub(t2, p7)
 
-	dest.a.Set(valA)
-	dest.b.Set(valB)
-	dest.c.Set(valC)
-	dest.d.Set(valD)
+	// C22 = T2 + P5
+	dest.d.Add(t2, p5)
+
 	return nil
 }
 
