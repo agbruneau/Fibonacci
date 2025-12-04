@@ -171,6 +171,7 @@ This step will validate that your environment is correctly configured and that t
   - Quiet mode (`-q, --quiet`) for scripts.
 - **Performance Optimisations**:
   - **Zero-Allocation Strategy**: Uses `sync.Pool` to recycle `big.Int` objects.
+  - **Arena Allocator**: Adaptive memory allocation with pre-estimation and pool pre-warming.
   - **Modular Architecture**: Reusable frameworks and interchangeable multiplication strategies.
   - **Multi-level Parallelism**: Parallelisation at both algorithm and internal FFT levels.
   - **Strassen-Winograd Algorithm**: Optimized matrix multiplication reducing additions/subtractions by 17%.
@@ -472,7 +473,8 @@ This project is structured according to Go software engineering best practices, 
 - **`internal/server`**: HTTP REST API server with security and metrics.
 - **`internal/cli`**: User interface (spinner, bars, themes, REPL).
 - **`internal/bigfft`**: FFT multiplication for very large numbers.
-  - `pool.go`: Pooling system with memory estimation and pre-warming.
+  - `arena.go`: Arena allocator and memory estimation.
+  - `pool.go`: Pooling system with pre-warming.
   - `fft.go`: FFT implementation with internal parallelisation.
 - **`internal/config`**: Configuration management and flag validation.
 - **`internal/errors`**: Centralised error handling.
@@ -506,7 +508,7 @@ The project integrates several layers of advanced optimisations to maximise perf
 
 - **Object Pools (`sync.Pool`)**: Calculation states are recycled to minimise GC pressure.
 - **Global Memory Pooling**: A unified `internal/pool` package provides recycled `big.Int` objects to all algorithms (`matrix`, `fastdoubling`), significantly reducing allocation overhead.
-- **Pool Pre-warming**: Memory estimation and pool pre-allocation based on N to reduce allocations during calculation.
+- **Arena Allocator**: Adaptive memory allocation system that pre-estimates memory needs based on N and pre-warms global pools to reduce allocations during calculation.
 - **Symmetric Squaring**: Reduces the number of multiplications to 4 (compared to 8 with the naive method).
 - **Strassen-Winograd**: An improved variant of Strassen's algorithm that reduces the number of additions/subtractions from 18 to 15, while maintaining 7 multiplications.
 
@@ -553,7 +555,7 @@ The project supports profile-guided optimisation (PGO), available since Go 1.20.
 
 Recent optimisations provide the following improvements:
 
-- **Allocation Reduction**: 10-20% reduction in GC pressure thanks to pool pre-warming.
+- **Allocation Reduction**: 10-20% reduction in GC pressure thanks to the arena allocator and pre-warming.
 - **Maintainability Improvement**: More modular and extensible code through frameworks and strategies.
 - **FFT Parallelisation**: Significant gains for N > 100M where FFT dominates calculations.
 
