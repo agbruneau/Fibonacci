@@ -303,7 +303,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 
 	// Perform the calculation
 	start := time.Now()
-	result, err := calc.Calculate(ctx, nil, 0, n, fibonacci.Options{ParallelThreshold: s.cfg.Threshold, FFTThreshold: s.cfg.FFTThreshold})
+	result, err := calc.Calculate(ctx, nil, 0, n, fibonacci.Options{ParallelThreshold: s.cfg.Threshold, FFTThreshold: s.cfg.FFTThreshold, StrassenThreshold: s.cfg.StrassenThreshold})
 	duration := time.Since(start)
 
 	// Record metrics

@@ -20,6 +20,8 @@ import (
 type MockCalculator struct {
 	Result *big.Int
 	Err    error
+	// CapturedOpts stores the options passed to Calculate for verification.
+	CapturedOpts fibonacci.Options
 }
 
 // Name returns the mock calculator's name.
@@ -29,6 +31,7 @@ func (m *MockCalculator) Name() string {
 
 // Calculate implements the fibonacci.Calculator interface returning predefined results.
 func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+	m.CapturedOpts = opts
 	return m.Result, m.Err
 }
 
@@ -299,5 +302,54 @@ func TestLoggingMiddleware(t *testing.T) {
 		}
 	case <-time.After(1 * time.Second):
 		t.Error("Middleware timed out")
+	}
+}
+
+// TestStrassenThresholdPassedToCalculator verifies that the StrassenThreshold
+// configuration is correctly passed to the calculator in API requests.
+// This test was added to verify the fix for a bug where StrassenThreshold
+// was configured but not used in server calculations.
+func TestStrassenThresholdPassedToCalculator(t *testing.T) {
+	mockCalc := &MockCalculator{
+		Result: big.NewInt(55),
+		Err:    nil,
+	}
+	registry := map[string]fibonacci.Calculator{
+		"fast": mockCalc,
+	}
+
+	// Create server with specific threshold values
+	cfg := config.AppConfig{
+		Port:              "8080",
+		Threshold:         1234,
+		FFTThreshold:      5678,
+		StrassenThreshold: 9999, // Specific value to verify
+	}
+	server := NewServer(registry, cfg)
+
+	req := httptest.NewRequest("GET", "/calculate?n=10", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCalculate(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	// Verify that the StrassenThreshold was passed correctly
+	if mockCalc.CapturedOpts.StrassenThreshold != 9999 {
+		t.Errorf("Expected StrassenThreshold=9999, got %d", mockCalc.CapturedOpts.StrassenThreshold)
+	}
+
+	// Also verify the other thresholds are passed correctly
+	if mockCalc.CapturedOpts.ParallelThreshold != 1234 {
+		t.Errorf("Expected ParallelThreshold=1234, got %d", mockCalc.CapturedOpts.ParallelThreshold)
+	}
+
+	if mockCalc.CapturedOpts.FFTThreshold != 5678 {
+		t.Errorf("Expected FFTThreshold=5678, got %d", mockCalc.CapturedOpts.FFTThreshold)
 	}
 }
