@@ -23,7 +23,10 @@ func TestFromDecimalString(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := FromDecimalString(tc.input)
+			result, err := FromDecimalString(tc.input)
+			if err != nil {
+				t.Fatalf("FromDecimalString failed: %v", err)
+			}
 			expected := new(big.Int)
 			expected.SetString(tc.expected, 10)
 
@@ -36,7 +39,10 @@ func TestFromDecimalString(t *testing.T) {
 
 func TestFromDecimalString_EdgeCases(t *testing.T) {
 	t.Run("Empty string", func(t *testing.T) {
-		result := FromDecimalString("")
+		result, err := FromDecimalString("")
+		if err != nil {
+			t.Fatalf("FromDecimalString failed: %v", err)
+		}
 		if result.Sign() != 0 {
 			t.Errorf("Empty string should result in zero, got %s", result.String())
 		}
@@ -45,7 +51,10 @@ func TestFromDecimalString_EdgeCases(t *testing.T) {
 	t.Run("Single digit", func(t *testing.T) {
 		for i := 0; i <= 9; i++ {
 			input := string(rune('0' + i))
-			result := FromDecimalString(input)
+			result, err := FromDecimalString(input)
+			if err != nil {
+				t.Fatalf("FromDecimalString failed: %v", err)
+			}
 			expected := big.NewInt(int64(i))
 			if result.Cmp(expected) != 0 {
 				t.Errorf("FromDecimalString(%q) = %s, want %s", input, result.String(), expected.String())
@@ -56,7 +65,10 @@ func TestFromDecimalString_EdgeCases(t *testing.T) {
 	t.Run("Very long string", func(t *testing.T) {
 		// Test with a string longer than quadraticScanThreshold
 		longStr := strings.Repeat("9", 5000)
-		result := FromDecimalString(longStr)
+		result, err := FromDecimalString(longStr)
+		if err != nil {
+			t.Fatalf("FromDecimalString failed: %v", err)
+		}
 		expected := new(big.Int)
 		expected.SetString(longStr, 10)
 		if result.Cmp(expected) != 0 {
@@ -67,7 +79,10 @@ func TestFromDecimalString_EdgeCases(t *testing.T) {
 	t.Run("String just above threshold", func(t *testing.T) {
 		// quadraticScanThreshold is 1232, so test with 1233 digits
 		longStr := "1" + strings.Repeat("0", 1232)
-		result := FromDecimalString(longStr)
+		result, err := FromDecimalString(longStr)
+		if err != nil {
+			t.Fatalf("FromDecimalString failed: %v", err)
+		}
 		expected := new(big.Int)
 		expected.SetString(longStr, 10)
 		if result.Cmp(expected) != 0 {
@@ -78,7 +93,10 @@ func TestFromDecimalString_EdgeCases(t *testing.T) {
 	t.Run("String at threshold", func(t *testing.T) {
 		// Test with exactly quadraticScanThreshold digits
 		longStr := strings.Repeat("9", quadraticScanThreshold)
-		result := FromDecimalString(longStr)
+		result, err := FromDecimalString(longStr)
+		if err != nil {
+			t.Fatalf("FromDecimalString failed: %v", err)
+		}
 		expected := new(big.Int)
 		expected.SetString(longStr, 10)
 		if result.Cmp(expected) != 0 {
@@ -104,7 +122,10 @@ func TestFromDecimalString_Consistency(t *testing.T) {
 
 	for _, s := range testStrings {
 		t.Run(s[:min(20, len(s))], func(t *testing.T) {
-			result1 := FromDecimalString(s)
+			result1, err := FromDecimalString(s)
+			if err != nil {
+				t.Fatalf("FromDecimalString failed: %v", err)
+			}
 			result2 := new(big.Int)
 			result2.SetString(s, 10)
 
@@ -119,7 +140,10 @@ func TestFromDecimalString_Consistency(t *testing.T) {
 func TestFromDecimalString_Performance(t *testing.T) {
 	// Test that the function can handle very large inputs
 	largeInput := strings.Repeat("9", 10000)
-	result := FromDecimalString(largeInput)
+	result, err := FromDecimalString(largeInput)
+	if err != nil {
+		t.Fatalf("FromDecimalString failed: %v", err)
+	}
 	if result.Sign() <= 0 {
 		t.Error("Large input should produce a positive number")
 	}

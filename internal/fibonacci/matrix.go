@@ -117,23 +117,25 @@ func GetDefaultStrassenThreshold() int {
 //   - inParallel: Whether to execute the operation in parallel.
 //   - fftThreshold: The threshold for using FFT-based multiplication.
 //   - strassenThreshold: The bit size threshold to switch to Strassen's algorithm.
-func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) {
+//
+// Returns:
+//   - error: An error if the calculation failed.
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error {
 	strassenThresholdBits := strassenThreshold
 	if strassenThresholdBits == 0 {
 		strassenThresholdBits = GetDefaultStrassenThreshold()
 	}
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
-		multiplyMatricesClassic(dest, m1, m2, state, inParallel, fftThreshold)
-		return
+		return multiplyMatricesClassic(dest, m1, m2, state, inParallel, fftThreshold)
 	}
-	multiplyMatricesStrassen(dest, m1, m2, state, inParallel, fftThreshold)
+	return multiplyMatricesStrassen(dest, m1, m2, state, inParallel, fftThreshold)
 }
 
 // task defines a common interface for executable tasks.
 // This allows using generics to eliminate code duplication between
 // multiplication and squaring task execution.
 type task interface {
-	execute()
+	execute() error
 }
 
 // multiplicationTask represents a single multiplication operation
@@ -145,8 +147,10 @@ type multiplicationTask struct {
 }
 
 // execute performs the multiplication task.
-func (t *multiplicationTask) execute() {
-	*t.dest = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
+func (t *multiplicationTask) execute() error {
+	var err error
+	*t.dest, err = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
+	return err
 }
 
 // squaringTask represents a single squaring operation (x * x)
@@ -160,8 +164,10 @@ type squaringTask struct {
 }
 
 // execute performs the squaring task.
-func (t *squaringTask) execute() {
-	*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
+func (t *squaringTask) execute() error {
+	var err error
+	*t.dest, err = smartSquare(*t.dest, t.x, t.fftThreshold)
+	return err
 }
 
 // executeTasks executes a batch of tasks (multiplication or squaring) either
@@ -176,25 +182,38 @@ func (t *squaringTask) execute() {
 // Parameters:
 //   - tasks: The slice of tasks to execute (values, not pointers).
 //   - inParallel: Whether to execute tasks in parallel.
+//
+// Returns:
+//   - error: An error if any task failed.
 func executeTasks[T any, PT interface {
 	*T
 	task
-}](tasks []T, inParallel bool) {
+}](tasks []T, inParallel bool) error {
 	if inParallel {
 		var wg sync.WaitGroup
 		wg.Add(len(tasks))
+		var errOnce sync.Once
+		var firstErr error
 		for i := range tasks {
 			go func(t PT) {
 				defer wg.Done()
-				t.execute()
+				if err := t.execute(); err != nil {
+					errOnce.Do(func() {
+						firstErr = err
+					})
+				}
 			}(PT(&tasks[i]))
 		}
 		wg.Wait()
+		return firstErr
 	} else {
 		for i := range tasks {
-			PT(&tasks[i]).execute()
+			if err := PT(&tasks[i]).execute(); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // multiplyMatricesStrassen implements Strassen's algorithm for 2x2 matrices
@@ -207,7 +226,10 @@ func executeTasks[T any, PT interface {
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
 //   - fftThreshold: The threshold for using FFT-based multiplication.
-func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) {
+//
+// Returns:
+//   - error: An error if the calculation failed.
+func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	// m1 = [[a, b], [c, d]] and m2 = [[e, f], [g, h]]
 	// The temporary variables from the state object are used to store intermediate results.
 	p1, p2, p3, p4, p5, p6, p7 := state.p1, state.p2, state.p3, state.p4, state.p5, state.p6, state.p7
@@ -235,7 +257,9 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 		{&p6, s7, s8, fftThreshold},
 		{&p7, s9, s10, fftThreshold},
 	}
-	executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel)
+	if err := executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel); err != nil {
+		return err
+	}
 
 	// Calculate final matrix elements
 	// Using temporary state variables to avoid modifying destination values prematurely.
@@ -256,6 +280,7 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 	dest.b.Set(valB)
 	dest.c.Set(valC)
 	dest.d.Set(valD)
+	return nil
 }
 
 // squareSymmetricMatrix computes the square of a symmetric matrix.
@@ -274,7 +299,10 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
 //   - fftThreshold: The threshold for using FFT-based multiplication.
-func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) {
+//
+// Returns:
+//   - error: An error if the calculation failed.
+func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	b_ad, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
@@ -295,26 +323,48 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 		// Execute all 4 operations in parallel
 		var wg sync.WaitGroup
 		wg.Add(4)
+		var errOnce sync.Once
+		var firstErr error
+		setError := func(err error) {
+			if err != nil {
+				errOnce.Do(func() {
+					firstErr = err
+				})
+			}
+		}
+
 		for i := range sqrTasks {
 			go func(t *squaringTask) {
 				defer wg.Done()
-				*t.dest = smartSquare(*t.dest, t.x, t.fftThreshold)
+				var err error
+				*t.dest, err = smartSquare(*t.dest, t.x, t.fftThreshold)
+				setError(err)
 			}(&sqrTasks[i])
 		}
 		go func() {
 			defer wg.Done()
-			*mulTasks[0].dest = smartMultiply(*mulTasks[0].dest, mulTasks[0].a, mulTasks[0].b, mulTasks[0].fftThreshold)
+			var err error
+			*mulTasks[0].dest, err = smartMultiply(*mulTasks[0].dest, mulTasks[0].a, mulTasks[0].b, mulTasks[0].fftThreshold)
+			setError(err)
 		}()
 		wg.Wait()
+		if firstErr != nil {
+			return firstErr
+		}
 	} else {
-		executeTasks[squaringTask, *squaringTask](sqrTasks, false)
-		executeTasks[multiplicationTask, *multiplicationTask](mulTasks, false)
+		if err := executeTasks[squaringTask, *squaringTask](sqrTasks, false); err != nil {
+			return err
+		}
+		if err := executeTasks[multiplicationTask, *multiplicationTask](mulTasks, false); err != nil {
+			return err
+		}
 	}
 
 	dest.a.Add(a2, b2)
 	dest.b.Set(b_ad)
 	dest.c.Set(b_ad)
 	dest.d.Add(b2, d2)
+	return nil
 }
 
 // multiplyMatricesClassic performs a naive 2x2 matrix multiplication.
@@ -327,7 +377,10 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 //   - state: The matrix state providing temporary storage.
 //   - inParallel: Whether to execute the operation in parallel.
 //   - fftThreshold: The threshold for using FFT-based multiplication.
-func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) {
+//
+// Returns:
+//   - error: An error if the calculation failed.
+func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
 	// Uses buffers from the state to avoid allocations
 	// a = a*e + b*g
@@ -352,12 +405,15 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 		{&cf, m1.c, m2.b, fftThreshold},
 		{&dh, m1.d, m2.d, fftThreshold},
 	}
-	executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel)
+	if err := executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel); err != nil {
+		return err
+	}
 
 	dest.a.Add(ae, bg)
 	dest.b.Add(af, bh)
 	dest.c.Add(ce, dg)
 	dest.d.Add(cf, dh)
+	return nil
 }
 
 // maxBitLenMatrix returns the maximum bit length among the 4 elements

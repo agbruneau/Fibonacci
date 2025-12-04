@@ -32,7 +32,10 @@ func TestMulPrecisionSmall(t *testing.T) {
 		expected := new(big.Int)
 		expected.SetString(tc.expected, 10)
 
-		result := Mul(a, b)
+		result, err := Mul(a, b)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		if result.Cmp(expected) != 0 {
 			t.Errorf("%s * %s: expected %s, got %s", tc.a, tc.b, expected.String(), result.String())
 		}
@@ -54,7 +57,11 @@ func TestMulPrecisionLarge(t *testing.T) {
 	expected := new(big.Int).Mul(a, b)
 
 	// Calculate using our FFT multiplication
-	result := Mul(a, b)
+	// Calculate using our FFT multiplication
+	result, err := Mul(a, b)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("Large multiplication mismatch:\n  Expected: %s\n  Got:      %s",
@@ -88,7 +95,11 @@ func TestMulPrecisionVeryLarge(t *testing.T) {
 	expected := new(big.Int).Mul(a, b)
 
 	// Calculate using FFT multiplication
-	result := Mul(a, b)
+	// Calculate using FFT multiplication
+	result, err := Mul(a, b)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("Very large multiplication mismatch. Bit lengths: a=%d, b=%d",
@@ -117,7 +128,10 @@ func TestMulPrecisionNegative(t *testing.T) {
 		expected := new(big.Int)
 		expected.SetString(tc.expected, 10)
 
-		result := Mul(a, b)
+		result, err := Mul(a, b)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		if result.Cmp(expected) != 0 {
 			t.Errorf("%s * %s: expected %s, got %s", tc.a, tc.b, expected.String(), result.String())
 		}
@@ -143,7 +157,10 @@ func TestMulToPrecision(t *testing.T) {
 		expected := new(big.Int).Mul(a, b)
 
 		z := new(big.Int)
-		result := MulTo(z, a, b)
+		result, err := MulTo(z, a, b)
+		if err != nil {
+			t.Fatalf("MulTo failed: %v", err)
+		}
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("MulTo(%s, %s): expected %s, got %s",
@@ -167,7 +184,11 @@ func TestMulToReuseBuffer(t *testing.T) {
 	z.SetInt64(999999999999)
 
 	expected := new(big.Int).Mul(a, b)
-	result := MulTo(z, a, b)
+
+	result, err := MulTo(z, a, b)
+	if err != nil {
+		t.Fatalf("MulTo failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("MulTo reuse failed: expected %s, got %s",
@@ -195,8 +216,14 @@ func TestMulCommutativity(t *testing.T) {
 		b := new(big.Int)
 		b.SetString(tc.b, 10)
 
-		ab := Mul(a, b)
-		ba := Mul(b, a)
+		ab, err := Mul(a, b)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
+		ba, err := Mul(b, a)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 
 		if ab.Cmp(ba) != 0 {
 			t.Errorf("Commutativity violated: %s * %s != %s * %s",
@@ -215,12 +242,24 @@ func TestMulAssociativity(t *testing.T) {
 	c.SetString("11111111111111111111", 10)
 
 	// (a * b) * c
-	ab := Mul(a, b)
-	abc1 := Mul(ab, c)
+	ab, err := Mul(a, b)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
+	abc1, err := Mul(ab, c)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 
 	// a * (b * c)
-	bc := Mul(b, c)
-	abc2 := Mul(a, bc)
+	bc, err := Mul(b, c)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
+	abc2, err := Mul(a, bc)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 
 	if abc1.Cmp(abc2) != 0 {
 		t.Errorf("Associativity violated:\n  (a*b)*c = %s\n  a*(b*c) = %s",
@@ -239,11 +278,20 @@ func TestMulDistributivity(t *testing.T) {
 
 	// a * (b + c)
 	bPlusC := new(big.Int).Add(b, c)
-	left := Mul(a, bPlusC)
+	left, err := Mul(a, bPlusC)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 
 	// a*b + a*c
-	ab := Mul(a, b)
-	ac := Mul(a, c)
+	ab, err := Mul(a, b)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
+	ac, err := Mul(a, c)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 	right := new(big.Int).Add(ab, ac)
 
 	if left.Cmp(right) != 0 {
@@ -270,12 +318,18 @@ func TestMulByZero(t *testing.T) {
 		a := new(big.Int)
 		a.SetString(tc, 10)
 
-		result := Mul(a, zero)
+		result, err := Mul(a, zero)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		if result.Cmp(zero) != 0 {
 			t.Errorf("%s * 0 = %s, expected 0", tc, result.String())
 		}
 
-		result = Mul(zero, a)
+		result, err = Mul(zero, a)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		if result.Cmp(zero) != 0 {
 			t.Errorf("0 * %s = %s, expected 0", tc, result.String())
 		}
@@ -297,12 +351,18 @@ func TestMulByOne(t *testing.T) {
 		a := new(big.Int)
 		a.SetString(tc, 10)
 
-		result := Mul(a, one)
+		result, err := Mul(a, one)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		if result.Cmp(a) != 0 {
 			t.Errorf("%s * 1 = %s, expected %s", tc, result.String(), a.String())
 		}
 
-		result = Mul(one, a)
+		result, err = Mul(one, a)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		if result.Cmp(a) != 0 {
 			t.Errorf("1 * %s = %s, expected %s", tc, result.String(), a.String())
 		}
@@ -317,7 +377,10 @@ func TestMulPowerOfTwo(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		powerOfTwo := new(big.Int).Lsh(big.NewInt(1), uint(i))
 
-		result := Mul(a, powerOfTwo)
+		result, err := Mul(a, powerOfTwo)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		expected := new(big.Int).Lsh(a, uint(i))
 
 		if result.Cmp(expected) != 0 {
@@ -342,7 +405,10 @@ func TestMulSquaring(t *testing.T) {
 		a := new(big.Int)
 		a.SetString(tc, 10)
 
-		result := Mul(a, a)
+		result, err := Mul(a, a)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 		expected := new(big.Int).Mul(a, a)
 
 		if result.Cmp(expected) != 0 {
@@ -365,7 +431,7 @@ func BenchmarkMulSmall(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Mul(a, bInt)
+		_, _ = Mul(a, bInt)
 	}
 }
 
@@ -381,7 +447,7 @@ func BenchmarkMulMedium(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Mul(a, bInt)
+		_, _ = Mul(a, bInt)
 	}
 }
 
@@ -401,7 +467,7 @@ func BenchmarkMulLarge(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Mul(a, bInt)
+		_, _ = Mul(a, bInt)
 	}
 }
 
@@ -416,6 +482,6 @@ func BenchmarkMulToReuse(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MulTo(z, a, bInt)
+		_, _ = MulTo(z, a, bInt)
 	}
 }

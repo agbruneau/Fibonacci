@@ -33,7 +33,8 @@ type MultiplicationStrategy interface {
 	//
 	// Returns:
 	//   - *big.Int: The product of x and y.
-	Multiply(z, x, y *big.Int, opts Options) *big.Int
+	//   - error: An error if the calculation failed.
+	Multiply(z, x, y *big.Int, opts Options) (*big.Int, error)
 
 	// Square computes x * x and stores the result in z (which may be reused).
 	// Squaring is optimized compared to general multiplication.
@@ -45,7 +46,8 @@ type MultiplicationStrategy interface {
 	//
 	// Returns:
 	//   - *big.Int: The square of x.
-	Square(z, x *big.Int, opts Options) *big.Int
+	//   - error: An error if the calculation failed.
+	Square(z, x *big.Int, opts Options) (*big.Int, error)
 
 	// Name returns a descriptive name for the strategy.
 	Name() string
@@ -62,12 +64,12 @@ func (s *AdaptiveStrategy) Name() string {
 }
 
 // Multiply performs adaptive multiplication using smartMultiply.
-func (s *AdaptiveStrategy) Multiply(z, x, y *big.Int, opts Options) *big.Int {
+func (s *AdaptiveStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
 	return smartMultiply(z, x, y, opts.FFTThreshold)
 }
 
 // Square performs adaptive squaring using smartSquare.
-func (s *AdaptiveStrategy) Square(z, x *big.Int, opts Options) *big.Int {
+func (s *AdaptiveStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
 	return smartSquare(z, x, opts.FFTThreshold)
 }
 
@@ -82,13 +84,21 @@ func (s *FFTOnlyStrategy) Name() string {
 }
 
 // Multiply performs FFT-based multiplication using mulFFT.
-func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) *big.Int {
-	return setOrReturn(z, mulFFT(x, y))
+func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
+	res, err := mulFFT(x, y)
+	if err != nil {
+		return nil, err
+	}
+	return setOrReturn(z, res), nil
 }
 
 // Square performs FFT-based squaring using sqrFFT.
-func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) *big.Int {
-	return setOrReturn(z, sqrFFT(x))
+func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
+	res, err := sqrFFT(x)
+	if err != nil {
+		return nil, err
+	}
+	return setOrReturn(z, res), nil
 }
 
 // KaratsubaStrategy forces Karatsuba multiplication (via math/big) for all
@@ -102,17 +112,17 @@ func (s *KaratsubaStrategy) Name() string {
 }
 
 // Multiply performs Karatsuba multiplication using math/big.Mul.
-func (s *KaratsubaStrategy) Multiply(z, x, y *big.Int, opts Options) *big.Int {
+func (s *KaratsubaStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
 	if z == nil {
 		z = new(big.Int)
 	}
-	return z.Mul(x, y)
+	return z.Mul(x, y), nil
 }
 
 // Square performs Karatsuba squaring using math/big.Mul.
-func (s *KaratsubaStrategy) Square(z, x *big.Int, opts Options) *big.Int {
+func (s *KaratsubaStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
 	if z == nil {
 		z = new(big.Int)
 	}
-	return z.Mul(x, x)
+	return z.Mul(x, x), nil
 }

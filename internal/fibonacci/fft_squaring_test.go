@@ -32,7 +32,10 @@ func TestSmartSquarePrecisionSmall(t *testing.T) {
 		expected.SetString(tc.expected, 10)
 
 		z := new(big.Int)
-		result := smartSquare(z, x, 0) // threshold 0 means use standard multiplication
+		result, err := smartSquare(z, x, 0) // threshold 0 means use standard multiplication
+		if err != nil {
+			t.Fatalf("smartSquare failed: %v", err)
+		}
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("smartSquare(%s): expected %s, got %s", tc.x, expected.String(), result.String())
@@ -46,12 +49,12 @@ func TestSmartSquareWithFFTThreshold(t *testing.T) {
 		x         string
 		threshold int
 	}{
-		{"12345", 0},            // No FFT
-		{"12345", 100},          // Threshold higher than number
-		{"12345", 10},           // Threshold lower than number
-		{"999999999", 0},        // Larger number, no FFT
-		{"999999999", 100},      // Larger number with threshold
-		{"999999999", 20},       // Larger number, may use FFT
+		{"12345", 0},       // No FFT
+		{"12345", 100},     // Threshold higher than number
+		{"12345", 10},      // Threshold lower than number
+		{"999999999", 0},   // Larger number, no FFT
+		{"999999999", 100}, // Larger number with threshold
+		{"999999999", 20},  // Larger number, may use FFT
 	}
 
 	for _, tc := range testCases {
@@ -60,7 +63,10 @@ func TestSmartSquareWithFFTThreshold(t *testing.T) {
 		expected := new(big.Int).Mul(x, x)
 
 		z := new(big.Int)
-		result := smartSquare(z, x, tc.threshold)
+		result, err := smartSquare(z, x, tc.threshold)
+		if err != nil {
+			t.Fatalf("smartSquare failed: %v", err)
+		}
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("smartSquare(%s, threshold=%d): expected %s, got %s",
@@ -79,7 +85,10 @@ func TestSmartSquareLarge(t *testing.T) {
 
 	// Test with FFT threshold that forces FFT usage
 	z := new(big.Int)
-	result := smartSquare(z, x, 100)
+	result, err := smartSquare(z, x, 100)
+	if err != nil {
+		t.Fatalf("smartSquare failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("smartSquare large number mismatch:\n  Expected: %s\n  Got:      %s",
@@ -103,7 +112,10 @@ func TestSmartSquareVeryLarge(t *testing.T) {
 
 	// Test with FFT threshold
 	z := new(big.Int)
-	result := smartSquare(z, x, 1000)
+	result, err := smartSquare(z, x, 1000)
+	if err != nil {
+		t.Fatalf("smartSquare failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("smartSquare very large number mismatch. Bit length: %d", x.BitLen())
@@ -135,8 +147,14 @@ func TestSmartSquareVsSmartMultiplyConsistency(t *testing.T) {
 		z1 := new(big.Int)
 		z2 := new(big.Int)
 
-		sqrResult := smartSquare(z1, x, tc.threshold)
-		mulResult := smartMultiply(z2, x, x, tc.threshold)
+		sqrResult, err := smartSquare(z1, x, tc.threshold)
+		if err != nil {
+			t.Fatalf("smartSquare failed: %v", err)
+		}
+		mulResult, err := smartMultiply(z2, x, x, tc.threshold)
+		if err != nil {
+			t.Fatalf("smartMultiply failed: %v", err)
+		}
 
 		if sqrResult.Cmp(mulResult) != 0 {
 			t.Errorf("smartSquare vs smartMultiply inconsistency for %s (threshold=%d):\n  smartSquare: %s\n  smartMultiply: %s",
@@ -163,7 +181,10 @@ func TestSqrFFTPrecision(t *testing.T) {
 		x.SetString(tc, 10)
 		expected := new(big.Int).Mul(x, x)
 
-		result := sqrFFT(x)
+		result, err := sqrFFT(x)
+		if err != nil {
+			t.Fatalf("sqrFFT failed: %v", err)
+		}
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("sqrFFT(%s): expected %s, got %s",
@@ -184,8 +205,14 @@ func TestSqrFFTVsMulFFTConsistency(t *testing.T) {
 		x := new(big.Int)
 		x.SetString(tc, 10)
 
-		sqrResult := sqrFFT(x)
-		mulResult := mulFFT(x, x)
+		sqrResult, err := sqrFFT(x)
+		if err != nil {
+			t.Fatalf("sqrFFT failed: %v", err)
+		}
+		mulResult, err := mulFFT(x, x)
+		if err != nil {
+			t.Fatalf("mulFFT failed: %v", err)
+		}
 
 		if sqrResult.Cmp(mulResult) != 0 {
 			t.Errorf("sqrFFT vs mulFFT inconsistency for %s:\n  sqrFFT: %s\n  mulFFT: %s",
@@ -203,7 +230,10 @@ func TestSmartSquareZero(t *testing.T) {
 	zero := big.NewInt(0)
 	z := new(big.Int)
 
-	result := smartSquare(z, zero, 0)
+	result, err := smartSquare(z, zero, 0)
+	if err != nil {
+		t.Fatalf("smartSquare failed: %v", err)
+	}
 	if result.Cmp(zero) != 0 {
 		t.Errorf("smartSquare(0) = %s, expected 0", result.String())
 	}
@@ -226,7 +256,10 @@ func TestSmartSquareNegative(t *testing.T) {
 		expected.SetString(tc.expected, 10)
 
 		z := new(big.Int)
-		result := smartSquare(z, x, 0)
+		result, err := smartSquare(z, x, 0)
+		if err != nil {
+			t.Fatalf("smartSquare failed: %v", err)
+		}
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("smartSquare(%s): expected %s, got %s",
@@ -249,7 +282,10 @@ func TestSmartSquareBufferReuse(t *testing.T) {
 	z.SetInt64(999999999999)
 
 	expected := new(big.Int).Mul(x, x)
-	result := smartSquare(z, x, 0)
+	result, err := smartSquare(z, x, 0)
+	if err != nil {
+		t.Fatalf("smartSquare failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("smartSquare buffer reuse failed: expected %s, got %s",
@@ -328,4 +364,3 @@ func BenchmarkSmartSquareVsSmartMultiply(b *testing.B) {
 		}
 	})
 }
-

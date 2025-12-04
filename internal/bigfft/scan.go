@@ -8,11 +8,13 @@ import (
 // representation of a natural (non-negative) number
 // into a *big.Int.
 // Its asymptotic complexity is less than quadratic.
-func FromDecimalString(s string) *big.Int {
+func FromDecimalString(s string) (*big.Int, error) {
 	var sc scanner
 	z := new(big.Int)
-	sc.scan(z, s)
-	return z
+	if err := sc.scan(z, s); err != nil {
+		return nil, err
+	}
+	return z, nil
 }
 
 type scanner struct {
@@ -48,25 +50,33 @@ func (s *scanner) power(k uint) *big.Int {
 	return s.powers[k]
 }
 
-func (s *scanner) scan(z *big.Int, str string) {
-	s.scanWithTemp(z, str, new(big.Int))
+func (s *scanner) scan(z *big.Int, str string) error {
+	return s.scanWithTemp(z, str, new(big.Int))
 }
 
 // scanWithTemp performs the recursive scan while reusing a temporary big.Int
 // to reduce allocations during the divide-and-conquer parsing.
-func (s *scanner) scanWithTemp(z *big.Int, str string, temp *big.Int) {
+func (s *scanner) scanWithTemp(z *big.Int, str string, temp *big.Int) error {
 	if len(str) <= quadraticScanThreshold {
 		z.SetString(str, 10)
-		return
+		return nil
 	}
 	sz, pow := s.chunkSize(len(str))
 	// Scan the left half.
-	s.scanWithTemp(z, str[:len(str)-sz], temp)
+	if err := s.scanWithTemp(z, str[:len(str)-sz], temp); err != nil {
+		return err
+	}
 	// Multiply left half by power of 10, reusing temp to avoid allocation.
-	left := Mul(z, pow)
+	left, err := Mul(z, pow)
+	if err != nil {
+		return err
+	}
 	// Scan the right half into temp, then add to avoid overwriting z prematurely.
-	s.scanWithTemp(temp, str[len(str)-sz:], new(big.Int))
+	if err := s.scanWithTemp(temp, str[len(str)-sz:], new(big.Int)); err != nil {
+		return err
+	}
 	z.Add(left, temp)
+	return nil
 }
 
 // quadraticScanThreshold is the number of digits

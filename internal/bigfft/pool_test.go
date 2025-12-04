@@ -229,7 +229,10 @@ func TestFFTMulWithPooling(t *testing.T) {
 	x := big.NewInt(12345)
 	y := big.NewInt(67890)
 	expected := new(big.Int).Mul(x, y)
-	result := Mul(x, y)
+	result, err := Mul(x, y)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 	if result.Cmp(expected) != 0 {
 		t.Errorf("Mul(%v, %v) = %v, want %v", x, y, result, expected)
 	}
@@ -238,7 +241,10 @@ func TestFFTMulWithPooling(t *testing.T) {
 	x = new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
 	y = new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
 	expected = new(big.Int).Mul(x, y)
-	result = Mul(x, y)
+	result, err = Mul(x, y)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 	if result.Cmp(expected) != 0 {
 		t.Errorf("Mul for large numbers failed: bit lengths %d, %d", result.BitLen(), expected.BitLen())
 	}
@@ -250,7 +256,10 @@ func TestMulToWithPooling(t *testing.T) {
 	expected := new(big.Int).Mul(x, y)
 
 	z := new(big.Int)
-	result := MulTo(z, x, y)
+	result, err := MulTo(z, x, y)
+	if err != nil {
+		t.Fatalf("MulTo failed: %v", err)
+	}
 	if result.Cmp(expected) != 0 {
 		t.Errorf("MulTo for large numbers failed")
 	}
@@ -364,7 +373,10 @@ func TestMulToBufferReuse(t *testing.T) {
 	// Pre-allocate z with a large buffer
 	z := new(big.Int).Exp(big.NewInt(2), big.NewInt(200000), nil)
 
-	result := MulTo(z, x, y)
+	result, err := MulTo(z, x, y)
+	if err != nil {
+		t.Fatalf("MulTo failed: %v", err)
+	}
 	if result.Cmp(expected) != 0 {
 		t.Errorf("MulTo with pre-allocated buffer failed: got %d bits, want %d bits",
 			result.BitLen(), expected.BitLen())
@@ -380,10 +392,16 @@ func TestMulToConsistency(t *testing.T) {
 			x := new(big.Int).Exp(big.NewInt(2), big.NewInt(bits), nil)
 			y := new(big.Int).Exp(big.NewInt(2), big.NewInt(bits), nil)
 
-			mulResult := Mul(x, y)
+			mulResult, err := Mul(x, y)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
 
 			z := new(big.Int)
-			mulToResult := MulTo(z, x, y)
+			mulToResult, err := MulTo(z, x, y)
+			if err != nil {
+				t.Fatalf("MulTo failed: %v", err)
+			}
 
 			if mulResult.Cmp(mulToResult) != 0 {
 				t.Errorf("Mul and MulTo produce different results for %d bits", bits)

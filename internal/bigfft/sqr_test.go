@@ -32,7 +32,10 @@ func TestSqrPrecisionSmall(t *testing.T) {
 		expected := new(big.Int)
 		expected.SetString(tc.expected, 10)
 
-		result := Sqr(x)
+		result, err := Sqr(x)
+		if err != nil {
+			t.Fatalf("Sqr failed: %v", err)
+		}
 		if result.Cmp(expected) != 0 {
 			t.Errorf("%s²: expected %s, got %s", tc.x, expected.String(), result.String())
 		}
@@ -50,7 +53,11 @@ func TestSqrPrecisionLarge(t *testing.T) {
 	expected := new(big.Int).Mul(x, x)
 
 	// Calculate using our FFT squaring
-	result := Sqr(x)
+	// Calculate using our FFT squaring
+	result, err := Sqr(x)
+	if err != nil {
+		t.Fatalf("Sqr failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("Large squaring mismatch:\n  Expected: %s\n  Got:      %s",
@@ -79,7 +86,11 @@ func TestSqrPrecisionVeryLarge(t *testing.T) {
 	expected := new(big.Int).Mul(x, x)
 
 	// Calculate using FFT squaring
-	result := Sqr(x)
+	// Calculate using FFT squaring
+	result, err := Sqr(x)
+	if err != nil {
+		t.Fatalf("Sqr failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("Very large squaring mismatch. Bit length: x=%d", x.BitLen())
@@ -102,7 +113,10 @@ func TestSqrToPrecision(t *testing.T) {
 		expected := new(big.Int).Mul(x, x)
 
 		z := new(big.Int)
-		result := SqrTo(z, x)
+		result, err := SqrTo(z, x)
+		if err != nil {
+			t.Fatalf("SqrTo failed: %v", err)
+		}
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("SqrTo(%s): expected %s, got %s",
@@ -125,7 +139,10 @@ func TestSqrToReuseBuffer(t *testing.T) {
 	z.SetInt64(999999999999)
 
 	expected := new(big.Int).Mul(x, x)
-	result := SqrTo(z, x)
+	result, err := SqrTo(z, x)
+	if err != nil {
+		t.Fatalf("SqrTo failed: %v", err)
+	}
 
 	if result.Cmp(expected) != 0 {
 		t.Errorf("SqrTo reuse failed: expected %s, got %s",
@@ -152,8 +169,14 @@ func TestSqrVsMulConsistency(t *testing.T) {
 		x := new(big.Int)
 		x.SetString(tc, 10)
 
-		sqrResult := Sqr(x)
-		mulResult := Mul(x, x)
+		sqrResult, err := Sqr(x)
+		if err != nil {
+			t.Fatalf("Sqr failed: %v", err)
+		}
+		mulResult, err := Mul(x, x)
+		if err != nil {
+			t.Fatalf("Mul failed: %v", err)
+		}
 
 		if sqrResult.Cmp(mulResult) != 0 {
 			t.Errorf("Sqr(%s) != Mul(%s, %s):\n  Sqr: %s\n  Mul: %s",
@@ -177,8 +200,14 @@ func TestSqrToVsMulToConsistency(t *testing.T) {
 		z1 := new(big.Int)
 		z2 := new(big.Int)
 
-		sqrResult := SqrTo(z1, x)
-		mulResult := MulTo(z2, x, x)
+		sqrResult, err := SqrTo(z1, x)
+		if err != nil {
+			t.Fatalf("SqrTo failed: %v", err)
+		}
+		mulResult, err := MulTo(z2, x, x)
+		if err != nil {
+			t.Fatalf("MulTo failed: %v", err)
+		}
 
 		if sqrResult.Cmp(mulResult) != 0 {
 			t.Errorf("SqrTo vs MulTo inconsistency for %s:\n  SqrTo: %s\n  MulTo: %s",
@@ -201,8 +230,14 @@ func TestSqrVeryLargeConsistency(t *testing.T) {
 
 	x := new(big.Int).SetBytes(xBytes)
 
-	sqrResult := Sqr(x)
-	mulResult := Mul(x, x)
+	sqrResult, err := Sqr(x)
+	if err != nil {
+		t.Fatalf("Sqr failed: %v", err)
+	}
+	mulResult, err := Mul(x, x)
+	if err != nil {
+		t.Fatalf("Mul failed: %v", err)
+	}
 
 	if sqrResult.Cmp(mulResult) != 0 {
 		t.Errorf("Very large Sqr vs Mul inconsistency. Bit length: %d", x.BitLen())
@@ -217,7 +252,10 @@ func TestSqrVeryLargeConsistency(t *testing.T) {
 func TestSqrZero(t *testing.T) {
 	zero := big.NewInt(0)
 
-	result := Sqr(zero)
+	result, err := Sqr(zero)
+	if err != nil {
+		t.Fatalf("Sqr failed: %v", err)
+	}
 	if result.Cmp(zero) != 0 {
 		t.Errorf("0² = %s, expected 0", result.String())
 	}
@@ -227,7 +265,10 @@ func TestSqrZero(t *testing.T) {
 func TestSqrOne(t *testing.T) {
 	one := big.NewInt(1)
 
-	result := Sqr(one)
+	result, err := Sqr(one)
+	if err != nil {
+		t.Fatalf("Sqr failed: %v", err)
+	}
 	if result.Cmp(one) != 0 {
 		t.Errorf("1² = %s, expected 1", result.String())
 	}
@@ -250,7 +291,10 @@ func TestSqrNegative(t *testing.T) {
 		expected := new(big.Int)
 		expected.SetString(tc.expected, 10)
 
-		result := Sqr(x)
+		result, err := Sqr(x)
+		if err != nil {
+			t.Fatalf("Sqr failed: %v", err)
+		}
 		if result.Cmp(expected) != 0 {
 			t.Errorf("(%s)²: expected %s, got %s", tc.x, expected.String(), result.String())
 		}
@@ -267,7 +311,10 @@ func TestSqrPowerOfTwo(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		x := new(big.Int).Lsh(big.NewInt(1), uint(i)) // 2^i
 
-		result := Sqr(x)
+		result, err := Sqr(x)
+		if err != nil {
+			t.Fatalf("Sqr failed: %v", err)
+		}
 		expected := new(big.Int).Lsh(big.NewInt(1), uint(2*i)) // 2^(2i)
 
 		if result.Cmp(expected) != 0 {
@@ -288,7 +335,7 @@ func BenchmarkSqrSmall(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Sqr(x)
+		_, _ = Sqr(x)
 	}
 }
 
@@ -300,7 +347,7 @@ func BenchmarkSqrMedium(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Sqr(x)
+		_, _ = Sqr(x)
 	}
 }
 
@@ -316,7 +363,7 @@ func BenchmarkSqrLarge(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Sqr(x)
+		_, _ = Sqr(x)
 	}
 }
 
@@ -328,7 +375,7 @@ func BenchmarkSqrToReuse(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		SqrTo(z, x)
+		_, _ = SqrTo(z, x)
 	}
 }
 
@@ -340,14 +387,13 @@ func BenchmarkSqrVsMul(b *testing.B) {
 
 	b.Run("Sqr", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = Sqr(x)
+			_, _ = Sqr(x)
 		}
 	})
 
 	b.Run("Mul", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = Mul(x, x)
+			Mul(x, x)
 		}
 	})
 }
-

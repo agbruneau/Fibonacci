@@ -62,16 +62,19 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold, opts.StrassenThreshold)
+			if err := multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold, opts.StrassenThreshold); err != nil {
+				return nil, err
+			}
 			state.res, state.tempMatrix = state.tempMatrix, state.res
 		}
 
 		if i < numBits-1 {
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			squareSymmetricMatrix(state.tempMatrix, state.p, state, inParallel, opts.FFTThreshold)
+			if err := squareSymmetricMatrix(state.tempMatrix, state.p, state, inParallel, opts.FFTThreshold); err != nil {
+				return nil, err
+			}
 			state.p, state.tempMatrix = state.tempMatrix, state.p
 		}
 	}
 	return new(big.Int).Set(state.res.a), nil
 }
-

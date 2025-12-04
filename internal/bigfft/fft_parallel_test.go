@@ -11,7 +11,7 @@ func TestFFTParallelization(t *testing.T) {
 	// Test with numbers that should trigger parallelization (large k)
 	// We need k >= ParallelFFTRecursionThreshold (4) for parallelization to occur
 	// This means we need vectors of size at least 2^4 = 16
-	
+
 	testCases := []struct {
 		name string
 		x    *big.Int
@@ -32,11 +32,15 @@ func TestFFTParallelization(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Compute product using FFT (which may use parallelization internally)
-			result := Mul(tc.x, tc.y)
-			
+			// Compute product using FFT (which may use parallelization internally)
+			result, err := Mul(tc.x, tc.y)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+
 			// Compute expected result using standard multiplication
 			expected := new(big.Int).Mul(tc.x, tc.y)
-			
+
 			// Verify results match
 			if result.Cmp(expected) != 0 {
 				t.Errorf("FFT multiplication mismatch:\nGot:     %s\nExpected: %s", result.String(), expected.String())
@@ -51,10 +55,11 @@ func BenchmarkFFTParallelization(b *testing.B) {
 	// Create large numbers that will trigger FFT and parallelization
 	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(10000), nil)
 	y := new(big.Int).Exp(big.NewInt(3), big.NewInt(10000), nil)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = Mul(x, y)
+		for i := 0; i < b.N; i++ {
+			Mul(x, y)
+		}
 	}
 }
-

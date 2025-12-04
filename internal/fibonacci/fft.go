@@ -20,7 +20,8 @@ import (
 //
 // Returns:
 //   - *big.Int: The product of x and y.
-func mulFFT(x, y *big.Int) *big.Int {
+//   - error: An error if the calculation failed.
+func mulFFT(x, y *big.Int) (*big.Int, error) {
 	return bigfft.Mul(x, y)
 }
 
@@ -34,7 +35,8 @@ func mulFFT(x, y *big.Int) *big.Int {
 //
 // Returns:
 //   - *big.Int: The result of x * x.
-func sqrFFT(x *big.Int) *big.Int {
+//   - error: An error if the calculation failed.
+func sqrFFT(x *big.Int) (*big.Int, error) {
 	return bigfft.Sqr(x)
 }
 
@@ -50,7 +52,8 @@ func sqrFFT(x *big.Int) *big.Int {
 //
 // Returns:
 //   - *big.Int: The result of x * y.
-func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
+//   - error: An error if the calculation failed.
+func smartMultiply(z, x, y *big.Int, threshold int) (*big.Int, error) {
 	// Optimization: use MulTo if FFT is used to avoid allocation.
 	// But first, check if we should use FFT.
 	if threshold > 0 {
@@ -60,7 +63,7 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 			return bigfft.MulTo(z, x, y)
 		}
 	}
-	return z.Mul(x, y)
+	return z.Mul(x, y), nil
 }
 
 // smartSquare performs optimized squaring, choosing between Karatsuba (math/big)
@@ -75,10 +78,11 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 //
 // Returns:
 //   - *big.Int: The result of x * x.
-func smartSquare(z, x *big.Int, threshold int) *big.Int {
+//   - error: An error if the calculation failed.
+func smartSquare(z, x *big.Int, threshold int) (*big.Int, error) {
 	// Use FFT-based squaring for large numbers
 	if threshold > 0 && x.BitLen() > threshold {
 		return bigfft.SqrTo(z, x)
 	}
-	return z.Mul(x, x)
+	return z.Mul(x, x), nil
 }

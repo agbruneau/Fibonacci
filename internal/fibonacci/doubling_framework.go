@@ -66,11 +66,21 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 
 		// Use strategy for multiplications
 		// T3 = F_k * T2
-		s.T3 = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+		var err error
+		s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+		if err != nil {
+			return nil, err
+		}
 		// T1 = F_k1^2 (using optimized squaring)
-		s.T1 = f.strategy.Square(s.T1, s.F_k1, opts)
+		s.T1, err = f.strategy.Square(s.T1, s.F_k1, opts)
+		if err != nil {
+			return nil, err
+		}
 		// T4 = F_k^2 (using optimized squaring)
-		s.T4 = f.strategy.Square(s.T4, s.F_k, opts)
+		s.T4, err = f.strategy.Square(s.T4, s.F_k, opts)
+		if err != nil {
+			return nil, err
+		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in T2, which is free.
 		s.T2.Add(s.T1, s.T4)
@@ -132,25 +142,55 @@ func (f *DoublingFramework) ExecuteDoublingLoopWithParallel(ctx context.Context,
 		s.T2.Lsh(s.F_k1, 1).Sub(s.T2, s.F_k)
 
 		// Parallelize when at least one of the main operands is large
+		// Parallelize when at least one of the main operands is large
 		if useParallel && ShouldParallelizeMultiplication(s, opts) {
 			// Use parallel multiplication
 			var wg sync.WaitGroup
 			wg.Add(2)
+			var errOnce sync.Once
+			var firstErr error
+			setError := func(err error) {
+				if err != nil {
+					errOnce.Do(func() {
+						firstErr = err
+					})
+				}
+			}
+
 			go func() {
 				defer wg.Done()
-				s.T3 = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+				var err error
+				s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+				setError(err)
 			}()
 			go func() {
 				defer wg.Done()
-				s.T1 = f.strategy.Square(s.T1, s.F_k1, opts)
+				var err error
+				s.T1, err = f.strategy.Square(s.T1, s.F_k1, opts)
+				setError(err)
 			}()
-			s.T4 = f.strategy.Square(s.T4, s.F_k, opts)
+			var err error
+			s.T4, err = f.strategy.Square(s.T4, s.F_k, opts)
+			setError(err)
 			wg.Wait()
+			if firstErr != nil {
+				return nil, firstErr
+			}
 		} else {
 			// Sequential multiplication using strategy
-			s.T3 = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
-			s.T1 = f.strategy.Square(s.T1, s.F_k1, opts)
-			s.T4 = f.strategy.Square(s.T4, s.F_k, opts)
+			var err error
+			s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+			if err != nil {
+				return nil, err
+			}
+			s.T1, err = f.strategy.Square(s.T1, s.F_k1, opts)
+			if err != nil {
+				return nil, err
+			}
+			s.T4, err = f.strategy.Square(s.T4, s.F_k, opts)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in T2, which is free.
@@ -169,4 +209,3 @@ func (f *DoublingFramework) ExecuteDoublingLoopWithParallel(ctx context.Context,
 	}
 	return new(big.Int).Set(s.F_k), nil
 }
-

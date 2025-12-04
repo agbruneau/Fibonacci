@@ -5,6 +5,7 @@
 package bigfft
 
 import (
+	"fmt"
 	"math/big"
 	"runtime"
 	"sync"
@@ -60,13 +61,13 @@ var fftThreshold = defaultFFTThresholdWords
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of
 // *big.Int from math/big package.
-func Mul(x, y *big.Int) *big.Int {
+func Mul(x, y *big.Int) (*big.Int, error) {
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	if xwords > fftThreshold && ywords > fftThreshold {
 		return mulFFT(x, y)
 	}
-	return new(big.Int).Mul(x, y)
+	return new(big.Int).Mul(x, y), nil
 }
 
 // MulTo computes the product x*y and stores the result in z.
@@ -76,31 +77,41 @@ func Mul(x, y *big.Int) *big.Int {
 // Optimization: When FFT multiplication is used, the existing buffer of z
 // is passed through to the final IntTo() call, potentially avoiding a
 // large allocation if z already has sufficient capacity.
-func MulTo(z, x, y *big.Int) *big.Int {
+// MulTo computes the product x*y and stores the result in z.
+// This allows reusing the allocated memory of z, which is more
+// efficient than Mul when z is already allocated and large enough.
+//
+// Optimization: When FFT multiplication is used, the existing buffer of z
+// is passed through to the final IntTo() call, potentially avoiding a
+// large allocation if z already has sufficient capacity.
+func MulTo(z, x, y *big.Int) (*big.Int, error) {
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	if xwords > fftThreshold && ywords > fftThreshold {
 		var xb, yb nat = x.Bits(), y.Bits()
 		// Reuse z's existing buffer if available
-		zb := fftmulTo(z.Bits(), xb, yb)
+		zb, err := fftmulTo(z.Bits(), xb, yb)
+		if err != nil {
+			return nil, err
+		}
 		z.SetBits(zb)
 		if x.Sign()*y.Sign() < 0 {
 			z.Neg(z)
 		}
-		return z
+		return z, nil
 	}
-	return z.Mul(x, y)
+	return z.Mul(x, y), nil
 }
 
 // Sqr computes x*x and returns the result as a new *big.Int.
 // Squaring is optimized because we only need to transform x once,
 // which saves approximately 33% of the FFT computation compared to Mul.
-func Sqr(x *big.Int) *big.Int {
+func Sqr(x *big.Int) (*big.Int, error) {
 	xwords := len(x.Bits())
 	if xwords > fftThreshold {
 		return sqrFFT(x)
 	}
-	return new(big.Int).Mul(x, x)
+	return new(big.Int).Mul(x, x), nil
 }
 
 // SqrTo computes x*x and stores the result in z.
@@ -109,43 +120,67 @@ func Sqr(x *big.Int) *big.Int {
 //
 // Optimization: Squaring only requires one FFT transform instead of two,
 // saving approximately 33% of the computation time for large numbers.
-func SqrTo(z, x *big.Int) *big.Int {
+// SqrTo computes x*x and stores the result in z.
+// This allows reusing the allocated memory of z, which is more
+// efficient than Sqr when z is already allocated and large enough.
+//
+// Optimization: Squaring only requires one FFT transform instead of two,
+// saving approximately 33% of the computation time for large numbers.
+func SqrTo(z, x *big.Int) (*big.Int, error) {
 	xwords := len(x.Bits())
 	if xwords > fftThreshold {
 		var xb nat = x.Bits()
-		zb := fftsqrTo(z.Bits(), xb)
+		zb, err := fftsqrTo(z.Bits(), xb)
+		if err != nil {
+			return nil, err
+		}
 		z.SetBits(zb)
 		// x*x is always non-negative, no sign handling needed
-		return z
+		return z, nil
 	}
-	return z.Mul(x, x)
+	return z.Mul(x, x), nil
 }
 
-func sqrFFT(x *big.Int) *big.Int {
+func sqrFFT(x *big.Int) (*big.Int, error) {
 	var xb nat = x.Bits()
-	zb := fftsqr(xb)
+	zb, err := fftsqr(xb)
+	if err != nil {
+		return nil, err
+	}
 	z := new(big.Int)
 	z.SetBits(zb)
 	// x*x is always non-negative
-	return z
+	return z, nil
 }
 
-func fftsqr(x nat) nat {
+func fftsqr(x nat) (nat, error) {
 	return fftsqrTo(nil, x)
 }
 
 // fftsqrTo performs FFT squaring of x, reusing dst as the destination buffer
 // if it has sufficient capacity. This is optimized compared to fftmulTo
 // because we only need to transform x once.
-func fftsqrTo(dst, x nat) nat {
+// fftsqrTo performs FFT squaring of x, reusing dst as the destination buffer
+// if it has sufficient capacity. This is optimized compared to fftmulTo
+// because we only need to transform x once.
+func fftsqrTo(dst, x nat) (nat, error) {
 	k, m := fftSizeSqr(x)
 	xp := polyFromNat(x, k, m)
 	n := valueSize(k, m, 2)
-	xv := xp.Transform(n)
-	rv := xv.Sqr() // Pointwise squaring - no need for second transform
-	r := rv.InvTransform()
+	xv, err := xp.Transform(n)
+	if err != nil {
+		return nil, err
+	}
+	rv, err := xv.Sqr() // Pointwise squaring - no need for second transform
+	if err != nil {
+		return nil, err
+	}
+	r, err := rv.InvTransform()
+	if err != nil {
+		return nil, err
+	}
 	r.m = m
-	return r.IntTo(dst)
+	return r.IntTo(dst), nil
 }
 
 // fftSizeSqr returns the FFT parameters for squaring x.
@@ -164,33 +199,42 @@ func fftSizeSqr(x nat) (k uint, m int) {
 	return
 }
 
-func mulFFT(x, y *big.Int) *big.Int {
+func mulFFT(x, y *big.Int) (*big.Int, error) {
 	var xb, yb nat = x.Bits(), y.Bits()
-	zb := fftmul(xb, yb)
+	zb, err := fftmul(xb, yb)
+	if err != nil {
+		return nil, err
+	}
 	z := new(big.Int)
 	z.SetBits(zb)
 	if x.Sign()*y.Sign() < 0 {
 		z.Neg(z)
 	}
-	return z
+	return z, nil
 }
 
 // A FFT size of K=1<<k is adequate when K is about 2*sqrt(N) where
 // N = x.Bitlen() + y.Bitlen().
 
-func fftmul(x, y nat) nat {
+func fftmul(x, y nat) (nat, error) {
 	return fftmulTo(nil, x, y)
 }
 
 // fftmulTo performs FFT multiplication of x and y, reusing dst as the
 // destination buffer if it has sufficient capacity. This reduces allocations
 // in iterative multiplication scenarios.
-func fftmulTo(dst, x, y nat) nat {
+// fftmulTo performs FFT multiplication of x and y, reusing dst as the
+// destination buffer if it has sufficient capacity. This reduces allocations
+// in iterative multiplication scenarios.
+func fftmulTo(dst, x, y nat) (nat, error) {
 	k, m := fftSize(x, y)
 	xp := polyFromNat(x, k, m)
 	yp := polyFromNat(y, k, m)
-	rp := xp.Mul(&yp)
-	return rp.IntTo(dst)
+	rp, err := xp.Mul(&yp)
+	if err != nil {
+		return nil, err
+	}
+	return rp.IntTo(dst), nil
 }
 
 // fftSizeThreshold[i] is the maximal size (in bits) where we should use
@@ -327,17 +371,30 @@ func trim(n nat) nat {
 
 // Mul multiplies p and q modulo X^K-1, where K = 1<<p.k.
 // The product is done via a Fourier transform.
-func (p *poly) Mul(q *poly) poly {
+func (p *poly) Mul(q *poly) (poly, error) {
 	// extra=2 because:
 	// * some power of 2 is a K-th root of unity when n is a multiple of K/2
 	// * 2 itself is a square (see fermat.ShiftHalf)
 	n := valueSize(p.k, p.m, 2)
 
-	pv, qv := p.Transform(n), q.Transform(n)
-	rv := pv.Mul(&qv)
-	r := rv.InvTransform()
+	pv, err := p.Transform(n)
+	if err != nil {
+		return poly{}, err
+	}
+	qv, err := q.Transform(n)
+	if err != nil {
+		return poly{}, err
+	}
+	rv, err := pv.Mul(&qv)
+	if err != nil {
+		return poly{}, err
+	}
+	r, err := rv.InvTransform()
+	if err != nil {
+		return poly{}, err
+	}
 	r.m = p.m
-	return r
+	return r, nil
 }
 
 // A polValues represents the value of a poly at the powers of a
@@ -350,7 +407,10 @@ type polValues struct {
 
 // Transform evaluates p at θ^i for i = 0...K-1, where
 // θ is a K-th primitive root of unity in Z/(b^n+1)Z.
-func (p *poly) Transform(n int) polValues {
+
+// Transform evaluates p at θ^i for i = 0...K-1, where
+// θ is a K-th primitive root of unity in Z/(b^n+1)Z.
+func (p *poly) Transform(n int) (polValues, error) {
 	k := p.k
 	K := 1 << k
 	wordCount := (n + 1) * K
@@ -370,18 +430,20 @@ func (p *poly) Transform(n int) polValues {
 		}
 		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
 	}
-	fourier(values, input, false, n, k)
+	if err := fourier(values, input, false, n, k); err != nil {
+		return polValues{}, err
+	}
 
 	// Release temporary input buffers
 	releaseWordSlice(inputbits)
 	releaseFermatSlice(input)
 
-	return polValues{k, n, values}
+	return polValues{k, n, values}, nil
 }
 
 // InvTransform reconstructs p (modulo X^K - 1) from its
 // values at θ^i for i = 0..K-1.
-func (v *polValues) InvTransform() poly {
+func (v *polValues) InvTransform() (poly, error) {
 	k, n := v.k, v.n
 	K := 1 << k
 	wordCount := (n + 1) * K
@@ -393,7 +455,9 @@ func (v *polValues) InvTransform() poly {
 	for i := 0; i < K; i++ {
 		p[i] = fermat(pbits[i*(n+1) : (i+1)*(n+1)])
 	}
-	fourier(p, v.values, true, n, k)
+	if err := fourier(p, v.values, true, n, k); err != nil {
+		return poly{}, err
+	}
 
 	// Divide by K, and untwist q to recover p.
 	// Use pooled buffer for temporary u
@@ -409,7 +473,7 @@ func (v *polValues) InvTransform() poly {
 	// Release temporary buffer
 	releaseFermat(u)
 
-	return poly{k: k, m: 0, a: a}
+	return poly{k: k, m: 0, a: a}, nil
 }
 
 // NTransform evaluates p at θω^i for i = 0...K-1, where
@@ -481,8 +545,8 @@ func (v *polValues) InvNTransform() poly {
 // fourier performs an unnormalized Fourier transform
 // of src, a length 1<<k vector of numbers modulo b^n+1
 // where b = 1<<_W.
-func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) {
-	fourierWithState(dst, src, backward, n, k, nil)
+func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
+	return fourierWithState(dst, src, backward, n, k, nil)
 }
 
 // fourierRecursive is the extracted recursive FFT function used for parallel execution.
@@ -498,7 +562,7 @@ func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) {
 //   - size: current recursion size
 //   - depth: current recursion depth
 //   - tmp, tmp2: temporary buffers for this goroutine
-func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) {
+func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
 	if backward {
@@ -507,18 +571,18 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 
 	// Validation
 	if len(src[0]) != n+1 || len(dst[0]) != n+1 {
-		panic("len(src[0]) != n+1 || len(dst[0]) != n+1")
+		return fmt.Errorf("len(src[0]) != n+1 || len(dst[0]) != n+1")
 	}
 
 	// Base cases
 	switch size {
 	case 0:
 		copy(dst[0], src[0])
-		return
+		return nil
 	case 1:
 		dst[0].Add(src[0], src[1<<idxShift])
 		dst[1].Sub(src[0], src[1<<idxShift])
-		return
+		return nil
 	}
 
 	// Split destination vectors in halves
@@ -533,6 +597,7 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 			// Got token, run second half in parallel
 			var wg sync.WaitGroup
 			wg.Add(1)
+			var errAsync error
 			go func() {
 				defer wg.Done()
 				defer func() { <-getSemaphore() }()
@@ -543,13 +608,19 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 				defer releaseFermat(t1)
 				defer releaseFermat(t2)
 
-				fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
+				errAsync = fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
 			}()
 
 			// Run first half in current thread with current temps
-			fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
+			errSync := fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
 
 			wg.Wait()
+			if errAsync != nil {
+				return errAsync
+			}
+			if errSync != nil {
+				return errSync
+			}
 			goto Reconstruct
 		default:
 			// Fallthrough to sequential
@@ -557,8 +628,12 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 	}
 
 	// Recursive calls (Sequential)
-	fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
-	fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2)
+	if err := fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2); err != nil {
+		return err
+	}
+	if err := fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2); err != nil {
+		return err
+	}
 
 Reconstruct:
 	// Reconstruct transform
@@ -567,11 +642,12 @@ Reconstruct:
 		dst2[i].Sub(dst1[i], tmp)
 		dst1[i].Add(dst1[i], tmp)
 	}
+	return nil
 }
 
 // fourierWithState performs the Fourier transform with optional pre-allocated state.
 // If state is nil, temporary buffers are allocated from the pool.
-func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) {
+func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) error {
 	// Use pooled state if not provided
 	var tmp, tmp2 fermat
 	if state != nil {
@@ -585,13 +661,14 @@ func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, 
 	}
 
 	// Call the recursive FFT function
-	fourierRecursive(dst, src, backward, n, k, k, 0, tmp, tmp2)
+	return fourierRecursive(dst, src, backward, n, k, k, 0, tmp, tmp2)
 }
 
 // Mul returns the pointwise product of p and q.
-func (p *polValues) Mul(q *polValues) (r polValues) {
+func (p *polValues) Mul(q *polValues) (polValues, error) {
 	n := p.n
 	K := len(p.values)
+	var r polValues
 	r.k, r.n = p.k, p.n
 
 	// Use regular allocation for returned data
@@ -611,14 +688,15 @@ func (p *polValues) Mul(q *polValues) (r polValues) {
 	// Release temporary buffer
 	releaseFermat(buf)
 
-	return
+	return r, nil
 }
 
 // Sqr returns the pointwise square of p (p[i] * p[i] for each i).
 // This is optimized for squaring as we don't need a second set of values.
-func (p *polValues) Sqr() (r polValues) {
+func (p *polValues) Sqr() (polValues, error) {
 	n := p.n
 	K := len(p.values)
+	var r polValues
 	r.k, r.n = p.k, p.n
 
 	// Use regular allocation for returned data
@@ -639,5 +717,5 @@ func (p *polValues) Sqr() (r polValues) {
 	// Release temporary buffer
 	releaseFermat(buf)
 
-	return
+	return r, nil
 }
