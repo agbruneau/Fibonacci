@@ -7,39 +7,149 @@ import (
 )
 
 func TestGenerateCompletion(t *testing.T) {
-	tests := []struct {
-		shell    string
-		contains string
+	algorithms := []string{"fast", "matrix", "fft"}
+
+	testCases := []struct {
+		name      string
+		shell     string
+		expectErr bool
+		checkFunc func(t *testing.T, output string)
 	}{
-		{"bash", "_fibcalc_completions()"},
-		{"zsh", "#compdef fibcalc"},
-		{"fish", "complete -c fibcalc"},
-		{"powershell", "Register-ArgumentCompleter"},
-		{"unknown", "unsupported shell"}, // Should error or return nothing?
+		{
+			name:      "Bash completion",
+			shell:     "bash",
+			expectErr: false,
+			checkFunc: func(t *testing.T, output string) {
+				if !strings.Contains(output, "Bash completion script") {
+					t.Error("Bash script should contain 'Bash completion script'")
+				}
+				if !strings.Contains(output, "fast matrix fft all") {
+					t.Error("Bash script should contain algorithm list")
+				}
+				if !strings.Contains(output, "_fibcalc_completions") {
+					t.Error("Bash script should contain completion function")
+				}
+			},
+		},
+		{
+			name:      "Zsh completion",
+			shell:     "zsh",
+			expectErr: false,
+			checkFunc: func(t *testing.T, output string) {
+				if !strings.Contains(output, "Zsh completion script") {
+					t.Error("Zsh script should contain 'Zsh completion script'")
+				}
+				if !strings.Contains(output, "fast matrix fft all") {
+					t.Error("Zsh script should contain algorithm list")
+				}
+				if !strings.Contains(output, "#compdef fibcalc") {
+					t.Error("Zsh script should contain compdef directive")
+				}
+			},
+		},
+		{
+			name:      "Fish completion",
+			shell:     "fish",
+			expectErr: false,
+			checkFunc: func(t *testing.T, output string) {
+				if !strings.Contains(output, "Fish completion script") {
+					t.Error("Fish script should contain 'Fish completion script'")
+				}
+				if !strings.Contains(output, "fast matrix fft all") {
+					t.Error("Fish script should contain algorithm list")
+				}
+				if !strings.Contains(output, "complete -c fibcalc") {
+					t.Error("Fish script should contain complete commands")
+				}
+			},
+		},
+		{
+			name:      "PowerShell completion",
+			shell:     "powershell",
+			expectErr: false,
+			checkFunc: func(t *testing.T, output string) {
+				if !strings.Contains(output, "PowerShell completion script") {
+					t.Error("PowerShell script should contain 'PowerShell completion script'")
+				}
+				if !strings.Contains(output, "'fast', 'matrix', 'fft', 'all'") {
+					t.Error("PowerShell script should contain algorithm list")
+				}
+				if !strings.Contains(output, "Register-ArgumentCompleter") {
+					t.Error("PowerShell script should contain Register-ArgumentCompleter")
+				}
+			},
+		},
+		{
+			name:      "PowerShell short alias",
+			shell:     "ps",
+			expectErr: false,
+			checkFunc: func(t *testing.T, output string) {
+				if !strings.Contains(output, "PowerShell completion script") {
+					t.Error("PowerShell script should contain 'PowerShell completion script'")
+				}
+			},
+		},
+		{
+			name:      "Unsupported shell",
+			shell:     "unsupported",
+			expectErr: true,
+			checkFunc: func(t *testing.T, output string) {
+				// No output expected for error case
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.shell, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			// Dummy algorithms list
-			algos := []string{"algo1", "algo2"}
-			err := GenerateCompletion(&buf, tt.shell, algos)
-			if tt.shell == "unknown" {
+			err := GenerateCompletion(&buf, tc.shell, algorithms)
+
+			if tc.expectErr {
 				if err == nil {
-					t.Error("Expected error for unknown shell")
+					t.Error("Expected error but got none")
+				}
+				if !strings.Contains(err.Error(), "non supporté") {
+					t.Errorf("Error message should mention 'non supporté', got: %v", err)
 				}
 			} else {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				if !strings.Contains(buf.String(), tt.contains) {
-					t.Errorf("Output for %s should contain %q", tt.shell, tt.contains)
+				output := buf.String()
+				if output == "" {
+					t.Error("Output should not be empty")
 				}
-				// Check if algorithms are included
-				if !strings.Contains(buf.String(), "algo1") {
-					t.Error("Output should contain algorithms")
+				if tc.checkFunc != nil {
+					tc.checkFunc(t, output)
 				}
 			}
 		})
+	}
+}
+
+func TestGenerateCompletion_EmptyAlgorithms(t *testing.T) {
+	var buf bytes.Buffer
+	err := GenerateCompletion(&buf, "bash", []string{})
+	if err != nil {
+		t.Errorf("Should not error with empty algorithms: %v", err)
+	}
+	output := buf.String()
+	if !strings.Contains(output, "algorithms=\" all\"") {
+		t.Error("Should handle empty algorithm list")
+	}
+}
+
+func TestGenerateCompletion_MultipleAlgorithms(t *testing.T) {
+	algorithms := []string{"fast", "matrix", "fft", "strassen", "optimized"}
+	var buf bytes.Buffer
+	err := GenerateCompletion(&buf, "bash", algorithms)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	output := buf.String()
+	for _, algo := range algorithms {
+		if !strings.Contains(output, algo) {
+			t.Errorf("Output should contain algorithm '%s'", algo)
+		}
 	}
 }

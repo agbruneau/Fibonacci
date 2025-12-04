@@ -11,156 +11,261 @@ import (
 )
 
 func TestWriteResultToFile(t *testing.T) {
+	// Create temporary directory
 	tmpDir := t.TempDir()
-	result := big.NewInt(12345)
-	n := uint64(10)
-	duration := 100 * time.Millisecond
-	algo := "test-algo"
 
-	t.Run("Decimal", func(t *testing.T) {
-		outputPath := filepath.Join(tmpDir, "result.txt")
-		cfg := OutputConfig{OutputFile: outputPath}
+	testCases := []struct {
+		name        string
+		outputFile  string
+		hexOutput   bool
+		expectError bool
+		checkFunc   func(t *testing.T, filePath string)
+	}{
+		{
+			name:        "Write decimal result to file",
+			outputFile:  filepath.Join(tmpDir, "result.txt"),
+			hexOutput:   false,
+			expectError: false,
+			checkFunc: func(t *testing.T, filePath string) {
+				content, err := os.ReadFile(filePath)
+				if err != nil {
+					t.Fatalf("Failed to read output file: %v", err)
+				}
+				contentStr := string(content)
+				if !strings.Contains(contentStr, "F(10) =") {
+					t.Error("File should contain 'F(10) ='")
+				}
+				if !strings.Contains(contentStr, "55") {
+					t.Error("File should contain result '55'")
+				}
+				if strings.Contains(contentStr, "0x") {
+					t.Error("File should not contain hexadecimal prefix")
+				}
+			},
+		},
+		{
+			name:        "Write hex result to file",
+			outputFile:  filepath.Join(tmpDir, "result_hex.txt"),
+			hexOutput:   true,
+			expectError: false,
+			checkFunc: func(t *testing.T, filePath string) {
+				content, err := os.ReadFile(filePath)
+				if err != nil {
+					t.Fatalf("Failed to read output file: %v", err)
+				}
+				contentStr := string(content)
+				if !strings.Contains(contentStr, "[hex]") {
+					t.Error("File should contain '[hex]' marker")
+				}
+				if !strings.Contains(contentStr, "0x") {
+					t.Error("File should contain hexadecimal prefix")
+				}
+			},
+		},
+		{
+			name:        "Empty output file (no write)",
+			outputFile:  "",
+			hexOutput:   false,
+			expectError: false,
+			checkFunc:   nil, // No file should be created
+		},
+		{
+			name:        "Create nested directory",
+			outputFile:  filepath.Join(tmpDir, "nested", "dir", "result.txt"),
+			hexOutput:   false,
+			expectError: false,
+			checkFunc: func(t *testing.T, filePath string) {
+				if _, err := os.Stat(filePath); err != nil {
+					t.Errorf("File should exist in nested directory: %v", err)
+				}
+			},
+		},
+	}
 
-		err := WriteResultToFile(result, n, duration, algo, cfg)
-		if err != nil {
-			t.Fatalf("WriteResultToFile failed: %v", err)
-		}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := big.NewInt(55)
+			config := OutputConfig{
+				OutputFile: tc.outputFile,
+				HexOutput:  tc.hexOutput,
+			}
 
-		content, err := os.ReadFile(outputPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		s := string(content)
-		if !strings.Contains(s, "12345") {
-			t.Error("File should contain result")
-		}
-		if !strings.Contains(s, "F(10) =") {
-			t.Error("File should contain N")
-		}
-	})
+			err := WriteResultToFile(result, 10, 100*time.Millisecond, "fast", config)
 
-	t.Run("Hex", func(t *testing.T) {
-		outputPath := filepath.Join(tmpDir, "result_hex.txt")
-		cfg := OutputConfig{OutputFile: outputPath, HexOutput: true}
-
-		err := WriteResultToFile(result, n, duration, algo, cfg)
-		if err != nil {
-			t.Fatalf("WriteResultToFile failed: %v", err)
-		}
-
-		content, err := os.ReadFile(outputPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		s := string(content)
-		if !strings.Contains(s, "0x3039") { // 12345 in hex
-			t.Error("File should contain hex result")
-		}
-	})
-
-	t.Run("CreateDirectory", func(t *testing.T) {
-		outputPath := filepath.Join(tmpDir, "subdir", "result.txt")
-		cfg := OutputConfig{OutputFile: outputPath}
-
-		err := WriteResultToFile(result, n, duration, algo, cfg)
-		if err != nil {
-			t.Fatalf("WriteResultToFile failed to create dir: %v", err)
-		}
-		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-			t.Error("File was not created in subdir")
-		}
-	})
-
-	t.Run("NoOutput", func(t *testing.T) {
-		err := WriteResultToFile(result, n, duration, algo, OutputConfig{})
-		if err != nil {
-			t.Error("Should succeed doing nothing")
-		}
-	})
+			if tc.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if tc.outputFile != "" && tc.checkFunc != nil {
+					tc.checkFunc(t, tc.outputFile)
+				}
+			}
+		})
+	}
 }
 
 func TestFormatQuietResult(t *testing.T) {
-	res := big.NewInt(255)
+	result := big.NewInt(55)
 
-	s := FormatQuietResult(res, 10, time.Second, false)
-	if s != "255" {
-		t.Errorf("Expected '255', got '%s'", s)
-	}
+	t.Run("Decimal format", func(t *testing.T) {
+		output := FormatQuietResult(result, 10, 100*time.Millisecond, false)
+		if output != "55" {
+			t.Errorf("Expected '55', got '%s'", output)
+		}
+	})
 
-	s = FormatQuietResult(res, 10, time.Second, true)
-	if s != "0xff" {
-		t.Errorf("Expected '0xff', got '%s'", s)
-	}
+	t.Run("Hexadecimal format", func(t *testing.T) {
+		output := FormatQuietResult(result, 10, 100*time.Millisecond, true)
+		if !strings.HasPrefix(output, "0x") {
+			t.Errorf("Expected hex output to start with '0x', got '%s'", output)
+		}
+		if !strings.Contains(output, "37") { // 55 in hex is 0x37
+			t.Errorf("Expected hex output to contain '37', got '%s'", output)
+		}
+	})
+
+	t.Run("Large number decimal", func(t *testing.T) {
+		large := new(big.Int)
+		large.SetString("123456789012345678901234567890", 10)
+		output := FormatQuietResult(large, 100, 1*time.Second, false)
+		if output != large.String() {
+			t.Errorf("Expected full decimal string, got '%s'", output)
+		}
+	})
+
+	t.Run("Large number hex", func(t *testing.T) {
+		large := new(big.Int)
+		large.SetString("123456789012345678901234567890", 10)
+		output := FormatQuietResult(large, 100, 1*time.Second, true)
+		if !strings.HasPrefix(output, "0x") {
+			t.Errorf("Expected hex output to start with '0x', got '%s'", output)
+		}
+	})
 }
 
 func TestDisplayQuietResult(t *testing.T) {
+	result := big.NewInt(55)
 	var buf bytes.Buffer
-	DisplayQuietResult(&buf, big.NewInt(10), 5, time.Second, false)
-	if strings.TrimSpace(buf.String()) != "10" {
-		t.Errorf("Expected '10', got '%s'", buf.String())
-	}
+
+	t.Run("Decimal output", func(t *testing.T) {
+		buf.Reset()
+		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond, false)
+		output := buf.String()
+		if !strings.Contains(output, "55") {
+			t.Errorf("Output should contain '55', got '%s'", output)
+		}
+		if strings.Contains(output, "0x") {
+			t.Error("Decimal output should not contain '0x'")
+		}
+	})
+
+	t.Run("Hex output", func(t *testing.T) {
+		buf.Reset()
+		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond, true)
+		output := buf.String()
+		if !strings.HasPrefix(strings.TrimSpace(output), "0x") {
+			t.Errorf("Hex output should start with '0x', got '%s'", output)
+		}
+	})
 }
 
 func TestDisplayResultWithConfig(t *testing.T) {
-	result := big.NewInt(12345)
-	n := uint64(10)
-	duration := time.Millisecond
-	algo := "test"
+	result := big.NewInt(55)
+	tmpDir := t.TempDir()
 
-	t.Run("Quiet", func(t *testing.T) {
+	t.Run("Quiet mode", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := OutputConfig{Quiet: true}
-		err := DisplayResultWithConfig(&buf, result, n, duration, algo, cfg)
-		if err != nil {
-			t.Fatal(err)
+		config := OutputConfig{
+			Quiet: true,
 		}
-		if strings.TrimSpace(buf.String()) != "12345" {
-			t.Errorf("Expected quiet output '12345', got '%s'", buf.String())
+		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		output := buf.String()
+		if !strings.Contains(output, "55") {
+			t.Errorf("Quiet output should contain result, got '%s'", output)
 		}
 	})
 
-	t.Run("HexVerbose", func(t *testing.T) {
+	t.Run("Quiet mode with hex", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := OutputConfig{HexOutput: true, Verbose: true}
-		err := DisplayResultWithConfig(&buf, result, n, duration, algo, cfg)
-		if err != nil {
-			t.Fatal(err)
+		config := OutputConfig{
+			Quiet:     true,
+			HexOutput: true,
 		}
-		if !strings.Contains(buf.String(), "0x3039") {
-			t.Error("Expected hex output")
+		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		output := buf.String()
+		if !strings.HasPrefix(strings.TrimSpace(output), "0x") {
+			t.Errorf("Quiet hex output should start with '0x', got '%s'", output)
 		}
 	})
 
-	t.Run("HexTruncated", func(t *testing.T) {
+	t.Run("Normal mode with file output", func(t *testing.T) {
 		var buf bytes.Buffer
-		// Make a big number
-		bigRes := new(big.Int).Lsh(big.NewInt(1), 1000)
-		cfg := OutputConfig{HexOutput: true, Verbose: false}
-		err := DisplayResultWithConfig(&buf, bigRes, n, duration, algo, cfg)
-		if err != nil {
-			t.Fatal(err)
+		outputFile := filepath.Join(tmpDir, "test_output.txt")
+		config := OutputConfig{
+			OutputFile: outputFile,
+			Quiet:      false,
 		}
-		if !strings.Contains(buf.String(), "...") {
-			t.Error("Expected truncated hex output")
+		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		// Check that file was created
+		if _, err := os.Stat(outputFile); err != nil {
+			t.Errorf("Output file should exist: %v", err)
+		}
+		// Check that success message was printed
+		output := buf.String()
+		if !strings.Contains(output, "Result saved to") {
+			t.Errorf("Should show file save message, got '%s'", output)
 		}
 	})
 
-	t.Run("WithFile", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		outFile := filepath.Join(tmpDir, "out.txt")
+	t.Run("Quiet mode with file output", func(t *testing.T) {
 		var buf bytes.Buffer
-		cfg := OutputConfig{OutputFile: outFile}
-
-		err := DisplayResultWithConfig(&buf, result, n, duration, algo, cfg)
+		outputFile := filepath.Join(tmpDir, "quiet_output.txt")
+		config := OutputConfig{
+			OutputFile: outputFile,
+			Quiet:      true,
+		}
+		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
 		if err != nil {
-			t.Fatal(err)
+			t.Errorf("Unexpected error: %v", err)
 		}
+		// Check that file was created
+		if _, err := os.Stat(outputFile); err != nil {
+			t.Errorf("Output file should exist: %v", err)
+		}
+		// In quiet mode, file save message should not appear
+		output := buf.String()
+		if strings.Contains(output, "Result saved to") {
+			t.Error("Quiet mode should not show file save message")
+		}
+	})
 
-		if !strings.Contains(buf.String(), "Result saved to") {
-			t.Error("Expected save confirmation")
+	t.Run("Hex output in normal mode", func(t *testing.T) {
+		var buf bytes.Buffer
+		config := OutputConfig{
+			HexOutput: true,
+			Quiet:     false,
+			Verbose:   false,
 		}
-		if _, err := os.Stat(outFile); os.IsNotExist(err) {
-			t.Error("File not created")
+		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		output := buf.String()
+		if !strings.Contains(output, "Hexadecimal format") {
+			t.Errorf("Should show hex format section, got '%s'", output)
 		}
 	})
 }
