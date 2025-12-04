@@ -645,9 +645,9 @@ func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
 	return fourierWithState(dst, src, backward, n, k, nil)
 }
 
-// fourierRecursive is the extracted recursive FFT function used for parallel execution.
-// It takes its own temporary buffers to avoid race conditions when called from goroutines.
-// This function eliminates code duplication that previously existed in parallel goroutines.
+// fourierRecursiveUnified is the unified recursive FFT function that works with
+// any TempAllocator implementation. This eliminates code duplication between
+// pool-based and bump-allocator-based variants.
 //
 // Parameters:
 //   - dst: destination slice for FFT results
@@ -658,7 +658,8 @@ func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
 //   - size: current recursion size
 //   - depth: current recursion depth
 //   - tmp, tmp2: temporary buffers for this goroutine
-func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) error {
+//   - alloc: allocator for creating new temp buffers in parallel goroutines
+func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc TempAllocator) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
 	if backward {
@@ -698,17 +699,19 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 				defer wg.Done()
 				defer func() { <-getSemaphore() }()
 
-				// Allocate new temps for this branch to avoid race conditions
-				t1 := acquireFermat(n + 1)
-				t2 := acquireFermat(n + 1)
-				defer releaseFermat(t1)
-				defer releaseFermat(t2)
+				// Allocate new temps for this branch using the allocator
+				// For parallel goroutines, we always use pool to avoid race conditions
+				// on non-thread-safe bump allocators
+				t1, cleanup1 := GetPoolAllocator().AllocFermatTemp(n)
+				t2, cleanup2 := GetPoolAllocator().AllocFermatTemp(n)
+				defer cleanup1()
+				defer cleanup2()
 
-				errAsync = fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
+				errAsync = fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2, alloc)
 			}()
 
 			// Run first half in current thread with current temps
-			errSync := fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
+			errSync := fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
 
 			wg.Wait()
 			if errAsync != nil {
@@ -724,10 +727,10 @@ func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth ui
 	}
 
 	// Recursive calls (Sequential)
-	if err := fourierRecursive(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2); err != nil {
+	if err := fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc); err != nil {
 		return err
 	}
-	if err := fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2); err != nil {
+	if err := fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2, alloc); err != nil {
 		return err
 	}
 
@@ -739,6 +742,12 @@ Reconstruct:
 		dst1[i].Add(dst1[i], tmp)
 	}
 	return nil
+}
+
+// fourierRecursive is a convenience wrapper that uses pool allocation.
+// Kept for backward compatibility.
+func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) error {
+	return fourierRecursiveUnified(dst, src, backward, n, k, size, depth, tmp, tmp2, GetPoolAllocator())
 }
 
 // fourierWithState performs the Fourier transform with optional pre-allocated state.
@@ -766,93 +775,9 @@ func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, b
 	tmp := ba.AllocFermat(n)
 	tmp2 := ba.AllocFermat(n)
 
-	// Call the recursive FFT function with bump-allocated temps
-	return fourierRecursiveWithBump(dst, src, backward, n, k, k, 0, tmp, tmp2, ba)
-}
-
-// fourierRecursiveWithBump is the bump-allocator variant of fourierRecursive.
-// It allocates new temp buffers from the bump allocator for parallel goroutines.
-func fourierRecursiveWithBump(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, ba *BumpAllocator) error {
-	idxShift := k - size
-	ω2shift := (4 * n * _W) >> size
-	if backward {
-		ω2shift = -ω2shift
-	}
-
-	// Validation
-	if len(src[0]) != n+1 || len(dst[0]) != n+1 {
-		return fmt.Errorf("len(src[0]) != n+1 || len(dst[0]) != n+1")
-	}
-
-	// Base cases
-	switch size {
-	case 0:
-		copy(dst[0], src[0])
-		return nil
-	case 1:
-		dst[0].Add(src[0], src[1<<idxShift])
-		dst[1].Sub(src[0], src[1<<idxShift])
-		return nil
-	}
-
-	// Split destination vectors in halves
-	dst1 := dst[:1<<(size-1)]
-	dst2 := dst[1<<(size-1):]
-
-	// Try to acquire token for parallelism
-	if size >= ParallelFFTRecursionThreshold {
-		select {
-		case getSemaphore() <- struct{}{}:
-			// Got token, run second half in parallel
-			var wg sync.WaitGroup
-			wg.Add(1)
-			var errAsync error
-			go func() {
-				defer wg.Done()
-				defer func() { <-getSemaphore() }()
-
-				// Allocate new temps for this branch from bump allocator
-				// Note: Since bump allocator is not thread-safe, we fall back to pool here
-				t1 := acquireFermat(n + 1)
-				t2 := acquireFermat(n + 1)
-				defer releaseFermat(t1)
-				defer releaseFermat(t2)
-
-				errAsync = fourierRecursive(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
-			}()
-
-			// Run first half in current thread with current temps
-			errSync := fourierRecursiveWithBump(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, ba)
-
-			wg.Wait()
-			if errAsync != nil {
-				return errAsync
-			}
-			if errSync != nil {
-				return errSync
-			}
-			goto Reconstruct
-		default:
-			// Fallthrough to sequential
-		}
-	}
-
-	// Recursive calls (Sequential)
-	if err := fourierRecursiveWithBump(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, ba); err != nil {
-		return err
-	}
-	if err := fourierRecursiveWithBump(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2, ba); err != nil {
-		return err
-	}
-
-Reconstruct:
-	// Reconstruct transform
-	for i := range dst1 {
-		tmp.ShiftHalf(dst2[i], i*ω2shift, tmp2)
-		dst2[i].Sub(dst1[i], tmp)
-		dst1[i].Add(dst1[i], tmp)
-	}
-	return nil
+	// Use the unified recursive function with bump allocator adapter
+	alloc := NewBumpAllocatorAdapter(ba)
+	return fourierRecursiveUnified(dst, src, backward, n, k, k, 0, tmp, tmp2, alloc)
 }
 
 // Mul returns the pointwise product of p and q.

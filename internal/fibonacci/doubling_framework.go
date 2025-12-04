@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"math/bits"
 	"sync"
+
+	"github.com/agbru/fibcalc/internal/parallel"
 )
 
 // DoublingFramework encapsulates the common Fast Doubling algorithm logic.
@@ -142,39 +144,30 @@ func (f *DoublingFramework) ExecuteDoublingLoopWithParallel(ctx context.Context,
 		s.T2.Lsh(s.F_k1, 1).Sub(s.T2, s.F_k)
 
 		// Parallelize when at least one of the main operands is large
-		// Parallelize when at least one of the main operands is large
 		if useParallel && ShouldParallelizeMultiplication(s, opts) {
-			// Use parallel multiplication
+			// Use parallel multiplication with ErrorCollector
 			var wg sync.WaitGroup
+			var ec parallel.ErrorCollector
 			wg.Add(2)
-			var errOnce sync.Once
-			var firstErr error
-			setError := func(err error) {
-				if err != nil {
-					errOnce.Do(func() {
-						firstErr = err
-					})
-				}
-			}
 
 			go func() {
 				defer wg.Done()
 				var err error
 				s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
-				setError(err)
+				ec.SetError(err)
 			}()
 			go func() {
 				defer wg.Done()
 				var err error
 				s.T1, err = f.strategy.Square(s.T1, s.F_k1, opts)
-				setError(err)
+				ec.SetError(err)
 			}()
 			var err error
 			s.T4, err = f.strategy.Square(s.T4, s.F_k, opts)
-			setError(err)
+			ec.SetError(err)
 			wg.Wait()
-			if firstErr != nil {
-				return nil, firstErr
+			if err := ec.Err(); err != nil {
+				return nil, err
 			}
 		} else {
 			// Sequential multiplication using strategy

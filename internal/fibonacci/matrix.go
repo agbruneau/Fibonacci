@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/agbru/fibcalc/internal/parallel"
 	"github.com/agbru/fibcalc/internal/pool"
 )
 
@@ -193,26 +194,20 @@ func executeTasks[T any, PT interface {
 }](tasks []T, inParallel bool) error {
 	if inParallel {
 		var wg sync.WaitGroup
+		var ec parallel.ErrorCollector
 		wg.Add(len(tasks))
-		var errOnce sync.Once
-		var firstErr error
 		for i := range tasks {
 			go func(t PT) {
 				defer wg.Done()
-				if err := t.execute(); err != nil {
-					errOnce.Do(func() {
-						firstErr = err
-					})
-				}
+				ec.SetError(t.execute())
 			}(PT(&tasks[i]))
 		}
 		wg.Wait()
-		return firstErr
-	} else {
-		for i := range tasks {
-			if err := PT(&tasks[i]).execute(); err != nil {
-				return err
-			}
+		return ec.Err()
+	}
+	for i := range tasks {
+		if err := PT(&tasks[i]).execute(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -355,36 +350,28 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	}
 
 	if inParallel {
-		// Execute all 4 operations in parallel
+		// Execute all 4 operations in parallel with ErrorCollector
 		var wg sync.WaitGroup
+		var ec parallel.ErrorCollector
 		wg.Add(4)
-		var errOnce sync.Once
-		var firstErr error
-		setError := func(err error) {
-			if err != nil {
-				errOnce.Do(func() {
-					firstErr = err
-				})
-			}
-		}
 
 		for i := range sqrTasks {
 			go func(t *squaringTask) {
 				defer wg.Done()
 				var err error
 				*t.dest, err = smartSquare(*t.dest, t.x, t.fftThreshold)
-				setError(err)
+				ec.SetError(err)
 			}(&sqrTasks[i])
 		}
 		go func() {
 			defer wg.Done()
 			var err error
 			*mulTasks[0].dest, err = smartMultiply(*mulTasks[0].dest, mulTasks[0].a, mulTasks[0].b, mulTasks[0].fftThreshold)
-			setError(err)
+			ec.SetError(err)
 		}()
 		wg.Wait()
-		if firstErr != nil {
-			return firstErr
+		if err := ec.Err(); err != nil {
+			return err
 		}
 	} else {
 		if err := executeTasks[squaringTask, *squaringTask](sqrTasks, false); err != nil {
