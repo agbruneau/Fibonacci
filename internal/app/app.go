@@ -48,9 +48,10 @@ func New(args []string, errWriter io.Writer) (*Application, error) {
 
 	// args[0] is program name, args[1:] are the actual arguments
 	programName := "fibcalc"
-	cmdArgs := args[1:]
+	var cmdArgs []string
 	if len(args) > 0 {
 		programName = args[0]
+		cmdArgs = args[1:]
 	}
 
 	cfg, err := config.ParseConfig(programName, cmdArgs, errWriter, availableAlgos)

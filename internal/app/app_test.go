@@ -62,6 +62,26 @@ func TestNew(t *testing.T) {
 			t.Error("Error should be a help error")
 		}
 	})
+
+	t.Run("Empty args slice handled correctly", func(t *testing.T) {
+		var errBuf bytes.Buffer
+		args := []string{}
+
+		app, err := New(args, &errBuf)
+
+		// Empty args should still work - it will use default program name
+		// and empty command args, which should parse to default config
+		if err != nil {
+			t.Errorf("New() should handle empty args without error, got: %v", err)
+		}
+		if app == nil {
+			t.Fatal("New() should return application even with empty args")
+		}
+		// Should use default program name
+		if app.Config.N != 250000000 {
+			t.Errorf("Expected default N=250000000, got N=%d", app.Config.N)
+		}
+	})
 }
 
 // TestApplicationRun tests the Application.Run method.
