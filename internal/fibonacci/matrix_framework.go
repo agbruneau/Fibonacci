@@ -14,6 +14,12 @@ import (
 // The framework manages the binary exponentiation loop and progress reporting.
 type MatrixFramework struct{}
 
+// Internal function variables to allow mocking in tests.
+var (
+	multiplyMatricesFunc      = multiplyMatrices
+	squareSymmetricMatrixFunc = squareSymmetricMatrix
+)
+
 // NewMatrixFramework creates a new Matrix Exponentiation framework.
 func NewMatrixFramework() *MatrixFramework {
 	return &MatrixFramework{}
@@ -52,17 +58,11 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		// Harmonized reporting via common utility function
-		// For Matrix Exponentiation, we iterate from LSB (small work) to MSB (large work).
-		// However, ReportStepProgress assumes `i` counts down from MSB (large work) to LSB.
-		// To correct this, we invert the index passed to ReportStepProgress so that
-		// stepIndex becomes `i`, resulting in increasing work values.
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits, powers)
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			if err := multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold, opts.StrassenThreshold); err != nil {
+			if err := multiplyMatricesFunc(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold, opts.StrassenThreshold); err != nil {
 				return nil, err
 			}
 			state.res, state.tempMatrix = state.tempMatrix, state.res
@@ -70,11 +70,18 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 		if i < numBits-1 {
 			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			if err := squareSymmetricMatrix(state.tempMatrix, state.p, state, inParallel, opts.FFTThreshold); err != nil {
+			if err := squareSymmetricMatrixFunc(state.tempMatrix, state.p, state, inParallel, opts.FFTThreshold); err != nil {
 				return nil, err
 			}
 			state.p, state.tempMatrix = state.tempMatrix, state.p
 		}
+
+		// Harmonized reporting via common utility function
+		// For Matrix Exponentiation, we iterate from LSB (small work) to MSB (large work).
+		// However, ReportStepProgress assumes `i` counts down from MSB (large work) to LSB.
+		// To correct this, we invert the index passed to ReportStepProgress so that
+		// stepIndex becomes `i`, resulting in increasing work values.
+		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits, powers)
 	}
 	return new(big.Int).Set(state.res.a), nil
 }
