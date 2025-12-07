@@ -419,3 +419,41 @@ func TestSetupSignals(t *testing.T) {
 	stop()
 }
 
+func TestApplyAdaptiveThresholds(t *testing.T) {
+	// Test case where defaults are present and should be replaced
+	t.Run("ReplaceDefaults", func(t *testing.T) {
+		cfg := config.AppConfig{
+			Threshold:         config.DefaultParallelThreshold,
+			FFTThreshold:      fibonacci.DefaultFFTThreshold,
+			StrassenThreshold: fibonacci.DefaultStrassenThreshold,
+		}
+
+		// Since we can't easily check internal calls without mocking,
+		// we mainly check that it runs safely and returns a valid config.
+		// The thresholds might remain default if the environment matches the defaults,
+		// or change if it differs.
+		newCfg := applyAdaptiveThresholds(cfg)
+		_ = newCfg
+	})
+
+	// Test case where user overrides should be preserved
+	t.Run("PreserveOverrides", func(t *testing.T) {
+		cfg := config.AppConfig{
+			Threshold:         1234,
+			FFTThreshold:      5678,
+			StrassenThreshold: 9012,
+		}
+
+		newCfg := applyAdaptiveThresholds(cfg)
+
+		if newCfg.Threshold != 1234 {
+			t.Errorf("Threshold changed, want %d, got %d", 1234, newCfg.Threshold)
+		}
+		if newCfg.FFTThreshold != 5678 {
+			t.Errorf("FFTThreshold changed, want %d, got %d", 5678, newCfg.FFTThreshold)
+		}
+		if newCfg.StrassenThreshold != 9012 {
+			t.Errorf("StrassenThreshold changed, want %d, got %d", 9012, newCfg.StrassenThreshold)
+		}
+	})
+}

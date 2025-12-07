@@ -1,10 +1,7 @@
 package fibonacci
 
 import (
-	"fmt"
 	"math/big"
-	"os"
-	"time"
 
 	"github.com/agbru/fibcalc/internal/bigfft"
 )
@@ -66,9 +63,6 @@ func smartMultiply(z, x, y *big.Int, threshold int) (*big.Int, error) {
 			return bigfft.MulTo(z, x, y)
 		}
 	}
-	// #region agent log
-	if f, err := os.OpenFile(`c:\Users\agbru\OneDrive\Documents\GitHub\Fibonacci\.cursor\debug.log`, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil { fmt.Fprintf(f, `{"timestamp":%d,"location":"fft.go:smartMultiply","message":"z_nil_check","data":{"z_is_nil":%t},"hypothesisId":"A"}`+"\n", time.Now().UnixMilli(), z == nil); f.Close() }
-	// #endregion agent log
 	// Handle nil z to be consistent with the MultiplicationStrategy contract
 	// which allows z to be nil (see strategy.go documentation)
 	if z == nil {
@@ -95,9 +89,6 @@ func smartSquare(z, x *big.Int, threshold int) (*big.Int, error) {
 	if threshold > 0 && x.BitLen() > threshold {
 		return bigfft.SqrTo(z, x)
 	}
-	// #region agent log
-	if f, err := os.OpenFile(`c:\Users\agbru\OneDrive\Documents\GitHub\Fibonacci\.cursor\debug.log`, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil { fmt.Fprintf(f, `{"timestamp":%d,"location":"fft.go:smartSquare","message":"z_nil_check","data":{"z_is_nil":%t},"hypothesisId":"B"}`+"\n", time.Now().UnixMilli(), z == nil); f.Close() }
-	// #endregion agent log
 	// Handle nil z to be consistent with the MultiplicationStrategy contract
 	// which allows z to be nil (see strategy.go documentation)
 	if z == nil {
