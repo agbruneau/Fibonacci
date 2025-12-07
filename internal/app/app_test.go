@@ -93,7 +93,7 @@ func TestApplicationRun(t *testing.T) {
 				N:            10,
 				Algo:         "fast",
 				Timeout:      1 * time.Minute,
-				Threshold:    config.DefaultParallelThreshold,
+				Threshold:    fibonacci.DefaultParallelThreshold,
 				FFTThreshold: 20000,
 				Details:      true,
 				Concise:      true,
@@ -120,7 +120,7 @@ func TestApplicationRun(t *testing.T) {
 				N:            20,
 				Algo:         "all",
 				Timeout:      1 * time.Minute,
-				Threshold:    config.DefaultParallelThreshold,
+				Threshold:    fibonacci.DefaultParallelThreshold,
 				FFTThreshold: 20000,
 				Details:      true,
 			},
@@ -423,7 +423,7 @@ func TestApplyAdaptiveThresholds(t *testing.T) {
 	// Test case where defaults are present and should be replaced
 	t.Run("ReplaceDefaults", func(t *testing.T) {
 		cfg := config.AppConfig{
-			Threshold:         config.DefaultParallelThreshold,
+			Threshold:         fibonacci.DefaultParallelThreshold,
 			FFTThreshold:      fibonacci.DefaultFFTThreshold,
 			StrassenThreshold: fibonacci.DefaultStrassenThreshold,
 		}

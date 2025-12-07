@@ -103,7 +103,7 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	framework := NewDoublingFramework(strategy)
 
 	// Execute the doubling loop with parallelization support
-	return framework.ExecuteDoublingLoopWithParallel(ctx, reporter, n, opts, s, useParallel)
+	return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, useParallel)
 }
 
 // ShouldParallelizeMultiplication determines whether the multiplication operations
@@ -156,7 +156,7 @@ func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 }
 
 // parallelMultiply3Optimized is deprecated. The parallelization logic is now
-// handled by DoublingFramework.ExecuteDoublingLoopWithParallel.
+// handled by DoublingFramework.ExecuteDoublingLoop.
 // This function is kept for reference but is no longer used.
 
 // CalculationState aggregates temporary variables for the "Fast Doubling"

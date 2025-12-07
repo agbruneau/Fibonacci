@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,7 +65,7 @@ func TestValidateThreshold(t *testing.T) {
 		{"LargeNegativeThreshold", -1000000, true},
 		{"ZeroThreshold", 0, false},
 		{"SmallThreshold", 1, false},
-		{"DefaultThreshold", DefaultParallelThreshold, false},
+		{"DefaultThreshold", fibonacci.DefaultParallelThreshold, false},
 		{"LargeThreshold", 1000000, false},
 		{"VeryLargeThreshold", 2147483647, false}, // Max int32
 	}
@@ -238,8 +240,8 @@ func TestParseConfigDefaults(t *testing.T) {
 	if cfg.Algo != "all" {
 		t.Errorf("Default Algo: expected 'all', got '%s'", cfg.Algo)
 	}
-	if cfg.Threshold != DefaultParallelThreshold {
-		t.Errorf("Default Threshold: expected %d, got %d", DefaultParallelThreshold, cfg.Threshold)
+	if cfg.Threshold != fibonacci.DefaultParallelThreshold {
+		t.Errorf("Default Threshold: expected %d, got %d", fibonacci.DefaultParallelThreshold, cfg.Threshold)
 	}
 	if cfg.FFTThreshold != 1000000 {
 		t.Errorf("Default FFTThreshold: expected 1000000, got %d", cfg.FFTThreshold)

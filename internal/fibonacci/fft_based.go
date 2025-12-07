@@ -53,5 +53,5 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 	framework := NewDoublingFramework(strategy)
 
 	// Execute the doubling loop (no parallelization for FFT-based)
-	return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s)
+	return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, false)
 }

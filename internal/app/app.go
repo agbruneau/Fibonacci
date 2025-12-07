@@ -94,7 +94,7 @@ func applyAdaptiveThresholds(cfg config.AppConfig) config.AppConfig {
 	// This preserves explicit user overrides via --threshold, --fft-threshold, etc.
 
 	// Parallel threshold: adapt based on CPU core count
-	if cfg.Threshold == config.DefaultParallelThreshold {
+	if cfg.Threshold == fibonacci.DefaultParallelThreshold {
 		cfg.Threshold = calibration.EstimateOptimalParallelThreshold()
 	}
 

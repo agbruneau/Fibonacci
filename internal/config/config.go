@@ -17,10 +17,6 @@ import (
 )
 
 const (
-	// DefaultParallelThreshold defines the bit threshold from which
-	// multiplications of large integers are parallelized.
-	DefaultParallelThreshold = 4096
-
 	// EnvPrefix is the prefix for all environment variables used by fibcalc.
 	// Environment variables provide an alternative to CLI flags for configuration,
 	// following the 12-Factor App methodology.
@@ -316,7 +312,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.BoolVar(&config.Details, "details", false, "Alias for -d.")
 	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Maximum execution time for the calculation.")
 	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
-	fs.IntVar(&config.Threshold, "threshold", DefaultParallelThreshold, "Threshold (in bits) for activating parallelism in multiplications.")
+	fs.IntVar(&config.Threshold, "threshold", 4096, "Threshold (in bits) for activating parallelism in multiplications.")
 	fs.IntVar(&config.FFTThreshold, "fft-threshold", 1_000_000, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
 	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 3072, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
