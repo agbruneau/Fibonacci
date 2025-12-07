@@ -116,7 +116,7 @@ func setupStressTestServer(t *testing.T, calc fibonacci.Calculator, rateLimit in
 		CleanupInterval:   time.Minute,
 	})
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 
 	cleanup := func() {
@@ -460,7 +460,7 @@ func BenchmarkServerConcurrentLoad(b *testing.B) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 1000000})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 

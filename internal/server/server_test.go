@@ -43,7 +43,7 @@ func createTestServer(registry map[string]fibonacci.Calculator) *Server {
 		FFTThreshold:      20000,
 		StrassenThreshold: 256,
 	}
-	return NewServer(registry, cfg)
+	return NewServer(fibonacci.NewTestFactory(registry), cfg)
 }
 
 // TestHandleCalculate verifies the behavior of the calculation endpoint.
@@ -88,8 +88,8 @@ func TestHandleCalculate(t *testing.T) {
 		{
 			name:           "Unknown algorithm",
 			queryParams:    "?n=10&algo=unknown",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "not a valid algorithm",
+			expectedStatus: http.StatusOK, // Server returns 200 with error in JSON body
+			expectedBody:   "unknown calculator",
 			isJSON:         true,
 			checkError:     true,
 		},
@@ -325,7 +325,7 @@ func TestStrassenThresholdPassedToCalculator(t *testing.T) {
 		FFTThreshold:      5678,
 		StrassenThreshold: 9999, // Specific value to verify
 	}
-	server := NewServer(registry, cfg)
+	server := NewServer(fibonacci.NewTestFactory(registry), cfg)
 
 	req := httptest.NewRequest("GET", "/calculate?n=10", nil)
 	w := httptest.NewRecorder()

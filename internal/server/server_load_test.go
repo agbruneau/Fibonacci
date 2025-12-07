@@ -54,7 +54,7 @@ func TestServerConcurrentRequests(t *testing.T) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 10000})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
@@ -134,7 +134,7 @@ func TestServerRateLimiting(t *testing.T) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 5})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
@@ -173,7 +173,7 @@ func TestServerSecurityHeaders(t *testing.T) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 100})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
@@ -214,7 +214,7 @@ func TestServerMaxNValidation(t *testing.T) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 100})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl), WithSecurityConfig(secConfig))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl), WithSecurityConfig(secConfig))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
@@ -249,7 +249,7 @@ func TestServerMetricsEndpoint(t *testing.T) {
 		Threshold: 4096,
 	}
 
-	srv := NewServer(registry, cfg)
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg)
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
@@ -290,7 +290,7 @@ func BenchmarkServerCalculate(b *testing.B) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 100000})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
@@ -322,7 +322,7 @@ func BenchmarkServerHealth(b *testing.B) {
 	rl := NewRateLimiter(RateLimiterConfig{RequestsPerMinute: 100000})
 	defer rl.Stop()
 
-	srv := NewServer(registry, cfg, WithRateLimiter(rl))
+	srv := NewServer(fibonacci.NewTestFactory(registry), cfg, WithRateLimiter(rl))
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 
