@@ -182,9 +182,9 @@ func EstimateOptimalFFTThreshold() int {
 	wordSize := 32 << (^uint(0) >> 63)
 
 	if wordSize == 64 {
-		return 1000000 // 1M bits on 64-bit
+		return 500000 // 500K bits on 64-bit (optimal for modern CPUs with large L3 caches)
 	}
-	return 500000 // 500K bits on 32-bit
+	return 250000 // 250K bits on 32-bit (lower due to smaller word size)
 }
 
 // EstimateOptimalStrassenThreshold provides a heuristic estimate of the optimal

@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"math/bits"
 	"sync"
+	"time"
 
 	"github.com/agbru/fibcalc/internal/parallel"
 )
@@ -16,7 +17,8 @@ import (
 // It uses a MultiplicationStrategy to perform multiplications, allowing
 // different strategies (adaptive, FFT-only, etc.) to be plugged in.
 type DoublingFramework struct {
-	strategy MultiplicationStrategy
+	strategy         MultiplicationStrategy
+	dynamicThreshold *DynamicThresholdManager
 }
 
 // NewDoublingFramework creates a new Fast Doubling framework with the given strategy.
@@ -28,6 +30,21 @@ type DoublingFramework struct {
 //   - *DoublingFramework: A new framework instance.
 func NewDoublingFramework(strategy MultiplicationStrategy) *DoublingFramework {
 	return &DoublingFramework{strategy: strategy}
+}
+
+// NewDoublingFrameworkWithDynamicThresholds creates a framework with dynamic threshold adjustment.
+//
+// Parameters:
+//   - strategy: The multiplication strategy to use.
+//   - dtm: The dynamic threshold manager (can be nil to disable).
+//
+// Returns:
+//   - *DoublingFramework: A new framework instance.
+func NewDoublingFrameworkWithDynamicThresholds(strategy MultiplicationStrategy, dtm *DynamicThresholdManager) *DoublingFramework {
+	return &DoublingFramework{
+		strategy:         strategy,
+		dynamicThreshold: dtm,
+	}
 }
 
 // ExecuteDoublingLoop executes the Fast Doubling algorithm loop.
@@ -60,17 +77,35 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
+	// Use dynamic thresholds if available
+	currentOpts := opts
+	dtm := f.dynamicThreshold
+
 	for i := numBits - 1; i >= 0; i-- {
 		if err := ctx.Err(); err != nil {
 			return nil, err
+		}
+
+		// Track iteration timing for dynamic threshold adjustment
+		var iterStart time.Time
+		if dtm != nil {
+			iterStart = time.Now()
 		}
 
 		// Doubling Step
 		// T2 = 2*F_k1 - F_k
 		s.T2.Lsh(s.F_k1, 1).Sub(s.T2, s.F_k)
 
+		// Get current bit length for metrics
+		bitLen := s.F_k.BitLen()
+
+		// Check if we should use FFT based on current thresholds
+		usedFFT := currentOpts.FFTThreshold > 0 && bitLen > currentOpts.FFTThreshold
+		usedParallel := false
+
 		// Parallelize when at least one of the main operands is large
-		if useParallel && ShouldParallelizeMultiplication(s, opts) {
+		if useParallel && ShouldParallelizeMultiplication(s, currentOpts) {
+			usedParallel = true
 			// Use parallel multiplication with ErrorCollector
 			var wg sync.WaitGroup
 			var ec parallel.ErrorCollector
@@ -79,17 +114,17 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 			go func() {
 				defer wg.Done()
 				var err error
-				s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+				s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, currentOpts)
 				ec.SetError(err)
 			}()
 			go func() {
 				defer wg.Done()
 				var err error
-				s.T1, err = f.strategy.Square(s.T1, s.F_k1, opts)
+				s.T1, err = f.strategy.Square(s.T1, s.F_k1, currentOpts)
 				ec.SetError(err)
 			}()
 			var err error
-			s.T4, err = f.strategy.Square(s.T4, s.F_k, opts)
+			s.T4, err = f.strategy.Square(s.T4, s.F_k, currentOpts)
 			ec.SetError(err)
 			wg.Wait()
 			if err := ec.Err(); err != nil {
@@ -98,15 +133,15 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		} else {
 			// Sequential multiplication using strategy
 			var err error
-			s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+			s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, currentOpts)
 			if err != nil {
 				return nil, err
 			}
-			s.T1, err = f.strategy.Square(s.T1, s.F_k1, opts)
+			s.T1, err = f.strategy.Square(s.T1, s.F_k1, currentOpts)
 			if err != nil {
 				return nil, err
 			}
-			s.T4, err = f.strategy.Square(s.T4, s.F_k, opts)
+			s.T4, err = f.strategy.Square(s.T4, s.F_k, currentOpts)
 			if err != nil {
 				return nil, err
 			}
@@ -130,6 +165,19 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 			// s.F_k1 becomes the new sum (s.T1)
 			// s.T1 becomes the old s.F_k, now a temporary
 			s.F_k, s.F_k1, s.T1 = s.F_k1, s.T1, s.F_k
+		}
+
+		// Record metrics and check for threshold adjustments
+		if dtm != nil {
+			iterDuration := time.Since(iterStart)
+			dtm.RecordIteration(bitLen, iterDuration, usedFFT, usedParallel)
+
+			// Check if thresholds should be adjusted
+			newFFT, newParallel, adjusted := dtm.ShouldAdjust()
+			if adjusted {
+				currentOpts.FFTThreshold = newFFT
+				currentOpts.ParallelThreshold = newParallel
+			}
 		}
 
 		// Harmonized reporting via common utility function

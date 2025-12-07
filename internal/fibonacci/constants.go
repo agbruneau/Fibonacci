@@ -24,9 +24,9 @@ const (
 	//
 	// Below this threshold, Karatsuba's O(n^1.585) complexity is faster due to
 	// lower constant factors. Above it, FFT's O(n log n) complexity wins.
-	// Value of 1,000,000 bits is conservative and ensures FFT is only used
-	// when its benefits are guaranteed.
-	DefaultFFTThreshold = 1_000_000
+	// Value of 500,000 bits is optimal on modern CPUs with large L3 caches,
+	// providing a good balance between FFT overhead and multiplication gains.
+	DefaultFFTThreshold = 500_000
 
 	// DefaultStrassenThreshold is the default bit size threshold at which
 	// matrix multiplication switches to Strassen's algorithm.

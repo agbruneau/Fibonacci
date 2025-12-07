@@ -23,10 +23,13 @@ type CalibrationProfile struct {
 	GoVersion string `json:"go_version"`
 	WordSize  int    `json:"word_size"` // 32 or 64
 
-	// Calibrated thresholds
+	// Calibrated thresholds (default/fallback values)
 	OptimalParallelThreshold int `json:"optimal_parallel_threshold"`
 	OptimalFFTThreshold      int `json:"optimal_fft_threshold"`
 	OptimalStrassenThreshold int `json:"optimal_strassen_threshold"`
+
+	// Thresholds by N range for more accurate calibration
+	ThresholdsByRange []RangeThresholds `json:"thresholds_by_range,omitempty"`
 
 	// Calibration metadata
 	CalibratedAt    time.Time `json:"calibrated_at"`
@@ -37,14 +40,45 @@ type CalibrationProfile struct {
 	ProfileVersion int `json:"profile_version"`
 }
 
+// RangeThresholds stores optimal thresholds for a specific range of N values.
+// This allows for more accurate threshold selection based on the problem size.
+type RangeThresholds struct {
+	// MinN is the minimum N value (inclusive) for this range
+	MinN uint64 `json:"min_n"`
+	// MaxN is the maximum N value (inclusive) for this range
+	MaxN uint64 `json:"max_n"`
+	// FFTThreshold is the optimal FFT threshold for this range
+	FFTThreshold int `json:"fft_threshold"`
+	// ParallelThreshold is the optimal parallel threshold for this range
+	ParallelThreshold int `json:"parallel_threshold"`
+	// StrassenThreshold is the optimal Strassen threshold for this range
+	StrassenThreshold int `json:"strassen_threshold,omitempty"`
+	// ConfidenceScore indicates the reliability of these thresholds (0-1)
+	ConfidenceScore float64 `json:"confidence_score"`
+	// MeasurementCount is the number of measurements used to derive these thresholds
+	MeasurementCount int `json:"measurement_count"`
+}
+
 const (
 	// CurrentProfileVersion is the current version of the profile format.
 	// Increment this when making breaking changes to the profile structure.
-	CurrentProfileVersion = 1
+	CurrentProfileVersion = 2
 
 	// DefaultProfileFileName is the default name for the calibration profile file.
 	DefaultProfileFileName = ".fibcalc_calibration.json"
 )
+
+// Predefined N ranges for calibration
+var DefaultNRanges = []struct {
+	MinN, MaxN uint64
+	Label      string
+}{
+	{0, 100000, "small"},            // N < 100K
+	{100000, 1000000, "medium"},     // 100K <= N < 1M
+	{1000000, 10000000, "large"},    // 1M <= N < 10M
+	{10000000, 100000000, "xlarge"}, // 10M <= N < 100M
+	{100000000, ^uint64(0), "huge"}, // N >= 100M
+}
 
 // GetDefaultProfilePath returns the default path for the calibration profile.
 // It uses the user's home directory if available, otherwise the current directory.
@@ -166,14 +200,91 @@ func (p *CalibrationProfile) String() string {
 		return "<nil profile>"
 	}
 
+	rangeInfo := ""
+	if len(p.ThresholdsByRange) > 0 {
+		rangeInfo = fmt.Sprintf(", Ranges: %d", len(p.ThresholdsByRange))
+	}
+
 	return fmt.Sprintf(
-		"CalibrationProfile{CPU: %s, Parallel: %d bits, FFT: %d bits, Strassen: %d bits, Calibrated: %s}",
+		"CalibrationProfile{CPU: %s, Parallel: %d bits, FFT: %d bits, Strassen: %d bits%s, Calibrated: %s}",
 		p.CPUModel,
 		p.OptimalParallelThreshold,
 		p.OptimalFFTThreshold,
 		p.OptimalStrassenThreshold,
+		rangeInfo,
 		p.CalibratedAt.Format(time.RFC3339),
 	)
+}
+
+// GetThresholdsForN returns the optimal thresholds for a given N value.
+// If a matching range is found with sufficient confidence, those thresholds are returned.
+// Otherwise, the default thresholds are returned.
+func (p *CalibrationProfile) GetThresholdsForN(n uint64) (fft, parallel, strassen int) {
+	if p == nil {
+		return 0, 0, 0
+	}
+
+	// Search for a matching range with good confidence
+	for _, r := range p.ThresholdsByRange {
+		if n >= r.MinN && n <= r.MaxN && r.ConfidenceScore >= 0.5 {
+			fft = r.FFTThreshold
+			parallel = r.ParallelThreshold
+			strassen = r.StrassenThreshold
+			if strassen == 0 {
+				strassen = p.OptimalStrassenThreshold
+			}
+			return fft, parallel, strassen
+		}
+	}
+
+	// Fall back to default thresholds
+	return p.OptimalFFTThreshold, p.OptimalParallelThreshold, p.OptimalStrassenThreshold
+}
+
+// AddRangeThresholds adds or updates thresholds for a specific N range.
+// If a range with the same bounds exists, it is updated with the new values
+// using a weighted average based on measurement counts.
+func (p *CalibrationProfile) AddRangeThresholds(r RangeThresholds) {
+	// Look for existing range with same bounds
+	for i, existing := range p.ThresholdsByRange {
+		if existing.MinN == r.MinN && existing.MaxN == r.MaxN {
+			// Update existing range with weighted average
+			totalCount := existing.MeasurementCount + r.MeasurementCount
+			if totalCount > 0 {
+				existingWeight := float64(existing.MeasurementCount) / float64(totalCount)
+				newWeight := float64(r.MeasurementCount) / float64(totalCount)
+
+				p.ThresholdsByRange[i].FFTThreshold = int(float64(existing.FFTThreshold)*existingWeight + float64(r.FFTThreshold)*newWeight)
+				p.ThresholdsByRange[i].ParallelThreshold = int(float64(existing.ParallelThreshold)*existingWeight + float64(r.ParallelThreshold)*newWeight)
+				p.ThresholdsByRange[i].ConfidenceScore = (existing.ConfidenceScore*existingWeight + r.ConfidenceScore*newWeight)
+				p.ThresholdsByRange[i].MeasurementCount = totalCount
+			}
+			return
+		}
+	}
+
+	// Add new range
+	p.ThresholdsByRange = append(p.ThresholdsByRange, r)
+}
+
+// InitializeDefaultRanges initializes the profile with default range entries.
+// This is useful when creating a new profile to ensure all ranges have some values.
+func (p *CalibrationProfile) InitializeDefaultRanges() {
+	if len(p.ThresholdsByRange) > 0 {
+		return // Already has ranges
+	}
+
+	for _, r := range DefaultNRanges {
+		p.ThresholdsByRange = append(p.ThresholdsByRange, RangeThresholds{
+			MinN:              r.MinN,
+			MaxN:              r.MaxN,
+			FFTThreshold:      p.OptimalFFTThreshold,
+			ParallelThreshold: p.OptimalParallelThreshold,
+			StrassenThreshold: p.OptimalStrassenThreshold,
+			ConfidenceScore:   0.3, // Low confidence for defaults
+			MeasurementCount:  0,
+		})
+	}
 }
 
 // LoadOrCreate loads an existing profile or creates a new one if not found.

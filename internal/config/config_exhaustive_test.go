@@ -103,7 +103,7 @@ func TestValidateFFTThreshold(t *testing.T) {
 		{"LargeNegativeFFTThreshold", -1000000, true},
 		{"ZeroFFTThreshold", 0, false},
 		{"SmallFFTThreshold", 1, false},
-		{"DefaultFFTThreshold", 1000000, false},
+		{"DefaultFFTThreshold", 500000, false},
 		{"LargeFFTThreshold", 10000000, false},
 	}
 
@@ -243,8 +243,8 @@ func TestParseConfigDefaults(t *testing.T) {
 	if cfg.Threshold != fibonacci.DefaultParallelThreshold {
 		t.Errorf("Default Threshold: expected %d, got %d", fibonacci.DefaultParallelThreshold, cfg.Threshold)
 	}
-	if cfg.FFTThreshold != 1000000 {
-		t.Errorf("Default FFTThreshold: expected 1000000, got %d", cfg.FFTThreshold)
+	if cfg.FFTThreshold != 500000 {
+		t.Errorf("Default FFTThreshold: expected 500000, got %d", cfg.FFTThreshold)
 	}
 	if cfg.StrassenThreshold != 3072 {
 		t.Errorf("Default StrassenThreshold: expected 3072, got %d", cfg.StrassenThreshold)

@@ -387,6 +387,8 @@ func printCalibrationOutput(cfg config.AppConfig, out io.Writer) {
 }
 
 // AutoCalibrateWithProfile runs auto-calibration with a specific profile path.
+// It first tries to load a cached profile, then falls back to quick micro-benchmarks,
+// and finally uses full calibration if needed.
 func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (config.AppConfig, bool) {
 	// Try to load existing profile first
 	if profile, loaded := LoadOrCreateProfile(profilePath); loaded && profile.IsValid() {
@@ -404,6 +406,27 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 		return updated, true
 	}
 
+	// Try quick micro-benchmarks first (~100ms)
+	microResults, err := QuickCalibrate(parentCtx)
+	if err == nil && microResults.Confidence >= 0.5 {
+		updated := cfg
+		updated.Threshold = microResults.ParallelThreshold
+		updated.FFTThreshold = microResults.FFTThreshold
+		// Keep default Strassen threshold (micro-benchmarks don't test it)
+
+		fmt.Fprintf(out, "%sQuick calibration%s (%v): parallelism=%s%d%s bits, FFT=%s%d%s bits (confidence: %.0f%%)\n",
+			cli.ColorGreen(), cli.ColorReset(),
+			microResults.Duration.Round(time.Millisecond),
+			cli.ColorYellow(), updated.Threshold, cli.ColorReset(),
+			cli.ColorYellow(), updated.FFTThreshold, cli.ColorReset(),
+			microResults.Confidence*100)
+
+		// Save profile for future use
+		saveCalibrationProfile(updated, profilePath, out)
+		return updated, true
+	}
+
+	// Fall back to full calibration if quick calibration failed or has low confidence
 	fastCalc := calculatorRegistry["fast"]
 	if fastCalc == nil {
 		return cfg, false
