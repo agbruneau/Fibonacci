@@ -211,7 +211,7 @@ The calculator is controlled via command-line flags:
 | `-algo`                 |             | Algorithm: `fast`, `matrix`, `fft`, or `all`.                    | `all`                         |
 | `-timeout`              |             | Maximum execution time (e.g., `10s`, `1m30s`).                   | `5m`                          |
 | `-threshold`            |             | Bit threshold to parallelise multiplications.                    | `4096`                        |
-| `-fft-threshold`        |             | Bit threshold to enable FFT multiplication.                      | `1000000`                     |
+| `-fft-threshold`        |             | Bit threshold to enable FFT multiplication.                      | `500000`                      |
 | `--strassen-threshold`  |             | Bit threshold for the Strassen algorithm.                        | `3072`                        |
 | `-d`                    | `--details` | Display performance details.                                     | `false`                       |
 | `-v`                    |             | Display the full result (can be very long).                      | `false`                       |
@@ -243,7 +243,7 @@ In addition to CLI flags, `fibcalc` can be configured via environment variables.
 | `FIBCALC_PORT`                | string   | HTTP server port                   | `8080`      |
 | `FIBCALC_TIMEOUT`             | duration | Timeout (e.g., "5m", "30s")        | `5m`        |
 | `FIBCALC_THRESHOLD`           | int      | Parallelism threshold (bits)       | `4096`      |
-| `FIBCALC_FFT_THRESHOLD`       | int      | FFT threshold (bits)               | `1000000`   |
+| `FIBCALC_FFT_THRESHOLD`       | int      | FFT threshold (bits)               | `500000`    |
 | `FIBCALC_STRASSEN_THRESHOLD`  | int      | Strassen threshold (bits)          | `3072`      |
 | `FIBCALC_SERVER`              | bool     | Server mode (true/false)           | `false`     |
 | `FIBCALC_JSON`                | bool     | JSON output                        | `false`     |
@@ -370,7 +370,7 @@ curl "http://localhost:8080/algorithms"
 curl "http://localhost:8080/metrics"
 ```
 
-See [API.md](API.md) for the complete API documentation.
+See [Docs/api/API.md](Docs/api/API.md) for the complete API documentation.
 
 ### Usage Examples
 
@@ -540,7 +540,7 @@ The project supports profile-guided optimisation (PGO), available since Go 1.20.
 - **Internal FFT Parallelisation**: FFT recursion is parallelised for large transforms, effectively leveraging multiple CPU cores during FFT calculations.
 - **Configurable Thresholds**:
   - `--threshold` (default `4096` bits): Enables parallelism at the algorithm level.
-  - `--fft-threshold` (default `1000000` bits): Enables FFT multiplication.
+  - `--fft-threshold` (default `500000` bits): Enables FFT multiplication.
   - `--strassen-threshold` (default `3072` bits): Enables the Strassen algorithm.
 
 ### Advanced Memory Optimisations
@@ -649,6 +649,7 @@ make upgrade       # Update dependencies
 │   │   ├── FFT.md
 │   │   └── MATRIX.md
 │   ├── api/                       # API documentation
+│   │   ├── API.md                 # REST API documentation
 │   │   ├── openapi.yaml
 │   │   └── postman_collection.json
 │   ├── deployment/                # Deployment guides
@@ -657,8 +658,6 @@ make upgrade       # Update dependencies
 │   ├── ARCHITECTURE.md            # Project architecture
 │   ├── PERFORMANCE.md             # Performance guide
 │   └── SECURITY.md                # Security policy
-│
-├── API.md                         # 📖 REST API documentation
 ├── CONTRIBUTING.md                # 🤝 Contribution guide
 ├── Dockerfile                     # 🐳 Docker configuration
 ├── go.mod                         # Go dependencies
@@ -724,7 +723,7 @@ See [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) for complete 
 | Document                                     | Description             |
 | -------------------------------------------- | ----------------------- |
 | [README.md](README.md)                       | Main documentation      |
-| [API.md](API.md)                             | REST API documentation  |
+| [Docs/api/API.md](Docs/api/API.md)           | REST API documentation  |
 | [CONTRIBUTING.md](CONTRIBUTING.md)           | Contribution guide      |
 | [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) | Project architecture    |
 | [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)   | Performance guide       |
