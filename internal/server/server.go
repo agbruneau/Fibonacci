@@ -16,6 +16,7 @@ import (
 	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/service"
 )
 
 const (
@@ -35,7 +36,8 @@ const (
 // It wraps the standard http.Server and adds application-specific configuration
 // and graceful shutdown capabilities.
 type Server struct {
-	registry       map[string]fibonacci.Calculator
+	factory        fibonacci.CalculatorFactory
+	service        *service.CalculatorService
 	cfg            config.AppConfig
 	httpServer     *http.Server
 	logger         *log.Logger
@@ -90,15 +92,15 @@ type ErrorResponse struct {
 // It initializes the HTTP server with timeouts and a request multiplexer.
 //
 // Parameters:
-//   - registry: A map of algorithm names to their calculator implementations.
+//   - factory: The calculator factory to retrieve implementations from.
 //   - cfg: The application configuration (port, thresholds, etc.).
 //   - opts: Optional functional options for customizing the server (e.g., WithLogger).
 //
 // Returns:
 //   - *Server: A pointer to the initialized Server.
-func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig, opts ...ServerOption) *Server {
+func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts ...ServerOption) *Server {
 	s := &Server{
-		registry:       registry,
+		factory:        factory,
 		cfg:            cfg,
 		logger:         log.New(os.Stdout, "[SERVER] ", log.LstdFlags), // Default logger
 		shutdownSignal: make(chan os.Signal, 1),
@@ -110,6 +112,9 @@ func NewServer(registry map[string]fibonacci.Calculator, cfg config.AppConfig, o
 	for _, opt := range opts {
 		opt(s)
 	}
+
+	// Initialize service with validated configuration
+	s.service = service.NewCalculatorService(s.factory, s.cfg, s.securityConfig.MaxNValue)
 
 	// Create default rate limiter if not provided
 	if s.rateLimiter == nil {
@@ -240,10 +245,7 @@ func (s *Server) handleAlgorithms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	algorithms := make([]string, 0, len(s.registry))
-	for name := range s.registry {
-		algorithms = append(algorithms, name)
-	}
+	algorithms := s.factory.List()
 
 	response := map[string]interface{}{
 		"algorithms": algorithms,
@@ -279,22 +281,11 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate n against maximum allowed value (DoS protection)
-	if s.securityConfig.MaxNValue > 0 && n > s.securityConfig.MaxNValue {
-		s.writeErrorResponse(w, http.StatusBadRequest,
-			fmt.Sprintf("Value of 'n' exceeds maximum allowed (%d). This limit prevents resource exhaustion.", s.securityConfig.MaxNValue))
-		return
-	}
+	// Handled by CalculatorService
 
 	algo := r.URL.Query().Get("algo")
 	if algo == "" {
 		algo = "fast" // Default algorithm
-	}
-
-	calc, ok := s.registry[algo]
-	if !ok {
-		s.writeErrorResponse(w, http.StatusBadRequest,
-			fmt.Sprintf("Invalid 'algo' parameter: '%s' is not a valid algorithm", algo))
-		return
 	}
 
 	// Create a context with timeout for the calculation
@@ -303,8 +294,14 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 
 	// Perform the calculation
 	start := time.Now()
-	result, err := calc.Calculate(ctx, nil, 0, n, fibonacci.Options{ParallelThreshold: s.cfg.Threshold, FFTThreshold: s.cfg.FFTThreshold, StrassenThreshold: s.cfg.StrassenThreshold})
+	result, err := s.service.Calculate(ctx, algo, n)
 	duration := time.Since(start)
+
+	if err == service.ErrMaxValueExceeded {
+		s.writeErrorResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("Value of 'n' exceeds maximum allowed (%d). This limit prevents resource exhaustion.", s.securityConfig.MaxNValue))
+		return
+	}
 
 	// Record metrics
 	status := "success"

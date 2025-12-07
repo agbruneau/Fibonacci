@@ -14,6 +14,7 @@ import (
 	"time"
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
+	"github.com/agbru/fibcalc/internal/fibonacci"
 )
 
 const (
@@ -245,6 +246,16 @@ type AppConfig struct {
 	// Concise, if false (default), suppresses the display of the calculated value section.
 	// Set to true with -c/--calculate to display the calculated value.
 	Concise bool
+}
+
+// ToCalculationOptions converts the application configuration into
+// fibonacci.Options for use by the calculators.
+func (c AppConfig) ToCalculationOptions() fibonacci.Options {
+	return fibonacci.Options{
+		ParallelThreshold: c.Threshold,
+		FFTThreshold:      c.FFTThreshold,
+		StrassenThreshold: c.StrassenThreshold,
+	}
 }
 
 // Validate checks the semantic consistency of the configuration parameters.

@@ -163,7 +163,7 @@ func (a *Application) runCompletion(out io.Writer) int {
 
 // runServer starts the HTTP server mode.
 func (a *Application) runServer() int {
-	srv := server.NewServer(a.Factory.GetAll(), a.Config)
+	srv := server.NewServer(a.Factory, a.Config)
 	if err := srv.Start(); err != nil {
 		fmt.Fprintf(a.ErrWriter, "Server error: %v\n", err)
 		return apperrors.ExitErrorGeneric

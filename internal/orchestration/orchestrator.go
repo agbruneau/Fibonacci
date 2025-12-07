@@ -65,7 +65,7 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 		idx, calculator := i, calc
 		g.Go(func() error {
 			startTime := time.Now()
-			res, err := calculator.Calculate(ctx, progressChan, idx, cfg.N, fibonacci.Options{ParallelThreshold: cfg.Threshold, FFTThreshold: cfg.FFTThreshold, StrassenThreshold: cfg.StrassenThreshold})
+			res, err := calculator.Calculate(ctx, progressChan, idx, cfg.N, cfg.ToCalculationOptions())
 			results[idx] = CalculationResult{
 				Name: calculator.Name(), Result: res, Duration: time.Since(startTime), Err: err,
 			}
