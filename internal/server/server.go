@@ -254,6 +254,78 @@ func (s *Server) handleAlgorithms(w http.ResponseWriter, r *http.Request) {
 	s.writeJSONResponse(w, http.StatusOK, response)
 }
 
+// CalculateParseError represents a parameter parsing error with HTTP status.
+type CalculateParseError struct {
+	Message    string
+	StatusCode int
+}
+
+// Error implements the error interface.
+func (e CalculateParseError) Error() string {
+	return e.Message
+}
+
+// parseCalculateParams extracts and validates the calculation parameters from the request.
+//
+// Parameters:
+//   - r: The HTTP request containing query parameters.
+//
+// Returns:
+//   - n: The parsed Fibonacci index.
+//   - algo: The algorithm name (defaults to "fast" if not specified).
+//   - err: A CalculateParseError if validation fails, nil otherwise.
+func parseCalculateParams(r *http.Request) (n uint64, algo string, err error) {
+	nStr := r.URL.Query().Get("n")
+	if nStr == "" {
+		return 0, "", CalculateParseError{
+			Message:    "Missing 'n' parameter",
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+
+	n, parseErr := strconv.ParseUint(nStr, 10, 64)
+	if parseErr != nil {
+		return 0, "", CalculateParseError{
+			Message:    "Invalid 'n' parameter: must be a positive integer",
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+
+	algo = r.URL.Query().Get("algo")
+	if algo == "" {
+		algo = "fast" // Default algorithm
+	}
+
+	return n, algo, nil
+}
+
+// buildCalculateResponse constructs the response struct for a calculation.
+//
+// Parameters:
+//   - n: The Fibonacci index that was calculated.
+//   - algo: The algorithm name used.
+//   - result: The calculation result (may be nil if error occurred).
+//   - duration: The time taken for the calculation.
+//   - err: Any error that occurred during calculation.
+//
+// Returns:
+//   - Response: The constructed response struct.
+func buildCalculateResponse(n uint64, algo string, result *big.Int, duration time.Duration, err error) Response {
+	resp := Response{
+		N:         n,
+		Duration:  duration.String(),
+		Algorithm: algo,
+	}
+
+	if err != nil {
+		resp.Error = err.Error()
+	} else {
+		resp.Result = result
+	}
+
+	return resp
+}
+
 // handleCalculate processes requests to calculate Fibonacci numbers.
 // It parses the query parameters 'n' (the index) and 'algo' (the algorithm),
 // executes the calculation, and returns the result in JSON format.
@@ -267,25 +339,15 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse and validate parameters
-	nStr := r.URL.Query().Get("n")
-	if nStr == "" {
-		s.writeErrorResponse(w, http.StatusBadRequest, "Missing 'n' parameter")
-		return
-	}
-
-	n, err := strconv.ParseUint(nStr, 10, 64)
+	// Parse and validate parameters using helper
+	n, algo, err := parseCalculateParams(r)
 	if err != nil {
-		s.writeErrorResponse(w, http.StatusBadRequest, "Invalid 'n' parameter: must be a positive integer")
+		if parseErr, ok := err.(CalculateParseError); ok {
+			s.writeErrorResponse(w, parseErr.StatusCode, parseErr.Message)
+		} else {
+			s.writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		}
 		return
-	}
-
-	// Validate n against maximum allowed value (DoS protection)
-	// Handled by CalculatorService
-
-	algo := r.URL.Query().Get("algo")
-	if algo == "" {
-		algo = "fast" // Default algorithm
 	}
 
 	// Create a context with timeout for the calculation
@@ -297,6 +359,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	result, err := s.service.Calculate(ctx, algo, n)
 	duration := time.Since(start)
 
+	// Handle max value exceeded error
 	if err == service.ErrMaxValueExceeded {
 		s.writeErrorResponse(w, http.StatusBadRequest,
 			fmt.Sprintf("Value of 'n' exceeds maximum allowed (%d). This limit prevents resource exhaustion.", s.securityConfig.MaxNValue))
@@ -310,20 +373,8 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.metrics.RecordCalculation(algo, status, duration)
 
-	// Build the response
-	resp := Response{
-		N:         n,
-		Duration:  duration.String(),
-		Algorithm: algo,
-	}
-
-	if err != nil {
-		resp.Error = err.Error()
-		// Still return 200 OK with error in the JSON body for consistency
-	} else {
-		resp.Result = result
-	}
-
+	// Build and send response using helper
+	resp := buildCalculateResponse(n, algo, result, duration, err)
 	s.writeJSONResponse(w, http.StatusOK, resp)
 }
 

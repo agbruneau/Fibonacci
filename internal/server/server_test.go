@@ -353,3 +353,182 @@ func TestStrassenThresholdPassedToCalculator(t *testing.T) {
 		t.Errorf("Expected FFTThreshold=5678, got %d", mockCalc.CapturedOpts.FFTThreshold)
 	}
 }
+
+// TestParseCalculateParams verifies the parameter parsing helper function.
+func TestParseCalculateParams(t *testing.T) {
+	tests := []struct {
+		name          string
+		queryParams   string
+		expectedN     uint64
+		expectedAlgo  string
+		expectedError bool
+		errorMessage  string
+	}{
+		{
+			name:          "Valid n with default algo",
+			queryParams:   "?n=42",
+			expectedN:     42,
+			expectedAlgo:  "fast",
+			expectedError: false,
+		},
+		{
+			name:          "Valid n with specified algo",
+			queryParams:   "?n=100&algo=matrix",
+			expectedN:     100,
+			expectedAlgo:  "matrix",
+			expectedError: false,
+		},
+		{
+			name:          "Missing n parameter",
+			queryParams:   "",
+			expectedError: true,
+			errorMessage:  "Missing 'n' parameter",
+		},
+		{
+			name:          "Missing n with algo only",
+			queryParams:   "?algo=fast",
+			expectedError: true,
+			errorMessage:  "Missing 'n' parameter",
+		},
+		{
+			name:          "Invalid n - non-numeric",
+			queryParams:   "?n=abc",
+			expectedError: true,
+			errorMessage:  "must be a positive integer",
+		},
+		{
+			name:          "Invalid n - negative",
+			queryParams:   "?n=-5",
+			expectedError: true,
+			errorMessage:  "must be a positive integer",
+		},
+		{
+			name:          "Large valid n",
+			queryParams:   "?n=18446744073709551615", // Max uint64
+			expectedN:     18446744073709551615,
+			expectedAlgo:  "fast",
+			expectedError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, nil)
+			n, algo, err := parseCalculateParams(req)
+
+			if tt.expectedError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+					return
+				}
+				parseErr, ok := err.(CalculateParseError)
+				if !ok {
+					t.Errorf("Expected CalculateParseError, got %T", err)
+					return
+				}
+				if !strings.Contains(parseErr.Message, tt.errorMessage) {
+					t.Errorf("Expected error message to contain %q, got %q", tt.errorMessage, parseErr.Message)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+					return
+				}
+				if n != tt.expectedN {
+					t.Errorf("Expected n=%d, got n=%d", tt.expectedN, n)
+				}
+				if algo != tt.expectedAlgo {
+					t.Errorf("Expected algo=%s, got algo=%s", tt.expectedAlgo, algo)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildCalculateResponse verifies the response building helper function.
+func TestBuildCalculateResponse(t *testing.T) {
+	tests := []struct {
+		name           string
+		n              uint64
+		algo           string
+		result         *big.Int
+		duration       time.Duration
+		err            error
+		hasResult      bool
+		hasError       bool
+		expectedResult int64
+		expectedError  string
+	}{
+		{
+			name:           "Successful calculation",
+			n:              10,
+			algo:           "fast",
+			result:         big.NewInt(55),
+			duration:       100 * time.Millisecond,
+			err:            nil,
+			hasResult:      true,
+			hasError:       false,
+			expectedResult: 55,
+		},
+		{
+			name:          "Calculation with error",
+			n:             999,
+			algo:          "matrix",
+			result:        nil,
+			duration:      50 * time.Millisecond,
+			err:           errors.New("calculation failed"),
+			hasResult:     false,
+			hasError:      true,
+			expectedError: "calculation failed",
+		},
+		{
+			name:           "Zero result",
+			n:              0,
+			algo:           "fast",
+			result:         big.NewInt(0),
+			duration:       1 * time.Nanosecond,
+			err:            nil,
+			hasResult:      true,
+			hasError:       false,
+			expectedResult: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := buildCalculateResponse(tt.n, tt.algo, tt.result, tt.duration, tt.err)
+
+			if resp.N != tt.n {
+				t.Errorf("Expected N=%d, got N=%d", tt.n, resp.N)
+			}
+			if resp.Algorithm != tt.algo {
+				t.Errorf("Expected Algorithm=%s, got Algorithm=%s", tt.algo, resp.Algorithm)
+			}
+			if resp.Duration != tt.duration.String() {
+				t.Errorf("Expected Duration=%s, got Duration=%s", tt.duration.String(), resp.Duration)
+			}
+
+			if tt.hasResult {
+				if resp.Result == nil {
+					t.Error("Expected Result to be set, got nil")
+				} else if resp.Result.Cmp(big.NewInt(tt.expectedResult)) != 0 {
+					t.Errorf("Expected Result=%d, got Result=%s", tt.expectedResult, resp.Result.String())
+				}
+			} else {
+				if resp.Result != nil {
+					t.Errorf("Expected Result to be nil, got %s", resp.Result.String())
+				}
+			}
+
+			if tt.hasError {
+				if resp.Error != tt.expectedError {
+					t.Errorf("Expected Error=%q, got Error=%q", tt.expectedError, resp.Error)
+				}
+			} else {
+				if resp.Error != "" {
+					t.Errorf("Expected no Error, got Error=%q", resp.Error)
+				}
+			}
+		})
+	}
+}
