@@ -32,7 +32,7 @@ type BumpAllocator struct {
 // bumpAllocatorPool pools BumpAllocator instances for reuse.
 // The underlying buffer is retained between uses to avoid re-allocation.
 var bumpAllocatorPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &BumpAllocator{}
 	},
 }

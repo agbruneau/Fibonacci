@@ -15,7 +15,7 @@ const MaxPooledBitLen = 4_000_000
 
 // bigIntPool is a sync.Pool for *big.Int objects.
 var bigIntPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(big.Int)
 	},
 }

@@ -74,7 +74,7 @@ func PrintExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 //   - out: The destination writer.
 //   - format: The format string (see fmt.Printf).
 //   - a: Arguments for the format string.
-func writeOut(out io.Writer, format string, a ...interface{}) {
+func writeOut(out io.Writer, format string, a ...any) {
 	if _, err := fmt.Fprintf(out, format, a...); err != nil {
 		fmt.Fprintln(os.Stderr, "[Output Error]:", err)
 	}

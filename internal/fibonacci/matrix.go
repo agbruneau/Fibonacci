@@ -563,7 +563,7 @@ func (s *matrixState) Reset() {
 // the cost of creating and destroying them for each calculation, which is
 // particularly beneficial in a high-performance, concurrent context.
 var matrixStatePool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		// We only allocate the structure pointers here.
 		// The actual big.Ints are acquired from the global pool in acquireMatrixState.
 		s := &matrixState{

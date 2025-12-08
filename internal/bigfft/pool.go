@@ -15,16 +15,16 @@ import (
 // We use size classes to avoid fragmentation: 64, 256, 1K, 4K, 16K, 64K, 256K, 1M, 4M, 16M words.
 // Extended size classes support very large Fibonacci calculations (F > 10M).
 var wordSlicePools = [...]sync.Pool{
-	{New: func() interface{} { return make([]big.Word, 64) }},
-	{New: func() interface{} { return make([]big.Word, 256) }},
-	{New: func() interface{} { return make([]big.Word, 1024) }},
-	{New: func() interface{} { return make([]big.Word, 4096) }},
-	{New: func() interface{} { return make([]big.Word, 16384) }},
-	{New: func() interface{} { return make([]big.Word, 65536) }},
-	{New: func() interface{} { return make([]big.Word, 262144) }},
-	{New: func() interface{} { return make([]big.Word, 1048576) }},  // 1M words = 8MB on 64-bit
-	{New: func() interface{} { return make([]big.Word, 4194304) }},  // 4M words = 32MB on 64-bit
-	{New: func() interface{} { return make([]big.Word, 16777216) }}, // 16M words = 128MB on 64-bit
+	{New: func() any { return make([]big.Word, 64) }},
+	{New: func() any { return make([]big.Word, 256) }},
+	{New: func() any { return make([]big.Word, 1024) }},
+	{New: func() any { return make([]big.Word, 4096) }},
+	{New: func() any { return make([]big.Word, 16384) }},
+	{New: func() any { return make([]big.Word, 65536) }},
+	{New: func() any { return make([]big.Word, 262144) }},
+	{New: func() any { return make([]big.Word, 1048576) }},  // 1M words = 8MB on 64-bit
+	{New: func() any { return make([]big.Word, 4194304) }},  // 4M words = 32MB on 64-bit
+	{New: func() any { return make([]big.Word, 16777216) }}, // 16M words = 128MB on 64-bit
 }
 
 // wordSliceSizes defines the size classes for word slice pools.
@@ -82,15 +82,15 @@ func releaseWordSlice(slice []big.Word) {
 // Fermat numbers are typically n+1 words where n is derived from FFT parameters.
 // Extended size classes support very large FFT operations.
 var fermatPools = [...]sync.Pool{
-	{New: func() interface{} { return make(fermat, 32) }},
-	{New: func() interface{} { return make(fermat, 128) }},
-	{New: func() interface{} { return make(fermat, 512) }},
-	{New: func() interface{} { return make(fermat, 2048) }},
-	{New: func() interface{} { return make(fermat, 8192) }},
-	{New: func() interface{} { return make(fermat, 32768) }},
-	{New: func() interface{} { return make(fermat, 131072) }},  // 128K
-	{New: func() interface{} { return make(fermat, 524288) }},  // 512K
-	{New: func() interface{} { return make(fermat, 2097152) }}, // 2M
+	{New: func() any { return make(fermat, 32) }},
+	{New: func() any { return make(fermat, 128) }},
+	{New: func() any { return make(fermat, 512) }},
+	{New: func() any { return make(fermat, 2048) }},
+	{New: func() any { return make(fermat, 8192) }},
+	{New: func() any { return make(fermat, 32768) }},
+	{New: func() any { return make(fermat, 131072) }},  // 128K
+	{New: func() any { return make(fermat, 524288) }},  // 512K
+	{New: func() any { return make(fermat, 2097152) }}, // 2M
 }
 
 // fermatSizes defines the size classes for fermat pools.
@@ -141,13 +141,13 @@ func releaseFermat(f fermat) {
 // natSlicePool pools []nat slices used for polynomial coefficients.
 // Extended to support larger FFT sizes.
 var natSlicePools = [...]sync.Pool{
-	{New: func() interface{} { return make([]nat, 8) }},
-	{New: func() interface{} { return make([]nat, 32) }},
-	{New: func() interface{} { return make([]nat, 128) }},
-	{New: func() interface{} { return make([]nat, 512) }},
-	{New: func() interface{} { return make([]nat, 2048) }},
-	{New: func() interface{} { return make([]nat, 8192) }},
-	{New: func() interface{} { return make([]nat, 32768) }},
+	{New: func() any { return make([]nat, 8) }},
+	{New: func() any { return make([]nat, 32) }},
+	{New: func() any { return make([]nat, 128) }},
+	{New: func() any { return make([]nat, 512) }},
+	{New: func() any { return make([]nat, 2048) }},
+	{New: func() any { return make([]nat, 8192) }},
+	{New: func() any { return make([]nat, 32768) }},
 }
 
 // natSliceSizes defines the size classes for nat slice pools.
@@ -196,13 +196,13 @@ func releaseNatSlice(slice []nat) {
 // fermatSlicePool pools []fermat slices used for polynomial values.
 // Extended to support larger FFT sizes.
 var fermatSlicePools = [...]sync.Pool{
-	{New: func() interface{} { return make([]fermat, 8) }},
-	{New: func() interface{} { return make([]fermat, 32) }},
-	{New: func() interface{} { return make([]fermat, 128) }},
-	{New: func() interface{} { return make([]fermat, 512) }},
-	{New: func() interface{} { return make([]fermat, 2048) }},
-	{New: func() interface{} { return make([]fermat, 8192) }},
-	{New: func() interface{} { return make([]fermat, 32768) }},
+	{New: func() any { return make([]fermat, 8) }},
+	{New: func() any { return make([]fermat, 32) }},
+	{New: func() any { return make([]fermat, 128) }},
+	{New: func() any { return make([]fermat, 512) }},
+	{New: func() any { return make([]fermat, 2048) }},
+	{New: func() any { return make([]fermat, 8192) }},
+	{New: func() any { return make([]fermat, 32768) }},
 }
 
 // fermatSliceSizes defines the size classes for []fermat pools.
@@ -261,7 +261,7 @@ type fftState struct {
 
 // fftStatePool pools fftState objects.
 var fftStatePool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &fftState{}
 	},
 }

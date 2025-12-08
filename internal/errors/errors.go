@@ -47,7 +47,7 @@ func (e ConfigError) Error() string { return e.Message }
 //
 // Returns:
 //   - error: A new ConfigError instance containing the formatted message.
-func NewConfigError(format string, a ...interface{}) error {
+func NewConfigError(format string, a ...any) error {
 	return ConfigError{Message: fmt.Sprintf(format, a...)}
 }
 
@@ -122,7 +122,7 @@ func NewServerError(message string, cause error) error {
 //
 // Returns:
 //   - error: The wrapped error, or nil if err is nil.
-func WrapError(err error, format string, args ...interface{}) error {
+func WrapError(err error, format string, args ...any) error {
 	if err == nil {
 		return nil
 	}
@@ -149,7 +149,7 @@ type ValidationError struct {
 	// Message describes why validation failed.
 	Message string
 	// Value is the invalid value (optional, may be nil).
-	Value interface{}
+	Value any
 }
 
 // Error returns the error message for a ValidationError.
@@ -169,6 +169,6 @@ func (e ValidationError) Error() string {
 //
 // Returns:
 //   - error: A new ValidationError instance.
-func NewValidationError(field, message string, value interface{}) error {
+func NewValidationError(field, message string, value any) error {
 	return ValidationError{Field: field, Message: message, Value: value}
 }

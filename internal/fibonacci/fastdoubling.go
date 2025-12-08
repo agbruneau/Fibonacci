@@ -174,7 +174,7 @@ func (s *CalculationState) Reset() {
 }
 
 var statePool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &CalculationState{
 			// Fields will be populated from the global pool in AcquireState
 		}

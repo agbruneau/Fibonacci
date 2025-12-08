@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -225,7 +226,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().Unix(),
 	}
@@ -247,7 +248,7 @@ func (s *Server) handleAlgorithms(w http.ResponseWriter, r *http.Request) {
 
 	algorithms := s.factory.List()
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"algorithms": algorithms,
 	}
 
@@ -360,7 +361,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	duration := time.Since(start)
 
 	// Handle max value exceeded error
-	if err == service.ErrMaxValueExceeded {
+	if errors.Is(err, service.ErrMaxValueExceeded) {
 		s.writeErrorResponse(w, http.StatusBadRequest,
 			fmt.Sprintf("Value of 'n' exceeds maximum allowed (%d). This limit prevents resource exhaustion.", s.securityConfig.MaxNValue))
 		return
@@ -384,7 +385,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 //   - w: The HTTP response writer.
 //   - statusCode: The HTTP status code to write.
 //   - data: The data to be encoded as JSON.
-func (s *Server) writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
+func (s *Server) writeJSONResponse(w http.ResponseWriter, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
