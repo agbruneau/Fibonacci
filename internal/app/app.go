@@ -27,7 +27,8 @@ type Application struct {
 	// Config holds the parsed application configuration.
 	Config config.AppConfig
 	// Factory provides access to the Fibonacci calculator implementations.
-	Factory *fibonacci.DefaultFactory
+	// Uses the interface type for better testability and dependency injection.
+	Factory fibonacci.CalculatorFactory
 	// ErrWriter is the writer for error output (typically os.Stderr).
 	ErrWriter io.Writer
 }

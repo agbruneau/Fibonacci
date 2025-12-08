@@ -20,25 +20,38 @@ import (
 	"github.com/agbru/fibcalc/internal/service"
 )
 
-const (
-	// DefaultRequestTimeout is the maximum duration for a single request.
-	DefaultRequestTimeout = 5 * time.Minute
-	// DefaultShutdownTimeout is the maximum duration allowed for graceful shutdown.
-	DefaultShutdownTimeout = 30 * time.Second
-	// DefaultReadTimeout is the maximum duration for reading the entire request, including the body.
-	DefaultReadTimeout = 10 * time.Second
-	// DefaultWriteTimeout is the maximum duration before timing out writes of the response.
-	DefaultWriteTimeout = 10 * time.Minute
-	// DefaultIdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled.
-	DefaultIdleTimeout = 2 * time.Minute
-)
+// ServerTimeouts holds timeout configuration for the HTTP server.
+// These can be customized via functional options for testing or deployment needs.
+type ServerTimeouts struct {
+	// RequestTimeout is the maximum duration for a single request.
+	RequestTimeout time.Duration
+	// ShutdownTimeout is the maximum duration allowed for graceful shutdown.
+	ShutdownTimeout time.Duration
+	// ReadTimeout is the maximum duration for reading the entire request, including the body.
+	ReadTimeout time.Duration
+	// WriteTimeout is the maximum duration before timing out writes of the response.
+	WriteTimeout time.Duration
+	// IdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled.
+	IdleTimeout time.Duration
+}
+
+// DefaultServerTimeouts returns the default timeout configuration.
+func DefaultServerTimeouts() ServerTimeouts {
+	return ServerTimeouts{
+		RequestTimeout:  5 * time.Minute,
+		ShutdownTimeout: 30 * time.Second,
+		ReadTimeout:     10 * time.Second,
+		WriteTimeout:    10 * time.Minute,
+		IdleTimeout:     2 * time.Minute,
+	}
+}
 
 // Server represents the HTTP server for the Fibonacci calculator API.
 // It wraps the standard http.Server and adds application-specific configuration
 // and graceful shutdown capabilities.
 type Server struct {
 	factory        fibonacci.CalculatorFactory
-	service        *service.CalculatorService
+	service        service.Service
 	cfg            config.AppConfig
 	httpServer     *http.Server
 	logger         *log.Logger
@@ -46,6 +59,7 @@ type Server struct {
 	rateLimiter    *RateLimiter
 	securityConfig SecurityConfig
 	metrics        *Metrics
+	timeouts       ServerTimeouts
 }
 
 // ServerOption defines a functional option for configuring a Server.
@@ -64,6 +78,36 @@ func WithLogger(logger *log.Logger) ServerOption {
 		if logger != nil {
 			s.logger = logger
 		}
+	}
+}
+
+// WithService sets a custom service for the server.
+// This enables dependency injection for testing with mock services.
+//
+// Parameters:
+//   - svc: The service implementation to use.
+//
+// Returns:
+//   - ServerOption: A functional option that configures the server's service.
+func WithService(svc service.Service) ServerOption {
+	return func(s *Server) {
+		if svc != nil {
+			s.service = svc
+		}
+	}
+}
+
+// WithTimeouts sets custom timeout configuration for the server.
+// This allows fine-tuning server behavior for different deployment scenarios.
+//
+// Parameters:
+//   - timeouts: The timeout configuration.
+//
+// Returns:
+//   - ServerOption: A functional option that configures the server's timeouts.
+func WithTimeouts(timeouts ServerTimeouts) ServerOption {
+	return func(s *Server) {
+		s.timeouts = timeouts
 	}
 }
 
@@ -107,6 +151,7 @@ func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts .
 		shutdownSignal: make(chan os.Signal, 1),
 		securityConfig: DefaultSecurityConfig(),
 		metrics:        NewMetrics(),
+		timeouts:       DefaultServerTimeouts(),
 	}
 
 	// Apply any provided options
@@ -114,8 +159,10 @@ func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts .
 		opt(s)
 	}
 
-	// Initialize service with validated configuration
-	s.service = service.NewCalculatorService(s.factory, s.cfg, s.securityConfig.MaxNValue)
+	// Initialize service with validated configuration if not provided via options
+	if s.service == nil {
+		s.service = service.NewCalculatorService(s.factory, s.cfg, s.securityConfig.MaxNValue)
+	}
 
 	// Create default rate limiter if not provided
 	if s.rateLimiter == nil {
@@ -133,9 +180,9 @@ func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts .
 	s.httpServer = &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      mux,
-		ReadTimeout:  DefaultReadTimeout,
-		WriteTimeout: DefaultWriteTimeout,
-		IdleTimeout:  DefaultIdleTimeout,
+		ReadTimeout:  s.timeouts.ReadTimeout,
+		WriteTimeout: s.timeouts.WriteTimeout,
+		IdleTimeout:  s.timeouts.IdleTimeout,
 	}
 
 	return s
@@ -181,7 +228,7 @@ func (s *Server) Start() error {
 	s.logger.Println("Shutdown signal received, initiating graceful shutdown...")
 
 	// Create a deadline for shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultShutdownTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeouts.ShutdownTimeout)
 	defer cancel()
 
 	// Attempt graceful shutdown
@@ -352,7 +399,7 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a context with timeout for the calculation
-	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), s.timeouts.RequestTimeout)
 	defer cancel()
 
 	// Perform the calculation

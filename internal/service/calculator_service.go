@@ -14,13 +14,33 @@ var (
 	ErrMaxValueExceeded = errors.New("maximum n value exceeded")
 )
 
+// Service defines the interface for Fibonacci calculation services.
+// This abstraction enables dependency injection and easier testing/mocking.
+type Service interface {
+	// Calculate performs the Fibonacci calculation for the given algorithm and index.
+	//
+	// Parameters:
+	//   - ctx: The context for cancellation.
+	//   - algoName: The name of the algorithm to use.
+	//   - n: The Fibonacci index to calculate.
+	//
+	// Returns:
+	//   - *big.Int: The result.
+	//   - error: An error if validation or calculation fails.
+	Calculate(ctx context.Context, algoName string, n uint64) (*big.Int, error)
+}
+
 // CalculatorService handles the core logic for calculating Fibonacci numbers.
 // It centralizes validation, algorithm retrieval, and execution options.
+// Implements the Service interface.
 type CalculatorService struct {
 	factory fibonacci.CalculatorFactory
 	config  config.AppConfig
 	maxN    uint64
 }
+
+// Ensure CalculatorService implements Service interface.
+var _ Service = (*CalculatorService)(nil)
 
 // NewCalculatorService creates a new instance of CalculatorService.
 //

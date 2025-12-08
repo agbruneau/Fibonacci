@@ -24,6 +24,25 @@ const (
 	EnvPrefix = "FIBCALC_"
 )
 
+// Default configuration values.
+// These can be overridden via command-line flags or environment variables.
+const (
+	// DefaultN is the default Fibonacci index to calculate.
+	DefaultN uint64 = 250_000_000
+	// DefaultTimeout is the default calculation timeout.
+	DefaultTimeout = 5 * time.Minute
+	// DefaultPort is the default server port.
+	DefaultPort = "8080"
+	// DefaultAlgo is the default algorithm selection.
+	DefaultAlgo = "all"
+	// DefaultThreshold is the default parallelism threshold in bits.
+	DefaultThreshold = 4096
+	// DefaultFFTThreshold is the default FFT multiplication threshold in bits.
+	DefaultFFTThreshold = 500_000
+	// DefaultStrassenThreshold is the default Strassen algorithm threshold in bits.
+	DefaultStrassenThreshold = 3072
+)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Variable Utilities
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,21 +336,21 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	algoHelp := fmt.Sprintf("Algorithm to use: 'all' (default) or one of [%s].", strings.Join(availableAlgos, ", "))
 
 	config := AppConfig{}
-	fs.Uint64Var(&config.N, "n", 250000000, "Index n of the Fibonacci number to calculate.")
+	fs.Uint64Var(&config.N, "n", DefaultN, "Index n of the Fibonacci number to calculate.")
 	fs.BoolVar(&config.Verbose, "v", false, "Display the full value of the result (can be very long).")
 	fs.BoolVar(&config.Details, "d", false, "Display performance details and result metadata.")
 	fs.BoolVar(&config.Details, "details", false, "Alias for -d.")
-	fs.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Maximum execution time for the calculation.")
-	fs.StringVar(&config.Algo, "algo", "all", algoHelp)
-	fs.IntVar(&config.Threshold, "threshold", 4096, "Threshold (in bits) for activating parallelism in multiplications.")
-	fs.IntVar(&config.FFTThreshold, "fft-threshold", 500_000, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
-	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 3072, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
+	fs.DurationVar(&config.Timeout, "timeout", DefaultTimeout, "Maximum execution time for the calculation.")
+	fs.StringVar(&config.Algo, "algo", DefaultAlgo, algoHelp)
+	fs.IntVar(&config.Threshold, "threshold", DefaultThreshold, "Threshold (in bits) for activating parallelism in multiplications.")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", DefaultFFTThreshold, "Threshold (in bits) to enable FFT multiplication (0 to disable).")
+	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", DefaultStrassenThreshold, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication.")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
 	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Enables quick automatic calibration at startup (may increase loading time).")
 	fs.StringVar(&config.CalibrationProfile, "calibration-profile", "", "Path to calibration profile file (default: ~/.fibcalc_calibration.json).")
 	fs.BoolVar(&config.JSONOutput, "json", false, "Output results in JSON format.")
 	fs.BoolVar(&config.ServerMode, "server", false, "Start in HTTP server mode.")
-	fs.StringVar(&config.Port, "port", "8080", "Port to listen on in server mode.")
+	fs.StringVar(&config.Port, "port", DefaultPort, "Port to listen on in server mode.")
 	fs.BoolVar(&config.NoColor, "no-color", false, "Disable colored output (also respects NO_COLOR env var).")
 
 	// New CLI enhancement flags

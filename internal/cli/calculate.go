@@ -20,16 +20,21 @@ import (
 //
 // Returns:
 //   - []fibonacci.Calculator: A slice of calculators to execute.
-func GetCalculatorsToRun(cfg config.AppConfig, factory *fibonacci.DefaultFactory) []fibonacci.Calculator {
+func GetCalculatorsToRun(cfg config.AppConfig, factory fibonacci.CalculatorFactory) []fibonacci.Calculator {
 	if cfg.Algo == "all" {
 		keys := factory.List() // List() returns sorted keys
-		calculators := make([]fibonacci.Calculator, len(keys))
-		for i, k := range keys {
-			calculators[i] = factory.MustGet(k)
+		calculators := make([]fibonacci.Calculator, 0, len(keys))
+		for _, k := range keys {
+			if calc, err := factory.Get(k); err == nil {
+				calculators = append(calculators, calc)
+			}
 		}
 		return calculators
 	}
-	return []fibonacci.Calculator{factory.MustGet(cfg.Algo)}
+	if calc, err := factory.Get(cfg.Algo); err == nil {
+		return []fibonacci.Calculator{calc}
+	}
+	return nil
 }
 
 // PrintExecutionConfig displays the current execution configuration to the user.
