@@ -20,7 +20,7 @@
 //   Handle carry propagation using scalar adds for correctness
 //   Fall back to scalar for remaining elements (< 4 words)
 
-TEXT ·addVV_avx2(SB), NOSPLIT, $0-73
+TEXT ·addVV_avx2(SB), NOSPLIT, $0-80
     // Arguments:
     // z []Word: FP+0 (ptr), FP+8 (len), FP+16 (cap)
     // x []Word: FP+24 (ptr), FP+32 (len), FP+40 (cap)
@@ -81,7 +81,7 @@ addvv_done:
 //
 // Subtracts y from x, storing result in z. Returns the final borrow.
 
-TEXT ·subVV_avx2(SB), NOSPLIT, $0-73
+TEXT ·subVV_avx2(SB), NOSPLIT, $0-80
     MOVQ z_base+0(FP), DI      // DI = &z[0]
     MOVQ x_base+24(FP), SI     // SI = &x[0]
     MOVQ y_base+48(FP), DX     // DX = &y[0]
@@ -133,7 +133,7 @@ subvv_done:
 //   BX = carry
 //   AX, DX = used by MULQ
 
-TEXT ·addMulVVW_avx2(SB), NOSPLIT, $0-57
+TEXT ·addMulVVW_avx2(SB), NOSPLIT, $0-64
     // Arguments:
     // z []Word: FP+0 (ptr), FP+8 (len), FP+16 (cap)
     // x []Word: FP+24 (ptr), FP+32 (len), FP+40 (cap)

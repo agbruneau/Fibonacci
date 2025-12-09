@@ -1,10 +1,11 @@
-// The main package is the entry point of the fibcalc application.
+// Package main is the entry point of the fibcalc application.
 // It provides a minimal bootstrap that delegates to the app package
 // for configuration parsing and command execution.
 package main
 
 import (
 	"context"
+	"io"
 	"os"
 
 	"github.com/agbru/fibcalc/internal/app"
@@ -12,22 +13,28 @@ import (
 )
 
 func main() {
-	// Check for version flag in any position before parsing config
-	if app.HasVersionFlag(os.Args[1:]) {
-		app.PrintVersion(os.Stdout)
-		os.Exit(apperrors.ExitSuccess)
+	os.Exit(run(os.Args, os.Stdout, os.Stderr))
+}
+
+// run executes the application and returns the appropriate exit code.
+// This function is separated from main() to enable comprehensive testing
+// without relying on os.Exit behavior.
+func run(args []string, stdout, stderr io.Writer) int {
+	// Handle version flag early (before config parsing)
+	if len(args) > 1 && app.HasVersionFlag(args[1:]) {
+		app.PrintVersion(stdout)
+		return apperrors.ExitSuccess
 	}
 
 	// Create and configure the application
-	application, err := app.New(os.Args, os.Stderr)
+	application, err := app.New(args, stderr)
 	if err != nil {
 		if app.IsHelpError(err) {
-			os.Exit(apperrors.ExitSuccess)
+			return apperrors.ExitSuccess
 		}
-		os.Exit(apperrors.ExitErrorConfig)
+		return apperrors.ExitErrorConfig
 	}
 
-	// Run the application and exit with the returned code
-	exitCode := application.Run(context.Background(), os.Stdout)
-	os.Exit(exitCode)
+	// Run the application
+	return application.Run(context.Background(), stdout)
 }

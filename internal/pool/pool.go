@@ -8,9 +8,9 @@ import (
 	"sync"
 )
 
-// MaxPooledBitLen est la taille maximale (en bits) d'un big.Int
-// accepté dans le pool. Au-delà, on laisse le GC le ramasser.
-// ~512 Ko de données.
+// MaxPooledBitLen is the maximum size (in bits) of a big.Int
+// accepted into the pool. Larger objects are left for GC collection.
+// Approximately 512 KB of data.
 const MaxPooledBitLen = 4_000_000
 
 // bigIntPool is a sync.Pool for *big.Int objects.
@@ -29,15 +29,15 @@ func AcquireBigInt() *big.Int {
 }
 
 // ReleaseBigInt returns a *big.Int to the pool.
-// Les objets dépassant MaxPooledBitLen sont ignorés pour éviter
-// de bloquer la mémoire avec des slices géants inutilisés.
+// Objects exceeding MaxPooledBitLen are ignored to avoid
+// holding memory with oversized unused slices.
 func ReleaseBigInt(z *big.Int) {
 	if z == nil {
 		return
 	}
-	// Éviter de garder des objets trop gros en mémoire
+	// Avoid keeping oversized objects in memory
 	if z.BitLen() > MaxPooledBitLen {
-		return // Laisse le GC le ramasser
+		return // Let GC collect it
 	}
 	bigIntPool.Put(z)
 }
