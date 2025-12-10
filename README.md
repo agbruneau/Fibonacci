@@ -83,6 +83,7 @@ The **Fast Doubling** algorithm significantly outperforms the standard matrix ap
 | 1,000,000   | **85ms**      | 110ms       | 1.3x     |
 | 10,000,000  | **2.1s**      | 2.8s        | 1.35x    |
 | 100,000,000 | **45s**       | 62s         | **1.4x** |
+| 250,000,000 | **3m12s**     | 4m25s       | **1.4x** |
 
 > **Note:** A naive iterative implementation (O(n)) would take **years** to calculate F(100,000,000). Our logarithmic algorithms (O(log n)) do it in under a minute.
 
