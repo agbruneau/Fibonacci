@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	"github.com/agbru/fibcalc/internal/parallel"
-	"github.com/agbru/fibcalc/internal/pool"
 )
 
 // MatrixExponentiation offers a classic and efficient approach to calculating
@@ -493,7 +492,12 @@ type matrix struct{ a, b, c, d *big.Int }
 //   - *matrix: A pointer to the newly created matrix.
 func newMatrix() *matrix {
 	// We return a matrix struct with nil pointers, as they will be populated from the pool
-	return &matrix{}
+	return &matrix{
+		a: new(big.Int),
+		b: new(big.Int),
+		c: new(big.Int),
+		d: new(big.Int),
+	}
 }
 
 // Set copies the values from another matrix into the receiver matrix.
@@ -564,15 +568,34 @@ func (s *matrixState) Reset() {
 // particularly beneficial in a high-performance, concurrent context.
 var matrixStatePool = sync.Pool{
 	New: func() any {
-		// We only allocate the structure pointers here.
-		// The actual big.Ints are acquired from the global pool in acquireMatrixState.
-		s := &matrixState{
+		// Fully initialize the state with all big.Ints
+		return &matrixState{
 			res:        newMatrix(),
 			p:          newMatrix(),
 			tempMatrix: newMatrix(),
-			// Temporaries will be populated from the pool
+			p1:         new(big.Int),
+			p2:         new(big.Int),
+			p3:         new(big.Int),
+			p4:         new(big.Int),
+			p5:         new(big.Int),
+			p6:         new(big.Int),
+			p7:         new(big.Int),
+			s1:         new(big.Int),
+			s2:         new(big.Int),
+			s3:         new(big.Int),
+			s4:         new(big.Int),
+			s5:         new(big.Int),
+			s6:         new(big.Int),
+			s7:         new(big.Int),
+			s8:         new(big.Int),
+			s9:         new(big.Int),
+			s10:        new(big.Int),
+			t1:         new(big.Int),
+			t2:         new(big.Int),
+			t3:         new(big.Int),
+			t4:         new(big.Int),
+			t5:         new(big.Int),
 		}
-		return s
 	},
 }
 
@@ -582,22 +605,6 @@ var matrixStatePool = sync.Pool{
 //   - *matrixState: A fresh or reused matrixState.
 func acquireMatrixState() *matrixState {
 	s := matrixStatePool.Get().(*matrixState)
-
-	// Acquire big.Ints from the global pool
-	s.p1, s.p2, s.p3, s.p4 = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-	s.p5, s.p6, s.p7 = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-
-	s.s1, s.s2, s.s3, s.s4 = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-	s.s5, s.s6, s.s7, s.s8 = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-	s.s9, s.s10 = pool.AcquireBigInt(), pool.AcquireBigInt()
-
-	s.t1, s.t2, s.t3, s.t4, s.t5 = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-
-	// Initialize matrices with pooled big.Ints
-	s.res.a, s.res.b, s.res.c, s.res.d = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-	s.p.a, s.p.b, s.p.c, s.p.d = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-	s.tempMatrix.a, s.tempMatrix.b, s.tempMatrix.c, s.tempMatrix.d = pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt(), pool.AcquireBigInt()
-
 	s.Reset()
 	return s
 }
@@ -607,56 +614,24 @@ func acquireMatrixState() *matrixState {
 // Parameters:
 //   - s: The matrixState to return to the pool.
 func releaseMatrixState(s *matrixState) {
-	// Release big.Ints back to the global pool
-	pool.ReleaseBigInt(s.p1)
-	pool.ReleaseBigInt(s.p2)
-	pool.ReleaseBigInt(s.p3)
-	pool.ReleaseBigInt(s.p4)
-	pool.ReleaseBigInt(s.p5)
-	pool.ReleaseBigInt(s.p6)
-	pool.ReleaseBigInt(s.p7)
-
-	pool.ReleaseBigInt(s.s1)
-	pool.ReleaseBigInt(s.s2)
-	pool.ReleaseBigInt(s.s3)
-	pool.ReleaseBigInt(s.s4)
-	pool.ReleaseBigInt(s.s5)
-	pool.ReleaseBigInt(s.s6)
-	pool.ReleaseBigInt(s.s7)
-	pool.ReleaseBigInt(s.s8)
-	pool.ReleaseBigInt(s.s9)
-	pool.ReleaseBigInt(s.s10)
-
-	pool.ReleaseBigInt(s.t1)
-	pool.ReleaseBigInt(s.t2)
-	pool.ReleaseBigInt(s.t3)
-	pool.ReleaseBigInt(s.t4)
-	pool.ReleaseBigInt(s.t5)
-
-	pool.ReleaseBigInt(s.res.a)
-	pool.ReleaseBigInt(s.res.b)
-	pool.ReleaseBigInt(s.res.c)
-	pool.ReleaseBigInt(s.res.d)
-	pool.ReleaseBigInt(s.p.a)
-	pool.ReleaseBigInt(s.p.b)
-	pool.ReleaseBigInt(s.p.c)
-	pool.ReleaseBigInt(s.p.d)
-	pool.ReleaseBigInt(s.tempMatrix.a)
-	pool.ReleaseBigInt(s.tempMatrix.b)
-	pool.ReleaseBigInt(s.tempMatrix.c)
-	pool.ReleaseBigInt(s.tempMatrix.d)
-
-	// Clear pointers to avoid holding references (optional but good for safety)
-	s.p1, s.p2, s.p3, s.p4 = nil, nil, nil, nil
-	s.p5, s.p6, s.p7 = nil, nil, nil
-	s.s1, s.s2, s.s3, s.s4 = nil, nil, nil, nil
-	s.s5, s.s6, s.s7, s.s8 = nil, nil, nil, nil
-	s.s9, s.s10 = nil, nil
-	s.t1, s.t2, s.t3, s.t4, s.t5 = nil, nil, nil, nil, nil
-
-	s.res.a, s.res.b, s.res.c, s.res.d = nil, nil, nil, nil
-	s.p.a, s.p.b, s.p.c, s.p.d = nil, nil, nil, nil
-	s.tempMatrix.a, s.tempMatrix.b, s.tempMatrix.c, s.tempMatrix.d = nil, nil, nil, nil
+	// Check if any of the big.Ints exceed the pool limit.
+	// This includes matrix elements and temporaries.
+	if checkLimit(s.p1) || checkLimit(s.p2) || checkLimit(s.p3) ||
+		checkLimit(s.p4) || checkLimit(s.p5) || checkLimit(s.p6) ||
+		checkLimit(s.p7) ||
+		checkLimit(s.s1) || checkLimit(s.s2) || checkLimit(s.s3) ||
+		checkLimit(s.s4) || checkLimit(s.s5) || checkLimit(s.s6) ||
+		checkLimit(s.s7) || checkLimit(s.s8) || checkLimit(s.s9) ||
+		checkLimit(s.s10) ||
+		checkLimit(s.t1) || checkLimit(s.t2) || checkLimit(s.t3) ||
+		checkLimit(s.t4) || checkLimit(s.t5) ||
+		checkMatrixLimit(s.res) || checkMatrixLimit(s.p) || checkMatrixLimit(s.tempMatrix) {
+		return
+	}
 
 	matrixStatePool.Put(s)
+}
+
+func checkMatrixLimit(m *matrix) bool {
+	return checkLimit(m.a) || checkLimit(m.b) || checkLimit(m.c) || checkLimit(m.d)
 }

@@ -171,12 +171,18 @@ type CalculationState struct {
 func (s *CalculationState) Reset() {
 	s.F_k.SetInt64(0)
 	s.F_k1.SetInt64(1)
+	// T1..T4 are temporaries used as scratch space, so we don't need to clear them.
 }
 
 var statePool = sync.Pool{
 	New: func() any {
 		return &CalculationState{
-			// Fields will be populated from the global pool in AcquireState
+			F_k:  new(big.Int),
+			F_k1: new(big.Int),
+			T1:   new(big.Int),
+			T2:   new(big.Int),
+			T3:   new(big.Int),
+			T4:   new(big.Int),
 		}
 	},
 }
@@ -187,14 +193,6 @@ var statePool = sync.Pool{
 //   - *CalculationState: A ready-to-use calculation state.
 func AcquireState() *CalculationState {
 	s := statePool.Get().(*CalculationState)
-
-	s.F_k = pool.AcquireBigInt()
-	s.F_k1 = pool.AcquireBigInt()
-	s.T1 = pool.AcquireBigInt()
-	s.T2 = pool.AcquireBigInt()
-	s.T3 = pool.AcquireBigInt()
-	s.T4 = pool.AcquireBigInt()
-
 	s.Reset()
 	return s
 }
@@ -204,17 +202,20 @@ func AcquireState() *CalculationState {
 // Parameters:
 //   - s: The calculation state to return to the pool.
 func ReleaseState(s *CalculationState) {
-	pool.ReleaseBigInt(s.F_k)
-	pool.ReleaseBigInt(s.F_k1)
-	pool.ReleaseBigInt(s.T1)
-	pool.ReleaseBigInt(s.T2)
-	pool.ReleaseBigInt(s.T3)
-	pool.ReleaseBigInt(s.T4)
-
-	s.F_k, s.F_k1 = nil, nil
-	s.T1, s.T2, s.T3, s.T4 = nil, nil, nil, nil
+	// Avoid keeping oversized objects in memory.
+	// We check if any of the big.Ints exceed the pool limit.
+	// If so, we discard the entire state to let GC reclaim the large memory.
+	if checkLimit(s.F_k) || checkLimit(s.F_k1) ||
+		checkLimit(s.T1) || checkLimit(s.T2) ||
+		checkLimit(s.T3) || checkLimit(s.T4) {
+		return
+	}
 
 	statePool.Put(s)
+}
+
+func checkLimit(z *big.Int) bool {
+	return z != nil && z.BitLen() > pool.MaxPooledBitLen
 }
 
 // acquireState is a convenience wrapper for backward compatibility.
