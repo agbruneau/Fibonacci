@@ -175,8 +175,15 @@ func (s *CalculationState) Reset() {
 
 var statePool = sync.Pool{
 	New: func() any {
+		// Initialize the state with big.Ints already allocated.
+		// This avoids repetitive interactions with the global big.Int pool.
 		return &CalculationState{
-			// Fields will be populated from the global pool in AcquireState
+			F_k:  new(big.Int),
+			F_k1: new(big.Int),
+			T1:   new(big.Int),
+			T2:   new(big.Int),
+			T3:   new(big.Int),
+			T4:   new(big.Int),
 		}
 	},
 }
@@ -187,14 +194,6 @@ var statePool = sync.Pool{
 //   - *CalculationState: A ready-to-use calculation state.
 func AcquireState() *CalculationState {
 	s := statePool.Get().(*CalculationState)
-
-	s.F_k = pool.AcquireBigInt()
-	s.F_k1 = pool.AcquireBigInt()
-	s.T1 = pool.AcquireBigInt()
-	s.T2 = pool.AcquireBigInt()
-	s.T3 = pool.AcquireBigInt()
-	s.T4 = pool.AcquireBigInt()
-
 	s.Reset()
 	return s
 }
@@ -204,15 +203,17 @@ func AcquireState() *CalculationState {
 // Parameters:
 //   - s: The calculation state to return to the pool.
 func ReleaseState(s *CalculationState) {
-	pool.ReleaseBigInt(s.F_k)
-	pool.ReleaseBigInt(s.F_k1)
-	pool.ReleaseBigInt(s.T1)
-	pool.ReleaseBigInt(s.T2)
-	pool.ReleaseBigInt(s.T3)
-	pool.ReleaseBigInt(s.T4)
-
-	s.F_k, s.F_k1 = nil, nil
-	s.T1, s.T2, s.T3, s.T4 = nil, nil, nil, nil
+	// If any of the internal big.Ints are too large, we discard the entire
+	// CalculationState to avoid memory bloat. This mimics the behavior of
+	// pool.ReleaseBigInt but at the struct level.
+	if s.F_k.BitLen() > pool.MaxPooledBitLen ||
+		s.F_k1.BitLen() > pool.MaxPooledBitLen ||
+		s.T1.BitLen() > pool.MaxPooledBitLen ||
+		s.T2.BitLen() > pool.MaxPooledBitLen ||
+		s.T3.BitLen() > pool.MaxPooledBitLen ||
+		s.T4.BitLen() > pool.MaxPooledBitLen {
+		return // Let GC collect it
+	}
 
 	statePool.Put(s)
 }
