@@ -186,9 +186,10 @@ func (ba *BumpAllocator) Reset() {
 // FFT operations on numbers of the given word length.
 //
 // This is a heuristic based on the FFT algorithm's memory access patterns:
-//   - Transform needs ~2 * K * (n+1) words for input/temp buffers
-//   - Inverse transform needs similar
-//   - Multiply/Sqr needs temp buffer of ~8n words
+//   - Transform input buffers: K * (n+1) words per transform
+//   - Mul/Sqr temp buffer: 8n words
+//   - InvTransform temp (u): (n+1) words
+//   - Fourier recursion temps: 2 * (n+1) words
 //
 // Parameters:
 //   - wordLen: Number of words in the numbers being multiplied.
@@ -217,14 +218,18 @@ func EstimateBumpCapacity(wordLen int) int {
 	// n is roughly wordLen / K
 	n := wordLen/K + 1
 
-	// Estimate total: 2 transforms worth of temp buffers + multiply buffer
-	// Transform temp: K * (n+1) words
-	// Multiply temp: 8 * n words
-	transformTemp := K * (n + 1)
-	multiplyTemp := 8 * n
+	// Estimate total memory needed for temporary buffers:
+	// - 2 transform input buffers: 2 * K * (n+1)
+	// - Mul/Sqr temp buffer: 8 * n
+	// - InvTransform temp (u): (n+1)
+	// - Fourier recursion temps: 2 * (n+1)
+	transformInputs := 2 * K * (n + 1)
+	mulTemp := 8 * n
+	invTransformTemp := n + 1
+	fourierTemps := 2 * (n + 1)
 
-	// Add 20% safety margin
-	total := (2*transformTemp + multiplyTemp) * 12 / 10
+	// Add 30% safety margin
+	total := (transformInputs + mulTemp + invTransformTemp + fourierTemps) * 13 / 10
 
 	return total
 }
