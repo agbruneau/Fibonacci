@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Go version](https://img.shields.io/badge/Go-1.24+-blue.svg?style=for-the-badge&logo=go)
+![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
 ![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen?style=for-the-badge)
@@ -79,6 +79,7 @@ The **Fast Doubling** algorithm significantly outperforms the standard matrix ap
 | N (Index)   | Fast Doubling | Matrix Exp. | Speedup  |
 | ----------- | ------------- | ----------- | -------- |
 | 1,000       | **15µs**      | 18µs        | 1.2x     |
+| 10,000      | **180µs**     | 220µs       | 1.2x     |
 | 100,000     | **3.2ms**     | 4.1ms       | 1.3x     |
 | 1,000,000   | **85ms**      | 110ms       | 1.3x     |
 | 10,000,000  | **2.1s**      | 2.8s        | 1.35x    |
@@ -738,4 +739,4 @@ This project is licensed under the Apache 2.0 licence. See the [LICENSE](LICENSE
 
 ---
 
-_Developed with ❤️ in Go - December 2024_
+_Developed with ❤️ in Go - 2025_
