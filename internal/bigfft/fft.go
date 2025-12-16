@@ -70,27 +70,6 @@ func Mul(x, y *big.Int) (*big.Int, error) {
 	return new(big.Int).Mul(x, y), nil
 }
 
-// MulFFTForced computes x*y using FFT regardless of operand size.
-// This is useful when the caller has already determined that FFT should be used.
-// Note: For small numbers, this may be slower than standard multiplication.
-func MulFFTForced(x, y *big.Int) (*big.Int, error) {
-	return mulFFT(x, y)
-}
-
-// MulFFTForcedTo computes x*y using FFT and stores in z, regardless of operand size.
-func MulFFTForcedTo(z, x, y *big.Int) (*big.Int, error) {
-	var xb, yb nat = x.Bits(), y.Bits()
-	zb, err := fftmulTo(z.Bits(), xb, yb)
-	if err != nil {
-		return nil, err
-	}
-	z.SetBits(zb)
-	if x.Sign()*y.Sign() < 0 {
-		z.Neg(z)
-	}
-	return z, nil
-}
-
 // MulTo computes the product x*y and stores the result in z.
 // This allows reusing the allocated memory of z, which is more
 // efficient than Mul when z is already allocated and large enough.
@@ -133,23 +112,6 @@ func Sqr(x *big.Int) (*big.Int, error) {
 		return sqrFFT(x)
 	}
 	return new(big.Int).Mul(x, x), nil
-}
-
-// SqrFFTForced computes x*x using FFT regardless of operand size.
-// This is useful when the caller has already determined that FFT should be used.
-func SqrFFTForced(x *big.Int) (*big.Int, error) {
-	return sqrFFT(x)
-}
-
-// SqrFFTForcedTo computes x*x using FFT and stores in z, regardless of operand size.
-func SqrFFTForcedTo(z, x *big.Int) (*big.Int, error) {
-	var xb nat = x.Bits()
-	zb, err := fftsqrTo(z.Bits(), xb)
-	if err != nil {
-		return nil, err
-	}
-	z.SetBits(zb)
-	return z, nil
 }
 
 // SqrTo computes x*x and stores the result in z.
@@ -521,11 +483,10 @@ func (p *poly) TransformWithBump(n int, ba *BumpAllocator) (polValues, error) {
 	K := 1 << k
 	wordCount := (n + 1) * K
 
-	// Use bump allocator for temporary input buffers (consumed during transform)
+	// Use bump allocator for temporary input buffers
 	input, _ := ba.AllocFermatSlice(K, n)
 
-	// Output buffers must use regular allocation because they're returned
-	// and need to survive until InvTransform consumes them
+	// Use regular allocation for output buffers (they are returned and cannot be pooled)
 	valbits := make([]big.Word, wordCount)
 	values := make([]fermat, K)
 
@@ -539,6 +500,7 @@ func (p *poly) TransformWithBump(n int, ba *BumpAllocator) (polValues, error) {
 		return polValues{}, err
 	}
 
+	// No need to release - bump allocator handles all temp memory
 	return polValues{k, n, values}, nil
 }
 
@@ -585,7 +547,7 @@ func (v *polValues) InvTransformWithBump(ba *BumpAllocator) (poly, error) {
 	wordCount := (n + 1) * K
 
 	// Perform an inverse Fourier transform to recover p.
-	// Output buffers use regular allocation since they're returned via a[i]
+	// Use regular allocation since pbits data is returned via a[i]
 	pbits := make([]big.Word, wordCount)
 	p := make([]fermat, K)
 	for i := 0; i < K; i++ {
@@ -596,7 +558,7 @@ func (v *polValues) InvTransformWithBump(ba *BumpAllocator) (poly, error) {
 	}
 
 	// Divide by K, and untwist q to recover p.
-	// Use bump allocator for temporary u (consumed immediately)
+	// Use bump allocator for temporary u
 	u := ba.AllocFermat(n)
 	// Use regular allocation for a since it's returned
 	a := make([]nat, K)
@@ -606,6 +568,7 @@ func (v *polValues) InvTransformWithBump(ba *BumpAllocator) (poly, error) {
 		a[i] = nat(p[i])
 	}
 
+	// No release needed - bump allocator handles cleanup
 	return poly{k: k, m: 0, a: a}, nil
 }
 
@@ -852,12 +815,12 @@ func (p *polValues) MulWithBump(q *polValues, ba *BumpAllocator) (polValues, err
 	var r polValues
 	r.k, r.n = p.k, p.n
 
-	// Output buffers use regular allocation since they're returned
+	// Use regular allocation for returned data
 	r.values = make([]fermat, K)
 	wordCount := K * (n + 1)
 	bits := make([]big.Word, wordCount)
 
-	// Use bump allocator for temporary multiplication result (consumed immediately)
+	// Use bump allocator for temporary multiplication result
 	buf := ba.AllocFermat(8*n - 1)
 
 	for i := 0; i < K; i++ {
@@ -866,6 +829,7 @@ func (p *polValues) MulWithBump(q *polValues, ba *BumpAllocator) (polValues, err
 		copy(r.values[i], z)
 	}
 
+	// No release needed - bump allocator handles cleanup
 	return r, nil
 }
 
@@ -906,12 +870,12 @@ func (p *polValues) SqrWithBump(ba *BumpAllocator) (polValues, error) {
 	var r polValues
 	r.k, r.n = p.k, p.n
 
-	// Output buffers use regular allocation since they're returned
+	// Use regular allocation for returned data
 	r.values = make([]fermat, K)
 	wordCount := K * (n + 1)
 	bits := make([]big.Word, wordCount)
 
-	// Use bump allocator for temporary multiplication result (consumed immediately)
+	// Use bump allocator for temporary multiplication result
 	buf := ba.AllocFermat(8*n - 1)
 
 	for i := 0; i < K; i++ {
@@ -921,5 +885,6 @@ func (p *polValues) SqrWithBump(ba *BumpAllocator) (polValues, error) {
 		copy(r.values[i], z)
 	}
 
+	// No release needed - bump allocator handles cleanup
 	return r, nil
 }

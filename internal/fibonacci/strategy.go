@@ -73,9 +73,9 @@ func (s *AdaptiveStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error)
 	return smartSquare(z, x, opts.FFTThreshold)
 }
 
-// FFTOnlyStrategy uses FFT-based multiplication with an aggressive threshold.
-// It prefers FFT for all operations above the internal bigfft threshold,
-// making it useful for benchmarking FFT performance on large numbers.
+// FFTOnlyStrategy forces FFT-based multiplication for all operations,
+// regardless of operand size. This is useful for benchmarking FFT performance
+// or for very large numbers where FFT is always optimal.
 type FFTOnlyStrategy struct{}
 
 // Name returns the name of the FFT-only strategy.
@@ -83,13 +83,8 @@ func (s *FFTOnlyStrategy) Name() string {
 	return "FFT-Only"
 }
 
-// Multiply performs FFT-based multiplication using bigfft.MulTo.
-// Uses the internal bigfft threshold to decide when FFT is beneficial.
+// Multiply performs FFT-based multiplication using mulFFT.
 func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
-	if z == nil {
-		z = new(big.Int)
-	}
-	// Use MulTo which reuses z's buffer and applies FFT when beneficial
 	res, err := mulFFT(x, y)
 	if err != nil {
 		return nil, err
@@ -97,12 +92,8 @@ func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, er
 	return setOrReturn(z, res), nil
 }
 
-// Square performs FFT-based squaring using bigfft.SqrTo.
-// Uses the internal bigfft threshold to decide when FFT is beneficial.
+// Square performs FFT-based squaring using sqrFFT.
 func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
-	if z == nil {
-		z = new(big.Int)
-	}
 	res, err := sqrFFT(x)
 	if err != nil {
 		return nil, err

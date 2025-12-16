@@ -51,22 +51,10 @@ func acquireWordSlice(size int) []big.Word {
 		return make([]big.Word, size)
 	}
 	slice := wordSlicePools[idx].Get().([]big.Word)
-	// Only clear the requested size, not the full capacity
-	result := slice[:size]
-	for i := range result {
-		result[i] = 0
+	// Clear the slice before returning
+	for i := range slice {
+		slice[i] = 0
 	}
-	return result
-}
-
-// acquireWordSliceUnsafe gets a word slice without zeroing.
-// Use only when the caller will completely overwrite all elements.
-func acquireWordSliceUnsafe(size int) []big.Word {
-	idx := getWordSlicePoolIndex(size)
-	if idx < 0 {
-		return make([]big.Word, size)
-	}
-	slice := wordSlicePools[idx].Get().([]big.Word)
 	return slice[:size]
 }
 
@@ -127,22 +115,10 @@ func acquireFermat(size int) fermat {
 		return make(fermat, size)
 	}
 	f := fermatPools[idx].Get().(fermat)
-	// Only clear the requested size, not the full capacity
-	result := f[:size]
-	for i := range result {
-		result[i] = 0
+	// Clear and resize
+	for i := range f {
+		f[i] = 0
 	}
-	return result
-}
-
-// acquireFermatUnsafe gets a fermat slice without zeroing.
-// Use only when the caller will completely overwrite all elements.
-func acquireFermatUnsafe(size int) fermat {
-	idx := getFermatPoolIndex(size)
-	if idx < 0 {
-		return make(fermat, size)
-	}
-	f := fermatPools[idx].Get().(fermat)
 	return f[:size]
 }
 
@@ -194,12 +170,11 @@ func acquireNatSlice(size int) []nat {
 		return make([]nat, size)
 	}
 	slice := natSlicePools[idx].Get().([]nat)
-	// Only clear the requested size, not the full capacity
-	result := slice[:size]
-	for i := range result {
-		result[i] = nil
+	// Clear the slice
+	for i := range slice {
+		slice[i] = nil
 	}
-	return result
+	return slice[:size]
 }
 
 // releaseNatSlice returns a []nat slice to the pool.
@@ -250,12 +225,11 @@ func acquireFermatSlice(size int) []fermat {
 		return make([]fermat, size)
 	}
 	slice := fermatSlicePools[idx].Get().([]fermat)
-	// Only clear the requested size, not the full capacity
-	result := slice[:size]
-	for i := range result {
-		result[i] = nil
+	// Clear the slice
+	for i := range slice {
+		slice[i] = nil
 	}
-	return result
+	return slice[:size]
 }
 
 // releaseFermatSlice returns a []fermat slice to the pool.
