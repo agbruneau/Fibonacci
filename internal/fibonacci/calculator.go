@@ -134,6 +134,9 @@ type Options struct {
 	// StrassenThreshold is the bit size threshold for switching to Strassen's algorithm.
 	// If 0, a default value may be used by the implementation.
 	StrassenThreshold int
+	// Cache is an optional LRU cache for storing computed Fibonacci values.
+	// If nil, caching is disabled. Use GetGlobalCache() for a shared cache.
+	Cache *FibonacciCache
 }
 
 // Calculator defines the public interface for a Fibonacci calculator.
@@ -244,12 +247,24 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		return lookupSmall(n), nil
 	}
 
+	// Check cache before computing
+	if opts.Cache != nil {
+		if cached := opts.Cache.Get(n); cached != nil {
+			reporter(1.0)
+			return cached, nil
+		}
+	}
+
 	// Pre-warm pools for large calculations
 	bigfft.PreWarmPools(n)
 
 	result, err := c.core.CalculateCore(ctx, reporter, n, opts)
 	if err == nil && result != nil {
 		reporter(1.0)
+		// Store in cache for future lookups
+		if opts.Cache != nil {
+			opts.Cache.Put(n, result)
+		}
 	}
 	return result, err
 }
