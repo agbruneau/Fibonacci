@@ -50,8 +50,8 @@ func TestAutoCalibrate(t *testing.T) {
 	}
 
 	cfg := config.AppConfig{
-		Timeout: 1 * time.Second, // Short timeout for test
-		CalibrationProfile: "", // Don't use file
+		Timeout:            1 * time.Second, // Short timeout for test
+		CalibrationProfile: "",              // Don't use file
 	}
 
 	// We need to avoid loading real profiles during test, or ensure tmp path
@@ -110,5 +110,49 @@ func TestLoadCachedCalibration(t *testing.T) {
 	_, success := LoadCachedCalibration(cfg, "nonexistent.json")
 	if success {
 		t.Error("Should return false for nonexistent profile")
+	}
+}
+
+func TestCalibrationRunner(t *testing.T) {
+	ctx := context.Background()
+	runner := newCalibrationRunner(ctx, 1*time.Second)
+	calc := &MockCalculator{name: "fast"}
+
+	// Test findBestParallelThreshold
+	bestPar, parDur := runner.findBestParallelThreshold(calc, 4096)
+	if bestPar == 0 {
+		t.Error("findBestParallelThreshold should return a non-zero threshold")
+	}
+	if parDur == 0 {
+		t.Error("findBestParallelThreshold should return a non-zero duration")
+	}
+
+	// Test findBestFFTThreshold
+	bestFFT, fftDur := runner.findBestFFTThreshold(calc, bestPar, 1000000)
+	if bestFFT == 0 {
+		t.Error("findBestFFTThreshold should return a non-zero threshold")
+	}
+	if fftDur == 0 {
+		t.Error("findBestFFTThreshold should return a non-zero duration")
+	}
+
+	// Test findBestStrassenThreshold
+	bestStr, strDur := runner.findBestStrassenThreshold(calc, bestPar, 256)
+	if bestStr == 0 {
+		t.Error("findBestStrassenThreshold should return a non-zero threshold")
+	}
+	if strDur == 0 {
+		t.Error("findBestStrassenThreshold should return a non-zero duration")
+	}
+}
+
+func TestApplyCalibrationResults(t *testing.T) {
+	cfg := config.AppConfig{}
+	updated, ok := applyCalibrationResults(cfg, 4096, 10*time.Millisecond, 1000000, 10*time.Millisecond, 256, 10*time.Millisecond)
+	if !ok {
+		t.Error("applyCalibrationResults should return true")
+	}
+	if updated.Threshold != 4096 {
+		t.Errorf("Threshold = %d, want 4096", updated.Threshold)
 	}
 }

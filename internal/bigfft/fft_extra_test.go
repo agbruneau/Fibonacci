@@ -193,3 +193,148 @@ func TestStringMethods(t *testing.T) {
 		t.Error("fermat.String() returned empty string")
 	}
 }
+
+func TestSqrWithBumpDirect(t *testing.T) {
+	k := uint(4)
+	m := 1
+	n := valueSize(k, m, 2)
+	ba := AcquireBumpAllocator(1000)
+	defer ReleaseBumpAllocator(ba)
+
+	p := poly{k: k, m: m}
+	p.a = make([]nat, 1<<k)
+	for i := range p.a {
+		p.a[i] = nat{big.Word(i + 1)}
+	}
+
+	pv, _ := p.Transform(n)
+
+	// Test SqrWithBump
+	sqrPV, err := pv.SqrWithBump(ba)
+	if err != nil {
+		t.Fatalf("SqrWithBump failed: %v", err)
+	}
+	if len(sqrPV.values) != 1<<k {
+		t.Errorf("Expected %d values, got %d", 1<<k, len(sqrPV.values))
+	}
+}
+
+func TestTransformWithBump(t *testing.T) {
+	k := uint(4)
+	m := 1
+	n := valueSize(k, m, 2)
+	ba := AcquireBumpAllocator(1000)
+	defer ReleaseBumpAllocator(ba)
+
+	p := poly{k: k, m: m}
+	p.a = make([]nat, 1<<k)
+	for i := range p.a {
+		p.a[i] = nat{big.Word(i + 1)}
+	}
+
+	pv, err := p.TransformWithBump(n, ba)
+	if err != nil {
+		t.Fatalf("TransformWithBump failed: %v", err)
+	}
+
+	pRes, err := pv.InvTransformWithBump(ba)
+	if err != nil {
+		t.Fatalf("InvTransformWithBump failed: %v", err)
+	}
+	if pRes.k != k {
+		t.Errorf("Expected k=%d, got %d", k, pRes.k)
+	}
+}
+
+func TestFFTUtilities(t *testing.T) {
+	// Test fftSize
+	x := make(nat, 100)
+	y := make(nat, 200)
+	k, m := fftSize(x, y)
+	if k == 0 || m == 0 {
+		t.Errorf("fftSize returned invalid values: k=%d, m=%d", k, m)
+	}
+
+	// Test valueSize
+	vSize := valueSize(10, 100, 2)
+	if vSize <= 0 {
+		t.Errorf("valueSize returned invalid value: %d", vSize)
+	}
+
+	// Test trim
+	n1 := nat{1, 2, 0, 0}
+	trimmed := trim(n1)
+	if len(trimmed) != 2 {
+		t.Errorf("trim failed: expected length 2, got %d", len(trimmed))
+	}
+	if trim(nat{0, 0}) != nil {
+		t.Error("trim of all zeros should return nil")
+	}
+
+	// Test polyFromNat
+	n2 := make(nat, 25)
+	for i := range n2 {
+		n2[i] = big.Word(i)
+	}
+	p := polyFromNat(n2, 5, 10)
+	if len(p.a) != 3 { // ceil(25/10) = 3
+		t.Errorf("polyFromNat failed: expected 3 coefficients, got %d", len(p.a))
+	}
+
+	// Test Int() and IntTo()
+	n3 := p.Int()
+	if len(n3) == 0 {
+		t.Error("Int() returned empty result")
+	}
+
+	n4 := make(nat, 100)
+	n5 := p.IntTo(n4)
+	if len(n5) == 0 {
+		t.Error("IntTo() returned empty result")
+	}
+}
+
+func TestFFTParallel(t *testing.T) {
+	// Use large k to trigger parallel path (depth < MaxParallelFFTDepth)
+	k := uint(4) // Use a smaller k for faster test but still trigger logic if ParallelFFTRecursionThreshold is small
+	numPoints := 1 << k
+	n := 10 // word size
+	src := make([]fermat, numPoints)
+	dst := make([]fermat, numPoints)
+	for i := range src {
+		src[i] = make(fermat, n+1)
+		src[i][0] = big.Word(i)
+		dst[i] = make(fermat, n+1)
+	}
+
+	// This should use multiple goroutines if thresholds are met
+	err := fourier(dst, src, false, n, k)
+	if err != nil {
+		t.Fatalf("fourier failed: %v", err)
+	}
+}
+
+func TestMulCached(t *testing.T) {
+	k := uint(4)
+	m := 1
+	p := poly{k: k, m: m, a: []nat{{1}, {2}, {3}}}
+	q := poly{k: k, m: m, a: []nat{{4}, {5}, {6}}}
+
+	// Test MulCached
+	res, err := p.MulCached(&q)
+	if err != nil {
+		t.Fatalf("MulCached failed: %v", err)
+	}
+	if len(res.a) == 0 {
+		t.Error("MulCached result has no coefficients")
+	}
+
+	// Test SqrCached
+	resSqr, err := p.SqrCached()
+	if err != nil {
+		t.Fatalf("SqrCached failed: %v", err)
+	}
+	if len(resSqr.a) == 0 {
+		t.Error("SqrCached result has no coefficients")
+	}
+}

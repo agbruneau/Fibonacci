@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -443,6 +444,107 @@ func TestParseCalculateParams(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestWithLogger verifies the WithLogger option.
+func TestWithLogger(t *testing.T) {
+	registry := map[string]fibonacci.Calculator{}
+	cfg := config.AppConfig{Port: "8080"}
+
+	// Test with nil logger (should not change default)
+	server := NewServer(fibonacci.NewTestFactory(registry), cfg, WithLogger(nil))
+	if server.logger == nil {
+		t.Error("expected default logger to be set")
+	}
+
+	// Test with custom logger
+	customLogger := log.New(io.Discard, "[CUSTOM] ", 0)
+	server = NewServer(fibonacci.NewTestFactory(registry), cfg, WithLogger(customLogger))
+	if server.logger != customLogger {
+		t.Error("expected custom logger to be set")
+	}
+}
+
+// TestWithService verifies the WithService option.
+func TestWithService(t *testing.T) {
+	registry := map[string]fibonacci.Calculator{}
+	cfg := config.AppConfig{Port: "8080"}
+
+	// Test with nil service (should use default)
+	server := NewServer(fibonacci.NewTestFactory(registry), cfg, WithService(nil))
+	if server.service == nil {
+		t.Error("expected default service to be initialized")
+	}
+
+	// Test with custom service
+	customService := &mockService{result: big.NewInt(123)}
+	server = NewServer(fibonacci.NewTestFactory(registry), cfg, WithService(customService))
+	if server.service != customService {
+		t.Error("expected custom service to be set")
+	}
+}
+
+// TestWithTimeouts verifies the WithTimeouts option.
+func TestWithTimeouts(t *testing.T) {
+	registry := map[string]fibonacci.Calculator{}
+	cfg := config.AppConfig{Port: "8080"}
+
+	customTimeouts := ServerTimeouts{
+		RequestTimeout:  10 * time.Minute,
+		ShutdownTimeout: 60 * time.Second,
+		ReadTimeout:     5 * time.Second,
+		WriteTimeout:    15 * time.Minute,
+		IdleTimeout:     5 * time.Minute,
+	}
+
+	server := NewServer(fibonacci.NewTestFactory(registry), cfg, WithTimeouts(customTimeouts))
+	if server.timeouts.RequestTimeout != customTimeouts.RequestTimeout {
+		t.Errorf("expected RequestTimeout=%v, got %v", customTimeouts.RequestTimeout, server.timeouts.RequestTimeout)
+	}
+	if server.timeouts.ShutdownTimeout != customTimeouts.ShutdownTimeout {
+		t.Errorf("expected ShutdownTimeout=%v, got %v", customTimeouts.ShutdownTimeout, server.timeouts.ShutdownTimeout)
+	}
+	if server.httpServer.ReadTimeout != customTimeouts.ReadTimeout {
+		t.Errorf("expected ReadTimeout=%v, got %v", customTimeouts.ReadTimeout, server.httpServer.ReadTimeout)
+	}
+}
+
+// TestWithMaxN verifies the WithMaxN option.
+func TestWithMaxN(t *testing.T) {
+	registry := map[string]fibonacci.Calculator{
+		"fast": &MockCalculator{Result: big.NewInt(55)},
+	}
+	cfg := config.AppConfig{Port: "8080"}
+
+	server := NewServer(fibonacci.NewTestFactory(registry), cfg, WithMaxN(1000))
+	if server.securityConfig.MaxNValue != 1000 {
+		t.Errorf("expected MaxN=1000, got %d", server.securityConfig.MaxNValue)
+	}
+}
+
+// TestCalculateParseErrorMessage verifies the CalculateParseError.Error() method.
+func TestCalculateParseErrorMessage(t *testing.T) {
+	err := CalculateParseError{
+		Message:    "test error message",
+		StatusCode: http.StatusBadRequest,
+	}
+
+	if err.Error() != "test error message" {
+		t.Errorf("expected 'test error message', got '%s'", err.Error())
+	}
+}
+
+// mockService implements service.Service for testing.
+type mockService struct {
+	result *big.Int
+	err    error
+}
+
+func (m *mockService) Calculate(ctx context.Context, algoName string, n uint64) (*big.Int, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.result, nil
 }
 
 // TestBuildCalculateResponse verifies the response building helper function.

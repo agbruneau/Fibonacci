@@ -406,3 +406,179 @@ func TestIntegrationWithBigInt(t *testing.T) {
 	})
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Implementation Selection Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestUseAVX2(t *testing.T) {
+	// Save original state
+	originalLevel := implLevel
+	defer func() {
+		// Restore original implementation
+		selectImplementation()
+	}()
+
+	result := UseAVX2()
+	if HasAVX2() {
+		if !result {
+			t.Error("UseAVX2() returned false but AVX2 is available")
+		}
+		if implLevel != SIMDAVX2 {
+			t.Errorf("expected implLevel SIMDAVX2, got %s", implLevel.String())
+		}
+	} else {
+		if result {
+			t.Error("UseAVX2() returned true but AVX2 is not available")
+		}
+	}
+	_ = originalLevel // Use variable
+}
+
+func TestUseDefault(t *testing.T) {
+	// Save original state
+	defer func() {
+		// Restore original implementation
+		selectImplementation()
+	}()
+
+	// First enable AVX2 if available
+	UseAVX2()
+
+	// Then switch to default
+	UseDefault()
+
+	if implLevel != SIMDNone {
+		t.Errorf("expected implLevel SIMDNone after UseDefault, got %s", implLevel.String())
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto Selection Function Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestAddVVAuto(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"Empty", 0},
+		{"BelowThreshold", MinSIMDVectorLen - 1},
+		{"AtThreshold", MinSIMDVectorLen},
+		{"AboveThreshold", MinSIMDVectorLen * 2},
+		{"Large", 64},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.size == 0 {
+				c := AddVVAuto(nil, nil, nil)
+				if c != 0 {
+					t.Errorf("Empty AddVVAuto returned %d, expected 0", c)
+				}
+				return
+			}
+
+			x := generateRandomWords(tc.size, 42)
+			y := generateRandomWords(tc.size, 43)
+			z := make([]Word, tc.size)
+			zRef := make([]Word, tc.size)
+
+			// Reference result
+			cRef := addVV(zRef, x, y)
+
+			// Auto result
+			c := AddVVAuto(z, x, y)
+
+			if c != cRef {
+				t.Errorf("Carry mismatch: auto=%d, ref=%d", c, cRef)
+			}
+			for i := range z {
+				if z[i] != zRef[i] {
+					t.Errorf("Result mismatch at index %d: auto=%x, ref=%x", i, z[i], zRef[i])
+				}
+			}
+		})
+	}
+}
+
+func TestSubVVAuto(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"Empty", 0},
+		{"BelowThreshold", MinSIMDVectorLen - 1},
+		{"AtThreshold", MinSIMDVectorLen},
+		{"AboveThreshold", MinSIMDVectorLen * 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.size == 0 {
+				c := SubVVAuto(nil, nil, nil)
+				if c != 0 {
+					t.Errorf("Empty SubVVAuto returned %d, expected 0", c)
+				}
+				return
+			}
+
+			x := generateRandomWords(tc.size, 42)
+			y := generateRandomWords(tc.size, 43)
+			z := make([]Word, tc.size)
+			zRef := make([]Word, tc.size)
+
+			cRef := subVV(zRef, x, y)
+			c := SubVVAuto(z, x, y)
+
+			if c != cRef {
+				t.Errorf("Borrow mismatch: auto=%d, ref=%d", c, cRef)
+			}
+			for i := range z {
+				if z[i] != zRef[i] {
+					t.Errorf("Result mismatch at index %d: auto=%x, ref=%x", i, z[i], zRef[i])
+				}
+			}
+		})
+	}
+}
+
+func TestAddMulVVWAuto(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"Empty", 0},
+		{"BelowThreshold", MinSIMDVectorLen - 1},
+		{"AtThreshold", MinSIMDVectorLen},
+		{"AboveThreshold", MinSIMDVectorLen * 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.size == 0 {
+				c := AddMulVVWAuto(nil, nil, 0)
+				if c != 0 {
+					t.Errorf("Empty AddMulVVWAuto returned %d, expected 0", c)
+				}
+				return
+			}
+
+			x := generateRandomWords(tc.size, 42)
+			y := Word(0x123456789ABCDEF0)
+			z := generateRandomWords(tc.size, 45)
+			zRef := copyWords(z)
+
+			cRef := addMulVVW(zRef, x, y)
+			c := AddMulVVWAuto(z, x, y)
+
+			if c != cRef {
+				t.Errorf("Carry mismatch: auto=%d, ref=%d", c, cRef)
+			}
+			for i := range z {
+				if z[i] != zRef[i] {
+					t.Errorf("Result mismatch at index %d: auto=%x, ref=%x", i, z[i], zRef[i])
+				}
+			}
+		})
+	}
+}

@@ -3,13 +3,18 @@ package app
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/agbru/fibcalc/internal/cli"
 	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/orchestration"
 	"github.com/agbru/fibcalc/internal/testutil"
 )
 
@@ -456,4 +461,110 @@ func TestApplyAdaptiveThresholds(t *testing.T) {
 			t.Errorf("StrassenThreshold changed, want %d, got %d", 9012, newCfg.StrassenThreshold)
 		}
 	})
+}
+
+func TestAnalyzeResultsWithOutputFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := strings.ReplaceAll(tmpDir+"/result.txt", "\\", "/")
+
+	app := &Application{
+		Config: config.AppConfig{
+			N:          10,
+			OutputFile: outputPath,
+		},
+		Factory:   fibonacci.GlobalFactory(),
+		ErrWriter: &bytes.Buffer{},
+	}
+
+	results := []orchestration.CalculationResult{
+		{
+			Name:     "fast",
+			Result:   big.NewInt(55),
+			Duration: 1 * time.Millisecond,
+			Err:      nil,
+		},
+	}
+
+	var outBuf bytes.Buffer
+	outputCfg := cli.OutputConfig{
+		OutputFile: outputPath,
+	}
+
+	exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+	if exitCode != apperrors.ExitSuccess {
+		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
+	}
+
+	// Verify file exists
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		t.Errorf("Output file %s was not created", outputPath)
+	}
+}
+
+func TestAnalyzeResultsWithOutputVariety(t *testing.T) {
+	app := &Application{
+		Config:    config.AppConfig{N: 10},
+		ErrWriter: &bytes.Buffer{},
+	}
+
+	results := []orchestration.CalculationResult{
+		{
+			Name:     "fast",
+			Result:   big.NewInt(55),
+			Duration: 1 * time.Millisecond,
+		},
+	}
+
+	t.Run("Quiet Mode", func(t *testing.T) {
+		var outBuf bytes.Buffer
+		outputCfg := cli.OutputConfig{Quiet: true}
+		exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+		if exitCode != apperrors.ExitSuccess {
+			t.Errorf("Expected success, got %d", exitCode)
+		}
+		if !strings.Contains(outBuf.String(), "55") {
+			t.Errorf("Expected output 55, got %s", outBuf.String())
+		}
+	})
+
+	t.Run("Hex Output", func(t *testing.T) {
+		var outBuf bytes.Buffer
+		outputCfg := cli.OutputConfig{HexOutput: true}
+		exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+		if exitCode != apperrors.ExitSuccess {
+			t.Errorf("Expected success, got %d", exitCode)
+		}
+		if !strings.Contains(outBuf.String(), "0x37") { // 55 in hex is 37
+			t.Errorf("Expected hex 0x37, got %s", outBuf.String())
+		}
+	})
+
+	t.Run("No Success Results", func(t *testing.T) {
+		var outBuf bytes.Buffer
+		resultsErr := []orchestration.CalculationResult{
+			{Name: "err", Err: fmt.Errorf("some error")},
+		}
+		outputCfg := cli.OutputConfig{}
+		exitCode := app.analyzeResultsWithOutput(resultsErr, outputCfg, &outBuf)
+		if exitCode == apperrors.ExitSuccess {
+			t.Error("Expected error exit code")
+		}
+	})
+}
+
+func TestPrintJSONResultsError(t *testing.T) {
+	results := []orchestration.CalculationResult{
+		{
+			Name: "fail",
+			Err:  fmt.Errorf("intentional failure"),
+		},
+	}
+	var outBuf bytes.Buffer
+	exitCode := printJSONResults(results, &outBuf)
+	if exitCode != apperrors.ExitSuccess {
+		t.Errorf("Expected success, got %d", exitCode)
+	}
+	if !strings.Contains(outBuf.String(), "intentional failure") {
+		t.Errorf("Expected error in JSON, got %s", outBuf.String())
+	}
 }
