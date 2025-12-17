@@ -9,6 +9,10 @@ BUILD_DIR=./build
 CMD_DIR=./cmd/fibcalc
 GO=go
 
+# PGO Profile paths
+PGO_PROFILE=$(CMD_DIR)/default.pgo
+PGO_RAW_PROFILE=$(BUILD_DIR)/cpu.prof
+
 # Version information (can be overridden via environment variables)
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -21,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X main.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build clean test coverage benchmark run help install lint format check
+.PHONY: all build clean test coverage benchmark run help install lint format check pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
 
 # Default target
 all: clean build test
@@ -33,12 +37,66 @@ build:
 	$(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
+## pgo-profile: Generate CPU profile from benchmarks for PGO
+pgo-profile:
+	@echo "Generating CPU profile for PGO..."
+	@mkdir -p $(BUILD_DIR)
+	$(GO) test -cpuprofile=$(PGO_RAW_PROFILE) -bench=BenchmarkFastDoubling -benchtime=5s -count=3 ./internal/fibonacci/
+	@if [ -f $(PGO_RAW_PROFILE) ]; then \
+		mv $(PGO_RAW_PROFILE) $(PGO_PROFILE); \
+		echo "Profile generated: $(PGO_PROFILE)"; \
+	else \
+		echo "Error: Profile generation failed"; \
+		exit 1; \
+	fi
+
+## pgo-check: Verify PGO profile exists and is valid
+pgo-check:
+	@if [ ! -f $(PGO_PROFILE) ]; then \
+		echo "Error: PGO profile not found at $(PGO_PROFILE)"; \
+		echo "Run 'make pgo-profile' to generate it"; \
+		exit 1; \
+	fi
+	@echo "PGO profile found: $(PGO_PROFILE)"
+
 ## build-pgo: Build with Profile-Guided Optimization (PGO)
-build-pgo:
+build-pgo: pgo-check
 	@echo "Building $(BINARY_NAME) with PGO..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(GOFLAGS) -pgo=./cmd/fibcalc/default.pgo -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
+	$(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
 	@echo "PGO Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+
+## build-pgo-linux: Build for Linux with PGO
+build-pgo-linux: pgo-check
+	@echo "Building for Linux with PGO..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_UNIX) $(CMD_DIR)
+
+## build-pgo-windows: Build for Windows with PGO
+build-pgo-windows: pgo-check
+	@echo "Building for Windows with PGO..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_WIN) $(CMD_DIR)
+
+## build-pgo-darwin: Build for macOS with PGO
+build-pgo-darwin: pgo-check
+	@echo "Building for macOS with PGO..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_amd64 $(CMD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_arm64 $(CMD_DIR)
+
+## build-pgo-all: Build for all platforms with PGO
+build-pgo-all: build-pgo-linux build-pgo-windows build-pgo-darwin
+
+## pgo-rebuild: Regenerate profile and build with PGO (full workflow)
+pgo-rebuild: pgo-profile build-pgo
+	@echo "PGO rebuild complete!"
+
+## pgo-clean: Clean PGO profile and related artifacts
+pgo-clean:
+	@echo "Cleaning PGO artifacts..."
+	@rm -f $(PGO_PROFILE) $(PGO_RAW_PROFILE)
+	@echo "PGO clean complete"
 
 ## version: Display version information
 version: build
