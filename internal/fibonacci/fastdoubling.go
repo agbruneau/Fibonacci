@@ -175,10 +175,6 @@ func shouldParallelizeMultiplicationCached(s *CalculationState, opts Options, fk
 	return maxBitLen > threshold
 }
 
-// parallelMultiply3Optimized is deprecated. The parallelization logic is now
-// handled by DoublingFramework.ExecuteDoublingLoop.
-// This function is kept for reference but is no longer used.
-
 // CalculationState aggregates temporary variables for the "Fast Doubling"
 // algorithm, allowing efficient management via an object pool.
 type CalculationState struct {

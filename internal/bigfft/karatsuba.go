@@ -87,6 +87,7 @@ func KaratsubaMultiply(x, y *big.Int) *big.Int {
 //
 // The function handles signs correctly: the result sign is
 // positive if x and y have the same sign, negative otherwise.
+// KaratsubaMultiplyTo computes x * y and stores the result in z.
 func KaratsubaMultiplyTo(z, x, y *big.Int) *big.Int {
 	// Handle zero cases
 	if x.Sign() == 0 || y.Sign() == 0 {
@@ -152,177 +153,196 @@ func GetKaratsubaThreshold() int {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Core Karatsuba Implementation using big.Int
+// Core Karatsuba Implementation using low-level word slices (nat)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // karatsubaMulBigInt multiplies x and y using Karatsuba algorithm.
-// x and y must be non-negative.
 func karatsubaMulBigInt(z, x, y *big.Int, depth int) {
-	n := len(x.Bits())
-	m := len(y.Bits())
+	xb, yb := x.Bits(), y.Bits()
+	zb := karatsuba(xb, yb, depth)
+	z.SetBits(zb)
+}
 
-	// Ensure x is the larger operand
+// karatsuba is the low-level Karatsuba implementation operating on word slices.
+func karatsuba(x, y nat, depth int) nat {
+	n := len(x)
+	m := len(y)
+
 	if n < m {
 		x, y = y, x
 		n, m = m, n
 	}
 
-	// Base case: use standard multiplication for small inputs
+	// Base cases
+	if m == 0 {
+		return nil
+	}
 	if n <= karatsubaThreshold {
-		z.Mul(x, y)
-		return
+		return multiplyNaive(x, y)
 	}
 
-	// If y is very small, use standard multiplication
-	if m <= karatsubaThreshold/2 {
-		z.Mul(x, y)
-		return
+	// For highly asymmetric operands, split the larger one
+	if n > 2*m {
+		return multiplyAsymmetric(x, y, depth)
 	}
 
-	// Split point: use half of the smaller operand for balanced splits
-	k := m / 2
-	if k == 0 {
-		k = 1
+	k := n / 2
+	x0, x1 := x[:k], x[k:]
+	y0, y1 := y[:k], y[k:]
+	if len(y) <= k {
+		y0, y1 = y, nil
 	}
-	kBits := uint(k * _W) // k words = k * WordBits bits
-
-	// Split x = x1*B^k + x0 where B = 2^(k*WordBits)
-	x0 := acquireBigInt()
-	x1 := acquireBigInt()
-	x0.And(x, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), kBits), big.NewInt(1)))
-	x1.Rsh(x, kBits)
-	defer releaseBigInt(x0)
-	defer releaseBigInt(x1)
-
-	// Split y = y1*B^k + y0
-	y0 := acquireBigInt()
-	y1 := acquireBigInt()
-	y0.And(y, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), kBits), big.NewInt(1)))
-	y1.Rsh(y, kBits)
-	defer releaseBigInt(y0)
-	defer releaseBigInt(y1)
 
 	// z0 = x0 * y0
-	z0 := acquireBigInt()
 	// z2 = x1 * y1
-	z2 := acquireBigInt()
 	// z1 = (x0 + x1) * (y0 + y1) - z0 - z2
-	z1 := acquireBigInt()
-	defer releaseBigInt(z0)
-	defer releaseBigInt(z2)
-	defer releaseBigInt(z1)
 
-	// Compute x0 + x1 and y0 + y1
-	sumX := acquireBigInt()
-	sumY := acquireBigInt()
-	sumX.Add(x0, x1)
-	sumY.Add(y0, y1)
-	defer releaseBigInt(sumX)
-	defer releaseBigInt(sumY)
+	var z0, z1, z2 nat
+	shouldParallel := depth < MaxKaratsubaParallelDepth && n >= karatsubaParallelThreshold
 
-	// Decide whether to parallelize
-	shouldParallelize := depth < MaxKaratsubaParallelDepth &&
-		n >= karatsubaParallelThreshold
-
-	if shouldParallelize {
+	if shouldParallel {
 		select {
 		case getKaratsubaSemaphore() <- struct{}{}:
-			// Got token, run z2 in parallel
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				defer func() { <-getKaratsubaSemaphore() }()
-				karatsubaMulBigInt(z2, x1, y1, depth+1)
+				z2 = karatsuba(x1, y1, depth+1)
 			}()
-
-			// Run z0 and z1 in current goroutine
-			karatsubaMulBigInt(z0, x0, y0, depth+1)
-			karatsubaMulBigInt(z1, sumX, sumY, depth+1)
-
+			z0 = karatsuba(x0, y0, depth+1)
 			wg.Wait()
 		default:
-			// No token available, run sequentially
-			karatsubaMulBigInt(z0, x0, y0, depth+1)
-			karatsubaMulBigInt(z2, x1, y1, depth+1)
-			karatsubaMulBigInt(z1, sumX, sumY, depth+1)
+			z0 = karatsuba(x0, y0, depth+1)
+			z2 = karatsuba(x1, y1, depth+1)
 		}
 	} else {
-		// Sequential execution
-		karatsubaMulBigInt(z0, x0, y0, depth+1)
-		karatsubaMulBigInt(z2, x1, y1, depth+1)
-		karatsubaMulBigInt(z1, sumX, sumY, depth+1)
+		z0 = karatsuba(x0, y0, depth+1)
+		z2 = karatsuba(x1, y1, depth+1)
 	}
 
+	// sumX = x0 + x1
+	sumX := add(x0, x1)
+	sumY := add(y0, y1)
+	z1 = karatsuba(sumX, sumY, depth+1)
+
 	// z1 = z1 - z0 - z2
-	z1.Sub(z1, z0)
-	z1.Sub(z1, z2)
+	z1 = sub(z1, z0)
+	z1 = sub(z1, z2)
 
-	// z = z0 + z1*B^k + z2*B^(2k)
-	// z = z0 + (z1 << kBits) + (z2 << 2*kBits)
-	z.Set(z0)
-	tmp := acquireBigInt()
-	defer releaseBigInt(tmp)
-
-	tmp.Lsh(z1, kBits)
-	z.Add(z, tmp)
-
-	tmp.Lsh(z2, 2*kBits)
-	z.Add(z, tmp)
+	// Result = z0 + (z1 << k) + (z2 << 2k)
+	return assemble(z0, z1, z2, k)
 }
 
-// karatsubaSqrBigInt computes x² using Karatsuba.
-func karatsubaSqrBigInt(z, x *big.Int, depth int) {
-	n := len(x.Bits())
+// multiplyNaive uses math/big's internal multiplication for small inputs.
+func multiplyNaive(x, y nat) nat {
+	xi := new(big.Int).SetBits(x)
+	yi := new(big.Int).SetBits(y)
+	return new(big.Int).Mul(xi, yi).Bits()
+}
 
-	if n <= karatsubaThreshold {
-		z.Mul(x, x)
+// multiplyAsymmetric handles cases where one operand is much larger than the other.
+func multiplyAsymmetric(x, y nat, depth int) nat {
+	m := len(y)
+	result := make(nat, len(x)+m)
+	for i := 0; i < len(x); i += m {
+		end := i + m
+		if end > len(x) {
+			end = len(x)
+		}
+		part := karatsuba(x[i:end], y, depth+1)
+		addAt(result, part, i)
+	}
+	return trim(result)
+}
+
+func add(x, y nat) nat {
+	if len(x) < len(y) {
+		x, y = y, x
+	}
+	if len(y) == 0 {
+		return x
+	}
+	z := make(nat, len(x)+1)
+	c := AddVV(z[:len(y)], x[:len(y)], y)
+	if len(x) > len(y) {
+		c = addVW(z[len(y):len(x)], x[len(y):], c)
+	}
+	z[len(x)] = c
+	return trim(z)
+}
+
+func sub(x, y nat) nat {
+	// Assumes x >= y
+	z := make(nat, len(x))
+	if len(y) == 0 {
+		copy(z, x)
+		return z
+	}
+	c := SubVV(z[:len(y)], x[:len(y)], y)
+	if len(x) > len(y) {
+		subVW(z[len(y):], x[len(y):], c)
+	}
+	return trim(z)
+}
+
+func addAt(z, x nat, shift int) {
+	if len(x) == 0 {
 		return
+	}
+	n := len(z)
+	m := len(x)
+	if shift+m > n {
+		panic("addAt: out of bounds")
+	}
+	c := AddVV(z[shift:shift+m], z[shift:shift+m], x)
+	if c != 0 && shift+m < n {
+		addVW(z[shift+m:], z[shift+m:], c)
+	}
+}
+
+func assemble(z0, z1, z2 nat, k int) nat {
+	// Let B = 2^(k*W)
+	// result = z0 + z1*B + z2*B^2
+	// size = len(z2) + 2*k
+	size := len(z2) + 2*k
+	if s := len(z1) + k; s > size {
+		size = s
+	}
+	if s := len(z0); s > size {
+		size = s
+	}
+	res := make(nat, size+1) // +1 for extra carry
+	copy(res, z0)
+	addAt(res, z1, k)
+	addAt(res, z2, 2*k)
+	return trim(res)
+}
+
+func karatsubaSqrBigInt(z, x *big.Int, depth int) {
+	xb := x.Bits()
+	zb := karatsubaSqr(xb, depth)
+	z.SetBits(zb)
+}
+
+func karatsubaSqr(x nat, depth int) nat {
+	n := len(x)
+	if n <= karatsubaThreshold {
+		xi := new(big.Int).SetBits(x)
+		return new(big.Int).Mul(xi, xi).Bits()
 	}
 
 	k := n / 2
-	if k == 0 {
-		k = 1
-	}
-	kBits := uint(k * _W)
+	x0, x1 := x[:k], x[k:]
 
-	// Split x = x1*B^k + x0
-	x0 := acquireBigInt()
-	x1 := acquireBigInt()
-	x0.And(x, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), kBits), big.NewInt(1)))
-	x1.Rsh(x, kBits)
-	defer releaseBigInt(x0)
-	defer releaseBigInt(x1)
+	// z0 = x0^2, z2 = x1^2, z1 = (x0+x1)^2 - z0 - z2
+	z0 := karatsubaSqr(x0, depth+1)
+	z2 := karatsubaSqr(x1, depth+1)
 
-	// z0 = x0²
-	// z2 = x1²
-	// z1 = (x0 + x1)² - z0 - z2 = 2*x0*x1
-	z0 := acquireBigInt()
-	z2 := acquireBigInt()
-	z1 := acquireBigInt()
-	defer releaseBigInt(z0)
-	defer releaseBigInt(z2)
-	defer releaseBigInt(z1)
+	sumX := add(x0, x1)
+	z1 := karatsubaSqr(sumX, depth+1)
+	z1 = sub(z1, z0)
+	z1 = sub(z1, z2)
 
-	sumX := acquireBigInt()
-	sumX.Add(x0, x1)
-	defer releaseBigInt(sumX)
-
-	karatsubaSqrBigInt(z0, x0, depth+1)
-	karatsubaSqrBigInt(z2, x1, depth+1)
-	karatsubaSqrBigInt(z1, sumX, depth+1)
-
-	z1.Sub(z1, z0)
-	z1.Sub(z1, z2)
-
-	// z = z0 + z1*B^k + z2*B^(2k)
-	z.Set(z0)
-	tmp := acquireBigInt()
-	defer releaseBigInt(tmp)
-
-	tmp.Lsh(z1, kBits)
-	z.Add(z, tmp)
-
-	tmp.Lsh(z2, 2*kBits)
-	z.Add(z, tmp)
+	return assemble(z0, z1, z2, k)
 }

@@ -159,7 +159,7 @@ func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts .
 		opt(s)
 	}
 
-	// Initialize service with validated configuration if not provided via options
+	// Initialize service if not provided
 	if s.service == nil {
 		s.service = service.NewCalculatorService(s.factory, s.cfg, s.securityConfig.MaxNValue)
 	}
@@ -218,7 +218,7 @@ func (s *Server) Start() error {
 		s.logger.Println("  GET /health")
 		s.logger.Println("  GET /algorithms")
 
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			s.logger.Fatalf("Server error: %v\n", err)
 		}
 	}()

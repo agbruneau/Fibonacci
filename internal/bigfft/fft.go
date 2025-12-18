@@ -71,19 +71,7 @@ func Mul(x, y *big.Int) (*big.Int, error) {
 }
 
 // MulTo computes the product x*y and stores the result in z.
-// This allows reusing the allocated memory of z, which is more
-// efficient than Mul when z is already allocated and large enough.
-//
-// Optimization: When FFT multiplication is used, the existing buffer of z
-// is passed through to the final IntTo() call, potentially avoiding a
-// large allocation if z already has sufficient capacity.
-// MulTo computes the product x*y and stores the result in z.
-// This allows reusing the allocated memory of z, which is more
-// efficient than Mul when z is already allocated and large enough.
-//
-// Optimization: When FFT multiplication is used, the existing buffer of z
-// is passed through to the final IntTo() call, potentially avoiding a
-// large allocation if z already has sufficient capacity.
+// It can be used instead of the Mul method of *big.Int from math/big package.
 func MulTo(z, x, y *big.Int) (*big.Int, error) {
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
@@ -114,18 +102,6 @@ func Sqr(x *big.Int) (*big.Int, error) {
 	return new(big.Int).Mul(x, x), nil
 }
 
-// SqrTo computes x*x and stores the result in z.
-// This allows reusing the allocated memory of z, which is more
-// efficient than Sqr when z is already allocated and large enough.
-//
-// Optimization: Squaring only requires one FFT transform instead of two,
-// saving approximately 33% of the computation time for large numbers.
-// SqrTo computes x*x and stores the result in z.
-// This allows reusing the allocated memory of z, which is more
-// efficient than Sqr when z is already allocated and large enough.
-//
-// Optimization: Squaring only requires one FFT transform instead of two,
-// saving approximately 33% of the computation time for large numbers.
 func SqrTo(z, x *big.Int) (*big.Int, error) {
 	xwords := len(x.Bits())
 	if xwords > fftThreshold {
