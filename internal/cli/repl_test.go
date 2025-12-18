@@ -12,26 +12,9 @@ import (
 	"github.com/agbru/fibcalc/internal/testutil"
 )
 
-// MockCalculator implementation for testing REPL
-type MockCalculator struct {
-	NameVal string
-}
-
-func (m *MockCalculator) Name() string {
-	return m.NameVal
-}
-
-func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
-	// Simulate async update
-	if progressChan != nil {
-		progressChan <- fibonacci.ProgressUpdate{Value: 1.0}
-	}
-	return big.NewInt(int64(n)), nil
-}
-
 func TestNewREPL(t *testing.T) {
 	registry := map[string]fibonacci.Calculator{
-		"fast": &MockCalculator{NameVal: "Fast"},
+		"fast": &fibonacci.MockCalculator{Result: big.NewInt(0)},
 	}
 	config := REPLConfig{
 		DefaultAlgo: "fast",
@@ -48,7 +31,7 @@ func TestNewREPL(t *testing.T) {
 
 func TestNewREPL_DefaultAlgo(t *testing.T) {
 	registry := map[string]fibonacci.Calculator{
-		"fast": &MockCalculator{NameVal: "Fast"},
+		"fast": &fibonacci.MockCalculator{Result: big.NewInt(0)},
 	}
 	config := REPLConfig{
 		DefaultAlgo: "", // Empty default
@@ -62,7 +45,7 @@ func TestNewREPL_DefaultAlgo(t *testing.T) {
 
 func TestProcessCommand(t *testing.T) {
 	registry := map[string]fibonacci.Calculator{
-		"mock": &MockCalculator{NameVal: "Mock"},
+		"mock": &fibonacci.MockCalculator{Result: big.NewInt(10)},
 	}
 	config := REPLConfig{
 		DefaultAlgo: "mock",
@@ -87,6 +70,23 @@ func TestProcessCommand(t *testing.T) {
 	})
 
 	t.Run("calc shorthand", func(t *testing.T) {
+		// Mock calculator returns 10 always with current mock setup,
+		// but the test expects 5 if we pass 5.
+		// We need to update the mock or expect 10.
+		// The mock in testing.go is fixed to return Result/Err unless Fn is set.
+		// Let's rely on the mock returning 10 for any input,
+		// OR we can make a dynamic mock locally or via Fn.
+		// Let's update registry for this run or just check "F(5) = 10".
+		// Actually, let's use the Fn feature of MockCalculator.
+
+		// Re-initialize with dynamic mock
+		dynamicMock := &fibonacci.MockCalculator{
+			Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+				return big.NewInt(int64(n)), nil
+			},
+		}
+		repl.registry = map[string]fibonacci.Calculator{"mock": dynamicMock}
+
 		repl.processCommand("c 5")
 		output := strip(out.String())
 		if !strings.Contains(output, "F(5) = 5") {
@@ -174,8 +174,13 @@ func TestProcessCommand(t *testing.T) {
 }
 
 func TestREPLStart(t *testing.T) {
+	mock := &fibonacci.MockCalculator{
+		Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+			return big.NewInt(int64(n)), nil
+		},
+	}
 	registry := map[string]fibonacci.Calculator{
-		"mock": &MockCalculator{NameVal: "Mock"},
+		"mock": mock,
 	}
 	config := REPLConfig{DefaultAlgo: "mock"}
 	repl := NewREPL(registry, config)

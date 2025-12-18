@@ -18,6 +18,21 @@ import (
 	"github.com/agbru/fibcalc/internal/testutil"
 )
 
+// Helper to create a test factory with mocked calculator
+func createMockFactory(result *big.Int, err error) *fibonacci.TestFactory {
+	mockCalc := &fibonacci.MockCalculator{
+		Result: result,
+		Err:    err,
+	}
+	// Pre-populate with common algorithms to allow tests to "Create" them
+	calcs := map[string]fibonacci.Calculator{
+		"fast":   mockCalc,
+		"matrix": mockCalc,
+		"fft":    mockCalc,
+	}
+	return fibonacci.NewTestFactory(calcs)
+}
+
 // TestNew tests the New function for creating Application instances.
 func TestNew(t *testing.T) {
 	t.Run("Valid args create application", func(t *testing.T) {
@@ -90,7 +105,11 @@ func TestNew(t *testing.T) {
 }
 
 // TestApplicationRun tests the Application.Run method.
+// Optimized to use MockCalculator via TestFactory.
 func TestApplicationRun(t *testing.T) {
+	// Reusable factory for success cases
+	successFactory := createMockFactory(big.NewInt(55), nil)
+
 	t.Run("Simple execution with success", func(t *testing.T) {
 		var outBuf bytes.Buffer
 		app := &Application{
@@ -103,7 +122,7 @@ func TestApplicationRun(t *testing.T) {
 				Details:      true,
 				Concise:      true,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   successFactory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -129,7 +148,7 @@ func TestApplicationRun(t *testing.T) {
 				FFTThreshold: 20000,
 				Details:      true,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   successFactory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -149,13 +168,23 @@ func TestApplicationRun(t *testing.T) {
 
 	t.Run("Timeout failure", func(t *testing.T) {
 		var outBuf bytes.Buffer
+
+		// Mock blocking calculator to respect context timeout
+		mockCalc := &fibonacci.MockCalculator{
+			Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		}
+		factory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{"fast": mockCalc})
+
 		app := &Application{
 			Config: config.AppConfig{
 				N:       100_000_000,
 				Algo:    "fast",
 				Timeout: 1 * time.Millisecond,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -172,13 +201,23 @@ func TestApplicationRun(t *testing.T) {
 
 	t.Run("Context cancellation", func(t *testing.T) {
 		var outBuf bytes.Buffer
+
+		// Mock blocking calculator
+		mockCalc := &fibonacci.MockCalculator{
+			Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		}
+		factory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{"fast": mockCalc})
+
 		app := &Application{
 			Config: config.AppConfig{
 				N:       100_000_000,
 				Algo:    "fast",
 				Timeout: 1 * time.Minute,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -201,7 +240,7 @@ func TestApplicationRun(t *testing.T) {
 				Timeout:    1 * time.Minute,
 				JSONOutput: true,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   successFactory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -228,7 +267,7 @@ func TestApplicationRun(t *testing.T) {
 				Timeout: 1 * time.Minute,
 				Quiet:   true,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   successFactory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -301,6 +340,8 @@ func TestRunCompletionInvalid(t *testing.T) {
 // TestPrintJSONResults tests the JSON output formatting.
 func TestPrintJSONResults(t *testing.T) {
 	var outBuf bytes.Buffer
+	factory := createMockFactory(big.NewInt(5), nil)
+
 	app := &Application{
 		Config: config.AppConfig{
 			N:          5,
@@ -308,7 +349,7 @@ func TestPrintJSONResults(t *testing.T) {
 			Timeout:    1 * time.Minute,
 			JSONOutput: true,
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   factory,
 		ErrWriter: &bytes.Buffer{},
 	}
 
@@ -338,6 +379,8 @@ func TestPrintJSONResults(t *testing.T) {
 // TestHexOutput tests hexadecimal output mode.
 func TestHexOutput(t *testing.T) {
 	var outBuf bytes.Buffer
+	factory := createMockFactory(big.NewInt(55), nil)
+
 	app := &Application{
 		Config: config.AppConfig{
 			N:         10,
@@ -346,7 +389,7 @@ func TestHexOutput(t *testing.T) {
 			HexOutput: true,
 			Details:   true,
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   factory,
 		ErrWriter: &bytes.Buffer{},
 	}
 
@@ -357,7 +400,7 @@ func TestHexOutput(t *testing.T) {
 	}
 
 	output := testutil.StripAnsiCodes(outBuf.String())
-	if !strings.Contains(output, "Hexadecimal") || !strings.Contains(output, "0x") {
+	if !strings.Contains(output, "Hexadecimal") || !strings.Contains(output, "0x37") {
 		t.Errorf("Output should contain hexadecimal format. Got:\n%s", output)
 	}
 }
@@ -365,6 +408,7 @@ func TestHexOutput(t *testing.T) {
 // TestRunAutoCalibrationDisabled tests that auto-calibration doesn't run when disabled.
 func TestRunAutoCalibrationDisabled(t *testing.T) {
 	var outBuf bytes.Buffer
+	factory := createMockFactory(big.NewInt(55), nil)
 	app := &Application{
 		Config: config.AppConfig{
 			N:             10,
@@ -372,7 +416,7 @@ func TestRunAutoCalibrationDisabled(t *testing.T) {
 			Timeout:       1 * time.Minute,
 			AutoCalibrate: false, // Disabled
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   factory,
 		ErrWriter: &bytes.Buffer{},
 	}
 
@@ -386,6 +430,7 @@ func TestRunAutoCalibrationDisabled(t *testing.T) {
 // TestMultipleAlgorithms tests running all algorithms.
 func TestMultipleAlgorithms(t *testing.T) {
 	var outBuf bytes.Buffer
+	factory := createMockFactory(big.NewInt(55), nil)
 	app := &Application{
 		Config: config.AppConfig{
 			N:       15,
@@ -393,7 +438,7 @@ func TestMultipleAlgorithms(t *testing.T) {
 			Timeout: 1 * time.Minute,
 			Details: true,
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   factory,
 		ErrWriter: &bytes.Buffer{},
 	}
 
