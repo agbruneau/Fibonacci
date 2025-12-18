@@ -12,6 +12,7 @@ import (
 
 // TestMulPrecisionSmall verifies FFT multiplication precision for small numbers.
 func TestMulPrecisionSmall(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		a, b, expected string
 	}{
@@ -25,25 +26,29 @@ func TestMulPrecisionSmall(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc.a, 10)
-		b := new(big.Int)
-		b.SetString(tc.b, 10)
-		expected := new(big.Int)
-		expected.SetString(tc.expected, 10)
+		t.Run(tc.a+"*"+tc.b, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc.a, 10)
+			b := new(big.Int)
+			b.SetString(tc.b, 10)
+			expected := new(big.Int)
+			expected.SetString(tc.expected, 10)
 
-		result, err := Mul(a, b)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		if result.Cmp(expected) != 0 {
-			t.Errorf("%s * %s: expected %s, got %s", tc.a, tc.b, expected.String(), result.String())
-		}
+			result, err := Mul(a, b)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("%s * %s: expected %s, got %s", tc.a, tc.b, expected.String(), result.String())
+			}
+		})
 	}
 }
 
 // TestMulPrecisionLarge verifies FFT multiplication precision for large numbers.
 func TestMulPrecisionLarge(t *testing.T) {
+	t.Parallel()
 	// Create large numbers that will trigger FFT
 	aStr := "123456789012345678901234567890123456789012345678901234567890"
 	bStr := "987654321098765432109876543210987654321098765432109876543210"
@@ -56,7 +61,6 @@ func TestMulPrecisionLarge(t *testing.T) {
 	// Calculate expected using standard multiplication
 	expected := new(big.Int).Mul(a, b)
 
-	// Calculate using our FFT multiplication
 	// Calculate using our FFT multiplication
 	result, err := Mul(a, b)
 	if err != nil {
@@ -71,6 +75,7 @@ func TestMulPrecisionLarge(t *testing.T) {
 
 // TestMulPrecisionVeryLarge tests with numbers large enough to force FFT.
 func TestMulPrecisionVeryLarge(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping very large number test in short mode")
 	}
@@ -95,7 +100,6 @@ func TestMulPrecisionVeryLarge(t *testing.T) {
 	expected := new(big.Int).Mul(a, b)
 
 	// Calculate using FFT multiplication
-	// Calculate using FFT multiplication
 	result, err := Mul(a, b)
 	if err != nil {
 		t.Fatalf("Mul failed: %v", err)
@@ -109,6 +113,7 @@ func TestMulPrecisionVeryLarge(t *testing.T) {
 
 // TestMulPrecisionNegative verifies handling of negative numbers.
 func TestMulPrecisionNegative(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		a, b, expected string
 	}{
@@ -121,25 +126,29 @@ func TestMulPrecisionNegative(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc.a, 10)
-		b := new(big.Int)
-		b.SetString(tc.b, 10)
-		expected := new(big.Int)
-		expected.SetString(tc.expected, 10)
+		t.Run(tc.a+"*"+tc.b, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc.a, 10)
+			b := new(big.Int)
+			b.SetString(tc.b, 10)
+			expected := new(big.Int)
+			expected.SetString(tc.expected, 10)
 
-		result, err := Mul(a, b)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		if result.Cmp(expected) != 0 {
-			t.Errorf("%s * %s: expected %s, got %s", tc.a, tc.b, expected.String(), result.String())
-		}
+			result, err := Mul(a, b)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("%s * %s: expected %s, got %s", tc.a, tc.b, expected.String(), result.String())
+			}
+		})
 	}
 }
 
 // TestMulToPrecision verifies the MulTo function.
 func TestMulToPrecision(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		a, b string
 	}{
@@ -149,33 +158,37 @@ func TestMulToPrecision(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc.a, 10)
-		b := new(big.Int)
-		b.SetString(tc.b, 10)
+		t.Run(tc.a+"*"+tc.b, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc.a, 10)
+			b := new(big.Int)
+			b.SetString(tc.b, 10)
 
-		expected := new(big.Int).Mul(a, b)
+			expected := new(big.Int).Mul(a, b)
 
-		z := new(big.Int)
-		result, err := MulTo(z, a, b)
-		if err != nil {
-			t.Fatalf("MulTo failed: %v", err)
-		}
+			z := new(big.Int)
+			result, err := MulTo(z, a, b)
+			if err != nil {
+				t.Fatalf("MulTo failed: %v", err)
+			}
 
-		if result.Cmp(expected) != 0 {
-			t.Errorf("MulTo(%s, %s): expected %s, got %s",
-				tc.a, tc.b, expected.String(), result.String())
-		}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("MulTo(%s, %s): expected %s, got %s",
+					tc.a, tc.b, expected.String(), result.String())
+			}
 
-		// Verify z was used (same pointer)
-		if result != z {
-			t.Error("MulTo did not return the destination pointer")
-		}
+			// Verify z was used (same pointer)
+			if result != z {
+				t.Error("MulTo did not return the destination pointer")
+			}
+		})
 	}
 }
 
 // TestMulToReuseBuffer tests that MulTo correctly reuses the buffer.
 func TestMulToReuseBuffer(t *testing.T) {
+	t.Parallel()
 	a := big.NewInt(123456)
 	b := big.NewInt(789012)
 
@@ -202,6 +215,7 @@ func TestMulToReuseBuffer(t *testing.T) {
 
 // TestMulCommutativity verifies a * b = b * a.
 func TestMulCommutativity(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		a, b string
 	}{
@@ -211,29 +225,33 @@ func TestMulCommutativity(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc.a, 10)
-		b := new(big.Int)
-		b.SetString(tc.b, 10)
+		t.Run(tc.a+"_vs_"+tc.b, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc.a, 10)
+			b := new(big.Int)
+			b.SetString(tc.b, 10)
 
-		ab, err := Mul(a, b)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		ba, err := Mul(b, a)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
+			ab, err := Mul(a, b)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			ba, err := Mul(b, a)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
 
-		if ab.Cmp(ba) != 0 {
-			t.Errorf("Commutativity violated: %s * %s != %s * %s",
-				tc.a, tc.b, tc.b, tc.a)
-		}
+			if ab.Cmp(ba) != 0 {
+				t.Errorf("Commutativity violated: %s * %s != %s * %s",
+					tc.a, tc.b, tc.b, tc.a)
+			}
+		})
 	}
 }
 
 // TestMulAssociativity verifies (a * b) * c = a * (b * c).
 func TestMulAssociativity(t *testing.T) {
+	t.Parallel()
 	a := new(big.Int)
 	a.SetString("12345678901234567890", 10)
 	b := new(big.Int)
@@ -269,6 +287,7 @@ func TestMulAssociativity(t *testing.T) {
 
 // TestMulDistributivity verifies a * (b + c) = a*b + a*c.
 func TestMulDistributivity(t *testing.T) {
+	t.Parallel()
 	a := new(big.Int)
 	a.SetString("12345678901234567890", 10)
 	b := new(big.Int)
@@ -306,6 +325,7 @@ func TestMulDistributivity(t *testing.T) {
 
 // TestMulByZero verifies multiplication by zero.
 func TestMulByZero(t *testing.T) {
+	t.Parallel()
 	zero := big.NewInt(0)
 
 	testCases := []string{
@@ -315,29 +335,39 @@ func TestMulByZero(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc, 10)
+		t.Run(tc+"*0", func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc, 10)
 
-		result, err := Mul(a, zero)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		if result.Cmp(zero) != 0 {
-			t.Errorf("%s * 0 = %s, expected 0", tc, result.String())
-		}
+			result, err := Mul(a, zero)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			if result.Cmp(zero) != 0 {
+				t.Errorf("%s * 0 = %s, expected 0", tc, result.String())
+			}
+		})
 
-		result, err = Mul(zero, a)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		if result.Cmp(zero) != 0 {
-			t.Errorf("0 * %s = %s, expected 0", tc, result.String())
-		}
+		t.Run("0*"+tc, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc, 10)
+
+			result, err := Mul(zero, a)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			if result.Cmp(zero) != 0 {
+				t.Errorf("0 * %s = %s, expected 0", tc, result.String())
+			}
+		})
 	}
 }
 
 // TestMulByOne verifies multiplication by one.
 func TestMulByOne(t *testing.T) {
+	t.Parallel()
 	one := big.NewInt(1)
 
 	testCases := []string{
@@ -348,29 +378,33 @@ func TestMulByOne(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc, 10)
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc, 10)
 
-		result, err := Mul(a, one)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		if result.Cmp(a) != 0 {
-			t.Errorf("%s * 1 = %s, expected %s", tc, result.String(), a.String())
-		}
+			result, err := Mul(a, one)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			if result.Cmp(a) != 0 {
+				t.Errorf("%s * 1 = %s, expected %s", tc, result.String(), a.String())
+			}
 
-		result, err = Mul(one, a)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		if result.Cmp(a) != 0 {
-			t.Errorf("1 * %s = %s, expected %s", tc, result.String(), a.String())
-		}
+			result, err = Mul(one, a)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			if result.Cmp(a) != 0 {
+				t.Errorf("1 * %s = %s, expected %s", tc, result.String(), a.String())
+			}
+		})
 	}
 }
 
 // TestMulPowerOfTwo verifies multiplication by powers of two.
 func TestMulPowerOfTwo(t *testing.T) {
+	t.Parallel()
 	a := new(big.Int)
 	a.SetString("12345678901234567890", 10)
 
@@ -392,6 +426,7 @@ func TestMulPowerOfTwo(t *testing.T) {
 
 // TestMulSquaring verifies that a * a produces correct squares.
 func TestMulSquaring(t *testing.T) {
+	t.Parallel()
 	testCases := []string{
 		"2",
 		"10",
@@ -402,19 +437,22 @@ func TestMulSquaring(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		a := new(big.Int)
-		a.SetString(tc, 10)
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+			a := new(big.Int)
+			a.SetString(tc, 10)
 
-		result, err := Mul(a, a)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
-		expected := new(big.Int).Mul(a, a)
+			result, err := Mul(a, a)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
+			expected := new(big.Int).Mul(a, a)
 
-		if result.Cmp(expected) != 0 {
-			t.Errorf("Square of %s failed:\n  Expected: %s\n  Got:      %s",
-				tc, expected.String(), result.String())
-		}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("Square of %s failed:\n  Expected: %s\n  Got:      %s",
+					tc, expected.String(), result.String())
+			}
+		})
 	}
 }
 
@@ -424,6 +462,7 @@ func TestMulSquaring(t *testing.T) {
 
 // BenchmarkMulSmall benchmarks multiplication of small numbers.
 func BenchmarkMulSmall(b *testing.B) {
+	b.ReportAllocs()
 	a := new(big.Int)
 	a.SetString("12345678901234567890", 10)
 	bInt := new(big.Int)
@@ -437,6 +476,7 @@ func BenchmarkMulSmall(b *testing.B) {
 
 // BenchmarkMulMedium benchmarks multiplication of medium numbers.
 func BenchmarkMulMedium(b *testing.B) {
+	b.ReportAllocs()
 	aBytes := make([]byte, 1000)
 	bBytes := make([]byte, 1000)
 	rand.Read(aBytes)
@@ -453,6 +493,7 @@ func BenchmarkMulMedium(b *testing.B) {
 
 // BenchmarkMulLarge benchmarks multiplication of large numbers.
 func BenchmarkMulLarge(b *testing.B) {
+	b.ReportAllocs()
 	if testing.Short() {
 		b.Skip("Skipping large benchmark in short mode")
 	}
@@ -473,6 +514,7 @@ func BenchmarkMulLarge(b *testing.B) {
 
 // BenchmarkMulToReuse benchmarks MulTo with buffer reuse.
 func BenchmarkMulToReuse(b *testing.B) {
+	b.ReportAllocs()
 	a := new(big.Int)
 	a.SetString("12345678901234567890123456789012345678901234567890", 10)
 	bInt := new(big.Int)

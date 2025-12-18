@@ -7,6 +7,7 @@ import (
 )
 
 func TestErrorCollector_SetError(t *testing.T) {
+	t.Parallel()
 	ec := &ErrorCollector{}
 	expectedErr := errors.New("first error")
 	otherErr := errors.New("second error")
@@ -31,6 +32,7 @@ func TestErrorCollector_SetError(t *testing.T) {
 }
 
 func TestErrorCollector_Concurrency(t *testing.T) {
+	t.Parallel()
 	ec := &ErrorCollector{}
 	var wg sync.WaitGroup
 	numGoroutines := 100
@@ -59,6 +61,7 @@ func TestErrorCollector_Concurrency(t *testing.T) {
 }
 
 func TestErrorCollector_Reset(t *testing.T) {
+	t.Parallel()
 	ec := &ErrorCollector{}
 	err := errors.New("test error")
 

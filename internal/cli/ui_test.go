@@ -33,6 +33,7 @@ func (m *MockSpinner) UpdateSuffix(suffix string) {
 }
 
 func TestFormatExecutionDuration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		d        time.Duration
 		expected string
@@ -52,6 +53,7 @@ func TestFormatExecutionDuration(t *testing.T) {
 }
 
 func TestProgressBar(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		progress float64
 		length   int
@@ -60,7 +62,7 @@ func TestProgressBar(t *testing.T) {
 		{0.0, 10, "░░░░░░░░░░"},
 		{0.5, 10, "█████░░░░░"},
 		{1.0, 10, "██████████"},
-		{1.2, 10, "██████████"}, // Cap at 1.0
+		{1.2, 10, "██████████"},  // Cap at 1.0
 		{-0.1, 10, "░░░░░░░░░░"}, // Floor at 0.0
 	}
 
@@ -143,6 +145,7 @@ func TestDisplayResult(t *testing.T) {
 }
 
 func TestFormatNumberString(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -166,6 +169,7 @@ func TestFormatNumberString(t *testing.T) {
 }
 
 func TestRealSpinner(t *testing.T) {
+	t.Parallel()
 	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
 	rs := &realSpinner{s}
 

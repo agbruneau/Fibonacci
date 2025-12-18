@@ -6,6 +6,7 @@ import (
 )
 
 func TestFFT_Sqr(t *testing.T) {
+	t.Parallel()
 	// Test Sqr function directly
 	// Choose a size that triggers FFT
 	// fftThreshold = 1800 words
@@ -49,6 +50,7 @@ func TestFFT_Sqr(t *testing.T) {
 }
 
 func TestFFT_SqrTo(t *testing.T) {
+	t.Parallel()
 	numWords := 2000
 	x := new(big.Int)
 	words := make([]big.Word, numWords)
@@ -84,6 +86,7 @@ func TestFFT_SqrTo(t *testing.T) {
 // This should cover SqrWithBump which was 0%.
 
 func TestPoly_Sqr(t *testing.T) {
+	t.Parallel()
 	// Directly test polValues.Sqr which was 0% (SqrWithBump is used by SqrTo path)
 	// We need to construct a polValues struct.
 	// This requires some internal setup, might be hard to test purely from outside if structs are not exported.
@@ -142,6 +145,7 @@ func TestPoly_Sqr(t *testing.T) {
 }
 
 func TestNTransform_InvNTransform(t *testing.T) {
+	t.Parallel()
 	// Test NTransform and InvNTransform which had 0% coverage
 
 	k := uint(4)
@@ -178,6 +182,7 @@ func TestNTransform_InvNTransform(t *testing.T) {
 }
 
 func TestStringMethods(t *testing.T) {
+	t.Parallel()
 	// Cover String() methods
 	n := nat{123, 456}
 	s := n.String()
@@ -195,6 +200,7 @@ func TestStringMethods(t *testing.T) {
 }
 
 func TestSqrWithBumpDirect(t *testing.T) {
+	t.Parallel()
 	k := uint(4)
 	m := 1
 	n := valueSize(k, m, 2)
@@ -220,6 +226,7 @@ func TestSqrWithBumpDirect(t *testing.T) {
 }
 
 func TestTransformWithBump(t *testing.T) {
+	t.Parallel()
 	k := uint(4)
 	m := 1
 	n := valueSize(k, m, 2)
@@ -247,6 +254,7 @@ func TestTransformWithBump(t *testing.T) {
 }
 
 func TestFFTUtilities(t *testing.T) {
+	t.Parallel()
 	// Test fftSize
 	x := make(nat, 100)
 	y := make(nat, 200)
@@ -295,6 +303,7 @@ func TestFFTUtilities(t *testing.T) {
 }
 
 func TestFFTParallel(t *testing.T) {
+	t.Parallel()
 	// Use large k to trigger parallel path (depth < MaxParallelFFTDepth)
 	k := uint(4) // Use a smaller k for faster test but still trigger logic if ParallelFFTRecursionThreshold is small
 	numPoints := 1 << k
@@ -315,6 +324,7 @@ func TestFFTParallel(t *testing.T) {
 }
 
 func TestMulCached(t *testing.T) {
+	t.Parallel()
 	k := uint(4)
 	m := 1
 	p := poly{k: k, m: m, a: []nat{{1}, {2}, {3}}}

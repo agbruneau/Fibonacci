@@ -8,7 +8,9 @@ import (
 
 // TestSetupContext tests the SetupContext function.
 func TestSetupContext(t *testing.T) {
+	t.Parallel()
 	t.Run("Context is canceled after timeout", func(t *testing.T) {
+		t.Parallel()
 		ctx := context.Background()
 		timeout := 50 * time.Millisecond
 
@@ -38,6 +40,7 @@ func TestSetupContext(t *testing.T) {
 	})
 
 	t.Run("Context can be canceled manually", func(t *testing.T) {
+		t.Parallel()
 		ctx := context.Background()
 		timeout := 1 * time.Hour
 
@@ -55,7 +58,9 @@ func TestSetupContext(t *testing.T) {
 
 // TestSetupLifecycle tests the SetupLifecycle function.
 func TestSetupLifecycle(t *testing.T) {
+	t.Parallel()
 	t.Run("Returns context and cleanup functions", func(t *testing.T) {
+		t.Parallel()
 		ctx := context.Background()
 		timeout := 1 * time.Hour
 
@@ -76,6 +81,7 @@ func TestSetupLifecycle(t *testing.T) {
 	})
 
 	t.Run("Cleanup cancels context", func(t *testing.T) {
+		t.Parallel()
 		ctx := context.Background()
 		timeout := 1 * time.Hour
 
@@ -93,13 +99,16 @@ func TestSetupLifecycle(t *testing.T) {
 
 // TestCancelFuncsCleanup tests the CancelFuncs.Cleanup method.
 func TestCancelFuncsCleanup(t *testing.T) {
+	t.Parallel()
 	t.Run("Cleanup with nil functions does not panic", func(t *testing.T) {
+		t.Parallel()
 		cf := &CancelFuncs{}
 		// Should not panic
 		cf.Cleanup()
 	})
 
 	t.Run("Cleanup calls both functions", func(t *testing.T) {
+		t.Parallel()
 		timeoutCalled := false
 		signalsCalled := false
 
@@ -118,4 +127,3 @@ func TestCancelFuncsCleanup(t *testing.T) {
 		}
 	})
 }
-

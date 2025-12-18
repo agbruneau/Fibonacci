@@ -15,6 +15,7 @@ func (m MockColorProvider) Yellow() string { return "[YELLOW]" }
 func (m MockColorProvider) Reset() string  { return "[RESET]" }
 
 func TestHandleCalculationError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		err          error
@@ -63,6 +64,7 @@ func TestHandleCalculationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			out := new(bytes.Buffer)
 			code := HandleCalculationError(tt.err, tt.duration, out, tt.colors)
 
@@ -78,6 +80,7 @@ func TestHandleCalculationError(t *testing.T) {
 }
 
 func TestDefaultColorProvider(t *testing.T) {
+	t.Parallel()
 	p := DefaultColorProvider{}
 	if p.Yellow() != "" {
 		t.Error("DefaultColorProvider.Yellow should return empty string")

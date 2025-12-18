@@ -43,6 +43,7 @@ func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibo
 }
 
 func TestAutoCalibrate(t *testing.T) {
+	t.Parallel()
 	// Mock registry
 	registry := map[string]fibonacci.Calculator{
 		"fast":   &MockCalculator{name: "fast"},
@@ -81,6 +82,7 @@ func TestAutoCalibrate(t *testing.T) {
 }
 
 func TestRunCalibration(t *testing.T) {
+	t.Parallel()
 	registry := map[string]fibonacci.Calculator{
 		"fast": &MockCalculator{name: "fast"},
 	}
@@ -94,6 +96,7 @@ func TestRunCalibration(t *testing.T) {
 }
 
 func TestRunCalibrationMissingFast(t *testing.T) {
+	t.Parallel()
 	registry := map[string]fibonacci.Calculator{} // Empty
 
 	ctx := context.Background()
@@ -105,6 +108,7 @@ func TestRunCalibrationMissingFast(t *testing.T) {
 }
 
 func TestLoadCachedCalibration(t *testing.T) {
+	t.Parallel()
 	// Test failure first
 	cfg := config.AppConfig{}
 	_, success := LoadCachedCalibration(cfg, "nonexistent.json")
@@ -114,6 +118,7 @@ func TestLoadCachedCalibration(t *testing.T) {
 }
 
 func TestCalibrationRunner(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	runner := newCalibrationRunner(ctx, 1*time.Second)
 	calc := &MockCalculator{name: "fast"}
@@ -147,6 +152,7 @@ func TestCalibrationRunner(t *testing.T) {
 }
 
 func TestApplyCalibrationResults(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{}
 	updated, ok := applyCalibrationResults(cfg, 4096, 10*time.Millisecond, 1000000, 10*time.Millisecond, 256, 10*time.Millisecond)
 	if !ok {

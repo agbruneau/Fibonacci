@@ -8,11 +8,12 @@ import (
 )
 
 func TestConfigError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
-		name         string
-		err          error
-		expected     string
-		checkTypeAs  bool
+		name        string
+		err         error
+		expected    string
+		checkTypeAs bool
 	}{
 		{
 			name:     "Error returns message",
@@ -34,6 +35,7 @@ func TestConfigError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.err.Error() != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, tt.err.Error())
 			}
@@ -48,12 +50,13 @@ func TestConfigError(t *testing.T) {
 }
 
 func TestCalculationError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
-		name          string
-		cause         error
-		expectedMsg   string
-		checkIs       error
-		checkUnwrap   bool
+		name        string
+		cause       error
+		expectedMsg string
+		checkIs     error
+		checkUnwrap bool
 	}{
 		{
 			name:        "Error returns cause message",
@@ -76,6 +79,7 @@ func TestCalculationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := CalculationError{Cause: tt.cause}
 
 			if err.Error() != tt.expectedMsg {
@@ -94,6 +98,7 @@ func TestCalculationError(t *testing.T) {
 }
 
 func TestServerError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		message     string
@@ -141,6 +146,7 @@ func TestServerError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var err error
 			if tt.checkTypeAs {
 				err = NewServerError(tt.message, tt.cause)
@@ -177,6 +183,7 @@ func TestServerError(t *testing.T) {
 }
 
 func TestValidationError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		field       string
@@ -209,6 +216,7 @@ func TestValidationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var err error
 			if tt.checkTypeAs {
 				err = NewValidationError(tt.field, tt.message, tt.value)
@@ -234,6 +242,7 @@ func TestValidationError(t *testing.T) {
 }
 
 func TestWrapError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		original    error
@@ -273,6 +282,7 @@ func TestWrapError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			wrapped := WrapError(tt.original, tt.format, tt.args...)
 
 			if tt.expectNil {
@@ -298,6 +308,7 @@ func TestWrapError(t *testing.T) {
 }
 
 func TestIsContextError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		err      error
@@ -312,6 +323,7 @@ func TestIsContextError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := IsContextError(tt.err)
 			if result != tt.expected {
 				t.Errorf("IsContextError(%v) = %v, expected %v", tt.err, result, tt.expected)
@@ -321,6 +333,7 @@ func TestIsContextError(t *testing.T) {
 }
 
 func TestExitCodes(t *testing.T) {
+	t.Parallel()
 	// Verify exit codes are distinct and match expected values
 	codes := map[string]int{
 		"ExitSuccess":       ExitSuccess,

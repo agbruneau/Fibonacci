@@ -1,11 +1,13 @@
 package bigfft
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 )
 
 func TestWordSlicePool(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		size     int
@@ -20,6 +22,7 @@ func TestWordSlicePool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			slice := acquireWordSlice(tt.size)
 			if len(slice) != tt.size {
 				t.Errorf("acquireWordSlice(%d) got length %d, want %d", tt.size, len(slice), tt.size)
@@ -40,10 +43,12 @@ func TestWordSlicePool(t *testing.T) {
 }
 
 func TestFermatPool(t *testing.T) {
+	t.Parallel()
 	sizes := []int{16, 64, 256, 1024, 4096}
 
 	for _, size := range sizes {
-		t.Run("", func(t *testing.T) {
+		t.Run(fmt.Sprintf("Size=%d", size), func(t *testing.T) {
+			t.Parallel()
 			f := acquireFermat(size)
 			if len(f) != size {
 				t.Errorf("acquireFermat(%d) got length %d", size, len(f))
@@ -63,10 +68,12 @@ func TestFermatPool(t *testing.T) {
 }
 
 func TestNatSlicePool(t *testing.T) {
+	t.Parallel()
 	sizes := []int{4, 16, 64, 256}
 
 	for _, size := range sizes {
-		t.Run("", func(t *testing.T) {
+		t.Run(fmt.Sprintf("Size=%d", size), func(t *testing.T) {
+			t.Parallel()
 			slice := acquireNatSlice(size)
 			if len(slice) != size {
 				t.Errorf("acquireNatSlice(%d) got length %d", size, len(slice))
@@ -86,10 +93,12 @@ func TestNatSlicePool(t *testing.T) {
 }
 
 func TestFermatSlicePool(t *testing.T) {
+	t.Parallel()
 	sizes := []int{4, 16, 64, 256}
 
 	for _, size := range sizes {
-		t.Run("", func(t *testing.T) {
+		t.Run(fmt.Sprintf("Size=%d", size), func(t *testing.T) {
+			t.Parallel()
 			slice := acquireFermatSlice(size)
 			if len(slice) != size {
 				t.Errorf("acquireFermatSlice(%d) got length %d", size, len(slice))
@@ -109,6 +118,7 @@ func TestFermatSlicePool(t *testing.T) {
 }
 
 func TestFFTStatePool(t *testing.T) {
+	t.Parallel()
 	n := 100
 	k := uint(4)
 
@@ -137,6 +147,7 @@ func TestFFTStatePool(t *testing.T) {
 }
 
 func TestReleaseNilSafe(t *testing.T) {
+	t.Parallel()
 	// These should not panic
 	releaseWordSlice(nil)
 	releaseFermat(nil)
@@ -148,6 +159,7 @@ func TestReleaseNilSafe(t *testing.T) {
 // TestPoolingOnlyForTemporaries verifies that pooling is used correctly
 // only for temporary buffers, not for buffers returned in structures.
 func TestPoolingOnlyForTemporaries(t *testing.T) {
+	t.Parallel()
 	// This test verifies the design: pools are only for truly temporary buffers.
 	// Buffers that are returned in structures (like polValues.values or poly.a)
 	// use regular make() to avoid resource leaks.
@@ -169,6 +181,7 @@ func TestPoolingOnlyForTemporaries(t *testing.T) {
 // Benchmarks
 
 func BenchmarkWordSlicePoolSmall(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		slice := acquireWordSlice(64)
 		releaseWordSlice(slice)
@@ -176,6 +189,7 @@ func BenchmarkWordSlicePoolSmall(b *testing.B) {
 }
 
 func BenchmarkWordSlicePoolMedium(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		slice := acquireWordSlice(1024)
 		releaseWordSlice(slice)
@@ -183,6 +197,7 @@ func BenchmarkWordSlicePoolMedium(b *testing.B) {
 }
 
 func BenchmarkWordSlicePoolLarge(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		slice := acquireWordSlice(16384)
 		releaseWordSlice(slice)
@@ -196,6 +211,7 @@ func BenchmarkWordSliceDirectAlloc(b *testing.B) {
 }
 
 func BenchmarkFermatPoolSmall(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		f := acquireFermat(32)
 		releaseFermat(f)
@@ -203,6 +219,7 @@ func BenchmarkFermatPoolSmall(b *testing.B) {
 }
 
 func BenchmarkFermatPoolMedium(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		f := acquireFermat(512)
 		releaseFermat(f)
@@ -210,6 +227,7 @@ func BenchmarkFermatPoolMedium(b *testing.B) {
 }
 
 func BenchmarkFermatPoolLarge(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		f := acquireFermat(8192)
 		releaseFermat(f)
@@ -217,6 +235,7 @@ func BenchmarkFermatPoolLarge(b *testing.B) {
 }
 
 func BenchmarkFFTStatePool(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		state := acquireFFTState(100, 4)
 		releaseFFTState(state)
@@ -225,6 +244,7 @@ func BenchmarkFFTStatePool(b *testing.B) {
 
 // Test that FFT multiplication still works with pooling
 func TestFFTMulWithPooling(t *testing.T) {
+	t.Parallel()
 	// Small numbers
 	x := big.NewInt(12345)
 	y := big.NewInt(67890)
@@ -251,6 +271,7 @@ func TestFFTMulWithPooling(t *testing.T) {
 }
 
 func TestMulToWithPooling(t *testing.T) {
+	t.Parallel()
 	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
 	y := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
 	expected := new(big.Int).Mul(x, y)
@@ -270,6 +291,7 @@ func TestMulToWithPooling(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestIntToBufferReuse(t *testing.T) {
+	t.Parallel()
 	// Create a polynomial that would produce a result of known size
 	p := &poly{
 		k: 2,
@@ -296,6 +318,7 @@ func TestIntToBufferReuse(t *testing.T) {
 }
 
 func TestIntToBufferReuseWithLargeBuffer(t *testing.T) {
+	t.Parallel()
 	// Create a polynomial
 	p := &poly{
 		k: 2,
@@ -332,6 +355,7 @@ func TestIntToBufferReuseWithLargeBuffer(t *testing.T) {
 }
 
 func TestIntToBufferTooSmall(t *testing.T) {
+	t.Parallel()
 	// Create a polynomial that needs more space
 	p := &poly{
 		k: 3,
@@ -365,6 +389,7 @@ func TestIntToBufferTooSmall(t *testing.T) {
 }
 
 func TestMulToBufferReuse(t *testing.T) {
+	t.Parallel()
 	// Test that MulTo produces correct results when z has existing capacity
 	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
 	y := new(big.Int).Exp(big.NewInt(2), big.NewInt(100000), nil)
@@ -384,11 +409,13 @@ func TestMulToBufferReuse(t *testing.T) {
 }
 
 func TestMulToConsistency(t *testing.T) {
+	t.Parallel()
 	// Verify MulTo produces same results as Mul for various sizes
 	testCases := []int64{50000, 100000, 150000}
 
 	for _, bits := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(fmt.Sprintf("%dBits", bits), func(t *testing.T) {
+			t.Parallel()
 			x := new(big.Int).Exp(big.NewInt(2), big.NewInt(bits), nil)
 			y := new(big.Int).Exp(big.NewInt(2), big.NewInt(bits), nil)
 

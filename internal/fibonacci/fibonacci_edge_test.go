@@ -17,6 +17,7 @@ import (
 
 // TestFibonacciRecurrenceRelation verifies F(n) = F(n-1) + F(n-2).
 func TestFibonacciRecurrenceRelation(t *testing.T) {
+	t.Parallel()
 	calc := NewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
@@ -24,7 +25,8 @@ func TestFibonacciRecurrenceRelation(t *testing.T) {
 	testIndices := []uint64{10, 50, 100, 500, 1000}
 
 	for _, n := range testIndices {
-		t.Run("N="+string(rune(n)), func(t *testing.T) {
+		t.Run(fmt.Sprintf("N=%d", n), func(t *testing.T) {
+			t.Parallel()
 			fn, err := calc.Calculate(ctx, nil, 0, n, opts)
 			if err != nil {
 				t.Fatalf("Failed to calculate F(%d): %v", n, err)
@@ -55,11 +57,13 @@ func TestFibonacciRecurrenceRelation(t *testing.T) {
 
 // TestParallelThresholdBoundary tests behavior at the parallel threshold boundary.
 func TestParallelThresholdBoundary(t *testing.T) {
+	t.Parallel()
 	calc := NewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 
 	// Test with threshold disabled (sequential only)
 	t.Run("Sequential", func(t *testing.T) {
+		t.Parallel()
 		opts := Options{ParallelThreshold: 0}
 		result, err := calc.Calculate(ctx, nil, 0, 10000, opts)
 		if err != nil {
@@ -72,6 +76,7 @@ func TestParallelThresholdBoundary(t *testing.T) {
 
 	// Test with very low threshold (force parallelism)
 	t.Run("ForcedParallel", func(t *testing.T) {
+		t.Parallel()
 		opts := Options{ParallelThreshold: 1}
 		result, err := calc.Calculate(ctx, nil, 0, 10000, opts)
 		if err != nil {
@@ -84,6 +89,7 @@ func TestParallelThresholdBoundary(t *testing.T) {
 
 	// Test with default threshold
 	t.Run("DefaultThreshold", func(t *testing.T) {
+		t.Parallel()
 		opts := Options{ParallelThreshold: DefaultParallelThreshold}
 		result, err := calc.Calculate(ctx, nil, 0, 10000, opts)
 		if err != nil {
@@ -97,6 +103,7 @@ func TestParallelThresholdBoundary(t *testing.T) {
 
 // TestFFTThresholdVariations tests behavior with different FFT thresholds.
 func TestFFTThresholdVariations(t *testing.T) {
+	t.Parallel()
 	calc := NewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	n := uint64(50000)
@@ -106,7 +113,8 @@ func TestFFTThresholdVariations(t *testing.T) {
 	var results []*big.Int
 
 	for _, threshold := range thresholds {
-		t.Run("Threshold="+string(rune(threshold)), func(t *testing.T) {
+		t.Run(fmt.Sprintf("Threshold=%d", threshold), func(t *testing.T) {
+			t.Parallel()
 			opts := Options{
 				ParallelThreshold: DefaultParallelThreshold,
 				FFTThreshold:      threshold,
@@ -132,6 +140,7 @@ func TestFFTThresholdVariations(t *testing.T) {
 
 // TestStrassenThresholdVariations tests behavior with different Strassen thresholds.
 func TestStrassenThresholdVariations(t *testing.T) {
+	t.Parallel()
 	calc := NewCalculator(&MatrixExponentiation{})
 	ctx := context.Background()
 	n := uint64(10000)
@@ -141,7 +150,8 @@ func TestStrassenThresholdVariations(t *testing.T) {
 	var results []*big.Int
 
 	for _, threshold := range thresholds {
-		t.Run("StrassenThreshold="+string(rune(threshold)), func(t *testing.T) {
+		t.Run(fmt.Sprintf("StrassenThreshold=%d", threshold), func(t *testing.T) {
+			t.Parallel()
 			opts := Options{
 				ParallelThreshold: DefaultParallelThreshold,
 				StrassenThreshold: threshold,
@@ -171,6 +181,7 @@ func TestStrassenThresholdVariations(t *testing.T) {
 
 // TestContextCancellationImmediate tests immediate cancellation.
 func TestContextCancellationImmediate(t *testing.T) {
+	t.Parallel()
 	calculators := map[string]coreCalculator{
 		"FastDoubling": &OptimizedFastDoubling{},
 		"MatrixExp":    &MatrixExponentiation{},
@@ -183,6 +194,7 @@ func TestContextCancellationImmediate(t *testing.T) {
 
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			_, err := calc.CalculateCore(ctx, func(float64) {}, 1000000, opts)
 			if !errors.Is(err, context.Canceled) {
 				t.Errorf("Expected context.Canceled, got: %v", err)
@@ -193,6 +205,7 @@ func TestContextCancellationImmediate(t *testing.T) {
 
 // TestContextTimeoutShort tests short timeout behavior.
 func TestContextTimeoutShort(t *testing.T) {
+	t.Parallel()
 	calculators := map[string]coreCalculator{
 		"FastDoubling": &OptimizedFastDoubling{},
 		"MatrixExp":    &MatrixExponentiation{},
@@ -202,6 +215,7 @@ func TestContextTimeoutShort(t *testing.T) {
 
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 			defer cancel()
 
@@ -225,6 +239,7 @@ func TestContextTimeoutShort(t *testing.T) {
 
 // TestConcurrentCalculations verifies thread-safety of concurrent calculations.
 func TestConcurrentCalculations(t *testing.T) {
+	t.Parallel()
 	calc := NewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
@@ -259,6 +274,7 @@ func TestConcurrentCalculations(t *testing.T) {
 
 // TestConcurrentDifferentN tests concurrent calculations with different N values.
 func TestConcurrentDifferentN(t *testing.T) {
+	t.Parallel()
 	calc := NewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
@@ -327,9 +343,11 @@ func TestConcurrentDifferentN(t *testing.T) {
 
 // TestRegistryCreate tests the factory Create method.
 func TestRegistryCreate(t *testing.T) {
+	t.Parallel()
 	factory := NewDefaultFactory()
 
 	t.Run("ValidCalculator", func(t *testing.T) {
+		t.Parallel()
 		calc, err := factory.Create("fast")
 		if err != nil {
 			t.Fatalf("Failed to create 'fast' calculator: %v", err)
@@ -340,6 +358,7 @@ func TestRegistryCreate(t *testing.T) {
 	})
 
 	t.Run("InvalidCalculator", func(t *testing.T) {
+		t.Parallel()
 		_, err := factory.Create("nonexistent")
 		if err == nil {
 			t.Fatal("Expected error for nonexistent calculator")
@@ -349,6 +368,7 @@ func TestRegistryCreate(t *testing.T) {
 
 // TestRegistryGet tests the factory Get method with caching.
 func TestRegistryGet(t *testing.T) {
+	t.Parallel()
 	factory := NewDefaultFactory()
 
 	calc1, err := factory.Get("fast")
@@ -369,6 +389,7 @@ func TestRegistryGet(t *testing.T) {
 
 // TestRegistryList tests the factory List method.
 func TestRegistryList(t *testing.T) {
+	t.Parallel()
 	factory := NewDefaultFactory()
 
 	list := factory.List()
@@ -387,9 +408,11 @@ func TestRegistryList(t *testing.T) {
 
 // TestRegistryMustGet tests the factory MustGet method.
 func TestRegistryMustGet(t *testing.T) {
+	t.Parallel()
 	factory := NewDefaultFactory()
 
 	t.Run("ValidCalculator", func(t *testing.T) {
+		t.Parallel()
 		calc := factory.MustGet("fast")
 		if calc == nil {
 			t.Fatal("Got nil calculator")
@@ -397,6 +420,7 @@ func TestRegistryMustGet(t *testing.T) {
 	})
 
 	t.Run("InvalidCalculatorPanics", func(t *testing.T) {
+		t.Parallel()
 		defer func() {
 			if r := recover(); r == nil {
 				t.Fatal("Expected panic for invalid calculator")
@@ -408,6 +432,7 @@ func TestRegistryMustGet(t *testing.T) {
 
 // TestRegistryCustomCalculator tests registering custom calculators.
 func TestRegistryCustomCalculator(t *testing.T) {
+	t.Parallel()
 	factory := NewDefaultFactory()
 
 	// Register a custom calculator

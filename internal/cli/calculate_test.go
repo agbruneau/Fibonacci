@@ -10,9 +10,11 @@ import (
 
 // TestGetCalculatorsToRun tests the GetCalculatorsToRun function.
 func TestGetCalculatorsToRun(t *testing.T) {
+	t.Parallel()
 	factory := fibonacci.GlobalFactory()
 
 	t.Run("Single algorithm returns one calculator", func(t *testing.T) {
+		t.Parallel()
 		cfg := config.AppConfig{Algo: "fast"}
 		calculators := GetCalculatorsToRun(cfg, factory)
 
@@ -26,6 +28,7 @@ func TestGetCalculatorsToRun(t *testing.T) {
 	})
 
 	t.Run("All algorithms returns multiple calculators", func(t *testing.T) {
+		t.Parallel()
 		cfg := config.AppConfig{Algo: "all"}
 		calculators := GetCalculatorsToRun(cfg, factory)
 
@@ -35,6 +38,7 @@ func TestGetCalculatorsToRun(t *testing.T) {
 	})
 
 	t.Run("Matrix algorithm", func(t *testing.T) {
+		t.Parallel()
 		cfg := config.AppConfig{Algo: "matrix"}
 		calculators := GetCalculatorsToRun(cfg, factory)
 
@@ -46,6 +50,7 @@ func TestGetCalculatorsToRun(t *testing.T) {
 
 // TestPrintExecutionConfig tests the PrintExecutionConfig function.
 func TestPrintExecutionConfig(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	cfg := config.AppConfig{
 		N:            1000,
@@ -69,9 +74,11 @@ func TestPrintExecutionConfig(t *testing.T) {
 
 // TestPrintExecutionMode tests the PrintExecutionMode function.
 func TestPrintExecutionMode(t *testing.T) {
+	t.Parallel()
 	factory := fibonacci.GlobalFactory()
 
 	t.Run("Single calculator mode", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		calculators := []fibonacci.Calculator{factory.MustGet("fast")}
 
@@ -84,6 +91,7 @@ func TestPrintExecutionMode(t *testing.T) {
 	})
 
 	t.Run("Multiple calculators mode", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		cfg := config.AppConfig{Algo: "all"}
 		calculators := GetCalculatorsToRun(cfg, factory)
@@ -96,4 +104,3 @@ func TestPrintExecutionMode(t *testing.T) {
 		}
 	})
 }
-

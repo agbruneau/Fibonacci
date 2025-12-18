@@ -11,6 +11,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestNewTransformCache(t *testing.T) {
+	t.Parallel()
 	config := DefaultTransformCacheConfig()
 	cache := NewTransformCache(config)
 
@@ -38,6 +39,7 @@ func TestGetTransformCache(t *testing.T) {
 }
 
 func TestTransformCachePutAndGet(t *testing.T) {
+	t.Parallel()
 	// Create a cache with low threshold for testing
 	config := TransformCacheConfig{
 		MaxEntries: 10,
@@ -80,6 +82,7 @@ func TestTransformCachePutAndGet(t *testing.T) {
 }
 
 func TestTransformCacheMiss(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 10,
 		MinBitLen:  64,
@@ -100,6 +103,7 @@ func TestTransformCacheMiss(t *testing.T) {
 }
 
 func TestTransformCacheEviction(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 3, // Small for testing eviction
 		MinBitLen:  64,
@@ -130,6 +134,7 @@ func TestTransformCacheEviction(t *testing.T) {
 }
 
 func TestTransformCacheDisabled(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 10,
 		MinBitLen:  64,
@@ -159,6 +164,7 @@ func TestTransformCacheDisabled(t *testing.T) {
 }
 
 func TestTransformCacheBelowThreshold(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 10,
 		MinBitLen:  10000, // High threshold
@@ -189,6 +195,7 @@ func TestTransformCacheBelowThreshold(t *testing.T) {
 }
 
 func TestTransformCacheStats(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 10,
 		MinBitLen:  64,
@@ -230,6 +237,7 @@ func TestTransformCacheStats(t *testing.T) {
 }
 
 func TestTransformCacheClear(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 10,
 		MinBitLen:  64,
@@ -270,6 +278,7 @@ func TestTransformCacheClear(t *testing.T) {
 }
 
 func TestTransformCacheConcurrency(t *testing.T) {
+	t.Parallel()
 	config := TransformCacheConfig{
 		MaxEntries: 100,
 		MinBitLen:  64,
@@ -317,6 +326,7 @@ func TestTransformCacheConcurrency(t *testing.T) {
 }
 
 func TestComputeKeyConsistency(t *testing.T) {
+	t.Parallel()
 	testData := make(nat, 10)
 	for i := range testData {
 		testData[i] = big.Word(i + 1)
@@ -331,6 +341,7 @@ func TestComputeKeyConsistency(t *testing.T) {
 }
 
 func TestComputeKeyDifferentParams(t *testing.T) {
+	t.Parallel()
 	testData := make(nat, 10)
 	for i := range testData {
 		testData[i] = big.Word(i + 1)
@@ -411,6 +422,7 @@ func TestCachedSquareIntegration(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func BenchmarkCacheHit(b *testing.B) {
+	b.ReportAllocs()
 	config := TransformCacheConfig{
 		MaxEntries: 100,
 		MinBitLen:  64,
@@ -441,6 +453,7 @@ func BenchmarkCacheHit(b *testing.B) {
 }
 
 func BenchmarkCacheMiss(b *testing.B) {
+	b.ReportAllocs()
 	config := TransformCacheConfig{
 		MaxEntries: 100,
 		MinBitLen:  64,
@@ -460,6 +473,7 @@ func BenchmarkCacheMiss(b *testing.B) {
 }
 
 func BenchmarkCachePut(b *testing.B) {
+	b.ReportAllocs()
 	config := TransformCacheConfig{
 		MaxEntries: 1000,
 		MinBitLen:  64,

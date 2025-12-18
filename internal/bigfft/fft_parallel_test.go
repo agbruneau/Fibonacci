@@ -8,6 +8,7 @@ import (
 // TestFFTParallelization verifies that parallel FFT produces the same results
 // as sequential FFT for various input sizes.
 func TestFFTParallelization(t *testing.T) {
+	t.Parallel()
 	// Test with numbers that should trigger parallelization (large k)
 	// We need k >= ParallelFFTRecursionThreshold (4) for parallelization to occur
 	// This means we need vectors of size at least 2^4 = 16
@@ -31,7 +32,7 @@ func TestFFTParallelization(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Compute product using FFT (which may use parallelization internally)
+			t.Parallel()
 			// Compute product using FFT (which may use parallelization internally)
 			result, err := Mul(tc.x, tc.y)
 			if err != nil {
@@ -56,10 +57,9 @@ func BenchmarkFFTParallelization(b *testing.B) {
 	x := new(big.Int).Exp(big.NewInt(2), big.NewInt(10000), nil)
 	y := new(big.Int).Exp(big.NewInt(3), big.NewInt(10000), nil)
 
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for i := 0; i < b.N; i++ {
-			Mul(x, y)
-		}
+		Mul(x, y)
 	}
 }

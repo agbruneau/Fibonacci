@@ -16,6 +16,7 @@ import (
 
 // TestValidateTimeout tests all timeout validation scenarios.
 func TestValidateTimeout(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast", "matrix"}
 
 	testCases := []struct {
@@ -34,6 +35,7 @@ func TestValidateTimeout(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := AppConfig{
 				Timeout:      tc.timeout,
 				Threshold:    100,
@@ -54,6 +56,7 @@ func TestValidateTimeout(t *testing.T) {
 
 // TestValidateThreshold tests all threshold validation scenarios.
 func TestValidateThreshold(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast", "matrix"}
 
 	testCases := []struct {
@@ -72,6 +75,7 @@ func TestValidateThreshold(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := AppConfig{
 				Timeout:      time.Minute,
 				Threshold:    tc.threshold,
@@ -92,6 +96,7 @@ func TestValidateThreshold(t *testing.T) {
 
 // TestValidateFFTThreshold tests FFT threshold validation scenarios.
 func TestValidateFFTThreshold(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast", "matrix"}
 
 	testCases := []struct {
@@ -109,6 +114,7 @@ func TestValidateFFTThreshold(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := AppConfig{
 				Timeout:      time.Minute,
 				Threshold:    100,
@@ -129,6 +135,7 @@ func TestValidateFFTThreshold(t *testing.T) {
 
 // TestValidateAlgorithm tests all algorithm validation scenarios.
 func TestValidateAlgorithm(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast", "matrix", "fft"}
 
 	testCases := []struct {
@@ -151,6 +158,7 @@ func TestValidateAlgorithm(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := AppConfig{
 				Timeout:      time.Minute,
 				Threshold:    100,
@@ -171,6 +179,7 @@ func TestValidateAlgorithm(t *testing.T) {
 
 // TestValidateEmptyAvailableAlgos tests validation with empty algo list.
 func TestValidateEmptyAvailableAlgos(t *testing.T) {
+	t.Parallel()
 	cfg := AppConfig{
 		Timeout:      time.Minute,
 		Threshold:    100,
@@ -194,6 +203,7 @@ func TestValidateEmptyAvailableAlgos(t *testing.T) {
 
 // TestValidateCombinedErrors tests configs with multiple errors.
 func TestValidateCombinedErrors(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast"}
 
 	// Multiple issues - validation should catch at least one
@@ -216,6 +226,7 @@ func TestValidateCombinedErrors(t *testing.T) {
 
 // TestParseConfigDefaults tests that default values are correctly set.
 func TestParseConfigDefaults(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	algos := []string{"fast", "matrix"}
 
@@ -271,6 +282,7 @@ func TestParseConfigDefaults(t *testing.T) {
 
 // TestParseConfigAllFlags tests parsing of all flags.
 func TestParseConfigAllFlags(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	algos := []string{"fast", "matrix", "fft"}
 
@@ -347,6 +359,7 @@ func TestParseConfigAllFlags(t *testing.T) {
 
 // TestParseConfigDetailsAlias tests the -details alias for -d.
 func TestParseConfigDetailsAlias(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	algos := []string{"fast"}
 
@@ -362,6 +375,7 @@ func TestParseConfigDetailsAlias(t *testing.T) {
 
 // TestParseConfigInvalidFlags tests handling of invalid flags.
 func TestParseConfigInvalidFlags(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name string
 		args []string
@@ -388,6 +402,7 @@ func TestParseConfigInvalidFlags(t *testing.T) {
 
 // TestParseConfigAlgoCaseInsensitivity tests that algo is lowercased.
 func TestParseConfigAlgoCaseInsensitivity(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast", "matrix"}
 
 	testCases := []struct {
@@ -419,6 +434,7 @@ func TestParseConfigAlgoCaseInsensitivity(t *testing.T) {
 
 // TestParseConfigValidationErrors tests that validation errors are reported.
 func TestParseConfigValidationErrors(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast"}
 
 	testCases := []struct {
@@ -459,6 +475,7 @@ func TestParseConfigValidationErrors(t *testing.T) {
 
 // TestParseConfigLargeN tests parsing of very large N values.
 func TestParseConfigLargeN(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	algos := []string{"fast"}
 
@@ -475,6 +492,7 @@ func TestParseConfigLargeN(t *testing.T) {
 
 // TestParseConfigZeroN tests that N=0 is valid.
 func TestParseConfigZeroN(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	algos := []string{"fast"}
 
@@ -490,6 +508,7 @@ func TestParseConfigZeroN(t *testing.T) {
 
 // TestParseConfigTimeoutFormats tests various timeout format strings.
 func TestParseConfigTimeoutFormats(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast"}
 
 	testCases := []struct {
@@ -522,12 +541,14 @@ func TestParseConfigTimeoutFormats(t *testing.T) {
 
 // TestParseConfigHelpFlag tests that -h/-help returns flag.ErrHelp.
 func TestParseConfigHelpFlag(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast"}
 
 	helpFlags := []string{"-h", "-help", "--help"}
 
 	for _, flag := range helpFlags {
 		t.Run(flag, func(t *testing.T) {
+			t.Parallel()
 			var buf bytes.Buffer
 			_, err := ParseConfig("test", []string{flag}, &buf, algos)
 			// flag.ErrHelp is returned for help flags
@@ -544,6 +565,7 @@ func TestParseConfigHelpFlag(t *testing.T) {
 
 // TestNoColorEnvironmentVariable tests that NO_COLOR env var is documented.
 func TestNoColorEnvironmentVariable(t *testing.T) {
+	t.Parallel()
 	// This is a documentation/behavior test
 	// The actual NO_COLOR handling is done in cli package
 	// but we document it in config
@@ -591,6 +613,7 @@ func TestParseConfigWithEnvironment(t *testing.T) {
 
 // TestParseConfigBoundaryValues tests edge cases for numeric values.
 func TestParseConfigBoundaryValues(t *testing.T) {
+	t.Parallel()
 	algos := []string{"fast"}
 
 	testCases := []struct {
@@ -607,6 +630,7 @@ func TestParseConfigBoundaryValues(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			var buf bytes.Buffer
 			_, err := ParseConfig("test", tc.args, &buf, algos)
 			if tc.expectError && err == nil {

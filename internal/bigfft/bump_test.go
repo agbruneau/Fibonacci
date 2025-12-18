@@ -1,6 +1,7 @@
 package bigfft
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -10,6 +11,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestBumpAllocatorAlloc(t *testing.T) {
+	t.Parallel()
 	ba := AcquireBumpAllocator(1000)
 	defer ReleaseBumpAllocator(ba)
 
@@ -48,6 +50,7 @@ func TestBumpAllocatorAlloc(t *testing.T) {
 }
 
 func TestBumpAllocatorFallback(t *testing.T) {
+	t.Parallel()
 	ba := AcquireBumpAllocator(100)
 	defer ReleaseBumpAllocator(ba)
 
@@ -59,6 +62,7 @@ func TestBumpAllocatorFallback(t *testing.T) {
 }
 
 func TestBumpAllocatorReset(t *testing.T) {
+	t.Parallel()
 	ba := AcquireBumpAllocator(500)
 	defer ReleaseBumpAllocator(ba)
 
@@ -80,6 +84,7 @@ func TestBumpAllocatorReset(t *testing.T) {
 }
 
 func TestBumpAllocatorAllocFermat(t *testing.T) {
+	t.Parallel()
 	ba := AcquireBumpAllocator(1000)
 	defer ReleaseBumpAllocator(ba)
 
@@ -97,6 +102,7 @@ func TestBumpAllocatorAllocFermat(t *testing.T) {
 }
 
 func TestBumpAllocatorAllocFermatSlice(t *testing.T) {
+	t.Parallel()
 	ba := AcquireBumpAllocator(10000)
 	defer ReleaseBumpAllocator(ba)
 
@@ -128,6 +134,7 @@ func TestBumpAllocatorAllocFermatSlice(t *testing.T) {
 }
 
 func TestAllocUnsafe(t *testing.T) {
+	t.Parallel()
 	ba := AcquireBumpAllocator(100)
 	defer ReleaseBumpAllocator(ba)
 
@@ -138,6 +145,7 @@ func TestAllocUnsafe(t *testing.T) {
 }
 
 func TestEstimateBumpCapacity(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		wordLen int
 		minCap  int // Minimum expected capacity
@@ -149,10 +157,13 @@ func TestEstimateBumpCapacity(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		cap := EstimateBumpCapacity(tc.wordLen)
-		if cap < tc.minCap {
-			t.Errorf("EstimateBumpCapacity(%d) = %d, expected at least %d", tc.wordLen, cap, tc.minCap)
-		}
+		t.Run(fmt.Sprintf("Words=%d", tc.wordLen), func(t *testing.T) {
+			t.Parallel()
+			cap := EstimateBumpCapacity(tc.wordLen)
+			if cap < tc.minCap {
+				t.Errorf("EstimateBumpCapacity(%d) = %d, expected at least %d", tc.wordLen, cap, tc.minCap)
+			}
+		})
 	}
 }
 
@@ -166,12 +177,14 @@ func BenchmarkAllocVsMake(b *testing.B) {
 
 	for _, size := range sizes {
 		b.Run("Make_"+formatSize(size), func(b *testing.B) {
+			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				_ = make([]big.Word, size)
 			}
 		})
 
 		b.Run("Bump_"+formatSize(size), func(b *testing.B) {
+			b.ReportAllocs()
 			ba := AcquireBumpAllocator(size * b.N)
 			defer ReleaseBumpAllocator(ba)
 			b.ResetTimer()
@@ -181,6 +194,7 @@ func BenchmarkAllocVsMake(b *testing.B) {
 		})
 
 		b.Run("Pool_"+formatSize(size), func(b *testing.B) {
+			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				s := acquireWordSlice(size)
 				releaseWordSlice(s)
@@ -203,6 +217,7 @@ func BenchmarkFFTMulWithBump(b *testing.B) {
 		}
 
 		b.Run("fftmulTo_"+formatSize(size)+"_words", func(b *testing.B) {
+			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := fftmulTo(nil, x, y)
@@ -225,6 +240,7 @@ func BenchmarkFFTSqrWithBump(b *testing.B) {
 		}
 
 		b.Run("fftsqrTo_"+formatSize(size)+"_words", func(b *testing.B) {
+			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := fftsqrTo(nil, x)
@@ -238,16 +254,17 @@ func BenchmarkFFTSqrWithBump(b *testing.B) {
 
 func formatSize(size int) string {
 	if size >= 1000000 {
-		return string(rune('0'+size/1000000)) + "M"
+		return fmt.Sprintf("%dM", size/1000000)
 	}
 	if size >= 1000 {
-		return string(rune('0'+size/1000)) + "K"
+		return fmt.Sprintf("%dK", size/1000)
 	}
-	return string(rune('0' + size))
+	return fmt.Sprintf("%d", size)
 }
 
 // BenchmarkBumpAllocatorReuse tests the benefit of reusing bump allocators
 func BenchmarkBumpAllocatorReuse(b *testing.B) {
+	b.ReportAllocs()
 	capacity := 100000
 
 	b.Run("NewEachTime", func(b *testing.B) {
@@ -272,6 +289,7 @@ func BenchmarkBumpAllocatorReuse(b *testing.B) {
 
 // BenchmarkExtendedPoolSizes tests the new larger pool sizes
 func BenchmarkExtendedPoolSizes(b *testing.B) {
+	b.ReportAllocs()
 	sizes := []int{262144, 1048576, 4194304} // 256K, 1M, 4M words
 
 	for _, size := range sizes {
@@ -283,4 +301,3 @@ func BenchmarkExtendedPoolSizes(b *testing.B) {
 		})
 	}
 }
-

@@ -11,6 +11,7 @@ import (
 )
 
 func TestWriteResultToFile(t *testing.T) {
+	t.Parallel()
 	// Create temporary directory
 	tmpDir := t.TempDir()
 
@@ -84,6 +85,7 @@ func TestWriteResultToFile(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := big.NewInt(55)
 			config := OutputConfig{
 				OutputFile: tc.outputFile,
@@ -109,9 +111,11 @@ func TestWriteResultToFile(t *testing.T) {
 }
 
 func TestFormatQuietResult(t *testing.T) {
+	t.Parallel()
 	result := big.NewInt(55)
 
 	t.Run("Decimal format", func(t *testing.T) {
+		t.Parallel()
 		output := FormatQuietResult(result, 10, 100*time.Millisecond, false)
 		if output != "55" {
 			t.Errorf("Expected '55', got '%s'", output)
@@ -119,6 +123,7 @@ func TestFormatQuietResult(t *testing.T) {
 	})
 
 	t.Run("Hexadecimal format", func(t *testing.T) {
+		t.Parallel()
 		output := FormatQuietResult(result, 10, 100*time.Millisecond, true)
 		if !strings.HasPrefix(output, "0x") {
 			t.Errorf("Expected hex output to start with '0x', got '%s'", output)
@@ -129,6 +134,7 @@ func TestFormatQuietResult(t *testing.T) {
 	})
 
 	t.Run("Large number decimal", func(t *testing.T) {
+		t.Parallel()
 		large := new(big.Int)
 		large.SetString("123456789012345678901234567890", 10)
 		output := FormatQuietResult(large, 100, 1*time.Second, false)
@@ -138,6 +144,7 @@ func TestFormatQuietResult(t *testing.T) {
 	})
 
 	t.Run("Large number hex", func(t *testing.T) {
+		t.Parallel()
 		large := new(big.Int)
 		large.SetString("123456789012345678901234567890", 10)
 		output := FormatQuietResult(large, 100, 1*time.Second, true)
@@ -148,10 +155,12 @@ func TestFormatQuietResult(t *testing.T) {
 }
 
 func TestDisplayQuietResult(t *testing.T) {
+	t.Parallel()
 	result := big.NewInt(55)
 	var buf bytes.Buffer
 
 	t.Run("Decimal output", func(t *testing.T) {
+		t.Parallel()
 		buf.Reset()
 		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond, false)
 		output := buf.String()
@@ -164,6 +173,7 @@ func TestDisplayQuietResult(t *testing.T) {
 	})
 
 	t.Run("Hex output", func(t *testing.T) {
+		t.Parallel()
 		buf.Reset()
 		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond, true)
 		output := buf.String()
@@ -174,10 +184,12 @@ func TestDisplayQuietResult(t *testing.T) {
 }
 
 func TestDisplayResultWithConfig(t *testing.T) {
+	t.Parallel()
 	result := big.NewInt(55)
 	tmpDir := t.TempDir()
 
 	t.Run("Quiet mode", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		config := OutputConfig{
 			Quiet: true,
@@ -193,6 +205,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 	})
 
 	t.Run("Quiet mode with hex", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		config := OutputConfig{
 			Quiet:     true,
@@ -209,6 +222,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 	})
 
 	t.Run("Normal mode with file output", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		outputFile := filepath.Join(tmpDir, "test_output.txt")
 		config := OutputConfig{
@@ -231,6 +245,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 	})
 
 	t.Run("Quiet mode with file output", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		outputFile := filepath.Join(tmpDir, "quiet_output.txt")
 		config := OutputConfig{
@@ -253,6 +268,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 	})
 
 	t.Run("Hex output in normal mode", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		config := OutputConfig{
 			HexOutput: true,

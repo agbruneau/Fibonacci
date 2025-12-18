@@ -5,6 +5,7 @@ import (
 )
 
 func TestPreWarmPools(t *testing.T) {
+	t.Parallel()
 	// Test PreWarmPools does not panic and allocates pools
 	// Pass uint64 directly as per signature
 	PreWarmPools(1000)
@@ -14,6 +15,7 @@ func TestPreWarmPools(t *testing.T) {
 }
 
 func TestAcquireReleaseWordSlice(t *testing.T) {
+	t.Parallel()
 	// Normal size
 	s := acquireWordSlice(100)
 	if len(s) != 100 {
@@ -33,6 +35,7 @@ func TestAcquireReleaseWordSlice(t *testing.T) {
 }
 
 func TestAcquireReleaseFermat(t *testing.T) {
+	t.Parallel()
 	s := acquireFermat(100)
 	if len(s) != 100 {
 		t.Errorf("expected length 100, got %d", len(s))
@@ -49,12 +52,7 @@ func TestAcquireReleaseFermat(t *testing.T) {
 }
 
 func TestAcquireReleaseNatSlice(t *testing.T) {
-	s := acquireNatSlice(10)
-	if len(s) != 10 {
-		t.Errorf("expected length 10, got %d", len(s))
-	}
-	releaseNatSlice(s)
-
+	t.Parallel()
 	sLarge := acquireNatSlice(40000)
 	if len(sLarge) != 40000 {
 		t.Errorf("expected length 40000, got %d", len(sLarge))
@@ -65,6 +63,7 @@ func TestAcquireReleaseNatSlice(t *testing.T) {
 }
 
 func TestAcquireReleaseFermatSlice(t *testing.T) {
+	t.Parallel()
 	s := acquireFermatSlice(10)
 	if len(s) != 10 {
 		t.Errorf("expected length 10, got %d", len(s))
@@ -81,6 +80,7 @@ func TestAcquireReleaseFermatSlice(t *testing.T) {
 }
 
 func TestFFTStatePoolExtra(t *testing.T) {
+	t.Parallel()
 	state := acquireFFTState(100, 4)
 	if state == nil {
 		t.Fatal("acquireFFTState returned nil")

@@ -7,6 +7,7 @@ import (
 
 // TestNewProgressWithETA verifies proper initialization.
 func TestNewProgressWithETA(t *testing.T) {
+	t.Parallel()
 	p := NewProgressWithETA(3)
 
 	if p.ProgressState == nil {
@@ -25,6 +26,7 @@ func TestNewProgressWithETA(t *testing.T) {
 
 // TestUpdateWithETA verifies progress updates and ETA calculation.
 func TestUpdateWithETA(t *testing.T) {
+	t.Parallel()
 	p := NewProgressWithETA(2)
 
 	// Initial update
@@ -46,6 +48,7 @@ func TestUpdateWithETA(t *testing.T) {
 
 // TestGetETA verifies ETA retrieval.
 func TestGetETA(t *testing.T) {
+	t.Parallel()
 	p := NewProgressWithETA(1)
 
 	// Before any updates, ETA should be 0
@@ -69,6 +72,7 @@ func TestGetETA(t *testing.T) {
 
 // TestFormatETA verifies ETA formatting.
 func TestFormatETA(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		eta      time.Duration
@@ -89,6 +93,7 @@ func TestFormatETA(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := FormatETA(tc.eta)
 			if result != tc.expected {
 				t.Errorf("FormatETA(%v) = %q, want %q", tc.eta, result, tc.expected)
@@ -99,6 +104,7 @@ func TestFormatETA(t *testing.T) {
 
 // TestFormatProgressBarWithETA verifies combined progress and ETA formatting.
 func TestFormatProgressBarWithETA(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name        string
 		progress    float64
@@ -135,6 +141,7 @@ func TestFormatProgressBarWithETA(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := FormatProgressBarWithETA(tc.progress, tc.eta, tc.width)
 
 			if tc.containsETA {
@@ -157,7 +164,9 @@ func TestFormatProgressBarWithETA(t *testing.T) {
 
 // TestProgressWithETAEdgeCases verifies edge case handling.
 func TestProgressWithETAEdgeCases(t *testing.T) {
+	t.Parallel()
 	t.Run("Progress exceeds 1.0", func(t *testing.T) {
+		t.Parallel()
 		p := NewProgressWithETA(1)
 		p.Update(0, 1.5)
 		progress := p.CalculateAverage()
@@ -168,6 +177,7 @@ func TestProgressWithETAEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Negative progress", func(t *testing.T) {
+		t.Parallel()
 		p := NewProgressWithETA(1)
 		p.Update(0, -0.5)
 		progress := p.CalculateAverage()
@@ -178,6 +188,7 @@ func TestProgressWithETAEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Invalid calculator index", func(t *testing.T) {
+		t.Parallel()
 		p := NewProgressWithETA(2)
 		// Should not panic with invalid index
 		p.UpdateWithETA(5, 0.5)
@@ -192,6 +203,7 @@ func TestProgressWithETAEdgeCases(t *testing.T) {
 
 // TestETACapping verifies that ETA is capped at reasonable values.
 func TestETACapping(t *testing.T) {
+	t.Parallel()
 	p := NewProgressWithETA(1)
 	p.Update(0, 0.001)         // Very small progress
 	p.progressRate = 0.0000001 // Very slow rate

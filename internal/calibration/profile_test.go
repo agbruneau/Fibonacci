@@ -9,6 +9,7 @@ import (
 )
 
 func TestNewProfile(t *testing.T) {
+	t.Parallel()
 	profile := NewProfile()
 
 	if profile == nil {
@@ -46,6 +47,7 @@ func TestNewProfile(t *testing.T) {
 }
 
 func TestProfileSaveLoad(t *testing.T) {
+	t.Parallel()
 	// Create a temporary directory for the test
 	tmpDir, err := os.MkdirTemp("", "fibcalc_test")
 	if err != nil {
@@ -100,6 +102,7 @@ func TestProfileSaveLoad(t *testing.T) {
 }
 
 func TestProfileIsValid(t *testing.T) {
+	t.Parallel()
 	// Valid profile for current hardware
 	valid := NewProfile()
 	if !valid.IsValid() {
@@ -142,6 +145,7 @@ func TestProfileIsValid(t *testing.T) {
 }
 
 func TestProfileIsStale(t *testing.T) {
+	t.Parallel()
 	profile := NewProfile()
 
 	// Fresh profile should not be stale
@@ -163,6 +167,7 @@ func TestProfileIsStale(t *testing.T) {
 }
 
 func TestProfileString(t *testing.T) {
+	t.Parallel()
 	profile := NewProfile()
 	profile.OptimalParallelThreshold = 4096
 	profile.OptimalFFTThreshold = 1000000
@@ -180,6 +185,7 @@ func TestProfileString(t *testing.T) {
 }
 
 func TestLoadNonExistentProfile(t *testing.T) {
+	t.Parallel()
 	_, err := LoadProfile("/nonexistent/path/to/profile.json")
 	if err == nil {
 		t.Error("Expected error loading nonexistent profile")
@@ -187,6 +193,7 @@ func TestLoadNonExistentProfile(t *testing.T) {
 }
 
 func TestLoadInvalidJSON(t *testing.T) {
+	t.Parallel()
 	tmpDir, err := os.MkdirTemp("", "fibcalc_test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -206,6 +213,7 @@ func TestLoadInvalidJSON(t *testing.T) {
 }
 
 func TestLoadOrCreateProfile(t *testing.T) {
+	t.Parallel()
 	tmpDir, err := os.MkdirTemp("", "fibcalc_test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -240,6 +248,7 @@ func TestLoadOrCreateProfile(t *testing.T) {
 }
 
 func TestProfileExists(t *testing.T) {
+	t.Parallel()
 	tmpDir, err := os.MkdirTemp("", "fibcalc_test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -266,6 +275,7 @@ func TestProfileExists(t *testing.T) {
 }
 
 func TestGetDefaultProfilePath(t *testing.T) {
+	t.Parallel()
 	path := GetDefaultProfilePath()
 	if path == "" {
 		t.Error("GetDefaultProfilePath returned empty string")
@@ -278,6 +288,7 @@ func TestGetDefaultProfilePath(t *testing.T) {
 }
 
 func TestProfileRanges(t *testing.T) {
+	t.Parallel()
 	profile := NewProfile()
 	profile.OptimalFFTThreshold = 1000
 	profile.OptimalParallelThreshold = 1000
@@ -315,6 +326,7 @@ func TestProfileRanges(t *testing.T) {
 }
 
 func TestAddRangeThresholds(t *testing.T) {
+	t.Parallel()
 	profile := NewProfile()
 
 	r1 := RangeThresholds{

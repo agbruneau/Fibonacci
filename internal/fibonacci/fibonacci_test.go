@@ -23,7 +23,7 @@ var knownFibResults = []struct {
 	{93, "12200160415121876738"}, // Max uint64
 	{94, "19740274219868223167"}, // First overflow uint64
 	{100, "354224848179261915075"},
-	{128, "251728825683549488150424261"}, // Power of 2
+	{128, "251728825683549488150424261"},                            // Power of 2
 	{256, "141693817714056513234709965875411919657707794958199867"}, // Power of 2
 	{1000, "43466557686937456435688527675040625802564660517371780402481729089536555417949051890403879840079255169295922593080322634775209689623239873322471161642996440906533187938298969649928516003704476137795166849228875"},
 }
@@ -40,6 +40,7 @@ func TestFibonacciCalculators(t *testing.T) {
 
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			for _, testCase := range knownFibResults {
 				t.Run(fmt.Sprintf("N=%d", testCase.n), func(t *testing.T) {
 					t.Parallel()
@@ -65,6 +66,7 @@ func TestFibonacciCalculators(t *testing.T) {
 // TestProgressCalculationLogic validates that progress is not just monotonic,
 // but also accurately reflects the work done.
 func TestProgressCalculationLogic(t *testing.T) {
+	t.Parallel()
 	const n = 100_000 // A sufficiently large number for the test
 	calc := NewCalculator(&OptimizedFastDoubling{})
 	progressChan := make(chan ProgressUpdate, 200)
@@ -105,6 +107,7 @@ func TestProgressCalculationLogic(t *testing.T) {
 // TestLookupTableImmutability verifies that the lookup table (LUT)
 // ensures the immutability of its data by returning copies.
 func TestLookupTableImmutability(t *testing.T) {
+	t.Parallel()
 	val1 := lookupSmall(10)
 	expected := big.NewInt(55)
 	if val1.Cmp(expected) != 0 {
@@ -120,6 +123,7 @@ func TestLookupTableImmutability(t *testing.T) {
 // TestNilCoreCalculatorPanic verifies that `NewCalculator` panics if called
 // with a nil `coreCalculator`.
 func TestNilCoreCalculatorPanic(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("NewCalculator should have panicked with a nil core.")
@@ -137,6 +141,7 @@ func TestProgressReporter(t *testing.T) {
 
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			progressChan := make(chan ProgressUpdate, 200)
 			var lastProgress float64
 			var wg sync.WaitGroup
@@ -176,6 +181,7 @@ func TestContextCancellation(t *testing.T) {
 
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 			defer cancel()
 			_, err := calc.Calculate(ctx, nil, 0, 100_000_000, Options{ParallelThreshold: DefaultParallelThreshold})

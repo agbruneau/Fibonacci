@@ -11,6 +11,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestHasBMI2(t *testing.T) {
+	t.Parallel()
 	hasBMI2 := HasBMI2()
 	features := GetCPUFeatures()
 	if hasBMI2 != features.BMI2 {
@@ -20,6 +21,7 @@ func TestHasBMI2(t *testing.T) {
 }
 
 func TestHasADX(t *testing.T) {
+	t.Parallel()
 	hasADX := HasADX()
 	features := GetCPUFeatures()
 	if hasADX != features.ADX {
@@ -29,6 +31,7 @@ func TestHasADX(t *testing.T) {
 }
 
 func TestGetActiveImplementation(t *testing.T) {
+	t.Parallel()
 	impl := GetActiveImplementation()
 	// Verify it's a valid SIMDLevel
 	implStr := impl.String()
@@ -89,6 +92,7 @@ func TestEnableAllSIMD(t *testing.T) {
 }
 
 func TestCPUFeaturesString(t *testing.T) {
+	t.Parallel()
 	features := GetCPUFeatures()
 	str := features.String()
 	if str == "" {
@@ -98,12 +102,16 @@ func TestCPUFeaturesString(t *testing.T) {
 }
 
 func TestSIMDLevelString(t *testing.T) {
+	t.Parallel()
 	levels := []SIMDLevel{SIMDNone, SIMDAVX2, SIMDAVX512, SIMDLevel(99)} // Including unknown
 	for _, level := range levels {
-		str := level.String()
-		if str == "" {
-			t.Errorf("SIMDLevel(%d).String() returned empty string", level)
-		}
-		t.Logf("SIMDLevel %d: %s", level, str)
+		t.Run(level.String(), func(t *testing.T) {
+			t.Parallel()
+			str := level.String()
+			if str == "" {
+				t.Errorf("SIMDLevel(%d).String() returned empty string", level)
+			}
+			t.Logf("SIMDLevel %d: %s", level, str)
+		})
 	}
 }

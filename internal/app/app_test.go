@@ -35,7 +35,9 @@ func createMockFactory(result *big.Int, err error) *fibonacci.TestFactory {
 
 // TestNew tests the New function for creating Application instances.
 func TestNew(t *testing.T) {
+	t.Parallel()
 	t.Run("Valid args create application", func(t *testing.T) {
+		t.Parallel()
 		var errBuf bytes.Buffer
 		args := []string{"fibcalc", "-n", "100"}
 
@@ -56,6 +58,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("Invalid args return error", func(t *testing.T) {
+		t.Parallel()
 		var errBuf bytes.Buffer
 		args := []string{"fibcalc", "-invalid-flag"}
 
@@ -70,6 +73,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("Help flag returns error", func(t *testing.T) {
+		t.Parallel()
 		var errBuf bytes.Buffer
 		args := []string{"fibcalc", "-h"}
 
@@ -84,6 +88,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("Empty args slice handled correctly", func(t *testing.T) {
+		t.Parallel()
 		var errBuf bytes.Buffer
 		args := []string{}
 
@@ -107,10 +112,12 @@ func TestNew(t *testing.T) {
 // TestApplicationRun tests the Application.Run method.
 // Optimized to use MockCalculator via TestFactory.
 func TestApplicationRun(t *testing.T) {
+	t.Parallel()
 	// Reusable factory for success cases
 	successFactory := createMockFactory(big.NewInt(55), nil)
 
 	t.Run("Simple execution with success", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		app := &Application{
 			Config: config.AppConfig{
@@ -138,6 +145,7 @@ func TestApplicationRun(t *testing.T) {
 	})
 
 	t.Run("Parallel comparison with success", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		app := &Application{
 			Config: config.AppConfig{
@@ -200,6 +208,7 @@ func TestApplicationRun(t *testing.T) {
 	})
 
 	t.Run("Context cancellation", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 
 		// Mock blocking calculator
@@ -232,6 +241,7 @@ func TestApplicationRun(t *testing.T) {
 	})
 
 	t.Run("JSON output mode", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		app := &Application{
 			Config: config.AppConfig{
@@ -259,6 +269,7 @@ func TestApplicationRun(t *testing.T) {
 	})
 
 	t.Run("Quiet mode", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		app := &Application{
 			Config: config.AppConfig{
@@ -286,6 +297,7 @@ func TestApplicationRun(t *testing.T) {
 
 // TestIsHelpError tests the IsHelpError function.
 func TestIsHelpError(t *testing.T) {
+	t.Parallel()
 	var errBuf bytes.Buffer
 	args := []string{"fibcalc", "-h"}
 
@@ -298,6 +310,7 @@ func TestIsHelpError(t *testing.T) {
 
 // TestRunCompletion tests the completion script generation.
 func TestRunCompletion(t *testing.T) {
+	t.Parallel()
 	var outBuf bytes.Buffer
 	app := &Application{
 		Config: config.AppConfig{
@@ -320,6 +333,7 @@ func TestRunCompletion(t *testing.T) {
 
 // TestRunCompletionInvalid tests invalid completion shell.
 func TestRunCompletionInvalid(t *testing.T) {
+	t.Parallel()
 	var outBuf bytes.Buffer
 	var errBuf bytes.Buffer
 	app := &Application{
@@ -339,6 +353,7 @@ func TestRunCompletionInvalid(t *testing.T) {
 
 // TestPrintJSONResults tests the JSON output formatting.
 func TestPrintJSONResults(t *testing.T) {
+	t.Parallel()
 	var outBuf bytes.Buffer
 	factory := createMockFactory(big.NewInt(5), nil)
 
@@ -378,6 +393,7 @@ func TestPrintJSONResults(t *testing.T) {
 
 // TestHexOutput tests hexadecimal output mode.
 func TestHexOutput(t *testing.T) {
+	t.Parallel()
 	var outBuf bytes.Buffer
 	factory := createMockFactory(big.NewInt(55), nil)
 
@@ -407,6 +423,7 @@ func TestHexOutput(t *testing.T) {
 
 // TestRunAutoCalibrationDisabled tests that auto-calibration doesn't run when disabled.
 func TestRunAutoCalibrationDisabled(t *testing.T) {
+	t.Parallel()
 	var outBuf bytes.Buffer
 	factory := createMockFactory(big.NewInt(55), nil)
 	app := &Application{
@@ -429,6 +446,7 @@ func TestRunAutoCalibrationDisabled(t *testing.T) {
 
 // TestMultipleAlgorithms tests running all algorithms.
 func TestMultipleAlgorithms(t *testing.T) {
+	t.Parallel()
 	var outBuf bytes.Buffer
 	factory := createMockFactory(big.NewInt(55), nil)
 	app := &Application{
@@ -456,6 +474,7 @@ func TestMultipleAlgorithms(t *testing.T) {
 
 // TestSetupSignals tests the SetupSignals function.
 func TestSetupSignals(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	ctxWithSignals, stop := SetupSignals(ctx)
 	defer stop()
@@ -470,8 +489,10 @@ func TestSetupSignals(t *testing.T) {
 }
 
 func TestApplyAdaptiveThresholds(t *testing.T) {
+	t.Parallel()
 	// Test case where defaults are present and should be replaced
 	t.Run("ReplaceDefaults", func(t *testing.T) {
+		t.Parallel()
 		cfg := config.AppConfig{
 			Threshold:         fibonacci.DefaultParallelThreshold,
 			FFTThreshold:      fibonacci.DefaultFFTThreshold,
@@ -488,6 +509,7 @@ func TestApplyAdaptiveThresholds(t *testing.T) {
 
 	// Test case where user overrides should be preserved
 	t.Run("PreserveOverrides", func(t *testing.T) {
+		t.Parallel()
 		cfg := config.AppConfig{
 			Threshold:         1234,
 			FFTThreshold:      5678,
@@ -509,6 +531,7 @@ func TestApplyAdaptiveThresholds(t *testing.T) {
 }
 
 func TestAnalyzeResultsWithOutputFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	outputPath := strings.ReplaceAll(tmpDir+"/result.txt", "\\", "/")
 
@@ -547,6 +570,7 @@ func TestAnalyzeResultsWithOutputFile(t *testing.T) {
 }
 
 func TestAnalyzeResultsWithOutputVariety(t *testing.T) {
+	t.Parallel()
 	app := &Application{
 		Config:    config.AppConfig{N: 10},
 		ErrWriter: &bytes.Buffer{},
@@ -561,6 +585,7 @@ func TestAnalyzeResultsWithOutputVariety(t *testing.T) {
 	}
 
 	t.Run("Quiet Mode", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		outputCfg := cli.OutputConfig{Quiet: true}
 		exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
@@ -573,6 +598,7 @@ func TestAnalyzeResultsWithOutputVariety(t *testing.T) {
 	})
 
 	t.Run("Hex Output", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		outputCfg := cli.OutputConfig{HexOutput: true}
 		exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
@@ -585,6 +611,7 @@ func TestAnalyzeResultsWithOutputVariety(t *testing.T) {
 	})
 
 	t.Run("No Success Results", func(t *testing.T) {
+		t.Parallel()
 		var outBuf bytes.Buffer
 		resultsErr := []orchestration.CalculationResult{
 			{Name: "err", Err: fmt.Errorf("some error")},
@@ -598,6 +625,7 @@ func TestAnalyzeResultsWithOutputVariety(t *testing.T) {
 }
 
 func TestPrintJSONResultsError(t *testing.T) {
+	t.Parallel()
 	results := []orchestration.CalculationResult{
 		{
 			Name: "fail",

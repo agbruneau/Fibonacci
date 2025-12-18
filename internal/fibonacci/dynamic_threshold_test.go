@@ -7,6 +7,7 @@ import (
 
 // TestNewDynamicThresholdManager tests the constructor.
 func TestNewDynamicThresholdManager(t *testing.T) {
+	t.Parallel()
 	fft := 500000
 	parallel := 10000
 
@@ -26,6 +27,7 @@ func TestNewDynamicThresholdManager(t *testing.T) {
 
 // TestNewDynamicThresholdManagerFromConfig tests config-based constructor.
 func TestNewDynamicThresholdManagerFromConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		cfg       DynamicThresholdConfig
@@ -104,6 +106,7 @@ func TestNewDynamicThresholdManagerFromConfig(t *testing.T) {
 
 // TestRecordIteration tests metric recording.
 func TestRecordIteration(t *testing.T) {
+	t.Parallel()
 	mgr := NewDynamicThresholdManager(500000, 10000)
 
 	// Record some iterations
@@ -140,6 +143,7 @@ func TestRecordIterationHistoryLimit(t *testing.T) {
 
 // TestGetFFTThreshold tests individual threshold getter.
 func TestGetFFTThreshold(t *testing.T) {
+	t.Parallel()
 	mgr := NewDynamicThresholdManager(123456, 10000)
 	if got := mgr.GetFFTThreshold(); got != 123456 {
 		t.Errorf("expected 123456, got %d", got)
@@ -148,6 +152,7 @@ func TestGetFFTThreshold(t *testing.T) {
 
 // TestGetParallelThreshold tests individual threshold getter.
 func TestGetParallelThreshold(t *testing.T) {
+	t.Parallel()
 	mgr := NewDynamicThresholdManager(500000, 7890)
 	if got := mgr.GetParallelThreshold(); got != 7890 {
 		t.Errorf("expected 7890, got %d", got)
@@ -156,7 +161,9 @@ func TestGetParallelThreshold(t *testing.T) {
 
 // TestShouldAdjust tests the adjustment logic.
 func TestShouldAdjust(t *testing.T) {
+	t.Parallel()
 	t.Run("not enough iterations", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// Record fewer than AdjustmentInterval iterations
 		for i := 0; i < DynamicAdjustmentInterval-1; i++ {
@@ -170,6 +177,7 @@ func TestShouldAdjust(t *testing.T) {
 	})
 
 	t.Run("not enough metrics", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// Record exactly AdjustmentInterval iterations but not enough data
 		for i := 0; i < DynamicAdjustmentInterval; i++ {
@@ -191,6 +199,7 @@ func TestShouldAdjust(t *testing.T) {
 	})
 
 	t.Run("FFT faster - lowers threshold", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 
 		// Add non-FFT metrics (slow)
@@ -218,6 +227,7 @@ func TestShouldAdjust(t *testing.T) {
 	})
 
 	t.Run("parallel faster - lowers threshold", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 
 		// Add sequential metrics (slow)
@@ -247,6 +257,7 @@ func TestShouldAdjust(t *testing.T) {
 
 // TestGetStats tests statistics retrieval.
 func TestGetStats(t *testing.T) {
+	t.Parallel()
 	mgr := NewDynamicThresholdManager(500000, 10000)
 
 	// Initial stats
@@ -280,6 +291,7 @@ func TestGetStats(t *testing.T) {
 
 // TestReset tests the reset functionality.
 func TestReset(t *testing.T) {
+	t.Parallel()
 	mgr := NewDynamicThresholdManager(500000, 10000)
 
 	// Record some data
@@ -313,7 +325,9 @@ func TestReset(t *testing.T) {
 
 // TestAnalyzeFFTThreshold tests FFT threshold analysis edge cases.
 func TestAnalyzeFFTThreshold(t *testing.T) {
+	t.Parallel()
 	t.Run("empty metrics returns current", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// No metrics recorded
 		fft := mgr.analyzeFFTThreshold()
@@ -323,6 +337,7 @@ func TestAnalyzeFFTThreshold(t *testing.T) {
 	})
 
 	t.Run("only FFT metrics returns current", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// Only FFT metrics
 		for i := 0; i < 5; i++ {
@@ -335,6 +350,7 @@ func TestAnalyzeFFTThreshold(t *testing.T) {
 	})
 
 	t.Run("only non-FFT metrics returns current", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// Only non-FFT metrics
 		for i := 0; i < 5; i++ {
@@ -347,6 +363,7 @@ func TestAnalyzeFFTThreshold(t *testing.T) {
 	})
 
 	t.Run("FFT slower raises threshold", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// Non-FFT fast
 		for i := 0; i < 5; i++ {
@@ -363,6 +380,7 @@ func TestAnalyzeFFTThreshold(t *testing.T) {
 	})
 
 	t.Run("FFT threshold respects minimum", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(100001, 10000) // Just above minimum
 		// FFT fast
 		for i := 0; i < 5; i++ {
@@ -381,7 +399,9 @@ func TestAnalyzeFFTThreshold(t *testing.T) {
 
 // TestAnalyzeParallelThreshold tests parallel threshold analysis edge cases.
 func TestAnalyzeParallelThreshold(t *testing.T) {
+	t.Parallel()
 	t.Run("empty metrics returns current", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		par := mgr.analyzeParallelThreshold()
 		if par != 10000 {
@@ -390,6 +410,7 @@ func TestAnalyzeParallelThreshold(t *testing.T) {
 	})
 
 	t.Run("only parallel metrics returns current", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		for i := 0; i < 5; i++ {
 			mgr.RecordIteration(1000, time.Millisecond, false, true)
@@ -401,6 +422,7 @@ func TestAnalyzeParallelThreshold(t *testing.T) {
 	})
 
 	t.Run("only sequential metrics returns current", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		for i := 0; i < 5; i++ {
 			mgr.RecordIteration(1000, time.Millisecond, false, false)
@@ -412,6 +434,7 @@ func TestAnalyzeParallelThreshold(t *testing.T) {
 	})
 
 	t.Run("parallel slower raises threshold", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 10000)
 		// Sequential fast
 		for i := 0; i < 5; i++ {
@@ -428,6 +451,7 @@ func TestAnalyzeParallelThreshold(t *testing.T) {
 	})
 
 	t.Run("parallel threshold respects minimum", func(t *testing.T) {
+		t.Parallel()
 		mgr := NewDynamicThresholdManager(500000, 1025) // Just above minimum
 		// Parallel fast
 		for i := 0; i < 5; i++ {
@@ -479,6 +503,7 @@ func TestAvgTimePerBit(t *testing.T) {
 
 // TestSignificantChange tests the hysteresis logic.
 func TestSignificantChange(t *testing.T) {
+	t.Parallel()
 	mgr := NewDynamicThresholdManager(500000, 10000)
 
 	tests := []struct {

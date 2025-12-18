@@ -80,11 +80,11 @@ func TestParseConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		args      []string
-		wantErr   bool
-		wantN     uint64
-		wantAlgo  string
+		name     string
+		args     []string
+		wantErr  bool
+		wantN    uint64
+		wantAlgo string
 	}{
 		{"defaults", []string{}, false, 250_000_000, "all"},
 		{"custom N", []string{"-n", "50"}, false, 50, "all"},

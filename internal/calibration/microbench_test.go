@@ -9,6 +9,7 @@ import (
 )
 
 func TestNewMicroBenchmark(t *testing.T) {
+	t.Parallel()
 	mb := NewMicroBenchmark()
 	if mb == nil {
 		t.Fatal("Expected non-nil MicroBenchmark")
@@ -60,6 +61,7 @@ func TestMicroBenchRunQuick(t *testing.T) {
 }
 
 func TestQuickCalibrate(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -74,6 +76,7 @@ func TestQuickCalibrate(t *testing.T) {
 }
 
 func TestQuickCalibrateWithDefaults(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	defaultFFT := 1000000
 	defaultPar := 4096
@@ -87,6 +90,7 @@ func TestQuickCalibrateWithDefaults(t *testing.T) {
 }
 
 func TestMicroBenchAnalyzeResultsEmpty(t *testing.T) {
+	t.Parallel()
 	mb := NewMicroBenchmark()
 	results := mb.analyzeResults(nil)
 	if results.Confidence != 0.5 {
@@ -95,6 +99,7 @@ func TestMicroBenchAnalyzeResultsEmpty(t *testing.T) {
 }
 
 func TestMicroBenchContextCancellation(t *testing.T) {
+	t.Parallel()
 	mb := NewMicroBenchmark()
 	mb.Iterations = 100 // Many iterations to ensure it takes some time
 
@@ -111,6 +116,7 @@ func TestMicroBenchContextCancellation(t *testing.T) {
 }
 
 func TestGenerateTestNumber(t *testing.T) {
+	t.Parallel()
 	words := 10
 	num := generateTestNumber(words)
 	if num == nil {

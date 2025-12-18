@@ -13,6 +13,7 @@ import (
 
 // TestKaratsubaSmall verifies Karatsuba multiplication for small numbers.
 func TestKaratsubaSmall(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x, y, want int64
 	}{
@@ -40,6 +41,7 @@ func TestKaratsubaSmall(t *testing.T) {
 
 // TestKaratsubaMedium verifies Karatsuba for medium-sized numbers (~1000 bits).
 func TestKaratsubaMedium(t *testing.T) {
+	t.Parallel()
 	// Generate random numbers with ~1000 bits
 	x, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 1000))
 	y, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 1000))
@@ -55,6 +57,7 @@ func TestKaratsubaMedium(t *testing.T) {
 
 // TestKaratsubaLarge verifies Karatsuba for large numbers (~100k bits).
 func TestKaratsubaLarge(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping large number test in short mode")
 	}
@@ -73,6 +76,7 @@ func TestKaratsubaLarge(t *testing.T) {
 
 // TestKaratsubaVeryLarge tests with very large numbers (~1M bits).
 func TestKaratsubaVeryLarge(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping very large number test in short mode")
 	}
@@ -95,6 +99,7 @@ func TestKaratsubaVeryLarge(t *testing.T) {
 
 // TestKaratsubaZero verifies multiplication by zero.
 func TestKaratsubaZero(t *testing.T) {
+	t.Parallel()
 	zero := big.NewInt(0)
 	large := new(big.Int).Lsh(big.NewInt(1), 10000)
 
@@ -109,6 +114,7 @@ func TestKaratsubaZero(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got := KaratsubaMultiply(tc.x, tc.y)
 			if got.Cmp(zero) != 0 {
 				t.Errorf("Expected 0, got %s", got)
@@ -119,6 +125,7 @@ func TestKaratsubaZero(t *testing.T) {
 
 // TestKaratsubaOne verifies multiplication by one.
 func TestKaratsubaOne(t *testing.T) {
+	t.Parallel()
 	one := big.NewInt(1)
 	x, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 5000))
 
@@ -135,6 +142,7 @@ func TestKaratsubaOne(t *testing.T) {
 
 // TestKaratsubaPowerOfTwo verifies multiplication of powers of two.
 func TestKaratsubaPowerOfTwo(t *testing.T) {
+	t.Parallel()
 	for i := 0; i < 20; i++ {
 		x := new(big.Int).Lsh(big.NewInt(1), uint(i*100))
 		y := new(big.Int).Lsh(big.NewInt(1), uint(i*50))
@@ -150,6 +158,7 @@ func TestKaratsubaPowerOfTwo(t *testing.T) {
 
 // TestKaratsubaNegative verifies sign handling.
 func TestKaratsubaNegative(t *testing.T) {
+	t.Parallel()
 	x, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 2000))
 	y, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 2000))
 
@@ -186,6 +195,7 @@ func TestKaratsubaNegative(t *testing.T) {
 
 // TestKaratsubaAsymmetric tests multiplication of differently sized operands.
 func TestKaratsubaAsymmetric(t *testing.T) {
+	t.Parallel()
 	small := big.NewInt(12345)
 	medium, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 1000))
 	large, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 10000))
@@ -201,6 +211,7 @@ func TestKaratsubaAsymmetric(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got := KaratsubaMultiply(tc.x, tc.y)
 			want := new(big.Int).Mul(tc.x, tc.y)
 			if got.Cmp(want) != 0 {
@@ -222,10 +233,12 @@ func TestKaratsubaAsymmetric(t *testing.T) {
 
 // TestKaratsubaVsBigIntMul compares results with standard library.
 func TestKaratsubaVsBigIntMul(t *testing.T) {
+	t.Parallel()
 	sizes := []int{100, 500, 1000, 2000, 5000, 10000}
 
 	for _, bits := range sizes {
 		t.Run(fmt.Sprintf("%dbits", bits), func(t *testing.T) {
+			t.Parallel()
 			x, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), uint(bits)))
 			y, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), uint(bits)))
 
@@ -241,10 +254,12 @@ func TestKaratsubaVsBigIntMul(t *testing.T) {
 
 // TestKaratsubaSqrVsMul verifies squaring consistency.
 func TestKaratsubaSqrVsMul(t *testing.T) {
+	t.Parallel()
 	sizes := []int{100, 500, 1000, 5000, 10000}
 
 	for _, bits := range sizes {
 		t.Run(fmt.Sprintf("%dbits", bits), func(t *testing.T) {
+			t.Parallel()
 			x, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), uint(bits)))
 
 			sqr := KaratsubaSqr(x)
@@ -263,6 +278,7 @@ func TestKaratsubaSqrVsMul(t *testing.T) {
 
 // TestKaratsubaMultiplyTo verifies the buffer reuse variant.
 func TestKaratsubaMultiplyTo(t *testing.T) {
+	t.Parallel()
 	x, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 5000))
 	y, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 5000))
 	want := new(big.Int).Mul(x, y)
@@ -285,6 +301,7 @@ func TestKaratsubaMultiplyTo(t *testing.T) {
 
 // TestKaratsubaThreshold tests threshold configuration.
 func TestKaratsubaThreshold(t *testing.T) {
+	t.Parallel()
 	original := GetKaratsubaThreshold()
 	defer SetKaratsubaThreshold(original)
 

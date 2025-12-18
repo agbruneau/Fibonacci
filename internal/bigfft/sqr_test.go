@@ -12,6 +12,7 @@ import (
 
 // TestSqrPrecisionSmall verifies FFT squaring precision for small numbers.
 func TestSqrPrecisionSmall(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x, expected string
 	}{
@@ -27,23 +28,27 @@ func TestSqrPrecisionSmall(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		x := new(big.Int)
-		x.SetString(tc.x, 10)
-		expected := new(big.Int)
-		expected.SetString(tc.expected, 10)
+		t.Run(tc.x, func(t *testing.T) {
+			t.Parallel()
+			x := new(big.Int)
+			x.SetString(tc.x, 10)
+			expected := new(big.Int)
+			expected.SetString(tc.expected, 10)
 
-		result, err := Sqr(x)
-		if err != nil {
-			t.Fatalf("Sqr failed: %v", err)
-		}
-		if result.Cmp(expected) != 0 {
-			t.Errorf("%s²: expected %s, got %s", tc.x, expected.String(), result.String())
-		}
+			result, err := Sqr(x)
+			if err != nil {
+				t.Fatalf("Sqr failed: %v", err)
+			}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("%s²: expected %s, got %s", tc.x, expected.String(), result.String())
+			}
+		})
 	}
 }
 
 // TestSqrPrecisionLarge verifies FFT squaring precision for large numbers.
 func TestSqrPrecisionLarge(t *testing.T) {
+	t.Parallel()
 	xStr := "123456789012345678901234567890123456789012345678901234567890"
 
 	x := new(big.Int)
@@ -52,7 +57,6 @@ func TestSqrPrecisionLarge(t *testing.T) {
 	// Calculate expected using standard multiplication
 	expected := new(big.Int).Mul(x, x)
 
-	// Calculate using our FFT squaring
 	// Calculate using our FFT squaring
 	result, err := Sqr(x)
 	if err != nil {
@@ -67,6 +71,7 @@ func TestSqrPrecisionLarge(t *testing.T) {
 
 // TestSqrPrecisionVeryLarge tests with numbers large enough to force FFT.
 func TestSqrPrecisionVeryLarge(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping very large number test in short mode")
 	}
@@ -86,7 +91,6 @@ func TestSqrPrecisionVeryLarge(t *testing.T) {
 	expected := new(big.Int).Mul(x, x)
 
 	// Calculate using FFT squaring
-	// Calculate using FFT squaring
 	result, err := Sqr(x)
 	if err != nil {
 		t.Fatalf("Sqr failed: %v", err)
@@ -99,6 +103,7 @@ func TestSqrPrecisionVeryLarge(t *testing.T) {
 
 // TestSqrToPrecision verifies the SqrTo function.
 func TestSqrToPrecision(t *testing.T) {
+	t.Parallel()
 	testCases := []string{
 		"123",
 		"999999999",
@@ -107,31 +112,35 @@ func TestSqrToPrecision(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		x := new(big.Int)
-		x.SetString(tc, 10)
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+			x := new(big.Int)
+			x.SetString(tc, 10)
 
-		expected := new(big.Int).Mul(x, x)
+			expected := new(big.Int).Mul(x, x)
 
-		z := new(big.Int)
-		result, err := SqrTo(z, x)
-		if err != nil {
-			t.Fatalf("SqrTo failed: %v", err)
-		}
+			z := new(big.Int)
+			result, err := SqrTo(z, x)
+			if err != nil {
+				t.Fatalf("SqrTo failed: %v", err)
+			}
 
-		if result.Cmp(expected) != 0 {
-			t.Errorf("SqrTo(%s): expected %s, got %s",
-				tc, expected.String(), result.String())
-		}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("SqrTo(%s): expected %s, got %s",
+					tc, expected.String(), result.String())
+			}
 
-		// Verify z was used (same pointer)
-		if result != z {
-			t.Error("SqrTo did not return the destination pointer")
-		}
+			// Verify z was used (same pointer)
+			if result != z {
+				t.Error("SqrTo did not return the destination pointer")
+			}
+		})
 	}
 }
 
 // TestSqrToReuseBuffer tests that SqrTo correctly reuses the buffer.
 func TestSqrToReuseBuffer(t *testing.T) {
+	t.Parallel()
 	x := big.NewInt(123456789)
 
 	// Pre-allocate z with some capacity
@@ -156,6 +165,7 @@ func TestSqrToReuseBuffer(t *testing.T) {
 
 // TestSqrVsMulConsistency verifies that Sqr(x) == Mul(x, x).
 func TestSqrVsMulConsistency(t *testing.T) {
+	t.Parallel()
 	testCases := []string{
 		"0",
 		"1",
@@ -166,27 +176,31 @@ func TestSqrVsMulConsistency(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		x := new(big.Int)
-		x.SetString(tc, 10)
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+			x := new(big.Int)
+			x.SetString(tc, 10)
 
-		sqrResult, err := Sqr(x)
-		if err != nil {
-			t.Fatalf("Sqr failed: %v", err)
-		}
-		mulResult, err := Mul(x, x)
-		if err != nil {
-			t.Fatalf("Mul failed: %v", err)
-		}
+			sqrResult, err := Sqr(x)
+			if err != nil {
+				t.Fatalf("Sqr failed: %v", err)
+			}
+			mulResult, err := Mul(x, x)
+			if err != nil {
+				t.Fatalf("Mul failed: %v", err)
+			}
 
-		if sqrResult.Cmp(mulResult) != 0 {
-			t.Errorf("Sqr(%s) != Mul(%s, %s):\n  Sqr: %s\n  Mul: %s",
-				tc, tc, tc, sqrResult.String(), mulResult.String())
-		}
+			if sqrResult.Cmp(mulResult) != 0 {
+				t.Errorf("Sqr(%s) != Mul(%s, %s):\n  Sqr: %s\n  Mul: %s",
+					tc, tc, tc, sqrResult.String(), mulResult.String())
+			}
+		})
 	}
 }
 
 // TestSqrToVsMulToConsistency verifies that SqrTo(z, x) == MulTo(z, x, x).
 func TestSqrToVsMulToConsistency(t *testing.T) {
+	t.Parallel()
 	testCases := []string{
 		"123",
 		"999999999",
@@ -194,30 +208,34 @@ func TestSqrToVsMulToConsistency(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		x := new(big.Int)
-		x.SetString(tc, 10)
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+			x := new(big.Int)
+			x.SetString(tc, 10)
 
-		z1 := new(big.Int)
-		z2 := new(big.Int)
+			z1 := new(big.Int)
+			z2 := new(big.Int)
 
-		sqrResult, err := SqrTo(z1, x)
-		if err != nil {
-			t.Fatalf("SqrTo failed: %v", err)
-		}
-		mulResult, err := MulTo(z2, x, x)
-		if err != nil {
-			t.Fatalf("MulTo failed: %v", err)
-		}
+			sqrResult, err := SqrTo(z1, x)
+			if err != nil {
+				t.Fatalf("SqrTo failed: %v", err)
+			}
+			mulResult, err := MulTo(z2, x, x)
+			if err != nil {
+				t.Fatalf("MulTo failed: %v", err)
+			}
 
-		if sqrResult.Cmp(mulResult) != 0 {
-			t.Errorf("SqrTo vs MulTo inconsistency for %s:\n  SqrTo: %s\n  MulTo: %s",
-				tc, sqrResult.String(), mulResult.String())
-		}
+			if sqrResult.Cmp(mulResult) != 0 {
+				t.Errorf("SqrTo vs MulTo inconsistency for %s:\n  SqrTo: %s\n  MulTo: %s",
+					tc, sqrResult.String(), mulResult.String())
+			}
+		})
 	}
 }
 
 // TestSqrVeryLargeConsistency tests consistency for very large numbers.
 func TestSqrVeryLargeConsistency(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping very large consistency test in short mode")
 	}
@@ -250,6 +268,7 @@ func TestSqrVeryLargeConsistency(t *testing.T) {
 
 // TestSqrZero verifies squaring of zero.
 func TestSqrZero(t *testing.T) {
+	t.Parallel()
 	zero := big.NewInt(0)
 
 	result, err := Sqr(zero)
@@ -263,6 +282,7 @@ func TestSqrZero(t *testing.T) {
 
 // TestSqrOne verifies squaring of one.
 func TestSqrOne(t *testing.T) {
+	t.Parallel()
 	one := big.NewInt(1)
 
 	result, err := Sqr(one)
@@ -276,6 +296,7 @@ func TestSqrOne(t *testing.T) {
 
 // TestSqrNegative verifies squaring of negative numbers.
 func TestSqrNegative(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x, expected string
 	}{
@@ -286,28 +307,32 @@ func TestSqrNegative(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		x := new(big.Int)
-		x.SetString(tc.x, 10)
-		expected := new(big.Int)
-		expected.SetString(tc.expected, 10)
+		t.Run(tc.x, func(t *testing.T) {
+			t.Parallel()
+			x := new(big.Int)
+			x.SetString(tc.x, 10)
+			expected := new(big.Int)
+			expected.SetString(tc.expected, 10)
 
-		result, err := Sqr(x)
-		if err != nil {
-			t.Fatalf("Sqr failed: %v", err)
-		}
-		if result.Cmp(expected) != 0 {
-			t.Errorf("(%s)²: expected %s, got %s", tc.x, expected.String(), result.String())
-		}
+			result, err := Sqr(x)
+			if err != nil {
+				t.Fatalf("Sqr failed: %v", err)
+			}
+			if result.Cmp(expected) != 0 {
+				t.Errorf("(%s)²: expected %s, got %s", tc.x, expected.String(), result.String())
+			}
 
-		// Verify result is always non-negative
-		if result.Sign() < 0 {
-			t.Errorf("(%s)² produced negative result: %s", tc.x, result.String())
-		}
+			// Verify result is always non-negative
+			if result.Sign() < 0 {
+				t.Errorf("(%s)² produced negative result: %s", tc.x, result.String())
+			}
+		})
 	}
 }
 
 // TestSqrPowerOfTwo verifies squaring of powers of two.
 func TestSqrPowerOfTwo(t *testing.T) {
+	t.Parallel()
 	for i := 0; i < 20; i++ {
 		x := new(big.Int).Lsh(big.NewInt(1), uint(i)) // 2^i
 
@@ -330,6 +355,7 @@ func TestSqrPowerOfTwo(t *testing.T) {
 
 // BenchmarkSqrSmall benchmarks squaring of small numbers.
 func BenchmarkSqrSmall(b *testing.B) {
+	b.ReportAllocs()
 	x := new(big.Int)
 	x.SetString("12345678901234567890", 10)
 
@@ -341,6 +367,7 @@ func BenchmarkSqrSmall(b *testing.B) {
 
 // BenchmarkSqrMedium benchmarks squaring of medium numbers.
 func BenchmarkSqrMedium(b *testing.B) {
+	b.ReportAllocs()
 	xBytes := make([]byte, 1000)
 	rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
@@ -353,6 +380,7 @@ func BenchmarkSqrMedium(b *testing.B) {
 
 // BenchmarkSqrLarge benchmarks squaring of large numbers.
 func BenchmarkSqrLarge(b *testing.B) {
+	b.ReportAllocs()
 	if testing.Short() {
 		b.Skip("Skipping large benchmark in short mode")
 	}
@@ -369,6 +397,7 @@ func BenchmarkSqrLarge(b *testing.B) {
 
 // BenchmarkSqrToReuse benchmarks SqrTo with buffer reuse.
 func BenchmarkSqrToReuse(b *testing.B) {
+	b.ReportAllocs()
 	x := new(big.Int)
 	x.SetString("12345678901234567890123456789012345678901234567890", 10)
 	z := new(big.Int)
@@ -381,6 +410,7 @@ func BenchmarkSqrToReuse(b *testing.B) {
 
 // BenchmarkSqrVsMul compares Sqr performance against Mul(x,x).
 func BenchmarkSqrVsMul(b *testing.B) {
+	b.ReportAllocs()
 	xBytes := make([]byte, 5000)
 	rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)

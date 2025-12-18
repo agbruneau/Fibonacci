@@ -14,6 +14,7 @@ import (
 // correctly passes the StrassenThreshold from the AppConfig to the calculator Options.
 // This proves that setting the global default in main.go is redundant and safe to remove.
 func TestExecuteCalculationsRespectsStrassenConfig(t *testing.T) {
+	t.Parallel()
 	// 1. Ensure global default is NOT what we are testing for.
 	// Default is 256. We'll verify that we can pass a different value (e.g. 1000)
 	// and it is used.

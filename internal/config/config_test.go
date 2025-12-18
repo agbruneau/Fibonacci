@@ -11,6 +11,7 @@ func TestParseConfig(t *testing.T) {
 	availableAlgos := []string{"fast", "matrix", "fft"}
 
 	t.Run("DefaultValues", func(t *testing.T) {
+		t.Parallel()
 		args := []string{}
 		cfg, err := ParseConfig("fibcalc", args, io.Discard, availableAlgos)
 		if err != nil {
@@ -29,6 +30,7 @@ func TestParseConfig(t *testing.T) {
 	})
 
 	t.Run("ValidFlags", func(t *testing.T) {
+		t.Parallel()
 		args := []string{
 			"-n", "100",
 			"-algo", "fast",
@@ -69,25 +71,25 @@ func TestParseConfig(t *testing.T) {
 	t.Run("EnvOverrides", func(t *testing.T) {
 		// Set env vars
 		env := map[string]string{
-			"FIBCALC_N":                  "200",
-			"FIBCALC_ALGO":               "matrix",
-			"FIBCALC_SERVER":             "true",
-			"FIBCALC_PORT":               "3000",
-			"FIBCALC_TIMEOUT":            "2m",
-			"FIBCALC_THRESHOLD":          "1024",
-			"FIBCALC_FFT_THRESHOLD":      "5000",
-			"FIBCALC_STRASSEN_THRESHOLD": "128",
-			"FIBCALC_VERBOSE":            "true",
-			"FIBCALC_DETAILS":            "true",
-			"FIBCALC_QUIET":              "true",
-			"FIBCALC_HEX":                "true",
-			"FIBCALC_INTERACTIVE":        "true",
-			"FIBCALC_NO_COLOR":           "true",
-			"FIBCALC_CALIBRATE":          "true",
-			"FIBCALC_AUTO_CALIBRATE":     "true",
-			"FIBCALC_OUTPUT":             "out.txt",
+			"FIBCALC_N":                   "200",
+			"FIBCALC_ALGO":                "matrix",
+			"FIBCALC_SERVER":              "true",
+			"FIBCALC_PORT":                "3000",
+			"FIBCALC_TIMEOUT":             "2m",
+			"FIBCALC_THRESHOLD":           "1024",
+			"FIBCALC_FFT_THRESHOLD":       "5000",
+			"FIBCALC_STRASSEN_THRESHOLD":  "128",
+			"FIBCALC_VERBOSE":             "true",
+			"FIBCALC_DETAILS":             "true",
+			"FIBCALC_QUIET":               "true",
+			"FIBCALC_HEX":                 "true",
+			"FIBCALC_INTERACTIVE":         "true",
+			"FIBCALC_NO_COLOR":            "true",
+			"FIBCALC_CALIBRATE":           "true",
+			"FIBCALC_AUTO_CALIBRATE":      "true",
+			"FIBCALC_OUTPUT":              "out.txt",
 			"FIBCALC_CALIBRATION_PROFILE": "prof.json",
-			"FIBCALC_JSON":               "true",
+			"FIBCALC_JSON":                "true",
 		}
 
 		for k, v := range env {
@@ -129,17 +131,39 @@ func TestParseConfig(t *testing.T) {
 		if cfg.StrassenThreshold != 128 {
 			t.Errorf("Expected StrassenThreshold 128, got %d", cfg.StrassenThreshold)
 		}
-		if !cfg.Verbose { t.Error("Expected Verbose true") }
-		if !cfg.Details { t.Error("Expected Details true") }
-		if !cfg.Quiet { t.Error("Expected Quiet true") }
-		if !cfg.HexOutput { t.Error("Expected HexOutput true") }
-		if !cfg.Interactive { t.Error("Expected Interactive true") }
-		if !cfg.NoColor { t.Error("Expected NoColor true") }
-		if !cfg.Calibrate { t.Error("Expected Calibrate true") }
-		if !cfg.AutoCalibrate { t.Error("Expected AutoCalibrate true") }
-		if cfg.OutputFile != "out.txt" { t.Errorf("Expected OutputFile out.txt, got %s", cfg.OutputFile) }
-		if cfg.CalibrationProfile != "prof.json" { t.Errorf("Expected CalibrationProfile prof.json, got %s", cfg.CalibrationProfile) }
-		if !cfg.JSONOutput { t.Error("Expected JSONOutput true") }
+		if !cfg.Verbose {
+			t.Error("Expected Verbose true")
+		}
+		if !cfg.Details {
+			t.Error("Expected Details true")
+		}
+		if !cfg.Quiet {
+			t.Error("Expected Quiet true")
+		}
+		if !cfg.HexOutput {
+			t.Error("Expected HexOutput true")
+		}
+		if !cfg.Interactive {
+			t.Error("Expected Interactive true")
+		}
+		if !cfg.NoColor {
+			t.Error("Expected NoColor true")
+		}
+		if !cfg.Calibrate {
+			t.Error("Expected Calibrate true")
+		}
+		if !cfg.AutoCalibrate {
+			t.Error("Expected AutoCalibrate true")
+		}
+		if cfg.OutputFile != "out.txt" {
+			t.Errorf("Expected OutputFile out.txt, got %s", cfg.OutputFile)
+		}
+		if cfg.CalibrationProfile != "prof.json" {
+			t.Errorf("Expected CalibrationProfile prof.json, got %s", cfg.CalibrationProfile)
+		}
+		if !cfg.JSONOutput {
+			t.Error("Expected JSONOutput true")
+		}
 	})
 
 	t.Run("FlagPrecedenceOverEnv", func(t *testing.T) {
@@ -158,6 +182,7 @@ func TestParseConfig(t *testing.T) {
 	})
 
 	t.Run("InvalidFlags", func(t *testing.T) {
+		t.Parallel()
 		// Unknown flag
 		_, err := ParseConfig("fibcalc", []string{"-unknown"}, io.Discard, availableAlgos)
 		if err == nil {
@@ -166,6 +191,7 @@ func TestParseConfig(t *testing.T) {
 	})
 
 	t.Run("ValidationFailure", func(t *testing.T) {
+		t.Parallel()
 		// Invalid algorithm
 		_, err := ParseConfig("fibcalc", []string{"-algo", "invalid"}, io.Discard, availableAlgos)
 		if err == nil {
@@ -175,9 +201,11 @@ func TestParseConfig(t *testing.T) {
 }
 
 func TestConfigValidate(t *testing.T) {
+	t.Parallel()
 	availableAlgos := []string{"fast", "matrix"}
 
 	t.Run("Valid", func(t *testing.T) {
+		t.Parallel()
 		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "fast"}
 		if err := c.Validate(availableAlgos); err != nil {
 			t.Errorf("Unexpected validation error: %v", err)
@@ -185,6 +213,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("InvalidTimeout", func(t *testing.T) {
+		t.Parallel()
 		c := AppConfig{Timeout: 0, Threshold: 10, FFTThreshold: 10, Algo: "fast"}
 		if err := c.Validate(availableAlgos); err == nil {
 			t.Error("Expected error for zero timeout")
@@ -192,6 +221,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("InvalidThreshold", func(t *testing.T) {
+		t.Parallel()
 		c := AppConfig{Timeout: 1 * time.Second, Threshold: -1, FFTThreshold: 10, Algo: "fast"}
 		if err := c.Validate(availableAlgos); err == nil {
 			t.Error("Expected error for negative threshold")
@@ -199,6 +229,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("InvalidFFTThreshold", func(t *testing.T) {
+		t.Parallel()
 		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: -1, Algo: "fast"}
 		if err := c.Validate(availableAlgos); err == nil {
 			t.Error("Expected error for negative FFT threshold")
@@ -206,6 +237,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("InvalidAlgo", func(t *testing.T) {
+		t.Parallel()
 		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "unknown"}
 		if err := c.Validate(availableAlgos); err == nil {
 			t.Error("Expected error for unknown algorithm")
@@ -213,6 +245,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("AlgoAll", func(t *testing.T) {
+		t.Parallel()
 		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "all"}
 		if err := c.Validate(availableAlgos); err != nil {
 			t.Error("Algo 'all' should be valid")
@@ -226,7 +259,7 @@ func TestEnvHelpers(t *testing.T) {
 	t.Run("getEnvString", func(t *testing.T) {
 		key := "TEST_STRING"
 		os.Setenv(prefix+key, "value")
-		defer os.Unsetenv(prefix+key)
+		defer os.Unsetenv(prefix + key)
 		if val := getEnvString(key, "default"); val != "value" {
 			t.Errorf("Expected 'value', got '%s'", val)
 		}
@@ -238,13 +271,13 @@ func TestEnvHelpers(t *testing.T) {
 	t.Run("getEnvUint64", func(t *testing.T) {
 		key := "TEST_UINT"
 		os.Setenv(prefix+key, "123")
-		defer os.Unsetenv(prefix+key)
+		defer os.Unsetenv(prefix + key)
 		if val := getEnvUint64(key, 0); val != 123 {
 			t.Errorf("Expected 123, got %d", val)
 		}
 		// Invalid
 		os.Setenv(prefix+"INVALID", "abc")
-		defer os.Unsetenv(prefix+"INVALID")
+		defer os.Unsetenv(prefix + "INVALID")
 		if val := getEnvUint64("INVALID", 999); val != 999 {
 			t.Errorf("Expected default 999 for invalid input, got %d", val)
 		}
@@ -253,7 +286,7 @@ func TestEnvHelpers(t *testing.T) {
 	t.Run("getEnvInt", func(t *testing.T) {
 		key := "TEST_INT"
 		os.Setenv(prefix+key, "-123")
-		defer os.Unsetenv(prefix+key)
+		defer os.Unsetenv(prefix + key)
 		if val := getEnvInt(key, 0); val != -123 {
 			t.Errorf("Expected -123, got %d", val)
 		}
@@ -262,7 +295,7 @@ func TestEnvHelpers(t *testing.T) {
 	t.Run("getEnvBool", func(t *testing.T) {
 		key := "TEST_BOOL"
 		os.Setenv(prefix+key, "true")
-		defer os.Unsetenv(prefix+key)
+		defer os.Unsetenv(prefix + key)
 		if val := getEnvBool(key, false); !val {
 			t.Error("Expected true")
 		}
@@ -281,7 +314,7 @@ func TestEnvHelpers(t *testing.T) {
 	t.Run("getEnvDuration", func(t *testing.T) {
 		key := "TEST_DURATION"
 		os.Setenv(prefix+key, "1h")
-		defer os.Unsetenv(prefix+key)
+		defer os.Unsetenv(prefix + key)
 		if val := getEnvDuration(key, 0); val != time.Hour {
 			t.Errorf("Expected 1h, got %v", val)
 		}

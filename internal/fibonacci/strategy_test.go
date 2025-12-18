@@ -7,7 +7,9 @@ import (
 
 // TestSetOrReturn tests the setOrReturn helper function.
 func TestSetOrReturn(t *testing.T) {
+	t.Parallel()
 	t.Run("z is nil - returns result directly", func(t *testing.T) {
+		t.Parallel()
 		result := big.NewInt(456)
 		ret := setOrReturn(nil, result)
 		if ret != result {
@@ -16,6 +18,7 @@ func TestSetOrReturn(t *testing.T) {
 	})
 
 	t.Run("z is non-nil - sets z and returns it", func(t *testing.T) {
+		t.Parallel()
 		z := big.NewInt(0)
 		result := big.NewInt(456)
 		ret := setOrReturn(z, result)
@@ -30,9 +33,11 @@ func TestSetOrReturn(t *testing.T) {
 
 // TestAdaptiveStrategy tests the adaptive multiplication strategy.
 func TestAdaptiveStrategy(t *testing.T) {
+	t.Parallel()
 	s := &AdaptiveStrategy{}
 
 	t.Run("Name", func(t *testing.T) {
+		t.Parallel()
 		name := s.Name()
 		if name == "" {
 			t.Error("expected non-empty name")
@@ -40,6 +45,7 @@ func TestAdaptiveStrategy(t *testing.T) {
 	})
 
 	t.Run("Multiply small numbers", func(t *testing.T) {
+		t.Parallel()
 		x := big.NewInt(123)
 		y := big.NewInt(456)
 		opts := Options{FFTThreshold: 1000000}
@@ -56,6 +62,7 @@ func TestAdaptiveStrategy(t *testing.T) {
 	})
 
 	t.Run("Square small numbers", func(t *testing.T) {
+		t.Parallel()
 		x := big.NewInt(123)
 		opts := Options{FFTThreshold: 1000000}
 
@@ -71,6 +78,7 @@ func TestAdaptiveStrategy(t *testing.T) {
 	})
 
 	t.Run("Multiply with reusable z", func(t *testing.T) {
+		t.Parallel()
 		z := new(big.Int)
 		x := big.NewInt(100)
 		y := big.NewInt(200)
@@ -93,9 +101,11 @@ func TestAdaptiveStrategy(t *testing.T) {
 
 // TestKaratsubaStrategy tests the Karatsuba-only strategy.
 func TestKaratsubaStrategy(t *testing.T) {
+	t.Parallel()
 	s := &KaratsubaStrategy{}
 
 	t.Run("Name", func(t *testing.T) {
+		t.Parallel()
 		name := s.Name()
 		if name == "" {
 			t.Error("expected non-empty name")
@@ -106,6 +116,7 @@ func TestKaratsubaStrategy(t *testing.T) {
 	})
 
 	t.Run("Multiply with nil z", func(t *testing.T) {
+		t.Parallel()
 		x := big.NewInt(12345)
 		y := big.NewInt(67890)
 		opts := Options{}
@@ -122,6 +133,7 @@ func TestKaratsubaStrategy(t *testing.T) {
 	})
 
 	t.Run("Multiply with non-nil z", func(t *testing.T) {
+		t.Parallel()
 		z := big.NewInt(999999)
 		x := big.NewInt(100)
 		y := big.NewInt(200)
@@ -142,6 +154,7 @@ func TestKaratsubaStrategy(t *testing.T) {
 	})
 
 	t.Run("Square with nil z", func(t *testing.T) {
+		t.Parallel()
 		x := big.NewInt(12345)
 		opts := Options{}
 
@@ -157,6 +170,7 @@ func TestKaratsubaStrategy(t *testing.T) {
 	})
 
 	t.Run("Square with non-nil z", func(t *testing.T) {
+		t.Parallel()
 		z := big.NewInt(0)
 		x := big.NewInt(100)
 		opts := Options{}
@@ -178,9 +192,11 @@ func TestKaratsubaStrategy(t *testing.T) {
 
 // TestFFTOnlyStrategy tests the FFT-only strategy.
 func TestFFTOnlyStrategy(t *testing.T) {
+	t.Parallel()
 	s := &FFTOnlyStrategy{}
 
 	t.Run("Name", func(t *testing.T) {
+		t.Parallel()
 		name := s.Name()
 		if name == "" {
 			t.Error("expected non-empty name")
@@ -191,6 +207,7 @@ func TestFFTOnlyStrategy(t *testing.T) {
 	})
 
 	t.Run("Multiply small numbers", func(t *testing.T) {
+		t.Parallel()
 		x := big.NewInt(12345)
 		y := big.NewInt(67890)
 		opts := Options{}
@@ -207,6 +224,7 @@ func TestFFTOnlyStrategy(t *testing.T) {
 	})
 
 	t.Run("Multiply with z reuse", func(t *testing.T) {
+		t.Parallel()
 		z := big.NewInt(0)
 		x := big.NewInt(100)
 		y := big.NewInt(200)
@@ -228,6 +246,7 @@ func TestFFTOnlyStrategy(t *testing.T) {
 	})
 
 	t.Run("Square small number", func(t *testing.T) {
+		t.Parallel()
 		x := big.NewInt(12345)
 		opts := Options{}
 
@@ -243,6 +262,7 @@ func TestFFTOnlyStrategy(t *testing.T) {
 	})
 
 	t.Run("Square with z reuse", func(t *testing.T) {
+		t.Parallel()
 		z := big.NewInt(0)
 		x := big.NewInt(100)
 		opts := Options{}
@@ -261,6 +281,7 @@ func TestFFTOnlyStrategy(t *testing.T) {
 
 // TestMultiplicationStrategyInterface verifies interface implementation.
 func TestMultiplicationStrategyInterface(t *testing.T) {
+	t.Parallel()
 	var _ MultiplicationStrategy = &AdaptiveStrategy{}
 	var _ MultiplicationStrategy = &FFTOnlyStrategy{}
 	var _ MultiplicationStrategy = &KaratsubaStrategy{}

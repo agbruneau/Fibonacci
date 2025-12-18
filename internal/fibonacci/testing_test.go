@@ -7,7 +7,9 @@ import (
 
 // TestNewTestFactory tests the TestFactory constructor.
 func TestNewTestFactory(t *testing.T) {
+	t.Parallel()
 	t.Run("nil calculators map", func(t *testing.T) {
+		t.Parallel()
 		f := NewTestFactory(nil)
 		if f == nil {
 			t.Fatal("expected non-nil factory")
@@ -18,6 +20,7 @@ func TestNewTestFactory(t *testing.T) {
 	})
 
 	t.Run("with calculators", func(t *testing.T) {
+		t.Parallel()
 		calcs := map[string]Calculator{
 			"test": &MockCalculator{},
 		}
@@ -30,6 +33,7 @@ func TestNewTestFactory(t *testing.T) {
 
 // TestTestFactoryCreate tests the Create method.
 func TestTestFactoryCreate(t *testing.T) {
+	t.Parallel()
 	mock := &MockCalculator{}
 	calcs := map[string]Calculator{
 		"test": mock,
@@ -37,6 +41,7 @@ func TestTestFactoryCreate(t *testing.T) {
 	f := NewTestFactory(calcs)
 
 	t.Run("existing calculator", func(t *testing.T) {
+		t.Parallel()
 		calc, err := f.Create("test")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -47,6 +52,7 @@ func TestTestFactoryCreate(t *testing.T) {
 	})
 
 	t.Run("non-existing calculator", func(t *testing.T) {
+		t.Parallel()
 		_, err := f.Create("unknown")
 		if err == nil {
 			t.Error("expected error for unknown calculator")
@@ -56,6 +62,7 @@ func TestTestFactoryCreate(t *testing.T) {
 
 // TestTestFactoryGet tests the Get method.
 func TestTestFactoryGet(t *testing.T) {
+	t.Parallel()
 	mock := &MockCalculator{}
 	calcs := map[string]Calculator{
 		"test": mock,
@@ -73,6 +80,7 @@ func TestTestFactoryGet(t *testing.T) {
 
 // TestTestFactoryList tests the List method.
 func TestTestFactoryList(t *testing.T) {
+	t.Parallel()
 	calcs := map[string]Calculator{
 		"alpha": &MockCalculator{},
 		"beta":  &MockCalculator{},
@@ -88,6 +96,7 @@ func TestTestFactoryList(t *testing.T) {
 
 // TestTestFactoryRegister tests the Register method (no-op).
 func TestTestFactoryRegister(t *testing.T) {
+	t.Parallel()
 	f := NewTestFactory(nil)
 
 	// Register is a no-op for TestFactory
@@ -101,6 +110,7 @@ func TestTestFactoryRegister(t *testing.T) {
 
 // TestTestFactoryGetAll tests the GetAll method.
 func TestTestFactoryGetAll(t *testing.T) {
+	t.Parallel()
 	mock1 := &MockCalculator{Result: big.NewInt(1)}
 	mock2 := &MockCalculator{Result: big.NewInt(2)}
 	calcs := map[string]Calculator{
@@ -123,6 +133,7 @@ func TestTestFactoryGetAll(t *testing.T) {
 
 // TestUnknownCalculatorError tests the error type.
 func TestUnknownCalculatorError(t *testing.T) {
+	t.Parallel()
 	err := &UnknownCalculatorError{Name: "myCalc"}
 	expected := "unknown calculator: myCalc"
 	if err.Error() != expected {

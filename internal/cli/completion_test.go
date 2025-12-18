@@ -7,6 +7,7 @@ import (
 )
 
 func TestGenerateCompletion(t *testing.T) {
+	t.Parallel()
 	algorithms := []string{"fast", "matrix", "fft"}
 
 	testCases := []struct {
@@ -101,6 +102,7 @@ func TestGenerateCompletion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			var buf bytes.Buffer
 			err := GenerateCompletion(&buf, tc.shell, algorithms)
 
@@ -128,6 +130,7 @@ func TestGenerateCompletion(t *testing.T) {
 }
 
 func TestGenerateCompletion_EmptyAlgorithms(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	err := GenerateCompletion(&buf, "bash", []string{})
 	if err != nil {
@@ -140,6 +143,7 @@ func TestGenerateCompletion_EmptyAlgorithms(t *testing.T) {
 }
 
 func TestGenerateCompletion_MultipleAlgorithms(t *testing.T) {
+	t.Parallel()
 	algorithms := []string{"fast", "matrix", "fft", "strassen", "optimized"}
 	var buf bytes.Buffer
 	err := GenerateCompletion(&buf, "bash", algorithms)

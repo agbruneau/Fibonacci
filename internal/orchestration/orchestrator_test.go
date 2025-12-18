@@ -44,6 +44,7 @@ func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibo
 // TestExecuteCalculations verifies that the orchestrator correctly runs calculators
 // and aggregates their results.
 func TestExecuteCalculations(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		calculators []fibonacci.Calculator
@@ -78,6 +79,7 @@ func TestExecuteCalculations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			results := ExecuteCalculations(context.Background(), tt.calculators, config.AppConfig{}, &DiscardWriter{})
 			if len(results) != tt.expectedLen {
 				t.Errorf("expected %d results, got %d", tt.expectedLen, len(results))
@@ -99,6 +101,7 @@ func TestExecuteCalculations(t *testing.T) {
 // multiple algorithms. It checks for consistent results, handling of failures,
 // and detection of mismatches.
 func TestAnalyzeComparisonResults(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		results        []CalculationResult
@@ -140,6 +143,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			status := AnalyzeComparisonResults(tt.results, config.AppConfig{}, &DiscardWriter{})
 			if status != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, status)

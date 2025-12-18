@@ -9,6 +9,7 @@ import (
 
 // TestHasVersionFlag tests the HasVersionFlag function.
 func TestHasVersionFlag(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		args     []string
@@ -26,6 +27,7 @@ func TestHasVersionFlag(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := HasVersionFlag(tc.args)
 			if result != tc.expected {
 				t.Errorf("HasVersionFlag(%v) = %v, want %v", tc.args, result, tc.expected)
@@ -36,6 +38,7 @@ func TestHasVersionFlag(t *testing.T) {
 
 // TestPrintVersion tests the PrintVersion function.
 func TestPrintVersion(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	PrintVersion(&buf)
 
@@ -67,6 +70,7 @@ func TestPrintVersion(t *testing.T) {
 
 // TestGetVersionInfo tests the GetVersionInfo function.
 func TestGetVersionInfo(t *testing.T) {
+	t.Parallel()
 	info := GetVersionInfo()
 
 	if info.Version != Version {
@@ -88,4 +92,3 @@ func TestGetVersionInfo(t *testing.T) {
 		t.Errorf("GetVersionInfo().Arch = %s, want %s", info.Arch, runtime.GOARCH)
 	}
 }
-

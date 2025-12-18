@@ -5,6 +5,7 @@ import (
 )
 
 func TestEstimateMemoryNeeds(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		n    uint64
@@ -58,6 +59,7 @@ func TestEstimateMemoryNeeds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := EstimateMemoryNeeds(tt.n)
 			if got.MaxWordSliceSize != tt.want.MaxWordSliceSize {
 				t.Errorf("MaxWordSliceSize = %v, want %v", got.MaxWordSliceSize, tt.want.MaxWordSliceSize)

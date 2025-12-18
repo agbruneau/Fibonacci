@@ -13,6 +13,7 @@ import (
 )
 
 func TestNewREPL(t *testing.T) {
+	t.Parallel()
 	registry := map[string]fibonacci.Calculator{
 		"fast": &fibonacci.MockCalculator{Result: big.NewInt(0)},
 	}
@@ -30,6 +31,7 @@ func TestNewREPL(t *testing.T) {
 }
 
 func TestNewREPL_DefaultAlgo(t *testing.T) {
+	t.Parallel()
 	registry := map[string]fibonacci.Calculator{
 		"fast": &fibonacci.MockCalculator{Result: big.NewInt(0)},
 	}

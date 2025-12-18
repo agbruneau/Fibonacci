@@ -15,6 +15,7 @@ func (m *mockCoreCalculator) CalculateCore(ctx context.Context, reporter Progres
 }
 
 func TestDefaultFactory(t *testing.T) {
+	t.Parallel()
 	factory := NewDefaultFactory()
 
 	// Test Register and Has
@@ -108,6 +109,7 @@ func TestDefaultFactory(t *testing.T) {
 }
 
 func TestGlobalFactory(t *testing.T) {
+	t.Parallel()
 	// Ensure GlobalFactory returns a non-nil factory
 	f := GlobalFactory()
 	if f == nil {

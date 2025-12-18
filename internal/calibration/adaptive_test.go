@@ -6,6 +6,7 @@ import (
 )
 
 func TestGenerateParallelThresholds(t *testing.T) {
+	t.Parallel()
 	thresholds := GenerateParallelThresholds()
 
 	// Should always include sequential (0)
@@ -31,6 +32,7 @@ func TestGenerateParallelThresholds(t *testing.T) {
 }
 
 func TestGenerateQuickParallelThresholds(t *testing.T) {
+	t.Parallel()
 	thresholds := GenerateQuickParallelThresholds()
 
 	// Should be shorter than full list
@@ -48,6 +50,7 @@ func TestGenerateQuickParallelThresholds(t *testing.T) {
 }
 
 func TestGenerateFFTThresholds(t *testing.T) {
+	t.Parallel()
 	thresholds := GenerateFFTThresholds()
 
 	// Should include 0 (disabled)
@@ -71,6 +74,7 @@ func TestGenerateFFTThresholds(t *testing.T) {
 }
 
 func TestGenerateQuickFFTThresholds(t *testing.T) {
+	t.Parallel()
 	thresholds := GenerateQuickFFTThresholds()
 
 	if len(thresholds) < 2 {
@@ -81,6 +85,7 @@ func TestGenerateQuickFFTThresholds(t *testing.T) {
 }
 
 func TestGenerateStrassenThresholds(t *testing.T) {
+	t.Parallel()
 	thresholds := GenerateStrassenThresholds()
 
 	// Should include 0 (disabled)
@@ -97,6 +102,7 @@ func TestGenerateStrassenThresholds(t *testing.T) {
 }
 
 func TestGenerateQuickStrassenThresholds(t *testing.T) {
+	t.Parallel()
 	thresholds := GenerateQuickStrassenThresholds()
 
 	if len(thresholds) < 2 {
@@ -107,6 +113,7 @@ func TestGenerateQuickStrassenThresholds(t *testing.T) {
 }
 
 func TestEstimateOptimalParallelThreshold(t *testing.T) {
+	t.Parallel()
 	threshold := EstimateOptimalParallelThreshold()
 
 	// Should be non-negative
@@ -123,6 +130,7 @@ func TestEstimateOptimalParallelThreshold(t *testing.T) {
 }
 
 func TestEstimateOptimalFFTThreshold(t *testing.T) {
+	t.Parallel()
 	threshold := EstimateOptimalFFTThreshold()
 
 	// Should be positive
@@ -139,6 +147,7 @@ func TestEstimateOptimalFFTThreshold(t *testing.T) {
 }
 
 func TestEstimateOptimalStrassenThreshold(t *testing.T) {
+	t.Parallel()
 	threshold := EstimateOptimalStrassenThreshold()
 
 	// Should be positive
@@ -150,6 +159,7 @@ func TestEstimateOptimalStrassenThreshold(t *testing.T) {
 }
 
 func TestValidateThresholds(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		parallel     int
@@ -171,6 +181,7 @@ func TestValidateThresholds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			p, f, s := ValidateThresholds(tt.parallel, tt.fft, tt.strassen)
 			if p != tt.wantParallel {
 				t.Errorf("parallel = %d, want %d", p, tt.wantParallel)
@@ -186,6 +197,7 @@ func TestValidateThresholds(t *testing.T) {
 }
 
 func TestGenerateFullThresholdSet(t *testing.T) {
+	t.Parallel()
 	set := GenerateFullThresholdSet()
 
 	if len(set.Parallel) == 0 {
@@ -203,6 +215,7 @@ func TestGenerateFullThresholdSet(t *testing.T) {
 }
 
 func TestGenerateQuickThresholdSet(t *testing.T) {
+	t.Parallel()
 	quick := GenerateQuickThresholdSet()
 	full := GenerateFullThresholdSet()
 
@@ -216,6 +229,7 @@ func TestGenerateQuickThresholdSet(t *testing.T) {
 }
 
 func TestEstimatedThresholds(t *testing.T) {
+	t.Parallel()
 	p, f, s := EstimatedThresholds()
 
 	if p < 0 || f < 0 || s < 0 {
@@ -226,6 +240,7 @@ func TestEstimatedThresholds(t *testing.T) {
 }
 
 func TestThresholdSetSort(t *testing.T) {
+	t.Parallel()
 	set := ThresholdSet{
 		Parallel: []int{4096, 256, 1024, 512},
 		FFT:      []int{1000000, 500000, 2000000},
@@ -258,18 +273,21 @@ func TestThresholdSetSort(t *testing.T) {
 
 // Benchmark threshold generation
 func BenchmarkGenerateParallelThresholds(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = GenerateParallelThresholds()
 	}
 }
 
 func BenchmarkGenerateFullThresholdSet(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = GenerateFullThresholdSet()
 	}
 }
 
 func BenchmarkEstimatedThresholds(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_, _, _ = EstimatedThresholds()
 	}

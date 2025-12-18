@@ -34,6 +34,7 @@ func copyWords(src []Word) []Word {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestCPUFeatureDetection(t *testing.T) {
+	t.Parallel()
 	features := GetCPUFeatures()
 	t.Logf("CPU Features: %s", features.String())
 	t.Logf("SIMD Level: %s", features.SIMDLevel.String())
@@ -42,6 +43,7 @@ func TestCPUFeatureDetection(t *testing.T) {
 }
 
 func TestSIMDLevel(t *testing.T) {
+	t.Parallel()
 	level := GetSIMDLevel()
 	t.Logf("Active SIMD Level: %s", level.String())
 
@@ -60,6 +62,7 @@ func TestSIMDLevel(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestAddVV_Correctness(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name string
 		size int
@@ -74,6 +77,7 @@ func TestAddVV_Correctness(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if tc.size == 0 {
 				// Test empty case
 				c := AddVV(nil, nil, nil)
@@ -110,6 +114,7 @@ func TestAddVV_Correctness(t *testing.T) {
 }
 
 func TestAddVV_CarryPropagation(t *testing.T) {
+	t.Parallel()
 	// Test carry propagation with all 1s
 	size := 8
 	x := make([]Word, size)
@@ -146,6 +151,7 @@ func TestAddVV_CarryPropagation(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestSubVV_Correctness(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name string
 		size int
@@ -159,6 +165,7 @@ func TestSubVV_Correctness(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if tc.size == 0 {
 				c := SubVV(nil, nil, nil)
 				if c != 0 {
@@ -195,6 +202,7 @@ func TestSubVV_Correctness(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestAddMulVVW_Correctness(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name string
 		size int
@@ -208,6 +216,7 @@ func TestAddMulVVW_Correctness(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if tc.size == 0 {
 				c := AddMulVVW(nil, nil, 0)
 				if c != 0 {
@@ -242,9 +251,11 @@ func TestAddMulVVW_Correctness(t *testing.T) {
 }
 
 func TestAddMulVVW_SpecialCases(t *testing.T) {
+	t.Parallel()
 	size := 8
 
 	t.Run("MultiplyByZero", func(t *testing.T) {
+		t.Parallel()
 		x := generateRandomWords(size, 42)
 		z := generateRandomWords(size, 43)
 		zOriginal := copyWords(z)
@@ -263,6 +274,7 @@ func TestAddMulVVW_SpecialCases(t *testing.T) {
 	})
 
 	t.Run("MultiplyByOne", func(t *testing.T) {
+		t.Parallel()
 		x := generateRandomWords(size, 42)
 		z := make([]Word, size) // Start with zeros
 
@@ -284,6 +296,7 @@ func TestAddMulVVW_SpecialCases(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func BenchmarkAddVV(b *testing.B) {
+	b.ReportAllocs()
 	sizes := []int{8, 64, 256, 1024, 4096}
 
 	for _, size := range sizes {
@@ -308,6 +321,7 @@ func BenchmarkAddVV(b *testing.B) {
 }
 
 func BenchmarkSubVV(b *testing.B) {
+	b.ReportAllocs()
 	sizes := []int{8, 64, 256, 1024, 4096}
 
 	for _, size := range sizes {
@@ -332,6 +346,7 @@ func BenchmarkSubVV(b *testing.B) {
 }
 
 func BenchmarkAddMulVVW(b *testing.B) {
+	b.ReportAllocs()
 	sizes := []int{8, 64, 256, 1024, 4096}
 
 	for _, size := range sizes {
@@ -372,6 +387,7 @@ func itoa(n int) string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestIntegrationWithBigInt(t *testing.T) {
+	t.Parallel()
 	// Test that our implementations produce results compatible with big.Int
 
 	t.Run("Addition", func(t *testing.T) {
