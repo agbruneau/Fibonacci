@@ -131,6 +131,9 @@ type Options struct {
 	// FFTThreshold is the bit size threshold for using FFT-based multiplication.
 	// If 0, a default value may be used by the implementation.
 	FFTThreshold int
+	// KaratsubaThreshold is the bit size threshold for using optimized Karatsuba multiplication.
+	// If 0, a default value may be used by the implementation.
+	KaratsubaThreshold int
 	// StrassenThreshold is the bit size threshold for switching to Strassen's algorithm.
 	// If 0, a default value may be used by the implementation.
 	StrassenThreshold int
@@ -161,6 +164,9 @@ func normalizeOptions(opts Options) Options {
 	}
 	if normalized.FFTThreshold == 0 {
 		normalized.FFTThreshold = DefaultFFTThreshold
+	}
+	if normalized.KaratsubaThreshold == 0 {
+		normalized.KaratsubaThreshold = DefaultKaratsubaThreshold
 	}
 	if normalized.StrassenThreshold == 0 {
 		normalized.StrassenThreshold = DefaultStrassenThreshold
@@ -271,9 +277,9 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		}
 	}
 
-	if n <= MaxFibUint64 {
+	if n <= MaxLUTIndex {
 		reporter(1.0)
-		return lookupSmall(n), nil
+		return lookupLarge(n), nil
 	}
 
 	// Configure FFT cache based on options for optimal performance
@@ -303,8 +309,12 @@ func init() {
 
 // lookupSmall returns a copy of the n-th Fibonacci number from the lookup
 // table, ensuring the immutability of the table.
+// Deprecated: use lookupLarge for the expanded table.
 func lookupSmall(n uint64) *big.Int {
-	return new(big.Int).Set(fibLookupTable[n])
+	if n <= MaxFibUint64 {
+		return new(big.Int).Set(extendedLUT[n])
+	}
+	return nil
 }
 
 // configureFFTCache configures the FFT transform cache based on the provided options.

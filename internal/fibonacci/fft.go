@@ -40,74 +40,49 @@ func sqrFFT(x *big.Int) (*big.Int, error) {
 	return bigfft.Sqr(x)
 }
 
-// smartMultiply performs multiplication, choosing between Karatsuba (math/big)
-// and FFT (internal/bigfft) based on the size of the operands.
-// It also attempts to reuse the storage of `z` if `MulTo` is available/used.
-//
-// Optimizations:
-//   - Pre-computes BitLen() values once to avoid redundant calls
-//   - Uses MulTo for FFT operations to avoid allocations when z is provided
-//   - Handles nil z consistently for both FFT and Karatsuba paths
-//
-// Parameters:
-//   - z: The destination big.Int (may be nil or reused for storage).
-//   - x: The first operand.
-//   - y: The second operand.
-//   - threshold: The bit length threshold for switching to FFT.
-//
-// Returns:
-//   - *big.Int: The result of x * y.
-//   - error: An error if the calculation failed.
-func smartMultiply(z, x, y *big.Int, threshold int) (*big.Int, error) {
-	// Pre-compute BitLen() values once to avoid redundant calls
-	// (BitLen() traverses the internal representation of big.Int)
-	if threshold > 0 {
-		bx := x.BitLen()
-		by := y.BitLen()
-		// Use FFT if both operands exceed threshold
-		if bx > threshold && by > threshold {
-			// Use MulTo to reuse z storage when available, avoiding allocation
-			return bigfft.MulTo(z, x, y)
-		}
+func smartMultiply(z, x, y *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) {
+	bx := x.BitLen()
+	by := y.BitLen()
+
+	// Tier 1: FFT Multiplication
+	if fftThreshold > 0 && bx > fftThreshold && by > fftThreshold {
+		return bigfft.MulTo(z, x, y)
 	}
-	// Handle nil z to be consistent with the MultiplicationStrategy contract
-	// which allows z to be nil (see strategy.go documentation)
+
+	// Tier 2: Optimized Karatsuba Multiplication
+	if karatsubaThreshold > 0 && bx > karatsubaThreshold && by > karatsubaThreshold {
+		if z == nil {
+			z = new(big.Int)
+		}
+		return bigfft.KaratsubaMultiplyTo(z, x, y), nil
+	}
+
+	// Tier 3: standard math/big Multiplication
 	if z == nil {
 		z = new(big.Int)
 	}
 	return z.Mul(x, y), nil
 }
 
-// smartSquare performs optimized squaring, choosing between Karatsuba (math/big)
-// and FFT (internal/bigfft) based on the size of the operand.
-// Squaring is more efficient than general multiplication because we can
-// exploit the symmetry of the computation (x * x).
-//
-// Optimizations:
-//   - Pre-computes BitLen() value once to avoid redundant calls
-//   - Uses SqrTo for FFT operations to avoid allocations when z is provided
-//   - Handles nil z consistently for both FFT and Karatsuba paths
-//
-// Parameters:
-//   - z: The destination big.Int (may be nil or reused for storage).
-//   - x: The operand to square.
-//   - threshold: The bit length threshold for switching to FFT.
-//
-// Returns:
-//   - *big.Int: The result of x * x.
-//   - error: An error if the calculation failed.
-func smartSquare(z, x *big.Int, threshold int) (*big.Int, error) {
-	// Pre-compute BitLen() value once to avoid redundant calls
-	// (BitLen() traverses the internal representation of big.Int)
-	if threshold > 0 {
-		bx := x.BitLen()
-		if bx > threshold {
-			// Use SqrTo to reuse z storage when available, avoiding allocation
-			return bigfft.SqrTo(z, x)
-		}
+// smartSquare performs optimized squaring, choosing between standard Mul,
+// optimized Karatsuba (internal/bigfft), and FFT (internal/bigfft) based on the size.
+func smartSquare(z, x *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) {
+	bx := x.BitLen()
+
+	// Tier 1: FFT Squaring
+	if fftThreshold > 0 && bx > fftThreshold {
+		return bigfft.SqrTo(z, x)
 	}
-	// Handle nil z to be consistent with the MultiplicationStrategy contract
-	// which allows z to be nil (see strategy.go documentation)
+
+	// Tier 2: Optimized Karatsuba Squaring
+	if karatsubaThreshold > 0 && bx > karatsubaThreshold {
+		if z == nil {
+			z = new(big.Int)
+		}
+		return bigfft.KaratsubaSqrTo(z, x), nil
+	}
+
+	// Tier 3: standard math/big Squaring
 	if z == nil {
 		z = new(big.Int)
 	}

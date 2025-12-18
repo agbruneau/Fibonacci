@@ -1,0 +1,15 @@
+﻿ok  	github.com/agbru/fibcalc/cmd/fibcalc	(cached)	coverage: 90.0% of statements
+ok  	github.com/agbru/fibcalc/internal/app	(cached)	coverage: 82.3% of statements
+ok  	github.com/agbru/fibcalc/internal/bigfft	(cached)	coverage: 87.8% of statements
+ok  	github.com/agbru/fibcalc/internal/calibration	(cached)	coverage: 81.5% of statements
+ok  	github.com/agbru/fibcalc/internal/cli	(cached)	coverage: 85.3% of statements
+ok  	github.com/agbru/fibcalc/internal/config	(cached)	coverage: 100.0% of statements
+ok  	github.com/agbru/fibcalc/internal/errors	(cached)	coverage: 100.0% of statements
+ok  	github.com/agbru/fibcalc/internal/fibonacci	(cached)	coverage: 90.8% of statements
+ok  	github.com/agbru/fibcalc/internal/orchestration	(cached)	coverage: 98.3% of statements
+ok  	github.com/agbru/fibcalc/internal/parallel	(cached)	coverage: 100.0% of statements
+ok  	github.com/agbru/fibcalc/internal/pool	(cached)	coverage: 100.0% of statements
+ok  	github.com/agbru/fibcalc/internal/server	(cached)	coverage: 89.9% of statements
+ok  	github.com/agbru/fibcalc/internal/service	(cached)	coverage: 100.0% of statements
+ok  	github.com/agbru/fibcalc/internal/testutil	(cached)	coverage: 100.0% of statements
+

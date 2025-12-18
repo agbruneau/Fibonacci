@@ -50,6 +50,13 @@ const (
 	// 10,000,000 bits (~3M decimal digits) is the empirical crossover point.
 	ParallelFFTThreshold = 10_000_000
 
+	// DefaultKaratsubaThreshold is the bit size threshold at which we switch
+	// from math/big's default multiplication to our custom optimized Karatsuba.
+	//
+	// Values between 2048 and 500,000 bits benefit from the custom memory
+	// pooling and parallel recursion available in bigfft.KaratsubaMultiply.
+	DefaultKaratsubaThreshold = 2048
+
 	// CalibrationN is the standard Fibonacci index used for performance
 	// calibration runs. This value provides a good balance between:
 	//   - Being large enough to measure meaningful performance differences

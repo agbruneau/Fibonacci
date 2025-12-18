@@ -21,7 +21,7 @@ func TestSmartMultiplyNilZ(t *testing.T) {
 	expected := new(big.Int).Mul(x, y)
 
 	// Test with nil z and threshold 0 (forces non-FFT path)
-	result, err := smartMultiply(nil, x, y, 0)
+	result, err := smartMultiply(nil, x, y, 0, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestSmartMultiplyNilZ(t *testing.T) {
 	}
 
 	// Test with nil z and high threshold (still forces non-FFT path for small numbers)
-	result2, err := smartMultiply(nil, x, y, 1000000)
+	result2, err := smartMultiply(nil, x, y, 1000000, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestSmartSquareNilZ(t *testing.T) {
 	expected := new(big.Int).Mul(x, x)
 
 	// Test with nil z and threshold 0 (forces non-FFT path)
-	result, err := smartSquare(nil, x, 0)
+	result, err := smartSquare(nil, x, 0, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSmartSquareNilZ(t *testing.T) {
 	}
 
 	// Test with nil z and high threshold (still forces non-FFT path for small numbers)
-	result2, err := smartSquare(nil, x, 1000000)
+	result2, err := smartSquare(nil, x, 1000000, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -167,4 +167,3 @@ func TestStrategyConsistencyWithNilZ(t *testing.T) {
 		}
 	})
 }
-

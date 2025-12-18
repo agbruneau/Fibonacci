@@ -393,15 +393,20 @@ func TestRegistryList(t *testing.T) {
 	factory := NewDefaultFactory()
 
 	list := factory.List()
-
-	expectedNames := []string{"fast", "fft", "matrix"}
-	if len(list) != len(expectedNames) {
-		t.Errorf("Expected %d calculators, got %d", len(expectedNames), len(list))
+	if len(list) != 4 {
+		t.Errorf("Expected 4 calculators, got %d", len(list))
 	}
 
-	for i, name := range expectedNames {
-		if list[i] != name {
-			t.Errorf("Expected calculator %d to be %s, got %s", i, name, list[i])
+	expectedIndices := map[string]int{
+		"fast":   0,
+		"fft":    1,
+		"lut":    2,
+		"matrix": 3,
+	}
+
+	for name, idx := range expectedIndices {
+		if list[idx] != name {
+			t.Errorf("Expected calculator %d to be %s, got %s", idx, name, list[idx])
 		}
 	}
 }

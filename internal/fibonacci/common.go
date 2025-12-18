@@ -24,15 +24,16 @@ type task interface {
 // multiplicationTask represents a single multiplication operation
 // to be executed either sequentially or in parallel.
 type multiplicationTask struct {
-	dest         **big.Int
-	a, b         *big.Int
-	fftThreshold int
+	dest               **big.Int
+	a, b               *big.Int
+	fftThreshold       int
+	karatsubaThreshold int
 }
 
 // execute performs the multiplication task.
 func (t *multiplicationTask) execute() error {
 	var err error
-	*t.dest, err = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold)
+	*t.dest, err = smartMultiply(*t.dest, t.a, t.b, t.fftThreshold, t.karatsubaThreshold)
 	return err
 }
 
@@ -41,15 +42,16 @@ func (t *multiplicationTask) execute() error {
 // Squaring is optimized compared to general multiplication because
 // it exploits the symmetry of the computation.
 type squaringTask struct {
-	dest         **big.Int
-	x            *big.Int
-	fftThreshold int
+	dest               **big.Int
+	x                  *big.Int
+	fftThreshold       int
+	karatsubaThreshold int
 }
 
 // execute performs the squaring task.
 func (t *squaringTask) execute() error {
 	var err error
-	*t.dest, err = smartSquare(*t.dest, t.x, t.fftThreshold)
+	*t.dest, err = smartSquare(*t.dest, t.x, t.fftThreshold, t.karatsubaThreshold)
 	return err
 }
 

@@ -66,12 +66,12 @@ func (s *AdaptiveStrategy) Name() string {
 
 // Multiply performs adaptive multiplication using smartMultiply.
 func (s *AdaptiveStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
-	return smartMultiply(z, x, y, opts.FFTThreshold)
+	return smartMultiply(z, x, y, opts.FFTThreshold, opts.KaratsubaThreshold)
 }
 
 // Square performs adaptive squaring using smartSquare.
 func (s *AdaptiveStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
-	return smartSquare(z, x, opts.FFTThreshold)
+	return smartSquare(z, x, opts.FFTThreshold, opts.KaratsubaThreshold)
 }
 
 // FFTOnlyStrategy forces FFT-based multiplication for all operations,

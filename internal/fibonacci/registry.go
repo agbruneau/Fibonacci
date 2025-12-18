@@ -57,6 +57,7 @@ func NewDefaultFactory() *DefaultFactory {
 	f.Register("fast", func() coreCalculator { return &OptimizedFastDoubling{} })
 	f.Register("matrix", func() coreCalculator { return &MatrixExponentiation{} })
 	f.Register("fft", func() coreCalculator { return &FFTBasedCalculator{} })
+	f.Register("lut", func() coreCalculator { return &LUTCalculator{} })
 
 	return f
 }
