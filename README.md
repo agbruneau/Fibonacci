@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Go version](https://img.shields.io/badge/Go-1.24+-blue.svg?style=for-the-badge&logo=go)
+![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
 ![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen?style=for-the-badge)
@@ -79,6 +79,7 @@ The **Fast Doubling** algorithm significantly outperforms the standard matrix ap
 | N (Index)   | Fast Doubling | Matrix Exp. | Speedup  |
 | ----------- | ------------- | ----------- | -------- |
 | 1,000       | **15µs**      | 18µs        | 1.2x     |
+| 10,000      | **180µs**     | 220µs       | 1.2x     |
 | 100,000     | **3.2ms**     | 4.1ms       | 1.3x     |
 | 1,000,000   | **85ms**      | 110ms       | 1.3x     |
 | 10,000,000  | **2.1s**      | 2.8s        | 1.35x    |
@@ -106,7 +107,7 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 
 ### Prerequisites
 
-- Go 1.24 or later
+- Go 1.25 or later
 - Make (optional, to use the Makefile)
 
 ### Installation
@@ -249,11 +250,14 @@ In addition to CLI flags, `fibcalc` can be configured via environment variables.
 | `FIBCALC_SERVER`              | bool     | Server mode (true/false)           | `false`     |
 | `FIBCALC_JSON`                | bool     | JSON output                        | `false`     |
 | `FIBCALC_VERBOSE`             | bool     | Verbose mode                       | `false`     |
+| `FIBCALC_DETAILS`             | bool     | Display performance details        | `false`     |
 | `FIBCALC_QUIET`               | bool     | Quiet mode                         | `false`     |
 | `FIBCALC_HEX`                 | bool     | Hexadecimal output                 | `false`     |
 | `FIBCALC_INTERACTIVE`         | bool     | REPL mode                          | `false`     |
 | `FIBCALC_NO_COLOR`            | bool     | Disable colours                    | `false`     |
 | `FIBCALC_OUTPUT`              | string   | Output file                        | `""`        |
+| `FIBCALC_CALIBRATE`           | bool     | Run calibration mode               | `false`     |
+| `FIBCALC_AUTO_CALIBRATE`      | bool     | Run auto-calibration at startup    | `false`     |
 | `FIBCALC_CALIBRATION_PROFILE` | string   | Calibration file                   | `""`        |
 | `FIBCALC_CALCULATE`           | bool     | Display calculated value           | `false`     |
 
