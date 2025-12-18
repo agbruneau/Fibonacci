@@ -173,13 +173,16 @@ This step will validate that your environment is correctly configured and that t
   - Quiet mode (`-q, --quiet`) for scripts.
   - Display calculated value (`-c, --calculate`).
 - **Performance Optimisations**:
+
   - **Zero-Allocation Strategy**: Uses `sync.Pool` to recycle `big.Int` objects.
   - **Modular Architecture**: Reusable frameworks and interchangeable multiplication strategies.
   - **Multi-level Parallelism**: Parallelisation at both algorithm and internal FFT levels.
   - **Strassen-Winograd Algorithm**: Optimized matrix multiplication reducing additions/subtractions by 17%.
-  - **Global Memory Pooling**: Unified `sync.Pool` for `big.Int` across all algorithms to minimize GC pressure.
+  - **Global Memory Pooling**: Unified pooling strategies for `big.Int` across algorithms to minimize GC pressure.
+
   - **Robust Error Handling**: Panic-free architecture with explicit error propagation.
   - **Automatic Calibration**: Detection of optimal thresholds for the hardware.
+
 - **Security**: Rate limiting, input validation, HTTP security headers, DoS protection.
 
 ## 4. Usage
@@ -520,7 +523,8 @@ The project integrates several layers of advanced optimisations to maximise perf
 ### Zero-Allocation Strategy
 
 - **Object Pools (`sync.Pool`)**: Calculation states are recycled to minimise GC pressure.
-- **Global Memory Pooling**: A unified `internal/pool` package provides recycled `big.Int` objects to all algorithms (`matrix`, `fastdoubling`), significantly reducing allocation overhead.
+- **Global Memory Pooling**: Unified pooling strategies provide recycled `big.Int` objects to all algorithms (`matrix`, `fastdoubling`), significantly reducing allocation overhead.
+
 - **Symmetric Squaring**: Reduces the number of multiplications to 4 (compared to 8 with the naive method).
 - **Strassen-Winograd**: An improved variant of Strassen's algorithm that reduces the number of additions/subtractions from 18 to 15, while maintaining 7 multiplications.
 
@@ -642,7 +646,7 @@ make upgrade       # Update dependencies
 │   ├── errors/                    # Centralised error handling
 │   ├── fibonacci/                 # Calculation algorithms
 │   ├── orchestration/             # Calculation orchestration
-│   ├── pool/                      # Global memory pooling
+
 │   ├── server/                    # HTTP REST server
 │   └── testutil/                  # Test utilities
 │
