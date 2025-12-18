@@ -5,13 +5,17 @@ import (
 	"sync"
 
 	"github.com/agbru/fibcalc/internal/parallel"
-	"github.com/agbru/fibcalc/internal/pool"
 )
+
+// MaxPooledBitLen is the maximum size (in bits) of a big.Int
+// accepted into the pool. Larger objects are left for GC collection.
+// Approximately 512 KB of data.
+const MaxPooledBitLen = 4_000_000
 
 // checkLimit checks if a big.Int exceeds the maximum pooled bit length.
 // This is used to prevent the pool from holding onto excessively large objects.
 func checkLimit(z *big.Int) bool {
-	return z != nil && z.BitLen() > pool.MaxPooledBitLen
+	return z != nil && z.BitLen() > MaxPooledBitLen
 }
 
 // task defines a common interface for executable tasks.

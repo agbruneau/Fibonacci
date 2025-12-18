@@ -104,22 +104,6 @@ func TestProgressCalculationLogic(t *testing.T) {
 	}
 }
 
-// TestLookupTableImmutability verifies that the lookup table (LUT)
-// ensures the immutability of its data by returning copies.
-func TestLookupTableImmutability(t *testing.T) {
-	t.Parallel()
-	val1 := lookupSmall(10)
-	expected := big.NewInt(55)
-	if val1.Cmp(expected) != 0 {
-		t.Fatalf("Incorrect F(10) value. Expected 55, got %s", val1.String())
-	}
-	val1.Add(val1, big.NewInt(1))
-	val2 := lookupSmall(10)
-	if val2.Cmp(expected) != 0 {
-		t.Fatalf("Immutability violation: LUT modified. Expected F(10) to be 55, got %s", val2.String())
-	}
-}
-
 // TestNilCoreCalculatorPanic verifies that `NewCalculator` panics if called
 // with a nil `coreCalculator`.
 func TestNilCoreCalculatorPanic(t *testing.T) {

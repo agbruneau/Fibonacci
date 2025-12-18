@@ -285,7 +285,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 
 	if n <= MaxFibUint64 {
 		reporter(1.0)
-		return lookupSmall(n), nil
+		return calculateSmall(n), nil
 	}
 
 	// Configure FFT cache based on options for optimal performance
@@ -301,25 +301,22 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 	return result, err
 }
 
-var fibLookupTable [MaxFibUint64 + 1]*big.Int
-
-func init() {
-	fibLookupTable[0] = big.NewInt(0)
-	if MaxFibUint64 > 0 {
-		fibLookupTable[1] = big.NewInt(1)
-		for i := uint64(2); i <= MaxFibUint64; i++ {
-			fibLookupTable[i] = new(big.Int).Add(fibLookupTable[i-1], fibLookupTable[i-2])
-		}
+// calculateSmall returns the n-th Fibonacci number for small n using
+// iterative addition. This replaces the old LUT approach.
+func calculateSmall(n uint64) *big.Int {
+	if n == 0 {
+		return big.NewInt(0)
 	}
-}
-
-// lookupSmall returns a copy of the n-th Fibonacci number from the lookup
-// table, ensuring the immutability of the table.
-func lookupSmall(n uint64) *big.Int {
-	if n <= MaxFibUint64 {
-		return new(big.Int).Set(fibLookupTable[n])
+	if n == 1 {
+		return big.NewInt(1)
 	}
-	return nil
+	a := big.NewInt(0)
+	b := big.NewInt(1)
+	for i := uint64(2); i <= n; i++ {
+		a.Add(a, b)
+		a, b = b, a
+	}
+	return b
 }
 
 // configureFFTCache configures the FFT transform cache based on the provided options.

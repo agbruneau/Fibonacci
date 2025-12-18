@@ -183,7 +183,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// Execute the three multiplications for the doubling step
 		// Parallelize when at least one of the main operands is large
 		// Pass cached bit lengths to avoid redundant BitLen() calls
-		shouldParallel := useParallel && shouldParallelizeMultiplicationCached(s, currentOpts, fkBitLen, fk1BitLen)
+		shouldParallel := useParallel && shouldParallelizeMultiplicationCached(currentOpts, fkBitLen, fk1BitLen)
 		if shouldParallel {
 			usedParallel = true
 		}

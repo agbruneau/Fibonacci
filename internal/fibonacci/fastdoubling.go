@@ -146,21 +146,20 @@ func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 	// these values provides a measurable performance improvement (2-5%).
 	fkBitLen := s.F_k.BitLen()
 	fk1BitLen := s.F_k1.BitLen()
-	return shouldParallelizeMultiplicationCached(s, opts, fkBitLen, fk1BitLen)
+	return shouldParallelizeMultiplicationCached(opts, fkBitLen, fk1BitLen)
 }
 
 // shouldParallelizeMultiplicationCached is an optimized version that accepts
 // pre-computed BitLen() values to avoid redundant calls.
 //
 // Parameters:
-//   - s: The current calculation state (used for consistency, but BitLen values are passed).
 //   - opts: Configuration options including thresholds.
 //   - fkBitLen: Pre-computed bit length of F_k.
 //   - fk1BitLen: Pre-computed bit length of F_k1.
 //
 // Returns:
 //   - bool: true if multiplication should be parallelized, false otherwise.
-func shouldParallelizeMultiplicationCached(s *CalculationState, opts Options, fkBitLen, fk1BitLen int) bool {
+func shouldParallelizeMultiplicationCached(opts Options, fkBitLen, fk1BitLen int) bool {
 	// Determine the maximum bit length of the main operands
 	maxBitLen := fk1BitLen
 	if fkBitLen > maxBitLen {

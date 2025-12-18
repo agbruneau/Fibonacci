@@ -42,11 +42,11 @@ func TestErrorCollector_Concurrency(t *testing.T) {
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 			<-start
 			ec.SetError(errors.New("error from goroutine"))
-		}(i)
+		}()
 	}
 
 	close(start)
