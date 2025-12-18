@@ -1,5 +1,34 @@
 package fibonacci
 
+import (
+	"context"
+	"math/big"
+)
+
+// MockCalculator is a mock implementation of the Calculator interface.
+// It is exported to allow external packages (like cmd/fibcalc) to use it for testing.
+type MockCalculator struct {
+	Result *big.Int
+	Err    error
+	Fn     func(ctx context.Context, n uint64) (*big.Int, error)
+}
+
+// Name returns the calculator name.
+func (m *MockCalculator) Name() string {
+	return "mock"
+}
+
+// Calculate returns the pre-configured Result and Err, or calls Fn if provided.
+func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error) {
+	if m.Fn != nil {
+		return m.Fn(ctx, n)
+	}
+	if progressChan != nil {
+		progressChan <- ProgressUpdate{CalculatorIndex: calcIndex, Value: 1.0}
+	}
+	return m.Result, m.Err
+}
+
 // TestFactory is a CalculatorFactory implementation designed for testing.
 // It allows tests in other packages to create factories with mock calculators.
 type TestFactory struct {
@@ -66,4 +95,3 @@ type UnknownCalculatorError struct {
 func (e *UnknownCalculatorError) Error() string {
 	return "unknown calculator: " + e.Name
 }
-

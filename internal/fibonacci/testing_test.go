@@ -1,7 +1,6 @@
 package fibonacci
 
 import (
-	"context"
 	"math/big"
 	"testing"
 )
@@ -20,7 +19,7 @@ func TestNewTestFactory(t *testing.T) {
 
 	t.Run("with calculators", func(t *testing.T) {
 		calcs := map[string]Calculator{
-			"test": &mockCoreCalc{},
+			"test": &MockCalculator{},
 		}
 		f := NewTestFactory(calcs)
 		if len(f.List()) != 1 {
@@ -31,7 +30,7 @@ func TestNewTestFactory(t *testing.T) {
 
 // TestTestFactoryCreate tests the Create method.
 func TestTestFactoryCreate(t *testing.T) {
-	mock := &mockCoreCalc{}
+	mock := &MockCalculator{}
 	calcs := map[string]Calculator{
 		"test": mock,
 	}
@@ -57,7 +56,7 @@ func TestTestFactoryCreate(t *testing.T) {
 
 // TestTestFactoryGet tests the Get method.
 func TestTestFactoryGet(t *testing.T) {
-	mock := &mockCoreCalc{}
+	mock := &MockCalculator{}
 	calcs := map[string]Calculator{
 		"test": mock,
 	}
@@ -75,9 +74,9 @@ func TestTestFactoryGet(t *testing.T) {
 // TestTestFactoryList tests the List method.
 func TestTestFactoryList(t *testing.T) {
 	calcs := map[string]Calculator{
-		"alpha": &mockCoreCalc{},
-		"beta":  &mockCoreCalc{},
-		"gamma": &mockCoreCalc{},
+		"alpha": &MockCalculator{},
+		"beta":  &MockCalculator{},
+		"gamma": &MockCalculator{},
 	}
 	f := NewTestFactory(calcs)
 
@@ -102,8 +101,8 @@ func TestTestFactoryRegister(t *testing.T) {
 
 // TestTestFactoryGetAll tests the GetAll method.
 func TestTestFactoryGetAll(t *testing.T) {
-	mock1 := &mockCoreCalc{}
-	mock2 := &mockCoreCalc{}
+	mock1 := &MockCalculator{Result: big.NewInt(1)}
+	mock2 := &MockCalculator{Result: big.NewInt(2)}
 	calcs := map[string]Calculator{
 		"test1": mock1,
 		"test2": mock2,
@@ -129,15 +128,4 @@ func TestUnknownCalculatorError(t *testing.T) {
 	if err.Error() != expected {
 		t.Errorf("expected %q, got %q", expected, err.Error())
 	}
-}
-
-// mockCoreCalc is a minimal implementation for testing.
-type mockCoreCalc struct{}
-
-func (m *mockCoreCalc) Name() string {
-	return "mock"
-}
-
-func (m *mockCoreCalc) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, totalWork int, n uint64, opts Options) (*big.Int, error) {
-	return big.NewInt(0), nil
 }

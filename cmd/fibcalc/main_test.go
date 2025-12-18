@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,9 @@ import (
 )
 
 // TestRun validates the run function with various argument combinations.
+// Note: run() delegates to app.New and application.Run.
+// Since run() constructs the real application with the global factory,
+// these tests are effectively integration tests.
 func TestRun(t *testing.T) {
 	t.Parallel()
 
@@ -121,13 +125,32 @@ func TestParseConfig(t *testing.T) {
 }
 
 // TestApplicationRun validates the Application.Run method behavior.
+// Optimized to use MockCalculator via TestFactory, avoiding expensive calculations.
 func TestApplicationRun(t *testing.T) {
 	t.Parallel()
+
+	// Mock factory helper
+	createMockFactory := func(result *big.Int, err error) *fibonacci.TestFactory {
+		mockCalc := &fibonacci.MockCalculator{
+			Result: result,
+			Err:    err,
+		}
+		// Create a map with mocked calculators matching typical names
+		// or at least "fast", "matrix", "fft" as needed by tests.
+		// For "all", it iterates all calculators in the factory.
+		calcs := map[string]fibonacci.Calculator{
+			"fast":   mockCalc,
+			"matrix": mockCalc,
+		}
+		return fibonacci.NewTestFactory(calcs)
+	}
 
 	t.Run("single algorithm success", func(t *testing.T) {
 		t.Parallel()
 
 		var buf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+
 		application := &app.Application{
 			Config: config.AppConfig{
 				N:            10,
@@ -138,7 +161,7 @@ func TestApplicationRun(t *testing.T) {
 				Details:      true,
 				Concise:      true,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -157,6 +180,8 @@ func TestApplicationRun(t *testing.T) {
 		t.Parallel()
 
 		var buf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+
 		application := &app.Application{
 			Config: config.AppConfig{
 				N:            20,
@@ -166,7 +191,7 @@ func TestApplicationRun(t *testing.T) {
 				FFTThreshold: 20000,
 				Details:      true,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -179,6 +204,7 @@ func TestApplicationRun(t *testing.T) {
 		if !strings.Contains(output, "Comparison Summary") || !strings.Contains(output, "Global Status: Success") {
 			t.Errorf("comparison output incorrect:\n%s", output)
 		}
+		// Since we use a mock, calculation time might be 0 or very small, but it should be printed.
 		if !strings.Contains(output, "Calculation time") {
 			t.Errorf("output should contain calculation time:\n%s", output)
 		}
@@ -188,13 +214,41 @@ func TestApplicationRun(t *testing.T) {
 		t.Parallel()
 
 		var buf bytes.Buffer
+
+		// Mock a calculator that hangs or simulates timeout error?
+		// Application.Run handles context timeout, but if we pass a very short timeout
+		// in config, Application.Run creates a context with that timeout.
+		// The MockCalculator checks context? No, the MockCalculator implementation above
+		// just returns.
+		// So we need the MockCalculator to respect context or return the expected error.
+		// However, the test sets Timeout: time.Millisecond.
+		// Application.Run creates context.
+		// Then it calls calculator.Calculate(ctx, ...).
+		// If MockCalculator returns immediately, we might not trigger timeout *inside* the calc.
+		// But Application.Run wraps the call.
+
+		// Let's make the mock actually block or return context error.
+		mockCalc := &fibonacci.MockCalculator{
+			Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+				// Simulate work longer than timeout
+				select {
+				case <-time.After(50 * time.Millisecond):
+					return big.NewInt(0), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			},
+		}
+		calcs := map[string]fibonacci.Calculator{"fast": mockCalc}
+		factory := fibonacci.NewTestFactory(calcs)
+
 		application := &app.Application{
 			Config: config.AppConfig{
 				N:       100_000_000,
 				Algo:    "fast",
-				Timeout: time.Millisecond,
+				Timeout: time.Millisecond, // Very short timeout
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
 		}
 
@@ -213,13 +267,23 @@ func TestApplicationRun(t *testing.T) {
 		t.Parallel()
 
 		var buf bytes.Buffer
+
+		// Mock that blocks until cancel
+		mockCalc := &fibonacci.MockCalculator{
+			Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		}
+		factory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{"fast": mockCalc})
+
 		application := &app.Application{
 			Config: config.AppConfig{
 				N:       100_000_000,
 				Algo:    "fast",
 				Timeout: time.Minute,
 			},
-			Factory:   fibonacci.GlobalFactory(),
+			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
 		}
 

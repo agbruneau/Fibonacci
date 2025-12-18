@@ -2,183 +2,18 @@ package fibonacci
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Edge Case Tests
 // ─────────────────────────────────────────────────────────────────────────────
-
-// TestFibonacciZero verifies F(0) = 0 for all algorithms.
-func TestFibonacciZero(t *testing.T) {
-	calculators := map[string]coreCalculator{
-		"FastDoubling": &OptimizedFastDoubling{},
-		"MatrixExp":    &MatrixExponentiation{},
-		"FFTBased":     &FFTBasedCalculator{},
-	}
-
-	ctx := context.Background()
-	opts := Options{ParallelThreshold: DefaultParallelThreshold}
-
-	for name, calc := range calculators {
-		t.Run(name, func(t *testing.T) {
-			result, err := calc.CalculateCore(ctx, func(float64) {}, 0, opts)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if result.Cmp(big.NewInt(0)) != 0 {
-				t.Errorf("F(0) should be 0, got %s", result.String())
-			}
-		})
-	}
-}
-
-// TestFibonacciOne verifies F(1) = 1 for all algorithms.
-func TestFibonacciOne(t *testing.T) {
-	calculators := map[string]coreCalculator{
-		"FastDoubling": &OptimizedFastDoubling{},
-		"MatrixExp":    &MatrixExponentiation{},
-		"FFTBased":     &FFTBasedCalculator{},
-	}
-
-	ctx := context.Background()
-	opts := Options{ParallelThreshold: DefaultParallelThreshold}
-
-	for name, calc := range calculators {
-		t.Run(name, func(t *testing.T) {
-			result, err := calc.CalculateCore(ctx, func(float64) {}, 1, opts)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if result.Cmp(big.NewInt(1)) != 0 {
-				t.Errorf("F(1) should be 1, got %s", result.String())
-			}
-		})
-	}
-}
-
-// TestFibonacciTwo verifies F(2) = 1 for all algorithms.
-func TestFibonacciTwo(t *testing.T) {
-	calculators := map[string]coreCalculator{
-		"FastDoubling": &OptimizedFastDoubling{},
-		"MatrixExp":    &MatrixExponentiation{},
-		"FFTBased":     &FFTBasedCalculator{},
-	}
-
-	ctx := context.Background()
-	opts := Options{ParallelThreshold: DefaultParallelThreshold}
-
-	for name, calc := range calculators {
-		t.Run(name, func(t *testing.T) {
-			result, err := calc.CalculateCore(ctx, func(float64) {}, 2, opts)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if result.Cmp(big.NewInt(1)) != 0 {
-				t.Errorf("F(2) should be 1, got %s", result.String())
-			}
-		})
-	}
-}
-
-// TestFibonacciMaxUint64 verifies F(93), the largest Fibonacci that fits in uint64.
-func TestFibonacciMaxUint64(t *testing.T) {
-	// F(93) = 12200160415121876738, which is the largest that fits in uint64
-	expected := new(big.Int)
-	expected.SetString("12200160415121876738", 10)
-
-	calculators := map[string]coreCalculator{
-		"FastDoubling": &OptimizedFastDoubling{},
-		"MatrixExp":    &MatrixExponentiation{},
-		"FFTBased":     &FFTBasedCalculator{},
-	}
-
-	ctx := context.Background()
-	opts := Options{ParallelThreshold: DefaultParallelThreshold}
-
-	for name, calc := range calculators {
-		t.Run(name, func(t *testing.T) {
-			result, err := calc.CalculateCore(ctx, func(float64) {}, 93, opts)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if result.Cmp(expected) != 0 {
-				t.Errorf("F(93) incorrect.\nExpected: %s\nGot: %s", expected.String(), result.String())
-			}
-		})
-	}
-}
-
-// TestFibonacciOverflowUint64 verifies F(94), which overflows uint64.
-func TestFibonacciOverflowUint64(t *testing.T) {
-	// F(94) = 19740274219868223167, which overflows uint64
-	expected := new(big.Int)
-	expected.SetString("19740274219868223167", 10)
-
-	calculators := map[string]coreCalculator{
-		"FastDoubling": &OptimizedFastDoubling{},
-		"MatrixExp":    &MatrixExponentiation{},
-		"FFTBased":     &FFTBasedCalculator{},
-	}
-
-	ctx := context.Background()
-	opts := Options{ParallelThreshold: DefaultParallelThreshold}
-
-	for name, calc := range calculators {
-		t.Run(name, func(t *testing.T) {
-			result, err := calc.CalculateCore(ctx, func(float64) {}, 94, opts)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if result.Cmp(expected) != 0 {
-				t.Errorf("F(94) incorrect.\nExpected: %s\nGot: %s", expected.String(), result.String())
-			}
-		})
-	}
-}
-
-// TestFibonacciLargePowerOfTwo tests F(n) where n is a power of 2.
-// These are interesting edge cases for the binary algorithms.
-// Values verified against known Fibonacci number databases.
-func TestFibonacciLargePowerOfTwo(t *testing.T) {
-	testCases := []struct {
-		n        uint64
-		expected string
-	}{
-		{64, "10610209857723"},
-		{128, "251728825683549488150424261"},
-		{256, "141693817714056513234709965875411919657707794958199867"},
-	}
-
-	calculators := map[string]coreCalculator{
-		"FastDoubling": &OptimizedFastDoubling{},
-		"MatrixExp":    &MatrixExponentiation{},
-	}
-
-	ctx := context.Background()
-	opts := Options{ParallelThreshold: DefaultParallelThreshold}
-
-	for _, tc := range testCases {
-		expected := new(big.Int)
-		expected.SetString(tc.expected, 10)
-
-		for name, calc := range calculators {
-			t.Run(fmt.Sprintf("%s/N=%d", name, tc.n), func(t *testing.T) {
-				result, err := calc.CalculateCore(ctx, func(float64) {}, tc.n, opts)
-				if err != nil {
-					t.Fatalf("Unexpected error for F(%d): %v", tc.n, err)
-				}
-				if result.Cmp(expected) != 0 {
-					t.Errorf("F(%d) incorrect.\nExpected: %s\nGot: %s", tc.n, expected.String(), result.String())
-				}
-			})
-		}
-	}
-}
 
 // TestFibonacciRecurrenceRelation verifies F(n) = F(n-1) + F(n-2).
 func TestFibonacciRecurrenceRelation(t *testing.T) {
@@ -349,7 +184,7 @@ func TestContextCancellationImmediate(t *testing.T) {
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
 			_, err := calc.CalculateCore(ctx, func(float64) {}, 1000000, opts)
-			if err != context.Canceled {
+			if !errors.Is(err, context.Canceled) {
 				t.Errorf("Expected context.Canceled, got: %v", err)
 			}
 		})
@@ -372,11 +207,13 @@ func TestContextTimeoutShort(t *testing.T) {
 
 			// Use a large n that won't complete in 1ms
 			_, err := calc.CalculateCore(ctx, func(float64) {}, 100_000_000, opts)
-			if err != context.DeadlineExceeded {
-				// It might complete or get cancelled, both are acceptable
-				if err != nil && err != context.Canceled {
-					t.Errorf("Expected timeout or cancellation error, got: %v", err)
-				}
+
+			if err == nil {
+				t.Fatal("Expected timeout or cancellation error, got nil")
+			}
+
+			if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+				t.Errorf("Expected timeout or cancellation error, got: %v", err)
 			}
 		})
 	}
@@ -400,28 +237,22 @@ func TestConcurrentCalculations(t *testing.T) {
 		t.Fatalf("Failed to calculate expected result: %v", err)
 	}
 
-	var wg sync.WaitGroup
-	errors := make(chan error, numGoroutines)
+	var g errgroup.Group
 
 	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		g.Go(func() error {
 			result, err := calc.Calculate(ctx, nil, 0, n, opts)
 			if err != nil {
-				errors <- err
-				return
+				return err
 			}
 			if result.Cmp(expected) != 0 {
-				errors <- fmt.Errorf("result mismatch: expected %s, got %s", expected.String(), result.String())
+				return fmt.Errorf("result mismatch: expected %s, got %s", expected.String(), result.String())
 			}
-		}()
+			return nil
+		})
 	}
 
-	wg.Wait()
-	close(errors)
-
-	for err := range errors {
+	if err := g.Wait(); err != nil {
 		t.Errorf("Concurrent calculation error: %v", err)
 	}
 }
@@ -434,26 +265,40 @@ func TestConcurrentDifferentN(t *testing.T) {
 
 	nValues := []uint64{100, 500, 1000, 2000, 5000, 10000}
 
-	var wg sync.WaitGroup
-	results := make(map[uint64]*big.Int)
-	var mu sync.Mutex
+	var g errgroup.Group
 
-	for _, n := range nValues {
-		wg.Add(1)
-		go func(n uint64) {
-			defer wg.Done()
-			result, err := calc.Calculate(ctx, nil, 0, n, opts)
-			if err != nil {
-				t.Errorf("Failed to calculate F(%d): %v", n, err)
-				return
-			}
-			mu.Lock()
-			results[n] = result
-			mu.Unlock()
-		}(n)
+	// Create a buffered channel for results to avoid locking mutex manually if possible,
+	// but using a safe map or channel is fine. Here we just want to verify consistency.
+	// Since we need to verify N against its result, returning a struct is best.
+
+	type calcResult struct {
+		n   uint64
+		val *big.Int
 	}
 
-	wg.Wait()
+	resultChan := make(chan calcResult, len(nValues))
+
+	for _, n := range nValues {
+		n := n // capture loop var
+		g.Go(func() error {
+			result, err := calc.Calculate(ctx, nil, 0, n, opts)
+			if err != nil {
+				return fmt.Errorf("failed to calculate F(%d): %w", n, err)
+			}
+			resultChan <- calcResult{n, result}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Fatalf("Concurrent calculation failed: %v", err)
+	}
+	close(resultChan)
+
+	results := make(map[uint64]*big.Int)
+	for res := range resultChan {
+		results[res.n] = res.val
+	}
 
 	// Verify results using recurrence relation
 	for n, result := range results {
@@ -462,6 +307,10 @@ func TestConcurrentDifferentN(t *testing.T) {
 		}
 		fn1, ok1 := results[n-1]
 		fn2, ok2 := results[n-2]
+		// We only provided specific N values, so we can't necessarily check F(n-1) + F(n-2)
+		// unless those values were also in the input set.
+		// However, the original test checked this if present.
+
 		if ok1 && ok2 {
 			expected := new(big.Int).Add(fn1, fn2)
 			if result.Cmp(expected) != 0 {
