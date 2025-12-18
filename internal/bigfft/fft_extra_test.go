@@ -87,24 +87,23 @@ func TestFFT_SqrTo(t *testing.T) {
 
 func TestPoly_Sqr(t *testing.T) {
 	t.Parallel()
-	// Directly test polValues.Sqr which was 0% (SqrWithBump is used by SqrTo path)
-	// We need to construct a polValues struct.
+	// Directly test PolValues.Sqr which was 0% (SqrWithBump is used by SqrTo path)
+	// We need to construct a PolValues struct.
 	// This requires some internal setup, might be hard to test purely from outside if structs are not exported.
-	// `polValues` is unexported.
-	// But we are in package `bigfft`, so we can access it.
+	// `PolValues` is now exported.
 
-	// We need a valid polValues to test Sqr.
-	// We can get one by manually creating a poly and transforming it.
+	// We need a valid PolValues to test Sqr.
+	// We can get one by manually creating a Poly and transforming it.
 
 	k := uint(4) // Small FFT size
 	m := 1
 	n := valueSize(k, m, 2)
 
 	// Create a simple polynomial
-	p := poly{k: k, m: m}
-	p.a = make([]nat, 1<<k)
-	for i := range p.a {
-		p.a[i] = nat{big.Word(i + 1)}
+	p := Poly{K: k, M: m}
+	p.A = make([]nat, 1<<k)
+	for i := range p.A {
+		p.A[i] = nat{big.Word(i + 1)}
 	}
 
 	// Transform it
@@ -126,10 +125,10 @@ func TestPoly_Sqr(t *testing.T) {
 	}
 
 	// Compare values
-	for i := range sqrPV.values {
+	for i := range sqrPV.Values {
 		// values are slices of fermat (which is []Word)
-		v1 := sqrPV.values[i]
-		v2 := mulPV.values[i]
+		v1 := sqrPV.Values[i]
+		v2 := mulPV.Values[i]
 
 		if len(v1) != len(v2) {
 			t.Errorf("Length mismatch at %d", i)
@@ -153,11 +152,11 @@ func TestNTransform_InvNTransform(t *testing.T) {
 	n := valueSize(k, m, 2)
 
 	// Create polynomial
-	p := poly{k: k, m: m}
+	p := Poly{K: k, M: m}
 	// Must be strictly less than 1<<k for NTransform
-	p.a = make([]nat, (1<<k)-1)
-	for i := range p.a {
-		p.a[i] = nat{big.Word(i + 1)}
+	p.A = make([]nat, (1<<k)-1)
+	for i := range p.A {
+		p.A[i] = nat{big.Word(i + 1)}
 	}
 
 	// NTransform
@@ -168,13 +167,13 @@ func TestNTransform_InvNTransform(t *testing.T) {
 
 	// Verify we got back original coefficients (scaled/shifted? InvNTransform docs say m is unspecified)
 	// Usually NTransform/InvNTransform round trip should preserve data up to scaling/modulus.
-	// Let's check `pRes.a`.
+	// Let's check `pRes.A`.
 
 	// Note: NTransform/InvNTransform logic might be complex involving roots of unity.
 	// Basic check: should not panic and return something.
 
-	if pRes.k != k {
-		t.Errorf("Expected k=%d, got %d", k, pRes.k)
+	if pRes.K != k {
+		t.Errorf("Expected K=%d, got %d", k, pRes.K)
 	}
 
 	// We won't assert exact values without deeper understanding of NTransform math here,
@@ -207,10 +206,10 @@ func TestSqrWithBumpDirect(t *testing.T) {
 	ba := AcquireBumpAllocator(1000)
 	defer ReleaseBumpAllocator(ba)
 
-	p := poly{k: k, m: m}
-	p.a = make([]nat, 1<<k)
-	for i := range p.a {
-		p.a[i] = nat{big.Word(i + 1)}
+	p := Poly{K: k, M: m}
+	p.A = make([]nat, 1<<k)
+	for i := range p.A {
+		p.A[i] = nat{big.Word(i + 1)}
 	}
 
 	pv, _ := p.Transform(n)
@@ -220,8 +219,8 @@ func TestSqrWithBumpDirect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SqrWithBump failed: %v", err)
 	}
-	if len(sqrPV.values) != 1<<k {
-		t.Errorf("Expected %d values, got %d", 1<<k, len(sqrPV.values))
+	if len(sqrPV.Values) != 1<<k {
+		t.Errorf("Expected %d values, got %d", 1<<k, len(sqrPV.Values))
 	}
 }
 
@@ -233,10 +232,10 @@ func TestTransformWithBump(t *testing.T) {
 	ba := AcquireBumpAllocator(1000)
 	defer ReleaseBumpAllocator(ba)
 
-	p := poly{k: k, m: m}
-	p.a = make([]nat, 1<<k)
-	for i := range p.a {
-		p.a[i] = nat{big.Word(i + 1)}
+	p := Poly{K: k, M: m}
+	p.A = make([]nat, 1<<k)
+	for i := range p.A {
+		p.A[i] = nat{big.Word(i + 1)}
 	}
 
 	pv, err := p.TransformWithBump(n, ba)
@@ -248,8 +247,8 @@ func TestTransformWithBump(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InvTransformWithBump failed: %v", err)
 	}
-	if pRes.k != k {
-		t.Errorf("Expected k=%d, got %d", k, pRes.k)
+	if pRes.K != k {
+		t.Errorf("Expected K=%d, got %d", k, pRes.K)
 	}
 }
 
@@ -285,8 +284,8 @@ func TestFFTUtilities(t *testing.T) {
 		n2[i] = big.Word(i)
 	}
 	p := polyFromNat(n2, 5, 10)
-	if len(p.a) != 3 { // ceil(25/10) = 3
-		t.Errorf("polyFromNat failed: expected 3 coefficients, got %d", len(p.a))
+	if len(p.A) != 3 { // ceil(25/10) = 3
+		t.Errorf("polyFromNat failed: expected 3 coefficients, got %d", len(p.A))
 	}
 
 	// Test Int() and IntTo()
@@ -327,15 +326,15 @@ func TestMulCached(t *testing.T) {
 	t.Parallel()
 	k := uint(4)
 	m := 1
-	p := poly{k: k, m: m, a: []nat{{1}, {2}, {3}}}
-	q := poly{k: k, m: m, a: []nat{{4}, {5}, {6}}}
+	p := Poly{K: k, M: m, A: []nat{{1}, {2}, {3}}}
+	q := Poly{K: k, M: m, A: []nat{{4}, {5}, {6}}}
 
 	// Test MulCached
 	res, err := p.MulCached(&q)
 	if err != nil {
 		t.Fatalf("MulCached failed: %v", err)
 	}
-	if len(res.a) == 0 {
+	if len(res.A) == 0 {
 		t.Error("MulCached result has no coefficients")
 	}
 
@@ -344,7 +343,7 @@ func TestMulCached(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SqrCached failed: %v", err)
 	}
-	if len(resSqr.a) == 0 {
+	if len(resSqr.A) == 0 {
 		t.Error("SqrCached result has no coefficients")
 	}
 }

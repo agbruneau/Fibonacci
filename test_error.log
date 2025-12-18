@@ -1,0 +1,819 @@
+﻿=== RUN   TestConfigureFFTCacheDefault
+--- PASS: TestConfigureFFTCacheDefault (0.00s)
+=== RUN   TestConfigureFFTCacheCustom
+--- PASS: TestConfigureFFTCacheCustom (0.00s)
+=== RUN   TestConfigureFFTCacheDisabled
+--- PASS: TestConfigureFFTCacheDisabled (0.00s)
+=== RUN   TestNewDynamicThresholdManager
+=== PAUSE TestNewDynamicThresholdManager
+=== RUN   TestNewDynamicThresholdManagerFromConfig
+=== PAUSE TestNewDynamicThresholdManagerFromConfig
+=== RUN   TestRecordIteration
+=== PAUSE TestRecordIteration
+=== RUN   TestRecordIterationHistoryLimit
+--- PASS: TestRecordIterationHistoryLimit (0.00s)
+=== RUN   TestGetFFTThreshold
+=== PAUSE TestGetFFTThreshold
+=== RUN   TestGetParallelThreshold
+=== PAUSE TestGetParallelThreshold
+=== RUN   TestShouldAdjust
+=== PAUSE TestShouldAdjust
+=== RUN   TestGetStats
+=== PAUSE TestGetStats
+=== RUN   TestReset
+=== PAUSE TestReset
+=== RUN   TestAnalyzeFFTThreshold
+=== PAUSE TestAnalyzeFFTThreshold
+=== RUN   TestAnalyzeParallelThreshold
+=== PAUSE TestAnalyzeParallelThreshold
+=== RUN   TestAvgTimePerBit
+=== RUN   TestAvgTimePerBit/empty_metrics_returns_zero
+=== RUN   TestAvgTimePerBit/zero_bits_returns_zero
+=== RUN   TestAvgTimePerBit/calculates_correctly
+--- PASS: TestAvgTimePerBit (0.00s)
+    --- PASS: TestAvgTimePerBit/empty_metrics_returns_zero (0.00s)
+    --- PASS: TestAvgTimePerBit/zero_bits_returns_zero (0.00s)
+    --- PASS: TestAvgTimePerBit/calculates_correctly (0.00s)
+=== RUN   TestSignificantChange
+=== PAUSE TestSignificantChange
+=== RUN   TestConcurrentAccess
+--- PASS: TestConcurrentAccess (0.00s)
+=== RUN   TestSmartMultiplyNilZ
+--- PASS: TestSmartMultiplyNilZ (0.00s)
+=== RUN   TestSmartSquareNilZ
+--- PASS: TestSmartSquareNilZ (0.00s)
+=== RUN   TestAdaptiveStrategyNilZ
+=== RUN   TestAdaptiveStrategyNilZ/Multiply
+=== RUN   TestAdaptiveStrategyNilZ/Square
+--- PASS: TestAdaptiveStrategyNilZ (0.00s)
+    --- PASS: TestAdaptiveStrategyNilZ/Multiply (0.00s)
+    --- PASS: TestAdaptiveStrategyNilZ/Square (0.00s)
+=== RUN   TestStrategyConsistencyWithNilZ
+=== RUN   TestStrategyConsistencyWithNilZ/Multiply
+=== RUN   TestStrategyConsistencyWithNilZ/Multiply/Adaptive
+=== RUN   TestStrategyConsistencyWithNilZ/Multiply/Karatsuba
+=== RUN   TestStrategyConsistencyWithNilZ/Multiply/FFTOnly
+=== RUN   TestStrategyConsistencyWithNilZ/Square
+=== RUN   TestStrategyConsistencyWithNilZ/Square/FFTOnly
+=== RUN   TestStrategyConsistencyWithNilZ/Square/Adaptive
+=== RUN   TestStrategyConsistencyWithNilZ/Square/Karatsuba
+--- PASS: TestStrategyConsistencyWithNilZ (0.00s)
+    --- PASS: TestStrategyConsistencyWithNilZ/Multiply (0.00s)
+        --- PASS: TestStrategyConsistencyWithNilZ/Multiply/Adaptive (0.00s)
+        --- PASS: TestStrategyConsistencyWithNilZ/Multiply/Karatsuba (0.00s)
+        --- PASS: TestStrategyConsistencyWithNilZ/Multiply/FFTOnly (0.00s)
+    --- PASS: TestStrategyConsistencyWithNilZ/Square (0.00s)
+        --- PASS: TestStrategyConsistencyWithNilZ/Square/FFTOnly (0.00s)
+        --- PASS: TestStrategyConsistencyWithNilZ/Square/Adaptive (0.00s)
+        --- PASS: TestStrategyConsistencyWithNilZ/Square/Karatsuba (0.00s)
+=== RUN   TestSmartSquarePrecisionSmall
+--- PASS: TestSmartSquarePrecisionSmall (0.00s)
+=== RUN   TestSmartSquareWithFFTThreshold
+--- PASS: TestSmartSquareWithFFTThreshold (0.00s)
+=== RUN   TestSmartSquareLarge
+--- PASS: TestSmartSquareLarge (0.00s)
+=== RUN   TestSmartSquareVeryLarge
+--- PASS: TestSmartSquareVeryLarge (0.00s)
+=== RUN   TestSmartSquareVsSmartMultiplyConsistency
+--- PASS: TestSmartSquareVsSmartMultiplyConsistency (0.00s)
+=== RUN   TestSqrFFTPrecision
+--- PASS: TestSqrFFTPrecision (0.00s)
+=== RUN   TestSqrFFTVsMulFFTConsistency
+--- PASS: TestSqrFFTVsMulFFTConsistency (0.00s)
+=== RUN   TestSmartSquareZero
+--- PASS: TestSmartSquareZero (0.00s)
+=== RUN   TestSmartSquareNegative
+--- PASS: TestSmartSquareNegative (0.00s)
+=== RUN   TestSmartSquareBufferReuse
+--- PASS: TestSmartSquareBufferReuse (0.00s)
+=== RUN   TestFibonacciRecurrenceRelation
+=== PAUSE TestFibonacciRecurrenceRelation
+=== RUN   TestParallelThresholdBoundary
+=== PAUSE TestParallelThresholdBoundary
+=== RUN   TestFFTThresholdVariations
+=== PAUSE TestFFTThresholdVariations
+=== RUN   TestStrassenThresholdVariations
+=== PAUSE TestStrassenThresholdVariations
+=== RUN   TestContextCancellationImmediate
+=== PAUSE TestContextCancellationImmediate
+=== RUN   TestContextTimeoutShort
+=== PAUSE TestContextTimeoutShort
+=== RUN   TestConcurrentCalculations
+=== PAUSE TestConcurrentCalculations
+=== RUN   TestConcurrentDifferentN
+=== PAUSE TestConcurrentDifferentN
+=== RUN   TestRegistryCreate
+=== PAUSE TestRegistryCreate
+=== RUN   TestRegistryGet
+=== PAUSE TestRegistryGet
+=== RUN   TestRegistryList
+=== PAUSE TestRegistryList
+=== RUN   TestRegistryMustGet
+=== PAUSE TestRegistryMustGet
+=== RUN   TestRegistryCustomCalculator
+=== PAUSE TestRegistryCustomCalculator
+=== RUN   TestCassinisIdentity_PropertyBased
++ Fast Doubling (O(log n), Parallel, Zero-Alloc) satisfies Cassini's
+   Identity: OK, passed 100 tests.
+Elapsed time: 9.0646ms
++ Matrix Exponentiation (O(log n), Parallel, Zero-Alloc) satisfies
+   Cassini's Identity: OK, passed 100 tests.
+Elapsed time: 7.4116ms
+! FFT-Based Doubling satisfies Cassini's Identity: Falsified after 0
+   passed tests.
+ARG_0: 185
+ARG_0_ORIGINAL (10 shrinks): 22515
+Elapsed time: 15.6492ms
+    properties.go:57: failed with initial seed: 1766073366471499700
+--- FAIL: TestCassinisIdentity_PropertyBased (0.03s)
+=== RUN   TestStrassenConfiguration
+--- PASS: TestStrassenConfiguration (0.00s)
+=== RUN   TestStrassenThresholdEffect
+--- PASS: TestStrassenThresholdEffect (0.00s)
+=== RUN   TestStrassenOptionsPrecedence
+--- PASS: TestStrassenOptionsPrecedence (0.00s)
+=== RUN   TestFibonacciCalculators
+=== RUN   TestFibonacciCalculators/FFTBased
+=== PAUSE TestFibonacciCalculators/FFTBased
+=== RUN   TestFibonacciCalculators/FastDoubling
+=== PAUSE TestFibonacciCalculators/FastDoubling
+=== RUN   TestFibonacciCalculators/MatrixExp
+=== PAUSE TestFibonacciCalculators/MatrixExp
+=== CONT  TestFibonacciCalculators/FFTBased
+=== RUN   TestFibonacciCalculators/FFTBased/N=0
+=== CONT  TestFibonacciCalculators/MatrixExp
+=== RUN   TestFibonacciCalculators/MatrixExp/N=0
+=== PAUSE TestFibonacciCalculators/FFTBased/N=0
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=0
+=== RUN   TestFibonacciCalculators/MatrixExp/N=1
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=1
+=== RUN   TestFibonacciCalculators/MatrixExp/N=2
+=== RUN   TestFibonacciCalculators/FFTBased/N=1
+=== PAUSE TestFibonacciCalculators/FFTBased/N=1
+=== RUN   TestFibonacciCalculators/FFTBased/N=2
+=== CONT  TestFibonacciCalculators/FastDoubling
+=== PAUSE TestFibonacciCalculators/FFTBased/N=2
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=2
+=== RUN   TestFibonacciCalculators/FFTBased/N=10
+=== RUN   TestFibonacciCalculators/FastDoubling/N=0
+=== PAUSE TestFibonacciCalculators/FFTBased/N=10
+=== RUN   TestFibonacciCalculators/FFTBased/N=20
+=== PAUSE TestFibonacciCalculators/FFTBased/N=20
+=== RUN   TestFibonacciCalculators/MatrixExp/N=10
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=0
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=10
+=== RUN   TestFibonacciCalculators/FastDoubling/N=1
+=== RUN   TestFibonacciCalculators/MatrixExp/N=20
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=20
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=1
+=== RUN   TestFibonacciCalculators/MatrixExp/N=50
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=50
+=== RUN   TestFibonacciCalculators/MatrixExp/N=64
+=== RUN   TestFibonacciCalculators/FFTBased/N=50
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=64
+=== PAUSE TestFibonacciCalculators/FFTBased/N=50
+=== RUN   TestFibonacciCalculators/MatrixExp/N=92
+=== RUN   TestFibonacciCalculators/FFTBased/N=64
+=== RUN   TestFibonacciCalculators/FastDoubling/N=2
+=== PAUSE TestFibonacciCalculators/FFTBased/N=64
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=2
+=== RUN   TestFibonacciCalculators/FFTBased/N=92
+=== RUN   TestFibonacciCalculators/FastDoubling/N=10
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=92
+=== PAUSE TestFibonacciCalculators/FFTBased/N=92
+=== RUN   TestFibonacciCalculators/MatrixExp/N=93
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=93
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=10
+=== RUN   TestFibonacciCalculators/FFTBased/N=93
+=== PAUSE TestFibonacciCalculators/FFTBased/N=93
+=== RUN   TestFibonacciCalculators/FFTBased/N=94
+=== PAUSE TestFibonacciCalculators/FFTBased/N=94
+=== RUN   TestFibonacciCalculators/FFTBased/N=100
+=== RUN   TestFibonacciCalculators/MatrixExp/N=94
+=== RUN   TestFibonacciCalculators/FastDoubling/N=20
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=20
+=== PAUSE TestFibonacciCalculators/FFTBased/N=100
+=== RUN   TestFibonacciCalculators/FastDoubling/N=50
+=== RUN   TestFibonacciCalculators/FFTBased/N=128
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=50
+=== PAUSE TestFibonacciCalculators/FFTBased/N=128
+=== RUN   TestFibonacciCalculators/FastDoubling/N=64
+=== RUN   TestFibonacciCalculators/FFTBased/N=256
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=94
+=== PAUSE TestFibonacciCalculators/FFTBased/N=256
+=== RUN   TestFibonacciCalculators/FFTBased/N=1000
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=64
+=== RUN   TestFibonacciCalculators/MatrixExp/N=100
+=== PAUSE TestFibonacciCalculators/FFTBased/N=1000
+=== RUN   TestFibonacciCalculators/FastDoubling/N=92
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=92
+=== CONT  TestFibonacciCalculators/FFTBased/N=0
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=100
+=== RUN   TestFibonacciCalculators/FastDoubling/N=93
+=== RUN   TestFibonacciCalculators/MatrixExp/N=128
+=== CONT  TestFibonacciCalculators/FFTBased/N=1
+=== CONT  TestFibonacciCalculators/FFTBased/N=10
+=== CONT  TestFibonacciCalculators/FFTBased/N=100
+=== CONT  TestFibonacciCalculators/FFTBased/N=128
+=== CONT  TestFibonacciCalculators/FFTBased/N=1000
+=== CONT  TestFibonacciCalculators/FFTBased/N=20
+=== CONT  TestFibonacciCalculators/FFTBased/N=64
+=== CONT  TestFibonacciCalculators/FFTBased/N=256
+=== CONT  TestFibonacciCalculators/FFTBased/N=94
+=== CONT  TestFibonacciCalculators/FFTBased/N=92
+=== CONT  TestFibonacciCalculators/FFTBased/N=50
+=== CONT  TestFibonacciCalculators/FFTBased/N=93
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=93
+=== RUN   TestFibonacciCalculators/FastDoubling/N=94
+=== CONT  TestFibonacciCalculators/FFTBased/N=2
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=94
+=== RUN   TestFibonacciCalculators/FastDoubling/N=100
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=128
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=100
+=== RUN   TestFibonacciCalculators/MatrixExp/N=256
+=== RUN   TestFibonacciCalculators/FastDoubling/N=128
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=256
+=== RUN   TestFibonacciCalculators/MatrixExp/N=1000
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=128
+=== PAUSE TestFibonacciCalculators/MatrixExp/N=1000
+=== CONT  TestFibonacciCalculators/MatrixExp/N=0
+=== CONT  TestFibonacciCalculators/MatrixExp/N=92
+=== CONT  TestFibonacciCalculators/MatrixExp/N=20
+=== CONT  TestFibonacciCalculators/MatrixExp/N=1
+=== CONT  TestFibonacciCalculators/MatrixExp/N=1000
+=== RUN   TestFibonacciCalculators/FastDoubling/N=256
+=== CONT  TestFibonacciCalculators/MatrixExp/N=94
+=== CONT  TestFibonacciCalculators/MatrixExp/N=50
+=== CONT  TestFibonacciCalculators/MatrixExp/N=93
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=256
+=== CONT  TestFibonacciCalculators/MatrixExp/N=10
+=== RUN   TestFibonacciCalculators/FastDoubling/N=1000
+=== PAUSE TestFibonacciCalculators/FastDoubling/N=1000
+=== CONT  TestFibonacciCalculators/MatrixExp/N=2
+=== CONT  TestFibonacciCalculators/MatrixExp/N=100
+=== CONT  TestFibonacciCalculators/MatrixExp/N=256
+=== CONT  TestFibonacciCalculators/MatrixExp/N=128
+=== CONT  TestFibonacciCalculators/MatrixExp/N=64
+=== CONT  TestFibonacciCalculators/FastDoubling/N=0
+=== CONT  TestFibonacciCalculators/FastDoubling/N=64
+=== CONT  TestFibonacciCalculators/FastDoubling/N=50
+=== CONT  TestFibonacciCalculators/FastDoubling/N=20
+=== CONT  TestFibonacciCalculators/FastDoubling/N=10
+=== CONT  TestFibonacciCalculators/FastDoubling/N=2
+=== CONT  TestFibonacciCalculators/FastDoubling/N=92
+=== CONT  TestFibonacciCalculators/FastDoubling/N=1000
+=== CONT  TestFibonacciCalculators/FastDoubling/N=256
+=== CONT  TestFibonacciCalculators/FastDoubling/N=1
+=== CONT  TestFibonacciCalculators/FastDoubling/N=128
+=== CONT  TestFibonacciCalculators/FastDoubling/N=100
+=== CONT  TestFibonacciCalculators/FastDoubling/N=94
+=== CONT  TestFibonacciCalculators/FastDoubling/N=93
+--- PASS: TestFibonacciCalculators (0.00s)
+    --- PASS: TestFibonacciCalculators/FFTBased (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=0 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=1 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=10 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=100 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=128 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=1000 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=20 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=64 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=256 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=94 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=92 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=50 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=93 (0.00s)
+        --- PASS: TestFibonacciCalculators/FFTBased/N=2 (0.00s)
+    --- PASS: TestFibonacciCalculators/MatrixExp (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=0 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=92 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=1 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=20 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=1000 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=94 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=50 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=93 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=10 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=2 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=100 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=256 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=128 (0.00s)
+        --- PASS: TestFibonacciCalculators/MatrixExp/N=64 (0.00s)
+    --- PASS: TestFibonacciCalculators/FastDoubling (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=0 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=64 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=50 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=20 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=10 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=2 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=92 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=1000 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=256 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=1 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=128 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=100 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=94 (0.00s)
+        --- PASS: TestFibonacciCalculators/FastDoubling/N=93 (0.00s)
+=== RUN   TestProgressCalculationLogic
+=== PAUSE TestProgressCalculationLogic
+=== RUN   TestLookupTableImmutability
+=== PAUSE TestLookupTableImmutability
+=== RUN   TestNilCoreCalculatorPanic
+=== PAUSE TestNilCoreCalculatorPanic
+=== RUN   TestProgressReporter
+=== RUN   TestProgressReporter/FastDoubling
+=== PAUSE TestProgressReporter/FastDoubling
+=== RUN   TestProgressReporter/MatrixExp
+=== PAUSE TestProgressReporter/MatrixExp
+=== CONT  TestProgressReporter/FastDoubling
+=== CONT  TestProgressReporter/MatrixExp
+--- PASS: TestProgressReporter (0.00s)
+    --- PASS: TestProgressReporter/FastDoubling (0.00s)
+    --- PASS: TestProgressReporter/MatrixExp (0.00s)
+=== RUN   TestContextCancellation
+=== RUN   TestContextCancellation/MatrixExp
+=== PAUSE TestContextCancellation/MatrixExp
+=== RUN   TestContextCancellation/FastDoubling
+=== PAUSE TestContextCancellation/FastDoubling
+=== CONT  TestContextCancellation/MatrixExp
+=== CONT  TestContextCancellation/FastDoubling
+--- PASS: TestContextCancellation (0.00s)
+    --- PASS: TestContextCancellation/MatrixExp (0.07s)
+    --- PASS: TestContextCancellation/FastDoubling (0.43s)
+=== RUN   TestKaratsubaIntegration
+=== RUN   TestKaratsubaIntegration/KaratsubaTierActive
+=== RUN   TestKaratsubaIntegration/StandardTierActive
+=== RUN   TestKaratsubaIntegration/FFTTierActive
+--- PASS: TestKaratsubaIntegration (0.00s)
+    --- PASS: TestKaratsubaIntegration/KaratsubaTierActive (0.00s)
+    --- PASS: TestKaratsubaIntegration/StandardTierActive (0.00s)
+    --- PASS: TestKaratsubaIntegration/FFTTierActive (0.00s)
+=== RUN   TestLUTCalculator
+--- PASS: TestLUTCalculator (0.00s)
+=== RUN   TestDefaultFactory
+=== PAUSE TestDefaultFactory
+=== RUN   TestGlobalFactory
+=== PAUSE TestGlobalFactory
+=== RUN   TestSetOrReturn
+=== PAUSE TestSetOrReturn
+=== RUN   TestAdaptiveStrategy
+=== PAUSE TestAdaptiveStrategy
+=== RUN   TestKaratsubaStrategy
+=== PAUSE TestKaratsubaStrategy
+=== RUN   TestFFTOnlyStrategy
+=== PAUSE TestFFTOnlyStrategy
+=== RUN   TestMultiplicationStrategyInterface
+=== PAUSE TestMultiplicationStrategyInterface
+=== RUN   TestNewTestFactory
+=== PAUSE TestNewTestFactory
+=== RUN   TestTestFactoryCreate
+=== PAUSE TestTestFactoryCreate
+=== RUN   TestTestFactoryGet
+=== PAUSE TestTestFactoryGet
+=== RUN   TestTestFactoryList
+=== PAUSE TestTestFactoryList
+=== RUN   TestTestFactoryRegister
+=== PAUSE TestTestFactoryRegister
+=== RUN   TestTestFactoryGetAll
+=== PAUSE TestTestFactoryGetAll
+=== RUN   TestUnknownCalculatorError
+=== PAUSE TestUnknownCalculatorError
+=== CONT  TestNewDynamicThresholdManager
+=== CONT  TestTestFactoryCreate
+--- PASS: TestNewDynamicThresholdManager (0.00s)
+=== CONT  TestContextTimeoutShort
+=== CONT  TestNewTestFactory
+=== CONT  TestAnalyzeFFTThreshold
+=== CONT  TestShouldAdjust
+=== CONT  TestFFTOnlyStrategy
+=== CONT  TestAnalyzeParallelThreshold
+=== CONT  TestUnknownCalculatorError
+--- PASS: TestUnknownCalculatorError (0.00s)
+=== CONT  TestDefaultFactory
+=== CONT  TestContextCancellationImmediate
+=== CONT  TestTestFactoryGetAll
+=== CONT  TestTestFactoryRegister
+=== CONT  TestRecordIteration
+=== CONT  TestRegistryMustGet
+=== CONT  TestTestFactoryList
+=== CONT  TestTestFactoryGet
+=== CONT  TestGetFFTThreshold
+=== CONT  TestLookupTableImmutability
+=== CONT  TestNewDynamicThresholdManagerFromConfig
+=== CONT  TestReset
+=== CONT  TestNilCoreCalculatorPanic
+=== CONT  TestProgressCalculationLogic
+=== CONT  TestAdaptiveStrategy
+=== CONT  TestMultiplicationStrategyInterface
+=== CONT  TestRegistryGet
+=== CONT  TestRegistryCustomCalculator
+=== CONT  TestRegistryList
+=== CONT  TestRegistryCreate
+=== CONT  TestStrassenThresholdVariations
+=== CONT  TestFibonacciRecurrenceRelation
+=== CONT  TestSignificantChange
+=== CONT  TestFFTThresholdVariations
+=== CONT  TestGlobalFactory
+=== CONT  TestConcurrentDifferentN
+=== CONT  TestParallelThresholdBoundary
+--- PASS: TestTestFactoryGetAll (0.00s)
+--- PASS: TestTestFactoryRegister (0.00s)
+--- PASS: TestRecordIteration (0.00s)
+--- PASS: TestTestFactoryList (0.00s)
+--- PASS: TestTestFactoryGet (0.00s)
+--- PASS: TestGetFFTThreshold (0.00s)
+--- PASS: TestLookupTableImmutability (0.00s)
+--- PASS: TestReset (0.00s)
+--- PASS: TestNilCoreCalculatorPanic (0.00s)
+--- PASS: TestMultiplicationStrategyInterface (0.00s)
+--- PASS: TestRegistryGet (0.00s)
+--- PASS: TestRegistryCustomCalculator (0.00s)
+--- PASS: TestRegistryList (0.00s)
+--- PASS: TestGlobalFactory (0.00s)
+=== RUN   TestContextTimeoutShort/FastDoubling
+=== CONT  TestSetOrReturn
+=== CONT  TestKaratsubaStrategy
+=== RUN   TestShouldAdjust/not_enough_iterations
+=== RUN   TestKaratsubaStrategy/Name
+=== PAUSE TestContextTimeoutShort/FastDoubling
+=== RUN   TestContextTimeoutShort/MatrixExp
+=== PAUSE TestKaratsubaStrategy/Name
+=== PAUSE TestShouldAdjust/not_enough_iterations
+--- PASS: TestConcurrentDifferentN (0.00s)
+=== CONT  TestConcurrentCalculations
+=== CONT  TestGetParallelThreshold
+=== RUN   TestSetOrReturn/z_is_nil_-_returns_result_directly
+=== RUN   TestFFTOnlyStrategy/Name
+=== RUN   TestRegistryMustGet/ValidCalculator
+=== RUN   TestAdaptiveStrategy/Name
+=== PAUSE TestRegistryMustGet/ValidCalculator
+=== RUN   TestSignificantChange/old_is_zero,_new_is_zero
+=== RUN   TestNewDynamicThresholdManagerFromConfig/disabled_returns_nil
+=== RUN   TestFFTThresholdVariations/Threshold=0
+=== RUN   TestRegistryMustGet/InvalidCalculatorPanics
+=== PAUSE TestRegistryMustGet/InvalidCalculatorPanics
+=== PAUSE TestFFTThresholdVariations/Threshold=0
+--- PASS: TestGetParallelThreshold (0.00s)
+=== RUN   TestFFTThresholdVariations/Threshold=1000
+--- PASS: TestConcurrentCalculations (0.00s)
+=== CONT  TestRegistryMustGet/ValidCalculator
+=== RUN   TestSignificantChange/old_is_zero,_new_is_non-zero
+=== RUN   TestNewDynamicThresholdManagerFromConfig/enabled_with_valid_config
+=== PAUSE TestFFTThresholdVariations/Threshold=1000
+=== RUN   TestFFTThresholdVariations/Threshold=10000
+=== PAUSE TestFFTThresholdVariations/Threshold=10000
+=== RUN   TestFFTThresholdVariations/Threshold=100000
+=== PAUSE TestFFTThresholdVariations/Threshold=100000
+=== RUN   TestFFTThresholdVariations/Threshold=1000000
+=== PAUSE TestFFTThresholdVariations/Threshold=1000000
+=== CONT  TestFFTThresholdVariations/Threshold=0
+=== CONT  TestFFTThresholdVariations/Threshold=100000
+=== RUN   TestSignificantChange/small_change_below_margin
+--- PASS: TestProgressCalculationLogic (0.00s)
+=== PAUSE TestAdaptiveStrategy/Name
+=== RUN   TestNewTestFactory/nil_calculators_map
+=== RUN   TestAdaptiveStrategy/Multiply_small_numbers
+=== PAUSE TestAdaptiveStrategy/Multiply_small_numbers
+=== RUN   TestAdaptiveStrategy/Square_small_numbers
+=== PAUSE TestAdaptiveStrategy/Square_small_numbers
+=== RUN   TestAdaptiveStrategy/Multiply_with_reusable_z
+=== PAUSE TestAdaptiveStrategy/Multiply_with_reusable_z
+=== PAUSE TestNewTestFactory/nil_calculators_map
+=== RUN   TestNewTestFactory/with_calculators
+=== PAUSE TestNewTestFactory/with_calculators
+=== CONT  TestFFTThresholdVariations/Threshold=1000000
+=== CONT  TestAdaptiveStrategy/Name
+=== CONT  TestGetStats
+--- PASS: TestGetStats (0.00s)
+=== CONT  TestAdaptiveStrategy/Multiply_small_numbers
+=== PAUSE TestContextTimeoutShort/MatrixExp
+=== CONT  TestAdaptiveStrategy/Multiply_with_reusable_z
+=== CONT  TestAdaptiveStrategy/Square_small_numbers
+=== CONT  TestNewTestFactory/with_calculators
+--- PASS: TestAdaptiveStrategy (0.00s)
+    --- PASS: TestAdaptiveStrategy/Name (0.00s)
+    --- PASS: TestAdaptiveStrategy/Multiply_small_numbers (0.00s)
+    --- PASS: TestAdaptiveStrategy/Multiply_with_reusable_z (0.00s)
+    --- PASS: TestAdaptiveStrategy/Square_small_numbers (0.00s)
+=== CONT  TestContextTimeoutShort/MatrixExp
+=== CONT  TestContextTimeoutShort/FastDoubling
+=== RUN   TestKaratsubaStrategy/Multiply_with_nil_z
+=== PAUSE TestKaratsubaStrategy/Multiply_with_nil_z
+=== RUN   TestKaratsubaStrategy/Multiply_with_non-nil_z
+=== PAUSE TestKaratsubaStrategy/Multiply_with_non-nil_z
+=== RUN   TestKaratsubaStrategy/Square_with_nil_z
+=== PAUSE TestKaratsubaStrategy/Square_with_nil_z
+=== RUN   TestKaratsubaStrategy/Square_with_non-nil_z
+=== PAUSE TestKaratsubaStrategy/Square_with_non-nil_z
+=== CONT  TestKaratsubaStrategy/Name
+=== RUN   TestTestFactoryCreate/existing_calculator
+=== PAUSE TestTestFactoryCreate/existing_calculator
+=== RUN   TestTestFactoryCreate/non-existing_calculator
+=== PAUSE TestTestFactoryCreate/non-existing_calculator
+=== CONT  TestKaratsubaStrategy/Square_with_non-nil_z
+=== CONT  TestTestFactoryCreate/non-existing_calculator
+=== CONT  TestKaratsubaStrategy/Square_with_nil_z
+=== RUN   TestDefaultFactory/RegisterAndHas
+=== PAUSE TestSetOrReturn/z_is_nil_-_returns_result_directly
+=== RUN   TestDefaultFactory/GetAll
+=== RUN   TestSetOrReturn/z_is_non-nil_-_sets_z_and_returns_it
+=== PAUSE TestSetOrReturn/z_is_non-nil_-_sets_z_and_returns_it
+=== RUN   TestDefaultFactory/Create
+=== CONT  TestSetOrReturn/z_is_non-nil_-_sets_z_and_returns_it
+=== RUN   TestDefaultFactory/Get
+=== RUN   TestDefaultFactory/MustGet
+=== RUN   TestDefaultFactory/List
+=== CONT  TestSetOrReturn/z_is_nil_-_returns_result_directly
+--- PASS: TestDefaultFactory (0.00s)
+    --- PASS: TestDefaultFactory/RegisterAndHas (0.00s)
+    --- PASS: TestDefaultFactory/GetAll (0.00s)
+    --- PASS: TestDefaultFactory/Create (0.00s)
+    --- PASS: TestDefaultFactory/Get (0.00s)
+    --- PASS: TestDefaultFactory/MustGet (0.00s)
+    --- PASS: TestDefaultFactory/List (0.00s)
+=== RUN   TestRegistryCreate/ValidCalculator
+--- PASS: TestSetOrReturn (0.00s)
+    --- PASS: TestSetOrReturn/z_is_non-nil_-_sets_z_and_returns_it (0.00s)
+    --- PASS: TestSetOrReturn/z_is_nil_-_returns_result_directly (0.00s)
+=== PAUSE TestRegistryCreate/ValidCalculator
+=== RUN   TestRegistryCreate/InvalidCalculator
+=== PAUSE TestRegistryCreate/InvalidCalculator
+=== CONT  TestRegistryCreate/ValidCalculator
+=== PAUSE TestFFTOnlyStrategy/Name
+=== RUN   TestFFTOnlyStrategy/Multiply_small_numbers
+=== PAUSE TestFFTOnlyStrategy/Multiply_small_numbers
+=== RUN   TestFFTOnlyStrategy/Multiply_with_z_reuse
+=== PAUSE TestFFTOnlyStrategy/Multiply_with_z_reuse
+=== RUN   TestFFTOnlyStrategy/Square_small_number
+=== PAUSE TestFFTOnlyStrategy/Square_small_number
+=== RUN   TestFFTOnlyStrategy/Square_with_z_reuse
+=== PAUSE TestFFTOnlyStrategy/Square_with_z_reuse
+=== CONT  TestFFTOnlyStrategy/Name
+=== CONT  TestRegistryCreate/InvalidCalculator
+--- PASS: TestRegistryCreate (0.00s)
+    --- PASS: TestRegistryCreate/ValidCalculator (0.00s)
+    --- PASS: TestRegistryCreate/InvalidCalculator (0.00s)
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=0
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=0
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=64
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=64
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=128
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=128
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=256
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=256
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=512
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=512
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=1024
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=1024
+=== RUN   TestStrassenThresholdVariations/StrassenThreshold=3072
+=== PAUSE TestStrassenThresholdVariations/StrassenThreshold=3072
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=0
+=== CONT  TestFFTOnlyStrategy/Square_with_z_reuse
+=== CONT  TestFFTOnlyStrategy/Square_small_number
+=== CONT  TestFFTOnlyStrategy/Multiply_with_z_reuse
+=== CONT  TestFFTOnlyStrategy/Multiply_small_numbers
+--- PASS: TestFFTOnlyStrategy (0.00s)
+    --- PASS: TestFFTOnlyStrategy/Name (0.00s)
+    --- PASS: TestFFTOnlyStrategy/Square_with_z_reuse (0.00s)
+    --- PASS: TestFFTOnlyStrategy/Square_small_number (0.00s)
+    --- PASS: TestFFTOnlyStrategy/Multiply_with_z_reuse (0.00s)
+    --- PASS: TestFFTOnlyStrategy/Multiply_small_numbers (0.00s)
+=== RUN   TestFibonacciRecurrenceRelation/N=10
+=== PAUSE TestFibonacciRecurrenceRelation/N=10
+=== RUN   TestFibonacciRecurrenceRelation/N=50
+=== PAUSE TestFibonacciRecurrenceRelation/N=50
+=== RUN   TestFibonacciRecurrenceRelation/N=100
+=== PAUSE TestFibonacciRecurrenceRelation/N=100
+=== RUN   TestFibonacciRecurrenceRelation/N=500
+=== PAUSE TestFibonacciRecurrenceRelation/N=500
+=== RUN   TestFibonacciRecurrenceRelation/N=1000
+=== PAUSE TestFibonacciRecurrenceRelation/N=1000
+=== CONT  TestFibonacciRecurrenceRelation/N=10
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=3072
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=1024
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=128
+=== CONT  TestFibonacciRecurrenceRelation/N=50
+=== RUN   TestParallelThresholdBoundary/Sequential
+=== RUN   TestAnalyzeParallelThreshold/empty_metrics_returns_current
+=== CONT  TestRegistryMustGet/InvalidCalculatorPanics
+=== RUN   TestNewDynamicThresholdManagerFromConfig/enabled_with_zero_interval_uses_default
+=== CONT  TestFFTThresholdVariations/Threshold=10000
+=== CONT  TestFFTThresholdVariations/Threshold=1000
+=== PAUSE TestAnalyzeParallelThreshold/empty_metrics_returns_current
+=== RUN   TestAnalyzeParallelThreshold/only_parallel_metrics_returns_current
+=== PAUSE TestAnalyzeParallelThreshold/only_parallel_metrics_returns_current
+=== RUN   TestAnalyzeParallelThreshold/only_sequential_metrics_returns_current
+=== PAUSE TestAnalyzeParallelThreshold/only_sequential_metrics_returns_current
+=== RUN   TestAnalyzeParallelThreshold/parallel_slower_raises_threshold
+=== PAUSE TestAnalyzeParallelThreshold/parallel_slower_raises_threshold
+=== RUN   TestAnalyzeParallelThreshold/parallel_threshold_respects_minimum
+=== PAUSE TestAnalyzeParallelThreshold/parallel_threshold_respects_minimum
+=== CONT  TestAnalyzeParallelThreshold/empty_metrics_returns_current
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=512
+=== PAUSE TestParallelThresholdBoundary/Sequential
+=== RUN   TestParallelThresholdBoundary/ForcedParallel
+=== PAUSE TestParallelThresholdBoundary/ForcedParallel
+=== RUN   TestParallelThresholdBoundary/DefaultThreshold
+=== PAUSE TestParallelThresholdBoundary/DefaultThreshold
+=== CONT  TestParallelThresholdBoundary/Sequential
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=256
+=== RUN   TestAnalyzeFFTThreshold/empty_metrics_returns_current
+=== CONT  TestNewTestFactory/nil_calculators_map
+=== CONT  TestKaratsubaStrategy/Multiply_with_nil_z
+=== RUN   TestNewDynamicThresholdManagerFromConfig/enabled_with_negative_interval_uses_default
+--- PASS: TestNewDynamicThresholdManagerFromConfig (0.00s)
+    --- PASS: TestNewDynamicThresholdManagerFromConfig/disabled_returns_nil (0.00s)
+    --- PASS: TestNewDynamicThresholdManagerFromConfig/enabled_with_valid_config (0.00s)
+    --- PASS: TestNewDynamicThresholdManagerFromConfig/enabled_with_zero_interval_uses_default (0.00s)
+    --- PASS: TestNewDynamicThresholdManagerFromConfig/enabled_with_negative_interval_uses_default (0.00s)
+--- PASS: TestRegistryMustGet (0.00s)
+    --- PASS: TestRegistryMustGet/ValidCalculator (0.00s)
+    --- PASS: TestRegistryMustGet/InvalidCalculatorPanics (0.00s)
+=== CONT  TestParallelThresholdBoundary/ForcedParallel
+=== CONT  TestAnalyzeParallelThreshold/only_parallel_metrics_returns_current
+=== CONT  TestParallelThresholdBoundary/DefaultThreshold
+=== CONT  TestKaratsubaStrategy/Multiply_with_non-nil_z
+--- PASS: TestKaratsubaStrategy (0.00s)
+    --- PASS: TestKaratsubaStrategy/Name (0.00s)
+    --- PASS: TestKaratsubaStrategy/Square_with_non-nil_z (0.00s)
+    --- PASS: TestKaratsubaStrategy/Square_with_nil_z (0.00s)
+    --- PASS: TestKaratsubaStrategy/Multiply_with_nil_z (0.00s)
+    --- PASS: TestKaratsubaStrategy/Multiply_with_non-nil_z (0.00s)
+=== CONT  TestTestFactoryCreate/existing_calculator
+--- PASS: TestNewTestFactory (0.00s)
+    --- PASS: TestNewTestFactory/with_calculators (0.00s)
+    --- PASS: TestNewTestFactory/nil_calculators_map (0.00s)
+=== RUN   TestContextCancellationImmediate/FastDoubling
+=== PAUSE TestAnalyzeFFTThreshold/empty_metrics_returns_current
+=== CONT  TestFibonacciRecurrenceRelation/N=500
+=== RUN   TestAnalyzeFFTThreshold/only_FFT_metrics_returns_current
+=== CONT  TestFibonacciRecurrenceRelation/N=1000
+=== PAUSE TestAnalyzeFFTThreshold/only_FFT_metrics_returns_current
+=== CONT  TestFibonacciRecurrenceRelation/N=100
+=== PAUSE TestContextCancellationImmediate/FastDoubling
+=== CONT  TestAnalyzeParallelThreshold/parallel_slower_raises_threshold
+=== RUN   TestContextCancellationImmediate/MatrixExp
+=== PAUSE TestContextCancellationImmediate/MatrixExp
+=== RUN   TestAnalyzeFFTThreshold/only_non-FFT_metrics_returns_current
+=== CONT  TestAnalyzeParallelThreshold/parallel_threshold_respects_minimum
+--- PASS: TestTestFactoryCreate (0.00s)
+    --- PASS: TestTestFactoryCreate/non-existing_calculator (0.00s)
+    --- PASS: TestTestFactoryCreate/existing_calculator (0.00s)
+=== CONT  TestContextCancellationImmediate/MatrixExp
+=== CONT  TestContextCancellationImmediate/FastDoubling
+=== PAUSE TestAnalyzeFFTThreshold/only_non-FFT_metrics_returns_current
+=== RUN   TestAnalyzeFFTThreshold/FFT_slower_raises_threshold
+=== PAUSE TestAnalyzeFFTThreshold/FFT_slower_raises_threshold
+=== RUN   TestShouldAdjust/not_enough_metrics
+=== PAUSE TestShouldAdjust/not_enough_metrics
+=== CONT  TestStrassenThresholdVariations/StrassenThreshold=64
+=== RUN   TestShouldAdjust/FFT_faster_-_lowers_threshold
+=== PAUSE TestShouldAdjust/FFT_faster_-_lowers_threshold
+=== RUN   TestShouldAdjust/parallel_faster_-_lowers_threshold
+=== PAUSE TestShouldAdjust/parallel_faster_-_lowers_threshold
+=== CONT  TestShouldAdjust/not_enough_iterations
+=== CONT  TestShouldAdjust/parallel_faster_-_lowers_threshold
+=== CONT  TestShouldAdjust/FFT_faster_-_lowers_threshold
+    dynamic_threshold_test.go:221: adjustment might not meet hysteresis margin - checking threshold
+=== CONT  TestShouldAdjust/not_enough_metrics
+=== CONT  TestAnalyzeParallelThreshold/only_sequential_metrics_returns_current
+=== RUN   TestSignificantChange/change_at_margin
+--- PASS: TestFibonacciRecurrenceRelation (0.00s)
+    --- PASS: TestFibonacciRecurrenceRelation/N=10 (0.00s)
+    --- PASS: TestFibonacciRecurrenceRelation/N=50 (0.00s)
+    --- PASS: TestFibonacciRecurrenceRelation/N=500 (0.00s)
+    --- PASS: TestFibonacciRecurrenceRelation/N=1000 (0.00s)
+    --- PASS: TestFibonacciRecurrenceRelation/N=100 (0.00s)
+--- PASS: TestParallelThresholdBoundary (0.00s)
+    --- PASS: TestParallelThresholdBoundary/Sequential (0.00s)
+    --- PASS: TestParallelThresholdBoundary/DefaultThreshold (0.00s)
+    --- PASS: TestParallelThresholdBoundary/ForcedParallel (0.00s)
+=== RUN   TestAnalyzeFFTThreshold/FFT_threshold_respects_minimum
+=== PAUSE TestAnalyzeFFTThreshold/FFT_threshold_respects_minimum
+=== CONT  TestAnalyzeFFTThreshold/empty_metrics_returns_current
+=== CONT  TestAnalyzeFFTThreshold/FFT_threshold_respects_minimum
+=== CONT  TestAnalyzeFFTThreshold/FFT_slower_raises_threshold
+=== CONT  TestAnalyzeFFTThreshold/only_non-FFT_metrics_returns_current
+=== CONT  TestAnalyzeFFTThreshold/only_FFT_metrics_returns_current
+--- PASS: TestAnalyzeFFTThreshold (0.00s)
+    --- PASS: TestAnalyzeFFTThreshold/empty_metrics_returns_current (0.00s)
+    --- PASS: TestAnalyzeFFTThreshold/FFT_threshold_respects_minimum (0.00s)
+    --- PASS: TestAnalyzeFFTThreshold/FFT_slower_raises_threshold (0.00s)
+    --- PASS: TestAnalyzeFFTThreshold/only_non-FFT_metrics_returns_current (0.00s)
+    --- PASS: TestAnalyzeFFTThreshold/only_FFT_metrics_returns_current (0.00s)
+--- PASS: TestContextCancellationImmediate (0.00s)
+    --- PASS: TestContextCancellationImmediate/FastDoubling (0.00s)
+    --- PASS: TestContextCancellationImmediate/MatrixExp (0.00s)
+--- PASS: TestShouldAdjust (0.00s)
+    --- PASS: TestShouldAdjust/not_enough_iterations (0.00s)
+    --- PASS: TestShouldAdjust/parallel_faster_-_lowers_threshold (0.00s)
+    --- PASS: TestShouldAdjust/FFT_faster_-_lowers_threshold (0.00s)
+    --- PASS: TestShouldAdjust/not_enough_metrics (0.00s)
+--- PASS: TestAnalyzeParallelThreshold (0.00s)
+    --- PASS: TestAnalyzeParallelThreshold/empty_metrics_returns_current (0.00s)
+    --- PASS: TestAnalyzeParallelThreshold/only_parallel_metrics_returns_current (0.00s)
+    --- PASS: TestAnalyzeParallelThreshold/parallel_slower_raises_threshold (0.00s)
+    --- PASS: TestAnalyzeParallelThreshold/parallel_threshold_respects_minimum (0.00s)
+    --- PASS: TestAnalyzeParallelThreshold/only_sequential_metrics_returns_current (0.00s)
+=== RUN   TestSignificantChange/large_change
+=== RUN   TestSignificantChange/negative_change_below_margin
+=== RUN   TestSignificantChange/negative_change_above_margin
+--- PASS: TestSignificantChange (0.00s)
+    --- PASS: TestSignificantChange/old_is_zero,_new_is_zero (0.00s)
+    --- PASS: TestSignificantChange/old_is_zero,_new_is_non-zero (0.00s)
+    --- PASS: TestSignificantChange/small_change_below_margin (0.00s)
+    --- PASS: TestSignificantChange/change_at_margin (0.00s)
+    --- PASS: TestSignificantChange/large_change (0.00s)
+    --- PASS: TestSignificantChange/negative_change_below_margin (0.00s)
+    --- PASS: TestSignificantChange/negative_change_above_margin (0.00s)
+--- PASS: TestStrassenThresholdVariations (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=3072 (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=128 (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=512 (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=256 (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=0 (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=1024 (0.00s)
+    --- PASS: TestStrassenThresholdVariations/StrassenThreshold=64 (0.00s)
+--- PASS: TestContextTimeoutShort (0.00s)
+    --- PASS: TestContextTimeoutShort/FastDoubling (0.00s)
+    --- PASS: TestContextTimeoutShort/MatrixExp (0.00s)
+--- PASS: TestFFTThresholdVariations (0.00s)
+    --- PASS: TestFFTThresholdVariations/Threshold=1000000 (0.00s)
+    --- PASS: TestFFTThresholdVariations/Threshold=100000 (0.00s)
+    --- PASS: TestFFTThresholdVariations/Threshold=0 (0.00s)
+    --- PASS: TestFFTThresholdVariations/Threshold=1000 (0.00s)
+    --- PASS: TestFFTThresholdVariations/Threshold=10000 (0.01s)
+=== RUN   FuzzFastDoublingConsistency
+=== RUN   FuzzFastDoublingConsistency/seed#0
+=== RUN   FuzzFastDoublingConsistency/seed#1
+=== RUN   FuzzFastDoublingConsistency/seed#2
+=== RUN   FuzzFastDoublingConsistency/seed#3
+=== RUN   FuzzFastDoublingConsistency/seed#4
+=== RUN   FuzzFastDoublingConsistency/seed#5
+=== RUN   FuzzFastDoublingConsistency/seed#6
+=== RUN   FuzzFastDoublingConsistency/seed#7
+=== RUN   FuzzFastDoublingConsistency/seed#8
+=== RUN   FuzzFastDoublingConsistency/seed#9
+=== RUN   FuzzFastDoublingConsistency/seed#10
+--- PASS: FuzzFastDoublingConsistency (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#0 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#1 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#2 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#3 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#4 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#5 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#6 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#7 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#8 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#9 (0.00s)
+    --- PASS: FuzzFastDoublingConsistency/seed#10 (0.00s)
+=== RUN   FuzzFFTBasedConsistency
+=== RUN   FuzzFFTBasedConsistency/seed#0
+=== RUN   FuzzFFTBasedConsistency/seed#1
+=== RUN   FuzzFFTBasedConsistency/seed#2
+=== RUN   FuzzFFTBasedConsistency/seed#3
+    fibonacci_fuzz_test.go:109: Inconsistent results for n=1000:
+          FFT:          6954768216758202041680307207333145057267945291020161053692932764183226424700
+          FastDoubling: 43466557686937456435688527675040625802564660517371780402481729089536555417949051890403879840079255169295922593080322634775209689623239873322471161642996440906533187938298969649928516003704476137795166849228875
+=== RUN   FuzzFFTBasedConsistency/seed#4
+    fibonacci_fuzz_test.go:109: Inconsistent results for n=5000:
+          FFT:          166258708790198703479263870159042069089503375727589490120516756927635448843670
+          FastDoubling: 3878968454388325633701916308325905312082127714646245106160597214895550139044037097010822916462210669479293452858882973813483102008954982940361430156911478938364216563944106910214505634133706558656238254656700712525929903854933813928836378347518908762970712033337052923107693008518093849801803847813996748881765554653788291644268912980384613778969021502293082475666346224923071883324803280375039130352903304505842701147635242270210934637699104006714174883298422891491273104054328753298044273676822977244987749874555691907703880637046832794811358973739993110106219308149018570815397854379195305617510761053075688783766033667355445258844886241619210553457493675897849027988234351023599844663934853256411952221859563060475364645470760330902420806382584929156452876291575759142343809142302917491088984155209854432486594079793571316841692868039545309545388698114665082066862897420639323438488465240988742395873801976993820317174208932265468879364002630797780058759129671389634214252579116872755600360311370547754724604639987588046985178408674382863125
+=== RUN   FuzzFFTBasedConsistency/seed#5
+    fibonacci_fuzz_test.go:109: Inconsistent results for n=10000:
+          FFT:          175081153617791660025988567468656028445983344428999949325787504801204102545815
+          FastDoubling: 33644764876431783266621612005107543310302148460680063906564769974680081442166662368155595513633734025582065332680836159373734790483865268263040892463056431887354544369559827491606602099884183933864652731300088830269235673613135117579297437854413752130520504347701602264758318906527890855154366159582987279682987510631200575428783453215515103870818298969791613127856265033195487140214287532698187962046936097879900350962302291026368131493195275630227837628441540360584402572114334961180023091208287046088923962328835461505776583271252546093591128203925285393434620904245248929403901706233888991085841065183173360437470737908552631764325733993712871937587746897479926305837065742830161637408969178426378624212835258112820516370298089332099905707920064367426202389783111470054074998459250360633560933883831923386783056136435351892133279732908133732642652633989763922723407882928177953580570993691049175470808931841056146322338217465637321248226383092103297701648054726243842374862411453093812206564914032751086643394517512161526545361333111314042436854805106765843493523836959653428071768775328348234345557366719731392746273629108210679280784718035329131176778924659089938635459327894523777674406192240337638674004021330343297496902028328145933418826817683893072003634795623117103101291953169794607632737589253530772552375943788434504067715555779056450443016640119462580972216729758615026968443146952034614932291105970676243268515992834709891284706740862008587135016260312071903172086094081298321581077282076353186624611278245537208532365305775956430072517744315051539600905168603220349163222640885248852433158051534849622434848299380905070483482449327453732624567755879089187190803662058009594743150052402532709746995318770724376825907419939632265984147498193609285223945039707165443156421328157688908058783183404917434556270520223564846495196112460268313970975069382648706613264507665074611512677522748621598642530711298441182622661057163515069260029861704945425047491378115154139941550671256271197133252763631939606902895650288268608362241082050562430701794976171121233066073310059947366875
+--- FAIL: FuzzFFTBasedConsistency (0.00s)
+    --- PASS: FuzzFFTBasedConsistency/seed#0 (0.00s)
+    --- PASS: FuzzFFTBasedConsistency/seed#1 (0.00s)
+    --- PASS: FuzzFFTBasedConsistency/seed#2 (0.00s)
+    --- FAIL: FuzzFFTBasedConsistency/seed#3 (0.00s)
+    --- FAIL: FuzzFFTBasedConsistency/seed#4 (0.00s)
+    --- FAIL: FuzzFFTBasedConsistency/seed#5 (0.00s)
+=== RUN   FuzzFibonacciIdentities
+=== RUN   FuzzFibonacciIdentities/seed#0
+=== RUN   FuzzFibonacciIdentities/seed#1
+=== RUN   FuzzFibonacciIdentities/seed#2
+=== RUN   FuzzFibonacciIdentities/seed#3
+=== RUN   FuzzFibonacciIdentities/seed#4
+--- PASS: FuzzFibonacciIdentities (0.00s)
+    --- PASS: FuzzFibonacciIdentities/seed#0 (0.00s)
+    --- PASS: FuzzFibonacciIdentities/seed#1 (0.00s)
+    --- PASS: FuzzFibonacciIdentities/seed#2 (0.00s)
+    --- PASS: FuzzFibonacciIdentities/seed#3 (0.00s)
+    --- PASS: FuzzFibonacciIdentities/seed#4 (0.00s)
+=== RUN   FuzzProgressMonotonicity
+=== RUN   FuzzProgressMonotonicity/seed#0
+=== RUN   FuzzProgressMonotonicity/seed#1
+=== RUN   FuzzProgressMonotonicity/seed#2
+=== RUN   FuzzProgressMonotonicity/seed#3
+--- PASS: FuzzProgressMonotonicity (0.00s)
+    --- PASS: FuzzProgressMonotonicity/seed#0 (0.00s)
+    --- PASS: FuzzProgressMonotonicity/seed#1 (0.00s)
+    --- PASS: FuzzProgressMonotonicity/seed#2 (0.00s)
+    --- PASS: FuzzProgressMonotonicity/seed#3 (0.00s)
+=== RUN   ExampleCalculator_Calculate
+--- PASS: ExampleCalculator_Calculate (0.00s)
+FAIL
+FAIL	github.com/agbru/fibcalc/internal/fibonacci	0.703s
+FAIL

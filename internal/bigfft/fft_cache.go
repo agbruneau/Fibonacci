@@ -120,10 +120,10 @@ func computeKey(data nat, k uint, n int) [32]byte {
 }
 
 // Get retrieves a cached transform if available.
-// Returns the polValues and true if found, zero values and false otherwise.
-func (tc *TransformCache) Get(data nat, k uint, n int) (polValues, bool) {
+// Returns the PolValues and true if found, zero values and false otherwise.
+func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
 	if !tc.config.Enabled || len(data)*_W < tc.config.MinBitLen {
-		return polValues{}, false
+		return PolValues{}, false
 	}
 
 	key := computeKey(data, k, n)
@@ -134,7 +134,7 @@ func (tc *TransformCache) Get(data nat, k uint, n int) (polValues, bool) {
 
 	if !found {
 		tc.misses.Add(1)
-		return polValues{}, false
+		return PolValues{}, false
 	}
 
 	tc.mu.Lock()
@@ -153,20 +153,20 @@ func (tc *TransformCache) Get(data nat, k uint, n int) (polValues, bool) {
 		valuesCopy[i] = c
 	}
 
-	return polValues{
-		k:      entry.k,
-		n:      entry.n,
-		values: valuesCopy,
+	return PolValues{
+		K:      entry.k,
+		N:      entry.n,
+		Values: valuesCopy,
 	}, true
 }
 
 // Put stores a transform result in the cache.
-func (tc *TransformCache) Put(data nat, pv polValues) {
+func (tc *TransformCache) Put(data nat, pv PolValues) {
 	if !tc.config.Enabled || len(data)*_W < tc.config.MinBitLen {
 		return
 	}
 
-	key := computeKey(data, pv.k, pv.n)
+	key := computeKey(data, pv.K, pv.N)
 
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
@@ -188,8 +188,8 @@ func (tc *TransformCache) Put(data nat, pv polValues) {
 	}
 
 	// Create a deep copy of the values
-	valuesCopy := make([]fermat, len(pv.values))
-	for i, v := range pv.values {
+	valuesCopy := make([]fermat, len(pv.Values))
+	for i, v := range pv.Values {
 		c := make(fermat, len(v))
 		copy(c, v)
 		valuesCopy[i] = c
@@ -198,8 +198,8 @@ func (tc *TransformCache) Put(data nat, pv polValues) {
 	entry := &cacheEntry{
 		key:    key,
 		values: valuesCopy,
-		k:      pv.k,
-		n:      pv.n,
+		k:      pv.K,
+		n:      pv.N,
 	}
 
 	elem := tc.lru.PushFront(entry)
@@ -258,21 +258,21 @@ func (tc *TransformCache) Clear() {
 // TransformCached is like Transform but uses the global cache.
 // If the transform result is cached, it returns the cached value.
 // Otherwise, it computes the transform and caches the result.
-func (p *poly) TransformCached(n int) (polValues, error) {
+func (p *Poly) TransformCached(n int) (PolValues, error) {
 	cache := GetTransformCache()
 
-	// Build a flat representation of p.a for key computation
+	// Build a flat representation of p.A for key computation
 	flatData := flattenPolyData(p)
 
 	// Try cache lookup
-	if cached, found := cache.Get(flatData, p.k, n); found {
+	if cached, found := cache.Get(flatData, p.K, n); found {
 		return cached, nil
 	}
 
 	// Compute transform
 	pv, err := p.Transform(n)
 	if err != nil {
-		return polValues{}, err
+		return PolValues{}, err
 	}
 
 	// Cache the result
@@ -282,21 +282,21 @@ func (p *poly) TransformCached(n int) (polValues, error) {
 }
 
 // TransformCachedWithBump is like TransformWithBump but uses the global cache.
-func (p *poly) TransformCachedWithBump(n int, ba *BumpAllocator) (polValues, error) {
+func (p *Poly) TransformCachedWithBump(n int, ba *BumpAllocator) (PolValues, error) {
 	cache := GetTransformCache()
 
-	// Build a flat representation of p.a for key computation
+	// Build a flat representation of p.A for key computation
 	flatData := flattenPolyData(p)
 
 	// Try cache lookup
-	if cached, found := cache.Get(flatData, p.k, n); found {
+	if cached, found := cache.Get(flatData, p.K, n); found {
 		return cached, nil
 	}
 
 	// Compute transform
 	pv, err := p.TransformWithBump(n, ba)
 	if err != nil {
-		return polValues{}, err
+		return PolValues{}, err
 	}
 
 	// Cache the result
@@ -306,15 +306,15 @@ func (p *poly) TransformCachedWithBump(n int, ba *BumpAllocator) (polValues, err
 }
 
 // flattenPolyData creates a flat nat from polynomial coefficients for caching.
-func flattenPolyData(p *poly) nat {
+func flattenPolyData(p *Poly) nat {
 	totalLen := 0
-	for _, a := range p.a {
+	for _, a := range p.A {
 		totalLen += len(a)
 	}
 
 	flat := make(nat, totalLen)
 	offset := 0
-	for _, a := range p.a {
+	for _, a := range p.A {
 		copy(flat[offset:], a)
 		offset += len(a)
 	}
@@ -323,89 +323,89 @@ func flattenPolyData(p *poly) nat {
 }
 
 // MulCached multiplies p and q using cached transforms when beneficial.
-func (p *poly) MulCached(q *poly) (poly, error) {
-	n := valueSize(p.k, p.m, 2)
+func (p *Poly) MulCached(q *Poly) (Poly, error) {
+	n := valueSize(p.K, p.M, 2)
 
 	pv, err := p.TransformCached(n)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	qv, err := q.TransformCached(n)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	rv, err := pv.Mul(&qv)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	r, err := rv.InvTransform()
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
-	r.m = p.m
+	r.M = p.M
 	return r, nil
 }
 
 // MulCachedWithBump multiplies p and q using cached transforms and bump allocator.
-func (p *poly) MulCachedWithBump(q *poly, ba *BumpAllocator) (poly, error) {
-	n := valueSize(p.k, p.m, 2)
+func (p *Poly) MulCachedWithBump(q *Poly, ba *BumpAllocator) (Poly, error) {
+	n := valueSize(p.K, p.M, 2)
 
 	pv, err := p.TransformCachedWithBump(n, ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	qv, err := q.TransformCachedWithBump(n, ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	rv, err := pv.MulWithBump(&qv, ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	r, err := rv.InvTransformWithBump(ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
-	r.m = p.m
+	r.M = p.M
 	return r, nil
 }
 
 // SqrCached computes p*p using cached transform when beneficial.
-func (p *poly) SqrCached() (poly, error) {
-	n := valueSize(p.k, p.m, 2)
+func (p *Poly) SqrCached() (Poly, error) {
+	n := valueSize(p.K, p.M, 2)
 
 	pv, err := p.TransformCached(n)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	rv, err := pv.Sqr()
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	r, err := rv.InvTransform()
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
-	r.m = p.m
+	r.M = p.M
 	return r, nil
 }
 
 // SqrCachedWithBump computes p*p using cached transform and bump allocator.
-func (p *poly) SqrCachedWithBump(ba *BumpAllocator) (poly, error) {
-	n := valueSize(p.k, p.m, 2)
+func (p *Poly) SqrCachedWithBump(ba *BumpAllocator) (Poly, error) {
+	n := valueSize(p.K, p.M, 2)
 
 	pv, err := p.TransformCachedWithBump(n, ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	rv, err := pv.SqrWithBump(ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
 	r, err := rv.InvTransformWithBump(ba)
 	if err != nil {
-		return poly{}, err
+		return Poly{}, err
 	}
-	r.m = p.m
+	r.M = p.M
 	return r, nil
 }

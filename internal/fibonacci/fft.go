@@ -88,3 +88,139 @@ func smartSquare(z, x *big.Int, fftThreshold int, karatsubaThreshold int) (*big.
 	}
 	return z.Mul(x, x), nil
 }
+
+// executeDoublingStepFFT performs the three multiplications of a doubling step
+// while minimizing redundant FFT transforms.
+// It transforms F_k and F_k1 only once and then performs the calculations.
+func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) error {
+	// F(2k) = F(k) * (2*F(k+1) - F(k))
+	// F(2k+1) = F(k+1)^2 + F(k)^2
+
+	// Determine result size bit length (approx 2 * bitlen(F_k))
+	// F(2k+1) is roughly N iterations * 2.
+	// For GetFFTParams, we need words.
+	fk1Words := len(s.F_k1.Bits())
+	targetWords := 2*fk1Words + 2
+	k, m := bigfft.GetFFTParams(targetWords)
+
+	// Transform operands once
+	// Use ValueSize to get the correct coefficient length n in words
+	nWords := bigfft.ValueSize(k, m, 2)
+	n := nWords
+
+	p_fk := bigfft.PolyFromInt(s.F_k, k, m)
+	fkPoly, err := p_fk.Transform(n)
+	if err != nil {
+		return err
+	}
+
+	p_fk1 := bigfft.PolyFromInt(s.F_k1, k, m)
+	fk1Poly, err := p_fk1.Transform(n)
+	if err != nil {
+		return err
+	}
+
+	p_t2 := bigfft.PolyFromInt(s.T2, k, m)
+	t2Poly, err := p_t2.Transform(n)
+	if err != nil {
+		return err
+	}
+
+	if inParallel {
+		// Parallel execution of pointwise multiplications and inverse transforms
+		type result struct {
+			p   *big.Int
+			err error
+		}
+		resChan := make(chan result, 3)
+
+		go func() {
+			v, err := fkPoly.Mul(&t2Poly)
+			if err != nil {
+				resChan <- result{nil, err}
+				return
+			}
+			p, err := v.InvTransform()
+			if err != nil {
+				resChan <- result{nil, err}
+				return
+			}
+			p.M = m
+			resChan <- result{p.IntToBigInt(s.T3), nil}
+		}()
+
+		go func() {
+			v, err := fk1Poly.Sqr()
+			if err != nil {
+				resChan <- result{nil, err}
+				return
+			}
+			p, err := v.InvTransform()
+			if err != nil {
+				resChan <- result{nil, err}
+				return
+			}
+			p.M = m
+			resChan <- result{p.IntToBigInt(s.T1), nil}
+		}()
+
+		go func() {
+			v, err := fkPoly.Sqr()
+			if err != nil {
+				resChan <- result{nil, err}
+				return
+			}
+			p, err := v.InvTransform()
+			if err != nil {
+				resChan <- result{nil, err}
+				return
+			}
+			p.M = m
+			resChan <- result{p.IntToBigInt(s.T4), nil}
+		}()
+
+		for i := 0; i < 3; i++ {
+			res := <-resChan
+			if res.err != nil {
+				return res.err
+			}
+		}
+		return nil
+	}
+
+	// Sequential
+	v1, err := fkPoly.Mul(&t2Poly)
+	if err != nil {
+		return err
+	}
+	p1, err := v1.InvTransform()
+	if err != nil {
+		return err
+	}
+	p1.M = m
+	p1.IntToBigInt(s.T3)
+
+	v2, err := fk1Poly.Sqr()
+	if err != nil {
+		return err
+	}
+	p2, err := v2.InvTransform()
+	if err != nil {
+		return err
+	}
+	p2.M = m
+	p2.IntToBigInt(s.T1)
+
+	v3, err := fkPoly.Sqr()
+	if err != nil {
+		return err
+	}
+	p3, err := v3.InvTransform()
+	if err != nil {
+		return err
+	}
+	p3.M = m
+	p3.IntToBigInt(s.T4)
+
+	return nil
+}

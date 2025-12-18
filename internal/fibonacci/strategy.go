@@ -52,6 +52,22 @@ type MultiplicationStrategy interface {
 
 	// Name returns a descriptive name for the strategy.
 	Name() string
+
+	// ExecuteStep performs a complete doubling step calculation:
+	// F(2k) = F(k) * (2*F(k+1) - F(k))
+	// F(2k+1) = F(k+1)^2 + F(k)^2
+	//
+	// This specialized method allows strategies to optimize the doubling step
+	// by reusing temporary results or transformations (e.g., FFT transforms).
+	//
+	// Parameters:
+	//   - s: The calculation state containing operands and temporaries.
+	//   - opts: Configuration options.
+	//   - inParallel: Whether to execute multiplications in parallel.
+	//
+	// Returns:
+	//   - error: An error if the calculation failed.
+	ExecuteStep(s *CalculationState, opts Options, inParallel bool) error
 }
 
 // AdaptiveStrategy uses smartMultiply and smartSquare to adaptively choose
@@ -72,6 +88,17 @@ func (s *AdaptiveStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, e
 // Square performs adaptive squaring using smartSquare.
 func (s *AdaptiveStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
 	return smartSquare(z, x, opts.FFTThreshold, opts.KaratsubaThreshold)
+}
+
+// ExecuteStep performs a doubling step, choosing between standard logic
+// and optimized FFT transform reuse based on operand size.
+func (s *AdaptiveStrategy) ExecuteStep(state *CalculationState, opts Options, inParallel bool) error {
+	// If operands are large enough for FFT, use specialized reuse logic
+	if opts.FFTThreshold > 0 && state.F_k1.BitLen() > opts.FFTThreshold {
+		return executeDoublingStepFFT(state, opts, inParallel)
+	}
+	// Fallback to standard doubling step multiplication
+	return executeDoublingStepMultiplications(s, state, opts, inParallel)
 }
 
 // FFTOnlyStrategy forces FFT-based multiplication for all operations,
@@ -102,6 +129,11 @@ func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) 
 	return setOrReturn(z, res), nil
 }
 
+// ExecuteStep performs a doubling step using FFT transform reuse.
+func (s *FFTOnlyStrategy) ExecuteStep(state *CalculationState, opts Options, inParallel bool) error {
+	return executeDoublingStepFFT(state, opts, inParallel)
+}
+
 // KaratsubaStrategy forces Karatsuba multiplication (via math/big) for all
 // operations, regardless of operand size. This is primarily useful for
 // testing and comparison purposes.
@@ -126,4 +158,9 @@ func (s *KaratsubaStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error
 		z = new(big.Int)
 	}
 	return z.Mul(x, x), nil
+}
+
+// ExecuteStep performs a standard doubling step using Karatsuba multiplication.
+func (s *KaratsubaStrategy) ExecuteStep(state *CalculationState, opts Options, inParallel bool) error {
+	return executeDoublingStepMultiplications(s, state, opts, inParallel)
 }

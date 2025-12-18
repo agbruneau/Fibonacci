@@ -187,8 +187,8 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		if shouldParallel {
 			usedParallel = true
 		}
-		if err := executeDoublingStepMultiplications(f.strategy, s, currentOpts, shouldParallel); err != nil {
-			return nil, fmt.Errorf("doubling step multiplication failed at bit %d/%d: %w", i, numBits-1, err)
+		if err := f.strategy.ExecuteStep(s, currentOpts, shouldParallel); err != nil {
+			return nil, fmt.Errorf("doubling step failed at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in T2, which is free.

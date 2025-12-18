@@ -293,10 +293,10 @@ func TestMulToWithPooling(t *testing.T) {
 func TestIntToBufferReuse(t *testing.T) {
 	t.Parallel()
 	// Create a polynomial that would produce a result of known size
-	p := &poly{
-		k: 2,
-		m: 4,
-		a: []nat{
+	p := &Poly{
+		K: 2,
+		M: 4,
+		A: []nat{
 			{1, 2, 3, 4},
 			{5, 6, 7, 8},
 		},
@@ -320,10 +320,10 @@ func TestIntToBufferReuse(t *testing.T) {
 func TestIntToBufferReuseWithLargeBuffer(t *testing.T) {
 	t.Parallel()
 	// Create a polynomial
-	p := &poly{
-		k: 2,
-		m: 4,
-		a: []nat{
+	p := &Poly{
+		K: 2,
+		M: 4,
+		A: []nat{
 			{1, 2, 3, 4},
 			{5, 6, 7, 8},
 		},
@@ -357,10 +357,10 @@ func TestIntToBufferReuseWithLargeBuffer(t *testing.T) {
 func TestIntToBufferTooSmall(t *testing.T) {
 	t.Parallel()
 	// Create a polynomial that needs more space
-	p := &poly{
-		k: 3,
-		m: 8,
-		a: []nat{
+	p := &Poly{
+		K: 3,
+		M: 8,
+		A: []nat{
 			{1, 2, 3, 4, 5, 6, 7, 8},
 			{1, 2, 3, 4, 5, 6, 7, 8},
 			{1, 2, 3, 4, 5, 6, 7, 8},

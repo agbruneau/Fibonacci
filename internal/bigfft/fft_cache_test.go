@@ -54,11 +54,11 @@ func TestTransformCachePutAndGet(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	// Create mock polValues
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: []fermat{{1, 2, 3}, {4, 5, 6}},
+	// Create mock PolValues
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: []fermat{{1, 2, 3}, {4, 5, 6}},
 	}
 
 	// Put into cache
@@ -70,14 +70,14 @@ func TestTransformCachePutAndGet(t *testing.T) {
 		t.Fatal("expected to find cached value")
 	}
 
-	if result.k != mockValues.k {
-		t.Errorf("expected k=%d, got %d", mockValues.k, result.k)
+	if result.K != mockValues.K {
+		t.Errorf("expected K=%d, got %d", mockValues.K, result.K)
 	}
-	if result.n != mockValues.n {
-		t.Errorf("expected n=%d, got %d", mockValues.n, result.n)
+	if result.N != mockValues.N {
+		t.Errorf("expected N=%d, got %d", mockValues.N, result.N)
 	}
-	if len(result.values) != len(mockValues.values) {
-		t.Errorf("expected %d values, got %d", len(mockValues.values), len(result.values))
+	if len(result.Values) != len(mockValues.Values) {
+		t.Errorf("expected %d values, got %d", len(mockValues.Values), len(result.Values))
 	}
 }
 
@@ -116,10 +116,10 @@ func TestTransformCacheEviction(t *testing.T) {
 		testData := make(nat, 10)
 		testData[0] = big.Word(i) // Different data for each entry
 
-		mockValues := polValues{
-			k:      4,
-			n:      100,
-			values: []fermat{{big.Word(i)}},
+		mockValues := PolValues{
+			K:      4,
+			N:      100,
+			Values: []fermat{{big.Word(i)}},
 		}
 		cache.Put(testData, mockValues)
 	}
@@ -147,10 +147,10 @@ func TestTransformCacheDisabled(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: []fermat{{1, 2, 3}},
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: []fermat{{1, 2, 3}},
 	}
 
 	// Put should be a no-op when disabled
@@ -178,10 +178,10 @@ func TestTransformCacheBelowThreshold(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: []fermat{{1, 2, 3}},
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: []fermat{{1, 2, 3}},
 	}
 
 	// Put should be a no-op for data below threshold
@@ -208,10 +208,10 @@ func TestTransformCacheStats(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: []fermat{{1, 2, 3}},
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: []fermat{{1, 2, 3}},
 	}
 
 	// Initial stats
@@ -250,10 +250,10 @@ func TestTransformCacheClear(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: []fermat{{1, 2, 3}},
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: []fermat{{1, 2, 3}},
 	}
 
 	cache.Put(testData, mockValues)
@@ -301,10 +301,10 @@ func TestTransformCacheConcurrency(t *testing.T) {
 				testData[0] = big.Word(goroutineID)
 				testData[1] = big.Word(i % 10) // Some overlap
 
-				mockValues := polValues{
-					k:      4,
-					n:      100,
-					values: []fermat{{big.Word(goroutineID), big.Word(i)}},
+				mockValues := PolValues{
+					K:      4,
+					N:      100,
+					Values: []fermat{{big.Word(goroutineID), big.Word(i)}},
 				}
 
 				// Mix of puts and gets
@@ -435,13 +435,13 @@ func BenchmarkCacheHit(b *testing.B) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: make([]fermat, 16),
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: make([]fermat, 16),
 	}
-	for i := range mockValues.values {
-		mockValues.values[i] = make(fermat, 101)
+	for i := range mockValues.Values {
+		mockValues.Values[i] = make(fermat, 101)
 	}
 
 	cache.Put(testData, mockValues)
@@ -481,13 +481,13 @@ func BenchmarkCachePut(b *testing.B) {
 	}
 	cache := NewTransformCache(config)
 
-	mockValues := polValues{
-		k:      4,
-		n:      100,
-		values: make([]fermat, 16),
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: make([]fermat, 16),
 	}
-	for i := range mockValues.values {
-		mockValues.values[i] = make(fermat, 101)
+	for i := range mockValues.Values {
+		mockValues.Values[i] = make(fermat, 101)
 	}
 
 	b.ResetTimer()
