@@ -5,6 +5,7 @@ package cli
 
 import (
 	"os"
+	"sync"
 )
 
 // Theme defines a color scheme for CLI output.
@@ -78,10 +79,26 @@ var (
 		Reset:     "",
 	}
 
-	// CurrentTheme is the active theme used throughout the CLI.
+	// currentTheme is the active theme used throughout the CLI.
 	// Defaults to DarkTheme but can be changed via SetTheme or InitTheme.
-	CurrentTheme = DarkTheme
+	currentTheme = DarkTheme
+	themeMutex   sync.RWMutex
 )
+
+// GetCurrentTheme returns the currently active theme in a thread-safe manner.
+func GetCurrentTheme() Theme {
+	themeMutex.RLock()
+	defer themeMutex.RUnlock()
+	return currentTheme
+}
+
+// SetCurrentTheme sets the currently active theme in a thread-safe manner.
+// This is primarily used for testing purposes to restore state.
+func SetCurrentTheme(t Theme) {
+	themeMutex.Lock()
+	defer themeMutex.Unlock()
+	currentTheme = t
+}
 
 // SetTheme changes the active theme by name.
 // Valid names are: "dark", "light", "none".
@@ -90,15 +107,18 @@ var (
 // Parameters:
 //   - name: The name of the theme to activate.
 func SetTheme(name string) {
+	themeMutex.Lock()
+	defer themeMutex.Unlock()
+
 	switch name {
 	case "dark":
-		CurrentTheme = DarkTheme
+		currentTheme = DarkTheme
 	case "light":
-		CurrentTheme = LightTheme
+		currentTheme = LightTheme
 	case "none":
-		CurrentTheme = NoColorTheme
+		currentTheme = NoColorTheme
 	default:
-		CurrentTheme = DarkTheme
+		currentTheme = DarkTheme
 	}
 }
 
@@ -109,19 +129,22 @@ func SetTheme(name string) {
 // Parameters:
 //   - noColor: If true, disables all color output regardless of environment.
 func InitTheme(noColor bool) {
+	themeMutex.Lock()
+	defer themeMutex.Unlock()
+
 	// Check --no-color flag first
 	if noColor {
-		CurrentTheme = NoColorTheme
+		currentTheme = NoColorTheme
 		return
 	}
 
 	// Check NO_COLOR environment variable
 	// Any non-empty value disables colors (per no-color.org spec)
 	if _, exists := os.LookupEnv("NO_COLOR"); exists {
-		CurrentTheme = NoColorTheme
+		currentTheme = NoColorTheme
 		return
 	}
 
 	// Default to dark theme
-	CurrentTheme = DarkTheme
+	currentTheme = DarkTheme
 }
