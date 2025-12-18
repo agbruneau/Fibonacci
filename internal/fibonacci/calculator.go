@@ -147,6 +147,14 @@ type Options struct {
 	// FFTCacheEnabled controls whether FFT transform caching is active.
 	// Default is true. Set to false to disable caching (useful for memory-constrained scenarios).
 	FFTCacheEnabled *bool
+	// EnableDynamicThresholds enables real-time threshold adjustment during calculation.
+	// When enabled, the algorithm monitors iteration performance and adjusts FFT and
+	// parallel thresholds dynamically based on observed timing.
+	// Default is false (use static thresholds).
+	EnableDynamicThresholds bool
+	// DynamicAdjustmentInterval is the number of iterations between threshold checks.
+	// If 0, uses the default (5 iterations). Only used when EnableDynamicThresholds is true.
+	DynamicAdjustmentInterval int
 }
 
 // normalizeOptions returns a copy of opts with default values filled in for zero values.

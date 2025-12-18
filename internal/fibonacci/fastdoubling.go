@@ -100,7 +100,25 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 
 	// Use framework with adaptive strategy for the main loop
 	strategy := &AdaptiveStrategy{}
-	framework := NewDoublingFramework(strategy)
+
+	// Create framework with or without dynamic threshold adjustment
+	var framework *DoublingFramework
+	if normalizedOpts.EnableDynamicThresholds {
+		// Create dynamic threshold manager
+		interval := normalizedOpts.DynamicAdjustmentInterval
+		if interval <= 0 {
+			interval = DynamicAdjustmentInterval
+		}
+		dtm := NewDynamicThresholdManagerFromConfig(DynamicThresholdConfig{
+			InitialFFTThreshold:      normalizedOpts.FFTThreshold,
+			InitialParallelThreshold: normalizedOpts.ParallelThreshold,
+			AdjustmentInterval:       interval,
+			Enabled:                  true,
+		})
+		framework = NewDoublingFrameworkWithDynamicThresholds(strategy, dtm)
+	} else {
+		framework = NewDoublingFramework(strategy)
+	}
 
 	// Execute the doubling loop with parallelization support
 	return framework.ExecuteDoublingLoop(ctx, reporter, n, normalizedOpts, s, useParallel)
