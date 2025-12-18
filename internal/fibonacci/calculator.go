@@ -285,9 +285,9 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		}
 	}
 
-	if n <= MaxLUTIndex {
+	if n <= MaxFibUint64 {
 		reporter(1.0)
-		return lookupLarge(n), nil
+		return lookupSmall(n), nil
 	}
 
 	// Configure FFT cache based on options for optimal performance
@@ -317,10 +317,9 @@ func init() {
 
 // lookupSmall returns a copy of the n-th Fibonacci number from the lookup
 // table, ensuring the immutability of the table.
-// Deprecated: use lookupLarge for the expanded table.
 func lookupSmall(n uint64) *big.Int {
 	if n <= MaxFibUint64 {
-		return new(big.Int).Set(extendedLUT[n])
+		return new(big.Int).Set(fibLookupTable[n])
 	}
 	return nil
 }
