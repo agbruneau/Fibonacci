@@ -207,30 +207,30 @@ The calculator is controlled via command-line flags:
 
 ### Complete CLI Options
 
-| Flag                    | Alias       | Description                                                      | Default                       |
-| ----------------------- | ----------- | ---------------------------------------------------------------- | ----------------------------- |
-| `-n`                    |             | Index of the Fibonacci number to calculate.                      | `250000000`                   |
-| `-algo`                 |             | Algorithm: `fast`, `matrix`, `fft`, or `all`.                    | `all`                         |
-| `-timeout`              |             | Maximum execution time (e.g., `10s`, `1m30s`).                   | `5m`                          |
-| `-threshold`            |             | Bit threshold to parallelise multiplications.                    | `4096`                        |
-| `-fft-threshold`        |             | Bit threshold to enable FFT multiplication.                      | `500000`                      |
-| `--strassen-threshold`  |             | Bit threshold for the Strassen algorithm.                        | `3072`                        |
-| `-d`                    | `--details` | Display performance details.                                     | `false`                       |
-| `-v`                    |             | Display the full result (can be very long).                      | `false`                       |
-| `-c`                    | `--calculate` | Display the calculated value (disabled by default).            | `false`                       |
-| `--calibrate`           |             | Calibrate the optimal parallelism threshold.                     | `false`                       |
-| `--auto-calibrate`      |             | Quick calibration at startup.                                    | `false`                       |
-| `--calibration-profile` |             | Path to the calibration profile file.                            | `~/.fibcalc_calibration.json` |
-| `--json`                |             | Output in JSON format.                                           | `false`                       |
-| `--server`              |             | Start in HTTP server mode.                                       | `false`                       |
-| `--port`                |             | Listening port for server mode.                                  | `8080`                        |
-| `--interactive`         |             | Start in interactive mode (REPL).                                | `false`                       |
-| `-o`                    | `--output`  | Save the result to a file.                                       | `""`                          |
-| `-q`                    | `--quiet`   | Quiet mode (minimal output).                                     | `false`                       |
-| `--hex`                 |             | Display the result in hexadecimal.                               | `false`                       |
-| `--no-color`            |             | Disable colours (also respects `NO_COLOR`).                      | `false`                       |
-| `--completion`          |             | Generate an autocompletion script (bash, zsh, fish, powershell). | `""`                          |
-| `--version`             | `-V`        | Display the program version.                                     |                               |
+| Flag                    | Alias         | Description                                                      | Default                       |
+| ----------------------- | ------------- | ---------------------------------------------------------------- | ----------------------------- |
+| `-n`                    |               | Index of the Fibonacci number to calculate.                      | `250000000`                   |
+| `-algo`                 |               | Algorithm: `fast`, `matrix`, `fft`, or `all`.                    | `all`                         |
+| `-timeout`              |               | Maximum execution time (e.g., `10s`, `1m30s`).                   | `5m`                          |
+| `-threshold`            |               | Bit threshold to parallelise multiplications.                    | `4096`                        |
+| `-fft-threshold`        |               | Bit threshold to enable FFT multiplication.                      | `500000`                      |
+| `--strassen-threshold`  |               | Bit threshold for the Strassen algorithm.                        | `3072`                        |
+| `-d`                    | `--details`   | Display performance details.                                     | `false`                       |
+| `-v`                    |               | Display the full result (can be very long).                      | `false`                       |
+| `-c`                    | `--calculate` | Display the calculated value (disabled by default).              | `false`                       |
+| `--calibrate`           |               | Calibrate the optimal parallelism threshold.                     | `false`                       |
+| `--auto-calibrate`      |               | Quick calibration at startup.                                    | `false`                       |
+| `--calibration-profile` |               | Path to the calibration profile file.                            | `~/.fibcalc_calibration.json` |
+| `--json`                |               | Output in JSON format.                                           | `false`                       |
+| `--server`              |               | Start in HTTP server mode.                                       | `false`                       |
+| `--port`                |               | Listening port for server mode.                                  | `8080`                        |
+| `--interactive`         |               | Start in interactive mode (REPL).                                | `false`                       |
+| `-o`                    | `--output`    | Save the result to a file.                                       | `""`                          |
+| `-q`                    | `--quiet`     | Quiet mode (minimal output).                                     | `false`                       |
+| `--hex`                 |               | Display the result in hexadecimal.                               | `false`                       |
+| `--no-color`            |               | Disable colours (also respects `NO_COLOR`).                      | `false`                       |
+| `--completion`          |               | Generate an autocompletion script (bash, zsh, fish, powershell). | `""`                          |
+| `--version`             | `-V`          | Display the program version.                                     |                               |
 
 ### Configuration via Environment Variables
 
@@ -491,7 +491,6 @@ This project is structured according to Go software engineering best practices, 
   - `fft.go`: FFT implementation with internal parallelisation.
 - **`internal/config`**: Configuration management and flag validation.
 - **`internal/errors`**: Centralised error handling.
-- **`internal/pool`**: Global memory pooling for `big.Int` objects.
 
 See [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) for complete details.
 
