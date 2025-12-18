@@ -1,10 +1,8 @@
-// The fibonacci package provides implementations for calculating Fibonacci
-// numbers. It exposes a `Calculator` interface that abstracts the
-// underlying calculation algorithm, allowing different strategies (e.g., Fast
-// Doubling, Matrix Exponentiation) to be used interchangeably. The package also
-// integrates optimizations such as a lookup table (LUT) for small values and
-// memory management via object pools to minimize pressure on the garbage
-// collector (GC).
+// Package fibonacci provides implementations for calculating Fibonacci numbers.
+// It exposes a `Calculator` interface that abstracts the underlying calculation
+// algorithm, allowing different strategies (Fast Doubling, Matrix Exponentiation,
+// FFT-based) to be used interchangeably. The package integrates optimizations such
+// as memory pooling, parallel processing, and dynamic threshold adjustment.
 package fibonacci
 
 import (

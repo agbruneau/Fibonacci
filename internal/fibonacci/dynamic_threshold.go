@@ -71,9 +71,9 @@ type DynamicThresholdManager struct {
 	lastAdjustment     time.Time
 
 	// Statistics for analysis
-	fftBenefitSum       float64
-	fftBenefitCount     int
-	parallelBenefitSum  float64
+	fftBenefitSum        float64
+	fftBenefitCount      int
+	parallelBenefitSum   float64
 	parallelBenefitCount int
 }
 
@@ -398,4 +398,3 @@ func (m *DynamicThresholdManager) Reset() {
 	m.parallelBenefitSum = 0
 	m.parallelBenefitCount = 0
 }
-

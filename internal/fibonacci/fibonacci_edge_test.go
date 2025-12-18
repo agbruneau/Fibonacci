@@ -393,15 +393,14 @@ func TestRegistryList(t *testing.T) {
 	factory := NewDefaultFactory()
 
 	list := factory.List()
-	if len(list) != 4 {
-		t.Errorf("Expected 4 calculators, got %d", len(list))
+	if len(list) != 3 {
+		t.Errorf("Expected 3 calculators, got %d", len(list))
 	}
 
 	expectedIndices := map[string]int{
 		"fast":   0,
 		"fft":    1,
-		"lut":    2,
-		"matrix": 3,
+		"matrix": 2,
 	}
 
 	for name, idx := range expectedIndices {
@@ -409,6 +408,7 @@ func TestRegistryList(t *testing.T) {
 			t.Errorf("Expected calculator %d to be %s, got %s", idx, name, list[idx])
 		}
 	}
+
 }
 
 // TestRegistryMustGet tests the factory MustGet method.
