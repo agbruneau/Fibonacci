@@ -62,35 +62,42 @@ func NewDoublingFrameworkWithDynamicThresholds(strategy MultiplicationStrategy, 
 //   - error: An error if any multiplication failed, with context about which operation failed.
 func executeDoublingStepMultiplications(strategy MultiplicationStrategy, s *CalculationState, opts Options, inParallel bool) error {
 	if inParallel {
+		tasks := []func() error{
+			func() error {
+				var err error
+				s.T3, err = strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+				if err != nil {
+					return fmt.Errorf("parallel multiply F_k * T2 failed: %w", err)
+				}
+				return nil
+			},
+			func() error {
+				var err error
+				s.T1, err = strategy.Square(s.T1, s.F_k1, opts)
+				if err != nil {
+					return fmt.Errorf("parallel square F_k1 failed: %w", err)
+				}
+				return nil
+			},
+			func() error {
+				var err error
+				s.T4, err = strategy.Square(s.T4, s.F_k, opts)
+				if err != nil {
+					return fmt.Errorf("parallel square F_k failed: %w", err)
+				}
+				return nil
+			},
+		}
+
 		var wg sync.WaitGroup
 		var ec parallel.ErrorCollector
-		wg.Add(3)
-
-		go func() {
-			defer wg.Done()
-			var err error
-			s.T3, err = strategy.Multiply(s.T3, s.F_k, s.T2, opts)
-			if err != nil {
-				ec.SetError(fmt.Errorf("parallel multiply F_k * T2 failed: %w", err))
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			var err error
-			s.T1, err = strategy.Square(s.T1, s.F_k1, opts)
-			if err != nil {
-				ec.SetError(fmt.Errorf("parallel square F_k1 failed: %w", err))
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			var err error
-			s.T4, err = strategy.Square(s.T4, s.F_k, opts)
-			if err != nil {
-				ec.SetError(fmt.Errorf("parallel square F_k failed: %w", err))
-			}
-		}()
-
+		wg.Add(len(tasks))
+		for _, t := range tasks {
+			go func(f func() error) {
+				defer wg.Done()
+				ec.SetError(f())
+			}(t)
+		}
 		wg.Wait()
 		return ec.Err()
 	}
