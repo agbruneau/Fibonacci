@@ -5,6 +5,7 @@ package fibonacci
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"math/bits"
 	"sync"
@@ -47,6 +48,70 @@ func NewDoublingFrameworkWithDynamicThresholds(strategy MultiplicationStrategy, 
 	}
 }
 
+// executeDoublingStepMultiplications performs the three multiplications required
+// for a doubling step, either sequentially or in parallel based on the inParallel flag.
+// This function encapsulates the parallelization logic to keep ExecuteDoublingLoop clean.
+//
+// Parameters:
+//   - strategy: The multiplication strategy to use.
+//   - s: The calculation state containing operands and temporaries.
+//   - opts: Configuration options for the calculation.
+//   - inParallel: Whether to execute multiplications in parallel.
+//
+// Returns:
+//   - error: An error if any multiplication failed, with context about which operation failed.
+func executeDoublingStepMultiplications(strategy MultiplicationStrategy, s *CalculationState, opts Options, inParallel bool) error {
+	if inParallel {
+		var wg sync.WaitGroup
+		var ec parallel.ErrorCollector
+		wg.Add(3)
+
+		go func() {
+			defer wg.Done()
+			var err error
+			s.T3, err = strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+			if err != nil {
+				ec.SetError(fmt.Errorf("parallel multiply F_k * T2 failed: %w", err))
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			var err error
+			s.T1, err = strategy.Square(s.T1, s.F_k1, opts)
+			if err != nil {
+				ec.SetError(fmt.Errorf("parallel square F_k1 failed: %w", err))
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			var err error
+			s.T4, err = strategy.Square(s.T4, s.F_k, opts)
+			if err != nil {
+				ec.SetError(fmt.Errorf("parallel square F_k failed: %w", err))
+			}
+		}()
+
+		wg.Wait()
+		return ec.Err()
+	}
+
+	// Sequential execution
+	var err error
+	s.T3, err = strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+	if err != nil {
+		return fmt.Errorf("multiply F_k * T2 failed: %w", err)
+	}
+	s.T1, err = strategy.Square(s.T1, s.F_k1, opts)
+	if err != nil {
+		return fmt.Errorf("square F_k1 failed: %w", err)
+	}
+	s.T4, err = strategy.Square(s.T4, s.F_k, opts)
+	if err != nil {
+		return fmt.Errorf("square F_k failed: %w", err)
+	}
+	return nil
+}
+
 // ExecuteDoublingLoop executes the Fast Doubling algorithm loop.
 // This is the core computation logic shared by OptimizedFastDoubling and
 // FFTBasedCalculator.
@@ -77,13 +142,13 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
-	// Use dynamic thresholds if available
-	currentOpts := opts
+	// Normalize options to ensure consistent default threshold handling
+	currentOpts := normalizeOptions(opts)
 	dtm := f.dynamicThreshold
 
 	for i := numBits - 1; i >= 0; i-- {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("fast doubling calculation cancelled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		// Track iteration timing for dynamic threshold adjustment
@@ -96,55 +161,27 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// T2 = 2*F_k1 - F_k
 		s.T2.Lsh(s.F_k1, 1).Sub(s.T2, s.F_k)
 
-		// Get current bit length for metrics
-		bitLen := s.F_k.BitLen()
+		// Cache bit lengths to avoid repeated calls (BitLen() traverses internal representation)
+		fkBitLen := s.F_k.BitLen()
+		fk1BitLen := s.F_k1.BitLen()
+
+		// Get current bit length for metrics (use cached value)
+		bitLen := fkBitLen
 
 		// Check if we should use FFT based on current thresholds
-		usedFFT := currentOpts.FFTThreshold > 0 && bitLen > currentOpts.FFTThreshold
+		// (thresholds are already normalized, so no need to check for 0)
+		usedFFT := bitLen > currentOpts.FFTThreshold
 		usedParallel := false
 
+		// Execute the three multiplications for the doubling step
 		// Parallelize when at least one of the main operands is large
-		if useParallel && ShouldParallelizeMultiplication(s, currentOpts) {
+		// Pass cached bit lengths to avoid redundant BitLen() calls
+		shouldParallel := useParallel && shouldParallelizeMultiplicationCached(s, currentOpts, fkBitLen, fk1BitLen)
+		if shouldParallel {
 			usedParallel = true
-			// Use parallel multiplication with ErrorCollector
-			var wg sync.WaitGroup
-			var ec parallel.ErrorCollector
-			wg.Add(2)
-
-			go func() {
-				defer wg.Done()
-				var err error
-				s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, currentOpts)
-				ec.SetError(err)
-			}()
-			go func() {
-				defer wg.Done()
-				var err error
-				s.T1, err = f.strategy.Square(s.T1, s.F_k1, currentOpts)
-				ec.SetError(err)
-			}()
-			var err error
-			s.T4, err = f.strategy.Square(s.T4, s.F_k, currentOpts)
-			ec.SetError(err)
-			wg.Wait()
-			if err := ec.Err(); err != nil {
-				return nil, err
-			}
-		} else {
-			// Sequential multiplication using strategy
-			var err error
-			s.T3, err = f.strategy.Multiply(s.T3, s.F_k, s.T2, currentOpts)
-			if err != nil {
-				return nil, err
-			}
-			s.T1, err = f.strategy.Square(s.T1, s.F_k1, currentOpts)
-			if err != nil {
-				return nil, err
-			}
-			s.T4, err = f.strategy.Square(s.T4, s.F_k, currentOpts)
-			if err != nil {
-				return nil, err
-			}
+		}
+		if err := executeDoublingStepMultiplications(f.strategy, s, currentOpts, shouldParallel); err != nil {
+			return nil, fmt.Errorf("doubling step multiplication failed at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		// F(2k+1) = F(k+1)² + F(k)². Store result in T2, which is free.

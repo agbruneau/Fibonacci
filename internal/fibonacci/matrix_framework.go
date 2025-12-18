@@ -5,6 +5,7 @@ package fibonacci
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"math/bits"
 	"runtime"
@@ -45,7 +46,9 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 	exponent := n - 1
 	numBits := bits.Len64(exponent)
-	useParallel := runtime.NumCPU() > 1 && opts.ParallelThreshold > 0
+	// Normalize options to ensure consistent default threshold handling
+	normalizedOpts := normalizeOptions(opts)
+	useParallel := runtime.NumCPU() > 1 && normalizedOpts.ParallelThreshold > 0
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := CalcTotalWork(numBits)
@@ -56,22 +59,22 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 	for i := 0; i < numBits; i++ {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("matrix exponentiation calculation cancelled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
-			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			if err := multiplyMatricesFunc(state.tempMatrix, state.res, state.p, state, inParallel, opts.FFTThreshold, opts.StrassenThreshold); err != nil {
-				return nil, err
+			inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold
+			if err := multiplyMatricesFunc(state.tempMatrix, state.res, state.p, state, inParallel, normalizedOpts.FFTThreshold, normalizedOpts.StrassenThreshold); err != nil {
+				return nil, fmt.Errorf("matrix multiplication failed at bit %d/%d: %w", i, numBits-1, err)
 			}
 			state.res, state.tempMatrix = state.tempMatrix, state.res
 		}
 
 		if i < numBits-1 {
-			inParallel := useParallel && maxBitLenMatrix(state.p) > opts.ParallelThreshold
-			if err := squareSymmetricMatrixFunc(state.tempMatrix, state.p, state, inParallel, opts.FFTThreshold); err != nil {
-				return nil, err
+			inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold
+			if err := squareSymmetricMatrixFunc(state.tempMatrix, state.p, state, inParallel, normalizedOpts.FFTThreshold); err != nil {
+				return nil, fmt.Errorf("matrix squaring failed at bit %d/%d: %w", i, numBits-1, err)
 			}
 			state.p, state.tempMatrix = state.tempMatrix, state.p
 		}

@@ -96,14 +96,16 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	s := acquireState()
 	defer releaseState(s)
 
-	useParallel := runtime.GOMAXPROCS(0) > 1 && opts.ParallelThreshold > 0
+	// Normalize options to ensure consistent default threshold handling
+	normalizedOpts := normalizeOptions(opts)
+	useParallel := runtime.GOMAXPROCS(0) > 1 && normalizedOpts.ParallelThreshold > 0
 
 	// Use framework with adaptive strategy for the main loop
 	strategy := &AdaptiveStrategy{}
 	framework := NewDoublingFramework(strategy)
 
 	// Execute the doubling loop with parallelization support
-	return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, useParallel)
+	return framework.ExecuteDoublingLoop(ctx, reporter, n, normalizedOpts, s, useParallel)
 }
 
 // ShouldParallelizeMultiplication determines whether the multiplication operations
@@ -128,7 +130,21 @@ func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 	// these values provides a measurable performance improvement (2-5%).
 	fkBitLen := s.F_k.BitLen()
 	fk1BitLen := s.F_k1.BitLen()
+	return shouldParallelizeMultiplicationCached(s, opts, fkBitLen, fk1BitLen)
+}
 
+// shouldParallelizeMultiplicationCached is an optimized version that accepts
+// pre-computed BitLen() values to avoid redundant calls.
+//
+// Parameters:
+//   - s: The current calculation state (used for consistency, but BitLen values are passed).
+//   - opts: Configuration options including thresholds.
+//   - fkBitLen: Pre-computed bit length of F_k.
+//   - fk1BitLen: Pre-computed bit length of F_k1.
+//
+// Returns:
+//   - bool: true if multiplication should be parallelized, false otherwise.
+func shouldParallelizeMultiplicationCached(s *CalculationState, opts Options, fkBitLen, fk1BitLen int) bool {
 	// Determine the maximum bit length of the main operands
 	maxBitLen := fk1BitLen
 	if fkBitLen > maxBitLen {
@@ -148,11 +164,17 @@ func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 	// We only re-enable parallelism for extremely large numbers
 	// (> ParallelFFTThreshold bits) where the benefit outweighs contention.
 	// See constants.go for empirical benchmark results.
+	// Note: opts should already be normalized, but we check for safety
 	if opts.FFTThreshold > 0 && maxBitLen > opts.FFTThreshold {
 		return maxBitLen > ParallelFFTThreshold
 	}
 
-	return maxBitLen > opts.ParallelThreshold
+	// Use normalized threshold (should already be normalized, but ensure consistency)
+	threshold := opts.ParallelThreshold
+	if threshold == 0 {
+		threshold = DefaultParallelThreshold
+	}
+	return maxBitLen > threshold
 }
 
 // parallelMultiply3Optimized is deprecated. The parallelization logic is now

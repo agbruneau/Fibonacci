@@ -4,6 +4,7 @@
 package fibonacci
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -87,7 +88,7 @@ func (s *FFTOnlyStrategy) Name() string {
 func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
 	res, err := mulFFT(x, y)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FFT multiplication failed: %w", err)
 	}
 	return setOrReturn(z, res), nil
 }
@@ -96,7 +97,7 @@ func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, er
 func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
 	res, err := sqrFFT(x)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("FFT squaring failed: %w", err)
 	}
 	return setOrReturn(z, res), nil
 }

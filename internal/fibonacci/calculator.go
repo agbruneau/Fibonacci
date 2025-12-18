@@ -146,6 +146,28 @@ type Options struct {
 	FFTCacheEnabled *bool
 }
 
+// normalizeOptions returns a copy of opts with default values filled in for zero values.
+// This ensures consistent threshold handling across all calculator implementations.
+//
+// Parameters:
+//   - opts: The options to normalize.
+//
+// Returns:
+//   - Options: A normalized copy of opts with defaults applied.
+func normalizeOptions(opts Options) Options {
+	normalized := opts
+	if normalized.ParallelThreshold == 0 {
+		normalized.ParallelThreshold = DefaultParallelThreshold
+	}
+	if normalized.FFTThreshold == 0 {
+		normalized.FFTThreshold = DefaultFFTThreshold
+	}
+	if normalized.StrassenThreshold == 0 {
+		normalized.StrassenThreshold = DefaultStrassenThreshold
+	}
+	return normalized
+}
+
 // Calculator defines the public interface for a Fibonacci calculator.
 // It is the primary abstraction used by the application's orchestration layer to
 // interact with different Fibonacci calculation algorithms.

@@ -212,6 +212,62 @@ func executeTasks[T any, PT interface {
 	return nil
 }
 
+// executeMixedTasks executes a mix of squaring and multiplication tasks together,
+// either sequentially or in parallel. This eliminates code duplication when
+// both types of operations need to be executed together.
+//
+// Parameters:
+//   - sqrTasks: The squaring tasks to execute.
+//   - mulTasks: The multiplication tasks to execute.
+//   - inParallel: Whether to execute tasks in parallel.
+//
+// Returns:
+//   - error: An error if any task failed.
+func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, inParallel bool) error {
+	totalTasks := len(sqrTasks) + len(mulTasks)
+	if totalTasks == 0 {
+		return nil
+	}
+
+	if inParallel {
+		var wg sync.WaitGroup
+		var ec parallel.ErrorCollector
+		wg.Add(totalTasks)
+
+		// Execute squaring tasks in parallel
+		for i := range sqrTasks {
+			go func(t *squaringTask) {
+				defer wg.Done()
+				ec.SetError(t.execute())
+			}(&sqrTasks[i])
+		}
+
+		// Execute multiplication tasks in parallel
+		for i := range mulTasks {
+			go func(t *multiplicationTask) {
+				defer wg.Done()
+				ec.SetError(t.execute())
+			}(&mulTasks[i])
+		}
+
+		wg.Wait()
+		return ec.Err()
+	}
+
+	// Sequential execution
+	for i := range sqrTasks {
+		if err := sqrTasks[i].execute(); err != nil {
+			return err
+		}
+	}
+	for i := range mulTasks {
+		if err := mulTasks[i].execute(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // multiplyMatricesStrassen implements the Strassen-Winograd algorithm for 2x2 matrices.
 // This variant reduces the number of additions/subtractions from 18 to 15 compared to
 // the standard Strassen algorithm, while maintaining 7 multiplications.
@@ -348,37 +404,9 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 		{&b_ad, mat.b, ad, fftThreshold},
 	}
 
-	if inParallel {
-		// Execute all 4 operations in parallel with ErrorCollector
-		var wg sync.WaitGroup
-		var ec parallel.ErrorCollector
-		wg.Add(4)
-
-		for i := range sqrTasks {
-			go func(t *squaringTask) {
-				defer wg.Done()
-				var err error
-				*t.dest, err = smartSquare(*t.dest, t.x, t.fftThreshold)
-				ec.SetError(err)
-			}(&sqrTasks[i])
-		}
-		go func() {
-			defer wg.Done()
-			var err error
-			*mulTasks[0].dest, err = smartMultiply(*mulTasks[0].dest, mulTasks[0].a, mulTasks[0].b, mulTasks[0].fftThreshold)
-			ec.SetError(err)
-		}()
-		wg.Wait()
-		if err := ec.Err(); err != nil {
-			return err
-		}
-	} else {
-		if err := executeTasks[squaringTask, *squaringTask](sqrTasks, false); err != nil {
-			return err
-		}
-		if err := executeTasks[multiplicationTask, *multiplicationTask](mulTasks, false); err != nil {
-			return err
-		}
+	// Use unified execution function for both parallel and sequential cases
+	if err := executeMixedTasks(sqrTasks, mulTasks, inParallel); err != nil {
+		return err
 	}
 
 	dest.a.Add(a2, b2)
@@ -438,7 +466,8 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 }
 
 // maxBitLenMatrix returns the maximum bit length among the 4 elements
-// of the matrix.
+// of the matrix. This function caches BitLen() calls to avoid redundant
+// traversals of the internal big.Int representation.
 //
 // Parameters:
 //   - m: The matrix to check.
@@ -446,21 +475,27 @@ func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParalle
 // Returns:
 //   - int: The maximum bit length found.
 func maxBitLenMatrix(m *matrix) int {
-	max := m.a.BitLen()
-	if b := m.b.BitLen(); b > max {
-		max = b
+	// Cache all BitLen() calls first to avoid redundant traversals
+	aLen := m.a.BitLen()
+	bLen := m.b.BitLen()
+	cLen := m.c.BitLen()
+	dLen := m.d.BitLen()
+
+	max := aLen
+	if bLen > max {
+		max = bLen
 	}
-	if c := m.c.BitLen(); c > max {
-		max = c
+	if cLen > max {
+		max = cLen
 	}
-	if d := m.d.BitLen(); d > max {
-		max = d
+	if dLen > max {
+		max = dLen
 	}
 	return max
 }
 
 // maxBitLenTwoMatrices returns the maximum bit length between all elements
-// of two matrices.
+// of two matrices. This function is optimized to cache BitLen() calls.
 //
 // Parameters:
 //   - m1: The first matrix.

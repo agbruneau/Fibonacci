@@ -44,8 +44,13 @@ func sqrFFT(x *big.Int) (*big.Int, error) {
 // and FFT (internal/bigfft) based on the size of the operands.
 // It also attempts to reuse the storage of `z` if `MulTo` is available/used.
 //
+// Optimizations:
+//   - Pre-computes BitLen() values once to avoid redundant calls
+//   - Uses MulTo for FFT operations to avoid allocations when z is provided
+//   - Handles nil z consistently for both FFT and Karatsuba paths
+//
 // Parameters:
-//   - z: The destination big.Int.
+//   - z: The destination big.Int (may be nil or reused for storage).
 //   - x: The first operand.
 //   - y: The second operand.
 //   - threshold: The bit length threshold for switching to FFT.
@@ -54,12 +59,14 @@ func sqrFFT(x *big.Int) (*big.Int, error) {
 //   - *big.Int: The result of x * y.
 //   - error: An error if the calculation failed.
 func smartMultiply(z, x, y *big.Int, threshold int) (*big.Int, error) {
-	// Optimization: use MulTo if FFT is used to avoid allocation.
-	// But first, check if we should use FFT.
+	// Pre-compute BitLen() values once to avoid redundant calls
+	// (BitLen() traverses the internal representation of big.Int)
 	if threshold > 0 {
 		bx := x.BitLen()
 		by := y.BitLen()
+		// Use FFT if both operands exceed threshold
 		if bx > threshold && by > threshold {
+			// Use MulTo to reuse z storage when available, avoiding allocation
 			return bigfft.MulTo(z, x, y)
 		}
 	}
@@ -76,8 +83,13 @@ func smartMultiply(z, x, y *big.Int, threshold int) (*big.Int, error) {
 // Squaring is more efficient than general multiplication because we can
 // exploit the symmetry of the computation (x * x).
 //
+// Optimizations:
+//   - Pre-computes BitLen() value once to avoid redundant calls
+//   - Uses SqrTo for FFT operations to avoid allocations when z is provided
+//   - Handles nil z consistently for both FFT and Karatsuba paths
+//
 // Parameters:
-//   - z: The destination big.Int (may be reused for storage).
+//   - z: The destination big.Int (may be nil or reused for storage).
 //   - x: The operand to square.
 //   - threshold: The bit length threshold for switching to FFT.
 //
@@ -85,9 +97,14 @@ func smartMultiply(z, x, y *big.Int, threshold int) (*big.Int, error) {
 //   - *big.Int: The result of x * x.
 //   - error: An error if the calculation failed.
 func smartSquare(z, x *big.Int, threshold int) (*big.Int, error) {
-	// Use FFT-based squaring for large numbers
-	if threshold > 0 && x.BitLen() > threshold {
-		return bigfft.SqrTo(z, x)
+	// Pre-compute BitLen() value once to avoid redundant calls
+	// (BitLen() traverses the internal representation of big.Int)
+	if threshold > 0 {
+		bx := x.BitLen()
+		if bx > threshold {
+			// Use SqrTo to reuse z storage when available, avoiding allocation
+			return bigfft.SqrTo(z, x)
+		}
 	}
 	// Handle nil z to be consistent with the MultiplicationStrategy contract
 	// which allows z to be nil (see strategy.go documentation)
