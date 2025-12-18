@@ -8,8 +8,8 @@ import (
 // TestSetTheme verifies that SetTheme correctly switches between themes.
 func TestSetTheme(t *testing.T) {
 	// Save original theme to restore after test
-	originalTheme := CurrentTheme
-	defer func() { CurrentTheme = originalTheme }()
+	originalTheme := GetCurrentTheme()
+	defer func() { SetCurrentTheme(originalTheme) }()
 
 	testCases := []struct {
 		name          string
@@ -26,9 +26,10 @@ func TestSetTheme(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			SetTheme(tc.themeName)
-			if CurrentTheme.Name != tc.expectedTheme.Name {
+			current := GetCurrentTheme()
+			if current.Name != tc.expectedTheme.Name {
 				t.Errorf("SetTheme(%q): got theme %q, want %q",
-					tc.themeName, CurrentTheme.Name, tc.expectedTheme.Name)
+					tc.themeName, current.Name, tc.expectedTheme.Name)
 			}
 		})
 	}
@@ -37,10 +38,10 @@ func TestSetTheme(t *testing.T) {
 // TestInitThemeWithNoColorFlag verifies that InitTheme respects the noColor flag.
 func TestInitThemeWithNoColorFlag(t *testing.T) {
 	// Save original theme and env to restore after test
-	originalTheme := CurrentTheme
+	originalTheme := GetCurrentTheme()
 	originalNoColor := os.Getenv("NO_COLOR")
 	defer func() {
-		CurrentTheme = originalTheme
+		SetCurrentTheme(originalTheme)
 		if originalNoColor == "" {
 			os.Unsetenv("NO_COLOR")
 		} else {
@@ -53,18 +54,20 @@ func TestInitThemeWithNoColorFlag(t *testing.T) {
 
 	t.Run("noColor flag true disables colors", func(t *testing.T) {
 		InitTheme(true)
-		if CurrentTheme.Name != "none" {
-			t.Errorf("InitTheme(true): got theme %q, want %q", CurrentTheme.Name, "none")
+		current := GetCurrentTheme()
+		if current.Name != "none" {
+			t.Errorf("InitTheme(true): got theme %q, want %q", current.Name, "none")
 		}
-		if CurrentTheme.Primary != "" {
-			t.Errorf("InitTheme(true): Primary should be empty, got %q", CurrentTheme.Primary)
+		if current.Primary != "" {
+			t.Errorf("InitTheme(true): Primary should be empty, got %q", current.Primary)
 		}
 	})
 
 	t.Run("noColor flag false uses dark theme", func(t *testing.T) {
 		InitTheme(false)
-		if CurrentTheme.Name != "dark" {
-			t.Errorf("InitTheme(false): got theme %q, want %q", CurrentTheme.Name, "dark")
+		current := GetCurrentTheme()
+		if current.Name != "dark" {
+			t.Errorf("InitTheme(false): got theme %q, want %q", current.Name, "dark")
 		}
 	})
 }
@@ -72,10 +75,10 @@ func TestInitThemeWithNoColorFlag(t *testing.T) {
 // TestInitThemeWithNO_COLOREnv verifies that InitTheme respects NO_COLOR env var.
 func TestInitThemeWithNO_COLOREnv(t *testing.T) {
 	// Save original theme and env to restore after test
-	originalTheme := CurrentTheme
+	originalTheme := GetCurrentTheme()
 	originalNoColor := os.Getenv("NO_COLOR")
 	defer func() {
-		CurrentTheme = originalTheme
+		SetCurrentTheme(originalTheme)
 		if originalNoColor == "" {
 			os.Unsetenv("NO_COLOR")
 		} else {
@@ -86,24 +89,27 @@ func TestInitThemeWithNO_COLOREnv(t *testing.T) {
 	t.Run("NO_COLOR set disables colors", func(t *testing.T) {
 		os.Setenv("NO_COLOR", "1")
 		InitTheme(false)
-		if CurrentTheme.Name != "none" {
-			t.Errorf("InitTheme with NO_COLOR=1: got theme %q, want %q", CurrentTheme.Name, "none")
+		current := GetCurrentTheme()
+		if current.Name != "none" {
+			t.Errorf("InitTheme with NO_COLOR=1: got theme %q, want %q", current.Name, "none")
 		}
 	})
 
 	t.Run("NO_COLOR empty value still disables colors", func(t *testing.T) {
 		os.Setenv("NO_COLOR", "")
 		InitTheme(false)
-		if CurrentTheme.Name != "none" {
-			t.Errorf("InitTheme with NO_COLOR='': got theme %q, want %q", CurrentTheme.Name, "none")
+		current := GetCurrentTheme()
+		if current.Name != "none" {
+			t.Errorf("InitTheme with NO_COLOR='': got theme %q, want %q", current.Name, "none")
 		}
 	})
 
 	t.Run("NO_COLOR not set uses dark theme", func(t *testing.T) {
 		os.Unsetenv("NO_COLOR")
 		InitTheme(false)
-		if CurrentTheme.Name != "dark" {
-			t.Errorf("InitTheme without NO_COLOR: got theme %q, want %q", CurrentTheme.Name, "dark")
+		current := GetCurrentTheme()
+		if current.Name != "dark" {
+			t.Errorf("InitTheme without NO_COLOR: got theme %q, want %q", current.Name, "dark")
 		}
 	})
 }
@@ -159,8 +165,8 @@ func TestThemeColors(t *testing.T) {
 // TestColorFunctions verifies that color functions return current theme values.
 func TestColorFunctions(t *testing.T) {
 	// Save original theme to restore after test
-	originalTheme := CurrentTheme
-	defer func() { CurrentTheme = originalTheme }()
+	originalTheme := GetCurrentTheme()
+	defer func() { SetCurrentTheme(originalTheme) }()
 
 	t.Run("Color functions with DarkTheme", func(t *testing.T) {
 		SetTheme("dark")

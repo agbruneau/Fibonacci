@@ -53,31 +53,31 @@ const (
 // These provide backward compatibility while allowing theme switching.
 
 // ColorReset returns the reset escape code from the current theme.
-func ColorReset() string { return CurrentTheme.Reset }
+func ColorReset() string { return GetCurrentTheme().Reset }
 
 // ColorRed returns the error color from the current theme.
-func ColorRed() string { return CurrentTheme.Error }
+func ColorRed() string { return GetCurrentTheme().Error }
 
 // ColorGreen returns the success color from the current theme.
-func ColorGreen() string { return CurrentTheme.Success }
+func ColorGreen() string { return GetCurrentTheme().Success }
 
 // ColorYellow returns the warning color from the current theme.
-func ColorYellow() string { return CurrentTheme.Warning }
+func ColorYellow() string { return GetCurrentTheme().Warning }
 
 // ColorBlue returns the primary color from the current theme.
-func ColorBlue() string { return CurrentTheme.Primary }
+func ColorBlue() string { return GetCurrentTheme().Primary }
 
 // ColorMagenta returns the info color from the current theme.
-func ColorMagenta() string { return CurrentTheme.Info }
+func ColorMagenta() string { return GetCurrentTheme().Info }
 
 // ColorCyan returns the secondary color from the current theme.
-func ColorCyan() string { return CurrentTheme.Secondary }
+func ColorCyan() string { return GetCurrentTheme().Secondary }
 
 // ColorBold returns the bold escape code from the current theme.
-func ColorBold() string { return CurrentTheme.Bold }
+func ColorBold() string { return GetCurrentTheme().Bold }
 
 // ColorUnderline returns the underline escape code from the current theme.
-func ColorUnderline() string { return CurrentTheme.Underline }
+func ColorUnderline() string { return GetCurrentTheme().Underline }
 
 // Spinner is an interface that abstracts the behavior of a terminal spinner.
 // This allows for the decoupling of the `DisplayProgress` function from a
