@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"runtime"
 	"sync"
-
-	"github.com/agbru/fibcalc/internal/pool"
 )
 
 // OptimizedFastDoubling provides a high-performance implementation of the "Fast
@@ -234,10 +232,6 @@ func ReleaseState(s *CalculationState) {
 	}
 
 	statePool.Put(s)
-}
-
-func checkLimit(z *big.Int) bool {
-	return z != nil && z.BitLen() > pool.MaxPooledBitLen
 }
 
 // acquireState is a convenience wrapper for backward compatibility.
