@@ -1,0 +1,19 @@
+﻿--- Project Statistics ---
+Go Implementation: 11858 lines in 68 files
+Go Tests: 15710 lines in 66 files
+Markdown: 4530 lines in 13 files
+Total: 37487 lines in 161 files
+Test/Impl Ratio: 1.32
+
+--- Top 10 Largest Files ---
+  1986 lines - coverage
+   932 lines - lint_report.txt
+   785 lines - README.md
+   682 lines - go.sum
+   644 lines - config_exhaustive_test.go
+   643 lines - app_test.go
+   636 lines - server_test.go
+   600 lines - arith_amd64_test.go
+   579 lines - dynamic_threshold_test.go
+   567 lines - KUBERNETES.md
+

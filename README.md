@@ -5,7 +5,7 @@
 ![Go version](https://img.shields.io/badge/Go-1.24+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
-![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen?style=for-the-badge)
+![Coverage Status](https://img.shields.io/badge/coverage-85.%25-brightgreen?style=for-the-badge)
 
 </div>
 
