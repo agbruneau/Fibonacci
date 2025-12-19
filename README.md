@@ -183,6 +183,7 @@ This step will validate that your environment is correctly configured and that t
   - **Fast Doubling (`fast`)**: The default algorithm. Combines logarithmic complexity, parallelism, and hybrid multiplication (Karatsuba/FFT).
   - **Matrix Exponentiation (`matrix`)**: Uses binary decomposition of the exponent and the Strassen algorithm for large matrices.
   - **FFT-Based Doubling (`fft`)**: Forces the use of FFT multiplication for all calculations.
+  - **GMP-Based (`gmp`)**: An optional custom mode utilizing the GNU Multiple Precision Arithmetic Library (GMP) for extreme calculations (>100M bits). Requires compilation with `-tags gmp`.
 - **Multiple Execution Modes**:
   - **CLI**: One-off calculations via command line.
   - **Interactive Mode (REPL)**: Interactive session for multiple calculations.
@@ -529,6 +530,7 @@ See [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) for complete details.
 | **Fast Doubling**         | `-algo fast`   | O(log n × M(n))    | Most performant. 3 multiplications per iteration. Uses DoublingFramework with adaptive strategy. |
 | **Matrix Exponentiation** | `-algo matrix` | O(log n × M(n))    | Matrix approach with Strassen-Winograd optimisation. Uses MatrixFramework.                       |
 | **FFT-Based**             | `-algo fft`    | O(log n × n log n) | Forces FFT multiplication for all calculations. Uses DoublingFramework with FFT-only strategy.   |
+| **GMP-Based**             | `-algo gmp`    | O(log n × M(n))    | Uses GNU MP (libgmp) C library for arithmetic. Extreme performance for very large N.             |
 
 **Note**: All algorithms now share common frameworks that eliminate code duplication and facilitate maintenance. Multiplication strategies can be dynamically interchanged.
 
