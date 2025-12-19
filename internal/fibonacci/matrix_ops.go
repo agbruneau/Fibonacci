@@ -51,12 +51,12 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 		strassenThresholdBits = GetDefaultStrassenThreshold()
 	}
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
-		return multiplyMatricesClassic(dest, m1, m2, state, inParallel, fftThreshold)
+		return multiplyMatrix2x2(dest, m1, m2, state, inParallel, fftThreshold)
 	}
-	return multiplyMatricesStrassen(dest, m1, m2, state, inParallel, fftThreshold)
+	return multiplyMatrixStrassen(dest, m1, m2, state, inParallel, fftThreshold)
 }
 
-// multiplyMatricesStrassen implements the Strassen-Winograd algorithm for 2x2 matrices.
+// multiplyMatrixStrassen implements the Strassen-Winograd algorithm for 2x2 matrices.
 // This variant reduces the number of additions/subtractions from 18 to 15 compared to
 // the standard Strassen algorithm, while maintaining 7 multiplications.
 //
@@ -70,54 +70,23 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
+func multiplyMatrixStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	// Winograd's variant uses 7 multiplications and 15 additions/subtractions.
 	//
-	// Pre-computations (8 additions/subtractions):
-	// S1 = A21 + A22
-	// S2 = S1 - A11
-	// S3 = A11 - A21
-	// S4 = A12 - S2
-	// S5 = B12 - B11
-	// S6 = B22 - S5
-	// S7 = B22 - B12
-	// S8 = S6 - B21
-	//
-	// Multiplications (7 multiplications):
-	// P1 = S2 * S6
-	// P2 = A11 * B11
-	// P3 = A12 * B21
-	// P4 = S3 * S7
-	// P5 = S1 * S5
-	// P6 = S4 * B22
-	// P7 = A22 * S8
-	//
-	// Post-computations (7 additions/subtractions):
-	// T1 = P1 + P2
-	// T2 = T1 + P4
-	// C11 = P2 + P3
-	// C12 = T1 + P5 + P6
-	// C21 = T2 - P7
-	// C22 = T2 + P5
+	// Pre-computations (8 additions/subtractions) are handled by computeStrassenIntermediates.
+	// Multiplications (7 multiplications) are handled here.
+	// Post-computations (7 additions/subtractions) are handled by assembleStrassenResult.
 
-	// Map temporaries to state variables
+	// 1. Pre-computations (S1-S8)
+	computeStrassenIntermediates(state, m1, m2)
+
+	// Map temporaries to state variables for task creation
 	s1, s2, s3, s4 := state.s1, state.s2, state.s3, state.s4
 	s5, s6, s7, s8 := state.s5, state.s6, state.s7, state.s8
 	p1, p2, p3, p4 := state.p1, state.p2, state.p3, state.p4
 	p5, p6, p7 := state.p5, state.p6, state.p7
-	t1, t2 := state.t1, state.t2
 
-	// Pre-computations
-	s1.Add(m1.c, m1.d) // S1 = A21 + A22
-	s2.Sub(s1, m1.a)   // S2 = S1 - A11
-	s3.Sub(m1.a, m1.c) // S3 = A11 - A21
-	s4.Sub(m1.b, s2)   // S4 = A12 - S2
-	s5.Sub(m2.b, m2.a) // S5 = B12 - B11
-	s6.Sub(m2.d, s5)   // S6 = B22 - S5
-	s7.Sub(m2.d, m2.b) // S7 = B22 - B12
-	s8.Sub(s6, m2.c)   // S8 = S6 - B21
-
-	// Execute the 7 multiplications using the generic task executor
+	// 2. Execute the 7 multiplications using the generic task executor
 	tasks := []multiplicationTask{
 		{&p1, s2, s6, fftThreshold, 0},
 		{&p2, m1.a, m2.a, fftThreshold, 0},
@@ -131,15 +100,52 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 		return err
 	}
 
+	// 3. Post-computations and Assembly
+	assembleStrassenResult(dest, state)
+
+	return nil
+}
+
+// computeStrassenIntermediates performs the 8 additions/subtractions required
+// for the pre-computation phase of Strassen's algorithm (Winograd variant).
+//
+// Parameters:
+//   - state: The matrix state providing temporary storage (S1-S8).
+//   - m1: The first matrix operand.
+//   - m2: The second matrix operand.
+func computeStrassenIntermediates(state *matrixState, m1, m2 *matrix) {
+	// Map temporaries to state variables
+	s1, s2, s3, s4 := state.s1, state.s2, state.s3, state.s4
+	s5, s6, s7, s8 := state.s5, state.s6, state.s7, state.s8
+
+	// Pre-computations
+	s1.Add(m1.c, m1.d) // S1 = A21 + A22
+	s2.Sub(s1, m1.a)   // S2 = S1 - A11
+	s3.Sub(m1.a, m1.c) // S3 = A11 - A21
+	s4.Sub(m1.b, s2)   // S4 = A12 - S2
+	s5.Sub(m2.b, m2.a) // S5 = B12 - B11
+	s6.Sub(m2.d, s5)   // S6 = B22 - S5
+	s7.Sub(m2.d, m2.b) // S7 = B22 - B12
+	s8.Sub(s6, m2.c)   // S8 = S6 - B21
+}
+
+// assembleStrassenResult performs the post-computations (T1, T2) and
+// assembles the final result matrix.
+//
+// Parameters:
+//   - dest: The destination matrix.
+//   - state: The matrix state with computed products (P1-P7) and temporaries.
+func assembleStrassenResult(dest *matrix, state *matrixState) {
+	// Map temporaries
+	p1, p2, p3, p4 := state.p1, state.p2, state.p3, state.p4
+	p5, p6, p7 := state.p5, state.p6, state.p7
+	t1, t2 := state.t1, state.t2
+
 	// Post-computations
 	t1.Add(p1, p2) // T1 = P1 + P2
 	t2.Add(t1, p4) // T2 = T1 + P4
 
 	// Calculate final matrix elements
-	// Use temporaries for C12 and C22 to avoid overwriting if dest aliases inputs (though unlikely here)
-	// But dest.a/b/c/d are distinct pointers so we can write directly if we are careful.
-	// However, standard practice is to compute fully then assign.
-
 	// C11 = P2 + P3
 	dest.a.Add(p2, p3)
 
@@ -152,8 +158,6 @@ func multiplyMatricesStrassen(dest, m1, m2 *matrix, state *matrixState, inParall
 
 	// C22 = T2 + P5
 	dest.d.Add(t2, p5)
-
-	return nil
 }
 
 // squareSymmetricMatrix computes the square of a symmetric matrix.
@@ -204,7 +208,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	return nil
 }
 
-// multiplyMatricesClassic performs a naive 2x2 matrix multiplication.
+// multiplyMatrix2x2 performs a naive 2x2 matrix multiplication.
 // It requires 8 integer multiplications.
 //
 // Parameters:
@@ -217,7 +221,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func multiplyMatricesClassic(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
+func multiplyMatrix2x2(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
 	// Uses buffers from the state to avoid allocations
 	// a = a*e + b*g
