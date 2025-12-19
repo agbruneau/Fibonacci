@@ -7,9 +7,11 @@
 *.dll
 *.so
 *.dylib
+fibcalc
 
 # Build directory
 build/
+dist/
 
 # Test binary, built with `go test -c`
 *.test
@@ -31,11 +33,32 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
 .cursor/
 
 # Coverage files (non-standard extensions)
 cover
 coverage
 coverage_new
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.bak
+*.swp
+*.tmp
+*.log
+
+# Runtime artifacts
+__pycache__/
+*.pyc
+
+# Documentation artifacts
+doc/
+godoc.log
+
+# Benchmarking artifacts
+lru_benchmark.png
