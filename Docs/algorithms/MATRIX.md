@@ -106,7 +106,7 @@ func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter Progr
 }
 ```
 
-## Implemented Optimisations
+## Implemented Optimizations
 
 ### 1. Strassen Algorithm
 
@@ -191,7 +191,7 @@ var matrixStatePool = sync.Pool{
 
 ### 4. Parallelism
 
-Independent multiplications are parallelised:
+Independent multiplications are parallelized:
 
 ```go
 if inParallel {
@@ -228,7 +228,7 @@ if inParallel {
 | Criterion | Matrix Exp. | Fast Doubling |
 |-----------|-------------|---------------|
 | Multiplications/iter (base) | 8 | 3 |
-| Multiplications/iter (optimised) | 4-7 | 3 |
+| Multiplications/iter (optimized) | 4-7 | 3 |
 | Mathematical complexity | More intuitive | More compact |
 | Practical performance | Slower | Faster |
 

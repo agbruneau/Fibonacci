@@ -86,7 +86,7 @@ The Fibonacci Calculator is designed according to **Clean Architecture** princip
 
 Application entry point. Responsibilities:
 - Command-line argument parsing
-- Component initialisation
+- Component initialization
 - Routing to CLI or server mode
 - System signal handling
 
@@ -94,7 +94,7 @@ Application entry point. Responsibilities:
 
 Business core of the application. Contains:
 - **`calculator.go`**: `Calculator` interface and generic wrapper
-- **`fastdoubling.go`**: Optimised Fast Doubling algorithm
+- **`fastdoubling.go`**: Optimized Fast Doubling algorithm
 - **`matrix.go`**: Matrix exponentiation with Strassen
 - **`fft_based.go`**: Calculator forcing FFT multiplication
 - **`fft.go`**: Multiplication selection logic (standard vs FFT)
@@ -194,7 +194,7 @@ Centralised error handling:
 
 ### ADR-004: Adaptive Parallelism
 
-**Context**: Parallelism has a synchronisation cost that can exceed gains for small calculations.
+**Context**: Parallelism has a synchronization cost that can exceed gains for small calculations.
 
 **Decision**: Enable parallelism only above a configurable threshold (`--threshold`).
 
@@ -258,7 +258,7 @@ Centralised error handling:
 2. **Smart Parallelism**: Enabled only when beneficial
 3. **Adaptive FFT**: Used for very large numbers only
 4. **Strassen**: Enabled for matrices with large elements
-5. **Symmetric Squaring**: Specific optimisation reducing multiplications
+5. **Symmetric Squaring**: Specific optimization reducing multiplications
 
 ## Extensibility
 

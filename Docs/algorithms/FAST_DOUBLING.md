@@ -105,7 +105,7 @@ func FastDoublingSimple(n uint64) (*big.Int, *big.Int) {
 }
 ```
 
-## Implemented Optimisations
+## Implemented Optimizations
 
 ### 1. Iterative Version
 

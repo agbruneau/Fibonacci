@@ -39,7 +39,7 @@ var (
 	DarkTheme = Theme{
 		Name:      "dark",
 		Primary:   "\033[38;5;39m",  // Bright blue
-		Secondary: "\033[38;5;245m", // Gray
+		Secondary: "\033[38;5;245m", // Grey
 		Success:   "\033[38;5;82m",  // Bright green
 		Warning:   "\033[38;5;220m", // Yellow
 		Error:     "\033[38;5;196m", // Red
@@ -54,7 +54,7 @@ var (
 	LightTheme = Theme{
 		Name:      "light",
 		Primary:   "\033[38;5;27m",  // Dark blue
-		Secondary: "\033[38;5;240m", // Dark gray
+		Secondary: "\033[38;5;240m", // Dark grey
 		Success:   "\033[38;5;28m",  // Dark green
 		Warning:   "\033[38;5;130m", // Orange
 		Error:     "\033[38;5;124m", // Dark red

@@ -290,8 +290,8 @@ Include:
 1. **Go version**: `go version`
 2. **Operating system**
 3. **Steps to reproduce**
-4. **Expected behavior**
-5. **Actual behavior**
+4. **Expected behaviour**
+5. **Actual behaviour**
 6. **Relevant logs or output**
 
 ### Feature Requests
