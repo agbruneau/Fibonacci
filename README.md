@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg?style=for-the-badge&logo=go)
+![Go version](https://img.shields.io/badge/Go-1.24+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
 ![Coverage Status](https://img.shields.io/badge/coverage-75.2%25-brightgreen?style=for-the-badge)
@@ -116,7 +116,7 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 
 ### Prerequisites
 
-- **Go**: Version 1.25 or later ([Download Go](https://go.dev/dl/))
+- **Go**: Version 1.24 or later ([Download Go](https://go.dev/dl/))
 - **Git**: To clone the repository
 - **Make** (Optional): For using the Makefile
 
@@ -144,11 +144,13 @@ Ensure your `$GOPATH/bin` is in your system's `PATH`. You can then run the tool 
 2. **Build the binary:**
 
    Using Make:
+
    ```bash
    make build
    ```
 
    Using Go directly:
+
    ```bash
    go build -o build/fibcalc ./cmd/fibcalc
    ```
@@ -408,6 +410,7 @@ See [Docs/api/API.md](Docs/api/API.md) for the complete API documentation.
 Here are common scenarios and how to execute them efficiently.
 
 #### 1. Basic Calculation
+
 Calculate the 100,000th Fibonacci number and display the truncated result:
 
 ```bash
@@ -415,6 +418,7 @@ Calculate the 100,000th Fibonacci number and display the truncated result:
 ```
 
 #### 2. Performance Comparison
+
 Compare all available algorithms for a specific input and show detailed metrics:
 
 ```bash
@@ -422,6 +426,7 @@ Compare all available algorithms for a specific input and show detailed metrics:
 ```
 
 #### 3. Scripting Integration (JSON)
+
 Output the result in JSON format for parsing by other tools (e.g., `jq`):
 
 ```bash
@@ -429,6 +434,7 @@ Output the result in JSON format for parsing by other tools (e.g., `jq`):
 ```
 
 #### 4. Saving to File
+
 Calculate a very large number (e.g., 50 million) and save the result to a file:
 
 ```bash
@@ -436,6 +442,7 @@ Calculate a very large number (e.g., 50 million) and save the result to a file:
 ```
 
 #### 5. Server Mode
+
 Start the REST API server on a custom port (9090):
 
 ```bash
@@ -443,11 +450,13 @@ Start the REST API server on a custom port (9090):
 ```
 
 Then query it from another terminal:
+
 ```bash
 curl "http://localhost:9090/calculate?n=5000"
 ```
 
 #### 6. Hexadecimal Output
+
 View the underlying binary representation in Hexadecimal:
 
 ```bash
@@ -455,6 +464,7 @@ View the underlying binary representation in Hexadecimal:
 ```
 
 #### 7. Silent Mode (Benchmarks)
+
 Run a calculation without outputting the result or progress bars (useful for timing):
 
 ```bash

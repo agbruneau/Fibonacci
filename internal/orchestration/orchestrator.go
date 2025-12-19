@@ -137,7 +137,9 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 			cli.ColorYellow(), duration, cli.ColorReset(),
 			status)
 	}
-	tw.Flush()
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintf(out, "Warning: failed to flush tabwriter: %v\n", err)
+	}
 
 	if successCount == 0 {
 		fmt.Fprintf(out, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")

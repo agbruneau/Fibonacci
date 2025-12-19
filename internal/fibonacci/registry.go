@@ -22,7 +22,7 @@ type CalculatorFactory interface {
 	List() []string
 
 	// Register adds a new calculator type to the factory.
-	Register(name string, creator func() coreCalculator)
+	Register(name string, creator func() coreCalculator) error
 
 	// GetAll returns a map of all registered calculators.
 	GetAll() map[string]Calculator
@@ -54,9 +54,9 @@ func NewDefaultFactory() *DefaultFactory {
 	}
 
 	// Register the default calculators
-	f.Register("fast", func() coreCalculator { return &OptimizedFastDoubling{} })
-	f.Register("matrix", func() coreCalculator { return &MatrixExponentiation{} })
-	f.Register("fft", func() coreCalculator { return &FFTBasedCalculator{} })
+	_ = f.Register("fast", func() coreCalculator { return &OptimizedFastDoubling{} })
+	_ = f.Register("matrix", func() coreCalculator { return &MatrixExponentiation{} })
+	_ = f.Register("fft", func() coreCalculator { return &FFTBasedCalculator{} })
 
 	return f
 
@@ -69,13 +69,14 @@ func NewDefaultFactory() *DefaultFactory {
 // Parameters:
 //   - name: The unique identifier for the calculator type.
 //   - creator: A function that creates a new coreCalculator instance.
-func (f *DefaultFactory) Register(name string, creator func() coreCalculator) {
+func (f *DefaultFactory) Register(name string, creator func() coreCalculator) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	f.creators[name] = creator
 	// Clear cached calculator if it exists, so it will be recreated with the new creator
 	delete(f.calculators, name)
+	return nil
 }
 
 // Create creates a new Calculator instance by name.
@@ -231,6 +232,6 @@ func GlobalFactory() *DefaultFactory {
 // Parameters:
 //   - name: The unique identifier for the calculator type.
 //   - creator: A function that creates a new coreCalculator instance.
-func RegisterCalculator(name string, creator func() coreCalculator) {
-	globalFactory.Register(name, creator)
+func RegisterCalculator(name string, creator func() coreCalculator) error {
+	return globalFactory.Register(name, creator)
 }
