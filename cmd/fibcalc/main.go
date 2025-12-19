@@ -18,6 +18,8 @@ func init() {
 	// Configure zerolog global logger to write all logs to stderr instead of stdout
 	// This prevents JSON logs from interfering with the progress bar spinner on stdout
 	log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	// Set global log level to Info to suppress Debug logs by default
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
 func main() {

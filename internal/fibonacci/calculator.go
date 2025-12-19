@@ -306,7 +306,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 		calculationsTotal.WithLabelValues(algoName, status).Inc()
 		calculationDuration.WithLabelValues(algoName).Observe(duration)
 
-		log.Info().
+		log.Debug().
 			Str("algo", algoName).
 			Uint64("n", n).
 			Float64("duration", duration).
