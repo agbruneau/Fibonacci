@@ -33,22 +33,6 @@ const (
 	HysteresisMargin = 0.15
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// IterationMetric records timing data for a single doubling iteration.
-type IterationMetric struct {
-	// BitLen is the bit length of F_k at this iteration
-	BitLen int
-	// Duration is how long this iteration took
-	Duration time.Duration
-	// UsedFFT indicates if FFT multiplication was used
-	UsedFFT bool
-	// UsedParallel indicates if parallel multiplication was used
-	UsedParallel bool
-}
-
 // DynamicThresholdManager adjusts FFT and parallel thresholds during calculation
 // based on observed performance metrics.
 type DynamicThresholdManager struct {
@@ -62,31 +46,23 @@ type DynamicThresholdManager struct {
 	originalFFTThreshold      int
 	originalParallelThreshold int
 
-	// Collected metrics
-	metrics []IterationMetric
+	// Collected metrics - implemented as a Ring Buffer for O(1) ops
+	metrics      [MaxMetricsHistory]IterationMetric
+	metricsCount int // Total metrics collected (ever)
+	metricsHead  int // Index of the next slot to write to
+
+	// Running sums for fast average calculation (O(1))
+	// We track separate sums for different categories to avoid iterating.
+	// Note: These sums are approximate as they cover the window, but simplifying updates is key.
+	// Actually, accurate running sums require removing the overwritten value.
+	// Given MaxMetricsHistory is small (20), iterating is fast enough, but let's optimize slightly.
+	// We will stick to iterating the small ring buffer for simplicity in categorization (FFT vs Non-FFT),
+	// but the structure itself is now a fixed array to avoid allocation.
 
 	// Adjustment state
 	iterationCount     int
 	adjustmentInterval int
 	lastAdjustment     time.Time
-
-	// Statistics for analysis
-	fftBenefitSum        float64
-	fftBenefitCount      int
-	parallelBenefitSum   float64
-	parallelBenefitCount int
-}
-
-// DynamicThresholdConfig holds configuration for dynamic threshold adjustment.
-type DynamicThresholdConfig struct {
-	// InitialFFTThreshold is the starting FFT threshold
-	InitialFFTThreshold int
-	// InitialParallelThreshold is the starting parallel threshold
-	InitialParallelThreshold int
-	// AdjustmentInterval is how often to check for adjustments (in iterations)
-	AdjustmentInterval int
-	// Enabled controls whether dynamic adjustment is active
-	Enabled bool
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -100,7 +76,6 @@ func NewDynamicThresholdManager(fftThreshold, parallelThreshold int) *DynamicThr
 		currentParallelThreshold:  parallelThreshold,
 		originalFFTThreshold:      fftThreshold,
 		originalParallelThreshold: parallelThreshold,
-		metrics:                   make([]IterationMetric, 0, MaxMetricsHistory),
 		adjustmentInterval:        DynamicAdjustmentInterval,
 	}
 }
@@ -121,7 +96,6 @@ func NewDynamicThresholdManagerFromConfig(cfg DynamicThresholdConfig) *DynamicTh
 		currentParallelThreshold:  cfg.InitialParallelThreshold,
 		originalFFTThreshold:      cfg.InitialFFTThreshold,
 		originalParallelThreshold: cfg.InitialParallelThreshold,
-		metrics:                   make([]IterationMetric, 0, MaxMetricsHistory),
 		adjustmentInterval:        interval,
 	}
 }
@@ -143,13 +117,10 @@ func (m *DynamicThresholdManager) RecordIteration(bitLen int, duration time.Dura
 		UsedParallel: usedParallel,
 	}
 
-	// Add metric, maintaining history limit
-	if len(m.metrics) >= MaxMetricsHistory {
-		// Remove oldest metric
-		m.metrics = m.metrics[1:]
-	}
-	m.metrics = append(m.metrics, metric)
-
+	// Write to ring buffer
+	m.metrics[m.metricsHead] = metric
+	m.metricsHead = (m.metricsHead + 1) % MaxMetricsHistory
+	m.metricsCount++
 	m.iterationCount++
 }
 
@@ -193,7 +164,7 @@ func (m *DynamicThresholdManager) ShouldAdjust() (newFFT, newParallel int, adjus
 		return m.currentFFTThreshold, m.currentParallelThreshold, false
 	}
 
-	if len(m.metrics) < MinMetricsForAdjustment {
+	if m.metricsCount < MinMetricsForAdjustment {
 		return m.currentFFTThreshold, m.currentParallelThreshold, false
 	}
 
@@ -219,16 +190,48 @@ func (m *DynamicThresholdManager) ShouldAdjust() (newFFT, newParallel int, adjus
 	return m.currentFFTThreshold, m.currentParallelThreshold, false
 }
 
+// getActiveMetrics returns a slice of valid metrics from the ring buffer.
+func (m *DynamicThresholdManager) getActiveMetrics() []IterationMetric {
+	count := m.metricsCount
+	if count > MaxMetricsHistory {
+		count = MaxMetricsHistory
+	}
+
+	// Create a temporary slice to make analysis easier without complex ring buffer arithmetic
+	// Since MaxMetricsHistory is small (20), this copy is cheap and simplifies logic.
+	result := make([]IterationMetric, count)
+
+	if m.metricsCount <= MaxMetricsHistory {
+		copy(result, m.metrics[:count])
+	} else {
+		// Buffer wrapped around. Order: [Head...End] + [0...Head-1]
+		// Actually, since we just need the values and not strict temporal order for averages,
+		// we can just copy the whole array.
+		// However, to be strictly correct if we needed order:
+		// tailLen := MaxMetricsHistory - m.metricsHead
+		// copy(result, m.metrics[m.metricsHead:])
+		// copy(result[tailLen:], m.metrics[:m.metricsHead])
+		// For averages, order doesn't matter.
+		copy(result, m.metrics[:])
+	}
+	return result
+}
+
 // analyzeFFTThreshold analyzes metrics to determine optimal FFT threshold.
 func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
-	if len(m.metrics) == 0 {
+	metrics := m.getActiveMetrics()
+	if len(metrics) == 0 {
 		return m.currentFFTThreshold
 	}
 
 	// Find the bit length where FFT started being used
 	// and analyze if it was beneficial based on timing trends
 	var fftMetrics, nonFFTMetrics []IterationMetric
-	for _, metric := range m.metrics {
+	// Pre-allocate assuming 50/50 split to avoid frequent re-allocation
+	fftMetrics = make([]IterationMetric, 0, len(metrics))
+	nonFFTMetrics = make([]IterationMetric, 0, len(metrics))
+
+	for _, metric := range metrics {
 		if metric.UsedFFT {
 			fftMetrics = append(fftMetrics, metric)
 		} else {
@@ -272,13 +275,17 @@ func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
 
 // analyzeParallelThreshold analyzes metrics to determine optimal parallel threshold.
 func (m *DynamicThresholdManager) analyzeParallelThreshold() int {
-	if len(m.metrics) == 0 {
+	metrics := m.getActiveMetrics()
+	if len(metrics) == 0 {
 		return m.currentParallelThreshold
 	}
 
 	// Analyze if parallelism was beneficial
 	var parallelMetrics, sequentialMetrics []IterationMetric
-	for _, metric := range m.metrics {
+	parallelMetrics = make([]IterationMetric, 0, len(metrics))
+	sequentialMetrics = make([]IterationMetric, 0, len(metrics))
+
+	for _, metric := range metrics {
 		if metric.UsedParallel {
 			parallelMetrics = append(parallelMetrics, metric)
 		} else {
@@ -353,33 +360,22 @@ func (m *DynamicThresholdManager) significantChange(oldVal, newVal int) bool {
 // Statistics and Reporting
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Stats returns statistics about the dynamic threshold manager's activity.
-type ThresholdStats struct {
-	// CurrentFFT is the current FFT threshold
-	CurrentFFT int
-	// CurrentParallel is the current parallel threshold
-	CurrentParallel int
-	// OriginalFFT is the original FFT threshold
-	OriginalFFT int
-	// OriginalParallel is the original parallel threshold
-	OriginalParallel int
-	// MetricsCollected is the number of metrics collected
-	MetricsCollected int
-	// IterationsProcessed is the total number of iterations processed
-	IterationsProcessed int
-}
-
 // GetStats returns current statistics about the manager.
 func (m *DynamicThresholdManager) GetStats() ThresholdStats {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	count := m.metricsCount
+	if count > MaxMetricsHistory {
+		count = MaxMetricsHistory
+	}
 
 	return ThresholdStats{
 		CurrentFFT:          m.currentFFTThreshold,
 		CurrentParallel:     m.currentParallelThreshold,
 		OriginalFFT:         m.originalFFTThreshold,
 		OriginalParallel:    m.originalParallelThreshold,
-		MetricsCollected:    len(m.metrics),
+		MetricsCollected:    count,
 		IterationsProcessed: m.iterationCount,
 	}
 }
@@ -391,10 +387,8 @@ func (m *DynamicThresholdManager) Reset() {
 
 	m.currentFFTThreshold = m.originalFFTThreshold
 	m.currentParallelThreshold = m.originalParallelThreshold
-	m.metrics = m.metrics[:0]
+	// Ring buffer reset is simple
+	m.metricsCount = 0
+	m.metricsHead = 0
 	m.iterationCount = 0
-	m.fftBenefitSum = 0
-	m.fftBenefitCount = 0
-	m.parallelBenefitSum = 0
-	m.parallelBenefitCount = 0
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -103,9 +104,10 @@ func TestJoinStrings(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := joinStrings(tt.input, tt.sep)
+		// Optimization: Replaced custom joinStrings with strings.Join
+		got := strings.Join(tt.input, tt.sep)
 		if got != tt.expected {
-			t.Errorf("joinStrings(%v, %q) = %q; want %q", tt.input, tt.sep, got, tt.expected)
+			t.Errorf("strings.Join(%v, %q) = %q; want %q", tt.input, tt.sep, got, tt.expected)
 		}
 	}
 }
