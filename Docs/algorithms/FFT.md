@@ -37,6 +37,26 @@ Therefore:
 a * b = IDFT(DFT(a) × DFT(b))
 ```
 
+### Visualization
+
+```mermaid
+sequenceDiagram
+    participant A as Number A
+    participant B as Number B
+    participant FFT as FFT Engine
+    participant Res as Result
+
+    A->>FFT: Convert to limbs
+    B->>FFT: Convert to limbs
+    FFT->>FFT: Zero Padding (Power of 2)
+    FFT->>FFT: Forward FFT (A)
+    FFT->>FFT: Forward FFT (B)
+    FFT->>FFT: Pointwise Multiplication (A*B)
+    FFT->>FFT: Inverse FFT (Result)
+    FFT->>Res: Carry Propagation
+    Res->>Res: Reassemble BigInt
+```
+
 ### FFT Multiplication Algorithm
 
 1. **Padding**: Extend numbers to a power of 2 length
