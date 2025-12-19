@@ -30,10 +30,10 @@ const (
 // MicroBenchTestSizes defines the word sizes to test for threshold estimation.
 // These sizes are chosen to span the critical ranges where algorithm switches occur.
 var MicroBenchTestSizes = []int{
-	500,    // ~32K bits - small, definitely Karatsuba
-	2000,   // ~128K bits - medium, near parallel threshold
-	8000,   // ~512K bits - large, near FFT threshold
-	16000,  // ~1M bits - very large, FFT territory
+	500,   // ~32K bits - small, definitely Karatsuba
+	2000,  // ~128K bits - medium, near parallel threshold
+	8000,  // ~512K bits - large, near FFT threshold
+	16000, // ~1M bits - very large, FFT territory
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,11 +64,11 @@ type ThresholdResults struct {
 
 // testResult holds timing data for a single configuration test.
 type testResult struct {
-	wordSize  int
-	useFFT    bool
-	parallel  bool
-	duration  time.Duration
-	err       error
+	wordSize int
+	useFFT   bool
+	parallel bool
+	duration time.Duration
+	err      error
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ func NewMicroBenchmark() *MicroBenchmark {
 //   - error: An error if the benchmark failed critically
 func (mb *MicroBenchmark) RunQuick(ctx context.Context) (ThresholdResults, error) {
 	start := time.Now()
-	
+
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(ctx, mb.Timeout)
 	defer cancel()
@@ -148,7 +148,7 @@ func (mb *MicroBenchmark) runParallelTests(ctx context.Context) []testResult {
 			}
 
 			dur, err := mb.runSingleTest(ctx, c.wordSize, c.useFFT, c.parallel)
-			
+
 			mu.Lock()
 			results = append(results, testResult{
 				wordSize: c.wordSize,
@@ -379,4 +379,3 @@ func QuickCalibrateWithDefaults(ctx context.Context, defaultFFT, defaultParallel
 	}
 	return results.FFTThreshold, results.ParallelThreshold
 }
-

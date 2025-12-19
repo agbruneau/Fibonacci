@@ -228,4 +228,3 @@ func EstimateBumpCapacity(wordLen int) int {
 
 	return total
 }
-

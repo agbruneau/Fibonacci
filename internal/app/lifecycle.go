@@ -74,4 +74,3 @@ func (c *CancelFuncs) Cleanup() {
 		c.CancelTimeout()
 	}
 }
-

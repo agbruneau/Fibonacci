@@ -84,4 +84,3 @@ func (s *CalculatorService) Calculate(ctx context.Context, algoName string, n ui
 	// where progress updates might not be needed or handled differently.
 	return calc.Calculate(ctx, nil, 0, n, s.config.ToCalculationOptions())
 }
-

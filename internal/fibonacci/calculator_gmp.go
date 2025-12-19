@@ -143,16 +143,16 @@ func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter ProgressRepo
 
 		// Code in previous thought:
 		/*
-		t1.MulUint32(b, 2)
-		t1.Sub(t1, a)
-		t1.Mul(a, t1)
+			t1.MulUint32(b, 2)
+			t1.Sub(t1, a)
+			t1.Mul(a, t1)
 
-		t2.Mul(a, a)
-		a.Mul(b, b) // a becomes b^2
-		t2.Add(t2, a)
+			t2.Mul(a, a)
+			a.Mul(b, b) // a becomes b^2
+			t2.Add(t2, a)
 
-		a.Set(t1)
-		b.Set(t2)
+			a.Set(t1)
+			b.Set(t2)
 		*/
 		// This looks correct.
 

@@ -1,0 +1,932 @@
+﻿golangci-lint : level=warning 
+msg="[config_reader] The 
+configuration option 
+`run.skip-dirs-use-default` is 
+deprecated, please use `issues.ex
+clude-dirs-use-default`."
+Au caractère Ligne:1 : 1
++ golangci-lint run 
+--issues-exit-code=0 2>&1 | 
+Out-File -FilePath lint ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo          : No 
+   tSpecified: (level=warning m  
+  ...-use-default`.":String) [   
+ ], RemoteException
+    + FullyQualifiedErrorId : Na 
+   tiveCommandError
+ 
+level=warning msg="The linter 
+'exportloopref' is deprecated 
+(since v1.60.2) due to: Since 
+Go1.22 (loopvar) this linter is 
+no longer relevant. Replaced by 
+copyloopvar."
+level=error 
+msg="[linters_context] 
+exportloopref: This linter is 
+fully inactivated: it will not 
+produce any reports."
+internal\config\env.go:110:1: cyclomatic complexity 25 of func `applyEnvOverrides` is high (> 15) (gocyclo)
+func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
+^
+internal\config\env.go:1:1: File is not properly formatted (gofmt)
+// Package config provides the configuration management for the fibcalc application.
+^
+internal\config\config_extra_test.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\fibonacci\fft_squaring_test.go:322:14: Error return value is not checked (errcheck)
+		smartSquare(z, x, 0, 0)
+		           ^
+internal\fibonacci\fft_squaring_test.go:329:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\fibonacci\fft_squaring_test.go:335:14: Error return value is not checked (errcheck)
+		smartSquare(z, x, 0, 0)
+		           ^
+internal\fibonacci\fft_squaring_test.go:346:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\fibonacci\fft_squaring_test.go:352:14: Error return value is not checked (errcheck)
+		smartSquare(z, x, 1000, 0)
+		           ^
+internal\fibonacci\fft_squaring_test.go:359:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\fibonacci\fft_squaring_test.go:365:15: Error return value is not checked (errcheck)
+			smartSquare(z, x, 1000, 0)
+			           ^
+internal\fibonacci\fft_squaring_test.go:372:17: Error return value is not checked (errcheck)
+			smartMultiply(z, x, x, 1000, 0)
+			             ^
+internal\fibonacci\registry_test.go:23:19: Error return value of `factory.Register` is not checked (errcheck)
+		factory.Register("test", func() coreCalculator { return &mockCoreCalculator{} })
+		                ^
+internal\fibonacci\registry_test.go:120:20: Error return value is not checked (errcheck)
+	RegisterCalculator("global_test", func() coreCalculator { return &mockCoreCalculator{} })
+	                  ^
+internal\fibonacci\testing_test.go:103:12: Error return value of `f.Register` is not checked (errcheck)
+	f.Register("test", func() coreCalculator { return &OptimizedFastDoubling{} })
+	          ^
+internal\fibonacci\fft.go:95:1: cognitive complexity 33 of func `executeDoublingStepFFT` is high (> 30) (gocognit)
+func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) error {
+^
+internal\fibonacci\matrix_types.go:145:1: cyclomatic complexity 26 of func `releaseMatrixState` is high (> 15) (gocyclo)
+func releaseMatrixState(s *matrixState) {
+^
+internal\fibonacci\doubling_framework.go:204:14: G115: integer overflow conversion int -> uint (gosec)
+		if (n>>uint(i))&1 == 1 {
+		           ^
+internal\fibonacci\matrix_framework.go:65:21: G115: integer overflow conversion int -> uint (gosec)
+		if (exponent>>uint(i))&1 == 1 {
+		                  ^
+internal\fibonacci\matrix_ops.go:22:42: G115: integer overflow conversion int -> int32 (gosec)
+	defaultStrassenThresholdBits.Store(int32(bits))
+	                                        ^
+internal\fibonacci\fft.go:111:2: var-naming: don't use underscores in Go names; var p_fk should be pFk (revive)
+	p_fk := bigfft.PolyFromInt(s.F_k, k, m)
+	^
+internal\fibonacci\fft.go:117:2: var-naming: don't use underscores in Go names; var p_fk1 should be pFk1 (revive)
+	p_fk1 := bigfft.PolyFromInt(s.F_k1, k, m)
+	^
+internal\fibonacci\fft.go:123:2: var-naming: don't use underscores in Go names; var p_t2 should be pT2 (revive)
+	p_t2 := bigfft.PolyFromInt(s.T2, k, m)
+	^
+internal\fibonacci\fastdoubling.go:198:2: var-naming: don't use underscores in Go names; struct field F_k should be FK (revive)
+	F_k, F_k1, T1, T2, T3, T4 *big.Int
+	^
+internal\fibonacci\matrix_ops.go:180:2: var-naming: don't use underscores in Go names; var b_ad should be bAd (revive)
+	b_ad, ad := state.t4, state.t5
+	^
+internal\fibonacci\fft.go:43:1: paramTypeCombine: func(z, x, y *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) could be replaced with func(z, x, y *big.Int, fftThreshold, karatsubaThreshold int) (*big.Int, error) (gocritic)
+func smartMultiply(z, x, y *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) {
+^
+internal\fibonacci\fft.go:69:1: paramTypeCombine: func(z, x *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) could be replaced with func(z, x *big.Int, fftThreshold, karatsubaThreshold int) (*big.Int, error) (gocritic)
+func smartSquare(z, x *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) {
+^
+internal\fibonacci\matrix_ops.go:272:2: builtinShadow: shadowing of predeclared identifier: max (gocritic)
+	max := aLen
+	^
+internal\fibonacci\matrix_ops.go:295:2: builtinShadow: shadowing of predeclared identifier: max (gocritic)
+	max := maxBitLenMatrix(m1)
+	^
+internal\fibonacci\matrix_ops.go:111:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s1.Add(m1.c, m1.d) // S1 = A21 + A22
+	                   ^
+internal\fibonacci\matrix_ops.go:113:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s3.Sub(m1.a, m1.c) // S3 = A11 - A21
+	                   ^
+internal\fibonacci\matrix_ops.go:115:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s5.Sub(m2.b, m2.a) // S5 = B12 - B11
+	                   ^
+internal\fibonacci\matrix_ops.go:117:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s7.Sub(m2.d, m2.b) // S7 = B22 - B12
+	                   ^
+internal\fibonacci\matrix_ops.go:146:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// C12 = T1 + P5 + P6
+	^
+internal\fibonacci\matrix_ops.go:48:1: paramTypeCombine: func(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error could be replaced with func(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold, strassenThreshold int) error (gocritic)
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error {
+^
+internal\fibonacci\fft_nil_test.go:89:38: commentedOutCode: may want to remove commented-out code (gocritic)
+		expected := new(big.Int).Mul(x, y) // 999 * 1001 = 999999
+		                                   ^
+internal\fibonacci\fft_nil_test.go:105:38: commentedOutCode: may want to remove commented-out code (gocritic)
+		expected := new(big.Int).Mul(x, x) // 999^2 = 998001
+		                                   ^
+internal\fibonacci\calculator.go:1:1: File is not properly formatted (gofmt)
+// Package fibonacci provides implementations for calculating Fibonacci numbers.
+^
+internal\fibonacci\dynamic_threshold.go:1:1: File is not properly formatted (gofmt)
+// Package fibonacci provides implementations for calculating Fibonacci numbers.
+^
+internal\fibonacci\matrix.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\matrix_ops.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\matrix_types.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\options.go:1:1: File is not properly formatted (gofmt)
+// Package fibonacci provides implementations for calculating Fibonacci numbers.
+^
+internal\fibonacci\progress.go:1:1: File is not properly formatted (gofmt)
+// Package fibonacci provides implementations for calculating Fibonacci numbers.
+^
+internal\fibonacci\threshold_types.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\common_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\options_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\progress_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\doubling_framework.go:158:54: `cancelled` is a misspelling of `canceled` (misspell)
+			return nil, fmt.Errorf("fast doubling calculation cancelled at bit %d/%d: %w", i, numBits-1, err)
+			                                                  ^
+internal\fibonacci\matrix_framework.go:62:62: `cancelled` is a misspelling of `canceled` (misspell)
+			return nil, fmt.Errorf("matrix exponentiation calculation cancelled at bit %d/%d: %w", i, numBits-1, err)
+			                                                          ^
+internal\fibonacci\progress_test.go:168:3: SA9003: empty branch (staticcheck)
+		if result == 0 {
+		^
+internal\fibonacci\registry_test.go:85:4: SA9003: empty branch (staticcheck)
+			if r := recover(); r != nil {
+			^
+internal\fibonacci\registry.go:63:1: unnecessary trailing newline (whitespace)
+}
+^
+internal\parallel\errors.go:61:1: File is not properly formatted (gofmt)
+
+^
+internal\server\options.go:11:6: exported: type name will be used as server.ServerOption by other packages, and that is repetitive; consider calling this Option (revive)
+type ServerOption func(*Server)
+     ^
+internal\server\options.go:61:6: exported: type name will be used as server.ServerTimeouts by other packages, and that is repetitive; consider calling this Timeouts (revive)
+type ServerTimeouts struct {
+     ^
+internal\server\middleware_test.go:80:11: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+			req := httptest.NewRequest("GET", "/", nil)
+			       ^
+internal\server\server_stress_test.go:103:1: unnamedResult: consider giving a name to these results (gocritic)
+func setupStressTestServer(t *testing.T, calc fibonacci.Calculator, rateLimit int) (*httptest.Server, func()) {
+^
+internal\server\server_test.go:120:11: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, nil)
+			       ^
+internal\server\server_test.go:180:9: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+	req := httptest.NewRequest("GET", "/health", nil)
+	       ^
+internal\server\server_test.go:212:9: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+	req := httptest.NewRequest("GET", "/algorithms", nil)
+	       ^
+internal\server\server_test.go:255:11: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+			req := httptest.NewRequest(tt.method, tt.endpoint, nil)
+			       ^
+internal\server\server_test.go:289:9: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+	req := httptest.NewRequest("GET", "/test", nil)
+	       ^
+internal\server\server_test.go:331:9: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+	req := httptest.NewRequest("GET", "/calculate?n=10", nil)
+	       ^
+internal\server\server_test.go:417:11: httpNoBody: http.NoBody should be preferred to the nil request body (gocritic)
+			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, nil)
+			       ^
+internal\server\handlers.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\metrics.go:1:1: File is not properly formatted (gofmt)
+// Package server provides the HTTP server implementation for the Fibonacci calculator API.
+^
+internal\server\middleware.go:1:1: File is not properly formatted (gofmt)
+// Package server provides the HTTP server implementation for the Fibonacci calculator API.
+^
+internal\server\options.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\rate_limit.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\security.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\server.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\types.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\middleware_test.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\server_advanced_test.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\server_load_test.go:1:1: File is not properly formatted (gofmt)
+package server
+^
+internal\server\server_advanced_test.go:57:9: unusedwrite: unused write to field logger (govet)
+		logger: nil, // Should handle nil logger or we set one
+		      ^
+internal\server\server_advanced_test.go:56:2: ineffectual assignment to server (ineffassign)
+	server := &Server{
+	^
+internal\server\server_load_test.go:87:28: (*net/http.Client).Get must not be called (noctx)
+				resp, err := client.Get(url)
+				                       ^
+internal\server\server_load_test.go:145:26: (*net/http.Client).Get must not be called (noctx)
+		resp, err := client.Get(ts.URL + "/calculate?n=10&algo=fast")
+		                       ^
+internal\server\server_load_test.go:180:23: net/http.Get must not be called (noctx)
+	resp, err := http.Get(ts.URL + "/health")
+	                     ^
+internal\server\server_load_test.go:222:23: net/http.Get must not be called (noctx)
+	resp, err := http.Get(ts.URL + "/calculate?n=5000&algo=fast")
+	                     ^
+internal\server\server_load_test.go:257:23: net/http.Get must not be called (noctx)
+	resp, err := http.Get(ts.URL + "/calculate?n=10&algo=fast")
+	                     ^
+internal\server\server_load_test.go:264:22: net/http.Get must not be called (noctx)
+	resp, err = http.Get(ts.URL + "/metrics")
+	                    ^
+internal\server\server_load_test.go:303:27: (*net/http.Client).Get must not be called (noctx)
+			resp, err := client.Get(ts.URL + "/calculate?n=100&algo=fast")
+			                       ^
+internal\server\server_load_test.go:335:27: (*net/http.Client).Get must not be called (noctx)
+			resp, err := client.Get(ts.URL + "/health")
+			                       ^
+internal\server\server_stress_test.go:156:28: (*net/http.Client).Get must not be called (noctx)
+				resp, err := client.Get(url)
+				                       ^
+internal\server\server_stress_test.go:370:28: (*net/http.Client).Get must not be called (noctx)
+				resp, err := client.Get(ts.URL + ep)
+				                       ^
+internal\server\server_stress_test.go:474:27: (*net/http.Client).Get must not be called (noctx)
+			resp, err := client.Get(url)
+			                       ^
+internal\server\server_advanced_test.go:86:2: SA9003: empty branch (staticcheck)
+	if w.Body.Len() > 0 {
+	^
+internal\app\app.go:248:1: cyclomatic complexity 16 of func `(*Application).analyzeResultsWithOutput` is high (> 15) (gocyclo)
+func (a *Application) analyzeResultsWithOutput(results []orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) int {
+^
+internal\app\lifecycle.go:77:1: File is not properly formatted (gofmt)
+
+^
+internal\app\version.go:85:1: File is not properly formatted (gofmt)
+
+^
+internal\app\app_test.go:1:1: File is not properly formatted (gofmt)
+package app
+^
+internal\cli\provider.go:16:6: exported: type name will be used as cli.CLIColorProvider by other packages, and that is repetitive; consider calling this ColorProvider (revive)
+type CLIColorProvider struct{}
+     ^
+internal\cli\output.go:46:30: octalLiteral: use new octal literal style, 0o755 (gocritic)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+		                           ^
+internal\cli\repl.go:251:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if r.config.HexOutput {
+	^
+internal\cli\ui.go:345:5: emptyStringTest: replace `len(s) == 0` with `s == ""` (gocritic)
+	if len(s) == 0 {
+	   ^
+internal\cli\ui.go:324:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if verbose {
+	^
+internal\cli\progress_eta_test.go:221:50: emptyStringTest: replace `len(s) > 0` with `s != ""` (gocritic)
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+	                                                ^
+internal\cli\calculate.go:87:1: File is not properly formatted (gofmt)
+
+^
+internal\cli\provider.go:29:1: File is not properly formatted (gofmt)
+
+^
+internal\cli\themes.go:1:1: File is not properly formatted (gofmt)
+// Package cli provides theme support for the command-line interface.
+^
+internal\cli\ui.go:1:1: File is not properly formatted (gofmt)
+// The cli package provides functions for building a command-line interface (CLI)
+^
+internal\cli\goldens_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\repl_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\themes_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\ui_advanced_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\orchestration\orchestrator.go:76:8: Error return value of `g.Wait` is not checked (errcheck)
+	g.Wait()
+	      ^
+internal\service\calculator_service.go:87:1: File is not properly formatted (gofmt)
+
+^
+internal\service\calculator_service_test.go:1:1: File is not properly formatted (gofmt)
+package service
+^
+internal\service\calculator_service_test.go:194:9: nilness: impossible condition: non-nil == nil (govet)
+	if svc == nil {
+	       ^
+internal\service\calculator_service_test.go:169:11: `cancelled` is a misspelling of `canceled` (misspell)
+	// Use a cancelled context
+	         ^
+internal\service\calculator_service_test.go:193:21: SA4023(related information): the lhs of the comparison gets its value from here and has a concrete type (staticcheck)
+	var svc Service = &CalculatorService{}
+	                   ^
+test\e2e\cli_e2e_test.go:1:1: File is not properly formatted (gofmt)
+package e2e
+^
+cmd\fibcalc\main.go:1:1: File is not properly formatted (gofmt)
+// Package main is the entry point of the fibcalc application.
+^
+cmd\fibcalc\main_test.go:1:1: File is not properly formatted (gofmt)
+package main
+^
+internal\bigfft\fft_parallel_test.go:63:6: Error return value is not checked (errcheck)
+		Mul(x, y)
+		   ^
+internal\bigfft\fft_poly.go:293:9: Error return value is not checked (errcheck)
+	fourier(values, twisted, false, n, k)
+	       ^
+internal\bigfft\fft_poly.go:311:9: Error return value is not checked (errcheck)
+	fourier(q, v.Values, true, n, k)
+	       ^
+internal\bigfft\fft_precision_test.go:482:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(aBytes)
+	         ^
+internal\bigfft\fft_precision_test.go:483:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(bBytes)
+	         ^
+internal\bigfft\fft_precision_test.go:503:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(aBytes)
+	         ^
+internal\bigfft\fft_precision_test.go:504:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(bBytes)
+	         ^
+internal\bigfft\pool_test.go:453:8: Error return value is not checked (errcheck)
+		MulTo(z, x, y)
+		     ^
+internal\bigfft\pool_test.go:465:8: Error return value is not checked (errcheck)
+		MulTo(z, x, y)
+		     ^
+internal\bigfft\pool_test.go:475:7: Error return value is not checked (errcheck)
+			Mul(x, y)
+			   ^
+internal\bigfft\pool_test.go:482:9: Error return value is not checked (errcheck)
+			MulTo(z, x, y)
+			     ^
+internal\bigfft\pool_test.go:490:9: Error return value is not checked (errcheck)
+			MulTo(z, x, y)
+			     ^
+internal\bigfft\sqr_test.go:372:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\bigfft\sqr_test.go:389:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\bigfft\sqr_test.go:415:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\bigfft\sqr_test.go:426:7: Error return value is not checked (errcheck)
+			Mul(x, x)
+			   ^
+internal\bigfft\fermat.go:100:18: G115: integer overflow conversion int -> uint (gosec)
+	shlVU(z, z, uint(kb))
+	                ^
+internal\bigfft\fft.go:195:19: G115: integer overflow conversion uint -> int (gosec)
+	n := 2*m*_W + int(k) // necessary bits
+	                 ^
+internal\bigfft\fft_cache.go:107:52: G115: integer overflow conversion int -> uint64 (gosec)
+	binary.LittleEndian.PutUint64(params[8:16], uint64(n))
+	                                                  ^
+internal\bigfft\fft_poly.go:250:21: G115: integer overflow conversion uint -> int (gosec)
+		u.Shift(p[i], -int(k))
+		                  ^
+internal\bigfft\fft_poly.go:317:21: G115: integer overflow conversion uint -> int (gosec)
+		u.Shift(q[i], -int(k)-i*╬©shift)
+		                  ^
+internal\bigfft\memory_est.go:20:16: G115: integer overflow conversion uint64 -> int (gosec)
+	wordLen := int((bitLen + 63) / 64)
+	              ^
+internal\bigfft\scan.go:38:34: G115: integer overflow conversion uint -> int (gosec)
+	for i := len(s.powers); i <= int(k); i++ {
+	                                ^
+internal\bigfft\fermat.go:43:9: indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (revive)
+	} else {
+		addVW(z, z, 1)
+	}
+internal\bigfft\fft_poly.go:325:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) Mul(q *PolValues) (PolValues, error) {
+	return p.mul(q, GetPoolAllocator())
+}
+internal\bigfft\fft_poly.go:331:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, error) {
+	return p.mul(q, NewBumpAllocatorAdapter(ba))
+}
+internal\bigfft\fft_poly.go:335:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
+	n := p.N
+	K := len(p.Values)
+	var r PolValues
+	r.K, r.N = p.K, p.N
+
+	// Use regular allocation for returned data
+	r.Values = make([]fermat, K)
+	wordCount := K * (n + 1)
+	bits := make([]big.Word, wordCount)
+
+	// Use allocator for temporary multiplication result
+	// The temporary buffer needs to be 8*n (or 8*n - 1 if optimized)
+	// We use 8*n to be safe and consistent with previous code
+	buf, cleanup := alloc.AllocFermatTemp(8 * n)
+	defer cleanup()
+
+	for i := 0; i < K; i++ {
+		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		z := buf.Mul(p.Values[i], q.Values[i])
+		copy(r.Values[i], z)
+	}
+
+	return r, nil
+}
+internal\bigfft\fft_poly.go:363:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) Sqr() (PolValues, error) {
+	return p.sqr(GetPoolAllocator())
+}
+internal\bigfft\fft_poly.go:369:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
+	return p.sqr(NewBumpAllocatorAdapter(ba))
+}
+internal\bigfft\fft_poly.go:373:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
+	n := p.N
+	K := len(p.Values)
+	var r PolValues
+	r.K, r.N = p.K, p.N
+
+	// Use regular allocation for returned data
+	r.Values = make([]fermat, K)
+	wordCount := K * (n + 1)
+	bits := make([]big.Word, wordCount)
+
+	// Use allocator for temporary multiplication result
+	buf, cleanup := alloc.AllocFermatTemp(8 * n)
+	defer cleanup()
+
+	for i := 0; i < K; i++ {
+		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		// Square: multiply p.Values[i] by itself
+		z := buf.Mul(p.Values[i], p.Values[i])
+		copy(r.Values[i], z)
+	}
+
+	return r, nil
+}
+internal\bigfft\fft_poly.go:49:22: unexported-return: exported method Int returns unexported type bigfft.nat, which can be annoying to use (revive)
+func (p *Poly) Int() nat {
+                     ^
+internal\bigfft\fft_poly.go:60:31: unexported-return: exported method IntTo returns unexported type bigfft.nat, which can be annoying to use (revive)
+func (p *Poly) IntTo(dst nat) nat {
+                              ^
+internal\bigfft\bump.go:134:45: unexported-return: exported method AllocFermat returns unexported type bigfft.fermat, which can be annoying to use (revive)
+func (ba *BumpAllocator) AllocFermat(n int) fermat {
+                                            ^
+internal\bigfft\bump.go:151:54: unexported-return: exported method AllocFermatSlice returns unexported type []bigfft.fermat, which can be annoying to use (revive)
+func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word) {
+                                                     ^
+internal\bigfft\fermat.go:22:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) norm() {
+	n := len(z) - 1
+	c := z[n]
+	if c == 0 {
+		return
+	}
+	if z[0] >= c {
+		z[n] = 0
+		z[0] -= c
+		return
+	}
+	// z[0] < z[n].
+	subVW(z, z, c) // Subtract c
+	if c > 1 {
+		z[n] -= c - 1
+		c = 1
+	}
+	// Add back c.
+	if z[n] == 1 {
+		z[n] = 0
+		return
+	} else {
+		addVW(z, z, 1)
+	}
+}
+internal\bigfft\fermat.go:49:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Shift(x fermat, k int) {
+	if len(z) != len(x) {
+		panic("len(z) != len(x) in Shift")
+	}
+	n := len(x) - 1
+	// Shift by n*_W is taking the opposite.
+	k %= 2 * n * _W
+	if k < 0 {
+		k += 2 * n * _W
+	}
+	neg := false
+	if k >= n*_W {
+		k -= n * _W
+		neg = true
+	}
+
+	kw, kb := k/_W, k%_W
+
+	z[n] = 1 // Add (-1)
+	if !neg {
+		for i := 0; i < kw; i++ {
+			z[i] = 0
+		}
+		// Shift left by kw words.
+		// x = a┬À2^(n-k) + b
+		// x<<k = (b<<k) - a
+		copy(z[kw:], x[:n-kw])
+		b := subVV(z[:kw+1], z[:kw+1], x[n-kw:])
+		if z[kw+1] > 0 {
+			z[kw+1] -= b
+		} else {
+			subVW(z[kw+1:], z[kw+1:], b)
+		}
+	} else {
+		for i := kw + 1; i < n; i++ {
+			z[i] = 0
+		}
+		// Shift left and negate, by kw words.
+		copy(z[:kw+1], x[n-kw:n+1])            // z_low = x_high
+		b := subVV(z[kw:n], z[kw:n], x[:n-kw]) // z_high -= x_low
+		z[n] -= b
+	}
+	// Add back 1.
+	if z[n] > 0 {
+		z[n]--
+	} else if z[0] < ^big.Word(0) {
+		z[0]++
+	} else {
+		addVW(z, z, 1)
+	}
+	// Shift left by kb bits
+	shlVU(z, z, uint(kb))
+	z.norm()
+}
+internal\bigfft\fermat.go:107:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) ShiftHalf(x fermat, k int, tmp fermat) {
+	n := len(z) - 1
+	if k%2 == 0 {
+		z.Shift(x, k/2)
+		return
+	}
+	u := (k - 1) / 2
+	a := u + (3*_W/4)*n
+	b := u + (_W/4)*n
+	z.Shift(x, a)
+	tmp.Shift(x, b)
+	z.Sub(z, tmp)
+}
+internal\bigfft\fermat.go:122:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Add(x, y fermat) fermat {
+	if len(z) != len(x) {
+		panic("Add: len(z) != len(x)")
+	}
+	addVV(z, x, y) // there cannot be a carry here.
+	z.norm()
+	return z
+}
+internal\bigfft\fermat.go:132:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Sub(x, y fermat) fermat {
+	if len(z) != len(x) {
+		panic("fermat.Sub: len(z) != len(x)")
+	}
+	n := len(y) - 1
+	b := subVV(z[:n], x[:n], y[:n])
+	b += y[n]
+	// If b > 0, we need to subtract b<<n, which is the same as adding b.
+	z[n] = x[n]
+	if z[0] <= ^big.Word(0)-b {
+		z[0] += b
+	} else {
+		addVW(z, z, b)
+	}
+	z.norm()
+	return z
+}
+internal\bigfft\fermat.go:150:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Mul(x, y fermat) fermat {
+	if len(x) != len(y) {
+		panic("Mul: len(x) != len(y)")
+	}
+	n := len(x) - 1
+	if n < smallMulThreshold {
+		z = z[:2*n+2]
+		basicMul(z, x, y)
+		z = z[:2*n+1]
+	} else {
+		var xi, yi, zi big.Int
+		xi.SetBits(x)
+		yi.SetBits(y)
+		zi.SetBits(z)
+		zb := zi.Mul(&xi, &yi).Bits()
+		if len(zb) <= n {
+			// Short product.
+			copy(z, zb)
+			for i := len(zb); i < len(z); i++ {
+				z[i] = 0
+			}
+			return z
+		}
+		z = zb
+	}
+	// len(z) is at most 2n+1.
+	if len(z) > 2*n+1 {
+		panic("len(z) > 2n+1")
+	}
+	// We now have
+	// z = z[:n] + 1<<(n*W) * z[n:2n+1]
+	// which normalizes to:
+	// z = z[:n] - z[n:2n] + z[2n]
+	c1 := big.Word(0)
+	if len(z) > 2*n {
+		c1 = addVW(z[:n], z[:n], z[2*n])
+	}
+	c2 := big.Word(0)
+	if len(z) >= 2*n {
+		c2 = subVV(z[:n], z[:n], z[n:2*n])
+	} else {
+		m := len(z) - n
+		c2 = subVV(z[:m], z[:m], z[n:])
+		c2 = subVW(z[m:n], z[m:n], c2)
+	}
+	// Restore carries.
+	// Subtracting z[n] -= c2 is the same
+	// as z[0] += c2
+	z = z[:n+1]
+	z[n] = c1
+	c := addVW(z, z, c2)
+	if c != 0 {
+		panic("fermat.Mul: unexpected carry after normalization")
+	}
+	z.norm()
+	return z
+}
+internal\bigfft\allocator.go:43:49: unexported-return: exported method AllocFermatTemp returns unexported type bigfft.fermat, which can be annoying to use (revive)
+func (p *PoolAllocator) AllocFermatTemp(n int) (fermat, func()) {
+                                                ^
+internal\bigfft\allocator.go:49:53: unexported-return: exported method AllocFermatSlice returns unexported type []bigfft.fermat, which can be annoying to use (revive)
+func (p *PoolAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
+                                                    ^
+internal\bigfft\allocator.go:79:56: unexported-return: exported method AllocFermatTemp returns unexported type bigfft.fermat, which can be annoying to use (revive)
+func (b *BumpAllocatorAdapter) AllocFermatTemp(n int) (fermat, func()) {
+                                                       ^
+internal\bigfft\allocator.go:84:60: unexported-return: exported method AllocFermatSlice returns unexported type []bigfft.fermat, which can be annoying to use (revive)
+func (b *BumpAllocatorAdapter) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
+                                                           ^
+internal\bigfft\arith_amd64.go:78:6: var-naming: don't use underscores in Go names; func addVV_avx2 should be addVVAvx2 (revive)
+func addVV_avx2(z, x, y []Word) (c Word)
+     ^
+internal\bigfft\arith_amd64.go:81:6: var-naming: don't use underscores in Go names; func subVV_avx2 should be subVVAvx2 (revive)
+func subVV_avx2(z, x, y []Word) (c Word)
+     ^
+internal\bigfft\arith_amd64.go:84:6: var-naming: don't use underscores in Go names; func addMulVVW_avx2 should be addMulVVWAvx2 (revive)
+func addMulVVW_avx2(z, x []Word, y Word) (c Word)
+     ^
+internal\bigfft\cpu_amd64.go:185:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if hasAVX512 && useAVX512Impl {
+	^
+internal\bigfft\fermat.go:87:42: commentedOutCode: may want to remove commented-out code (gocritic)
+		copy(z[:kw+1], x[n-kw:n+1])            // z_low = x_high
+		                                       ^
+internal\bigfft\fermat.go:88:42: commentedOutCode: may want to remove commented-out code (gocritic)
+		b := subVV(z[kw:n], z[kw:n], x[:n-kw]) // z_high -= x_low
+		                                       ^
+internal\bigfft\fermat.go:92:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if z[n] > 0 {
+	^
+internal\bigfft\fermat.go:214:2: sliceClear: rewrite as for-range so compiler can recognize this pattern (gocritic)
+	for i := 0; i < len(z); i++ {
+	^
+internal\bigfft\fft_core.go:7:1: paramTypeCombine: func(dst []fermat, src []fermat, backward bool, n int, k uint) error could be replaced with func(dst, src []fermat, backward bool, n int, k uint) error (gocritic)
+func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
+^
+internal\bigfft\fft_core.go:13:1: paramTypeCombine: func(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) error could be replaced with func(dst, src []fermat, backward bool, n int, k uint, state *fftState) error (gocritic)
+func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) error {
+^
+internal\bigfft\fft_core.go:32:1: paramTypeCombine: func(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error could be replaced with func(dst, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error (gocritic)
+func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
+^
+internal\bigfft\karatsuba.go:196:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// z0 = x0 * y0
+	^
+internal\bigfft\karatsuba.go:224:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// sumX = x0 + x1
+	^
+internal\bigfft\karatsuba.go:229:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// z1 = z1 - z0 - z2
+	^
+internal\bigfft\memory_est.go:37:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if wordLen > 1000000 {
+	^
+internal\bigfft\pool.go:68:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(slice)
+	^
+internal\bigfft\pool.go:130:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(f)
+	^
+internal\bigfft\pool.go:185:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(slice)
+	^
+internal\bigfft\pool.go:240:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(slice)
+	^
+internal\bigfft\pool.go:332:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if n >= 10_000_000 {
+	^
+internal\bigfft\arith_amd64_test.go:432:2: deferUnlambda: can rewrite as `defer selectImplementation()` (gocritic)
+	defer func() {
+	^
+internal\bigfft\arith_amd64_test.go:455:2: deferUnlambda: can rewrite as `defer selectImplementation()` (gocritic)
+	defer func() {
+	^
+internal\bigfft\arith_amd64_test.go:445:9: elseif: can replace 'else {if cond {}}' with 'else if cond {}' (gocritic)
+	} else {
+	       ^
+internal\bigfft\bump_test.go:162:4: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+			cap := EstimateBumpCapacity(tc.wordLen)
+			^
+internal\bigfft\cpu_amd64_extended_test.go:45:2: deferUnlambda: can rewrite as `defer selectImplementation()` (gocritic)
+	defer func() {
+	^
+internal\bigfft\cpu_amd64_extended_test.go:56:2: deferUnlambda: can rewrite as `defer selectImplementation()` (gocritic)
+	defer func() {
+	^
+internal\bigfft\cpu_amd64_extended_test.go:70:2: deferUnlambda: can rewrite as `defer selectImplementation()` (gocritic)
+	defer func() {
+	^
+internal\bigfft\fft_extra_test.go:287:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	if len(p.A) != 3 { // ceil(25/10) = 3
+	                   ^
+internal\bigfft\allocator.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\arith_amd64.go:155:1: File is not properly formatted (gofmt)
+
+^
+internal\bigfft\bump.go:231:1: File is not properly formatted (gofmt)
+
+^
+internal\bigfft\cpu_amd64.go:240:1: File is not properly formatted (gofmt)
+
+^
+internal\bigfft\fft.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\fft_cache.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\fft_core.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\fft_poly.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\fft_recursion.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\karatsuba.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\cpu_amd64_extended_test.go:1:1: File is not properly formatted (gofmt)
+//go:build amd64
+^
+internal\bigfft\fft_cache_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\karatsuba_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fermat.go:37:3: ineffectual assignment to c (ineffassign)
+		c = 1
+		^
+internal\bigfft\pool.go:72:27: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		wordSlicePools[idx].Put(slice[:cap])
+		                        ^
+internal\bigfft\pool.go:133:24: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		fermatPools[idx].Put(f[:cap])
+		                     ^
+internal\bigfft\pool.go:188:26: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		natSlicePools[idx].Put(slice[:cap])
+		                       ^
+internal\bigfft\pool.go:243:29: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		fermatSlicePools[idx].Put(slice[:cap])
+		                          ^
+internal\bigfft\pool.go:345:32: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			wordSlicePools[wordIdx].Put(buf)
+			                            ^
+internal\bigfft\pool.go:354:31: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			fermatPools[fermatIdx].Put(buf)
+			                           ^
+internal\bigfft\pool.go:363:30: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			natSlicePools[natIdx].Put(buf)
+			                          ^
+internal\bigfft\pool.go:372:41: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			fermatSlicePools[fermatSliceIdx].Put(buf)
+			                                     ^
+internal\calibration\profile.go:148:12: G306: Expect WriteFile permissions to be 0600 or less (gosec)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+	          ^
+internal\calibration\microbench.go:200:49: G115: integer overflow conversion int -> uint64 (gosec)
+		bits[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ uint64(i*0x1234567))
+		                                              ^
+internal\calibration\profile.go:17:6: exported: type name will be used as calibration.CalibrationProfile by other packages, and that is repetitive; consider calling this Profile (revive)
+type CalibrationProfile struct {
+     ^
+internal\calibration\calibration.go:19:6: exported: type name will be used as calibration.CalibrationOptions by other packages, and that is repetitive; consider calling this Options (revive)
+type CalibrationOptions struct {
+     ^
+internal\calibration\calibration.go:60:6: Function 'RunCalibrationWithOptions' has too many statements (60 > 50) (funlen)
+func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, opts CalibrationOptions) int {
+     ^
+internal\calibration\adaptive.go:206:1: unnamedResult: consider giving a name to these results (gocritic)
+func ValidateThresholds(parallel, fft, strassen int) (int, int, int) {
+^
+internal\calibration\microbench.go:375:1: unnamedResult: consider giving a name to these results (gocritic)
+func QuickCalibrateWithDefaults(ctx context.Context, defaultFFT, defaultParallel int) (int, int) {
+^
+internal\calibration\profile.go:229:3: nestingReduce: invert if cond, replace body with `continue`, move old body after the statement (gocritic)
+		if n >= r.MinN && n <= r.MaxN && r.ConfidenceScore >= 0.5 {
+		^
+internal\calibration\profile_test.go:205:64: octalLiteral: use new octal literal style, 0o644 (gocritic)
+	if err := os.WriteFile(invalidPath, []byte("not valid json"), 0644); err != nil {
+	                                                              ^
+internal\calibration\calibration.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\io.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\microbench.go:33:1: File is not properly formatted (gofmt)
+	500,    // ~32K bits - small, definitely Karatsuba
+^
+internal\calibration\runner.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\calibration_advanced_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\microbench_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\profile.go:181:2: S1008: should use 'return p.WordSize == wordSize' instead of 'if p.WordSize != wordSize { return false }; return true' (gosimple)
+	if p.WordSize != wordSize {
+	^
+internal\calibration\microbench_test.go:113:36: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Errorf("RunQuick should handle cancelled context gracefully, got err: %v", err)
+		                                 ^
+internal\calibration\microbench_test.go:125:2: SA9003: empty branch (staticcheck)
+	if len(num.Bits()) != words {
+	^
+internal\calibration\microbench.go:169:84: `(*MicroBenchmark).runSingleTest` - `parallel` is unused (unparam)
+func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) {
+                                                                                   ^
+internal\calibration\microbench.go:208:47: multiplyTest - result 0 (*math/big.Int) is never used (unparam)
+func multiplyTest(x, y *big.Int, useFFT bool) *big.Int {
+                                              ^

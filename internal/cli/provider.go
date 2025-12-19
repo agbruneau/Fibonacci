@@ -26,4 +26,3 @@ func (c CLIColorProvider) Yellow() string { return ColorYellow() }
 // Returns:
 //   - string: The ANSI escape code to reset colors.
 func (c CLIColorProvider) Reset() string { return ColorReset() }
-

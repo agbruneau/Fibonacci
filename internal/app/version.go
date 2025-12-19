@@ -82,4 +82,3 @@ func GetVersionInfo() VersionData {
 		Arch:      runtime.GOARCH,
 	}
 }
-

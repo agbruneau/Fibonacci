@@ -58,4 +58,3 @@ func (c *ErrorCollector) Reset() {
 	c.once = sync.Once{}
 	c.err = nil
 }
-

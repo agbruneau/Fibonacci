@@ -84,4 +84,3 @@ func writeOut(out io.Writer, format string, a ...any) {
 		fmt.Fprintln(os.Stderr, "[Output Error]:", err)
 	}
 }
-

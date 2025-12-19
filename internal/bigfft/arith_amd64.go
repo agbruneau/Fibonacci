@@ -152,4 +152,3 @@ func AddMulVVWAuto(z, x []big.Word, y big.Word) big.Word {
 	}
 	return addMulVVW_avx2(z, x, y)
 }
-

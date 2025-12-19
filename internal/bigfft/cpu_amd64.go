@@ -237,4 +237,3 @@ func selectAVX512Impl() {
 		selectAVX2Impl()
 	}
 }
-
