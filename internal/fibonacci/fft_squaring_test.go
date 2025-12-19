@@ -12,6 +12,7 @@ import (
 
 // TestSmartSquarePrecisionSmall verifies smartSquare precision for small numbers.
 func TestSmartSquarePrecisionSmall(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x, expected string
 	}{
@@ -45,6 +46,7 @@ func TestSmartSquarePrecisionSmall(t *testing.T) {
 
 // TestSmartSquareWithFFTThreshold tests smartSquare with various thresholds.
 func TestSmartSquareWithFFTThreshold(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x         string
 		threshold int
@@ -77,6 +79,7 @@ func TestSmartSquareWithFFTThreshold(t *testing.T) {
 
 // TestSmartSquareLarge tests smartSquare with large numbers.
 func TestSmartSquareLarge(t *testing.T) {
+	t.Parallel()
 	xStr := "123456789012345678901234567890123456789012345678901234567890"
 
 	x := new(big.Int)
@@ -128,6 +131,7 @@ func TestSmartSquareVeryLarge(t *testing.T) {
 
 // TestSmartSquareVsSmartMultiplyConsistency verifies that smartSquare(z, x) == smartMultiply(z, x, x).
 func TestSmartSquareVsSmartMultiplyConsistency(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x         string
 		threshold int
@@ -169,6 +173,7 @@ func TestSmartSquareVsSmartMultiplyConsistency(t *testing.T) {
 
 // TestSqrFFTPrecision verifies sqrFFT precision.
 func TestSqrFFTPrecision(t *testing.T) {
+	t.Parallel()
 	testCases := []string{
 		"12345",
 		"999999999",
@@ -195,6 +200,7 @@ func TestSqrFFTPrecision(t *testing.T) {
 
 // TestSqrFFTVsMulFFTConsistency verifies that sqrFFT(x) == mulFFT(x, x).
 func TestSqrFFTVsMulFFTConsistency(t *testing.T) {
+	t.Parallel()
 	testCases := []string{
 		"12345",
 		"999999999",
@@ -227,6 +233,7 @@ func TestSqrFFTVsMulFFTConsistency(t *testing.T) {
 
 // TestSmartSquareZero verifies squaring of zero.
 func TestSmartSquareZero(t *testing.T) {
+	t.Parallel()
 	zero := big.NewInt(0)
 	z := new(big.Int)
 
@@ -241,6 +248,7 @@ func TestSmartSquareZero(t *testing.T) {
 
 // TestSmartSquareNegative verifies squaring of negative numbers.
 func TestSmartSquareNegative(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		x, expected string
 	}{
@@ -275,6 +283,7 @@ func TestSmartSquareNegative(t *testing.T) {
 
 // TestSmartSquareBufferReuse verifies that z buffer is reused.
 func TestSmartSquareBufferReuse(t *testing.T) {
+	t.Parallel()
 	x := big.NewInt(12345)
 
 	// Pre-allocate z with some capacity

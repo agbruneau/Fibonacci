@@ -9,6 +9,7 @@ import (
 // TestConfigureFFTCacheDefault verifies that configureFFTCache uses default
 // values when options are not specified.
 func TestConfigureFFTCacheDefault(t *testing.T) {
+	t.Parallel()
 	opts := Options{
 		ParallelThreshold: 4096,
 		FFTThreshold:      500000,
@@ -34,6 +35,7 @@ func TestConfigureFFTCacheDefault(t *testing.T) {
 // TestConfigureFFTCacheCustom verifies that configureFFTCache applies custom
 // configuration values when provided.
 func TestConfigureFFTCacheCustom(t *testing.T) {
+	t.Parallel()
 	enabled := true
 	opts := Options{
 		ParallelThreshold:  4096,
@@ -62,6 +64,7 @@ func TestConfigureFFTCacheCustom(t *testing.T) {
 // TestConfigureFFTCacheDisabled verifies that configureFFTCache can disable
 // the cache when requested.
 func TestConfigureFFTCacheDisabled(t *testing.T) {
+	t.Parallel()
 	disabled := false
 	opts := Options{
 		ParallelThreshold: 4096,

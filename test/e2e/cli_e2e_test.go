@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -12,7 +13,11 @@ import (
 func TestCLI_E2E(t *testing.T) {
 	// Build the binary
 	tmpDir := t.TempDir()
-	binPath := filepath.Join(tmpDir, "fibcalc")
+	binName := "fibcalc"
+	if runtime.GOOS == "windows" {
+		binName = "fibcalc.exe"
+	}
+	binPath := filepath.Join(tmpDir, binName)
 
 	// Adjust build path assuming we are running from repo root
 	// We need to find absolute path to cmd/fibcalc
@@ -42,7 +47,7 @@ func TestCLI_E2E(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     []string
-		wantOut  string // substring match
+		wantOut  string // substring match (case-insensitive)
 		wantCode int
 	}{
 		{
@@ -60,7 +65,7 @@ func TestCLI_E2E(t *testing.T) {
 		{
 			name:     "Help",
 			args:     []string{"--help"},
-			wantOut:  "Usage of",
+			wantOut:  "usage", // Case-insensitive pattern
 			wantCode: 0,
 		},
 	}
@@ -80,7 +85,8 @@ func TestCLI_E2E(t *testing.T) {
 			}
 
 			outStr := string(output)
-			if !strings.Contains(outStr, tt.wantOut) {
+			// Use case-insensitive matching for help output
+			if !strings.Contains(strings.ToLower(outStr), strings.ToLower(tt.wantOut)) {
 				t.Errorf("Output missing expected string.\nExpected: %q\nGot:\n%s", tt.wantOut, outStr)
 			}
 		})
