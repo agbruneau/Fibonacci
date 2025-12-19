@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -111,6 +112,7 @@ func TestFFTThresholdVariations(t *testing.T) {
 	thresholds := []int{0, 1000, 10000, 100000, 1000000}
 
 	var results []*big.Int
+	var mu sync.Mutex
 
 	for _, threshold := range thresholds {
 		t.Run(fmt.Sprintf("Threshold=%d", threshold), func(t *testing.T) {
@@ -123,7 +125,9 @@ func TestFFTThresholdVariations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Calculation with FFT threshold %d failed: %v", threshold, err)
 			}
+			mu.Lock()
 			results = append(results, result)
+			mu.Unlock()
 		})
 	}
 
@@ -148,6 +152,7 @@ func TestStrassenThresholdVariations(t *testing.T) {
 	thresholds := []int{0, 64, 128, 256, 512, 1024, 3072}
 
 	var results []*big.Int
+	var mu sync.Mutex
 
 	for _, threshold := range thresholds {
 		t.Run(fmt.Sprintf("StrassenThreshold=%d", threshold), func(t *testing.T) {
@@ -160,7 +165,9 @@ func TestStrassenThresholdVariations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Calculation with Strassen threshold %d failed: %v", threshold, err)
 			}
+			mu.Lock()
 			results = append(results, result)
+			mu.Unlock()
 		})
 	}
 
