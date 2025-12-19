@@ -5,7 +5,7 @@
 
 ## Introduction
 
-The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n²) for naive multiplication or O(n^1.585) for Karatsuba. This optimisation becomes crucial for numbers exceeding approximately 1 million bits.
+The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n²) for naive multiplication or O(n^1.585) for Karatsuba. This optimization becomes crucial for numbers exceeding approximately 1 million bits.
 
 ## Mathematical Principle
 
@@ -49,7 +49,7 @@ a * b = IDFT(DFT(a) × DFT(b))
 
 ### `internal/bigfft` Module
 
-The bigfft module implements specialised FFT multiplication for `big.Int`:
+The bigfft module implements specialized FFT multiplication for `big.Int`:
 
 ```go
 // mulFFT performs x × y via FFT

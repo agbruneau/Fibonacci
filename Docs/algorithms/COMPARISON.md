@@ -31,8 +31,8 @@ However, the multiplicative constants differ:
 | Algorithm | Multiplications per iteration | Notes |
 |-----------|-------------------------------|-------|
 | Fast Doubling | 3 | Theoretical minimum |
-| Matrix Exp. (classic) | 8 | Without optimisation |
-| Matrix Exp. (symmetric) | 4 | Optimised squaring |
+| Matrix Exp. (classic) | 8 | Without optimization |
+| Matrix Exp. (symmetric) | 4 | Optimized squaring |
 | Matrix Exp. (Strassen) | 7 | General multiplication |
 
 ### Memory

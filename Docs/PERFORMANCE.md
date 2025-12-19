@@ -5,7 +5,7 @@
 
 ## Overview
 
-This document describes the optimisation techniques used in the Fibonacci Calculator and provides advice on achieving the best performance on your hardware.
+This document describes the optimization techniques used in the Fibonacci Calculator and provides advice on achieving the best performance on your hardware.
 
 ## Reference Benchmarks
 
@@ -30,7 +30,7 @@ This document describes the optimisation techniques used in the Fibonacci Calcul
 
 > **Note**: Times vary depending on hardware. Use `--calibrate` for accurate measurements on your system.
 
-## Implemented Optimisations
+## Implemented Optimizations
 
 ### 1. Zero-Allocation Strategy
 
@@ -99,7 +99,7 @@ func smartMultiply(z, x, y *big.Int, threshold int) *big.Int {
 
 #### Strategy
 
-The three main multiplications in the Fast Doubling algorithm are parallelised:
+The three main multiplications in the Fast Doubling algorithm are parallelized:
 
 ```go
 func parallelMultiply3Optimized(s *calculationState, fftThreshold int) {
@@ -137,7 +137,7 @@ Enabled via `--strassen-threshold` (default: 3072 bits) when matrix elements are
 
 ### 5. Symmetric Matrix Squaring
 
-Specific optimisation for squaring symmetric matrices (where b = c):
+Specific optimization for squaring symmetric matrices (where b = c):
 
 ```go
 // Classic square: 8 multiplications
@@ -238,7 +238,7 @@ go tool pprof cpu.prof
 
 ✅ **Advantages**:
 - Fastest for the majority of cases
-- Efficient parallelisation
+- Efficient parallelization
 - Fewer multiplications than Matrix
 
 ⚠️ **Disadvantages**:
@@ -248,7 +248,7 @@ go tool pprof cpu.prof
 
 ✅ **Advantages**:
 - Elegant and mathematically clear implementation
-- Efficient Strassen optimisation for large numbers
+- Efficient Strassen optimization for large numbers
 
 ⚠️ **Disadvantages**:
 - 8 multiplications per iteration vs 3 for Fast Doubling
@@ -264,7 +264,7 @@ go tool pprof cpu.prof
 - Significant overhead for small numbers
 - Primarily used for testing
 
-## Advanced Optimisation Tips
+## Advanced Optimization Tips
 
 ### 1. CPU Affinity (Linux)
 
@@ -287,10 +287,10 @@ echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governo
 GOMAXPROCS=8 ./fibcalc -n 100000000
 ```
 
-### 4. Optimised Compilation
+### 4. Optimized Compilation
 
 ```bash
-# Build with aggressive optimisations
+# Build with aggressive optimizations
 go build -ldflags="-s -w" -gcflags="-B" ./cmd/fibcalc
 ```
 
