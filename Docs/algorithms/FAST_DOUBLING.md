@@ -46,17 +46,57 @@ F(2k)   = F(k) × [2×F(k+1) - F(k)]
 F(2k+1) = F(k+1)² + F(k)²
 ```
 
-### Proof
+### Formal Proof by Induction
 
-1. **For F(2k)**:
-   - From the matrix: F(2k) = F(k) × F(k+1) + F(k) × F(k-1)
-   - Now F(k-1) = F(k+1) - F(k) (Fibonacci definition)
-   - Therefore: F(2k) = F(k) × [F(k+1) + F(k+1) - F(k)]
-   - **F(2k) = F(k) × [2×F(k+1) - F(k)]**
+We prove the Fast Doubling identities using mathematical induction on the matrix power $Q^n$.
 
-2. **For F(2k+1)**:
-   - From the matrix: F(2k+1) = F(k+1)² + F(k)²
-   - This formula follows directly from element (1,1) of the squared matrix
+**Definitions**:
+$$Q = \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix}, \quad Q^n = \begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix}$$
+
+**Goal**: Derive $F_{2n}$ and $F_{2n+1}$ in terms of $F_n$ and $F_{n+1}$.
+
+**Step 1: Matrix Squaring**
+From the property $Q^{2n} = (Q^n)^2$:
+$$ \begin{pmatrix} F_{2n+1} & F_{2n} \\ F_{2n} & F_{2n-1} \end{pmatrix} = \begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix}^2 $$
+
+**Step 2: Expansion**
+Performing the matrix multiplication on the RHS:
+$$ \begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix} \times \begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix} = \begin{pmatrix} F_{n+1}^2 + F_n^2 & F_{n+1}F_n + F_nF_{n-1} \\ F_nF_{n+1} + F_{n-1}F_n & F_n^2 + F_{n-1}^2 \end{pmatrix} $$
+
+**Step 3: Equating Terms**
+By comparing the elements of the matrices:
+
+1.  **Top-left element ($F_{2n+1}$)**:
+    $$ F_{2n+1} = F_{n+1}^2 + F_n^2 $$
+    *(This is the second Fast Doubling identity)*
+
+2.  **Top-right element ($F_{2n}$)**:
+    $$ F_{2n} = F_n(F_{n+1} + F_{n-1}) $$
+    Substituting $F_{n-1} = F_{n+1} - F_n$:
+    $$ F_{2n} = F_n(F_{n+1} + F_{n+1} - F_n) $$
+    $$ F_{2n} = F_n(2F_{n+1} - F_n) $$
+    *(This is the first Fast Doubling identity)*
+
+**Conclusion**:
+The identities hold for all $n \ge 1$ by the properties of matrix exponentiation.
+
+## Visualization
+
+The algorithm iterates through the bits of $N$ from MSB to LSB.
+
+```mermaid
+graph TD
+    Start([Start]) --> Init[Initialize Fk=0, Fk1=1]
+    Init --> CheckBits{Bits left?}
+    CheckBits -- No --> Done([Return Fk])
+    CheckBits -- Yes --> Doubling[Doubling Step<br/>a = Fk, b = Fk1<br/>F2k = a * (2b - a)<br/>F2k+1 = a^2 + b^2]
+    Doubling --> UpdateState[Update Fk, Fk1]
+    UpdateState --> IsBitSet{Current Bit == 1?}
+    IsBitSet -- No --> NextBit[Next Bit]
+    IsBitSet -- Yes --> Addition[Addition Step<br/>Fk, Fk1 = Fk1, Fk + Fk1]
+    Addition --> NextBit
+    NextBit --> CheckBits
+```
 
 ## Algorithm
 

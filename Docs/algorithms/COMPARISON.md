@@ -26,14 +26,36 @@ O(log n × M(n))
 
 Where M(n) is the cost of multiplying numbers of n bits.
 
-However, the multiplicative constants differ:
+### Detailed Operation Count (Per Iteration)
 
-| Algorithm | Multiplications per iteration | Notes |
-|-----------|-------------------------------|-------|
-| Fast Doubling | 3 | Theoretical minimum |
-| Matrix Exp. (classic) | 8 | Without optimization |
-| Matrix Exp. (symmetric) | 4 | Optimized squaring |
-| Matrix Exp. (Strassen) | 7 | General multiplication |
+| Algorithm | BigInt Mults | BigInt Adds | BigInt Subs | Total Ops |
+|-----------|--------------|-------------|-------------|-----------|
+| **Fast Doubling** | **3** | 1 | 1 | **5** |
+| Matrix Exp. (Classic) | 8 | 4 | 0 | 12 |
+| Matrix Exp. (Symmetric) | 4 | 4 | 0 | 8 |
+| Matrix Exp. (Strassen) | 7 | 18 | 18 | 43 |
+
+> **Note**: While Strassen reduces multiplications (the most expensive operation), it significantly increases additions and subtractions. This explains why it is only beneficial for extremely large numbers where $M(n) \gg A(n)$.
+
+### Asymptotic Constants Analysis
+
+Let $T(n)$ be the time to compute $F_n$.
+$$ T(n) \approx k \cdot \log_2(n) \cdot M(n) $$
+
+The constant $k$ represents the "multiplicative density" of the algorithm.
+
+1.  **Fast Doubling ($k \approx 3$)**:
+    - Requires 3 multiplications per bit.
+    - $F_{2k} = F_k(2F_{k+1} - F_k)$
+    - $F_{2k+1} = F_{k+1}^2 + F_k^2$
+    - This is effectively the lower bound for any doubling-based method.
+
+2.  **Matrix Exponentiation ($k \approx 4-8$)**:
+    - Naive matrix multiplication requires 8 mults ($k=8$).
+    - Symmetric optimization ($B=C$) reduces this to 4 mults ($k=4$).
+    - Even with optimization, it performs slightly more auxiliary work (additions/memory moves) than Fast Doubling.
+
+**Conclusion**: Fast Doubling is consistently faster because its constant factor $k$ is strictly smaller (3 vs 4+).
 
 ### Memory
 

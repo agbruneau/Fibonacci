@@ -29,6 +29,33 @@ Applying this relation n times from initial conditions F(1) = 1, F(0) = 0:
 
 The matrix `Q = [[1,1], [1,0]]` is called the **Fibonacci Q matrix**.
 
+### Formal Proof of Q-matrix Power Property
+
+We prove by induction that $Q^n = \begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix}$.
+
+**Base Case (n=1)**:
+$$ Q^1 = \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix} = \begin{pmatrix} F_2 & F_1 \\ F_1 & F_0 \end{pmatrix} $$
+Since $F_2=1, F_1=1, F_0=0$, the base case holds.
+
+**Inductive Step**:
+Assume the property holds for $k$: $Q^k = \begin{pmatrix} F_{k+1} & F_k \\ F_k & F_{k-1} \end{pmatrix}$.
+We want to show it holds for $k+1$.
+
+$$ Q^{k+1} = Q^k \times Q = \begin{pmatrix} F_{k+1} & F_k \\ F_k & F_{k-1} \end{pmatrix} \times \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix} $$
+
+Performing the multiplication:
+$$ Q^{k+1} = \begin{pmatrix} F_{k+1}\cdot 1 + F_k\cdot 1 & F_{k+1}\cdot 1 + F_k\cdot 0 \\ F_k\cdot 1 + F_{k-1}\cdot 1 & F_k\cdot 1 + F_{k-1}\cdot 0 \end{pmatrix} $$
+
+Using Fibonacci recurrence $F_{m} = F_{m-1} + F_{m-2}$:
+- Top-left: $F_{k+1} + F_k = F_{k+2}$
+- Top-right: $F_{k+1}$
+- Bottom-left: $F_k + F_{k-1} = F_{k+1}$
+- Bottom-right: $F_k$
+
+$$ Q^{k+1} = \begin{pmatrix} F_{k+2} & F_{k+1} \\ F_{k+1} & F_k \end{pmatrix} $$
+
+This matches the formula for $n=k+1$. Thus, the property holds for all $n \ge 1$.
+
 ### Properties of Q
 
 1. **Determinant**: det(Q^n) = (-1)^n
@@ -48,6 +75,21 @@ n = Σ bᵢ × 2^i  (where bᵢ ∈ {0, 1})
 Then:
 ```
 Q^n = Q^(Σ bᵢ × 2^i) = Π Q^(bᵢ × 2^i)
+```
+
+### Visualization
+
+```mermaid
+graph TD
+    Start([Start]) --> Init[Res = Identity, Base = Q]
+    Init --> CheckExp{Exponent > 0?}
+    CheckExp -- No --> Done([Return Res])
+    CheckExp -- Yes --> IsOdd{Is Odd?}
+    IsOdd -- Yes --> Mult[Res = Res * Base]
+    IsOdd -- No --> Square[Base = Base * Base]
+    Mult --> Square
+    Square --> Shift[Exponent >>= 1]
+    Shift --> CheckExp
 ```
 
 ### Pseudocode
@@ -134,6 +176,42 @@ Strassen 2×2:
   C[1][0] = P3 + P4
   C[1][1] = P5 + P1 - P3 - P7
   Total: 7 multiplications + 18 additions
+```
+
+**Strassen Decomposition Diagram**:
+
+```mermaid
+graph TD
+    subgraph Input
+        A[Matrix A]
+        B[Matrix B]
+    end
+
+    subgraph Strassen_Products
+        P1["P1 = A11*(B12-B22)"]
+        P2["P2 = (A11+A12)*B22"]
+        P3["P3 = (A21+A22)*B11"]
+        P4["P4 = A22*(B21-B11)"]
+        P5["P5 = (A11+A22)*(B11+B22)"]
+        P6["P6 = (A12-A22)*(B21+B22)"]
+        P7["P7 = (A11-A21)*(B11+B12)"]
+    end
+
+    subgraph Output
+        C11["C11 = P5+P4-P2+P6"]
+        C12["C12 = P1+P2"]
+        C21["C21 = P3+P4"]
+        C22["C22 = P5+P1-P3-P7"]
+    end
+
+    Input --> P1 & P2 & P3 & P4 & P5 & P6 & P7
+    P1 --> C12 & C22
+    P2 --> C11 & C12
+    P3 --> C21 & C22
+    P4 --> C11 & C21
+    P5 --> C11 & C22
+    P6 --> C11
+    P7 --> C22
 ```
 
 The implementation switches to Strassen when elements exceed `--strassen-threshold` (default: 3072 bits).
