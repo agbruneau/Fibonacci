@@ -21,10 +21,19 @@
   - [1. Objective](#1-objective)
   - [2. Getting Started](#2-getting-started)
     - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
+    - [Installation Methods](#installation-methods)
+      - [Option A: Quick Install (Recommended for users)](#option-a-quick-install-recommended-for-users)
+      - [Option B: Build from Source (Recommended for developers)](#option-b-build-from-source-recommended-for-developers)
+      - [Option C: Docker](#option-c-docker)
     - [Verification](#verification)
   - [3. Features](#3-features)
   - [4. Usage](#4-usage)
+    - [Essential Commands](#essential-commands)
+    - [Complete CLI Options](#complete-cli-options)
+    - [Configuration via Environment Variables](#configuration-via-environment-variables)
+    - [Interactive Mode (REPL)](#interactive-mode-repl)
+    - [API Server Mode](#api-server-mode)
+    - [💡 Usage Examples (Snippets)](#-usage-examples-snippets)
   - [5. Software Architecture](#5-software-architecture)
   - [6. Algorithms](#6-algorithms)
   - [7. Performance Optimisations](#7-performance-optimisations)
@@ -107,40 +116,53 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 
 ### Prerequisites
 
-- Go 1.25 or later
-- Make (optional, to use the Makefile)
+- **Go**: Version 1.25 or later ([Download Go](https://go.dev/dl/))
+- **Git**: To clone the repository
+- **Make** (Optional): For using the Makefile
 
-### Installation
+### Installation Methods
 
-1. Clone the repository:
+#### Option A: Quick Install (Recommended for users)
+
+If you have Go installed, you can install the binary directly to your `$GOPATH/bin`:
+
+```bash
+go install ./cmd/fibcalc
+```
+
+Ensure your `$GOPATH/bin` is in your system's `PATH`. You can then run the tool simply by typing `fibcalc`.
+
+#### Option B: Build from Source (Recommended for developers)
+
+1. **Clone the repository:**
 
    ```bash
    git clone https://github.com/agbru/fibcalc.git
    cd fibcalc
    ```
 
-2. Compile the executable:
+2. **Build the binary:**
 
-   **With Make (recommended):**
-
+   Using Make:
    ```bash
    make build
    ```
 
-   **Without Make:**
-
+   Using Go directly:
    ```bash
    go build -o build/fibcalc ./cmd/fibcalc
    ```
 
-   This will create a binary in the `build/` folder.
+   The executable will be located in the `build/` directory (or `build/fibcalc.exe` on Windows).
 
-3. (Optional) Install globally:
-   ```bash
-   make install
-   # or
-   go install ./cmd/fibcalc
-   ```
+#### Option C: Docker
+
+You can run `fibcalc` without installing Go using Docker:
+
+```bash
+docker build -t fibcalc .
+docker run --rm fibcalc -n 1000
+```
 
 ### Verification
 
@@ -380,59 +402,62 @@ curl "http://localhost:8080/metrics"
 
 See [Docs/api/API.md](Docs/api/API.md) for the complete API documentation.
 
-### Usage Examples
+### 💡 Usage Examples (Snippets)
 
-**Display calculated value:**
+Here are common scenarios and how to execute them efficiently.
+
+#### 1. Basic Calculation
+Calculate the 100,000th Fibonacci number and display the truncated result:
 
 ```bash
-./build/fibcalc -n 1000 -c
+./build/fibcalc -n 100000 -c
 ```
 
-**JSON output for integration:**
+#### 2. Performance Comparison
+Compare all available algorithms for a specific input and show detailed metrics:
 
 ```bash
-./build/fibcalc -n 1000 --json
+./build/fibcalc -n 1000000 -algo all -d
 ```
 
-**Calculation with export to file:**
+#### 3. Scripting Integration (JSON)
+Output the result in JSON format for parsing by other tools (e.g., `jq`):
 
 ```bash
-./build/fibcalc -n 100000 -algo fast -o result.txt
+./build/fibcalc -n 1000 --json | jq .result.value
 ```
 
-**Quiet calculation for scripts:**
+#### 4. Saving to File
+Calculate a very large number (e.g., 50 million) and save the result to a file:
 
 ```bash
-./build/fibcalc -n 1000 -q
+./build/fibcalc -n 50000000 -o fib_50m.txt
 ```
 
-**Hexadecimal display:**
+#### 5. Server Mode
+Start the REST API server on a custom port (9090):
 
 ```bash
-./build/fibcalc -n 1000 --hex -d
+./build/fibcalc --server --port 9090
 ```
 
-**Calculate F(250,000,000) with a 10-minute timeout:**
-
+Then query it from another terminal:
 ```bash
-./build/fibcalc -n 250000000 -algo fast -d --timeout 10m
+curl "http://localhost:9090/calculate?n=5000"
 ```
 
-**Generate Bash autocompletion:**
+#### 6. Hexadecimal Output
+View the underlying binary representation in Hexadecimal:
 
 ```bash
-./build/fibcalc --completion bash > /etc/bash_completion.d/fibcalc
+./build/fibcalc -n 1000 --hex
 ```
 
-**Usage with Docker:**
+#### 7. Silent Mode (Benchmarks)
+Run a calculation without outputting the result or progress bars (useful for timing):
 
 ```bash
-# Build and run
-make docker-build
-docker run -d -p 8080:8080 fibcalc:latest --server --port 8080
-
-# Test
-curl "http://localhost:8080/calculate?n=1000"
+time ./build/fibcalc -n 10000000 -q
 ```
 
 ## 5. Software Architecture
@@ -458,7 +483,7 @@ This project is structured according to Go software engineering best practices, 
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
 │  │   config    │  │ calibration │  │   server    │  │orchestration│    │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
-└────────────────────────────┼────────────────────────────────────────────┘
+└────────────────────────────┼────────────────────────────────────────────┐
                              │
 ┌────────────────────────────┼────────────────────────────────────────────┐
 │                      BUSINESS LAYER                                     │
