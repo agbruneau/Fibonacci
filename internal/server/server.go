@@ -414,13 +414,6 @@ func (s *Server) handleCalculate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Record metrics
-	status := "success"
-	if err != nil {
-		status = "error"
-	}
-	s.metrics.RecordCalculation(algo, status, duration)
-
 	// Build and send response using helper
 	resp := buildCalculateResponse(n, algo, result, duration, err)
 	s.writeJSONResponse(w, http.StatusOK, resp)

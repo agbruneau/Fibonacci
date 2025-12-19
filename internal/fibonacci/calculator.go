@@ -9,14 +9,36 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel"
 )
 
 // MaxFibUint64 = 93 because F(93) is the largest Fibonacci number that fits in a uint64,
 // as F(94) exceeds 2^64. This value is derived from the very rapid growth of the sequence.
 const (
 	MaxFibUint64 = 93 // Justified above
+)
+
+var (
+	calculationsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fibonacci_calculations_total",
+			Help: "The total number of Fibonacci calculations processed",
+		},
+		[]string{"algorithm", "status"},
+	)
+	calculationDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "fibonacci_calculation_duration_seconds",
+			Help: "The duration of Fibonacci calculations in seconds",
+		},
+		[]string{"algorithm"},
+	)
 )
 
 // ProgressUpdate is a data transfer object (DTO) that encapsulates the
@@ -268,7 +290,30 @@ func (c *FibCalculator) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
-func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error) {
+func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
+	tracer := otel.Tracer("fibonacci")
+	ctx, span := tracer.Start(ctx, "Calculate")
+	defer span.End()
+
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start).Seconds()
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		algoName := c.core.Name()
+		calculationsTotal.WithLabelValues(algoName, status).Inc()
+		calculationDuration.WithLabelValues(algoName).Observe(duration)
+
+		log.Info().
+			Str("algo", algoName).
+			Uint64("n", n).
+			Float64("duration", duration).
+			Str("status", status).
+			Msg("calculation completed")
+	}()
+
 	reporter := func(progress float64) {
 		if progressChan == nil {
 			return
@@ -294,7 +339,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 	// Pre-warm pools for large calculations
 	bigfft.PreWarmPools(n)
 
-	result, err := c.core.CalculateCore(ctx, reporter, n, opts)
+	result, err = c.core.CalculateCore(ctx, reporter, n, opts)
 	if err == nil && result != nil {
 		reporter(1.0)
 	}
