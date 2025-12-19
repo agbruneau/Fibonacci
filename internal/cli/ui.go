@@ -247,6 +247,15 @@ func DisplayProgress(wg *sync.WaitGroup, progressChan <-chan fibonacci.ProgressU
 		select {
 		case update, ok := <-progressChan:
 			if !ok {
+				// Display final 100% progress before showing completion message
+				bar := progressBar(1.0, ProgressBarWidth)
+				label := "Progress"
+				if numCalculators > 1 {
+					label = "Avg progress"
+				}
+				s.UpdateSuffix(fmt.Sprintf(" %s: %6.2f%% [%s] ETA: %s", label, 100.0, bar, "< 1s"))
+				time.Sleep(ProgressRefreshRate) // Full refresh cycle to ensure 100% is visible
+
 				s.UpdateSuffix(" Calculation finished.")
 				// A short pause to ensure the final message is displayed.
 				time.Sleep(ProgressRefreshRate)

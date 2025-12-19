@@ -10,7 +10,15 @@ import (
 
 	"github.com/agbru/fibcalc/internal/app"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
+
+func init() {
+	// Configure zerolog global logger to write all logs to stderr instead of stdout
+	// This prevents JSON logs from interfering with the progress bar spinner on stdout
+	log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+}
 
 func main() {
 	os.Exit(run(os.Args, os.Stdout, os.Stderr))
