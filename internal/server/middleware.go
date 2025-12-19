@@ -373,3 +373,24 @@ func WithMaxN(maxN uint64) ServerOption {
 		s.securityConfig.MaxNValue = maxN
 	}
 }
+
+// loggingMiddleware wraps an http.HandlerFunc to log the details of each request.
+// It records the HTTP method, URL path, remote address, and the duration required
+// to process the request.
+//
+// Parameters:
+//   - next: The next handler in the chain.
+//
+// Returns:
+//   - http.HandlerFunc: A new handler with logging capability.
+func (s *Server) loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		s.logger.Printf("%s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+
+		next(w, r)
+
+		duration := time.Since(start)
+		s.logger.Printf("%s %s completed in %v", r.Method, r.URL.Path, duration)
+	}
+}
