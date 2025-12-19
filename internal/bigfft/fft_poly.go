@@ -103,49 +103,34 @@ func trim(n nat) nat {
 // Mul multiplies p and q modulo X^K-1, where K = 1<<p.K.
 // The product is done via a Fourier transform.
 func (p *Poly) Mul(q *Poly) (Poly, error) {
-	// extra=2 because:
-	// * some power of 2 is a K-th root of unity when n is a multiple of K/2
-	// * 2 itself is a square (see fermat.ShiftHalf)
-	n := valueSize(p.K, p.M, 2)
-
-	pv, err := p.Transform(n)
-	if err != nil {
-		return Poly{}, err
-	}
-	qv, err := q.Transform(n)
-	if err != nil {
-		return Poly{}, err
-	}
-	rv, err := pv.Mul(&qv)
-	if err != nil {
-		return Poly{}, err
-	}
-	r, err := rv.InvTransform()
-	if err != nil {
-		return Poly{}, err
-	}
-	r.M = p.M
-	return r, nil
+	return p.mul(q, GetPoolAllocator())
 }
 
 // MulWithBump multiplies p and q using a bump allocator for temporary allocations.
 // This provides better cache locality and reduces GC pressure.
 func (p *Poly) MulWithBump(q *Poly, ba *BumpAllocator) (Poly, error) {
+	return p.mul(q, NewBumpAllocatorAdapter(ba))
+}
+
+func (p *Poly) mul(q *Poly, alloc TempAllocator) (Poly, error) {
+	// extra=2 because:
+	// * some power of 2 is a K-th root of unity when n is a multiple of K/2
+	// * 2 itself is a square (see fermat.ShiftHalf)
 	n := valueSize(p.K, p.M, 2)
 
-	pv, err := p.TransformWithBump(n, ba)
+	pv, err := p.transform(n, alloc)
 	if err != nil {
 		return Poly{}, err
 	}
-	qv, err := q.TransformWithBump(n, ba)
+	qv, err := q.transform(n, alloc)
 	if err != nil {
 		return Poly{}, err
 	}
-	rv, err := pv.MulWithBump(&qv, ba)
+	rv, err := pv.mul(&qv, alloc)
 	if err != nil {
 		return Poly{}, err
 	}
-	r, err := rv.InvTransformWithBump(ba)
+	r, err := rv.invTransform(alloc)
 	if err != nil {
 		return Poly{}, err
 	}
@@ -164,46 +149,24 @@ type PolValues struct {
 // Transform evaluates p at θ^i for i = 0...K-1, where
 // θ is a K-th primitive root of unity in Z/(b^n+1)Z.
 func (p *Poly) Transform(n int) (PolValues, error) {
-	k := p.K
-	K := 1 << k
-	wordCount := (n + 1) * K
-
-	// Use pooled slices for temporary input buffers
-	inputbits := acquireWordSlice(wordCount)
-	input := acquireFermatSlice(K)
-
-	// Use regular allocation for output buffers (they are returned and cannot be pooled)
-	valbits := make([]big.Word, wordCount)
-	values := make([]fermat, K)
-
-	for i := 0; i < K; i++ {
-		input[i] = inputbits[i*(n+1) : (i+1)*(n+1)]
-		if i < len(p.A) {
-			copy(input[i], p.A[i])
-		}
-		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
-	}
-	if err := fourier(values, input, false, n, k); err != nil {
-		return PolValues{}, err
-	}
-
-	// Release temporary input buffers
-	releaseWordSlice(inputbits)
-	releaseFermatSlice(input)
-
-	return PolValues{k, n, values}, nil
+	return p.transform(n, GetPoolAllocator())
 }
 
 // TransformWithBump evaluates p at θ^i for i = 0...K-1, using a bump allocator
 // for temporary allocations. This provides better cache locality and reduces
 // GC pressure compared to Transform().
 func (p *Poly) TransformWithBump(n int, ba *BumpAllocator) (PolValues, error) {
+	return p.transform(n, NewBumpAllocatorAdapter(ba))
+}
+
+func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
 	k := p.K
 	K := 1 << k
 	wordCount := (n + 1) * K
 
-	// Use bump allocator for temporary input buffers
-	input, _ := ba.AllocFermatSlice(K, n)
+	// Use allocator for temporary input buffers
+	input, _, cleanup := alloc.AllocFermatSlice(K, n)
+	defer cleanup()
 
 	// Use regular allocation for output buffers (they are returned and cannot be pooled)
 	valbits := make([]big.Word, wordCount)
@@ -215,52 +178,39 @@ func (p *Poly) TransformWithBump(n int, ba *BumpAllocator) (PolValues, error) {
 		}
 		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
 	}
-	if err := fourierWithBump(values, input, false, n, k, ba); err != nil {
-		return PolValues{}, err
+
+	// Determine if we are using bump allocator to pass down
+	var ba *BumpAllocator
+	if adapter, ok := alloc.(*BumpAllocatorAdapter); ok {
+		ba = adapter.ba
 	}
 
-	// No need to release - bump allocator handles all temp memory
+	if ba != nil {
+		if err := fourierWithBump(values, input, false, n, k, ba); err != nil {
+			return PolValues{}, err
+		}
+	} else {
+		if err := fourier(values, input, false, n, k); err != nil {
+			return PolValues{}, err
+		}
+	}
+
 	return PolValues{k, n, values}, nil
 }
 
 // InvTransform reconstructs p (modulo X^K - 1) from its
 // values at θ^i for i = 0..K-1.
 func (v *PolValues) InvTransform() (Poly, error) {
-	k, n := v.K, v.N
-	K := 1 << k
-	wordCount := (n + 1) * K
-
-	// Perform an inverse Fourier transform to recover p.
-	// Use regular allocation since pbits data is returned via a[i]
-	pbits := make([]big.Word, wordCount)
-	p := make([]fermat, K)
-	for i := 0; i < K; i++ {
-		p[i] = fermat(pbits[i*(n+1) : (i+1)*(n+1)])
-	}
-	if err := fourier(p, v.Values, true, n, k); err != nil {
-		return Poly{}, err
-	}
-
-	// Divide by K, and untwist q to recover p.
-	// Use pooled buffer for temporary u
-	u := acquireFermat(n + 1)
-	// Use regular allocation for a since it's returned
-	a := make([]nat, K)
-	for i := 0; i < K; i++ {
-		u.Shift(p[i], -int(k))
-		copy(p[i], u)
-		a[i] = nat(p[i])
-	}
-
-	// Release temporary buffer
-	releaseFermat(u)
-
-	return Poly{K: k, M: 0, A: a}, nil
+	return v.invTransform(GetPoolAllocator())
 }
 
 // InvTransformWithBump reconstructs p (modulo X^K - 1) from its values,
 // using a bump allocator for temporary allocations.
 func (v *PolValues) InvTransformWithBump(ba *BumpAllocator) (Poly, error) {
+	return v.invTransform(NewBumpAllocatorAdapter(ba))
+}
+
+func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 	k, n := v.K, v.N
 	K := 1 << k
 	wordCount := (n + 1) * K
@@ -272,13 +222,28 @@ func (v *PolValues) InvTransformWithBump(ba *BumpAllocator) (Poly, error) {
 	for i := 0; i < K; i++ {
 		p[i] = fermat(pbits[i*(n+1) : (i+1)*(n+1)])
 	}
-	if err := fourierWithBump(p, v.Values, true, n, k, ba); err != nil {
-		return Poly{}, err
+
+	// Determine if we are using bump allocator to pass down
+	var ba *BumpAllocator
+	if adapter, ok := alloc.(*BumpAllocatorAdapter); ok {
+		ba = adapter.ba
+	}
+
+	if ba != nil {
+		if err := fourierWithBump(p, v.Values, true, n, k, ba); err != nil {
+			return Poly{}, err
+		}
+	} else {
+		if err := fourier(p, v.Values, true, n, k); err != nil {
+			return Poly{}, err
+		}
 	}
 
 	// Divide by K, and untwist q to recover p.
-	// Use bump allocator for temporary u
-	u := ba.AllocFermat(n)
+	// Use allocator for temporary u
+	u, cleanup := alloc.AllocFermatTemp(n)
+	defer cleanup()
+
 	// Use regular allocation for a since it's returned
 	a := make([]nat, K)
 	for i := 0; i < K; i++ {
@@ -287,7 +252,6 @@ func (v *PolValues) InvTransformWithBump(ba *BumpAllocator) (Poly, error) {
 		a[i] = nat(p[i])
 	}
 
-	// No release needed - bump allocator handles cleanup
 	return Poly{K: k, M: 0, A: a}, nil
 }
 
@@ -359,34 +323,16 @@ func (v *PolValues) InvNTransform() Poly {
 
 // Mul returns the pointwise product of p and q.
 func (p *PolValues) Mul(q *PolValues) (PolValues, error) {
-	n := p.N
-	K := len(p.Values)
-	var r PolValues
-	r.K, r.N = p.K, p.N
-
-	// Use regular allocation for returned data
-	r.Values = make([]fermat, K)
-	wordCount := K * (n + 1)
-	bits := make([]big.Word, wordCount)
-
-	// Use pooled buffer for temporary multiplication result
-	buf := acquireFermat(8 * n)
-
-	for i := 0; i < K; i++ {
-		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
-		z := buf.Mul(p.Values[i], q.Values[i])
-		copy(r.Values[i], z)
-	}
-
-	// Release temporary buffer
-	releaseFermat(buf)
-
-	return r, nil
+	return p.mul(q, GetPoolAllocator())
 }
 
 // MulWithBump returns the pointwise product of p and q, using a bump allocator
 // for temporary buffers.
 func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, error) {
+	return p.mul(q, NewBumpAllocatorAdapter(ba))
+}
+
+func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
 	n := p.N
 	K := len(p.Values)
 	var r PolValues
@@ -397,8 +343,11 @@ func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, err
 	wordCount := K * (n + 1)
 	bits := make([]big.Word, wordCount)
 
-	// Use bump allocator for temporary multiplication result
-	buf := ba.AllocFermat(8*n - 1)
+	// Use allocator for temporary multiplication result
+	// The temporary buffer needs to be 8*n (or 8*n - 1 if optimized)
+	// We use 8*n to be safe and consistent with previous code
+	buf, cleanup := alloc.AllocFermatTemp(8 * n)
+	defer cleanup()
 
 	for i := 0; i < K; i++ {
 		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
@@ -406,42 +355,22 @@ func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, err
 		copy(r.Values[i], z)
 	}
 
-	// No release needed - bump allocator handles cleanup
 	return r, nil
 }
 
 // Sqr returns the pointwise square of p (p[i] * p[i] for each i).
 // This is optimized for squaring as we don't need a second set of values.
 func (p *PolValues) Sqr() (PolValues, error) {
-	n := p.N
-	K := len(p.Values)
-	var r PolValues
-	r.K, r.N = p.K, p.N
-
-	// Use regular allocation for returned data
-	r.Values = make([]fermat, K)
-	wordCount := K * (n + 1)
-	bits := make([]big.Word, wordCount)
-
-	// Use pooled buffer for temporary multiplication result
-	buf := acquireFermat(8 * n)
-
-	for i := 0; i < K; i++ {
-		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
-		// Square: multiply p.Values[i] by itself
-		z := buf.Mul(p.Values[i], p.Values[i])
-		copy(r.Values[i], z)
-	}
-
-	// Release temporary buffer
-	releaseFermat(buf)
-
-	return r, nil
+	return p.sqr(GetPoolAllocator())
 }
 
 // SqrWithBump returns the pointwise square of p, using a bump allocator
 // for temporary buffers.
 func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
+	return p.sqr(NewBumpAllocatorAdapter(ba))
+}
+
+func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 	n := p.N
 	K := len(p.Values)
 	var r PolValues
@@ -452,8 +381,9 @@ func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
 	wordCount := K * (n + 1)
 	bits := make([]big.Word, wordCount)
 
-	// Use bump allocator for temporary multiplication result
-	buf := ba.AllocFermat(8*n - 1)
+	// Use allocator for temporary multiplication result
+	buf, cleanup := alloc.AllocFermatTemp(8 * n)
+	defer cleanup()
 
 	for i := 0; i < K; i++ {
 		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
@@ -462,6 +392,5 @@ func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
 		copy(r.Values[i], z)
 	}
 
-	// No release needed - bump allocator handles cleanup
 	return r, nil
 }
