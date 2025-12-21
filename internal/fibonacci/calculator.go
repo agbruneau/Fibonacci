@@ -120,6 +120,9 @@ func (c *FibCalculator) Name() string {
 // coreCalculator. This method ensures that progress is reported completely upon
 // successful calculation.
 //
+// This method provides backward compatibility with channel-based progress reporting.
+// For more flexible observer-based progress reporting, use CalculateWithObservers.
+//
 // Parameters:
 //   - ctx: The context for managing cancellation and deadlines.
 //   - progressChan: The channel for sending progress updates.
@@ -131,6 +134,33 @@ func (c *FibCalculator) Name() string {
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
 func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
+	// Create a subject with a channel observer for backward compatibility
+	subject := NewProgressSubject()
+	if progressChan != nil {
+		subject.Register(NewChannelObserver(progressChan))
+	}
+	return c.CalculateWithObservers(ctx, subject, calcIndex, n, opts)
+}
+
+// CalculateWithObservers executes the calculation with observer-based progress reporting.
+// This method allows for dynamic registration of multiple progress observers,
+// enabling decoupled handling of progress events for UI, logging, metrics, etc.
+//
+// Use this method when you need to register multiple observers or when you want
+// to use custom observer implementations. For simple channel-based reporting,
+// use the Calculate method instead.
+//
+// Parameters:
+//   - ctx: The context for managing cancellation and deadlines.
+//   - subject: The progress subject with registered observers. If nil, progress is ignored.
+//   - calcIndex: A unique index for the calculator instance.
+//   - n: The index of the Fibonacci number to calculate.
+//   - opts: Configuration options for the calculation.
+//
+// Returns:
+//   - *big.Int: The calculated Fibonacci number.
+//   - error: An error if one occurred.
+func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *ProgressSubject, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
 	tracer := otel.Tracer("fibonacci")
 	ctx, span := tracer.Start(ctx, "Calculate")
 	defer span.End()
@@ -154,18 +184,12 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 			Msg("calculation completed")
 	}()
 
-	reporter := func(progress float64) {
-		if progressChan == nil {
-			return
-		}
-		if progress > 1.0 {
-			progress = 1.0
-		}
-		update := ProgressUpdate{CalculatorIndex: calcIndex, Value: progress}
-		select {
-		case progressChan <- update:
-		default:
-		}
+	// Create a reporter that notifies all observers
+	var reporter ProgressReporter
+	if subject != nil {
+		reporter = subject.AsProgressReporter(calcIndex)
+	} else {
+		reporter = func(float64) {} // No-op reporter
 	}
 
 	if n <= MaxFibUint64 {
