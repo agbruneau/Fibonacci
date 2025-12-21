@@ -208,7 +208,9 @@ This step will validate that your environment is correctly configured and that t
   - **Robust Error Handling**: Panic-free architecture with explicit error propagation.
   - **Automatic Calibration**: Detection of optimal thresholds for the hardware.
 
-- **Security**: Rate limiting, input validation, HTTP security headers, DoS protection.
+- **Security**:
+  - Rate limiting, input validation (rejects negative numbers and non-numeric inputs),
+  - HTTP security headers, DoS protection.
 
 ## 4. Usage
 

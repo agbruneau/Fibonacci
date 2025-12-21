@@ -119,6 +119,8 @@ func parseCalculateParams(r *http.Request) (n uint64, algo string, err error) {
 
 	n, parseErr := strconv.ParseUint(nStr, 10, 64)
 	if parseErr != nil {
+		// strconv.ParseUint will return an error if the input has a negative sign,
+		// effectively enforcing non-negative inputs as required for security.
 		return 0, "", CalculateParseError{
 			Message:    "Invalid 'n' parameter: must be a positive integer",
 			StatusCode: http.StatusBadRequest,
