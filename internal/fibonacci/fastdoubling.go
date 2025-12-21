@@ -221,6 +221,12 @@ var statePool = sync.Pool{
 }
 
 // AcquireState gets a state from the pool and resets it.
+// The returned state must be released using ReleaseState, preferably with defer:
+//
+//	state := AcquireState()
+//	defer ReleaseState(state)
+//
+// This ensures the state is returned to the pool even if an error occurs or a panic is triggered.
 //
 // Returns:
 //   - *CalculationState: A ready-to-use calculation state.
@@ -231,9 +237,14 @@ func AcquireState() *CalculationState {
 }
 
 // ReleaseState puts a state back into the pool.
+// This should be called with defer immediately after AcquireState to ensure
+// proper resource cleanup even in case of errors or panics:
+//
+//	state := AcquireState()
+//	defer ReleaseState(state)
 //
 // Parameters:
-//   - s: The calculation state to return to the pool.
+//   - s: The calculation state to return to the pool. Safe to call with nil.
 func ReleaseState(s *CalculationState) {
 	// Avoid keeping oversized objects in memory.
 	// We check if any of the big.Ints exceed the pool limit.
@@ -248,11 +259,19 @@ func ReleaseState(s *CalculationState) {
 }
 
 // acquireState is a convenience wrapper for backward compatibility.
+// The returned state must be released using releaseState, preferably with defer:
+//
+//	state := acquireState()
+//	defer releaseState(state)
 func acquireState() *CalculationState {
 	return AcquireState()
 }
 
 // releaseState is a convenience wrapper for backward compatibility.
+// This should be called with defer immediately after acquireState:
+//
+//	state := acquireState()
+//	defer releaseState(state)
 func releaseState(s *CalculationState) {
 	ReleaseState(s)
 }

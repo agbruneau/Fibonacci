@@ -40,6 +40,13 @@ var bumpAllocatorPool = sync.Pool{
 // AcquireBumpAllocator gets a bump allocator with at least the specified capacity.
 // The allocator should be released with ReleaseBumpAllocator when done.
 //
+// The returned allocator must be released using ReleaseBumpAllocator, preferably with defer:
+//
+//	allocator := AcquireBumpAllocator(capacity)
+//	defer ReleaseBumpAllocator(allocator)
+//
+// This ensures the allocator is returned to the pool even if an error occurs or a panic is triggered.
+//
 // Parameters:
 //   - capacity: Minimum number of big.Word elements needed for all allocations.
 //
@@ -65,8 +72,14 @@ func AcquireBumpAllocator(capacity int) *BumpAllocator {
 // After calling this, the allocator and any slices allocated from it
 // should not be used.
 //
+// This should be called with defer immediately after AcquireBumpAllocator to ensure
+// proper resource cleanup even in case of errors or panics:
+//
+//	allocator := AcquireBumpAllocator(capacity)
+//	defer ReleaseBumpAllocator(allocator)
+//
 // Parameters:
-//   - ba: The bump allocator to release.
+//   - ba: The bump allocator to release. Safe to call with nil.
 func ReleaseBumpAllocator(ba *BumpAllocator) {
 	if ba == nil {
 		return

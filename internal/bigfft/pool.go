@@ -44,6 +44,13 @@ func getWordSlicePoolIndex(size int) int {
 // acquireWordSlice gets a word slice of at least the given size from the pool.
 // The returned slice may be larger than requested.
 // If the size is too large for pooling, a new slice is allocated.
+//
+// The returned slice should be released using releaseWordSlice, preferably with defer:
+//
+//	slice := acquireWordSlice(size)
+//	defer releaseWordSlice(slice)
+//
+// This ensures the slice is returned to the pool even if an error occurs.
 func acquireWordSlice(size int) []big.Word {
 	idx := getWordSlicePoolIndex(size)
 	if idx < 0 {
@@ -60,6 +67,13 @@ func acquireWordSlice(size int) []big.Word {
 
 // releaseWordSlice returns a word slice to the pool.
 // The slice must have been obtained from acquireWordSlice.
+// This should be called with defer immediately after acquireWordSlice:
+//
+//	slice := acquireWordSlice(size)
+//	defer releaseWordSlice(slice)
+//
+// Parameters:
+//   - slice: The slice to return to the pool. Safe to call with nil.
 func releaseWordSlice(slice []big.Word) {
 	if slice == nil {
 		return
@@ -109,6 +123,13 @@ func getFermatPoolIndex(size int) int {
 
 // acquireFermat gets a fermat slice of at least the given size from the pool.
 // The returned slice is zeroed and has exactly the requested length.
+//
+// The returned slice should be released using releaseFermat, preferably with defer:
+//
+//	f := acquireFermat(size)
+//	defer releaseFermat(f)
+//
+// This ensures the slice is returned to the pool even if an error occurs.
 func acquireFermat(size int) fermat {
 	idx := getFermatPoolIndex(size)
 	if idx < 0 {
@@ -123,6 +144,13 @@ func acquireFermat(size int) fermat {
 }
 
 // releaseFermat returns a fermat slice to the pool.
+// This should be called with defer immediately after acquireFermat:
+//
+//	f := acquireFermat(size)
+//	defer releaseFermat(f)
+//
+// Parameters:
+//   - f: The fermat slice to return to the pool. Safe to call with nil.
 func releaseFermat(f fermat) {
 	if f == nil {
 		return
@@ -164,6 +192,13 @@ func getNatSlicePoolIndex(size int) int {
 }
 
 // acquireNatSlice gets a []nat slice of at least the given size from the pool.
+//
+// The returned slice should be released using releaseNatSlice, preferably with defer:
+//
+//	slice := acquireNatSlice(size)
+//	defer releaseNatSlice(slice)
+//
+// This ensures the slice is returned to the pool even if an error occurs.
 func acquireNatSlice(size int) []nat {
 	idx := getNatSlicePoolIndex(size)
 	if idx < 0 {
@@ -178,6 +213,13 @@ func acquireNatSlice(size int) []nat {
 }
 
 // releaseNatSlice returns a []nat slice to the pool.
+// This should be called with defer immediately after acquireNatSlice:
+//
+//	slice := acquireNatSlice(size)
+//	defer releaseNatSlice(slice)
+//
+// Parameters:
+//   - slice: The slice to return to the pool. Safe to call with nil.
 func releaseNatSlice(slice []nat) {
 	if slice == nil {
 		return
@@ -219,6 +261,13 @@ func getFermatSlicePoolIndex(size int) int {
 }
 
 // acquireFermatSlice gets a []fermat slice of at least the given size from the pool.
+//
+// The returned slice should be released using releaseFermatSlice, preferably with defer:
+//
+//	slice := acquireFermatSlice(size)
+//	defer releaseFermatSlice(slice)
+//
+// This ensures the slice is returned to the pool even if an error occurs.
 func acquireFermatSlice(size int) []fermat {
 	idx := getFermatSlicePoolIndex(size)
 	if idx < 0 {
@@ -233,6 +282,13 @@ func acquireFermatSlice(size int) []fermat {
 }
 
 // releaseFermatSlice returns a []fermat slice to the pool.
+// This should be called with defer immediately after acquireFermatSlice:
+//
+//	slice := acquireFermatSlice(size)
+//	defer releaseFermatSlice(slice)
+//
+// Parameters:
+//   - slice: The slice to return to the pool. Safe to call with nil.
 func releaseFermatSlice(slice []fermat) {
 	if slice == nil {
 		return
@@ -267,10 +323,20 @@ var fftStatePool = sync.Pool{
 }
 
 // acquireFFTState gets an fftState from the pool, sized for the given parameters.
+// The returned state must be released using releaseFFTState, preferably with defer:
+//
+//	state := acquireFFTState(n, k)
+//	defer releaseFFTState(state)
+//
+// This ensures the state and its internal buffers are returned to the pool
+// even if an error occurs or a panic is triggered.
 func acquireFFTState(n int, k uint) *fftState {
 	state := fftStatePool.Get().(*fftState)
 
 	// Allocate or reuse tmp buffers
+	// Note: If acquireFermat fails (shouldn't happen), the state will still
+	// be returned to the pool via releaseFFTState, but the buffers won't be
+	// properly initialized. This is acceptable as acquireFermat never fails.
 	tmpSize := n + 1
 	if cap(state.tmp) < tmpSize {
 		state.tmp = acquireFermat(tmpSize)
@@ -296,11 +362,21 @@ func acquireFFTState(n int, k uint) *fftState {
 }
 
 // releaseFFTState returns an fftState to the pool.
+// This should be called with defer immediately after acquireFFTState to ensure
+// proper resource cleanup even in case of errors or panics:
+//
+//	state := acquireFFTState(n, k)
+//	defer releaseFFTState(state)
+//
+// Parameters:
+//   - state: The fftState to return to the pool. Safe to call with nil.
 func releaseFFTState(state *fftState) {
 	if state == nil {
 		return
 	}
 	// Keep the allocations for reuse
+	// Note: The internal tmp and tmp2 buffers are kept with the state
+	// and will be reused on the next acquisition, reducing allocations.
 	fftStatePool.Put(state)
 }
 

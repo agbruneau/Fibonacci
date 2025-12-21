@@ -40,12 +40,26 @@ type PoolAllocator struct{}
 
 // AllocFermatTemp allocates a fermat buffer from the pool.
 // The cleanup function returns the buffer to the pool.
+//
+// The cleanup function should be called with defer immediately after allocation:
+//
+//	f, cleanup := allocator.AllocFermatTemp(n)
+//	defer cleanup()
+//
+// This ensures the buffer is returned to the pool even if an error occurs.
 func (p *PoolAllocator) AllocFermatTemp(n int) (fermat, func()) {
 	f := acquireFermat(n + 1)
 	return f, func() { releaseFermat(f) }
 }
 
 // AllocFermatSlice allocates K fermat numbers using pooled buffers.
+//
+// The cleanup function should be called with defer immediately after allocation:
+//
+//	fermats, bits, cleanup := allocator.AllocFermatSlice(K, n)
+//	defer cleanup()
+//
+// This ensures all buffers are returned to the pool even if an error occurs.
 func (p *PoolAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
 	wordCount := K * (n + 1)
 	bits := acquireWordSlice(wordCount)

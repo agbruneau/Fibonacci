@@ -129,6 +129,12 @@ var matrixStatePool = sync.Pool{
 }
 
 // acquireMatrixState gets a state from the pool and resets it.
+// The returned state must be released using releaseMatrixState, preferably with defer:
+//
+//	state := acquireMatrixState()
+//	defer releaseMatrixState(state)
+//
+// This ensures the state is returned to the pool even if an error occurs or a panic is triggered.
 //
 // Returns:
 //   - *matrixState: A fresh or reused matrixState.
@@ -139,9 +145,14 @@ func acquireMatrixState() *matrixState {
 }
 
 // releaseMatrixState puts a state back into the pool.
+// This should be called with defer immediately after acquireMatrixState to ensure
+// proper resource cleanup even in case of errors or panics:
+//
+//	state := acquireMatrixState()
+//	defer releaseMatrixState(state)
 //
 // Parameters:
-//   - s: The matrixState to return to the pool.
+//   - s: The matrixState to return to the pool. Safe to call with nil.
 func releaseMatrixState(s *matrixState) {
 	// Check if any of the big.Ints exceed the pool limit.
 	// This includes matrix elements and temporaries.
