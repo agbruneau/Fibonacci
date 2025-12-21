@@ -65,25 +65,25 @@ func executeDoublingStepMultiplications(strategy MultiplicationStrategy, s *Calc
 		tasks := []func() error{
 			func() error {
 				var err error
-				s.T3, err = strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+				s.T3, err = strategy.Multiply(s.T3, s.FK, s.T2, opts)
 				if err != nil {
-					return fmt.Errorf("parallel multiply F_k * T2 failed: %w", err)
+					return fmt.Errorf("parallel multiply FK * T2 failed: %w", err)
 				}
 				return nil
 			},
 			func() error {
 				var err error
-				s.T1, err = strategy.Square(s.T1, s.F_k1, opts)
+				s.T1, err = strategy.Square(s.T1, s.FK1, opts)
 				if err != nil {
-					return fmt.Errorf("parallel square F_k1 failed: %w", err)
+					return fmt.Errorf("parallel square FK1 failed: %w", err)
 				}
 				return nil
 			},
 			func() error {
 				var err error
-				s.T4, err = strategy.Square(s.T4, s.F_k, opts)
+				s.T4, err = strategy.Square(s.T4, s.FK, opts)
 				if err != nil {
-					return fmt.Errorf("parallel square F_k failed: %w", err)
+					return fmt.Errorf("parallel square FK failed: %w", err)
 				}
 				return nil
 			},
@@ -104,17 +104,17 @@ func executeDoublingStepMultiplications(strategy MultiplicationStrategy, s *Calc
 
 	// Sequential execution
 	var err error
-	s.T3, err = strategy.Multiply(s.T3, s.F_k, s.T2, opts)
+	s.T3, err = strategy.Multiply(s.T3, s.FK, s.T2, opts)
 	if err != nil {
-		return fmt.Errorf("multiply F_k * T2 failed: %w", err)
+		return fmt.Errorf("multiply FK * T2 failed: %w", err)
 	}
-	s.T1, err = strategy.Square(s.T1, s.F_k1, opts)
+	s.T1, err = strategy.Square(s.T1, s.FK1, opts)
 	if err != nil {
-		return fmt.Errorf("square F_k1 failed: %w", err)
+		return fmt.Errorf("square FK1 failed: %w", err)
 	}
-	s.T4, err = strategy.Square(s.T4, s.F_k, opts)
+	s.T4, err = strategy.Square(s.T4, s.FK, opts)
 	if err != nil {
-		return fmt.Errorf("square F_k failed: %w", err)
+		return fmt.Errorf("square FK failed: %w", err)
 	}
 	return nil
 }
@@ -133,7 +133,7 @@ func executeDoublingStepMultiplications(strategy MultiplicationStrategy, s *Calc
 //   - reporter: The function used for reporting progress.
 //   - n: The index of the Fibonacci number to calculate.
 //   - opts: Configuration options for the calculation.
-//   - s: The calculation state (must be initialized with F_k=0, F_k1=1).
+//   - s: The calculation state (must be initialized with FK=0, FK1=1).
 //   - useParallel: Whether to use parallelization when beneficial.
 //
 // Returns:
@@ -155,7 +155,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 
 	for i := numBits - 1; i >= 0; i-- {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("fast doubling calculation cancelled at bit %d/%d: %w", i, numBits-1, err)
+			return nil, fmt.Errorf("fast doubling calculation canceled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		// Track iteration timing for dynamic threshold adjustment
@@ -165,12 +165,12 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		}
 
 		// Doubling Step
-		// T2 = 2*F_k1 - F_k
-		s.T2.Lsh(s.F_k1, 1).Sub(s.T2, s.F_k)
+		// T2 = 2*FK1 - FK
+		s.T2.Lsh(s.FK1, 1).Sub(s.T2, s.FK)
 
 		// Cache bit lengths to avoid repeated calls (BitLen() traverses internal representation)
-		fkBitLen := s.F_k.BitLen()
-		fk1BitLen := s.F_k1.BitLen()
+		fkBitLen := s.FK.BitLen()
+		fk1BitLen := s.FK1.BitLen()
 
 		// Get current bit length for metrics (use cached value)
 		bitLen := fkBitLen
@@ -194,21 +194,21 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// F(2k+1) = F(k+1)² + F(k)². Store result in T2, which is free.
 		s.T2.Add(s.T1, s.T4)
 		// Swap the pointers for the next iteration.
-		// F_k becomes F(2k) (from T3), F_k1 becomes F(2k+1) (from T2).
-		// T2 and T3 become the old F_k and F_k1, now temporaries.
-		s.F_k, s.F_k1, s.T2, s.T3 = s.T3, s.T2, s.F_k, s.F_k1
+		// FK becomes F(2k) (from T3), FK1 becomes F(2k+1) (from T2).
+		// T2 and T3 become the old FK and FK1, now temporaries.
+		s.FK, s.FK1, s.T2, s.T3 = s.T3, s.T2, s.FK, s.FK1
 
 		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
 		// F(k) <- F(k+1)
 		// F(k+1) <- F(k) + F(k+1)
 		if (n>>uint(i))&1 == 1 {
 			// s.T1 temporarily stores the new F(k+1)
-			s.T1.Add(s.F_k, s.F_k1)
+			s.T1.Add(s.FK, s.FK1)
 			// Swap pointers to avoid large allocations:
-			// s.F_k becomes the old s.F_k1
-			// s.F_k1 becomes the new sum (s.T1)
-			// s.T1 becomes the old s.F_k, now a temporary
-			s.F_k, s.F_k1, s.T1 = s.F_k1, s.T1, s.F_k
+			// s.FK becomes the old s.FK1
+			// s.FK1 becomes the new sum (s.T1)
+			// s.T1 becomes the old s.FK, now a temporary
+			s.FK, s.FK1, s.T1 = s.FK1, s.T1, s.FK
 		}
 
 		// Record metrics and check for threshold adjustments
@@ -227,5 +227,5 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// Harmonized reporting via common utility function
 		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
 	}
-	return new(big.Int).Set(s.F_k), nil
+	return new(big.Int).Set(s.FK), nil
 }

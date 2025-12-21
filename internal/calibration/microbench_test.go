@@ -110,7 +110,7 @@ func TestMicroBenchContextCancellation(t *testing.T) {
 	// RunQuick currently doesn't return context error directly from parallel tests
 	// but we check if it handles it gracefully
 	if err != nil {
-		t.Errorf("RunQuick should handle cancelled context gracefully, got err: %v", err)
+		t.Errorf("RunQuick should handle canceled context gracefully, got err: %v", err)
 	}
 	_ = results
 }

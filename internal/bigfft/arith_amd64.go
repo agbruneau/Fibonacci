@@ -75,13 +75,13 @@ func AddMulVVW(z, x []big.Word, y big.Word) big.Word {
 // These are implemented in arith_amd64.s
 
 //go:noescape
-func addVV_avx2(z, x, y []Word) (c Word)
+func addVVAvx2(z, x, y []Word) (c Word)
 
 //go:noescape
-func subVV_avx2(z, x, y []Word) (c Word)
+func subVVAvx2(z, x, y []Word) (c Word)
 
 //go:noescape
-func addMulVVW_avx2(z, x []Word, y Word) (c Word)
+func addMulVVWAvx2(z, x []Word, y Word) (c Word)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Implementation Selection
@@ -93,9 +93,9 @@ func UseAVX2() bool {
 	if !hasAVX2 {
 		return false
 	}
-	addVVFunc = addVV_avx2
-	subVVFunc = subVV_avx2
-	addMulVVWFunc = addMulVVW_avx2
+	addVVFunc = addVVAvx2
+	subVVFunc = subVVAvx2
+	addMulVVWFunc = addMulVVWAvx2
 	implLevel = SIMDAVX2
 	return true
 }
@@ -126,7 +126,7 @@ func AddVVAuto(z, x, y []big.Word) big.Word {
 	if n < MinSIMDVectorLen || !hasAVX2 {
 		return addVV(z, x, y)
 	}
-	return addVV_avx2(z, x, y)
+	return addVVAvx2(z, x, y)
 }
 
 // SubVVAuto automatically selects the best implementation based on vector length.
@@ -138,7 +138,7 @@ func SubVVAuto(z, x, y []big.Word) big.Word {
 	if n < MinSIMDVectorLen || !hasAVX2 {
 		return subVV(z, x, y)
 	}
-	return subVV_avx2(z, x, y)
+	return subVVAvx2(z, x, y)
 }
 
 // AddMulVVWAuto automatically selects the best implementation based on vector length.
@@ -150,5 +150,5 @@ func AddMulVVWAuto(z, x []big.Word, y big.Word) big.Word {
 	if n < MinSIMDVectorLen || !hasAVX2 {
 		return addMulVVW(z, x, y)
 	}
-	return addMulVVW_avx2(z, x, y)
+	return addMulVVWAvx2(z, x, y)
 }

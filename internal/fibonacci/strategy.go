@@ -94,7 +94,7 @@ func (s *AdaptiveStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error)
 // and optimized FFT transform reuse based on operand size.
 func (s *AdaptiveStrategy) ExecuteStep(state *CalculationState, opts Options, inParallel bool) error {
 	// If operands are large enough for FFT, use specialized reuse logic
-	if opts.FFTThreshold > 0 && state.F_k1.BitLen() > opts.FFTThreshold {
+	if opts.FFTThreshold > 0 && state.FK1.BitLen() > opts.FFTThreshold {
 		return executeDoublingStepFFT(state, opts, inParallel)
 	}
 	// Fallback to standard doubling step multiplication

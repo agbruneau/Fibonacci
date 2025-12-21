@@ -4,7 +4,6 @@ package fibonacci
 
 import (
 	"context"
-	"math/big"
 	"testing"
 )
 
@@ -51,7 +50,7 @@ func TestGMPCalculator_CalculateCore_Cancel(t *testing.T) {
 
 	_, err := calc.CalculateCore(ctx, noopReporter, 1000, opts)
 	if err == nil {
-		t.Error("CalculateCore(cancelled context) expected error, got nil")
+		t.Error("CalculateCore(canceled context) expected error, got nil")
 	}
 }
 

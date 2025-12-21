@@ -31,11 +31,11 @@ func newCalibrationRunner(ctx context.Context, timeout time.Duration) *calibrati
 // Returns:
 //   - time.Duration: The duration of the calculation.
 //   - error: An error if the calculation failed or timed out.
-func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.Options) (time.Duration, error) {
+func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.Options) (duration time.Duration, err error) {
 	ctx, cancel := context.WithTimeout(r.ctx, r.perTrial)
 	defer cancel()
 	start := time.Now()
-	_, err := calc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, opts)
+	_, err = calc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, opts)
 	return time.Since(start), err
 }
 
@@ -48,7 +48,7 @@ func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.O
 // Returns:
 //   - int: The best parallel threshold found.
 //   - time.Duration: The duration achieved with the best threshold.
-func (r *calibrationRunner) findBestParallelThreshold(calc fibonacci.Calculator, defaultThreshold int) (int, time.Duration) {
+func (r *calibrationRunner) findBestParallelThreshold(calc fibonacci.Calculator, defaultThreshold int) (threshold int, duration time.Duration) {
 	candidates := GenerateQuickParallelThresholds()
 	best := defaultThreshold
 	bestDur := time.Duration(1<<63 - 1)
@@ -75,7 +75,7 @@ func (r *calibrationRunner) findBestParallelThreshold(calc fibonacci.Calculator,
 // Returns:
 //   - int: The best FFT threshold found.
 //   - time.Duration: The duration achieved with the best threshold.
-func (r *calibrationRunner) findBestFFTThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (int, time.Duration) {
+func (r *calibrationRunner) findBestFFTThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (threshold int, duration time.Duration) {
 	candidates := GenerateQuickFFTThresholds()
 	best := defaultThreshold
 	bestDur := time.Duration(1<<63 - 1)
@@ -102,7 +102,7 @@ func (r *calibrationRunner) findBestFFTThreshold(calc fibonacci.Calculator, para
 // Returns:
 //   - int: The best Strassen threshold found.
 //   - time.Duration: The duration achieved with the best threshold.
-func (r *calibrationRunner) findBestStrassenThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (int, time.Duration) {
+func (r *calibrationRunner) findBestStrassenThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (threshold int, duration time.Duration) {
 	candidates := GenerateQuickStrassenThresholds()
 	best := defaultThreshold
 	bestDur := time.Duration(1<<63 - 1)

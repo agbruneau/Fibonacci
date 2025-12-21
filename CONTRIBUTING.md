@@ -65,16 +65,16 @@ go build -o build/fibcalc ./cmd/fibcalc
 
 ### Useful Commands
 
-| Command | Description |
-|---------|-------------|
-| `make build` | Build the binary |
-| `make test` | Run all tests |
-| `make test-short` | Run quick tests |
-| `make coverage` | Generate coverage report |
-| `make benchmark` | Run benchmarks |
-| `make lint` | Run linter |
-| `make format` | Format code |
-| `make check` | Run all checks |
+| Command           | Description              |
+| ----------------- | ------------------------ |
+| `make build`      | Build the binary         |
+| `make test`       | Run all tests            |
+| `make test-short` | Run quick tests          |
+| `make coverage`   | Generate coverage report |
+| `make benchmark`  | Run benchmarks           |
+| `make lint`       | Run linter               |
+| `make format`     | Format code              |
+| `make check`      | Run all checks           |
 
 ## Making Changes
 
@@ -101,6 +101,7 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -111,6 +112,7 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 - `chore`: Maintenance tasks
 
 **Examples:**
+
 ```
 feat(fibonacci): add Schönhage-Strassen multiplication
 
@@ -124,12 +126,14 @@ perf(bigfft): optimize FFT butterfly operations
 ## Pull Request Process
 
 1. **Update your fork** with the latest upstream changes:
+
    ```bash
    git fetch upstream
    git rebase upstream/main
    ```
 
 2. **Create a feature branch**:
+
    ```bash
    git checkout -b feature/your-feature
    ```
@@ -137,11 +141,13 @@ perf(bigfft): optimize FFT butterfly operations
 3. **Make your changes** and commit them
 
 4. **Run checks locally**:
+
    ```bash
    make check
    ```
 
 5. **Push to your fork**:
+
    ```bash
    git push origin feature/your-feature
    ```
@@ -170,9 +176,10 @@ perf(bigfft): optimize FFT butterfly operations
 1. **Package Comments**: Every package should have a doc comment
 
 2. **Function Documentation**: Public functions must have doc comments:
+
    ```go
    // Calculate computes the nth Fibonacci number using the configured algorithm.
-   // It returns an error if the context is cancelled or times out.
+   // It returns an error if the context is canceled or times out.
    //
    // Parameters:
    //   - ctx: Context for cancellation
@@ -210,16 +217,19 @@ internal/
 ### Test Types
 
 1. **Unit Tests**: Test individual functions
+
    ```bash
    go test -v ./internal/fibonacci/
    ```
 
 2. **Integration Tests**: Test component interaction
+
    ```bash
    go test -v ./cmd/fibcalc/
    ```
 
 3. **Benchmarks**: Measure performance
+
    ```bash
    go test -bench=. -benchmem ./internal/fibonacci/
    ```
@@ -273,13 +283,13 @@ Update documentation when:
 
 Documentation files:
 
-| File | Purpose |
-|------|---------|
-| `README.md` | Main project documentation |
-| `API.md` | REST API reference |
-| `Docs/ARCHITECTURE.md` | Architecture details |
-| `Docs/PERFORMANCE.md` | Performance tuning |
-| `Docs/SECURITY.md` | Security policy |
+| File                   | Purpose                    |
+| ---------------------- | -------------------------- |
+| `README.md`            | Main project documentation |
+| `API.md`               | REST API reference         |
+| `Docs/ARCHITECTURE.md` | Architecture details       |
+| `Docs/PERFORMANCE.md`  | Performance tuning         |
+| `Docs/SECURITY.md`     | Security policy            |
 
 ## Reporting Issues
 
@@ -313,4 +323,3 @@ For security vulnerabilities, please see [SECURITY.md](Docs/SECURITY.md) for res
 Feel free to open an issue for any questions about contributing. We're happy to help!
 
 Thank you for contributing to Fibonacci Calculator!
-

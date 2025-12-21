@@ -4,7 +4,7 @@ import "time"
 
 // IterationMetric records timing data for a single doubling iteration.
 type IterationMetric struct {
-	// BitLen is the bit length of F_k at this iteration
+	// BitLen is the bit length of FK at this iteration
 	BitLen int
 	// Duration is how long this iteration took
 	Duration time.Duration

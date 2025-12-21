@@ -7,8 +7,8 @@ import (
 	"github.com/agbru/fibcalc/internal/service"
 )
 
-// ServerOption defines a functional option for configuring a Server.
-type ServerOption func(*Server)
+// Option defines a functional option for configuring a Server.
+type Option func(*Server)
 
 // WithLogger sets a custom logger for the server.
 // This is useful for testing or integrating with existing logging infrastructure.
@@ -17,8 +17,8 @@ type ServerOption func(*Server)
 //   - logger: The logger to use. If nil, the default logger is used.
 //
 // Returns:
-//   - ServerOption: A functional option that configures the server's logger.
-func WithLogger(logger *log.Logger) ServerOption {
+//   - Option: A functional option that configures the server's logger.
+func WithLogger(logger *log.Logger) Option {
 	return func(s *Server) {
 		if logger != nil {
 			s.logger = logger
@@ -33,8 +33,8 @@ func WithLogger(logger *log.Logger) ServerOption {
 //   - svc: The service implementation to use.
 //
 // Returns:
-//   - ServerOption: A functional option that configures the server's service.
-func WithService(svc service.Service) ServerOption {
+//   - Option: A functional option that configures the server's service.
+func WithService(svc service.Service) Option {
 	return func(s *Server) {
 		if svc != nil {
 			s.service = svc
@@ -49,16 +49,16 @@ func WithService(svc service.Service) ServerOption {
 //   - timeouts: The timeout configuration.
 //
 // Returns:
-//   - ServerOption: A functional option that configures the server's timeouts.
-func WithTimeouts(timeouts ServerTimeouts) ServerOption {
+//   - Option: A functional option that configures the server's timeouts.
+func WithTimeouts(timeouts Timeouts) Option {
 	return func(s *Server) {
 		s.timeouts = timeouts
 	}
 }
 
-// ServerTimeouts holds timeout configuration for the HTTP server.
+// Timeouts holds timeout configuration for the HTTP server.
 // These can be customized via functional options for testing or deployment needs.
-type ServerTimeouts struct {
+type Timeouts struct {
 	// RequestTimeout is the maximum duration for a single request.
 	RequestTimeout time.Duration
 	// ShutdownTimeout is the maximum duration allowed for graceful shutdown.
@@ -71,9 +71,8 @@ type ServerTimeouts struct {
 	IdleTimeout time.Duration
 }
 
-// DefaultServerTimeouts returns the default timeout configuration.
-func DefaultServerTimeouts() ServerTimeouts {
-	return ServerTimeouts{
+func DefaultServerTimeouts() Timeouts {
+	return Timeouts{
 		RequestTimeout:  5 * time.Minute,
 		ShutdownTimeout: 30 * time.Second,
 		ReadTimeout:     10 * time.Second,

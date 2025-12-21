@@ -40,9 +40,8 @@ func (z fermat) norm() {
 	if z[n] == 1 {
 		z[n] = 0
 		return
-	} else {
-		addVW(z, z, 1)
 	}
+	addVW(z, z, 1)
 }
 
 // Shift computes (x << k) mod (2^n+1).

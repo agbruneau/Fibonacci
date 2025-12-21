@@ -166,7 +166,7 @@ func TestCalculateWithContext(t *testing.T) {
 	cfg := config.AppConfig{}
 	svc := NewCalculatorService(factory, cfg, 0)
 
-	// Use a cancelled context
+	// Use a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -190,8 +190,5 @@ func TestErrMaxValueExceeded(t *testing.T) {
 
 // TestServiceInterface tests that CalculatorService implements Service interface.
 func TestServiceInterface(t *testing.T) {
-	var svc Service = &CalculatorService{}
-	if svc == nil {
-		t.Error("expected non-nil service")
-	}
+	var _ Service = (*CalculatorService)(nil)
 }

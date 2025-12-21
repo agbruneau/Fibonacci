@@ -117,7 +117,7 @@ func TestHandleCalculate(t *testing.T) {
 			}
 			server := createTestServer(registry)
 
-			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, nil)
+			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, http.NoBody)
 			w := httptest.NewRecorder()
 
 			server.handleCalculate(w, req)
@@ -177,7 +177,7 @@ func TestHandleCalculate(t *testing.T) {
 func TestHandleHealth(t *testing.T) {
 	server := createTestServer(nil)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	server.handleHealth(w, req)
@@ -209,7 +209,7 @@ func TestHandleAlgorithms(t *testing.T) {
 	}
 	server := createTestServer(registry)
 
-	req := httptest.NewRequest("GET", "/algorithms", nil)
+	req := httptest.NewRequest("GET", "/algorithms", http.NoBody)
 	w := httptest.NewRecorder()
 
 	server.handleAlgorithms(w, req)
@@ -252,7 +252,7 @@ func TestMethodNotAllowed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.endpoint, nil)
+			req := httptest.NewRequest(tt.method, tt.endpoint, http.NoBody)
 			w := httptest.NewRecorder()
 
 			switch tt.endpoint {
@@ -286,7 +286,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	wrapped := server.loggingMiddleware(testHandler)
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	w := httptest.NewRecorder()
 
 	// Give the logger a bit of time
@@ -328,7 +328,7 @@ func TestStrassenThresholdPassedToCalculator(t *testing.T) {
 	}
 	server := NewServer(fibonacci.NewTestFactory(registry), cfg)
 
-	req := httptest.NewRequest("GET", "/calculate?n=10", nil)
+	req := httptest.NewRequest("GET", "/calculate?n=10", http.NoBody)
 	w := httptest.NewRecorder()
 
 	server.handleCalculate(w, req)
@@ -414,7 +414,7 @@ func TestParseCalculateParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, nil)
+			req := httptest.NewRequest("GET", "/calculate"+tt.queryParams, http.NoBody)
 			n, algo, err := parseCalculateParams(req)
 
 			if tt.expectedError {
@@ -489,7 +489,7 @@ func TestWithTimeouts(t *testing.T) {
 	registry := map[string]fibonacci.Calculator{}
 	cfg := config.AppConfig{Port: "8080"}
 
-	customTimeouts := ServerTimeouts{
+	customTimeouts := Timeouts{
 		RequestTimeout:  10 * time.Minute,
 		ShutdownTimeout: 60 * time.Second,
 		ReadTimeout:     5 * time.Second,

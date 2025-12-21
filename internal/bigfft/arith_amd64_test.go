@@ -97,7 +97,7 @@ func TestAddVV_Correctness(t *testing.T) {
 			// AVX2 implementation
 			if HasAVX2() {
 				zAVX2 := make([]Word, tc.size)
-				cAVX2 := addVV_avx2(zAVX2, x, y)
+				cAVX2 := addVVAvx2(zAVX2, x, y)
 
 				// Compare results
 				if cRef != cAVX2 {
@@ -133,7 +133,7 @@ func TestAddVV_CarryPropagation(t *testing.T) {
 
 	if HasAVX2() {
 		zAVX2 := make([]Word, size)
-		cAVX2 := addVV_avx2(zAVX2, x, y)
+		cAVX2 := addVVAvx2(zAVX2, x, y)
 
 		if cRef != cAVX2 {
 			t.Errorf("Carry chain mismatch: ref=%d, avx2=%d", cRef, cAVX2)
@@ -182,7 +182,7 @@ func TestSubVV_Correctness(t *testing.T) {
 
 			if HasAVX2() {
 				zAVX2 := make([]Word, tc.size)
-				cAVX2 := subVV_avx2(zAVX2, x, y)
+				cAVX2 := subVVAvx2(zAVX2, x, y)
 
 				if cRef != cAVX2 {
 					t.Errorf("Borrow mismatch: ref=%d, avx2=%d", cRef, cAVX2)
@@ -235,7 +235,7 @@ func TestAddMulVVW_Correctness(t *testing.T) {
 			cRef := addMulVVW(zRef, x, y)
 
 			if HasAVX2() {
-				cAVX2 := addMulVVW_avx2(zAVX2, x, y)
+				cAVX2 := addMulVVWAvx2(zAVX2, x, y)
 
 				if cRef != cAVX2 {
 					t.Errorf("Carry mismatch: ref=%d, avx2=%d", cRef, cAVX2)
@@ -313,7 +313,7 @@ func BenchmarkAddVV(b *testing.B) {
 		if HasAVX2() {
 			b.Run("AVX2/"+itoa(size), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					addVV_avx2(z, x, y)
+					addVVAvx2(z, x, y)
 				}
 			})
 		}
@@ -338,7 +338,7 @@ func BenchmarkSubVV(b *testing.B) {
 		if HasAVX2() {
 			b.Run("AVX2/"+itoa(size), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					subVV_avx2(z, x, y)
+					subVVAvx2(z, x, y)
 				}
 			})
 		}
@@ -370,7 +370,7 @@ func BenchmarkAddMulVVW(b *testing.B) {
 					for j := range z {
 						z[j] = 0
 					}
-					addMulVVW_avx2(z, x, y)
+					addMulVVWAvx2(z, x, y)
 				}
 			})
 		}

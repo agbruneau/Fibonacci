@@ -40,7 +40,7 @@ func sqrFFT(x *big.Int) (*big.Int, error) {
 	return bigfft.Sqr(x)
 }
 
-func smartMultiply(z, x, y *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) {
+func smartMultiply(z, x, y *big.Int, fftThreshold, karatsubaThreshold int) (*big.Int, error) {
 	bx := x.BitLen()
 	by := y.BitLen()
 
@@ -66,7 +66,7 @@ func smartMultiply(z, x, y *big.Int, fftThreshold int, karatsubaThreshold int) (
 
 // smartSquare performs optimized squaring, choosing between standard Mul,
 // optimized Karatsuba (internal/bigfft), and FFT (internal/bigfft) based on the size.
-func smartSquare(z, x *big.Int, fftThreshold int, karatsubaThreshold int) (*big.Int, error) {
+func smartSquare(z, x *big.Int, fftThreshold, karatsubaThreshold int) (*big.Int, error) {
 	bx := x.BitLen()
 
 	// Tier 1: FFT Squaring
@@ -93,13 +93,13 @@ func smartSquare(z, x *big.Int, fftThreshold int, karatsubaThreshold int) (*big.
 // while minimizing redundant FFT transforms.
 // It transforms F_k and F_k1 only once and then performs the calculations.
 func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) error {
-	// F(2k) = F(k) * (2*F(k+1) - F(k))
-	// F(2k+1) = F(k+1)^2 + F(k)^2
+	// FK1 = F(k) * (2*F(k+1) - F(k))
+	// F2k1 = F(k+1)^2 + F(k)^2
 
 	// Determine result size bit length (approx 2 * bitlen(F_k))
-	// F(2k+1) is roughly N iterations * 2.
+	// FK1 is roughly N iterations * 2.
 	// For GetFFTParams, we need words.
-	fk1Words := len(s.F_k1.Bits())
+	fk1Words := len(s.FK1.Bits())
 	targetWords := 2*fk1Words + 2
 	k, m := bigfft.GetFFTParams(targetWords)
 
@@ -108,20 +108,20 @@ func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) 
 	nWords := bigfft.ValueSize(k, m, 2)
 	n := nWords
 
-	p_fk := bigfft.PolyFromInt(s.F_k, k, m)
-	fkPoly, err := p_fk.Transform(n)
+	pFk := bigfft.PolyFromInt(s.FK, k, m)
+	fkPoly, err := pFk.Transform(n)
 	if err != nil {
 		return err
 	}
 
-	p_fk1 := bigfft.PolyFromInt(s.F_k1, k, m)
-	fk1Poly, err := p_fk1.Transform(n)
+	pFk1 := bigfft.PolyFromInt(s.FK1, k, m)
+	fk1Poly, err := pFk1.Transform(n)
 	if err != nil {
 		return err
 	}
 
-	p_t2 := bigfft.PolyFromInt(s.T2, k, m)
-	t2Poly, err := p_t2.Transform(n)
+	pT2 := bigfft.PolyFromInt(s.T2, k, m)
+	t2Poly, err := pT2.Transform(n)
 	if err != nil {
 		return err
 	}

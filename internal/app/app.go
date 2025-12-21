@@ -244,28 +244,16 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 	return a.analyzeResultsWithOutput(results, outputCfg, out)
 }
 
-// analyzeResultsWithOutput processes results and handles output configuration.
 func (a *Application) analyzeResultsWithOutput(results []orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) int {
-	// Find the best successful result (fastest)
-	var bestResult *orchestration.CalculationResult
-	for i := range results {
-		if results[i].Err == nil {
-			if bestResult == nil || results[i].Duration < bestResult.Duration {
-				bestResult = &results[i]
-			}
-		}
-	}
+	bestResult := findBestResult(results)
 
 	// Handle quiet mode for single result
 	if outputCfg.Quiet && bestResult != nil {
 		cli.DisplayQuietResult(out, bestResult.Result, a.Config.N, bestResult.Duration, outputCfg.HexOutput)
 
 		// Save to file if requested
-		if outputCfg.OutputFile != "" {
-			if err := cli.WriteResultToFile(bestResult.Result, a.Config.N, bestResult.Duration, bestResult.Name, outputCfg); err != nil {
-				fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
-				return apperrors.ExitErrorGeneric
-			}
+		if err := a.saveResultIfNeeded(bestResult, outputCfg); err != nil {
+			return apperrors.ExitErrorGeneric
 		}
 
 		return apperrors.ExitSuccess
@@ -277,26 +265,13 @@ func (a *Application) analyzeResultsWithOutput(results []orchestration.Calculati
 	// Handle file output and hex display for non-quiet mode
 	if bestResult != nil && exitCode == apperrors.ExitSuccess {
 		// Display hex format if requested
-		if outputCfg.HexOutput {
-			fmt.Fprintf(out, "\n%s--- Hexadecimal Format ---%s\n", cli.ColorBold(), cli.ColorReset())
-			hexStr := bestResult.Result.Text(16)
-			if len(hexStr) > 100 && !a.Config.Verbose {
-				fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s...%s%s\n",
-					cli.ColorMagenta(), a.Config.N, cli.ColorReset(),
-					cli.ColorGreen(), hexStr[:40], hexStr[len(hexStr)-40:], cli.ColorReset())
-			} else {
-				fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s%s\n",
-					cli.ColorMagenta(), a.Config.N, cli.ColorReset(),
-					cli.ColorGreen(), hexStr, cli.ColorReset())
-			}
-		}
+		a.displayHexIfNeeded(bestResult, outputCfg, out)
 
 		// Save to file if requested
+		if err := a.saveResultIfNeeded(bestResult, outputCfg); err != nil {
+			return apperrors.ExitErrorGeneric
+		}
 		if outputCfg.OutputFile != "" {
-			if err := cli.WriteResultToFile(bestResult.Result, a.Config.N, bestResult.Duration, bestResult.Name, outputCfg); err != nil {
-				fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
-				return apperrors.ExitErrorGeneric
-			}
 			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
 				cli.ColorGreen(), cli.ColorCyan(), outputCfg.OutputFile, cli.ColorReset())
 		}
@@ -316,6 +291,46 @@ func (a *Application) analyzeResultsWithOutput(results []orchestration.Calculati
 //   - bool: True if the error indicates help was requested.
 func IsHelpError(err error) bool {
 	return errors.Is(err, flag.ErrHelp)
+}
+
+func findBestResult(results []orchestration.CalculationResult) *orchestration.CalculationResult {
+	var bestResult *orchestration.CalculationResult
+	for i := range results {
+		if results[i].Err == nil {
+			if bestResult == nil || results[i].Duration < bestResult.Duration {
+				bestResult = &results[i]
+			}
+		}
+	}
+	return bestResult
+}
+
+func (a *Application) saveResultIfNeeded(res *orchestration.CalculationResult, cfg cli.OutputConfig) error {
+	if cfg.OutputFile == "" {
+		return nil
+	}
+	if err := cli.WriteResultToFile(res.Result, a.Config.N, res.Duration, res.Name, cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
+		return err
+	}
+	return nil
+}
+
+func (a *Application) displayHexIfNeeded(res *orchestration.CalculationResult, cfg cli.OutputConfig, out io.Writer) {
+	if !cfg.HexOutput {
+		return
+	}
+	fmt.Fprintf(out, "\n%s--- Hexadecimal Format ---%s\n", cli.ColorBold(), cli.ColorReset())
+	hexStr := res.Result.Text(16)
+	if len(hexStr) > 100 && !a.Config.Verbose {
+		fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s...%s%s\n",
+			cli.ColorMagenta(), a.Config.N, cli.ColorReset(),
+			cli.ColorGreen(), hexStr[:40], hexStr[len(hexStr)-40:], cli.ColorReset())
+	} else {
+		fmt.Fprintf(out, "F(%s%d%s) [hex] = %s0x%s%s\n",
+			cli.ColorMagenta(), a.Config.N, cli.ColorReset(),
+			cli.ColorGreen(), hexStr, cli.ColorReset())
+	}
 }
 
 // jsonResult represents a single calculation result in JSON format.

@@ -16,8 +16,8 @@ import (
 //   - rl: The rate limiter to use.
 //
 // Returns:
-//   - ServerOption: A functional option that configures the server's rate limiter.
-func WithRateLimiter(rl *RateLimiter) ServerOption {
+//   - Option: A functional option that configures the server's rate limiter.
+func WithRateLimiter(rl *RateLimiter) Option {
 	return func(s *Server) {
 		s.rateLimiter = rl
 	}
@@ -29,8 +29,8 @@ func WithRateLimiter(rl *RateLimiter) ServerOption {
 //   - config: The security configuration.
 //
 // Returns:
-//   - ServerOption: A functional option that configures the server's security settings.
-func WithSecurityConfig(config SecurityConfig) ServerOption {
+//   - Option: A functional option that configures the server's security settings.
+func WithSecurityConfig(config SecurityConfig) Option {
 	return func(s *Server) {
 		s.securityConfig = config
 	}
@@ -43,8 +43,8 @@ func WithSecurityConfig(config SecurityConfig) ServerOption {
 //   - maxN: The maximum allowed value.
 //
 // Returns:
-//   - ServerOption: A functional option that configures the maximum N value.
-func WithMaxN(maxN uint64) ServerOption {
+//   - Option: A functional option that configures the maximum N value.
+func WithMaxN(maxN uint64) Option {
 	return func(s *Server) {
 		s.securityConfig.MaxNValue = maxN
 	}

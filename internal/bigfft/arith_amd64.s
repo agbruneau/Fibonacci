@@ -15,7 +15,7 @@
 // addVV_avx2: z = x + y with carry propagation
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// func addVV_avx2(z, x, y []Word) (c Word)
+// func addVVAvx2(z, x, y []Word) (c Word)
 //
 // Adds two vectors x and y, storing result in z. Returns the final carry.
 //
@@ -23,7 +23,7 @@
 // across 64-bit lanes, so we use an optimized scalar implementation with
 // the ADC (add with carry) instruction chain.
 
-TEXT ·addVV_avx2(SB), NOSPLIT, $0-80
+TEXT ·addVVAvx2(SB), NOSPLIT, $0-80
     // Arguments:
     // z []Word: FP+0 (ptr), FP+8 (len), FP+16 (cap)
     // x []Word: FP+24 (ptr), FP+32 (len), FP+40 (cap)
@@ -64,12 +64,12 @@ addvv_done:
 // subVV_avx2: z = x - y with borrow propagation
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// func subVV_avx2(z, x, y []Word) (c Word)
+// func subVVAvx2(z, x, y []Word) (c Word)
 //
 // Subtracts y from x, storing result in z. Returns the final borrow.
 // Uses optimized SBB (subtract with borrow) chain.
 
-TEXT ·subVV_avx2(SB), NOSPLIT, $0-80
+TEXT ·subVVAvx2(SB), NOSPLIT, $0-80
     MOVQ z_base+0(FP), DI      // DI = &z[0]
     MOVQ x_base+24(FP), SI     // SI = &x[0]
     MOVQ y_base+48(FP), DX     // DX = &y[0]
@@ -113,7 +113,7 @@ subvv_done:
 // addMulVVW_avx2: z += x * y where y is a single word
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// func addMulVVW_avx2(z, x []Word, y Word) (c Word)
+// func addMulVVWAvx2(z, x []Word, y Word) (c Word)
 //
 // Computes z[i] += x[i] * y for all i, propagating carry.
 // This is the CRITICAL inner loop for basicMul in FFT multiplication.
@@ -129,7 +129,7 @@ subvv_done:
 //   BX = carry
 //   AX, DX = used by MULQ (DX:AX = result)
 
-TEXT ·addMulVVW_avx2(SB), NOSPLIT, $0-64
+TEXT ·addMulVVWAvx2(SB), NOSPLIT, $0-64
     // Arguments:
     // z []Word: FP+0 (ptr), FP+8 (len), FP+16 (cap)
     // x []Word: FP+24 (ptr), FP+32 (len), FP+40 (cap)

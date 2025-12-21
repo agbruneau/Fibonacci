@@ -108,7 +108,13 @@ func isFlagSet(fs *flag.FlagSet, name string) bool {
 //   - FIBCALC_OUTPUT: Output file path (string)
 //   - FIBCALC_CALIBRATION_PROFILE: Path to calibration profile (string)
 func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
-	// Numeric parameters
+	applyNumericOverrides(config, fs)
+	applyDurationOverrides(config, fs)
+	applyStringOverrides(config, fs)
+	applyBooleanOverrides(config, fs)
+}
+
+func applyNumericOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "n") {
 		config.N = getEnvUint64("N", config.N)
 	}
@@ -121,13 +127,15 @@ func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "strassen-threshold") {
 		config.StrassenThreshold = getEnvInt("STRASSEN_THRESHOLD", config.StrassenThreshold)
 	}
+}
 
-	// Duration parameters
+func applyDurationOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "timeout") {
 		config.Timeout = getEnvDuration("TIMEOUT", config.Timeout)
 	}
+}
 
-	// String parameters
+func applyStringOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "algo") {
 		config.Algo = getEnvString("ALGO", config.Algo)
 	}
@@ -140,8 +148,9 @@ func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "calibration-profile") {
 		config.CalibrationProfile = getEnvString("CALIBRATION_PROFILE", config.CalibrationProfile)
 	}
+}
 
-	// Boolean parameters
+func applyBooleanOverrides(config *AppConfig, fs *flag.FlagSet) {
 	if !isFlagSet(fs, "server") {
 		config.ServerMode = getEnvBool("SERVER", config.ServerMode)
 	}

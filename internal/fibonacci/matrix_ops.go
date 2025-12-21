@@ -181,7 +181,7 @@ func assembleStrassenResult(dest *matrix, state *matrixState) {
 //   - error: An error if the calculation failed.
 func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	a2, b2, d2 := state.t1, state.t2, state.t3
-	b_ad, ad := state.t4, state.t5
+	bAd, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
 
 	// Execute the 3 squaring operations using optimized squaring
@@ -193,7 +193,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 
 	// Execute the 1 general multiplication (b * (a+d))
 	mulTasks := []multiplicationTask{
-		{&b_ad, mat.b, ad, fftThreshold, 0},
+		{&bAd, mat.b, ad, fftThreshold, 0},
 	}
 
 	// Use unified execution function for both parallel and sequential cases
@@ -202,8 +202,8 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	}
 
 	dest.a.Add(a2, b2)
-	dest.b.Set(b_ad)
-	dest.c.Set(b_ad)
+	dest.b.Set(bAd)
+	dest.c.Set(bAd)
 	dest.d.Add(b2, d2)
 	return nil
 }
@@ -273,17 +273,17 @@ func maxBitLenMatrix(m *matrix) int {
 	cLen := m.c.BitLen()
 	dLen := m.d.BitLen()
 
-	max := aLen
-	if bLen > max {
-		max = bLen
+	maxLen := aLen
+	if bLen > maxLen {
+		maxLen = bLen
 	}
-	if cLen > max {
-		max = cLen
+	if cLen > maxLen {
+		maxLen = cLen
 	}
-	if dLen > max {
-		max = dLen
+	if dLen > maxLen {
+		maxLen = dLen
 	}
-	return max
+	return maxLen
 }
 
 // maxBitLenTwoMatrices returns the maximum bit length between all elements
@@ -296,9 +296,9 @@ func maxBitLenMatrix(m *matrix) int {
 // Returns:
 //   - int: The overall maximum bit length.
 func maxBitLenTwoMatrices(m1, m2 *matrix) int {
-	max := maxBitLenMatrix(m1)
-	if v := maxBitLenMatrix(m2); v > max {
-		max = v
+	maxLen := maxBitLenMatrix(m1)
+	if v := maxBitLenMatrix(m2); v > maxLen {
+		maxLen = v
 	}
-	return max
+	return maxLen
 }

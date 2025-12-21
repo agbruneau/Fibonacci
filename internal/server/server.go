@@ -28,7 +28,7 @@ type Server struct {
 	rateLimiter    *RateLimiter
 	securityConfig SecurityConfig
 	metrics        *Metrics
-	timeouts       ServerTimeouts
+	timeouts       Timeouts
 }
 
 // NewServer creates a new Server instance with the given calculator registry and configuration.
@@ -41,7 +41,7 @@ type Server struct {
 //
 // Returns:
 //   - *Server: A pointer to the initialized Server.
-func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts ...ServerOption) *Server {
+func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts ...Option) *Server {
 	s := &Server{
 		factory:        factory,
 		cfg:            cfg,

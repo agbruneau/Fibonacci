@@ -59,7 +59,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 	for i := 0; i < numBits; i++ {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("matrix exponentiation calculation cancelled at bit %d/%d: %w", i, numBits-1, err)
+			return nil, fmt.Errorf("matrix exponentiation calculation canceled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		if (exponent>>uint(i))&1 == 1 {

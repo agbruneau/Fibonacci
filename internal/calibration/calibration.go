@@ -182,14 +182,14 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 // Returns:
 //   - config.AppConfig: The updated configuration with optimized thresholds.
 //   - bool: True if calibration was successful, false otherwise.
-func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (config.AppConfig, bool) {
+func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (updated config.AppConfig, ok bool) {
 	return AutoCalibrateWithProfile(parentCtx, cfg, out, calculatorRegistry, cfg.CalibrationProfile)
 }
 
 // AutoCalibrateWithProfile runs auto-calibration with a specific profile path.
 // It first tries to load a cached profile, then falls back to quick micro-benchmarks,
 // and finally uses full calibration if needed.
-func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (config.AppConfig, bool) {
+func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (updated config.AppConfig, ok bool) {
 	// Try to load existing profile first
 	if profile, loaded := LoadOrCreateProfile(profilePath); loaded && profile.IsValid() {
 		// Use cached calibration
@@ -246,7 +246,7 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	}
 
 	// Apply results and check if calibration was successful
-	updated, ok := applyCalibrationResults(cfg, bestPar, bestParDur, bestFFT, bestFFTDur, bestStrassen, bestStrassenDur)
+	updated, ok = applyCalibrationResults(cfg, bestPar, bestParDur, bestFFT, bestFFTDur, bestStrassen, bestStrassenDur)
 	if !ok {
 		return cfg, false
 	}
@@ -261,13 +261,13 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 // LoadCachedCalibration attempts to load a cached calibration profile and
 // apply it to the configuration. Returns the updated config and true if
 // a valid cached profile was found.
-func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (config.AppConfig, bool) {
+func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (updated config.AppConfig, ok bool) {
 	profile, loaded := LoadOrCreateProfile(profilePath)
 	if !loaded || !profile.IsValid() {
 		return cfg, false
 	}
 
-	updated := cfg
+	updated = cfg
 	updated.Threshold = profile.OptimalParallelThreshold
 	updated.FFTThreshold = profile.OptimalFFTThreshold
 	updated.StrassenThreshold = profile.OptimalStrassenThreshold
@@ -288,13 +288,13 @@ func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (config.App
 // Returns:
 //   - config.AppConfig: The updated configuration.
 //   - bool: true if any valid results were found, false otherwise.
-func applyCalibrationResults(cfg config.AppConfig, bestPar int, bestParDur time.Duration, bestFFT int, bestFFTDur time.Duration, bestStrassen int, bestStrassenDur time.Duration) (config.AppConfig, bool) {
+func applyCalibrationResults(cfg config.AppConfig, bestPar int, bestParDur time.Duration, bestFFT int, bestFFTDur time.Duration, bestStrassen int, bestStrassenDur time.Duration) (updated config.AppConfig, ok bool) {
 	maxDuration := time.Duration(1<<63 - 1)
 	if bestParDur == maxDuration && bestFFTDur == maxDuration {
 		return cfg, false
 	}
 
-	updated := cfg
+	updated = cfg
 	if bestParDur != maxDuration {
 		updated.Threshold = bestPar
 	}

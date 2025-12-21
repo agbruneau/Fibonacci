@@ -144,8 +144,8 @@ func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 	// Cache BitLen() values to avoid redundant calls.
 	// BitLen() traverses the internal representation of big.Int, so caching
 	// these values provides a measurable performance improvement (2-5%).
-	fkBitLen := s.F_k.BitLen()
-	fk1BitLen := s.F_k1.BitLen()
+	fkBitLen := s.FK.BitLen()
+	fk1BitLen := s.FK1.BitLen()
 	return shouldParallelizeMultiplicationCached(opts, fkBitLen, fk1BitLen)
 }
 
@@ -154,8 +154,8 @@ func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
 //
 // Parameters:
 //   - opts: Configuration options including thresholds.
-//   - fkBitLen: Pre-computed bit length of F_k.
-//   - fk1BitLen: Pre-computed bit length of F_k1.
+//   - fkBitLen: Pre-computed bit length of FK.
+//   - fk1BitLen: Pre-computed bit length of FK1.
 //
 // Returns:
 //   - bool: true if multiplication should be parallelized, false otherwise.
@@ -195,27 +195,27 @@ func shouldParallelizeMultiplicationCached(opts Options, fkBitLen, fk1BitLen int
 // CalculationState aggregates temporary variables for the "Fast Doubling"
 // algorithm, allowing efficient management via an object pool.
 type CalculationState struct {
-	F_k, F_k1, T1, T2, T3, T4 *big.Int
+	FK, FK1, T1, T2, T3, T4 *big.Int
 }
 
 // Reset prepares the state for a new calculation.
-// It initializes F_k to 0 and F_k1 to 1, which are the base values for the
+// It initializes FK to 0 and FK1 to 1, which are the base values for the
 // Fast Doubling algorithm.
 func (s *CalculationState) Reset() {
-	s.F_k.SetInt64(0)
-	s.F_k1.SetInt64(1)
+	s.FK.SetInt64(0)
+	s.FK1.SetInt64(1)
 	// T1..T4 are temporaries used as scratch space, so we don't need to clear them.
 }
 
 var statePool = sync.Pool{
 	New: func() any {
 		return &CalculationState{
-			F_k:  new(big.Int),
-			F_k1: new(big.Int),
-			T1:   new(big.Int),
-			T2:   new(big.Int),
-			T3:   new(big.Int),
-			T4:   new(big.Int),
+			FK:  new(big.Int),
+			FK1: new(big.Int),
+			T1:  new(big.Int),
+			T2:  new(big.Int),
+			T3:  new(big.Int),
+			T4:  new(big.Int),
 		}
 	},
 }
@@ -238,7 +238,7 @@ func ReleaseState(s *CalculationState) {
 	// Avoid keeping oversized objects in memory.
 	// We check if any of the big.Ints exceed the pool limit.
 	// If so, we discard the entire state to let GC reclaim the large memory.
-	if checkLimit(s.F_k) || checkLimit(s.F_k1) ||
+	if checkLimit(s.FK) || checkLimit(s.FK1) ||
 		checkLimit(s.T1) || checkLimit(s.T2) ||
 		checkLimit(s.T3) || checkLimit(s.T4) {
 		return
