@@ -185,28 +185,28 @@ func runBenchmark(b *testing.B, calc Calculator, n uint64) {
 	}
 }
 
-func BenchmarkFastDoubling1M(b *testing.B) {
-	runBenchmark(b, NewCalculator(&OptimizedFastDoubling{}), 1_000_000)
-}
+func BenchmarkFibonacci(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		n    uint64
+	}{
+		{"1M", 1_000_000},
+		{"10M", 10_000_000},
+	}
 
-func BenchmarkMatrixExp1M(b *testing.B) {
-	runBenchmark(b, NewCalculator(&MatrixExponentiation{}), 1_000_000)
-}
+	calculators := map[string]Calculator{
+		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
+		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
+		"FFTBased":     NewCalculator(&FFTBasedCalculator{}),
+	}
 
-func BenchmarkFastDoubling10M(b *testing.B) {
-	runBenchmark(b, NewCalculator(&OptimizedFastDoubling{}), 10_000_000)
-}
-
-func BenchmarkMatrixExp10M(b *testing.B) {
-	runBenchmark(b, NewCalculator(&MatrixExponentiation{}), 10_000_000)
-}
-
-func BenchmarkFFTBased1M(b *testing.B) {
-	runBenchmark(b, NewCalculator(&FFTBasedCalculator{}), 1_000_000)
-}
-
-func BenchmarkFFTBased10M(b *testing.B) {
-	runBenchmark(b, NewCalculator(&FFTBasedCalculator{}), 10_000_000)
+	for _, bm := range benchmarks {
+		for calcName, calc := range calculators {
+			b.Run(fmt.Sprintf("%s/%s", calcName, bm.name), func(b *testing.B) {
+				runBenchmark(b, calc, bm.n)
+			})
+		}
+	}
 }
 
 // ExampleCalculator_Calculate illustrates the basic use of a Calculator
