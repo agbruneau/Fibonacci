@@ -1,5 +1,22 @@
 //go:build gmp
 
+// This file provides a GMP-based Fibonacci calculator, conditionally compiled
+// with the "gmp" build tag. The build tag architecture ensures that:
+//   - Projects can build without GMP (the default, using math/big)
+//   - GMP support is opt-in, requiring: go build -tags=gmp
+//   - The codebase remains portable across systems without libgmp installed
+//
+// System Requirements for GMP:
+//   - Linux: sudo apt-get install libgmp-dev (Debian/Ubuntu)
+//   - macOS: brew install gmp
+//   - Windows: Requires MinGW or WSL with libgmp
+//
+// Architectural Decision:
+// The direct use of github.com/ncw/gmp in this file is intentional. While an
+// abstract BigInt interface could provide more flexibility, the performance
+// overhead of interface indirection would negate GMP's speed benefits.
+// The build tag approach provides clean separation without runtime cost.
+
 package fibonacci
 
 import (
@@ -17,6 +34,12 @@ func init() {
 // It requires the 'gmp' build tag and the libgmp library installed on the system.
 // This implementation uses the Fast Doubling algorithm but leverages GMP's
 // highly optimized C assembly routines for arithmetic operations.
+//
+// Performance Characteristics:
+//   - Excels for extremely large N (> 100,000,000) where GMP's assembly-optimized
+//     multiplication routines outperform Go's math/big
+//   - For smaller N, the CGO call overhead may make math/big faster
+//   - Memory is managed by reusing gmp.Int instances to minimize allocations
 type GMPCalculator struct{}
 
 // Name returns the name of the algorithm.
