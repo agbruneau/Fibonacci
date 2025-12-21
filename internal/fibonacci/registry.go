@@ -1,5 +1,8 @@
 package fibonacci
 
+// Note: CalculatorFactory interface is not mockable with mockgen because Register()
+// uses the unexported coreCalculator type. Use DefaultFactory or manual mocks instead.
+
 import (
 	"fmt"
 	"sort"

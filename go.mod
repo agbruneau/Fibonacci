@@ -6,6 +6,7 @@ require golang.org/x/sync v0.17.0
 
 require (
 	github.com/briandowns/spinner v1.23.2
+	github.com/golang/mock v1.6.0
 	github.com/leanovate/gopter v0.2.11
 	github.com/ncw/gmp v1.0.5
 	github.com/prometheus/client_golang v1.23.2

@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X main.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build clean test coverage benchmark run help install lint format check pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
+.PHONY: all build clean test coverage benchmark run help install lint format check pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all generate-mocks install-mockgen
 
 # Default target
 all: clean build test
@@ -192,6 +192,16 @@ install-tools:
 	@echo "Installing tools..."
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+## generate-mocks: Generate mock implementations for all interfaces
+generate-mocks:
+	@echo "Generating mocks..."
+	@go generate ./...
+
+## install-mockgen: Install mockgen tool for mock generation
+install-mockgen:
+	@echo "Installing mockgen..."
+	@go install github.com/golang/mock/mockgen@latest
 
 ## format: Format Go code
 format:

@@ -265,6 +265,57 @@ make coverage
 # Open coverage.html in your browser
 ```
 
+## Mock Generation
+
+This project uses [mockgen](https://github.com/golang/mock) for generating test mocks automatically.
+
+### Regenerating Mocks
+
+After modifying an interface, regenerate mocks:
+
+```bash
+make generate-mocks
+# or
+go generate ./...
+```
+
+### Installing mockgen
+
+```bash
+make install-mockgen
+# or
+go install github.com/golang/mock/mockgen@latest
+```
+
+### Mock Locations
+
+| Interface                | Mock Location                                 |
+| ------------------------ | --------------------------------------------- |
+| `Calculator`             | `internal/fibonacci/mocks/mock_calculator.go` |
+| `CalculatorFactory`      | `internal/fibonacci/mocks/mock_registry.go`   |
+| `MultiplicationStrategy` | `internal/fibonacci/mocks/mock_strategy.go`   |
+| `Service`                | `internal/service/mocks/mock_service.go`      |
+| `Spinner`                | `internal/cli/mocks/mock_ui.go`               |
+
+### Using Mocks in Tests
+
+```go
+import (
+    "testing"
+    "github.com/golang/mock/gomock"
+    "github.com/agbru/fibcalc/internal/fibonacci/mocks"
+)
+
+func TestWithMock(t *testing.T) {
+    ctrl := gomock.NewController(t)
+    defer ctrl.Finish()
+
+    mockCalc := mocks.NewMockCalculator(ctrl)
+    mockCalc.EXPECT().Name().Return("test").AnyTimes()
+    // Use mockCalc in your test...
+}
+```
+
 ## Documentation
 
 ### Code Documentation

@@ -1,5 +1,7 @@
 package service
 
+//go:generate mockgen -source=calculator_service.go -destination=mocks/mock_service.go -package=mocks
+
 import (
 	"context"
 	"errors"

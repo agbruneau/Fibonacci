@@ -3,6 +3,8 @@
 // duplication between different calculator implementations.
 package fibonacci
 
+//go:generate mockgen -source=strategy.go -destination=mocks/mock_strategy.go -package=mocks
+
 import (
 	"fmt"
 	"math/big"

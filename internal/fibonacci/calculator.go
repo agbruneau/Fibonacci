@@ -5,6 +5,8 @@
 // as memory pooling, parallel processing, and dynamic threshold adjustment.
 package fibonacci
 
+//go:generate mockgen -source=calculator.go -destination=mocks/mock_calculator.go -package=mocks
+
 import (
 	"context"
 	"math/big"
