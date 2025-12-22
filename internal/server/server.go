@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/logging"
 	"github.com/agbru/fibcalc/internal/service"
 )
 
@@ -23,7 +23,7 @@ type Server struct {
 	service        service.Service
 	cfg            config.AppConfig
 	httpServer     *http.Server
-	logger         *log.Logger
+	logger         logging.Logger
 	shutdownSignal chan os.Signal
 	rateLimiter    *RateLimiter
 	securityConfig SecurityConfig
@@ -45,7 +45,7 @@ func NewServer(factory fibonacci.CalculatorFactory, cfg config.AppConfig, opts .
 	s := &Server{
 		factory:        factory,
 		cfg:            cfg,
-		logger:         log.New(os.Stdout, "[SERVER] ", log.LstdFlags), // Default logger
+		logger:         logging.NewLogger(os.Stdout, "server"), // Default unified logger
 		shutdownSignal: make(chan os.Signal, 1),
 		securityConfig: DefaultSecurityConfig(),
 		metrics:        NewMetrics(),

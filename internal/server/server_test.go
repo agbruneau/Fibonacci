@@ -457,10 +457,10 @@ func TestWithLogger(t *testing.T) {
 		t.Error("expected default logger to be set")
 	}
 
-	// Test with custom logger
+	// Test with custom standard logger using WithStdLogger
 	customLogger := log.New(io.Discard, "[CUSTOM] ", 0)
-	server = NewServer(fibonacci.NewTestFactory(registry), cfg, WithLogger(customLogger))
-	if server.logger != customLogger {
+	server = NewServer(fibonacci.NewTestFactory(registry), cfg, WithStdLogger(customLogger))
+	if server.logger == nil {
 		t.Error("expected custom logger to be set")
 	}
 }

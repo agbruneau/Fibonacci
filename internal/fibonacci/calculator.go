@@ -114,8 +114,9 @@ func (c *FibCalculator) Name() string {
 }
 
 // Calculate orchestrates the calculation process.
-// It first checks for small values of `n` to leverage the lookup table
-// optimization. For larger values, it adapts the progressChan into a
+// It first checks for small values of `n` (≤93) which can be computed
+// efficiently using iterative addition without the overhead of the full
+// algorithm. For larger values, it adapts the progressChan into a
 // ProgressReporter callback and delegates the core calculation to the wrapped
 // coreCalculator. This method ensures that progress is reported completely upon
 // successful calculation.

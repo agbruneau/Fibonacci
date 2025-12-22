@@ -2,15 +2,17 @@ package server
 
 import (
 	"log"
+
 	"time"
 
+	"github.com/agbru/fibcalc/internal/logging"
 	"github.com/agbru/fibcalc/internal/service"
 )
 
 // Option defines a functional option for configuring a Server.
 type Option func(*Server)
 
-// WithLogger sets a custom logger for the server.
+// WithLogger sets a custom logger for the server using the unified logging interface.
 // This is useful for testing or integrating with existing logging infrastructure.
 //
 // Parameters:
@@ -18,10 +20,26 @@ type Option func(*Server)
 //
 // Returns:
 //   - Option: A functional option that configures the server's logger.
-func WithLogger(logger *log.Logger) Option {
+func WithLogger(logger logging.Logger) Option {
 	return func(s *Server) {
 		if logger != nil {
 			s.logger = logger
+		}
+	}
+}
+
+// WithStdLogger sets a standard library log.Logger for the server.
+// This provides backward compatibility with code using log.Logger.
+//
+// Parameters:
+//   - logger: The standard log.Logger to use. If nil, the default logger is used.
+//
+// Returns:
+//   - Option: A functional option that configures the server's logger.
+func WithStdLogger(logger *log.Logger) Option {
+	return func(s *Server) {
+		if logger != nil {
+			s.logger = logging.NewStdLoggerAdapter(logger)
 		}
 	}
 }
