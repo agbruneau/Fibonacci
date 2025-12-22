@@ -157,11 +157,10 @@ func TestFormatQuietResult(t *testing.T) {
 func TestDisplayQuietResult(t *testing.T) {
 	t.Parallel()
 	result := big.NewInt(55)
-	var buf bytes.Buffer
 
 	t.Run("Decimal output", func(t *testing.T) {
 		t.Parallel()
-		buf.Reset()
+		var buf bytes.Buffer
 		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond, false)
 		output := buf.String()
 		if !strings.Contains(output, "55") {
@@ -174,7 +173,7 @@ func TestDisplayQuietResult(t *testing.T) {
 
 	t.Run("Hex output", func(t *testing.T) {
 		t.Parallel()
-		buf.Reset()
+		var buf bytes.Buffer
 		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond, true)
 		output := buf.String()
 		if !strings.HasPrefix(strings.TrimSpace(output), "0x") {
