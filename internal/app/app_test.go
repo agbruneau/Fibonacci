@@ -820,10 +820,14 @@ func TestRunAutoCalibrationIfEnabled(t *testing.T) {
 		// Use a factory with no calculators to force failure
 		emptyFactory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{})
 		
+		// Use a temporary profile path to avoid loading existing profiles
+		tmpProfile := t.TempDir() + "/profile.json"
+		
 		originalCfg := config.AppConfig{
-			AutoCalibrate: true,
-			Timeout:       1 * time.Second,
-			Threshold:    4096,
+			AutoCalibrate:      true,
+			Timeout:            1 * time.Second,
+			Threshold:         4096,
+			CalibrationProfile: tmpProfile,
 		}
 		
 		app := &Application{

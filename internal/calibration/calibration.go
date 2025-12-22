@@ -190,6 +190,13 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 // It first tries to load a cached profile, then falls back to quick micro-benchmarks,
 // and finally uses full calibration if needed.
 func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (updated config.AppConfig, ok bool) {
+	// Check if calculators are available before attempting calibration
+	fastCalc := calculatorRegistry["fast"]
+	if fastCalc == nil {
+		// No calculators available - cannot calibrate
+		return cfg, false
+	}
+
 	// Try to load existing profile first
 	if profile, loaded := LoadOrCreateProfile(profilePath); loaded && profile.IsValid() {
 		// Use cached calibration
@@ -227,10 +234,6 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	}
 
 	// Fall back to full calibration if quick calibration failed or has low confidence
-	fastCalc := calculatorRegistry["fast"]
-	if fastCalc == nil {
-		return cfg, false
-	}
 
 	runner := newCalibrationRunner(parentCtx, cfg.Timeout)
 
