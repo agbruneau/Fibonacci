@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Go version](https://img.shields.io/badge/Go-1.24+-blue.svg?style=for-the-badge&logo=go)
+![Go version](https://img.shields.io/badge/Go-1.25+-blue.svg?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)
 ![Coverage Status](https://img.shields.io/badge/coverage-85.%25-brightgreen?style=for-the-badge)
@@ -68,14 +68,17 @@ make build
 See `fibcalc` in action, calculating the 1,000,000th Fibonacci number in under 100ms.
 
 ```console
-$ ./build/fibcalc -n 1000000 --algo fast
-🚀 Calculating Fibonacci for n=1000000...
-Algorithm: Fast Doubling (O(log n), Parallel)
+$ ./cmd/fibcalc -n 1000000 --algo fast
+--- Execution Configuration ---
+Calculating F(1,000,000) with a timeout of 5m0s.
+Environment: 24 logical processors, Go go1.25.5.
+Optimization thresholds: Parallelism=4,096 bits, FFT=500,000 bits.
+Execution mode: Single calculation with the Fast Doubling algorithm.
 
-✅ F(1000000) calculated in 85ms
-   Bits:      694,242
-   Digits:    208,988
-   Value:     19532821287077577316320149475962563... (truncated)
+--- Starting Execution ---
+Calculation finished.
+Result binary size: 694,242 bits.
+F(1000000) (truncated) = 1953282128707757731632014... (truncated)
 ```
 
 ---
@@ -116,7 +119,7 @@ Follow these steps to set up the Fibonacci calculator on your local machine.
 
 ### Prerequisites
 
-- **Go**: Version 1.24 or later ([Download Go](https://go.dev/dl/))
+- **Go**: Version 1.25 or later ([Download Go](https://go.dev/dl/))
 - **Git**: To clone the repository
 - **Make** (Optional): For using the Makefile
 
@@ -198,15 +201,18 @@ This step will validate that your environment is correctly configured and that t
   - Quiet mode (`-q, --quiet`) for scripts.
   - Display calculated value (`-c, --calculate`).
 - **Performance Optimisations**:
-
   - **Zero-Allocation Strategy**: Uses `sync.Pool` to recycle `big.Int` objects.
   - **Modular Architecture**: Reusable frameworks and interchangeable multiplication strategies.
   - **Multi-level Parallelism**: Parallelisation at both algorithm and internal FFT levels.
   - **Strassen-Winograd Algorithm**: Optimized matrix multiplication reducing additions/subtractions by 17%.
   - **Global Memory Pooling**: Unified pooling strategies for `big.Int` across algorithms to minimize GC pressure.
+  - **Dynamic Threshold Adjustment**: Automatic adjustment of thresholds based on real-time performance timing.
+  - **Automatic Calibration**: Hardware-aware detection of optimal thresholds for your specific CPU.
+- **Advanced Monitoring**:
 
-  - **Robust Error Handling**: Panic-free architecture with explicit error propagation.
-  - **Automatic Calibration**: Detection of optimal thresholds for the hardware.
+  - **Observer Pattern**: Completely decoupled progress monitoring supporting multiple observers (CLI, Logs, Metrics).
+  - **Interactive REPL**: Rich CLI environment for experimentation.
+  - **API Server Mode**: High-performance REST API with monitoring and health checks.
 
 - **Security**:
   - Rate limiting, input validation (rejects negative numbers and non-numeric inputs),
@@ -784,4 +790,4 @@ This project is licensed under the Apache 2.0 licence. See the [LICENSE](LICENSE
 
 ---
 
-_Developed with ❤️ in Go - December 2024_
+_Developed with ❤️ in Go - December 2025_

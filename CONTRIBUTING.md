@@ -40,7 +40,7 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - Make (optional but recommended)
 - Docker (optional, for container testing)
 

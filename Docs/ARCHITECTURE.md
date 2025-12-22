@@ -1,7 +1,7 @@
 # Fibonacci Calculator Architecture
 
 > **Version**: 1.1.0  
-> **Last Updated**: November 2025
+> **Last Updated**: December 2025
 
 ## Overview
 
@@ -85,6 +85,7 @@ The Fibonacci Calculator is designed according to **Clean Architecture** princip
 ### `cmd/fibcalc`
 
 Application entry point. Responsibilities:
+
 - Command-line argument parsing
 - Component initialization
 - Routing to CLI or server mode
@@ -93,6 +94,7 @@ Application entry point. Responsibilities:
 ### `internal/fibonacci`
 
 Business core of the application. Contains:
+
 - **`calculator.go`**: `Calculator` interface and generic wrapper
 - **`fastdoubling.go`**: Optimized Fast Doubling algorithm
 - **`matrix.go`**: Matrix exponentiation with Strassen
@@ -103,6 +105,7 @@ Business core of the application. Contains:
 ### `internal/bigfft`
 
 FFT multiplication implementation for `big.Int`:
+
 - **`fft.go`**: Main FFT algorithm
 - **`fermat.go`**: Modular arithmetic for FFT
 - **`pool.go`**: Object pools to reduce allocations
@@ -110,6 +113,7 @@ FFT multiplication implementation for `big.Int`:
 ### `internal/orchestration`
 
 Concurrent execution management:
+
 - Parallel execution of multiple algorithms
 - Result aggregation and comparison
 - Error and timeout handling
@@ -117,6 +121,7 @@ Concurrent execution management:
 ### `internal/calibration`
 
 Automatic calibration system:
+
 - Optimal threshold detection for the hardware
 - Calibration profile persistence
 - Adaptive threshold generation based on CPU
@@ -124,6 +129,7 @@ Automatic calibration system:
 ### `internal/server`
 
 HTTP REST server:
+
 - `/calculate`, `/health`, `/algorithms`, `/metrics` endpoints
 - Rate limiting and security
 - Logging and metrics middleware
@@ -132,6 +138,7 @@ HTTP REST server:
 ### `internal/cli`
 
 Command-line user interface:
+
 - Animated spinner with progress bar
 - Estimated time remaining (ETA)
 - Colour theme system (dark, light, none)
@@ -146,6 +153,7 @@ Command-line user interface:
 ### `internal/config`
 
 Configuration management:
+
 - CLI flag parsing
 - Parameter validation
 - Default values
@@ -153,6 +161,7 @@ Configuration management:
 ### `internal/errors`
 
 Centralised error handling:
+
 - Custom error types
 - Standardised exit codes
 
@@ -165,6 +174,7 @@ Centralised error handling:
 **Decision**: Use `sync.Pool` to recycle calculation states (`calculationState`, `matrixState`).
 
 **Consequences**:
+
 - ✅ Drastic reduction in memory allocations
 - ✅ Decreased GC pressure
 - ✅ 20-30% performance improvement
@@ -177,6 +187,7 @@ Centralised error handling:
 **Decision**: Implement a `smartMultiply` function that selects the algorithm based on operand size.
 
 **Consequences**:
+
 - ✅ Optimal performance across the entire value range
 - ✅ Configurable via `--fft-threshold`
 - ⚠️ Requires calibration for each architecture
@@ -188,6 +199,7 @@ Centralised error handling:
 **Decision**: Use interfaces and dependency injection via functional options.
 
 **Consequences**:
+
 - ✅ Facilitated unit testing
 - ✅ Easily composable middleware
 - ✅ Flexible configuration
@@ -199,6 +211,7 @@ Centralised error handling:
 **Decision**: Enable parallelism only above a configurable threshold (`--threshold`).
 
 **Consequences**:
+
 - ✅ Optimal performance according to calculation size
 - ✅ Avoids CPU saturation for small N
 - ⚠️ Parallelism disabled when FFT is used (FFT already saturates CPU)
