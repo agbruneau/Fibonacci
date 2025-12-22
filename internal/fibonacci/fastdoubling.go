@@ -246,6 +246,9 @@ func AcquireState() *CalculationState {
 // Parameters:
 //   - s: The calculation state to return to the pool. Safe to call with nil.
 func ReleaseState(s *CalculationState) {
+	if s == nil {
+		return
+	}
 	// Avoid keeping oversized objects in memory.
 	// We check if any of the big.Ints exceed the pool limit.
 	// If so, we discard the entire state to let GC reclaim the large memory.

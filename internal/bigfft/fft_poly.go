@@ -394,3 +394,27 @@ func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 
 	return r, nil
 }
+
+// Clone creates a deep copy of PolValues to allow safe concurrent usage.
+// This is essential when the same transformed polynomial needs to be used
+// in multiple goroutines simultaneously (e.g., for both Mul and Sqr operations).
+func (p *PolValues) Clone() PolValues {
+	K := len(p.Values)
+	n := p.N
+	wordCount := K * (n + 1)
+
+	// Allocate new backing array and values slice
+	bits := make([]big.Word, wordCount)
+	values := make([]fermat, K)
+
+	for i := 0; i < K; i++ {
+		values[i] = fermat(bits[i*(n+1) : (i+1)*(n+1)])
+		copy(values[i], p.Values[i])
+	}
+
+	return PolValues{
+		K:      p.K,
+		N:      p.N,
+		Values: values,
+	}
+}

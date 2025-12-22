@@ -127,6 +127,12 @@ func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) 
 	}
 
 	if inParallel {
+		// Clone fkPoly to avoid data race between goroutines
+		// Goroutine 1 uses fkPolyForMul for Mul operation
+		// Goroutine 3 uses fkPolyForSqr for Sqr operation
+		fkPolyForMul := fkPoly.Clone()
+		fkPolyForSqr := fkPoly.Clone()
+
 		// Parallel execution of pointwise multiplications and inverse transforms
 		type result struct {
 			p   *big.Int
@@ -135,7 +141,7 @@ func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) 
 		resChan := make(chan result, 3)
 
 		go func() {
-			v, err := fkPoly.Mul(&t2Poly)
+			v, err := fkPolyForMul.Mul(&t2Poly)
 			if err != nil {
 				resChan <- result{nil, err}
 				return
@@ -165,7 +171,7 @@ func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) 
 		}()
 
 		go func() {
-			v, err := fkPoly.Sqr()
+			v, err := fkPolyForSqr.Sqr()
 			if err != nil {
 				resChan <- result{nil, err}
 				return

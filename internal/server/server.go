@@ -106,6 +106,9 @@ func (s *Server) Start() error {
 	// Setup signal handling for graceful shutdown
 	signal.Notify(s.shutdownSignal, os.Interrupt, syscall.SIGTERM)
 
+	// Channel for server startup errors
+	errCh := make(chan error, 1)
+
 	// Start the server in a goroutine
 	go func() {
 		s.logger.Printf("Starting server on %s\n", s.httpServer.Addr)
@@ -117,13 +120,17 @@ func (s *Server) Start() error {
 		s.logger.Println("  GET /algorithms")
 
 		if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.logger.Fatalf("Server error: %v\n", err)
+			errCh <- err
 		}
 	}()
 
-	// Wait for interrupt signal
-	<-s.shutdownSignal
-	s.logger.Println("Shutdown signal received, initiating graceful shutdown...")
+	// Wait for shutdown signal or server error
+	select {
+	case <-s.shutdownSignal:
+		s.logger.Println("Shutdown signal received, initiating graceful shutdown...")
+	case err := <-errCh:
+		return apperrors.NewServerError("server failed to start", err)
+	}
 
 	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), s.timeouts.ShutdownTimeout)
