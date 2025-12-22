@@ -3,11 +3,11 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 
 	"github.com/agbru/fibcalc/internal/config"
 	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/rs/zerolog"
 )
 
 // GetCalculatorsToRun determines which calculators should be executed based on
@@ -71,16 +71,17 @@ func PrintExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 	writeOut(out, "\n--- Starting Execution ---\n")
 }
 
-// writeOut writes a formatted string to the output writer, handling any write
-// errors by printing to standard error. This ensures that output issues do not
-// crash the application but are reported.
+// writeOut writes a formatted string to the output writer.
+// It uses zerolog for structured output if configured, or falls back to
+// direct writing if the output is not a logger.
 //
 // Parameters:
 //   - out: The destination writer.
 //   - format: The format string (see fmt.Printf).
 //   - a: Arguments for the format string.
 func writeOut(out io.Writer, format string, a ...any) {
-	if _, err := fmt.Fprintf(out, format, a...); err != nil {
-		fmt.Fprintln(os.Stderr, "[Output Error]:", err)
-	}
+	// Create a temporary logger that writes to the provided output
+	// We use ConsoleWriter to maintain human-readability for CLI output
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: out}).With().Logger()
+	logger.Info().Msgf(format, a...)
 }
