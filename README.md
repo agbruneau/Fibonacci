@@ -460,16 +460,32 @@ go test -fuzz=FuzzFastDoubling ./internal/fibonacci/
 
 ## 📚 Documentation
 
-| Document                                                       | Description                               |
-| -------------------------------------------------------------- | ----------------------------------------- |
-| [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md)                   | System architecture and design decisions  |
-| [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)                     | Performance tuning and optimization guide |
-| [Docs/SECURITY.md](Docs/SECURITY.md)                           | Security policy and best practices        |
-| [Docs/INTERNAL_API.md](Docs/INTERNAL_API.md)                   | Internal API reference for developers     |
-| [Docs/api/API.md](Docs/api/API.md)                             | REST API documentation                    |
-| [Docs/api/openapi.yaml](Docs/api/openapi.yaml)                 | OpenAPI 3.0 specification                 |
-| [Docs/deployment/DOCKER.md](Docs/deployment/DOCKER.md)         | Docker deployment guide                   |
-| [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) | Kubernetes deployment guide               |
+### Core Documentation
+
+| Document                                           | Description                               |
+| -------------------------------------------------- | ----------------------------------------- |
+| [CHANGELOG.md](CHANGELOG.md)                       | Version history and release notes         |
+| [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md)       | System architecture and design decisions  |
+| [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)         | Performance tuning and optimization guide |
+| [Docs/SECURITY.md](Docs/SECURITY.md)               | Security policy and best practices        |
+| [Docs/INTERNAL_API.md](Docs/INTERNAL_API.md)       | Internal API reference for developers     |
+| [Docs/TROUBLESHOOTING.md](Docs/TROUBLESHOOTING.md) | Common issues and solutions               |
+| [Docs/MONITORING.md](Docs/MONITORING.md)           | Prometheus, Grafana, and alerting setup   |
+
+### API Documentation
+
+| Document                                       | Description               |
+| ---------------------------------------------- | ------------------------- |
+| [Docs/api/API.md](Docs/api/API.md)             | REST API documentation    |
+| [Docs/api/openapi.yaml](Docs/api/openapi.yaml) | OpenAPI 3.0 specification |
+
+### Deployment Guides
+
+| Document                                                       | Description                  |
+| -------------------------------------------------------------- | ---------------------------- |
+| [Docs/deployment/DOCKER.md](Docs/deployment/DOCKER.md)         | Docker deployment guide      |
+| [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) | Kubernetes deployment guide  |
+| [Docs/deployment/CI_CD.md](Docs/deployment/CI_CD.md)           | CI/CD pipeline documentation |
 
 ### Algorithm Documentation
 
