@@ -93,8 +93,8 @@ func TestMicroBenchAnalyzeResultsEmpty(t *testing.T) {
 	t.Parallel()
 	mb := NewMicroBenchmark()
 	results := mb.analyzeResults(nil)
-	if results.Confidence != 0.5 {
-		t.Errorf("Expected 0.5 confidence for empty results, got %f", results.Confidence)
+	if results.Confidence != 0.0 {
+		t.Errorf("Expected 0.0 confidence for empty results, got %f", results.Confidence)
 	}
 }
 

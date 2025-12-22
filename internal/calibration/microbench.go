@@ -223,6 +223,8 @@ func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults 
 	}
 
 	if len(results) == 0 {
+		// If no results obtained (e.g. timeout), set confidence to zero
+		tr.Confidence = 0.0
 		return tr
 	}
 
