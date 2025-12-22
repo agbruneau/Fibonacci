@@ -42,6 +42,13 @@
 - **Zero-Allocation Strategy**: Extensive use of `sync.Pool` to recycle `big.Int` objects, reducing GC pressure by over 95%.
 - **Adaptive Parallelism**: Automatically parallelizes operations across CPU cores based on input size and hardware capabilities.
 - **Auto-Calibration**: Built-in benchmarking tool to determine optimal system-specific thresholds for parallelism and FFT switching.
+- **One-Time Pre-Warming**: Optimized memory pool initialization (atomic pre-warming) to prevent redundant allocations during server uptime.
+
+### Stability & Robustness
+
+- **Production-Grade Logging**: Unified logging interface supporting structured logs via zerolog.
+- **Concurrency Safety**: Rigorous data-race prevention in parallel FFT paths.
+- **Graceful Error Handling**: Robust server startup and shutdown procedures.
 
 ### Rich User Experience
 
@@ -317,15 +324,16 @@ graph TD
 
 ### Package Structure
 
-| Package                  | Description                           |
-| ------------------------ | ------------------------------------- |
-| `cmd/fibcalc`            | Main application entry point          |
-| `internal/fibonacci`     | Core algorithms and logic             |
-| `internal/bigfft`        | FFT multiplication for large integers |
-| `internal/server`        | HTTP server implementation            |
-| `internal/cli`           | UI, REPL, and interaction logic       |
-| `internal/orchestration` | Parallel algorithm execution          |
-| `internal/calibration`   | Auto-calibration system               |
+| Package                  | Description                                |
+| ------------------------ | ------------------------------------------ |
+| `cmd/fibcalc`            | Main application entry point               |
+| `internal/fibonacci`     | Core algorithms and logic                  |
+| `internal/bigfft`        | FFT multiplication for large integers      |
+| `internal/server`        | HTTP server implementation                 |
+| `internal/logging`       | Unified logging interface (zerolog/stdlog) |
+| `internal/cli`           | UI, REPL, and interaction logic            |
+| `internal/orchestration` | Parallel algorithm execution               |
+| `internal/calibration`   | Auto-calibration system                    |
 
 > **Full architecture documentation**: [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md)  
 > **Internal API reference**: [Docs/INTERNAL_API.md](Docs/INTERNAL_API.md)
@@ -356,6 +364,7 @@ FibCalc is optimized for speed. Below is a summary of performance characteristic
 3. **Adaptive FFT**: Used for very large numbers only
 4. **Strassen Algorithm**: Enabled for large matrix elements
 5. **Symmetric Squaring**: Reduces multiplications by 50%
+6. **Atomic Pre-Warming**: Ensures memory pools are initialized exactly once
 
 > **Full performance guide**: [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md)
 

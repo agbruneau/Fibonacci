@@ -19,6 +19,7 @@ make clean              # Remove build artifacts
 **Go Module**: github.com/agbru/fibcalc (Go 1.25+)
 
 **Core Packages**:
+
 - `cmd/fibcalc` - CLI entry point (main application)
 - `internal/fibonacci` - Core algorithms (Fast Doubling, Matrix, FFT); Calculator interface
 - `internal/bigfft` - FFT multiplication for large integers
@@ -32,6 +33,7 @@ make clean              # Remove build artifacts
 - `internal/errors` - Custom error types
 - `internal/testutil` - Test helpers
 - `internal/app` - Application coordination
+- `internal/logging` - Unified logging interface and adapters
 
 **Key Dependencies**: prometheus/client_golang, zerolog, go.opentelemetry.io, golang.org/x/sync, gmp
 
