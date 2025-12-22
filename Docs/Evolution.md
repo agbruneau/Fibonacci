@@ -41,11 +41,11 @@ Documentation exemplaire des décisions architecturales (sync.Pool, sélection d
 
 ### Implémentations
 
-| Algorithme | Complexité | Fichier |
-|------------|------------|---------|
-| Fast Doubling | O(log n) | `internal/fibonacci/fastdoubling.go` |
-| Matrix Exponentiation + Strassen | O(log n) | `internal/fibonacci/matrix.go` |
-| FFT-Based (O(n log n) multiplication) | O(log n × n log n) | `internal/fibonacci/fft.go` |
+| Algorithme                            | Complexité         | Fichier                              |
+| ------------------------------------- | ------------------ | ------------------------------------ |
+| Fast Doubling                         | O(log n)           | `internal/fibonacci/fastdoubling.go` |
+| Matrix Exponentiation + Strassen      | O(log n)           | `internal/fibonacci/matrix.go`       |
+| FFT-Based (O(n log n) multiplication) | O(log n × n log n) | `internal/fibonacci/fft.go`          |
 
 ### Optimisations Avancées
 
@@ -74,14 +74,14 @@ Documentation exemplaire des décisions architecturales (sync.Pool, sélection d
 
 ### Stratégie de Test
 
-| Type | Couverture | Exemple |
-|------|------------|---------|
-| Tests unitaires | ~80% | `internal/fibonacci/fibonacci_test.go` |
-| Tests de fuzzing | ✓ | `internal/fibonacci/fibonacci_fuzz_test.go` |
-| Tests d'intégration | ✓ | `internal/server/server_test.go` |
-| Tests E2E | ✓ | `test/e2e/` |
-| Tests de charge | ✓ | `internal/server/server_load_test.go` |
-| Property-based testing | ✓ | gopter + identités mathématiques de Fibonacci |
+| Type                   | Couverture | Exemple                                       |
+| ---------------------- | ---------- | --------------------------------------------- |
+| Tests unitaires        | ~80%       | `internal/fibonacci/fibonacci_test.go`        |
+| Tests de fuzzing       | ✓          | `internal/fibonacci/fibonacci_fuzz_test.go`   |
+| Tests d'intégration    | ✓          | `internal/server/server_test.go`              |
+| Tests E2E              | ✓          | `test/e2e/`                                   |
+| Tests de charge        | ✓          | `internal/server/server_load_test.go`         |
+| Property-based testing | ✓          | gopter + identités mathématiques de Fibonacci |
 
 ### Points remarquables
 
@@ -93,9 +93,9 @@ Documentation exemplaire des décisions architecturales (sync.Pool, sélection d
 
 ## 5. DevOps et Infrastructure — 96/100
 
-### CI/CD
+### Automation
 
-- **GitHub Actions** : build, test, lint automatisés
+- **Automated Checks** : build, test, lint
 - **Dependabot** pour les mises à jour de dépendances
 
 ### Conteneurisation
@@ -129,15 +129,15 @@ Documentation exemplaire des décisions architecturales (sync.Pool, sélection d
 
 ### Couverture exceptionnelle
 
-| Document | Contenu |
-|----------|---------|
-| `README.md` | Guide complet avec Quick Start, API, déploiement |
-| `Docs/ARCHITECTURE.md` | Diagrammes, flux de données, ADRs |
-| `Docs/PERFORMANCE.md` | Benchmarks, guide de tuning |
-| `CONTRIBUTING.md` | Processus de contribution détaillé |
-| `CHANGELOG.md` | Historique des versions (SemVer) |
-| `Docs/algorithms/` | Documentation par algorithme |
-| `Docs/api/` | OpenAPI 3.0, Postman collection |
+| Document               | Contenu                                          |
+| ---------------------- | ------------------------------------------------ |
+| `README.md`            | Guide complet avec Quick Start, API, déploiement |
+| `Docs/ARCHITECTURE.md` | Diagrammes, flux de données, ADRs                |
+| `Docs/PERFORMANCE.md`  | Benchmarks, guide de tuning                      |
+| `CONTRIBUTING.md`      | Processus de contribution détaillé               |
+| `CHANGELOG.md`         | Historique des versions (SemVer)                 |
+| `Docs/algorithms/`     | Documentation par algorithme                     |
+| `Docs/api/`            | OpenAPI 3.0, Postman collection                  |
 
 ---
 
@@ -160,22 +160,22 @@ Documentation exemplaire des décisions architecturales (sync.Pool, sélection d
 
 ## Synthèse et Note Finale
 
-| Critère | Note /100 | Pondération | Score pondéré |
-|---------|-----------|-------------|---------------|
-| Architecture | 95 | 15% | 14.25 |
-| Algorithmes | 98 | 20% | 19.60 |
-| Qualité du Code | 92 | 12% | 11.04 |
-| Tests | 94 | 15% | 14.10 |
-| DevOps | 96 | 12% | 11.52 |
-| Sécurité | 93 | 10% | 9.30 |
-| Documentation | 97 | 8% | 7.76 |
-| Fonctionnalités | 95 | 8% | 7.60 |
+| Critère         | Note /100 | Pondération | Score pondéré |
+| --------------- | --------- | ----------- | ------------- |
+| Architecture    | 95        | 15%         | 14.25         |
+| Algorithmes     | 98        | 20%         | 19.60         |
+| Qualité du Code | 92        | 12%         | 11.04         |
+| Tests           | 94        | 15%         | 14.10         |
+| DevOps          | 96        | 12%         | 11.52         |
+| Sécurité        | 93        | 10%         | 9.30          |
+| Documentation   | 97        | 8%          | 7.76          |
+| Fonctionnalités | 95        | 8%          | 7.60          |
 
 ### **Note Finale : 95.17/100 — Excellent**
 
 ### Verdict
 
-Ce projet démontre une **maîtrise exceptionnelle** de l'ingénierie logicielle moderne. L'implémentation combine rigueur mathématique (algorithmes O(log n), FFT), excellence technique (zero-allocation, parallélisme adaptatif), et maturité opérationnelle (CI/CD, conteneurisation, monitoring). La documentation est de niveau professionnel et le projet est **production-ready**.
+Ce projet démontre une **maîtrise exceptionnelle** de l'ingénierie logicielle moderne. L'implémentation combine rigueur mathématique (algorithmes O(log n), FFT), excellence technique (zero-allocation, parallélisme adaptatif), et maturité opérationnelle (conteneurisation, monitoring). La documentation est de niveau professionnel et le projet est **production-ready**.
 
 ---
 
@@ -199,12 +199,12 @@ go func() { fkPoly.Sqr() ... }()          // goroutine 3 - MÊME instance!
 ```go
 func executeDoublingStepFFT(s *CalculationState, opts Options, inParallel bool) error {
     // ... setup ...
-    
+
     if inParallel {
         // Clone pour éviter la data race
         fkPolyForMul := fkPoly.Clone()
         fkPolyForSqr := fkPoly.Clone()
-        
+
         go func() { fkPolyForMul.Mul(&t2Poly) ... }()
         go func() { fk1Poly.Sqr() ... }()
         go func() { fkPolyForSqr.Sqr() ... }()
@@ -254,7 +254,7 @@ go func() {
 // Solution
 errCh := make(chan error, 1)
 go func() {
-    if err := s.httpServer.ListenAndServe(); err != nil && 
+    if err := s.httpServer.ListenAndServe(); err != nil &&
        !errors.Is(err, http.ErrServerClosed) {
         errCh <- err
     }
@@ -387,7 +387,7 @@ func (c *ResultCache) GetOrCompute(n uint64, compute func() *big.Int) *big.Int {
         return new(big.Int).Set(result) // Copie pour éviter mutation
     }
     c.mu.RUnlock()
-    
+
     result := compute()
     c.mu.Lock()
     c.cache[n] = new(big.Int).Set(result)
@@ -478,23 +478,23 @@ go test -race -run TestConcurrentCalculations ./internal/fibonacci/
 
 ## Résumé des Priorités
 
-| Priorité | Amélioration | Effort | Status |
-|----------|-------------|--------|--------|
-| 🔴 Critique | Fix data race FFT parallèle | M | ⬜ À faire |
-| 🔴 Critique | Fix `ReleaseState` nil check | S | ⬜ À faire |
-| 🔴 Critique | Remplacer `log.Fatalf` | S | ⬜ À faire |
-| 🟡 Haute | Pré-calcul LUT petits n | S | ⬜ À faire |
-| 🟡 Haute | `PreWarmPools` unique | S | ⬜ À faire |
-| 🟡 Moyenne | Unifier les loggers | M | ⬜ À faire |
-| 🟡 Moyenne | Synchroniser documentation | S | ⬜ À faire |
-| 🟢 Nice-to-have | Cache LRU | M | ⬜ À faire |
-| 🟢 Nice-to-have | Mode Batch | L | ⬜ À faire |
-| 🟢 Nice-to-have | Enum pour métriques | S | ⬜ À faire |
+| Priorité        | Amélioration                 | Effort | Status     |
+| --------------- | ---------------------------- | ------ | ---------- |
+| 🔴 Critique     | Fix data race FFT parallèle  | M      | ⬜ À faire |
+| 🔴 Critique     | Fix `ReleaseState` nil check | S      | ⬜ À faire |
+| 🔴 Critique     | Remplacer `log.Fatalf`       | S      | ⬜ À faire |
+| 🟡 Haute        | Pré-calcul LUT petits n      | S      | ⬜ À faire |
+| 🟡 Haute        | `PreWarmPools` unique        | S      | ⬜ À faire |
+| 🟡 Moyenne      | Unifier les loggers          | M      | ⬜ À faire |
+| 🟡 Moyenne      | Synchroniser documentation   | S      | ⬜ À faire |
+| 🟢 Nice-to-have | Cache LRU                    | M      | ⬜ À faire |
+| 🟢 Nice-to-have | Mode Batch                   | L      | ⬜ À faire |
+| 🟢 Nice-to-have | Enum pour métriques          | S      | ⬜ À faire |
 
 ## Légende Effort
 
 - **S** (Small): < 1 heure
-- **M** (Medium): 1-4 heures  
+- **M** (Medium): 1-4 heures
 - **L** (Large): > 4 heures
 
 ---
@@ -502,15 +502,18 @@ go test -race -run TestConcurrentCalculations ./internal/fibonacci/
 ## Phase 1: Stabilisation (Priorité Critique)
 
 ### Objectif
+
 Corriger les bugs et risques de concurrence avant toute autre évolution.
 
 ### Tâches
+
 1. [ ] Corriger la data race dans `executeDoublingStepFFT`
 2. [ ] Ajouter le nil check dans `ReleaseState`
 3. [ ] Refactorer `Start()` pour éviter `log.Fatalf`
 4. [ ] Ajouter des tests avec `-race` flag
 
 ### Critères de succès
+
 - `go test -race ./...` passe sans erreur
 - Aucun `log.Fatal` dans les goroutines
 
@@ -519,14 +522,17 @@ Corriger les bugs et risques de concurrence avant toute autre évolution.
 ## Phase 2: Optimisation (Priorité Haute)
 
 ### Objectif
+
 Améliorer les performances sans changer l'API publique.
 
 ### Tâches
+
 1. [ ] Implémenter la LUT pour petits Fibonacci
 2. [ ] Optimiser `PreWarmPools` avec `atomic.Bool`
 3. [ ] Benchmarker avant/après
 
 ### Critères de succès
+
 - Amélioration mesurable sur les benchmarks pour n < 100
 - Pas de régression pour les grands n
 
@@ -535,15 +541,18 @@ Améliorer les performances sans changer l'API publique.
 ## Phase 3: Refactoring (Priorité Moyenne)
 
 ### Objectif
+
 Améliorer la maintenabilité et la cohérence.
 
 ### Tâches
+
 1. [ ] Unifier les loggers (interface commune)
 2. [ ] Supprimer les fonctions de pool dupliquées
 3. [ ] Mettre à jour la documentation désynchronisée
 4. [ ] Ajouter les tests de seuils
 
 ### Critères de succès
+
 - Un seul système de logging
 - Documentation reflète le code actuel
 
@@ -552,14 +561,17 @@ Améliorer la maintenabilité et la cohérence.
 ## Phase 4: Nouvelles Fonctionnalités (Nice-to-have)
 
 ### Objectif
+
 Ajouter des fonctionnalités à valeur ajoutée.
 
 ### Tâches
+
 1. [ ] Implémenter le cache LRU
 2. [ ] Ajouter l'endpoint batch `/calculate/batch`
 3. [ ] Sécuriser les métriques Prometheus
 
 ### Critères de succès
+
 - Cache fonctionnel avec tests
 - Endpoint batch documenté dans OpenAPI
 
@@ -578,6 +590,6 @@ Si les besoins évoluent vers des calculs encore plus massifs :
 
 ## Changelog de ce Document
 
-| Date | Version | Changements |
-|------|---------|-------------|
-| 2025-12-22 | 1.0.0 | Création initiale avec évaluation et roadmap |
+| Date       | Version | Changements                                  |
+| ---------- | ------- | -------------------------------------------- |
+| 2025-12-22 | 1.0.0   | Création initiale avec évaluation et roadmap |

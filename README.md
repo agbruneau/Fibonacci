@@ -1,6 +1,5 @@
 # FibCalc: High-Performance Fibonacci Calculator
 
-![Build Status](https://img.shields.io/github/actions/workflow/status/agbru/fibcalc/ci.yml?branch=main&style=for-the-badge&logo=github)
 ![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)
 ![Coverage](https://img.shields.io/badge/Coverage-80%25-green?style=for-the-badge)
@@ -481,11 +480,10 @@ go test -fuzz=FuzzFastDoubling ./internal/fibonacci/
 
 ### Deployment Guides
 
-| Document                                                       | Description                  |
-| -------------------------------------------------------------- | ---------------------------- |
-| [Docs/deployment/DOCKER.md](Docs/deployment/DOCKER.md)         | Docker deployment guide      |
-| [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) | Kubernetes deployment guide  |
-| [Docs/deployment/CI_CD.md](Docs/deployment/CI_CD.md)           | CI/CD pipeline documentation |
+| Document                                                       | Description                 |
+| -------------------------------------------------------------- | --------------------------- |
+| [Docs/deployment/DOCKER.md](Docs/deployment/DOCKER.md)         | Docker deployment guide     |
+| [Docs/deployment/KUBERNETES.md](Docs/deployment/KUBERNETES.md) | Kubernetes deployment guide |
 
 ### Algorithm Documentation
 

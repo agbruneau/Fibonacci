@@ -9,7 +9,7 @@ import (
 )
 
 // Build-time variables set via -ldflags.
-// These are populated during CI/CD builds to provide version information.
+// These are populated during builds to provide version information.
 //
 // Example build command:
 //
