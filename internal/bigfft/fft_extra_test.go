@@ -347,3 +347,171 @@ func TestMulCached(t *testing.T) {
 		t.Error("SqrCached result has no coefficients")
 	}
 }
+
+func TestPolyFromInt(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Convert big.Int to Poly", func(t *testing.T) {
+		t.Parallel()
+		x := big.NewInt(12345)
+		k := uint(4)
+		m := 1
+		
+		p := PolyFromInt(x, k, m)
+		
+		if p.K != k {
+			t.Errorf("Expected K=%d, got %d", k, p.K)
+		}
+		if p.M != m {
+			t.Errorf("Expected M=%d, got %d", m, p.M)
+		}
+		if len(p.A) == 0 {
+			t.Error("Poly should have coefficients")
+		}
+	})
+	
+	t.Run("Convert large big.Int to Poly", func(t *testing.T) {
+		t.Parallel()
+		x := new(big.Int).Exp(big.NewInt(2), big.NewInt(100), nil)
+		k := uint(5)
+		m := 2
+		
+		p := PolyFromInt(x, k, m)
+		
+		if p.K != k {
+			t.Errorf("Expected K=%d, got %d", k, p.K)
+		}
+		if p.M != m {
+			t.Errorf("Expected M=%d, got %d", m, p.M)
+		}
+	})
+}
+
+func TestGetFFTParams(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Get FFT params for small word count", func(t *testing.T) {
+		t.Parallel()
+		words := 100
+		k, m := GetFFTParams(words)
+		
+		if k == 0 {
+			t.Error("k should be non-zero")
+		}
+		if m <= 0 {
+			t.Errorf("m should be positive, got %d", m)
+		}
+	})
+	
+	t.Run("Get FFT params for medium word count", func(t *testing.T) {
+		t.Parallel()
+		words := 1000
+		k, m := GetFFTParams(words)
+		
+		if k == 0 {
+			t.Error("k should be non-zero")
+		}
+		if m <= 0 {
+			t.Errorf("m should be positive, got %d", m)
+		}
+	})
+	
+	t.Run("Get FFT params for large word count", func(t *testing.T) {
+		t.Parallel()
+		words := 10000
+		k, m := GetFFTParams(words)
+		
+		if k == 0 {
+			t.Error("k should be non-zero")
+		}
+		if m <= 0 {
+			t.Errorf("m should be positive, got %d", m)
+		}
+	})
+}
+
+func TestValueSize(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("ValueSize with small parameters", func(t *testing.T) {
+		t.Parallel()
+		k := uint(4)
+		m := 1
+		extra := uint(2)
+		
+		size := ValueSize(k, m, extra)
+		
+		if size <= 0 {
+			t.Errorf("ValueSize should return positive value, got %d", size)
+		}
+	})
+	
+	t.Run("ValueSize with medium parameters", func(t *testing.T) {
+		t.Parallel()
+		k := uint(5)
+		m := 10
+		extra := uint(1)
+		
+		size := ValueSize(k, m, extra)
+		
+		if size <= 0 {
+			t.Errorf("ValueSize should return positive value, got %d", size)
+		}
+	})
+	
+	t.Run("ValueSize with large parameters", func(t *testing.T) {
+		t.Parallel()
+		k := uint(10)
+		m := 100
+		extra := uint(2)
+		
+		size := ValueSize(k, m, extra)
+		
+		if size <= 0 {
+			t.Errorf("ValueSize should return positive value, got %d", size)
+		}
+	})
+}
+
+func TestPoly_IntToBigInt(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Convert Poly to big.Int", func(t *testing.T) {
+		t.Parallel()
+		k := uint(4)
+		m := 1
+		p := Poly{K: k, M: m}
+		p.A = make([]nat, 1<<k)
+		for i := range p.A {
+			p.A[i] = nat{big.Word(i + 1)}
+		}
+		
+		z := new(big.Int)
+		result := p.IntToBigInt(z)
+		
+		if result != z {
+			t.Error("IntToBigInt should return the provided big.Int")
+		}
+		if result.Sign() == 0 && len(p.A) > 0 {
+			t.Error("Result should be non-zero for non-empty polynomial")
+		}
+	})
+	
+	t.Run("Convert Poly to big.Int with nil", func(t *testing.T) {
+		t.Parallel()
+		k := uint(4)
+		m := 1
+		p := Poly{K: k, M: m}
+		p.A = make([]nat, 1<<k)
+		for i := range p.A {
+			p.A[i] = nat{big.Word(i + 1)}
+		}
+		
+		z := new(big.Int)
+		result := p.IntToBigInt(z)
+		
+		if result == nil {
+			t.Error("IntToBigInt should not return nil")
+		}
+	})
+}

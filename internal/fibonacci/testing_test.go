@@ -1,142 +1,110 @@
 package fibonacci
 
 import (
+	"context"
 	"math/big"
 	"testing"
 )
 
-// TestNewTestFactory tests the TestFactory constructor.
-func TestNewTestFactory(t *testing.T) {
+func TestMockCalculator_Name(t *testing.T) {
 	t.Parallel()
-	t.Run("nil calculators map", func(t *testing.T) {
-		t.Parallel()
-		f := NewTestFactory(nil)
-		if f == nil {
-			t.Fatal("expected non-nil factory")
-		}
-		if len(f.List()) != 0 {
-			t.Errorf("expected empty list, got %d items", len(f.List()))
-		}
-	})
-
-	t.Run("with calculators", func(t *testing.T) {
-		t.Parallel()
-		calcs := map[string]Calculator{
-			"test": &MockCalculator{},
-		}
-		f := NewTestFactory(calcs)
-		if len(f.List()) != 1 {
-			t.Errorf("expected 1 calculator, got %d", len(f.List()))
-		}
-	})
+	
+	mock := &MockCalculator{}
+	name := mock.Name()
+	
+	if name != "mock" {
+		t.Errorf("Name() = %q, want %q", name, "mock")
+	}
 }
 
-// TestTestFactoryCreate tests the Create method.
-func TestTestFactoryCreate(t *testing.T) {
+func TestMockCalculator_Calculate(t *testing.T) {
 	t.Parallel()
-	mock := &MockCalculator{}
-	calcs := map[string]Calculator{
-		"test": mock,
-	}
-	f := NewTestFactory(calcs)
-
-	t.Run("existing calculator", func(t *testing.T) {
+	
+	t.Run("Calculate with Result", func(t *testing.T) {
 		t.Parallel()
-		calc, err := f.Create("test")
+		expectedResult := big.NewInt(55)
+		mock := &MockCalculator{
+			Result: expectedResult,
+			Err:    nil,
+		}
+		
+		ctx := context.Background()
+		result, err := mock.Calculate(ctx, nil, 0, 10, Options{})
+		
 		if err != nil {
-			t.Errorf("unexpected error: %v", err)
+			t.Errorf("Calculate() error = %v, want nil", err)
 		}
-		if calc != mock {
-			t.Error("expected same calculator instance")
+		if result.Cmp(expectedResult) != 0 {
+			t.Errorf("Calculate() result = %v, want %v", result, expectedResult)
 		}
 	})
-
-	t.Run("non-existing calculator", func(t *testing.T) {
+	
+	t.Run("Calculate with error", func(t *testing.T) {
 		t.Parallel()
-		_, err := f.Create("unknown")
-		if err == nil {
-			t.Error("expected error for unknown calculator")
+		expectedErr := &UnknownCalculatorError{Name: "test"}
+		mock := &MockCalculator{
+			Result: nil,
+			Err:    expectedErr,
+		}
+		
+		ctx := context.Background()
+		result, err := mock.Calculate(ctx, nil, 0, 10, Options{})
+		
+		if err != expectedErr {
+			t.Errorf("Calculate() error = %v, want %v", err, expectedErr)
+		}
+		if result != nil {
+			t.Errorf("Calculate() result = %v, want nil", result)
 		}
 	})
-}
-
-// TestTestFactoryGet tests the Get method.
-func TestTestFactoryGet(t *testing.T) {
-	t.Parallel()
-	mock := &MockCalculator{}
-	calcs := map[string]Calculator{
-		"test": mock,
-	}
-	f := NewTestFactory(calcs)
-
-	calc, err := f.Get("test")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if calc != mock {
-		t.Error("expected same calculator instance")
-	}
-}
-
-// TestTestFactoryList tests the List method.
-func TestTestFactoryList(t *testing.T) {
-	t.Parallel()
-	calcs := map[string]Calculator{
-		"alpha": &MockCalculator{},
-		"beta":  &MockCalculator{},
-		"gamma": &MockCalculator{},
-	}
-	f := NewTestFactory(calcs)
-
-	list := f.List()
-	if len(list) != 3 {
-		t.Errorf("expected 3 items, got %d", len(list))
-	}
-}
-
-// TestTestFactoryRegister tests the Register method (no-op).
-func TestTestFactoryRegister(t *testing.T) {
-	t.Parallel()
-	f := NewTestFactory(nil)
-
-	// Register is a no-op for TestFactory
-	f.Register("test", func() coreCalculator { return &OptimizedFastDoubling{} })
-
-	// Should still have no calculators since Register is no-op
-	if len(f.List()) != 0 {
-		t.Errorf("Register should be no-op, but list has %d items", len(f.List()))
-	}
-}
-
-// TestTestFactoryGetAll tests the GetAll method.
-func TestTestFactoryGetAll(t *testing.T) {
-	t.Parallel()
-	mock1 := &MockCalculator{Result: big.NewInt(1)}
-	mock2 := &MockCalculator{Result: big.NewInt(2)}
-	calcs := map[string]Calculator{
-		"test1": mock1,
-		"test2": mock2,
-	}
-	f := NewTestFactory(calcs)
-
-	all := f.GetAll()
-	if len(all) != 2 {
-		t.Errorf("expected 2 calculators, got %d", len(all))
-	}
-	if all["test1"] != mock1 {
-		t.Error("test1 not found in GetAll result")
-	}
-	if all["test2"] != mock2 {
-		t.Error("test2 not found in GetAll result")
-	}
-}
-
-// TestUnknownCalculatorError tests the error type.
-func TestUnknownCalculatorError(t *testing.T) {
-	t.Parallel()
-	err := &UnknownCalculatorError{Name: "myCalc"}
-	expected := "unknown calculator: myCalc"
-	if err.Error() != expected {
-		t.Errorf("expected %q, got %q", expected, err.Error())
-	}
+	
+	t.Run("Calculate with Fn", func(t *testing.T) {
+		t.Parallel()
+		expectedResult := big.NewInt(100)
+		mock := &MockCalculator{
+			Fn: func(ctx context.Context, n uint64) (*big.Int, error) {
+				return expectedResult, nil
+			},
+		}
+		
+		ctx := context.Background()
+		result, err := mock.Calculate(ctx, nil, 0, 10, Options{})
+		
+		if err != nil {
+			t.Errorf("Calculate() error = %v, want nil", err)
+		}
+		if result.Cmp(expectedResult) != 0 {
+			t.Errorf("Calculate() result = %v, want %v", result, expectedResult)
+		}
+	})
+	
+	t.Run("Calculate with progress channel", func(t *testing.T) {
+		t.Parallel()
+		expectedResult := big.NewInt(55)
+		progressChan := make(chan ProgressUpdate, 1)
+		mock := &MockCalculator{
+			Result: expectedResult,
+			Err:    nil,
+		}
+		
+		ctx := context.Background()
+		result, err := mock.Calculate(ctx, progressChan, 0, 10, Options{})
+		
+		if err != nil {
+			t.Errorf("Calculate() error = %v, want nil", err)
+		}
+		if result.Cmp(expectedResult) != 0 {
+			t.Errorf("Calculate() result = %v, want %v", result, expectedResult)
+		}
+		
+		// Check that progress was sent
+		select {
+		case update := <-progressChan:
+			if update.Value != 1.0 {
+				t.Errorf("Progress update value = %f, want 1.0", update.Value)
+			}
+		default:
+			t.Error("Expected progress update to be sent")
+		}
+	})
 }

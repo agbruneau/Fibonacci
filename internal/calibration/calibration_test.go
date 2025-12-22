@@ -1,9 +1,12 @@
 package calibration
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -121,12 +124,201 @@ func TestRunCalibrationMissingFast(t *testing.T) {
 
 func TestLoadCachedCalibration(t *testing.T) {
 	t.Parallel()
-	// Test failure first
-	cfg := config.AppConfig{}
-	_, success := LoadCachedCalibration(cfg, "nonexistent.json")
-	if success {
-		t.Error("Should return false for nonexistent profile")
-	}
+	
+	t.Run("Nonexistent profile", func(t *testing.T) {
+		t.Parallel()
+		cfg := config.AppConfig{}
+		_, success := LoadCachedCalibration(cfg, "nonexistent.json")
+		if success {
+			t.Error("Should return false for nonexistent profile")
+		}
+	})
+	
+	t.Run("Valid profile loaded", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/profile.json"
+		
+		// Create a valid profile
+		profile := NewProfile()
+		profile.OptimalParallelThreshold = 4096
+		profile.OptimalFFTThreshold = 1000000
+		profile.OptimalStrassenThreshold = 256
+		if err := profile.SaveProfile(profilePath); err != nil {
+			t.Fatalf("Failed to save profile: %v", err)
+		}
+		
+		cfg := config.AppConfig{
+			Threshold:         2048,
+			FFTThreshold:      500000,
+			StrassenThreshold: 512,
+		}
+		
+		updated, success := LoadCachedCalibration(cfg, profilePath)
+		if !success {
+			t.Error("Should return true for valid profile")
+		}
+		if updated.Threshold != 4096 {
+			t.Errorf("Threshold = %d, want 4096", updated.Threshold)
+		}
+		if updated.FFTThreshold != 1000000 {
+			t.Errorf("FFTThreshold = %d, want 1000000", updated.FFTThreshold)
+		}
+		if updated.StrassenThreshold != 256 {
+			t.Errorf("StrassenThreshold = %d, want 256", updated.StrassenThreshold)
+		}
+	})
+	
+	t.Run("Invalid profile", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/invalid.json"
+		
+		// Create an invalid profile (empty file)
+		if err := os.WriteFile(profilePath, []byte("{}"), 0600); err != nil {
+			t.Fatalf("Failed to write invalid profile: %v", err)
+		}
+		
+		cfg := config.AppConfig{}
+		_, success := LoadCachedCalibration(cfg, profilePath)
+		if success {
+			t.Error("Should return false for invalid profile")
+		}
+	})
+}
+
+func TestAutoCalibrateWithProfile(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Load existing profile", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/profile.json"
+		
+		// Create a valid profile
+		profile := NewProfile()
+		profile.OptimalParallelThreshold = 4096
+		profile.OptimalFFTThreshold = 1000000
+		profile.OptimalStrassenThreshold = 256
+		if err := profile.SaveProfile(profilePath); err != nil {
+			t.Fatalf("Failed to save profile: %v", err)
+		}
+		
+		registry := map[string]fibonacci.Calculator{
+			"fast": &MockCalculator{name: "fast"},
+		}
+		
+		cfg := config.AppConfig{
+			Timeout: 1 * time.Second,
+		}
+		
+		var outBuf bytes.Buffer
+		ctx := context.Background()
+		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+		
+		if !ok {
+			t.Error("AutoCalibrateWithProfile should succeed with existing profile")
+		}
+		if updated.Threshold != 4096 {
+			t.Errorf("Threshold = %d, want 4096", updated.Threshold)
+		}
+		output := outBuf.String()
+		if !strings.Contains(output, "Using cached calibration") {
+			t.Errorf("Output should mention cached calibration. Got: %s", output)
+		}
+	})
+	
+	t.Run("Quick calibration fallback", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/profile.json"
+		
+		registry := map[string]fibonacci.Calculator{
+			"fast": &MockCalculator{name: "fast"},
+		}
+		
+		cfg := config.AppConfig{
+			Timeout: 5 * time.Second,
+		}
+		
+		var outBuf bytes.Buffer
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		
+		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+		
+		// Quick calibration may succeed or timeout
+		if ok {
+			if updated.Threshold == 0 {
+				t.Error("Threshold should be set after quick calibration")
+			}
+			output := outBuf.String()
+			if !strings.Contains(output, "Quick calibration") && !strings.Contains(output, "calibration") {
+				t.Errorf("Output should mention calibration. Got: %s", output)
+			}
+		}
+	})
+	
+	t.Run("Full calibration fallback", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/profile.json"
+		
+		registry := map[string]fibonacci.Calculator{
+			"fast":   &MockCalculator{name: "fast"},
+			"matrix": &MockCalculator{name: "matrix"},
+		}
+		
+		cfg := config.AppConfig{
+			Timeout: 5 * time.Second,
+		}
+		
+		var outBuf bytes.Buffer
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		
+		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+		
+		// Full calibration may succeed or timeout
+		if ok {
+			if updated.Threshold == 0 {
+				t.Error("Threshold should be set after full calibration")
+			}
+		}
+	})
+	
+	t.Run("No fast calculator", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/profile.json"
+		
+		registry := map[string]fibonacci.Calculator{} // Empty
+		
+		cfg := config.AppConfig{
+			Timeout: 1 * time.Second,
+			Threshold: 0, // Explicitly set to 0
+		}
+		
+		var outBuf bytes.Buffer
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		
+		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+		
+		// QuickCalibrate might succeed even without fast calculator (it uses bigfft directly)
+		// So we check that if it fails, the config remains unchanged
+		if !ok {
+			if updated.Threshold != cfg.Threshold {
+				t.Errorf("Config should remain unchanged on failure. Threshold = %d, want %d", 
+					updated.Threshold, cfg.Threshold)
+			}
+		} else {
+			// If it succeeded (via QuickCalibrate), thresholds should be set
+			if updated.Threshold == 0 {
+				t.Error("If calibration succeeded, threshold should be set")
+			}
+		}
+	})
 }
 
 func TestCalibrationRunner(t *testing.T) {

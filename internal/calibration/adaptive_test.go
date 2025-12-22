@@ -26,9 +26,48 @@ func TestGenerateParallelThresholds(t *testing.T) {
 		}
 	}
 
+	// Verify thresholds are appropriate for CPU count
+	numCPU := runtime.NumCPU()
+	switch {
+	case numCPU == 1:
+		if len(thresholds) != 1 {
+			t.Errorf("For 1 CPU, expected 1 threshold, got %d", len(thresholds))
+		}
+	case numCPU <= 4:
+		if len(thresholds) < 5 {
+			t.Errorf("For %d CPUs, expected at least 5 thresholds, got %d", numCPU, len(thresholds))
+		}
+		// Should include: 0, 512, 1024, 2048, 4096
+		expected := []int{0, 512, 1024, 2048, 4096}
+		for _, exp := range expected {
+			found := false
+			for _, th := range thresholds {
+				if th == exp {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Expected threshold %d not found in %v", exp, thresholds)
+			}
+		}
+	case numCPU <= 8:
+		if len(thresholds) < 7 {
+			t.Errorf("For %d CPUs, expected at least 7 thresholds, got %d", numCPU, len(thresholds))
+		}
+	case numCPU <= 16:
+		if len(thresholds) < 8 {
+			t.Errorf("For %d CPUs, expected at least 8 thresholds, got %d", numCPU, len(thresholds))
+		}
+	default:
+		if len(thresholds) < 9 {
+			t.Errorf("For %d CPUs, expected at least 9 thresholds, got %d", numCPU, len(thresholds))
+		}
+	}
+
 	// Log the thresholds for visibility
 	t.Logf("Generated %d parallel thresholds for %d CPUs: %v",
-		len(thresholds), runtime.NumCPU(), thresholds)
+		len(thresholds), numCPU, thresholds)
 }
 
 func TestGenerateQuickParallelThresholds(t *testing.T) {
@@ -44,6 +83,69 @@ func TestGenerateQuickParallelThresholds(t *testing.T) {
 	// Should have at least one threshold
 	if len(thresholds) < 1 {
 		t.Error("Expected at least one threshold")
+	}
+
+	// Verify thresholds are appropriate for CPU count
+	numCPU := runtime.NumCPU()
+	switch {
+	case numCPU == 1:
+		if len(thresholds) != 1 || thresholds[0] != 0 {
+			t.Errorf("For 1 CPU, expected [0], got %v", thresholds)
+		}
+	case numCPU <= 4:
+		if len(thresholds) != 3 {
+			t.Errorf("For %d CPUs, expected 3 thresholds, got %d", numCPU, len(thresholds))
+		}
+		// Should include: 0, 2048, 4096
+		expected := []int{0, 2048, 4096}
+		for _, exp := range expected {
+			found := false
+			for _, th := range thresholds {
+				if th == exp {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Expected threshold %d not found in %v", exp, thresholds)
+			}
+		}
+	case numCPU <= 8:
+		if len(thresholds) != 4 {
+			t.Errorf("For %d CPUs, expected 4 thresholds, got %d", numCPU, len(thresholds))
+		}
+		// Should include: 0, 2048, 4096, 8192
+		expected := []int{0, 2048, 4096, 8192}
+		for _, exp := range expected {
+			found := false
+			for _, th := range thresholds {
+				if th == exp {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Expected threshold %d not found in %v", exp, thresholds)
+			}
+		}
+	default:
+		if len(thresholds) != 5 {
+			t.Errorf("For %d CPUs, expected 5 thresholds, got %d", numCPU, len(thresholds))
+		}
+		// Should include: 0, 2048, 4096, 8192, 16384
+		expected := []int{0, 2048, 4096, 8192, 16384}
+		for _, exp := range expected {
+			found := false
+			for _, th := range thresholds {
+				if th == exp {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Expected threshold %d not found in %v", exp, thresholds)
+			}
+		}
 	}
 
 	t.Logf("Generated %d quick parallel thresholds: %v", len(thresholds), thresholds)
@@ -126,7 +228,40 @@ func TestEstimateOptimalParallelThreshold(t *testing.T) {
 		t.Errorf("Estimated parallel threshold seems too high: %d", threshold)
 	}
 
-	t.Logf("Estimated parallel threshold for %d CPUs: %d", runtime.NumCPU(), threshold)
+	// Test that it returns different values based on CPU count
+	// The function uses runtime.NumCPU() internally, so we test the logic
+	numCPU := runtime.NumCPU()
+	threshold = EstimateOptimalParallelThreshold()
+	
+	// Verify threshold is appropriate for CPU count
+	switch {
+	case numCPU == 1:
+		if threshold != 0 {
+			t.Errorf("For 1 CPU, threshold should be 0, got %d", threshold)
+		}
+	case numCPU <= 2:
+		if threshold != 8192 {
+			t.Errorf("For %d CPUs, threshold should be 8192, got %d", numCPU, threshold)
+		}
+	case numCPU <= 4:
+		if threshold != 4096 {
+			t.Errorf("For %d CPUs, threshold should be 4096, got %d", numCPU, threshold)
+		}
+	case numCPU <= 8:
+		if threshold != 2048 {
+			t.Errorf("For %d CPUs, threshold should be 2048, got %d", numCPU, threshold)
+		}
+	case numCPU <= 16:
+		if threshold != 1024 {
+			t.Errorf("For %d CPUs, threshold should be 1024, got %d", numCPU, threshold)
+		}
+	default:
+		if threshold != 512 {
+			t.Errorf("For %d CPUs, threshold should be 512, got %d", numCPU, threshold)
+		}
+	}
+
+	t.Logf("Estimated parallel threshold for %d CPUs: %d", numCPU, threshold)
 }
 
 func TestEstimateOptimalFFTThreshold(t *testing.T) {

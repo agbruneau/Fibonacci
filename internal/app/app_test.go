@@ -641,3 +641,316 @@ func TestPrintJSONResultsError(t *testing.T) {
 		t.Errorf("Expected error in JSON, got %s", outBuf.String())
 	}
 }
+
+// TestRunServer tests the runServer method.
+func TestRunServer(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Server starts successfully", func(t *testing.T) {
+		t.Parallel()
+		var errBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				ServerMode: true,
+				Port:       "0", // Use port 0 for automatic port assignment
+			},
+			Factory:   factory,
+			ErrWriter: &errBuf,
+		}
+		
+		// Start server in a goroutine and stop it quickly
+		done := make(chan int, 1)
+		go func() {
+			done <- app.runServer()
+		}()
+		
+		// Give server time to start, then signal shutdown
+		time.Sleep(50 * time.Millisecond)
+		
+		// The server will block waiting for shutdown signal
+		// Since we can't easily send signals in tests, we'll just verify
+		// that the function doesn't panic and returns eventually
+		// In a real scenario, we'd send SIGTERM
+		select {
+		case exitCode := <-done:
+			if exitCode != apperrors.ExitSuccess && exitCode != apperrors.ExitErrorGeneric {
+				t.Errorf("Expected exit code %d or %d, got %d", 
+					apperrors.ExitSuccess, apperrors.ExitErrorGeneric, exitCode)
+			}
+		case <-time.After(100 * time.Millisecond):
+			// Server is running, which is expected behavior
+			// We can't easily test graceful shutdown without signals
+		}
+	})
+	
+	// Note: Testing server error handling with invalid port is difficult because
+	// the server uses logger.Fatalf which calls os.Exit(1), causing the test to fail.
+	// The server error handling is tested in internal/server package tests.
+}
+
+// TestRunREPL tests the runREPL method.
+func TestRunREPL(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("REPL starts successfully", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				Interactive: true,
+				Algo:        "fast",
+				Timeout:     1 * time.Minute,
+			},
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		exitCode := app.runREPL()
+		
+		if exitCode != apperrors.ExitSuccess {
+			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
+		}
+		
+		// REPL should have printed banner/help
+		output := testutil.StripAnsiCodes(outBuf.String())
+		// REPL prints to stdout by default, so output might be empty
+		// The important thing is that it doesn't panic
+		_ = output
+	})
+}
+
+// TestRunCalibration tests the runCalibration method.
+func TestRunCalibration(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Calibration runs successfully", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				Calibrate: true,
+				Timeout:   5 * time.Second,
+			},
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		
+		exitCode := app.runCalibration(ctx, &outBuf)
+		
+		// Calibration may succeed or timeout, both are valid
+		if exitCode != apperrors.ExitSuccess && 
+		   exitCode != apperrors.ExitErrorTimeout && 
+		   exitCode != apperrors.ExitErrorCanceled {
+			t.Errorf("Expected exit code %d, %d, or %d, got %d", 
+				apperrors.ExitSuccess, apperrors.ExitErrorTimeout, 
+				apperrors.ExitErrorCanceled, exitCode)
+		}
+	})
+	
+	t.Run("Calibration with context cancellation", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				Calibrate: true,
+				Timeout:   1 * time.Minute,
+			},
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+		
+		exitCode := app.runCalibration(ctx, &outBuf)
+		
+		if exitCode != apperrors.ExitErrorCanceled {
+			t.Errorf("Expected exit code %d (canceled), got %d", 
+				apperrors.ExitErrorCanceled, exitCode)
+		}
+	})
+}
+
+// TestRunAutoCalibrationIfEnabled tests the runAutoCalibrationIfEnabled method.
+func TestRunAutoCalibrationIfEnabled(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Auto-calibration enabled and succeeds", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		originalCfg := config.AppConfig{
+			AutoCalibrate: true,
+			Timeout:       5 * time.Second,
+			Threshold:    4096,
+		}
+		
+		app := &Application{
+			Config:    originalCfg,
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		
+		updatedCfg := app.runAutoCalibrationIfEnabled(ctx, &outBuf)
+		
+		// Config should be updated if calibration succeeded
+		if updatedCfg.Threshold == 0 {
+			t.Error("Threshold should be set after calibration")
+		}
+	})
+	
+	t.Run("Auto-calibration enabled but fails", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		// Use a factory with no calculators to force failure
+		emptyFactory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{})
+		
+		originalCfg := config.AppConfig{
+			AutoCalibrate: true,
+			Timeout:       1 * time.Second,
+			Threshold:    4096,
+		}
+		
+		app := &Application{
+			Config:    originalCfg,
+			Factory:   emptyFactory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+		
+		updatedCfg := app.runAutoCalibrationIfEnabled(ctx, &outBuf)
+		
+		// Config should remain unchanged if calibration fails
+		if updatedCfg.Threshold != originalCfg.Threshold {
+			t.Errorf("Threshold should remain %d when calibration fails, got %d", 
+				originalCfg.Threshold, updatedCfg.Threshold)
+		}
+	})
+	
+	t.Run("Auto-calibration disabled", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		originalCfg := config.AppConfig{
+			AutoCalibrate: false,
+			Threshold:     4096,
+		}
+		
+		app := &Application{
+			Config:    originalCfg,
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		updatedCfg := app.runAutoCalibrationIfEnabled(context.Background(), &outBuf)
+		
+		// Config should remain unchanged when auto-calibration is disabled
+		if updatedCfg.Threshold != originalCfg.Threshold {
+			t.Errorf("Threshold should remain %d when auto-calibration is disabled, got %d", 
+				originalCfg.Threshold, updatedCfg.Threshold)
+		}
+	})
+}
+
+// TestRunAllModes tests the Run method with all different modes.
+func TestRunAllModes(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("Server mode", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				ServerMode: true,
+				Port:       "0",
+			},
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		done := make(chan int, 1)
+		go func() {
+			done <- app.Run(context.Background(), &outBuf)
+		}()
+		
+		select {
+		case exitCode := <-done:
+			if exitCode != apperrors.ExitSuccess && exitCode != apperrors.ExitErrorGeneric {
+				t.Errorf("Expected exit code %d or %d, got %d", 
+					apperrors.ExitSuccess, apperrors.ExitErrorGeneric, exitCode)
+			}
+		case <-time.After(100 * time.Millisecond):
+			// Server is running, which is expected
+		}
+	})
+	
+	t.Run("REPL mode", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				Interactive: true,
+				Algo:        "fast",
+				Timeout:     1 * time.Minute,
+			},
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		exitCode := app.Run(context.Background(), &outBuf)
+		
+		if exitCode != apperrors.ExitSuccess {
+			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
+		}
+	})
+	
+	t.Run("Calibration mode", func(t *testing.T) {
+		t.Parallel()
+		var outBuf bytes.Buffer
+		factory := createMockFactory(big.NewInt(55), nil)
+		
+		app := &Application{
+			Config: config.AppConfig{
+				Calibrate: true,
+				Timeout:   2 * time.Second,
+			},
+			Factory:   factory,
+			ErrWriter: &bytes.Buffer{},
+		}
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		
+		exitCode := app.Run(ctx, &outBuf)
+		
+		if exitCode != apperrors.ExitSuccess && 
+		   exitCode != apperrors.ExitErrorTimeout && 
+		   exitCode != apperrors.ExitErrorCanceled {
+			t.Errorf("Expected exit code %d, %d, or %d, got %d", 
+				apperrors.ExitSuccess, apperrors.ExitErrorTimeout, 
+				apperrors.ExitErrorCanceled, exitCode)
+		}
+	})
+}

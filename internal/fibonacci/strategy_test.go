@@ -286,3 +286,53 @@ func TestMultiplicationStrategyInterface(t *testing.T) {
 	var _ MultiplicationStrategy = &FFTOnlyStrategy{}
 	var _ MultiplicationStrategy = &KaratsubaStrategy{}
 }
+
+func TestKaratsubaStrategy_ExecuteStep(t *testing.T) {
+	t.Parallel()
+	
+	t.Run("ExecuteStep with parallel disabled", func(t *testing.T) {
+		t.Parallel()
+		strategy := &KaratsubaStrategy{}
+		
+		// Create a calculation state
+		state := &CalculationState{
+			FK:  big.NewInt(5),
+			FK1: big.NewInt(8),
+			T2:  big.NewInt(0),
+			T3:  big.NewInt(0),
+		}
+		
+		opts := Options{
+			ParallelThreshold: 4096,
+			FFTThreshold:      1000000,
+		}
+		
+		err := strategy.ExecuteStep(state, opts, false)
+		if err != nil {
+			t.Errorf("ExecuteStep() error = %v, want nil", err)
+		}
+	})
+	
+	t.Run("ExecuteStep with parallel enabled", func(t *testing.T) {
+		t.Parallel()
+		strategy := &KaratsubaStrategy{}
+		
+		// Create a calculation state
+		state := &CalculationState{
+			FK:  big.NewInt(5),
+			FK1: big.NewInt(8),
+			T2:  big.NewInt(0),
+			T3:  big.NewInt(0),
+		}
+		
+		opts := Options{
+			ParallelThreshold: 4096,
+			FFTThreshold:      1000000,
+		}
+		
+		err := strategy.ExecuteStep(state, opts, true)
+		if err != nil {
+			t.Errorf("ExecuteStep() error = %v, want nil", err)
+		}
+	})
+}

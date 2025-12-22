@@ -38,6 +38,84 @@ func TestGetTransformCache(t *testing.T) {
 	}
 }
 
+func TestSetTransformCacheConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Set config with enabled cache", func(t *testing.T) {
+		t.Parallel()
+		config := TransformCacheConfig{
+			MaxEntries: 64,
+			MinBitLen:  50000,
+			Enabled:    true,
+		}
+
+		SetTransformCacheConfig(config)
+
+		cache := GetTransformCache()
+		cache.mu.Lock()
+		defer cache.mu.Unlock()
+
+		if cache.config.MaxEntries != config.MaxEntries {
+			t.Errorf("Expected MaxEntries=%d, got %d", config.MaxEntries, cache.config.MaxEntries)
+		}
+		if cache.config.MinBitLen != config.MinBitLen {
+			t.Errorf("Expected MinBitLen=%d, got %d", config.MinBitLen, cache.config.MinBitLen)
+		}
+		if cache.config.Enabled != config.Enabled {
+			t.Errorf("Expected Enabled=%v, got %v", config.Enabled, cache.config.Enabled)
+		}
+	})
+
+	t.Run("Set config with disabled cache clears entries", func(t *testing.T) {
+		t.Parallel()
+		// First enable and add some entries using Put
+		config1 := TransformCacheConfig{
+			MaxEntries: 64,
+			MinBitLen:  50000,
+			Enabled:    true,
+		}
+		SetTransformCacheConfig(config1)
+
+		cache := GetTransformCache()
+		// Add a real entry using Put
+		testData := make(nat, 100)
+		testData[0] = big.Word(123)
+		mockValues := PolValues{
+			K:      4,
+			N:      10,
+			Values: make([]fermat, 16),
+		}
+		for i := range mockValues.Values {
+			mockValues.Values[i] = make(fermat, 101)
+		}
+		cache.Put(testData, mockValues)
+
+		cache.mu.Lock()
+		entryCount := len(cache.entries)
+		cache.mu.Unlock()
+
+		if entryCount == 0 {
+			t.Error("Expected at least one entry before disabling")
+		}
+
+		// Now disable
+		config2 := TransformCacheConfig{
+			MaxEntries: 64,
+			MinBitLen:  50000,
+			Enabled:    false,
+		}
+		SetTransformCacheConfig(config2)
+
+		cache.mu.Lock()
+		entryCountAfter := len(cache.entries)
+		cache.mu.Unlock()
+
+		if entryCountAfter != 0 {
+			t.Errorf("Expected cache to be cleared when disabled, got %d entries", entryCountAfter)
+		}
+	})
+}
+
 func TestTransformCachePutAndGet(t *testing.T) {
 	t.Parallel()
 	// Create a cache with low threshold for testing
