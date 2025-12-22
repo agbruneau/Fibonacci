@@ -200,8 +200,8 @@ func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *Pro
 	// Configure FFT cache based on options for optimal performance
 	configureFFTCache(opts)
 
-	// Pre-warm pools for large calculations
-	bigfft.PreWarmPools(n)
+	// Pre-warm pools once for large calculations (one-time initialization)
+	bigfft.EnsurePoolsWarmed(n)
 
 	result, err = c.core.CalculateCore(ctx, reporter, n, opts)
 	if err == nil && result != nil {

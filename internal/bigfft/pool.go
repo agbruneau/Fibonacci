@@ -5,6 +5,7 @@ package bigfft
 import (
 	"math/big"
 	"sync"
+	"sync/atomic"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -447,5 +448,25 @@ func PreWarmPools(n uint64) {
 			buf := make([]fermat, fermatSliceSizes[fermatSliceIdx])
 			fermatSlicePools[fermatSliceIdx].Put(buf)
 		}
+	}
+}
+
+// poolsWarmed tracks whether pools have been pre-warmed.
+// Using sync/atomic for lock-free, thread-safe initialization.
+var poolsWarmed atomic.Bool
+
+// EnsurePoolsWarmed ensures that pools are pre-warmed exactly once.
+// This is more efficient than calling PreWarmPools on every calculation,
+// as it uses atomic compare-and-swap to guarantee single initialization.
+//
+// The function is safe to call concurrently from multiple goroutines.
+// Only the first call will actually pre-warm the pools; subsequent calls
+// return immediately.
+//
+// Parameters:
+//   - maxN: The maximum Fibonacci index expected (used for estimation).
+func EnsurePoolsWarmed(maxN uint64) {
+	if poolsWarmed.CompareAndSwap(false, true) {
+		PreWarmPools(maxN)
 	}
 }
