@@ -27,7 +27,7 @@ import (
 //	    if err != nil {
 //	        return err
 //	    }
-//	    fmt.Println(val)
+//	    // Use val
 //	}
 type SequenceGenerator interface {
 	// Next advances the generator and returns the next Fibonacci number.

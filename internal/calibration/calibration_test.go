@@ -22,14 +22,26 @@ func (m *MockCalculator) Name() string {
 
 func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
 	// Simulate work duration dependent on threshold to test optimization logic
-	// In findBestParallelThreshold, we test various candidates.
-	// We want one to be faster than others.
+	// We use cumulative speedups to ensure the combination of optimal parameters
+	// yields the strictly fastest time.
 
-	duration := 10 * time.Millisecond
+	// Base duration
+	duration := 100 * time.Millisecond
 
-	// Simulate simpler logic: specific threshold yields faster time
-	if opts.ParallelThreshold == 4096 {
-		duration = 1 * time.Millisecond
+	// Parallel speedup
+	// We accept a range of values (2048-8192) to match adaptive environment logic
+	if opts.ParallelThreshold >= 2048 && opts.ParallelThreshold <= 8192 {
+		duration -= 40 * time.Millisecond
+	}
+
+	// FFT speedup
+	if opts.FFTThreshold >= 750000 && opts.FFTThreshold <= 1000000 {
+		duration -= 20 * time.Millisecond
+	}
+
+	// Strassen speedup
+	if opts.StrassenThreshold >= 192 && opts.StrassenThreshold <= 512 {
+		duration -= 20 * time.Millisecond
 	}
 
 	// Respect context timeout/cancellation

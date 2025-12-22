@@ -5,7 +5,9 @@
 package bigfft
 
 import (
+	"fmt"
 	"math/big"
+	"runtime/debug"
 	"unsafe"
 )
 
@@ -34,7 +36,12 @@ var fftThreshold = defaultFFTThresholdWords
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of
 // *big.Int from math/big package.
-func Mul(x, y *big.Int) (*big.Int, error) {
+func Mul(x, y *big.Int) (res *big.Int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in bigfft.Mul: %v\nStack: %s", r, debug.Stack())
+		}
+	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	if xwords > fftThreshold && ywords > fftThreshold {
@@ -45,7 +52,12 @@ func Mul(x, y *big.Int) (*big.Int, error) {
 
 // MulTo computes the product x*y and stores the result in z.
 // It can be used instead of the Mul method of *big.Int from math/big package.
-func MulTo(z, x, y *big.Int) (*big.Int, error) {
+func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in bigfft.MulTo: %v\nStack: %s", r, debug.Stack())
+		}
+	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	if xwords > fftThreshold && ywords > fftThreshold {
@@ -67,7 +79,12 @@ func MulTo(z, x, y *big.Int) (*big.Int, error) {
 // Sqr computes x*x and returns the result as a new *big.Int.
 // Squaring is optimized because we only need to transform x once,
 // which saves approximately 33% of the FFT computation compared to Mul.
-func Sqr(x *big.Int) (*big.Int, error) {
+func Sqr(x *big.Int) (res *big.Int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in bigfft.Sqr: %v\nStack: %s", r, debug.Stack())
+		}
+	}()
 	xwords := len(x.Bits())
 	if xwords > fftThreshold {
 		return sqrFFT(x)
@@ -75,7 +92,12 @@ func Sqr(x *big.Int) (*big.Int, error) {
 	return new(big.Int).Mul(x, x), nil
 }
 
-func SqrTo(z, x *big.Int) (*big.Int, error) {
+func SqrTo(z, x *big.Int) (res *big.Int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in bigfft.SqrTo: %v\nStack: %s", r, debug.Stack())
+		}
+	}()
 	xwords := len(x.Bits())
 	if xwords > fftThreshold {
 		var xb nat = x.Bits()
