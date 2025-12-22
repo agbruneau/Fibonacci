@@ -7,7 +7,6 @@ import (
 
 	"github.com/agbru/fibcalc/internal/config"
 	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/rs/zerolog"
 )
 
 // GetCalculatorsToRun determines which calculators should be executed based on
@@ -80,8 +79,5 @@ func PrintExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 //   - format: The format string (see fmt.Printf).
 //   - a: Arguments for the format string.
 func writeOut(out io.Writer, format string, a ...any) {
-	// Create a temporary logger that writes to the provided output
-	// We use ConsoleWriter to maintain human-readability for CLI output
-	logger := zerolog.New(zerolog.ConsoleWriter{Out: out}).With().Logger()
-	logger.Info().Msgf(format, a...)
+	fmt.Fprintf(out, format, a...)
 }
