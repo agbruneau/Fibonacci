@@ -21,6 +21,10 @@ dist/
 coverage.*
 *.coverprofile
 profile.cov
+test_results.txt
+
+# Go profile-guided optimization files
+*.pgo
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
