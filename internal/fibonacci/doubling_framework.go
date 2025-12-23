@@ -191,24 +191,30 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 			return nil, fmt.Errorf("doubling step failed at bit %d/%d: %w", i, numBits-1, err)
 		}
 
-		// F(2k+1) = F(k+1)² + F(k)². Store result in T2, which is free.
-		s.T2.Add(s.T1, s.T4)
+		// F(2k+1) = F(k+1)² + F(k)².
+		// Optimization: Use T1 as destination because it already holds F(k+1)²
+		// which has the same bit length order as the result, avoiding reallocation.
+		// T2 (holding 2*FK1 - FK) is significantly smaller.
+		s.T1.Add(s.T1, s.T4)
 		// Swap the pointers for the next iteration.
-		// FK becomes F(2k) (from T3), FK1 becomes F(2k+1) (from T2).
+		// FK becomes F(2k) (from T3), FK1 becomes F(2k+1) (from T1).
 		// T2 and T3 become the old FK and FK1, now temporaries.
-		s.FK, s.FK1, s.T2, s.T3 = s.T3, s.T2, s.FK, s.FK1
+		// T1 becomes the old T2 (free).
+		s.FK, s.FK1, s.T2, s.T3, s.T1 = s.T3, s.T1, s.FK, s.FK1, s.T2
 
 		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
 		// F(k) <- F(k+1)
 		// F(k+1) <- F(k) + F(k+1)
 		if (n>>uint(i))&1 == 1 {
-			// s.T1 temporarily stores the new F(k+1)
-			s.T1.Add(s.FK, s.FK1)
+			// s.T4 temporarily stores the new F(k+1).
+			// Optimization: Use T4 instead of T1 because T4 holds F(k)² (large)
+			// whereas T1 holds "old T2" (small). This reduces reallocation probability.
+			s.T4.Add(s.FK, s.FK1)
 			// Swap pointers to avoid large allocations:
 			// s.FK becomes the old s.FK1
-			// s.FK1 becomes the new sum (s.T1)
-			// s.T1 becomes the old s.FK, now a temporary
-			s.FK, s.FK1, s.T1 = s.FK1, s.T1, s.FK
+			// s.FK1 becomes the new sum (s.T4)
+			// s.T4 becomes the old s.FK, now a temporary
+			s.FK, s.FK1, s.T4 = s.FK1, s.T4, s.FK
 		}
 
 		// Record metrics and check for threshold adjustments
