@@ -1,0 +1,3 @@
+## 2025-12-23 - big.Int Reallocation Strategy in Fast Doubling
+**Learning:** `big.Int` pointer swapping is insufficient for memory optimization if the destination buffer is smaller than the result. In iterative growth algorithms (like Fibonacci), always reuse the buffer that held the largest previous value as the destination for the next largest value to minimize underlying slice reallocations.
+**Action:** When optimizing `big.Int` loops, trace the buffer capacity flow, not just the logical variable names. Use `Add(T1, T4)` into `T1` if `T1` is already large, rather than into a fresh or small `T2`.
