@@ -2,32 +2,33 @@
 
 ## 1. Stack Technique
 
-*   **Langage**: Rust 2021 Edition
-*   **Gestionnaire de Paquets**: Cargo (Workspaces)
-*   **Noyau Mathématique**:
-    *   `num-bigint`: Arithmétique arbitraire (Pure Rust).
-    *   `num-traits` & `num-integer`: Traits génériques mathématiques.
-*   **CLI (Command Line Interface)**:
-    *   `clap` (derive): Parsing des arguments de ligne de commande.
-    *   `indicatif`: Barres de progression et spinners.
-    *   `colored` / `console`: Coloration du texte dans le terminal.
-    *   `rustyline` ou `inquire`: Mode REPL interactif.
-*   **Serveur API**:
-    *   `axum`: Framework web haute performance, ergonomique et modulaire.
-    *   `tokio`: Runtime asynchrone (standard de l'industrie).
-    *   `tower`: Middleware (Rate limiting, timeouts).
-    *   `serde` & `serde_json`: Sérialisation/Désérialisation JSON.
-*   **Observabilité**:
-    *   `tracing`: Logging structuré.
-    *   `metrics`: Façade de métriques.
-    *   `metrics-exporter-prometheus`: Exportateur compatible Prometheus.
-*   **Tests & Benchmarks**:
-    *   `proptest`: Property-based testing (équivalent `gopter`).
-    *   `criterion`: Framework de micro-benchmarking statistique.
+- **Langage**: Rust 2021 Edition
+- **Gestionnaire de Paquets**: Cargo (Workspaces)
+- **Noyau Mathématique**:
+  - `num-bigint`: Arithmétique arbitraire (Pure Rust).
+  - `num-traits` & `num-integer`: Traits génériques mathématiques.
+- **CLI (Command Line Interface)**:
+  - `clap` (derive): Parsing des arguments de ligne de commande.
+  - `indicatif`: Barres de progression et spinners.
+  - `colored` / `console`: Coloration du texte dans le terminal.
+  - `rustyline` ou `inquire`: Mode REPL interactif.
+- **Serveur API**:
+  - `axum`: Framework web haute performance, ergonomique et modulaire.
+  - `tokio`: Runtime asynchrone (standard de l'industrie).
+  - `tower`: Middleware (Rate limiting, timeouts).
+  - `serde` & `serde_json`: Sérialisation/Désérialisation JSON.
+- **Observabilité**:
+  - `tracing`: Logging structuré.
+  - `metrics`: Façade de métriques.
+  - `metrics-exporter-prometheus`: Exportateur compatible Prometheus.
+- **Tests & Benchmarks**:
+  - `proptest`: Property-based testing (équivalent `gopter`).
+  - `criterion`: Framework de micro-benchmarking statistique.
 
 ## 2. Architecture de Données
 
 ### Configuration (Shared)
+
 La configuration doit refléter les options du Go pour garantir la parité.
 
 ```rust
@@ -42,6 +43,7 @@ pub struct CalculationOptions {
 ```
 
 ### API Response (JSON Contract)
+
 La structure JSON doit être identique à celle du Go pour les clients API existants.
 
 ```rust
@@ -129,11 +131,74 @@ graph TD
 ## 4. Plan d'Implémentation
 
 ### Phase 1: Initialisation & Fondations
+
 - [ ] Créer la structure du Workspace Cargo (`fibcalc-core`, `fibcalc-cli`, `fibcalc-server`).
 - [ ] Définir les types partagés (`Options`, `Error`) et l'interface (Trait) `Calculator`.
 - [ ] Mettre en place le CI/CD de base (fmt, clippy, test).
 
+### Phase 1.5: Constantes & Types Partagés
+
+- [ ] Définir les constantes partagées:
+
+```rust
+// fibcalc-core/src/constants.rs
+pub const MAX_FIB_UINT64: u64 = 93; // F(93) = 12200160415121876738
+pub const DEFAULT_PARALLEL_THRESHOLD: usize = 8192;
+pub const DEFAULT_FFT_THRESHOLD: usize = 20000;
+pub const DEFAULT_KARATSUBA_THRESHOLD: usize = 1000;
+pub const DEFAULT_STRASSEN_THRESHOLD: usize = 256;
+```
+
+- [ ] Définir `CalculationError` avec `thiserror`.
+- [ ] Définir le trait `ProgressObserver` pour le pattern Observer:
+
+```rust
+// fibcalc-core/src/progress.rs
+pub trait ProgressObserver: Send + Sync {
+    fn on_progress(&self, progress: f64, calc_index: usize);
+}
+```
+
 ### Phase 2: Core Algorithmique (fibcalc-core)
+
+#### Memory Pooling Strategy
+
+Le code Go utilise `sync.Pool` pour réutiliser les `CalculationState`. En Rust:
+
+```rust
+use crossbeam::queue::SegQueue;
+use once_cell::sync::Lazy;
+
+static STATE_POOL: Lazy<SegQueue<Box<CalculationState>>> = Lazy::new(SegQueue::new);
+
+pub fn acquire_state() -> Box<CalculationState> {
+    STATE_POOL.pop().unwrap_or_else(|| Box::new(CalculationState::default()))
+}
+
+pub fn release_state(state: Box<CalculationState>) {
+    STATE_POOL.push(state);
+}
+```
+
+#### Cancellation Support
+
+Utiliser `CancellationToken` au lieu de `context.Context`:
+
+```rust
+use tokio_util::sync::CancellationToken;
+
+pub async fn calculate(
+    token: CancellationToken,
+    n: u64,
+    opts: Options,
+) -> Result<BigInt, CalculationError> {
+    tokio::select! {
+        result = do_calculate(n, opts) => result,
+        _ = token.cancelled() => Err(CalculationError::Cancelled),
+    }
+}
+```
+
 - [ ] Implémenter le wrapper `num-bigint` et les utilitaires mathématiques de base.
 - [ ] **Algo 1**: Implémenter `Fast Doubling` (portage direct logic).
 - [ ] **Algo 2**: Implémenter `Matrix Exponentiation` avec optimisation des carrés symétriques.
@@ -142,18 +207,21 @@ graph TD
 - [ ] Ajouter la logique de sélection dynamique des algorithmes basés sur les seuils (`DynamicThresholds`).
 
 ### Phase 3: CLI (fibcalc-cli)
+
 - [ ] Configurer `clap` pour reproduire exactement les flags Go (`-n`, `-a`, etc.).
 - [ ] Implémenter l'affichage avec `indicatif` (Spinner) et la gestion des couleurs.
 - [ ] Implémenter le mode interactif (REPL).
 - [ ] Ajouter la commande de calibration (`--calibrate`) et l'analyse des résultats.
 
 ### Phase 4: Serveur API (fibcalc-server)
+
 - [ ] Mettre en place `axum` et le routeur HTTP.
 - [ ] Implémenter les handlers (`calculate_handler`, `health_handler`).
 - [ ] Intégrer les métriques Prometheus.
 - [ ] Ajouter le middleware de Rate Limiting.
 
 ### Phase 5: Optimisation & Validation
+
 - [ ] Écrire les tests de propriétés (`proptest`) pour vérifier l'identité de Cassini.
 - [ ] Configurer `criterion` pour les benchmarks comparatifs (Rust vs Go).
 - [ ] Profiling et optimisation mémoire (réduire les clones `BigInt`).

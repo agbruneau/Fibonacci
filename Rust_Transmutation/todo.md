@@ -1,21 +1,37 @@
-• [ ] Tâche 1 : Créer la structure du Workspace Cargo (fibcalc-core, fibcalc-cli, fibcalc-server)
-• [ ] Tâche 2 : Définir les types partagés (Options, Error) et l'interface (Trait) Calculator
-• [ ] Tâche 3 : Mettre en place le CI/CD de base (fmt, clippy, test)
-• [ ] Tâche 4 : Implémenter le wrapper num-bigint et les utilitaires mathématiques de base
-• [ ] Tâche 5 : Implémenter l'algorithme Fast Doubling
-• [ ] Tâche 6 : Implémenter l'algorithme Matrix Exponentiation
-• [ ] Tâche 7 : Implémenter l'algorithme Strassen
-• [ ] Tâche 8 : Implémenter la multiplication FFT
-• [ ] Tâche 9 : Ajouter la logique de sélection dynamique (DynamicThresholds)
-• [ ] Tâche 10 : Configurer clap pour les flags CLI (-n, -a, etc.)
-• [ ] Tâche 11 : Implémenter l'affichage indicatif (Spinner) et les couleurs
-• [ ] Tâche 12 : Implémenter le mode interactif (REPL)
-• [ ] Tâche 13 : Ajouter la commande de calibration (--calibrate)
-• [ ] Tâche 14 : Configurer axum et le routeur HTTP
-• [ ] Tâche 15 : Implémenter les handlers calculate_handler et health_handler
-• [ ] Tâche 16 : Intégrer les métriques Prometheus
-• [ ] Tâche 17 : Ajouter le middleware de Rate Limiting
-• [ ] Tâche 18 : Écrire les tests proptest pour l'identité de Cassini
-• [ ] Tâche 19 : Configurer criterion pour les benchmarks Rust vs Go
-• [ ] Tâche 20 : Optimisation mémoire et réduction des clones BigInt
-• [ ] Tâche 21 : Validation multi-plateforme (Linux & Windows 11)
+# Todo - Rust Transmutation
+
+## 🔴 Priorité Haute (Phase 1 - Fondations)
+
+- [ ] Créer la structure du Workspace Cargo (`fibcalc-core`, `fibcalc-cli`, `fibcalc-server`)
+- [ ] Définir les types partagés (`Options`, `Error`) et l'interface (Trait) `Calculator`
+- [ ] Mettre en place le CI/CD de base (fmt, clippy, test)
+
+## 🟠 Priorité Moyenne (Phase 2 - Core Algorithmique)
+
+- [ ] Implémenter le wrapper `num-bigint` et les utilitaires mathématiques de base
+- [ ] Implémenter l'algorithme `Fast Doubling` (portage direct de la logique Go)
+- [ ] Implémenter l'algorithme `Matrix Exponentiation` avec optimisation des carrés symétriques
+- [ ] Implémenter l'algorithme `Strassen` pour la multiplication matricielle récursive
+- [ ] Implémenter la multiplication `FFT` (Schönhage-Strassen ou optimisation `num-bigint`)
+- [ ] Ajouter la logique de sélection dynamique des algorithmes (`DynamicThresholds`)
+
+## 🟡 Priorité Normale (Phase 3 - CLI)
+
+- [ ] Configurer `clap` pour reproduire exactement les flags Go (`-n`, `-a`, etc.)
+- [ ] Implémenter l'affichage avec `indicatif` (Spinner) et la gestion des couleurs
+- [ ] Implémenter le mode interactif (REPL)
+- [ ] Ajouter la commande de calibration (`--calibrate`) et l'analyse des résultats
+
+## 🟢 Priorité Standard (Phase 4 - Serveur API)
+
+- [ ] Mettre en place `axum` et le routeur HTTP
+- [ ] Implémenter les handlers (`calculate_handler`, `health_handler`)
+- [ ] Intégrer les métriques Prometheus
+- [ ] Ajouter le middleware de Rate Limiting
+
+## 🔵 Phase 5 - Optimisation & Validation
+
+- [ ] Écrire les tests de propriétés (`proptest`) pour vérifier l'identité de Cassini
+- [ ] Configurer `criterion` pour les benchmarks comparatifs (Rust vs Go)
+- [ ] Profiling et optimisation mémoire (réduire les clones `BigInt`)
+- [ ] Validation croisée sur Linux et Windows 11
