@@ -1,0 +1,135 @@
+# Configuration explicitly defined for high code quality and performance
+# adhering to the request for explicit rules.
+
+run:
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  timeout: 5m
+  # include test files
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    # Standard linters
+    - gofmt # Checks if the code is formatted with gofmt
+    - govet # Vet examines Go source code and reports suspicious constructs
+    - errcheck # Errcheck is a program for checking for unchecked errors in go programs
+    - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
+    - gosimple # Linter for Go source code that specializes in simplifying a code
+    - unused # Checks Go code for unused constants, variables, functions and types
+    - ineffassign # Detects when assignments to existing variables are not used
+    - typecheck # Like the front-end of a Go compiler, parses and type-checks Go code
+
+    # Style and Complexity
+    - revive # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
+    - gocyclo # Computes and checks the cyclomatic complexity of functions
+    - gocognit # Computes and checks the cognitive complexity of functions
+    - funlen # Tool for detection of long functions
+    - whitespace # Tool for detection of leading and trailing whitespace
+    - misspell # Finds commonly misspelled English words in comments
+
+    # Performance and Bugs
+    - bodyclose # checks whether HTTP response body is closed successfully
+    - noctx # noctx finds sending http request without context.Context
+    - prealloc # Finds slice declarations that could potentially be preallocated
+    - gocritic # Provides many diagnostics that check for bugs, performance and style issues
+    - unparam # Reports unused function parameters
+    - unconvert # Remove unnecessary type conversions
+    - nakedret # Finds naked returns in functions greater than a specified function length
+    - copyloopvar # Checks for pointers to enclosing loop variables (replaced exportloopref)
+
+    # Security
+    - gosec # Inspects source code for security problems
+
+    # Meta
+    - nolintlint # Reports ill-formed or unnecessary //nolint directives
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # Too strict for general use, can hurt readability. Enable manually if memory is critical.
+      - shadow # Often false positives, but useful to check occasionally.
+
+  gocyclo:
+    min-complexity: 15 # Allow slightly complex functions (algorithms)
+
+  gocognit:
+    min-complexity: 30 # Cognitive complexity can be higher for mathematical algorithms
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  revive:
+    severity: warning
+    rules:
+      - name: exported
+        arguments:
+          - checkPrivateReceivers
+          - sayRepetitiveInsteadOfStutters
+      - name: package-comments
+      - name: error-naming
+      - name: error-strings
+      - name: error-return
+      - name: var-naming
+      - name: if-return
+      - name: receiver-naming
+      - name: context-keys-type
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: blank-imports
+      - name: context-as-argument
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - whyNoLint
+      - wrapperFunc
+      - hugeParam # We pass big structs sometimes
+
+  gosec:
+    excludes:
+      - G104 # Duplicate of errcheck (ineffectual assignment)
+
+  prealloc:
+    # Report preallocation suggestions only on simple loops that have no other false positives
+    simple: true
+    range-loops: true
+    for-loops: true
+
+  misspell:
+    locale: US # Standardize on US English (or UK/Canadian if preferred, but usually US for code)
+
+issues:
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - gocognit
+        - funlen
+        - gosec
+        - dupl
+        - unparam
+
+    # Exclude specific linter issues that are considered false positives or not relevant
+    - linters:
+        - staticcheck
+      text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
+
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 0
+
+  # Show only new issues: if there are unstaged changes or untracked files,
+  # only those changes are analyzed, else only changes in HEAD~ are analyzed.
+  new: false

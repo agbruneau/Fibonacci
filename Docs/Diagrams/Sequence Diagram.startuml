@@ -1,0 +1,492 @@
+@startuml FibCalc Sequence Diagram
+!theme plain
+title Diagramme de séquence exhaustif - FibCalc (Calculateur Fibonacci)
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+' Acteurs et participants
+actor Utilisateur as user
+participant "main()" as main
+participant "app.New()" as appnew
+participant "app.Run()" as apprun
+participant "config.ParseConfig()" as config
+participant "CalculatorFactory\n(DefaultFactory)" as factory
+participant "Calculator\n(FibCalculator)" as calc
+participant "coreCalculator\n(Fast/Matrix/FFT)" as core
+participant "ProgressSubject" as progress
+participant "orchestration" as orch
+participant "server.NewServer()" as server
+participant "HTTP Handler" as handler
+participant "Service" as service
+participant "REPL" as repl
+participant "calibration" as calib
+
+' ==================== INITIALISATION ====================
+group Initialisation de l'application
+    user -> main: fibcalc [args]
+    activate main
+    
+    main -> main: init() - Configure zerolog
+    note right: Logs sur stderr\npour éviter conflit\navec stdout
+    
+    ' Vérification du flag version avant parsing complet
+    alt --version flag
+        main -> main: HasVersionFlag(args)
+        main -> user: Version: fibcalc vX.Y.Z
+        main --> user: Exit 0
+    end
+    
+    main -> appnew: New(os.Args, stderr)
+    activate appnew
+    
+    appnew -> config: ParseConfig(args)
+    activate config
+    config -> config: Valider flags CLI
+    config --> appnew: AppConfig
+    deactivate config
+    
+    ' Application des seuils adaptatifs
+    appnew -> appnew: applyAdaptiveThresholds(cfg)
+    note right: Détection CPU cores\net architecture système
+    
+    appnew -> calib: LoadCachedCalibration()
+    activate calib
+    calib -> calib: Charger profil optimisé
+    alt Profil existant
+        calib --> appnew: Config avec seuils optimisés
+    else Pas de profil
+        calib -> calib: EstimateOptimalThresholds()
+        note right: Seuils adaptatifs\nbasés sur CPU/architecture
+        calib --> appnew: Config avec seuils estimés
+    end
+    deactivate calib
+    
+    appnew -> factory: fibonacci.GlobalFactory()
+    activate factory
+    factory -> factory: NewDefaultFactory()
+    factory -> factory: Register("fast", OptimizedFastDoubling)
+    factory -> factory: Register("matrix", MatrixExponentiation)
+    factory -> factory: Register("fft", FFTBasedCalculator)
+    factory --> appnew: *DefaultFactory
+    deactivate factory
+    
+    appnew --> main: Application
+    deactivate appnew
+    
+    main -> apprun: Run(ctx, stdout)
+    activate apprun
+end
+
+' ==================== MODE CLI - CALCUL SIMPLE ====================
+group Mode CLI - Calcul simple
+    alt --completion flag
+        apprun -> apprun: runCompletion()
+        apprun -> user: Script de complétion shell
+    else --server flag
+        apprun -> apprun: runServer()
+        note right: Voir section "Mode Serveur"
+    else --interactive flag
+        apprun -> apprun: runREPL()
+        note right: Voir section "Mode REPL"
+    else --calibrate flag
+        apprun -> apprun: runCalibration()
+        note right: Voir section "Calibration"
+    else Calcul standard
+        apprun -> apprun: runCalculate(ctx, stdout)
+        activate apprun
+        
+        ' Setup lifecycle
+        apprun -> apprun: WithTimeout(Config.Timeout)
+        apprun -> apprun: NotifyContext(SIGINT, SIGTERM)
+        note right: Gestion du timeout\net des signaux système
+        
+        ' Obtenir les calculateurs
+        apprun -> factory: GetCalculatorsToRun(config.Algo)
+        activate factory
+        alt algo == "all"
+            factory -> factory: GetAll()
+            factory --> apprun: [FastDoubling, Matrix, FFT]
+        else algo spécifique
+            factory -> factory: Get(algo)
+            factory --> apprun: [Calculator spécifique]
+        end
+        deactivate factory
+        
+        ' Exécution orchestrée
+        apprun -> orch: ExecuteCalculations(ctx, calculators, cfg, out)
+        activate orch
+        
+        orch -> orch: errgroup.WithContext(ctx)
+        orch -> orch: make(chan ProgressUpdate, buffer)
+        orch -> orch: go cli.DisplayProgress(...)
+        
+        loop Pour chaque Calculator (concurrent)
+            orch -> calc: Calculate(ctx, progressChan, idx, n, opts)
+            activate calc
+            
+            ' Création du sujet de progression
+            calc -> progress: NewProgressSubject()
+            activate progress
+            calc -> progress: Register(NewChannelObserver(progressChan))
+            
+            ' OpenTelemetry tracing
+            calc -> calc: otel.Tracer("fibonacci")
+            calc -> calc: tracer.Start(ctx, "Calculate")
+            note right: Span avec attributs:\nn, algorithm, duration
+            
+            alt n <= 93 (MaxFibUint64)
+                calc -> calc: calculateSmall(n) - itératif
+                calc -> progress: reporter(1.0)
+                progress -> user: Mise à jour progression 100%
+                calc --> orch: big.Int (résultat)
+            else n > 93 (grand nombre)
+                calc -> calc: configureFFTCache(opts)
+                calc -> calc: bigfft.PreWarmPools(n)
+                note right: Préchauffage pools\nmémoire selon taille n
+                
+                calc -> core: CalculateCore(ctx, reporter, n, opts)
+                activate core
+                
+                alt Algorithm == Fast Doubling
+                    core -> core: fastDoublingRecursive(n)
+                    loop Chaque itération
+                        core -> progress: reporter(progress)
+                        progress -> user: Mise à jour ETA
+                        
+                        alt ctx.Done()
+                            core --> calc: error (cancelled)
+                        end
+                    end
+                    core --> calc: big.Int (résultat)
+                    
+                else Algorithm == Matrix Exponentiation
+                    core -> core: matrixPower(n)
+                    note right: Utilise Strassen\npour grandes matrices
+                    loop Exponentiation binaire
+                        core -> progress: reporter(progress)
+                        progress -> user: Mise à jour ETA
+                    end
+                    core --> calc: big.Int (résultat)
+                    
+                else Algorithm == FFT-Based
+                    core -> core: fftBasedCalculation(n)
+                    note right: FFT pour tous les\ncalculs (O(n log n))
+                    loop FFT iterations
+                        core -> progress: reporter(progress)
+                        progress -> user: Mise à jour ETA
+                    end
+                    core --> calc: big.Int (résultat)
+                end
+                deactivate core
+                
+                calc -> progress: Notifier(1.0)
+                progress -> user: Calcul terminé
+                deactivate progress
+                calc --> orch: big.Int (résultat)
+            end
+            deactivate calc
+        end
+        
+        orch --> apprun: []CalculationResult
+        deactivate orch
+        
+        ' Analyse et affichage
+        alt JSON output
+            apprun -> apprun: printJSONResults()
+            apprun -> user: JSON avec résultats
+        else Output standard
+            apprun -> orch: AnalyzeComparisonResults()
+            activate orch
+            orch -> orch: Comparer performances
+            orch -> user: Tableau comparatif
+            deactivate orch
+            
+            alt --output file spécifié
+                apprun -> apprun: WriteResultToFile()
+                apprun -> user: Fichier sauvegardé
+            end
+            
+            alt --hex flag
+                apprun -> user: Format hexadécimal
+            end
+        end
+        
+        deactivate apprun
+    end
+end
+
+' ==================== MODE SERVEUR HTTP ====================
+group Mode Serveur HTTP
+    apprun -> server: NewServer(factory, cfg, opts...)
+    activate server
+    
+    ' Configuration sécurité et rate limiting
+    server -> server: DefaultSecurityConfig()
+    server -> server: NewRateLimiter(DefaultRateLimiterConfig())
+    
+    ' Création du service
+    server -> service: NewCalculatorService(factory, cfg, maxN)
+    activate service
+    service --> server: service.Service
+    deactivate service
+    
+    ' Création des routes avec middleware
+    server -> server: http.NewServeMux()
+    server -> server: HandleFunc("/calculate", wrapWithMiddleware(...))
+    server -> server: HandleFunc("/health", wrapWithMiddleware(...))
+    server -> server: HandleFunc("/algorithms", wrapWithMiddleware(...))
+    server -> server: HandleFunc("/metrics", wrapWithMiddleware(...))
+    note right: Middleware chain:\nSecurity -> RateLimit ->\nLogging -> Metrics -> Handler
+    
+    ' Configuration des timeouts
+    server -> server: DefaultServerTimeouts()
+    note right: ReadTimeout: 15s\nWriteTimeout: 30s\nIdleTimeout: 60s\nShutdownTimeout: 10s
+    
+    server --> apprun: *Server
+    deactivate server
+    
+    apprun -> server: Start()
+    activate server
+    server -> server: ListenAndServe()
+    server -> user: Serveur démarré sur :8080
+    
+    ' Boucle de traitement des requêtes
+    loop Requêtes HTTP
+        user -> handler: GET /calculate?n=1000&algo=fast
+        activate handler
+        
+        handler -> handler: SecurityMiddleware
+        note right: Headers sécurité\nValidation entrée
+        
+        handler -> handler: RateLimitMiddleware
+        alt Rate limit dépassé
+            handler -> user: 429 Too Many Requests
+        else OK
+            handler -> handler: LoggingMiddleware
+            handler -> handler: MetricsMiddleware
+            
+            handler -> handler: ValidateRequest()
+            handler -> handler: ParseParameters()
+            
+            alt n > MaxNValue
+                handler -> user: 400 Bad Request
+            else n valide
+                handler -> service: Calculate(ctx, n, algo)
+                activate service
+                
+                service -> service: WithTimeout(config.Timeout)
+                service -> factory: Get(algo)
+                factory --> service: Calculator
+                
+                service -> calc: Calculate(ctx, nil, 0, n, opts)
+                activate calc
+                calc -> core: CalculateCore()
+                core --> calc: Résultat
+                deactivate calc
+                calc --> service: big.Int
+                
+                service --> handler: CalculationResult
+                deactivate service
+                
+                handler -> handler: FormatJSONResponse()
+                handler -> user: {"n": 1000, "result": "...", "duration": "125µs"}
+            end
+        end
+        deactivate handler
+    end
+    
+    ' Arrêt gracieux
+    user -> server: SIGTERM/SIGINT
+    server -> server: Shutdown(ctx)
+    server -> server: Fermer connexions
+    server -> user: Serveur arrêté proprement
+    deactivate server
+end
+
+' ==================== MODE REPL (INTERACTIF) ====================
+group Mode REPL (Interactif)
+    apprun -> repl: NewREPL(calculators, config)
+    activate repl
+    repl --> apprun: REPL instance
+    deactivate repl
+    
+    apprun -> repl: Start()
+    activate repl
+    repl -> user: Prompt "fib> "
+    
+    loop Session interactive
+        user -> repl: Commande (ex: "calc 100")
+        
+        alt commande == "calc N"
+            repl -> repl: ParseN(input)
+            repl -> calc: Calculate(ctx, nil, 0, N, opts)
+            calc --> repl: Résultat
+            repl -> user: Afficher résultat
+            
+        else commande == "algo ALGORITHM"
+            repl -> repl: SetAlgorithm(ALGORITHM)
+            repl -> user: "Algorithme changé"
+            
+        else commande == "compare N"
+            repl -> repl: RunAllAlgorithms(N)
+            loop Chaque algorithme
+                repl -> calc: Calculate(ctx, nil, 0, N, opts)
+                calc --> repl: Résultat + durée
+            end
+            repl -> user: Tableau comparatif
+            
+        else commande == "hex"
+            repl -> repl: ToggleHexOutput()
+            repl -> user: "Mode hex activé/désactivé"
+            
+        else commande == "help"
+            repl -> user: Liste des commandes
+            
+        else commande == "exit" ou "quit"
+            repl -> user: "Au revoir"
+            repl --> apprun: Fin REPL
+        end
+        
+        repl -> user: Prompt "fib> "
+    end
+    deactivate repl
+end
+
+' ==================== CALIBRATION AUTOMATIQUE ====================
+group Calibration automatique
+    alt --calibrate flag
+        apprun -> calib: RunCalibration(ctx, calculators)
+        activate calib
+        
+        calib -> user: "Démarrage calibration..."
+        
+        ' Benchmark Parallel Threshold
+        calib -> calib: BenchmarkParallelThreshold()
+        loop Différents seuils
+            calib -> calc: Calculate(n, threshold_i)
+            calc --> calib: Durée
+        end
+        calib -> calib: Trouver threshold optimal
+        calib -> user: "Parallel threshold: 4096 bits"
+        
+        ' Benchmark FFT Threshold
+        calib -> calib: BenchmarkFFTThreshold()
+        loop Différents seuils FFT
+            calib -> calc: Calculate(n, fft_threshold_i)
+            calc --> calib: Durée
+        end
+        calib -> calib: Trouver FFT threshold optimal
+        calib -> user: "FFT threshold: 500000 bits"
+        
+        ' Benchmark Strassen Threshold
+        calib -> calib: BenchmarkStrassenThreshold()
+        loop Différents seuils Strassen
+            calib -> calc: Calculate(n, strassen_threshold_i)
+            calc --> calib: Durée
+        end
+        calib -> calib: Trouver Strassen threshold optimal
+        calib -> user: "Strassen threshold: 3072 bits"
+        
+        ' Sauvegarder profil
+        calib -> calib: SaveCalibrationProfile()
+        note right: Sauvegarde dans\n~/.config/fibcalc/\ncalibration.json
+        calib -> user: "Profil sauvegardé"
+        
+        calib --> apprun: Config optimisé
+        deactivate calib
+        
+    else --auto-calibrate flag
+        apprun -> calib: AutoCalibrate(config)
+        activate calib
+        calib -> calib: Calibration rapide (échantillon réduit)
+        calib --> apprun: Config mis à jour
+        deactivate calib
+        note right: Calibration légère\nautomatique au démarrage
+    end
+end
+
+' ==================== GESTION DES ERREURS ====================
+group Gestion des erreurs et timeout
+    note over main, core
+        **Package: internal/errors**
+        Types d'erreurs personnalisés avec codes de sortie
+    end note
+    
+    alt Context timeout (context.DeadlineExceeded)
+        user -> calc: Calculate(ctx, ...)
+        calc -> calc: Vérifier ctx.Done()
+        calc --> apprun: context.DeadlineExceeded
+        apprun -> apprun: apperrors.HandleCalculationError()
+        apprun --> user: ExitErrorTimeout (code 3)
+        
+    else Context cancelled (SIGINT/SIGTERM)
+        user -> apprun: CTRL+C / kill signal
+        apprun -> apprun: signal.NotifyContext()
+        apprun -> calc: ctx.Done()
+        calc --> apprun: context.Canceled
+        apprun --> user: ExitErrorCancelled (code 4)
+        
+    else Erreur de validation HTTP
+        user -> handler: Request invalide
+        handler -> handler: ValidateRequest()
+        handler --> user: 400 Bad Request
+        note right: JSON: {"error": "invalid n",\n"code": "INVALID_INPUT"}
+        
+    else Erreur de configuration
+        user -> main: Args invalides
+        main -> config: ParseConfig()
+        config --> main: error
+        main --> user: ExitErrorConfig (code 1)
+        
+    else Erreur de calcul interne
+        calc -> core: CalculateCore()
+        core --> calc: error (panic recovered)
+        calc -> calc: zerolog.Error().Err(err).Msg()
+        calc --> apprun: apperrors.ErrCalculation
+        apprun --> user: ExitErrorCalculation (code 2)
+    end
+end
+
+' ==================== MÉTRIQUES ET OBSERVABILITÉ ====================
+group Métriques et observabilité
+    note over calc, progress
+        **Prometheus Metrics (promauto):**
+        - fibonacci_calculations_total{algorithm, status}
+        - fibonacci_calculation_duration_seconds{algorithm}
+        
+        Enregistrement automatique via defer func()
+    end note
+    
+    calc -> calc: calculationsTotal.WithLabelValues(algo, status).Inc()
+    calc -> calc: calculationDuration.WithLabelValues(algo).Observe(duration)
+    
+    note over handler, service
+        **OpenTelemetry Tracing:**
+        Provider: otel.Tracer("fibonacci")
+        - Span "Calculate" avec ctx
+        - Attributs: n, algorithm, duration
+        - Propagation de contexte
+    end note
+    
+    calc -> calc: tracer.Start(ctx, "Calculate")
+    calc -> calc: defer span.End()
+    
+    note over progress
+        **Progress Reporting (Pattern Observer):**
+        - ProgressSubject: Subject avec registry d'observers
+        - ChannelObserver: Adapter vers chan ProgressUpdate
+        - LoggingObserver: Logs zerolog
+        - ETACalculator: Estimation temps restant
+        - Spinner CLI: Braille animation avec couleurs
+    end note
+    
+    progress -> progress: NotifyAll(ProgressUpdate{Fraction, CalcIndex})
+end
+
+apprun --> main: Exit code
+deactivate apprun
+main --> user: Programme terminé
+deactivate main
+
+@enduml
