@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+description = "High-performance Fibonacci calculator"
+
+[workspace.dependencies]
+ibig = "0.3"
+rustfft = "6.2"
+rayon = "1.10"
+anyhow = "1.0"
+
+# Optimized release profile for maximum performance
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+strip = true
+panic = "abort"
+
+[profile.release.build-override]
+opt-level = 3

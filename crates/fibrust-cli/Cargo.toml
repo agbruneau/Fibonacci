@@ -1,0 +1,21 @@
+[package]
+name = "fibrust-cli"
+version.workspace = true
+edition.workspace = true
+description = "FibRust CLI tool"
+
+[[bin]]
+name = "fibrust"
+path = "src/main.rs"
+
+[dependencies]
+fibrust-core = { path = "../fibrust-core" }
+clap = { version = "4.5", features = ["derive"] }
+indicatif = "0.17"
+anyhow.workspace = true
+tokio = { version = "1.48.0", features = ["full"] }
+ibig = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"

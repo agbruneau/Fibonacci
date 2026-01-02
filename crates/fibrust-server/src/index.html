@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="FibRust API - High-performance Fibonacci calculator">
+    <title>FibRust API Server</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            color: var(--text);
+            background-color: var(--bg);
+        }
+        h1 { color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+        h2 { font-size: 1.25rem; border-bottom: 2px solid var(--bg); padding-bottom: 0.5rem; margin-top: 0; }
+        code { background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, monospace; color: #0f172a; }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem; }
+        .stat-item { text-align: center; padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border); }
+        .stat-value { font-size: 2rem; font-weight: 800; color: var(--primary); line-height: 1.2; }
+        .stat-label { font-size: 0.875rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 0.75rem 0; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
+        li:last-child { border-bottom: none; }
+        .badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+        .method { font-weight: 700; min-width: 60px; }
+        .footer { text-align: center; margin-top: 3rem; color: var(--text-secondary); font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎨 FibRust API</h1>
+        <p>High-performance, parallelized Fibonacci calculator server.</p>
+    </header>
+
+    <main>
+        <div class="card" aria-labelledby="stats-title">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 id="stats-title">📊 Cache Statistics</h2>
+                <button class="btn" onclick="fetchStats()" aria-label="Refresh cache statistics">Refresh Stats</button>
+            </div>
+
+            <div id="stats" class="stats" role="status" aria-live="polite">
+                Loading statistics...
+            </div>
+        </div>
+
+        <div class="card" aria-labelledby="endpoints-title">
+            <h2 id="endpoints-title">🚀 API Endpoints</h2>
+            <ul>
+                <li>
+                    <span class="method">GET</span>
+                    <code>/fib/:n</code>
+                    <span class="badge">MessagePack</span>
+                    <span>Calculate Nth Fibonacci number</span>
+                </li>
+                <li>
+                    <span class="method">GET</span>
+                    <code>/cache/stats</code>
+                    <span class="badge">JSON</span>
+                    <span>Get cache usage statistics</span>
+                </li>
+            </ul>
+
+            <h3 style="font-size: 1rem; color: var(--text-secondary); margin-top: 1.5rem;">Example Usage</h3>
+            <div style="background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 6px; overflow-x: auto;">
+                <code style="background: transparent; color: inherit;">curl -o fib.bin http://localhost:3000/fib/1000</code>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>FibRust Server &copy; 2024</p>
+    </footer>
+
+    <script>
+        async function fetchStats() {
+            const container = document.getElementById('stats');
+            container.style.opacity = '0.5';
+
+            try {
+                const res = await fetch('/cache/stats');
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+
+                container.innerHTML = `
+                    <div class="stat-item">
+                        <div class="stat-value">${data.hits}</div>
+                        <div class="stat-label">Cache Hits</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${data.misses}</div>
+                        <div class="stat-label">Cache Misses</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${(data.hit_ratio * 100).toFixed(1)}%</div>
+                        <div class="stat-label">Hit Ratio</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${data.cached_entries} <span style="font-size:1rem;color:#94a3b8">/ ${data.cache_capacity}</span></div>
+                        <div class="stat-label">Capacity</div>
+                    </div>
+                `;
+            } catch (e) {
+                container.innerHTML = '<div style="color: #ef4444; grid-column: 1/-1; text-align: center;">Failed to load statistics. Is the server running?</div>';
+            } finally {
+                container.style.opacity = '1';
+            }
+        }
+
+        // Initial load
+        fetchStats();
+
+        // Auto-refresh every 5 seconds
+        setInterval(fetchStats, 5000);
+    </script>
+</body>
+</html>
