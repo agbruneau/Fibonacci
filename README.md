@@ -159,6 +159,18 @@ Démonstration d'une **Architecture Événementielle (EDA)** enterprise-grade ut
 - **Graceful Shutdown** — Zéro perte de données sur `SIGTERM`/`SIGINT`
 - **TUI Dashboard** — Monitoring temps réel du débit et des taux de succès
 
+### 🧩 Patrons d'Architecture
+
+| Patron | Description |
+|--------|-------------|
+| **Event-Driven Architecture (EDA)** | Découplage total des composants via messagerie asynchrone Kafka |
+| **Event Carried State Transfer (ECST)** | Messages auto-suffisants contenant tout le contexte nécessaire |
+| **Dual-Stream Logging** | Séparation logs techniques (`tracker.log`) vs audit métier (`tracker.events`) |
+| **Graceful Shutdown** | Interception `SIGINT`/`SIGTERM` avec flush des buffers Kafka |
+| **KRaft Mode** | Kafka sans Zookeeper pour une infrastructure allégée |
+
+📖 [Documentation des patrons →](./PubSubKafka/PatronsArchitecture.md)
+
 ### 🚀 Démarrage Rapide
 
 ```bash
