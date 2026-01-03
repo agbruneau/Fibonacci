@@ -17,10 +17,13 @@
 
 # Variables
 BINARY_PRODUCER = producer
+BINARY_CONSUMER = consumer
 BINARY_TRACKER = tracker
 BINARY_MONITOR = log_monitor
+BINARY_CLI = kafka-cli
 GO = go
 DOCKER_COMPOSE = docker compose
+DOCKER_COMPOSE_FILE = deployments/docker/docker-compose.yml
 
 # Détection du système d'exploitation
 ifeq ($(OS),Windows_NT)
@@ -43,14 +46,19 @@ all: build
 # ==============================================================================
 
 ## build: Compiler tous les binaires
-build: build-producer build-tracker build-monitor
+build: build-producer build-consumer build-tracker build-monitor build-cli
 
 ## build-producer: Compiler le producteur
 build-producer:
 	@echo "🔨 Compilation du producteur..."
-	$(GO) build -tags producer -o $(BINARY_PRODUCER)$(BINARY_EXT) ./cmd/producer/main.go
+	$(GO) build -o $(BINARY_PRODUCER)$(BINARY_EXT) ./cmd/producer/main.go
 
-## build-tracker: Compiler le tracker (consommateur)
+## build-consumer: Compiler le consumer
+build-consumer:
+	@echo "🔨 Compilation du consumer..."
+	$(GO) build -o $(BINARY_CONSUMER)$(BINARY_EXT) ./cmd/consumer/main.go
+
+## build-tracker: Compiler le tracker (consommateur legacy)
 build-tracker:
 	@echo "🔨 Compilation du tracker..."
 	$(GO) build -tags tracker -o $(BINARY_TRACKER)$(BINARY_EXT) ./cmd/tracker/main.go
@@ -59,6 +67,11 @@ build-tracker:
 build-monitor:
 	@echo "🔨 Compilation du moniteur de logs..."
 	$(GO) build -tags monitor -o $(BINARY_MONITOR)$(BINARY_EXT) ./cmd/monitor/main.go
+
+## build-cli: Compiler l'outil CLI
+build-cli:
+	@echo "🔨 Compilation du CLI..."
+	$(GO) build -o $(BINARY_CLI)$(BINARY_EXT) ./cmd/cli/main.go
 
 # ==============================================================================
 # TESTS
@@ -181,6 +194,38 @@ kafka-consume:
 		--from-beginning
 
 # ==============================================================================
+# SCRIPTS
+# ==============================================================================
+
+## create-topics: Créer tous les topics Kafka
+create-topics:
+	@echo "📝 Création des topics..."
+	./scripts/create-topics.sh
+
+## setup-acls: Configurer les ACLs Kafka
+setup-acls:
+	@echo "🔐 Configuration des ACLs..."
+	./scripts/setup-acls.sh --apply
+
+## benchmark: Exécuter les benchmarks de performance
+benchmark:
+	@echo "📊 Exécution des benchmarks..."
+	./scripts/benchmark.sh all
+
+## benchmark-producer: Benchmark du producer uniquement
+benchmark-producer:
+	./scripts/benchmark.sh producer
+
+## benchmark-consumer: Benchmark du consumer uniquement
+benchmark-consumer:
+	./scripts/benchmark.sh consumer
+
+## run-consumer: Exécuter le consumer directement
+run-consumer: docker-up
+	@echo "📥 Lancement du consumer..."
+	$(GO) run ./cmd/consumer/main.go
+
+# ==============================================================================
 # NETTOYAGE
 # ==============================================================================
 
@@ -188,8 +233,10 @@ kafka-consume:
 clean:
 	@echo "🧹 Nettoyage des fichiers générés..."
 	$(RM) $(BINARY_PRODUCER)$(BINARY_EXT)
+	$(RM) $(BINARY_CONSUMER)$(BINARY_EXT)
 	$(RM) $(BINARY_TRACKER)$(BINARY_EXT)
 	$(RM) $(BINARY_MONITOR)$(BINARY_EXT)
+	$(RM) $(BINARY_CLI)$(BINARY_EXT)
 	$(RM) tracker.log
 	$(RM) tracker.events
 	$(RM) producer.pid
@@ -222,8 +269,10 @@ help:
 	@echo "  BUILD:"
 	@echo "    build            Compiler tous les binaires"
 	@echo "    build-producer   Compiler le producteur"
+	@echo "    build-consumer   Compiler le consumer"
 	@echo "    build-tracker    Compiler le tracker"
 	@echo "    build-monitor    Compiler le moniteur de logs"
+	@echo "    build-cli        Compiler l'outil CLI"
 	@echo ""
 	@echo "  TESTS:"
 	@echo "    test             Exécuter tous les tests"
@@ -242,6 +291,7 @@ help:
 	@echo "    run              Démarrer l'environnement complet"
 	@echo "    stop             Arrêter l'environnement complet"
 	@echo "    run-producer     Exécuter le producteur"
+	@echo "    run-consumer     Exécuter le consumer"
 	@echo "    run-tracker      Exécuter le tracker"
 	@echo "    run-monitor      Exécuter le moniteur"
 	@echo ""
@@ -254,6 +304,11 @@ help:
 	@echo "    kafka-topics       Lister les topics"
 	@echo "    kafka-create-topic Créer le topic 'orders'"
 	@echo "    kafka-consume      Consommer les messages"
+	@echo ""
+	@echo "  SCRIPTS:"
+	@echo "    create-topics      Créer tous les topics"
+	@echo "    setup-acls         Configurer les ACLs"
+	@echo "    benchmark          Exécuter les benchmarks"
 	@echo ""
 	@echo "  NETTOYAGE:"
 	@echo "    clean            Nettoyer tous les fichiers"
