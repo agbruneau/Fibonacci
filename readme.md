@@ -1,66 +1,147 @@
-# Fibonacci
+# 🚀 Kafka Order Tracking System
 
-Welcome to the **Fibonacci** monorepo! This repository houses two high-performance implementations of Fibonacci number calculators, showcasing advanced algorithmic optimizations and modern software engineering practices in **Go** and **Rust**.
+[![Go Version](https://img.shields.io/badge/Go-1.22.0-00ADD8?style=flat&logo=go)](https://golang.org/)
+[![Kafka](https://img.shields.io/badge/Apache_Kafka-3.7.0-white?style=flat&logo=apache-kafka)](https://kafka.apache.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Both projects are designed to compute massive Fibonacci numbers (millions of digits) with extreme speed, utilizing techniques like Fast Doubling, Matrix Exponentiation with Strassen's algorithm, and FFT-based multiplication.
+A robust, enterprise-grade **Event-Driven Architecture (EDA)** demonstration using **Go** and **Apache Kafka**. This project simulates a complete e-commerce order lifecycle—from generation to real-time tracking—featuring high observability via a dedicated Terminal User Interface (TUI).
+
+---
+
+## 🏗 System Architecture
+
+The ecosystem consists of three decoupled core services:
+
+1.  **📦 Producer (`producer`)**: Simulates customer activity by generating enriched order events and streaming them to the `orders` Kafka topic.
+2.  **⚙️ Tracker (`tracker`)**: Consumes order events in real-time, performing validation and maintaining a comprehensive audit trail.
+3.  **📊 Monitor (`log_monitor`)**: A sophisticated TUI dashboard providing live visualization of system performance, throughput, and success rates.
+
+For a deep dive into the design patterns used, see [PatronsArchitecture.md](file:///c:/Users/agbru/OneDrive/Documents/GitHub/PubSubKafka/PatronsArchitecture.md).
+
+---
+
+## 🌟 Key Features & Design Patterns
+
+- **Event-Driven Architecture (EDA)**: Complete decoupling of services through asynchronous messaging.
+- **Event Carried State Transfer (ECST)**: Self-contained messages that include all necessary context.
+- **Guaranteed Delivery**: Implements Kafka delivery reports (ACKs) to ensure data integrity.
+- **Dual-Stream Observability**: Technical health (`tracker.log`) vs Business Audit (`tracker.events`).
+- **Graceful Shutdown**: Strict handling of `SIGTERM`/`SIGINT` for zero-data-loss termination.
+
+---
+
+## 🛠 Prerequisites
+
+Ensure the following are installed:
+
+1.  **Docker** and **Docker Compose** (V2).
+2.  **Go** (version 1.22.0 or higher).
+3.  **Make** (optional, but highly recommended for CLI efficiency).
+4.  An **ANSI-compatible terminal** (for the TUI monitor).
+
+---
+
+## ⌨️ Command Line Interface (Makefile)
+
+The project includes a comprehensive `Makefile` to simplify common operations.
+
+| Command           | Description                                                          |
+| :---------------- | :------------------------------------------------------------------- |
+| `make build`      | Compile all service binaries (`producer`, `tracker`, `log_monitor`). |
+| `make run`        | Deploy Kafka and start all background services (Linux/macOS).        |
+| `make stop`       | Gracefully shut down all services and infrastructure.                |
+| `make test`       | Run the complete test suite.                                         |
+| `make test-cover` | Run tests and generate an HTML coverage report.                      |
+| `make docker-up`  | Start only the Kafka infrastructure.                                 |
+| `make clean`      | Remove all binaries and log files.                                   |
+| `make help`       | Display all available commands.                                      |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Automated Deployment (Linux/macOS)
+
+```bash
+make run
+```
+
+This script handles Kafka health checks, topic creation, and background service initialization.
+
+### 2. Manual Execution (All Platforms)
+
+If you prefer manual control or are on Windows:
+
+```bash
+# 1. Start Kafka
+make docker-up
+
+# 2. Launch Services in separate terminals
+go run -tags kafka cmd/producer/main.go
+go run -tags kafka cmd/tracker/main.go
+```
+
+---
+
+## 📊 Monitoring
+
+Launch the TUI monitor for real-time visualization:
+
+```bash
+make run-monitor
+```
+
+- **Controls**: Press `q` to exit.
+- **Insights**: Monitor msg/sec, success rates, and live logs.
+
+---
+
+## 🧪 Build Tags & Testing
+
+This project uses Go **Build Tags** for modular compilation:
+
+| Tag        | Purpose                                      |
+| :--------- | :------------------------------------------- |
+| `producer` | Includes producer-specific logic.            |
+| `tracker`  | Includes consumer/tracker-specific logic.    |
+| `monitor`  | Includes terminal UI dependencies and logic. |
+| `kafka`    | Includes Kafka client initialization.        |
+
+### Running Tests
+
+```bash
+# All tests
+make test
+
+# Coverage report
+make test-cover
+```
+
+---
+
+## 🗺 Future Roadmap
+
+We are evolving this demo into a production-ready template. Detailed improvements can be found in [amelioration.md](file:///c:/Users/agbru/OneDrive/Documents/GitHub/PubSubKafka/amelioration.md).
+
+- [x] **1. Architecture**: Migrate to Standard Go Package Structure (`/cmd`, `/internal`, `/pkg`).
+- [ ] **2. Configuration**: Implementation of external configuration (`config.yaml`).
+- [ ] **3. Resilience**: Add Retry Patterns with Exponential Backoff and Dead Letter Queues (DLQ).
+- [ ] **4. CI/CD**: Integrate GitHub Actions for automated testing and linting.
+- [ ] **5. Observability**: Export Prometheus metrics and OpenTelemetry traces.
+
+---
 
 ## 📂 Project Structure
 
-This repository is split into two independent projects:
-
-### 1. [FibGo](./FibGo) (Go Implementation)
-
-A state-of-the-art Go toolkit featuring a CLI, an interactive REPL, and a high-performance REST API.
-
-- **Status**: Production-Ready
-- **Tech Stack**: Go 1.25+, Fiber (Server), Zerolog, Docker.
-- **Key Features**:
-  - **Zero-Allocation**: Heavy use of `sync.Pool` to minimize GC pressure.
-  - **Algorithms**: Fast Doubling (default), Matrix+Strassen, FFT.
-  - **Connectivity**: Robust REST API with metrics and rate limiting.
-  - **Interactive**: Built-in CLI REPL for experimentation.
-
-### 2. [FibRust](./FibRust) (Rust Implementation)
-
-A highly parallelized Rust workspace leveraging the safety and speed of the Rust ecosystem.
-
-- **Status**: Stable / Active Development
-- **Tech Stack**: Rust 1.75+, Axum (Server), Clap (CLI), Rayon, RustFFT, `ibig`.
-- **Key Features**:
-  - **Adaptive Execution**: Automatically transforms strategies (Sequential -> Parallel -> FFT) based on input size.
-  - **Parallelism**: Rayon-powered parallel Fast Doubling for multi-core scaling.
-  - **Correctness**: Uses `ibig` for arbitrary precision integers ensuring no overflows.
-  - **Modular**: Clean workspace structure (`core`, `cli`, `server`).
-
-## 🚀 Quick Comparison
-
-| Feature           | FibGo                              | FibRust                           |
-| :---------------- | :--------------------------------- | :-------------------------------- |
-| **Primary Focus** | Web Services / Tooling Consistency | Raw Parallel Computation Power    |
-| **Default Algo**  | Fast Doubling                      | Adaptive (Fast Doubling -> FFT)   |
-| **Parallelism**   | Goroutines (Manual orchestration)  | Rayon (Work-stealing thread pool) |
-| **Big Int Lib**   | `math/big` (GMP optional)          | `ibig` (pure Rust)                |
-| **Server**        | Fiber                              | Axum                              |
-
-## 🏁 Getting Started
-
-Choose your preferred language implementation to get started:
-
-### Go
-
-```bash
-cd FibGo
-go run ./cmd/fibcalc -n 1000000
-```
-
-### Rust
-
-```bash
-cd FibRust
-# Run via Cargo Workspace
-cargo run -p fibrust-cli --release -- 1000000
-```
-
-## 📄 License
-
-This project hosts code under open-source licenses. Please refer to the individual [FibGo LICENSE](./FibGo/LICENSE) and [FibRust LICENSE](./FibRust/Cargo.toml) (MIT) for details.
+- **`cmd/`**: Application entry points.
+  - `producer/`: Order generation service.
+  - `tracker/`: Consumer and validation service.
+  - `monitor/`: TUI dashboard service.
+- **`pkg/`**: Public libraries and shared logic.
+  - `models/`: Shared domain entities (Order, CustomerInfo).
+  - `producer/`: Kafka producer implementation.
+  - `tracker/`: Kafka consumer and observability logic.
+  - `monitor/`: TUI rendering and log parsing logic.
+- **`Makefile`**: Operational orchestration.
+- **`docker-compose.yaml`**: Infrastructure as code.
+- **`*.md`**: Documentation and Roadmap.
