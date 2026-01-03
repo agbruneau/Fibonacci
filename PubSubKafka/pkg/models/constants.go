@@ -14,6 +14,20 @@ const (
 	DefaultTopic         = "orders"
 )
 
+// Dead Letter Queue (DLQ) configuration
+const (
+	// DLQTopic is the Kafka topic for failed messages
+	DLQTopic = "orders-dlq"
+	// DLQMaxRetries is the maximum number of processing attempts before sending to DLQ
+	DLQMaxRetries = 3
+	// DLQRetryBaseDelay is the base delay for exponential backoff (doubles each retry)
+	DLQRetryBaseDelay = 1 * time.Second
+	// DLQRetryMaxDelay is the maximum delay between retries
+	DLQRetryMaxDelay = 30 * time.Second
+	// DLQFlushTimeout is the timeout for flushing DLQ producer
+	DLQFlushTimeout = 5 * time.Second
+)
+
 // Fichiers de logs
 const (
 	TrackerLogFile    = "tracker.log"

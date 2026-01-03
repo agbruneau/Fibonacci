@@ -24,6 +24,7 @@ For a deep dive into the design patterns used, see [PatronsArchitecture.md](file
 
 - **Event-Driven Architecture (EDA)**: Complete decoupling of services through asynchronous messaging.
 - **Event Carried State Transfer (ECST)**: Self-contained messages that include all necessary context.
+- **Dead Letter Queue (DLQ)**: Automatic routing of failed messages after retry exhaustion for later analysis.
 - **Guaranteed Delivery**: Implements Kafka delivery reports (ACKs) to ensure data integrity.
 - **Dual-Stream Observability**: Technical health (`tracker.log`) vs Business Audit (`tracker.events`).
 - **Graceful Shutdown**: Strict handling of `SIGTERM`/`SIGINT` for zero-data-loss termination.
@@ -119,13 +120,70 @@ make test-cover
 
 ---
 
+## 💀 Dead Letter Queue (DLQ)
+
+The project implements a robust DLQ pattern for handling message processing failures.
+
+### How It Works
+
+```
+Message → Consumer → Process
+                    ├── Success: Commit offset
+                    └── Failure: Retry with exponential backoff
+                                ├── Success: Commit offset
+                                └── Max retries exceeded → Route to DLQ topic
+```
+
+### Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `DLQTopic` | `orders-dlq` | Destination topic for failed messages |
+| `DLQMaxRetries` | `3` | Maximum processing attempts |
+| `DLQRetryBaseDelay` | `1s` | Initial retry delay |
+| `DLQRetryMaxDelay` | `30s` | Maximum delay between retries |
+
+### DLQ Message Structure
+
+Each DLQ message contains rich failure context:
+
+```json
+{
+  "id": "uuid",
+  "timestamp": "2025-01-03T12:00:00Z",
+  "original_topic": "orders",
+  "original_partition": 0,
+  "original_offset": 100,
+  "original_payload": "{...}",
+  "failure_reason": "VALIDATION_ERROR",
+  "error_message": "order_id est requis",
+  "retry_count": 3,
+  "consumer_group": "order-tracker-group",
+  "processing_host": "worker-01"
+}
+```
+
+### Usage Example
+
+```go
+import "kafka-demo/pkg/dlq"
+
+handler := dlq.NewHandler(dlq.DefaultConfig(), producer)
+defer handler.Close()
+
+err := handler.ProcessWithRetry(ctx, msg, processOrder)
+// Failed messages are automatically routed to DLQ after retries
+```
+
+---
+
 ## 🗺 Future Roadmap
 
-We are evolving this demo into a production-ready template. Detailed improvements can be found in [amelioration.md](file:///c:/Users/agbru/OneDrive/Documents/GitHub/PubSubKafka/amelioration.md).
+We are evolving this demo into a production-ready template. Detailed improvements can be found in [amelioration.md](amelioration.md).
 
 - [x] **1. Architecture**: Migrate to Standard Go Package Structure (`/cmd`, `/internal`, `/pkg`).
 - [ ] **2. Configuration**: Implementation of external configuration (`config.yaml`).
-- [ ] **3. Resilience**: Add Retry Patterns with Exponential Backoff and Dead Letter Queues (DLQ).
+- [x] **3. Resilience**: Add Retry Patterns with Exponential Backoff and Dead Letter Queues (DLQ).
 - [ ] **4. CI/CD**: Integrate GitHub Actions for automated testing and linting.
 - [ ] **5. Observability**: Export Prometheus metrics and OpenTelemetry traces.
 
@@ -133,15 +191,23 @@ We are evolving this demo into a production-ready template. Detailed improvement
 
 ## 📂 Project Structure
 
-- **`cmd/`**: Application entry points.
-  - `producer/`: Order generation service.
-  - `tracker/`: Consumer and validation service.
-  - `monitor/`: TUI dashboard service.
-- **`pkg/`**: Public libraries and shared logic.
-  - `models/`: Shared domain entities (Order, CustomerInfo).
-  - `producer/`: Kafka producer implementation.
-  - `tracker/`: Kafka consumer and observability logic.
-  - `monitor/`: TUI rendering and log parsing logic.
-- **`Makefile`**: Operational orchestration.
-- **`docker-compose.yaml`**: Infrastructure as code.
-- **`*.md`**: Documentation and Roadmap.
+```
+PubSubKafka/
+├── cmd/                    # Application entry points
+│   ├── producer/           # Order generation service
+│   ├── tracker/            # Consumer and validation service
+│   └── monitor/            # TUI dashboard service
+├── pkg/                    # Public libraries and shared logic
+│   ├── models/             # Domain entities (Order, DeadLetterMessage)
+│   │   ├── constants.go    # Configuration constants
+│   │   ├── models.go       # Observability & DLQ models
+│   │   ├── order.go        # Order entity with validation
+│   │   └── *_test.go       # Unit tests
+│   └── dlq/                # Dead Letter Queue implementation
+│       ├── dlq.go          # DLQ handler with retry logic
+│       └── dlq_test.go     # DLQ tests
+├── docker-compose.yaml     # Kafka infrastructure
+├── Makefile                # Operational orchestration
+├── PatronsArchitecture.md  # Design patterns documentation
+└── amelioration.md         # Improvement roadmap
+```

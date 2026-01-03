@@ -161,15 +161,29 @@ Démonstration d'une **Architecture Événementielle (EDA)** enterprise-grade ut
 
 ### 🧩 Patrons d'Architecture
 
-| Patron | Description |
-|--------|-------------|
-| **Event-Driven Architecture (EDA)** | Découplage total des composants via messagerie asynchrone Kafka |
-| **Event Carried State Transfer (ECST)** | Messages auto-suffisants contenant tout le contexte nécessaire |
-| **Dual-Stream Logging** | Séparation logs techniques (`tracker.log`) vs audit métier (`tracker.events`) |
-| **Graceful Shutdown** | Interception `SIGINT`/`SIGTERM` avec flush des buffers Kafka |
-| **KRaft Mode** | Kafka sans Zookeeper pour une infrastructure allégée |
+#### ✅ Patrons Implémentés
 
-📖 [Documentation des patrons →](./PubSubKafka/PatronsArchitecture.md)
+| Patron | Catégorie | Description |
+|--------|-----------|-------------|
+| **Publish-Subscribe (Pub/Sub)** | Core | Diffusion des événements via topic Kafka `orders` |
+| **Event-Driven Architecture (EDA)** | Core | Découplage total Producer → Kafka → Tracker |
+| **Event Carried State Transfer (ECST)** | Core | Messages auto-suffisants avec `Order`, `CustomerInfo`, `InventoryStatus` |
+| **Dead Letter Queue (DLQ)** | Résilience | Topic `orders-dlq` pour messages en erreur après retries |
+| **Retry + Exponential Backoff** | Résilience | Rejeu automatique avec délai croissant (1s → 2s → 4s) |
+| **Consumer Groups** | Traitement | Parallélisation via `order-tracker-group` |
+| **Dual-Stream Logging** | Observabilité | Logs techniques vs audit métier (`tracker.log` / `tracker.events`) |
+| **Graceful Shutdown** | Résilience | Flush buffers Kafka sur `SIGINT`/`SIGTERM` |
+| **Audit Trail** | Observabilité | Journal immuable des événements métier (`EventEntry`) |
+| **Rich Domain Model** | Architecture | Validation intégrée aux entités (`Order.Validate()`) |
+| **KRaft Mode** | Infrastructure | Kafka sans Zookeeper |
+
+#### 🔜 Patrons Prévus (Roadmap)
+
+| Patron | Priorité | Description |
+|--------|----------|-------------|
+| **Prometheus Metrics** | 🟡 Medium | Export métriques via `/metrics` |
+
+📖 [Documentation des patrons →](./PubSubKafka/PatronsArchitecture.md) • [Roadmap →](./PubSubKafka/amelioration.md)
 
 ### 🚀 Démarrage Rapide
 
