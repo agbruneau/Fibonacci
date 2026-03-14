@@ -152,14 +152,8 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 	dtm := f.dynamicThreshold
 
 	for i := numBits - 1; i >= 0; i-- {
-		// Gate context cancellation check to reduce per-iteration overhead (IMPROVE §2.1)
-		// We check every 16 iterations, or on the first iteration (i == numBits-1).
-		// Since maximum iterations is <64, checking every 16th is sufficient to abort
-		// long runs without evaluating ctx.Err() repeatedly.
-		if ((numBits-1-i)&15 == 0) || i == 0 {
-			if err := ctx.Err(); err != nil {
-				return nil, fmt.Errorf("fast doubling calculation canceled at bit %d/%d: %w", i, numBits-1, err)
-			}
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("fast doubling calculation canceled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
 		// Track iteration timing for dynamic threshold adjustment

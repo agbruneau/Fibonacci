@@ -47,45 +47,22 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 
 	// Fast path: single calculator doesn't need errgroup overhead
 	if len(calculators) == 1 {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					results[0] = CalculationResult{
-						Name: calculators[0].Name(), Err: fmt.Errorf("panic in calculator %s: %v", calculators[0].Name(), r),
-					}
-				}
-			}()
-			startTime := time.Now()
-			res, err := calculators[0].Calculate(ctx, progressChan, 0, n, opts)
-			if err != nil {
-				err = fmt.Errorf("calculator %s: %w", calculators[0].Name(), err)
-			}
-			results[0] = CalculationResult{
-				Name: calculators[0].Name(), Result: res, Duration: time.Since(startTime), Err: err,
-			}
-		}()
+		startTime := time.Now()
+		res, err := calculators[0].Calculate(ctx, progressChan, 0, n, opts)
+		results[0] = CalculationResult{
+			Name: calculators[0].Name(), Result: res, Duration: time.Since(startTime), Err: err,
+		}
 	} else {
 		g, ctx := errgroup.WithContext(ctx)
 		for i, calc := range calculators {
 			idx, calculator := i, calc
-			g.Go(func() (err error) {
-				defer func() {
-					if r := recover(); r != nil {
-						err = fmt.Errorf("panic in calculator %s: %v", calculator.Name(), r)
-						results[idx] = CalculationResult{
-							Name: calculator.Name(), Err: err,
-						}
-					}
-				}()
+			g.Go(func() error {
 				startTime := time.Now()
-				res, calcErr := calculator.Calculate(ctx, progressChan, idx, n, opts)
-				if calcErr != nil {
-					calcErr = fmt.Errorf("calculator %s: %w", calculator.Name(), calcErr)
-				}
+				res, err := calculator.Calculate(ctx, progressChan, idx, n, opts)
 				results[idx] = CalculationResult{
-					Name: calculator.Name(), Result: res, Duration: time.Since(startTime), Err: calcErr,
+					Name: calculator.Name(), Result: res, Duration: time.Since(startTime), Err: err,
 				}
-				return calcErr
+				return nil
 			})
 		}
 		g.Wait()

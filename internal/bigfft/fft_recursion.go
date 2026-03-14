@@ -8,20 +8,8 @@ import (
 
 // concurrencySemaphore is a buffered channel used to limit the number of
 // concurrent goroutines in the FFT recursion.
-// Contract: Thread-safe singleton initialized once.
 var concurrencySemaphore chan struct{}
 var concurrencyOnce sync.Once
-
-// InitFFTSemaphore initializes the FFT recursion semaphore.
-// Should be called early at application startup. If max <= 0, defaults to NumCPU.
-func InitFFTSemaphore(max int) {
-	concurrencyOnce.Do(func() {
-		if max <= 0 {
-			max = runtime.NumCPU()
-		}
-		concurrencySemaphore = make(chan struct{}, max)
-	})
-}
 
 // getSemaphore returns the global concurrency semaphore for FFT recursion,
 // initializing it to runtime.NumCPU() on the first call. This is independent

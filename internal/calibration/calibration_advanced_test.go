@@ -166,12 +166,8 @@ func TestProfile_String(t *testing.T) {
 
 func TestProfile_SaveProfile_Error(t *testing.T) {
 	p := NewProfile()
-	// Create a file, then use it as a directory to force MkdirAll to fail
-	tmpDir := t.TempDir()
-	fileAsDir := filepath.Join(tmpDir, "notadir")
-	os.WriteFile(fileAsDir, []byte(""), 0644)
-
-	err := p.SaveProfile(filepath.Join(fileAsDir, "profile.json"))
+	// Try to save to a directory that doesn't exist/invalid path
+	err := p.SaveProfile("/invalid/path/profile.json")
 	if err == nil {
 		t.Error("Expected error saving to invalid path")
 	}

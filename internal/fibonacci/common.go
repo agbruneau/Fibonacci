@@ -18,21 +18,8 @@ import (
 // taskSemaphore limits the number of concurrent goroutines for multiplication
 // and squaring tasks. This prevents excessive goroutine creation which can
 // lead to contention and increased memory pressure.
-// Contract: Thread-safe singleton initialized once. Once initialized, the
-// capacity cannot be changed for the lifetime of the application.
 var taskSemaphore chan struct{}
 var taskSemaphoreOnce sync.Once
-
-// InitTaskSemaphore explicitly initializes the task semaphore with the given size.
-// Should be called early at application startup. If max <= 0, defaults to NumCPU*2.
-func InitTaskSemaphore(max int) {
-	taskSemaphoreOnce.Do(func() {
-		if max <= 0 {
-			max = runtime.NumCPU() * 2
-		}
-		taskSemaphore = make(chan struct{}, max)
-	})
-}
 
 // getTaskSemaphore returns a semaphore limiting Fibonacci-level parallelism
 // to NumCPU*2 goroutines. This is independent from the FFT-level semaphore
@@ -109,11 +96,6 @@ func SetTaskLogger(l zerolog.Logger) {
 func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	var wg sync.WaitGroup
 	var ec parallel.ErrorCollector
-
-	// Create a derived context to cancel pending sibling operations if one fails.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	wg.Add(3)
 
 	for _, op := range [3]func() error{op1, op2, op3} {
@@ -123,10 +105,7 @@ func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 				ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
 				return
 			}
-			if err := fn(); err != nil {
-				ec.SetError(err)
-				cancel() // Immediately cancel the others
-			}
+			ec.SetError(fn())
 		}(op)
 	}
 

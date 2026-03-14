@@ -80,11 +80,6 @@ type AppConfig struct {
 	MemoryLimit string
 	// GCControl sets the GC control mode ("auto", "aggressive", "disabled").
 	GCControl string
-	// MaxGoroutines limits the number of goroutines for parallel multiplication.
-	// A value of 0 means automatic (e.g. NumCPU * 2).
-	MaxGoroutines int
-	// Force bypasses safety limits like the maximum value of N.
-	Force bool
 }
 
 // Validate checks the semantic consistency of the configuration parameters.
@@ -99,18 +94,14 @@ type AppConfig struct {
 //   - error: An error of type ConfigError if the configuration is invalid,
 //     nil otherwise.
 func (c AppConfig) Validate(availableAlgos []string) error {
-	var errs []error
 	if c.Timeout <= 0 {
-		errs = append(errs, apperrors.NewConfigError("timeout value must be strictly positive"))
+		return apperrors.NewConfigError("timeout value must be strictly positive")
 	}
 	if c.Threshold < 0 {
-		errs = append(errs, apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold))
+		return apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold)
 	}
 	if c.FFTThreshold < 0 {
-		errs = append(errs, apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold))
-	}
-	if c.MaxGoroutines < 0 {
-		errs = append(errs, apperrors.NewConfigError("max goroutines cannot be negative: %d", c.MaxGoroutines))
+		return apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold)
 	}
 	isAlgoAvailable := false
 	for _, a := range availableAlgos {
@@ -120,12 +111,9 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 		}
 	}
 	if c.Algo != "all" && !isAlgoAvailable {
-		errs = append(errs, apperrors.NewConfigError("unrecognized algorithm: '%s'. Valid algorithms are: 'all' or [%s]", c.Algo, strings.Join(availableAlgos, ", ")))
+		return apperrors.NewConfigError("unrecognized algorithm: '%s'. Valid algorithms are: 'all' or [%s]", c.Algo, strings.Join(availableAlgos, ", "))
 	}
-	if c.N > 1_000_000_000 && !c.Force && c.LastDigits == 0 {
-		errs = append(errs, apperrors.NewConfigError("n=%d is extremely large and may crash the system. Add --force to bypass this safety limit, or use --last-digits", c.N))
-	}
-	return errors.Join(errs...)
+	return nil
 }
 
 // ParseConfig parses the command-line arguments and populates an AppConfig
@@ -178,8 +166,6 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.IntVar(&config.LastDigits, "last-digits", 0, "Compute only the last K decimal digits (uses O(K) memory).")
 	fs.StringVar(&config.MemoryLimit, "memory-limit", "", "Maximum memory budget (e.g., 8G, 512M). Warns if estimate exceeds limit.")
 	fs.StringVar(&config.GCControl, "gc-control", "auto", "GC control during calculation (auto, aggressive, disabled).")
-	fs.IntVar(&config.MaxGoroutines, "max-goroutines", 0, "Max goroutines for parallel operations (0 for auto).")
-	fs.BoolVar(&config.Force, "force", false, "Force calculation even if n exceeds safety limits (N > 1,000,000,000).")
 	setCustomUsage(fs)
 
 	if err := fs.Parse(args); err != nil {

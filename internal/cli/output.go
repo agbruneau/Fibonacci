@@ -60,20 +60,17 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 		return nil
 	}
 
-	outputPath := filepath.Clean(config.OutputFile)
-
-	// Ensure directory exists with restrictive permissions
-	dir := filepath.Dir(outputPath)
+	// Ensure directory exists
+	dir := filepath.Dir(config.OutputFile)
 	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0750); err != nil {
-			return fmt.Errorf("failed to create directory %q: %w", dir, err)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
 		}
 	}
 
-	// Create file with restrictive (0600) permissions
-	file, err := os.OpenFile(outputPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	file, err := os.Create(config.OutputFile)
 	if err != nil {
-		return fmt.Errorf("failed to create output file %q: %w", outputPath, err)
+		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer file.Close()
 

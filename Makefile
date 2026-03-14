@@ -46,14 +46,14 @@ build:
 pgo-profile:
 	@echo "Generating CPU profile for PGO..."
 	@mkdir -p $(BUILD_DIR)
-	@echo "Profiling Fast Doubling and Matrix..."
-	$(GO) test -cpuprofile=$(PGO_RAW_PROFILE)_1 -bench="BenchmarkFastDoubling|BenchmarkMatrix" -benchtime=5s -count=3 ./internal/fibonacci/
-	@echo "Profiling FFT..."
-	$(GO) test -cpuprofile=$(PGO_RAW_PROFILE)_2 -bench="Benchmark" -benchtime=2s -count=3 ./internal/bigfft/
-	@echo "Merging profiles..."
-	$(GO) tool pprof -proto -output=$(PGO_PROFILE) $(PGO_RAW_PROFILE)_1 $(PGO_RAW_PROFILE)_2
-	@rm -f $(PGO_RAW_PROFILE)_1 $(PGO_RAW_PROFILE)_2
-	@echo "Profile generated: $(PGO_PROFILE)"
+	$(GO) test -cpuprofile=$(PGO_RAW_PROFILE) -bench=BenchmarkFastDoubling -benchtime=5s -count=3 ./internal/fibonacci/
+	@if [ -f $(PGO_RAW_PROFILE) ]; then \
+		mv $(PGO_RAW_PROFILE) $(PGO_PROFILE); \
+		echo "Profile generated: $(PGO_PROFILE)"; \
+	else \
+		echo "Error: Profile generation failed"; \
+		exit 1; \
+	fi
 
 ## pgo-check: Verify PGO profile exists and is valid
 pgo-check:
@@ -61,13 +61,6 @@ pgo-check:
 		echo "Error: PGO profile not found at $(PGO_PROFILE)"; \
 		echo "Run 'make pgo-profile' to generate it"; \
 		exit 1; \
-	fi
-	@age=$$(git log -1 --format="%cr" -- $(PGO_PROFILE) 2>/dev/null); \
-	if [ -n "$$age" ]; then \
-		echo "PGO profile last updated: $$age"; \
-		if echo "$$age" | grep -E "month|year" >/dev/null; then \
-			echo "Warning: PGO profile $(PGO_PROFILE) is quite old ($$age). Consider running 'make pgo-profile'."; \
-		fi \
 	fi
 	@echo "PGO profile found: $(PGO_PROFILE)"
 
@@ -171,24 +164,6 @@ coverage:
 benchmark:
 	@echo "Running benchmarks..."
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
-
-## bench-baseline: Generate a benchmark baseline for regression testing
-bench-baseline:
-	@echo "Running benchmarks to establish baseline..."
-	@mkdir -p $(BUILD_DIR)
-	$(GO) test -bench=. -benchmem -count=5 ./internal/fibonacci/ > $(BUILD_DIR)/bench_baseline.txt
-	@echo "Baseline saved to $(BUILD_DIR)/bench_baseline.txt"
-
-## bench-compare: Compare current performance against baseline using benchstat
-bench-compare:
-	@if [ ! -f $(BUILD_DIR)/bench_baseline.txt ]; then \
-		echo "Error: Baseline not found. Run 'make bench-baseline' first."; \
-		exit 1; \
-	fi
-	@echo "Running benchmarks to compare with baseline..."
-	$(GO) test -bench=. -benchmem -count=5 ./internal/fibonacci/ > $(BUILD_DIR)/bench_current.txt
-	@echo "Installing benchstat if not present..."
-	@go run golang.org/x/perf/cmd/benchstat@latest $(BUILD_DIR)/bench_baseline.txt $(BUILD_DIR)/bench_current.txt
 
 ## run: Build and run the application with default settings
 run: build

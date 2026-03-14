@@ -85,7 +85,6 @@ func loadProfile(path string) (*CalibrationProfile, error) {
 	if path == "" {
 		path = GetDefaultProfilePath()
 	}
-	path = filepath.Clean(path)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -106,22 +105,12 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 	if path == "" {
 		path = GetDefaultProfilePath()
 	}
-	path = filepath.Clean(path)
-
-	// Ensure directory exists with restrictive permissions
-	dir := filepath.Dir(path)
-	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0750); err != nil {
-			return fmt.Errorf("failed to create directory: %w", err)
-		}
-	}
 
 	data, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal profile: %w", err)
 	}
 
-	// Note: os.WriteFile creates file with specified permissions (0600)
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write profile: %w", err)
 	}

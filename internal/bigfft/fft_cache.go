@@ -23,11 +23,6 @@ type TransformCacheConfig struct {
 	// Default: 256 entries
 	MaxEntries int
 
-	// MaxBytes is the maximum memory in bytes to use for caching.
-	// If 0, no memory limit is enforced.
-	// Default: 256 MB (256 * 1024 * 1024)
-	MaxBytes int64
-
 	// MinBitLen is the minimum operand bit length to cache.
 	// Smaller values don't benefit from caching.
 	// Default: 100000 bits (~12KB)
@@ -42,7 +37,6 @@ type TransformCacheConfig struct {
 func DefaultTransformCacheConfig() TransformCacheConfig {
 	return TransformCacheConfig{
 		MaxEntries: 256,
-		MaxBytes:   256 * 1024 * 1024, // 256 MB
 		MinBitLen:  100000,
 		Enabled:    true,
 	}
@@ -54,7 +48,6 @@ type cacheEntry struct {
 	values []fermat // cached polValues.values
 	k      uint     // FFT size parameter
 	n      int      // coefficient length
-	bytes  int64    // Approximate memory footprint of this entry in bytes
 }
 
 // cacheLogInterval is the number of accesses between periodic cache stats logging.
@@ -64,16 +57,15 @@ const cacheLogInterval = 100
 // It caches the forward FFT transform results to avoid recomputation
 // when the same values are multiplied repeatedly.
 type TransformCache struct {
-	mu           sync.RWMutex
-	config       TransformCacheConfig
-	entries      map[uint64]*list.Element
-	lru          *list.List
-	currentBytes int64 // Total bytes of cached entries
-	hits         atomic.Uint64
-	misses       atomic.Uint64
-	evictions    atomic.Uint64
-	accesses     atomic.Uint64
-	logger       zerolog.Logger
+	mu        sync.RWMutex
+	config    TransformCacheConfig
+	entries   map[uint64]*list.Element
+	lru       *list.List
+	hits      atomic.Uint64
+	misses    atomic.Uint64
+	evictions atomic.Uint64
+	accesses  atomic.Uint64
+	logger    zerolog.Logger
 }
 
 // NewTransformCache creates a new FFT transform cache with the given config.
@@ -116,7 +108,6 @@ func SetTransformCacheConfig(config TransformCacheConfig) {
 	if !config.Enabled {
 		cache.entries = make(map[uint64]*list.Element)
 		cache.lru.Init()
-		cache.currentBytes = 0
 	}
 }
 
@@ -223,14 +214,12 @@ func (tc *TransformCache) logPeriodicStats() {
 	}
 	tc.mu.RLock()
 	size := tc.lru.Len()
-	currentBytes := tc.currentBytes
 	tc.mu.RUnlock()
 	tc.logger.Debug().
 		Uint64("hits", hits).
 		Uint64("misses", misses).
 		Float64("hit_rate", hitRate).
 		Int("size", size).
-		Int64("bytes", currentBytes).
 		Uint64("evictions", tc.evictions.Load()).
 		Msg("fft cache stats")
 }
@@ -256,31 +245,21 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		return
 	}
 
-	// Calculate approximate memory footprint of the cached values
-	K := len(pv.Values)
-	n := pv.N
-	wordCount := K * (n + 1)
-	entryBytes := int64(wordCount * (_W / 8)) // bytes used by backing array
-
-	// Evict oldest entries if at capacity (entries or bytes limit)
-	for tc.lru.Len() >= tc.config.MaxEntries || (tc.config.MaxBytes > 0 && tc.currentBytes+entryBytes > tc.config.MaxBytes) {
+	// Evict oldest entries if at capacity
+	for tc.lru.Len() >= tc.config.MaxEntries {
 		oldest := tc.lru.Back()
 		if oldest != nil {
 			tc.lru.Remove(oldest)
 			entry := oldest.Value.(*cacheEntry)
 			delete(tc.entries, entry.key)
-			tc.currentBytes -= entry.bytes
 			tc.evictions.Add(1)
-		} else {
-			break // Should not happen, but prevents infinite loop if lru and currentBytes are desynced
 		}
 	}
 
-	// Double check we have room after evictions (if a single entry is larger than MaxBytes, we can't store it)
-	if tc.config.MaxBytes > 0 && entryBytes > tc.config.MaxBytes {
-		return // Too large to cache
-	}
-
+	// Create a deep copy using a contiguous buffer to reduce allocations
+	K := len(pv.Values)
+	n := pv.N
+	wordCount := K * (n + 1)
 	backing := make([]big.Word, wordCount)
 	valuesCopy := make([]fermat, K)
 	for i, v := range pv.Values {
@@ -293,12 +272,10 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		values: valuesCopy,
 		k:      pv.K,
 		n:      pv.N,
-		bytes:  entryBytes,
 	}
 
 	elem := tc.lru.PushFront(entry)
 	tc.entries[key] = elem
-	tc.currentBytes += entryBytes
 }
 
 // Stats returns cache statistics.
@@ -307,7 +284,6 @@ type CacheStats struct {
 	Misses    uint64
 	Evictions uint64
 	Size      int
-	Bytes     int64
 	HitRate   float64
 }
 
@@ -315,7 +291,6 @@ type CacheStats struct {
 func (tc *TransformCache) Stats() CacheStats {
 	tc.mu.RLock()
 	size := tc.lru.Len()
-	currentBytes := tc.currentBytes
 	tc.mu.RUnlock()
 
 	hits := tc.hits.Load()
@@ -332,7 +307,6 @@ func (tc *TransformCache) Stats() CacheStats {
 		Misses:    misses,
 		Evictions: tc.evictions.Load(),
 		Size:      size,
-		Bytes:     currentBytes,
 		HitRate:   hitRate,
 	}
 }
@@ -344,7 +318,6 @@ func (tc *TransformCache) Clear() {
 
 	tc.entries = make(map[uint64]*list.Element)
 	tc.lru.Init()
-	tc.currentBytes = 0
 	tc.hits.Store(0)
 	tc.misses.Store(0)
 	tc.evictions.Store(0)

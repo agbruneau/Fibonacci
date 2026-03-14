@@ -60,3 +60,25 @@ func TestErrorCollector_Concurrency(t *testing.T) {
 	}
 }
 
+func TestErrorCollector_Reset(t *testing.T) {
+	t.Parallel()
+	ec := &ErrorCollector{}
+	err := errors.New("test error")
+
+	ec.SetError(err)
+	if ec.Err() != err {
+		t.Errorf("Expected error %v, got %v", err, ec.Err())
+	}
+
+	ec.Reset()
+	if ec.Err() != nil {
+		t.Errorf("Expected nil error after reset, got %v", ec.Err())
+	}
+
+	// Should be able to set error again after reset
+	newErr := errors.New("new error")
+	ec.SetError(newErr)
+	if ec.Err() != newErr {
+		t.Errorf("Expected new error %v, got %v", newErr, ec.Err())
+	}
+}

@@ -56,22 +56,6 @@ func HandleCalculationError(err error, duration time.Duration, out io.Writer, co
 		fmt.Fprintf(out, "%sStatus: Canceled%s.%s\n", colors.Yellow(), msgSuffix, colors.Reset())
 		return ExitErrorCanceled
 	}
-
-	var memErr MemoryError
-	if errors.As(err, &memErr) {
-		fmt.Fprintf(out, "Status: Failure (Out of Memory). %v\n", err)
-		fmt.Fprintf(out, "%s   Hint: The requested calculation exceeds the memory limit.\n", colors.Yellow())
-		fmt.Fprintf(out, "   - Try using --last-digits K to compute only the last digits using minimal memory.\n")
-		fmt.Fprintf(out, "   - Increase the --memory-limit if your system has sufficient RAM.%s\n", colors.Reset())
-		return ExitErrorConfig
-	}
-
-	var cfgErr ConfigError
-	if errors.As(err, &cfgErr) {
-		fmt.Fprintf(out, "Status: Failure (Configuration). %v\n", err)
-		return ExitErrorConfig
-	}
-
 	fmt.Fprintf(out, "Status: Failure. An unexpected error occurred: %v\n", err)
 	return ExitErrorGeneric
 }

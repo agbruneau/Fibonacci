@@ -449,8 +449,7 @@ func TestParseConfigLargeN(t *testing.T) {
 	algos := []string{"fast"}
 
 	// Test with max uint64
-	// Requires --force because N > 1,000,000,000
-	cfg, err := ParseConfig("test", []string{"-n", "18446744073709551615", "--force"}, &buf, algos)
+	cfg, err := ParseConfig("test", []string{"-n", "18446744073709551615"}, &buf, algos)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

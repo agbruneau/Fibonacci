@@ -50,3 +50,10 @@ func (c *ErrorCollector) Err() error {
 	return c.err
 }
 
+// Reset resets the collector for reuse.
+// WARNING: This is NOT thread-safe and should only be called when
+// no goroutines are using the collector.
+func (c *ErrorCollector) Reset() {
+	c.once = sync.Once{}
+	c.err = nil
+}
