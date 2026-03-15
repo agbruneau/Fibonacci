@@ -4,9 +4,11 @@
 
 The Fibonacci Calculator is designed according to **Clean Architecture** principles, with strict separation of responsibilities and low coupling between modules. This architecture enables maximum testability, easy scalability, and simplified maintenance.
 
+> **Ce document est la référence architecturale détaillée** avec diagrammes C4, flows Mermaid et index complet. Pour une vue d'ensemble rapide, voir **[docs/ARCH.md](../ARCH.md)**.
+
 **Go Module**: `github.com/agbru/fibcalc` (Go 1.25.0)
 
-**Codebase stats**: 20 Go packages | 103 source files | 89 test files | 20 documentation files
+**Codebase stats**: 20 Go packages | 105 source files | 89 test files | 20 documentation files
 
 ---
 
@@ -17,6 +19,7 @@ The Fibonacci Calculator is designed according to **Clean Architecture** princip
 | Document | Description |
 |----------|-------------|
 | **[This file](README.md)** | Master index — package structure, interfaces, ADRs, data flow |
+| [ARCH.md (quick overview)](../ARCH.md) | Architecture quick overview — layers, patterns, data flow, key decisions |
 | [patterns/interface-hierarchy.mermaid](patterns/interface-hierarchy.mermaid) | Interface hierarchy diagram |
 
 ### C4 Diagrams (in `docs/architecture/`)

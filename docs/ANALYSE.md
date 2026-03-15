@@ -61,14 +61,14 @@
 
 ### Priorité Haute (Impact élevé, effort modéré)
 
-#### R-01 : Harmoniser la documentation architecturale
+#### ✅ R-01 : Harmoniser la documentation architecturale — *Réalisé*
 
 **Justification :** `docs/ARCH.md` et `docs/architecture/README.md` couvrent le même sujet avec des informations partiellement redondantes et partiellement complémentaires.
 
 **Actions :**
-1. Faire de `docs/ARCH.md` le document « vue d'ensemble rapide » (entrée principale)
-2. Faire de `docs/architecture/README.md` la référence détaillée (diagrammes C4, ADR complets, flow mermaid)
-3. Ajouter des liens croisés explicites entre les deux
+1. ~~Faire de `docs/ARCH.md` le document « vue d'ensemble rapide » (entrée principale)~~ ✅
+2. ~~Faire de `docs/architecture/README.md` la référence détaillée (diagrammes C4, ADR complets, flow mermaid)~~ ✅
+3. ~~Ajouter des liens croisés explicites entre les deux~~ ✅
 
 **Effort :** ~1h | **Impact :** 🟡 Maintenabilité documentaire
 
@@ -314,7 +314,7 @@
 
 | # | Catégorie | Titre | Impact | Effort | Priorité |
 |---|-----------|-------|--------|--------|----------|
-| R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | **Haute** |
+| ✅ R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | ~~**Haute**~~ Réalisé |
 | R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | **Haute** |
 | R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | Moyenne |
 | R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | Moyenne |
