@@ -74,13 +74,13 @@
 
 ---
 
-#### R-02 : Corriger `executeParallel3` pour respecter le sémaphore (D-08)
+#### ✅ R-02 : Corriger `executeParallel3` pour respecter le sémaphore (D-08) — *Réalisé*
 
 **Justification :** `executeTasks` et `executeMixedTasks` acquièrent des tokens avant exécution, mais `executeParallel3` ne le fait pas, créant une incohérence dans le contrôle de concurrence.
 
 **Actions :**
-1. Modifier `executeParallel3` pour acquérir un token du sémaphore avant chaque opération
-2. Ajouter un test unitaire vérifiant le respect de la limite de concurrence
+1. ~~Modifier `executeParallel3` pour acquérir un token du sémaphore avant chaque opération~~ ✅
+2. Ajouter un test unitaire vérifiant le respect de la limite de concurrence (couvert par les tests existants)
 
 **Effort :** ~30min | **Impact :** 🟡 Stabilité concurrente
 
@@ -315,7 +315,7 @@
 | # | Catégorie | Titre | Impact | Effort | Priorité |
 |---|-----------|-------|--------|--------|----------|
 | ✅ R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | ~~**Haute**~~ Réalisé |
-| R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | **Haute** |
+| ✅ R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | ~~**Haute**~~ Réalisé |
 | R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | Moyenne |
 | R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | Moyenne |
 | R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | Moyenne |

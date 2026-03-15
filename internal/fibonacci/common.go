@@ -83,7 +83,8 @@ func SetTaskLogger(l zerolog.Logger) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // executeParallel3 runs three operations concurrently, returning the first
-// error encountered. Each goroutine checks for context cancellation before
+// error encountered. Each goroutine acquires a semaphore token to respect
+// the global concurrency limit, then checks for context cancellation before
 // starting its operation. The caller is responsible for ensuring that the
 // three operations write to disjoint memory (no shared mutable state).
 //
@@ -94,6 +95,7 @@ func SetTaskLogger(l zerolog.Logger) {
 // Returns:
 //   - error: The first error from any operation, or a context error.
 func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
+	sem := getTaskSemaphore()
 	var wg sync.WaitGroup
 	var ec parallel.ErrorCollector
 	wg.Add(3)
@@ -101,6 +103,9 @@ func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	for _, op := range [3]func() error{op1, op2, op3} {
 		go func(fn func() error) {
 			defer wg.Done()
+			// Acquire semaphore token to limit concurrency
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			if err := ctx.Err(); err != nil {
 				ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
 				return
@@ -112,6 +117,7 @@ func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	wg.Wait()
 	return ec.Err()
 }
+
 
 // task defines a common interface for executable tasks.
 // This allows using generics to eliminate code duplication between
