@@ -61,20 +61,7 @@
 
 ### Priorité Haute (Impact élevé, effort modéré)
 
-#### R-01 : Mettre en place un pipeline CI/CD
-
-**Justification :** L'absence de CI signifie que les tests, le linting et la détection de races ne sont pas exécutés automatiquement. Cela augmente le risque de régression.
-
-**Actions :**
-1. Créer `.github/workflows/ci.yml` avec : `go test -race ./...`, `golangci-lint run`, `go vet ./...`
-2. Ajouter un workflow de benchmark pour détecter les régressions de performance
-3. Ajouter le badge de statut CI dans `README.md`
-
-**Effort :** ~2h | **Impact :** 🔴 Critique pour la qualité continue
-
----
-
-#### R-02 : Harmoniser la documentation architecturale
+#### R-01 : Harmoniser la documentation architecturale
 
 **Justification :** `docs/ARCH.md` et `docs/architecture/README.md` couvrent le même sujet avec des informations partiellement redondantes et partiellement complémentaires.
 
@@ -87,7 +74,7 @@
 
 ---
 
-#### R-03 : Corriger `executeParallel3` pour respecter le sémaphore (D-08)
+#### R-02 : Corriger `executeParallel3` pour respecter le sémaphore (D-08)
 
 **Justification :** `executeTasks` et `executeMixedTasks` acquièrent des tokens avant exécution, mais `executeParallel3` ne le fait pas, créant une incohérence dans le contrôle de concurrence.
 
@@ -101,7 +88,7 @@
 
 ### Priorité Moyenne (Impact modéré, effort variable)
 
-#### R-04 : Exporter `coreCalculator` ou fournir une interface de test (D-01)
+#### R-03 : Exporter `coreCalculator` ou fournir une interface de test (D-01)
 
 **Justification :** Les utilisateurs et les tests externes ne peuvent pas implémenter de calculateurs personnalisés ni mocker proprement la couche interne.
 
@@ -114,7 +101,7 @@
 
 ---
 
-#### R-05 : Remplacer les variables globales mutables par de l'injection (D-02, D-03)
+#### R-04 : Remplacer les variables globales mutables par de l'injection (D-02, D-03)
 
 **Justification :** `globalFactory` et `squareSymmetricMatrixFunc` sont des singletons mutables exposés globalement, risquant des data races dans les tests parallèles.
 
@@ -127,7 +114,7 @@
 
 ---
 
-#### R-06 : Remplacer `panic` par `(T, error)` dans `NewCalculator` (D-09)
+#### R-05 : Remplacer `panic` par `(T, error)` dans `NewCalculator` (D-09)
 
 **Justification :** `panic` dans un constructeur est non-idiomatique en Go et rend le code appelant fragile.
 
@@ -140,7 +127,7 @@
 
 ---
 
-#### R-07 : Enrichir les tests e2e (D-14)
+#### R-06 : Enrichir les tests e2e (D-14)
 
 **Justification :** Les tests e2e actuels vérifient surtout les codes de sortie. Il manque des vérifications de correction des résultats via le binaire.
 
@@ -155,7 +142,7 @@
 
 ### Priorité Basse (Amélioration continue)
 
-#### R-08 : Simplifier `ResultPresenter` / `ErrorHandler` (D-04, D-11)
+#### R-07 : Simplifier `ResultPresenter` / `ErrorHandler` (D-04, D-11)
 
 **Actions :** Fusionner `ErrorHandler` dans `ResultPresenter` ou le supprimer si un seul implémenteur existe. Diviser `ResultPresenter` en interfaces plus fines si de nouveaux formats de sortie (JSON, CSV) sont envisagés.
 
@@ -163,7 +150,7 @@
 
 ---
 
-#### R-09 : Corriger l'écriture directe sur `os.Stderr` (D-10)
+#### R-08 : Corriger l'écriture directe sur `os.Stderr` (D-10)
 
 **Actions :** Remplacer `fmt.Fprintf(os.Stderr, ...)` par `fmt.Fprintf(a.ErrWriter, ...)` dans `saveResultIfNeeded`.
 
@@ -171,7 +158,7 @@
 
 ---
 
-#### R-10 : Ajouter `doc.go` aux packages manquants (D-17)
+#### R-09 : Ajouter `doc.go` aux packages manquants (D-17)
 
 **Actions :** Créer `doc.go` pour `internal/sysmon`, `internal/format`, `internal/testutil` avec une description concise du rôle du package.
 
@@ -327,13 +314,12 @@
 
 | # | Catégorie | Titre | Impact | Effort | Priorité |
 |---|-----------|-------|--------|--------|----------|
-| R-01 | Qualité | Pipeline CI/CD | 🔴 Critique | ~2h | **Haute** |
-| R-02 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | **Haute** |
-| R-03 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | **Haute** |
-| R-04 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | Moyenne |
-| R-05 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | Moyenne |
-| R-06 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | Moyenne |
-| R-07 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | Moyenne |
+| R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | **Haute** |
+| R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | **Haute** |
+| R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | Moyenne |
+| R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | Moyenne |
+| R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | Moyenne |
+| R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | Moyenne |
 | O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |
 | O-02 | Performance | Transform caching agressif | 🟡 Moyen | ~6h | Moyenne |
 | O-05 | Maintenabilité | Extraire lifecycle | 🟠 Faible | ~2h | Basse |
