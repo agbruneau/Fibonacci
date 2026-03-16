@@ -127,7 +127,7 @@
 
 ---
 
-#### R-06 : Enrichir les tests e2e (D-14)
+#### ✅ R-06 : Enrichir les tests e2e (D-14) — *Réalisé*
 
 **Justification :** Les tests e2e actuels vérifient surtout les codes de sortie. Il manque des vérifications de correction des résultats via le binaire.
 
@@ -319,7 +319,7 @@
 | ✅ R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
 | ✅ R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | ~~**Moyenne**~~ Réalisé |
 | ✅ R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
-| R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | Moyenne |
+| ✅ R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | ~~**Moyenne**~~ Réalisé |
 | O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |
 | O-02 | Performance | Transform caching agressif | 🟡 Moyen | ~6h | Moyenne |
 | O-05 | Maintenabilité | Extraire lifecycle | 🟠 Faible | ~2h | Basse |
