@@ -16,13 +16,13 @@ func defaultTestOpts() Options {
 }
 
 // calcF is a shorthand that computes F(n) with the given calculator.
-func calcF(calc coreCalculator, n uint64) (*big.Int, error) {
+func calcF(calc CoreCalculator, n uint64) (*big.Int, error) {
 	return calc.CalculateCore(context.Background(), func(float64) {}, n, defaultTestOpts())
 }
 
 // allCalculators returns the three core calculator implementations.
-func allCalculators() []coreCalculator {
-	return []coreCalculator{
+func allCalculators() []CoreCalculator {
+	return []CoreCalculator{
 		&OptimizedFastDoubling{},
 		&MatrixExponentiation{},
 		&FFTBasedCalculator{},

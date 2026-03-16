@@ -88,7 +88,7 @@
 
 ### Priorité Moyenne (Impact modéré, effort variable)
 
-#### R-03 : Exporter `coreCalculator` ou fournir une interface de test (D-01)
+#### ✅ R-03 : Exporter `coreCalculator` ou fournir une interface de test (D-01) — *Réalisé*
 
 **Justification :** Les utilisateurs et les tests externes ne peuvent pas implémenter de calculateurs personnalisés ni mocker proprement la couche interne.
 
@@ -101,7 +101,7 @@
 
 ---
 
-#### R-04 : Remplacer les variables globales mutables par de l'injection (D-02, D-03)
+#### ✅ R-04 : Remplacer les variables globales mutables par de l'injection (D-02, D-03) — *Réalisé*
 
 **Justification :** `globalFactory` et `squareSymmetricMatrixFunc` sont des singletons mutables exposés globalement, risquant des data races dans les tests parallèles.
 
@@ -316,8 +316,8 @@
 |---|-----------|-------|--------|--------|----------|
 | ✅ R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | ~~**Haute**~~ Réalisé |
 | ✅ R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | ~~**Haute**~~ Réalisé |
-| R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | Moyenne |
-| R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | Moyenne |
+| ✅ R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
+| ✅ R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | ~~**Moyenne**~~ Réalisé |
 | R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | Moyenne |
 | R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | Moyenne |
 | O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |

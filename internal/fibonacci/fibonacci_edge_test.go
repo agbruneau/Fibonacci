@@ -193,7 +193,7 @@ func TestStrassenThresholdVariations(t *testing.T) {
 // TestContextCancellationImmediate tests immediate cancellation.
 func TestContextCancellationImmediate(t *testing.T) {
 	t.Parallel()
-	calculators := map[string]coreCalculator{
+	calculators := map[string]CoreCalculator{
 		"FastDoubling": &OptimizedFastDoubling{},
 		"MatrixExp":    &MatrixExponentiation{},
 	}
@@ -217,7 +217,7 @@ func TestContextCancellationImmediate(t *testing.T) {
 // TestContextTimeoutShort tests short timeout behavior.
 func TestContextTimeoutShort(t *testing.T) {
 	t.Parallel()
-	calculators := map[string]coreCalculator{
+	calculators := map[string]CoreCalculator{
 		"FastDoubling": &OptimizedFastDoubling{},
 		"MatrixExp":    &MatrixExponentiation{},
 	}

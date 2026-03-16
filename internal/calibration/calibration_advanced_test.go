@@ -167,7 +167,7 @@ func TestProfile_String(t *testing.T) {
 func TestProfile_SaveProfile_Error(t *testing.T) {
 	p := NewProfile()
 	// Try to save to a directory that doesn't exist/invalid path
-	err := p.SaveProfile("/invalid/path/profile.json")
+	err := p.SaveProfile("\x00invalid/path/profile.json")
 	if err == nil {
 		t.Error("Expected error saving to invalid path")
 	}

@@ -107,7 +107,7 @@ func TestProgressCalculationLogic(t *testing.T) {
 }
 
 // TestNilCoreCalculatorPanic verifies that `NewCalculator` panics if called
-// with a nil `coreCalculator`.
+// with a nil `CoreCalculator`.
 func TestNilCoreCalculatorPanic(t *testing.T) {
 	t.Parallel()
 	defer func() {

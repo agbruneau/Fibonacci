@@ -44,25 +44,37 @@ type Calculator interface {
 	Name() string
 }
 
-// coreCalculator defines the internal interface for a pure calculation
-// algorithm.
-type coreCalculator interface {
+// CoreCalculator defines the interface for a pure calculation algorithm.
+// It is the extension point for adding new Fibonacci calculation strategies.
+// Implementations only need to provide the core algorithm logic; cross-cutting
+// concerns (small-N fast path, GC control, FFT cache, progress adaptation)
+// are handled by FibCalculator which wraps CoreCalculator via the Decorator pattern.
+//
+// To register a custom algorithm:
+//
+//	type MyAlgorithm struct{}
+//	func (a *MyAlgorithm) CalculateCore(ctx context.Context, reporter fibonacci.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) { ... }
+//	func (a *MyAlgorithm) Name() string { return "My Algorithm" }
+//
+//	factory := fibonacci.NewDefaultFactory()
+//	factory.Register("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} })
+type CoreCalculator interface {
 	CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error)
 	Name() string
 }
 
 // FibCalculator is an implementation of the Calculator interface that uses the
 // Decorator design pattern.
-// It wraps a coreCalculator to add cross-cutting concerns, such as the lookup
+// It wraps a CoreCalculator to add cross-cutting concerns, such as the lookup
 // table optimization for small `n` and the adaptation of the progress reporting
 // mechanism.
 type FibCalculator struct {
-	core coreCalculator
+	core CoreCalculator
 }
 
 // NewCalculator is a factory function that constructs and returns a new
 // FibCalculator.
-// It takes a coreCalculator as input, which represents the specific Fibonacci
+// It takes a CoreCalculator as input, which represents the specific Fibonacci
 // algorithm to be used. This function panics if the core calculator is nil,
 // ensuring system integrity.
 //
@@ -71,14 +83,14 @@ type FibCalculator struct {
 //
 // Returns:
 //   - Calculator: A new FibCalculator instance implementing the Calculator interface.
-func NewCalculator(core coreCalculator) Calculator {
+func NewCalculator(core CoreCalculator) Calculator {
 	if core == nil {
-		panic("fibonacci: the `coreCalculator` implementation cannot be nil")
+		panic("fibonacci: the `CoreCalculator` implementation cannot be nil")
 	}
 	return &FibCalculator{core: core}
 }
 
-// Name returns the name of the encapsulated coreCalculator, fulfilling the
+// Name returns the name of the encapsulated CoreCalculator, fulfilling the
 // Calculator interface by delegating the call.
 //
 // Returns:
@@ -92,7 +104,7 @@ func (c *FibCalculator) Name() string {
 // efficiently using iterative addition without the overhead of the full
 // algorithm. For larger values, it adapts the progressChan into a
 // ProgressCallback callback and delegates the core calculation to the wrapped
-// coreCalculator. This method ensures that progress is reported completely upon
+// CoreCalculator. This method ensures that progress is reported completely upon
 // successful calculation.
 //
 // This method provides backward compatibility with channel-based progress reporting.

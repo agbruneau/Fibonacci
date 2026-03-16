@@ -1,0 +1,25 @@
+ok  	github.com/agbru/fibcalc/cmd/fibcalc	(cached)
+ok  	github.com/agbru/fibcalc/cmd/generate-golden	(cached)
+ok  	github.com/agbru/fibcalc/internal/app	(cached)
+ok  	github.com/agbru/fibcalc/internal/bigfft	(cached)
+--- FAIL: TestProfile_SaveProfile_Error (0.00s)
+    calibration_advanced_test.go:172: Expected error saving to invalid path
+FAIL
+FAIL	github.com/agbru/fibcalc/internal/calibration	1.129s
+ok  	github.com/agbru/fibcalc/internal/cli	(cached)
+ok  	github.com/agbru/fibcalc/internal/config	(cached)
+ok  	github.com/agbru/fibcalc/internal/errors	(cached)
+ok  	github.com/agbru/fibcalc/internal/fibonacci	(cached)
+ok  	github.com/agbru/fibcalc/internal/fibonacci/memory	(cached)
+ok  	github.com/agbru/fibcalc/internal/fibonacci/threshold	(cached)
+ok  	github.com/agbru/fibcalc/internal/format	(cached)
+ok  	github.com/agbru/fibcalc/internal/metrics	(cached)
+ok  	github.com/agbru/fibcalc/internal/orchestration	(cached)
+ok  	github.com/agbru/fibcalc/internal/parallel	(cached)
+ok  	github.com/agbru/fibcalc/internal/progress	(cached)
+ok  	github.com/agbru/fibcalc/internal/sysmon	(cached)
+ok  	github.com/agbru/fibcalc/internal/testutil	(cached)
+ok  	github.com/agbru/fibcalc/internal/tui	(cached)
+ok  	github.com/agbru/fibcalc/internal/ui	(cached)
+ok  	github.com/agbru/fibcalc/test/e2e	2.275s
+FAIL

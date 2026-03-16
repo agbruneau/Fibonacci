@@ -159,6 +159,29 @@ perf(bigfft): optimize FFT butterfly operations
 - [ ] Documentation is updated if needed
 - [ ] Commit messages follow conventions
 
+### Adding New Algorithms
+
+The project uses the Decorator pattern. To add a new algorithm, you only need to implement the core logic; cross-cutting concerns (GC, caching, thresholds) are handled for you.
+
+1. Create a type that implements the `fibonacci.CoreCalculator` interface:
+   ```go
+   type MyAlgorithm struct{}
+   
+   func (a *MyAlgorithm) CalculateCore(ctx context.Context, reporter fibonacci.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) {
+       // Your core algorithm logic here...
+       // Report progress via reporter(float64) between 0.0 and 1.0
+       return result, nil
+   }
+   
+   func (a *MyAlgorithm) Name() string {
+       return "My Algorithm Name"
+   }
+   ```
+2. Register your algorithm in the global factory inside an `init` function (if internal) or explicitly in your main application:
+   ```go
+   fibonacci.RegisterCalculator("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} })
+   ```
+
 ## Coding Standards
 
 ### Go Style

@@ -74,7 +74,7 @@ func (f *TestFactory) List() []string {
 }
 
 // Register is a no-op for TestFactory as calculators are provided at construction.
-func (f *TestFactory) Register(name string, creator func() coreCalculator) error {
+func (f *TestFactory) Register(name string, creator func() CoreCalculator) error {
 	// No-op: calculators are set at construction time
 	return nil
 }

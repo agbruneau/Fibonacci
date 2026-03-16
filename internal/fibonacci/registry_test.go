@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// mockCoreCalculator is a simple implementation of coreCalculator for testing.
+// mockCoreCalculator is a simple implementation of CoreCalculator for testing.
 type mockCoreCalculator struct{}
 
 func (m *mockCoreCalculator) Name() string { return "mock" }
@@ -21,7 +21,7 @@ func TestDefaultFactory(t *testing.T) {
 
 	// Test Register and Has
 	t.Run("RegisterAndHas", func(t *testing.T) {
-		factory.Register("test", func() coreCalculator { return &mockCoreCalculator{} })
+		factory.Register("test", func() CoreCalculator { return &mockCoreCalculator{} })
 		if !factory.Has("test") {
 			t.Error("Factory should have 'test' calculator")
 		}
@@ -152,7 +152,7 @@ func TestGlobalFactory(t *testing.T) {
 	}
 
 	// Ensure RegisterCalculator works
-	RegisterCalculator("global_test", func() coreCalculator { return &mockCoreCalculator{} })
+	RegisterCalculator("global_test", func() CoreCalculator { return &mockCoreCalculator{} })
 	if !f.Has("global_test") {
 		t.Error("Global factory should have 'global_test' calculator")
 	}

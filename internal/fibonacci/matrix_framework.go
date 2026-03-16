@@ -11,16 +11,36 @@ import (
 	"runtime"
 )
 
+// SquareSymmetricMatrixFunc is the function signature for symmetric matrix squaring.
+// It is injectable on MatrixFramework for testing purposes.
+type SquareSymmetricMatrixFunc func(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error
+
 // MatrixFramework encapsulates the common Matrix Exponentiation algorithm logic.
 // The framework manages the binary exponentiation loop and progress reporting.
-type MatrixFramework struct{}
+//
+// The SquareFunc field allows injection of a custom symmetric matrix squaring
+// function for testing. By default, it uses the optimized squareSymmetricMatrix.
+type MatrixFramework struct {
+	SquareFunc SquareSymmetricMatrixFunc
+}
 
-// squareSymmetricMatrixFunc allows mocking in tests.
-var squareSymmetricMatrixFunc = squareSymmetricMatrix
-
-// NewMatrixFramework creates a new Matrix Exponentiation framework.
+// NewMatrixFramework creates a new Matrix Exponentiation framework
+// with the default squareSymmetricMatrix implementation.
 func NewMatrixFramework() *MatrixFramework {
-	return &MatrixFramework{}
+	return &MatrixFramework{
+		SquareFunc: squareSymmetricMatrix,
+	}
+}
+
+// NewMatrixFrameworkWithSquareFunc creates a new Matrix Exponentiation framework
+// with a custom symmetric matrix squaring function, useful for testing.
+func NewMatrixFrameworkWithSquareFunc(fn SquareSymmetricMatrixFunc) *MatrixFramework {
+	if fn == nil {
+		fn = squareSymmetricMatrix
+	}
+	return &MatrixFramework{
+		SquareFunc: fn,
+	}
 }
 
 // ExecuteMatrixLoop executes the Matrix Exponentiation algorithm loop.
@@ -70,7 +90,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 		if i < numBits-1 {
 			inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold
-			if err := squareSymmetricMatrixFunc(state.tempMatrix, state.p, state, inParallel, normalizedOpts.FFTThreshold); err != nil {
+			if err := f.SquareFunc(state.tempMatrix, state.p, state, inParallel, normalizedOpts.FFTThreshold); err != nil {
 				return nil, fmt.Errorf("matrix squaring failed at bit %d/%d: %w", i, numBits-1, err)
 			}
 			state.p, state.tempMatrix = state.tempMatrix, state.p

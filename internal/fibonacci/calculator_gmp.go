@@ -28,7 +28,7 @@ import (
 
 // RegisterGMPCalculator registers the GMP calculator in the given factory.
 func RegisterGMPCalculator(f *DefaultFactory) {
-	f.Register("gmp", func() coreCalculator { return &GMPCalculator{} })
+	f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })
 }
 
 func init() {

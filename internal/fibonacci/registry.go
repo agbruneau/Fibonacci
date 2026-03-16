@@ -1,8 +1,5 @@
 package fibonacci
 
-// Note: CalculatorFactory interface is not mockable with mockgen because Register()
-// uses the unexported coreCalculator type. Use DefaultFactory or manual mocks instead.
-
 import (
 	"fmt"
 	"sort"
@@ -27,7 +24,7 @@ type CalculatorFactory interface {
 	List() []string
 
 	// Register adds a new calculator type to the factory.
-	Register(name string, creator func() coreCalculator) error
+	Register(name string, creator func() CoreCalculator) error
 
 	// GetAll returns a map of all registered calculators.
 	GetAll() map[string]Calculator
@@ -47,7 +44,7 @@ func SetRegistryLogger(l zerolog.Logger) {
 // caches Calculator instances for reuse.
 type DefaultFactory struct {
 	mu          sync.RWMutex
-	creators    map[string]func() coreCalculator
+	creators    map[string]func() CoreCalculator
 	calculators map[string]Calculator
 }
 
@@ -63,14 +60,14 @@ type DefaultFactory struct {
 //   - *DefaultFactory: A new factory with default calculators registered.
 func NewDefaultFactory() *DefaultFactory {
 	f := &DefaultFactory{
-		creators:    make(map[string]func() coreCalculator),
+		creators:    make(map[string]func() CoreCalculator),
 		calculators: make(map[string]Calculator),
 	}
 
 	// Register the default calculators
-	_ = f.Register("fast", func() coreCalculator { return &OptimizedFastDoubling{} })
-	_ = f.Register("matrix", func() coreCalculator { return &MatrixExponentiation{} })
-	_ = f.Register("fft", func() coreCalculator { return &FFTBasedCalculator{} })
+	_ = f.Register("fast", func() CoreCalculator { return &OptimizedFastDoubling{} })
+	_ = f.Register("matrix", func() CoreCalculator { return &MatrixExponentiation{} })
+	_ = f.Register("fft", func() CoreCalculator { return &FFTBasedCalculator{} })
 
 	return f
 }
@@ -81,8 +78,8 @@ func NewDefaultFactory() *DefaultFactory {
 //
 // Parameters:
 //   - name: The unique identifier for the calculator type.
-//   - creator: A function that creates a new coreCalculator instance.
-func (f *DefaultFactory) Register(name string, creator func() coreCalculator) error {
+//   - creator: A function that creates a new CoreCalculator instance.
+func (f *DefaultFactory) Register(name string, creator func() CoreCalculator) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -249,7 +246,25 @@ func GlobalFactory() *DefaultFactory {
 //
 // Parameters:
 //   - name: The unique identifier for the calculator type.
-//   - creator: A function that creates a new coreCalculator instance.
-func RegisterCalculator(name string, creator func() coreCalculator) error {
+//   - creator: A function that creates a new CoreCalculator instance.
+func RegisterCalculator(name string, creator func() CoreCalculator) error {
 	return globalFactory.Register(name, creator)
+}
+
+// ResetGlobalFactory replaces the global factory with a fresh DefaultFactory.
+// This is intended for test isolation: tests that modify the global factory
+// should call this in a cleanup function to avoid leaking state to other tests.
+//
+// Production code should prefer dependency injection via app.WithFactory()
+// instead of relying on the global factory.
+//
+// Example:
+//
+//	func TestMyFeature(t *testing.T) {
+//	    t.Cleanup(fibonacci.ResetGlobalFactory)
+//	    fibonacci.RegisterCalculator("custom", func() fibonacci.CoreCalculator { ... })
+//	    // test code
+//	}
+func ResetGlobalFactory() {
+	globalFactory = NewDefaultFactory()
 }
