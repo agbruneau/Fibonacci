@@ -2,6 +2,7 @@ package fibonacci
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"time"
 
@@ -83,11 +84,29 @@ type FibCalculator struct {
 //
 // Returns:
 //   - Calculator: A new FibCalculator instance implementing the Calculator interface.
-func NewCalculator(core CoreCalculator) Calculator {
+//   - error: An error if the core implementation is nil.
+func NewCalculator(core CoreCalculator) (Calculator, error) {
 	if core == nil {
-		panic("fibonacci: the `CoreCalculator` implementation cannot be nil")
+		return nil, errors.New("fibonacci: the `CoreCalculator` implementation cannot be nil")
 	}
-	return &FibCalculator{core: core}
+	return &FibCalculator{core: core}, nil
+}
+
+// MustNewCalculator is a helper that wraps a call to NewCalculator and panics
+// if the returned error is non-nil. It is intended for use in variable initializations
+// and `init()` functions where propagating an error is impossible.
+//
+// Parameters:
+//   - core: The core calculator to be wrapped.
+//
+// Returns:
+//   - Calculator: A new FibCalculator instance implementing the Calculator interface.
+func MustNewCalculator(core CoreCalculator) Calculator {
+	calc, err := NewCalculator(core)
+	if err != nil {
+		panic(err)
+	}
+	return calc
 }
 
 // Name returns the name of the encapsulated CoreCalculator, fulfilling the

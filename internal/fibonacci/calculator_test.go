@@ -11,7 +11,7 @@ func TestFibCalculator_Name(t *testing.T) {
 	t.Run("Name delegates to core calculator", func(t *testing.T) {
 		t.Parallel()
 		core := &OptimizedFastDoubling{}
-		calc := NewCalculator(core)
+		calc := MustNewCalculator(core)
 
 		name := calc.Name()
 		expected := core.Name()
@@ -28,7 +28,7 @@ func TestFibCalculator_Name(t *testing.T) {
 	t.Run("Name with MatrixExponentiation", func(t *testing.T) {
 		t.Parallel()
 		core := &MatrixExponentiation{}
-		calc := NewCalculator(core)
+		calc := MustNewCalculator(core)
 
 		name := calc.Name()
 		expected := core.Name()
@@ -45,7 +45,7 @@ func TestFibCalculator_Name(t *testing.T) {
 	t.Run("Name with FFTBasedCalculator", func(t *testing.T) {
 		t.Parallel()
 		core := &FFTBasedCalculator{}
-		calc := NewCalculator(core)
+		calc := MustNewCalculator(core)
 
 		name := calc.Name()
 		expected := core.Name()

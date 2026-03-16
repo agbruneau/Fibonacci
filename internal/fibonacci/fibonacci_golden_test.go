@@ -31,9 +31,9 @@ func TestCalculatorsAgainstGoldenFile(t *testing.T) {
 	}
 
 	calculators := map[string]Calculator{
-		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
-		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
-		"FFTBased":     NewCalculator(&FFTBasedCalculator{}),
+		"FastDoubling": MustNewCalculator(&OptimizedFastDoubling{}),
+		"MatrixExp":    MustNewCalculator(&MatrixExponentiation{}),
+		"FFTBased":     MustNewCalculator(&FFTBasedCalculator{}),
 	}
 
 	ctx := context.Background()

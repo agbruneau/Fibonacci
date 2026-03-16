@@ -19,7 +19,7 @@ import (
 // TestFibonacciRecurrenceRelation verifies F(n) = F(n-1) + F(n-2).
 func TestFibonacciRecurrenceRelation(t *testing.T) {
 	t.Parallel()
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
 
@@ -59,7 +59,7 @@ func TestFibonacciRecurrenceRelation(t *testing.T) {
 // TestParallelThresholdBoundary tests behavior at the parallel threshold boundary.
 func TestParallelThresholdBoundary(t *testing.T) {
 	t.Parallel()
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 
 	// Test with threshold disabled (sequential only)
@@ -105,7 +105,7 @@ func TestParallelThresholdBoundary(t *testing.T) {
 // TestFFTThresholdVariations tests behavior with different FFT thresholds.
 func TestFFTThresholdVariations(t *testing.T) {
 	t.Parallel()
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	n := uint64(50000)
 
@@ -147,7 +147,7 @@ func TestFFTThresholdVariations(t *testing.T) {
 // TestStrassenThresholdVariations tests behavior with different Strassen thresholds.
 func TestStrassenThresholdVariations(t *testing.T) {
 	t.Parallel()
-	calc := NewCalculator(&MatrixExponentiation{})
+	calc := MustNewCalculator(&MatrixExponentiation{})
 	ctx := context.Background()
 	n := uint64(10000)
 
@@ -251,7 +251,7 @@ func TestContextTimeoutShort(t *testing.T) {
 // TestConcurrentCalculations verifies thread-safety of concurrent calculations.
 func TestConcurrentCalculations(t *testing.T) {
 	t.Parallel()
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
 
@@ -286,7 +286,7 @@ func TestConcurrentCalculations(t *testing.T) {
 // TestConcurrentDifferentN tests concurrent calculations with different N values.
 func TestConcurrentDifferentN(t *testing.T) {
 	t.Parallel()
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
 

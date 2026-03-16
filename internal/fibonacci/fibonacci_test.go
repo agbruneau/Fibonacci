@@ -35,9 +35,9 @@ var knownFibResults = []struct {
 func TestFibonacciCalculators(t *testing.T) {
 	ctx := context.Background()
 	calculators := map[string]Calculator{
-		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
-		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
-		"FFTBased":     NewCalculator(&FFTBasedCalculator{}),
+		"FastDoubling": MustNewCalculator(&OptimizedFastDoubling{}),
+		"MatrixExp":    MustNewCalculator(&MatrixExponentiation{}),
+		"FFTBased":     MustNewCalculator(&FFTBasedCalculator{}),
 	}
 
 	for name, calc := range calculators {
@@ -70,7 +70,7 @@ func TestFibonacciCalculators(t *testing.T) {
 func TestProgressCalculationLogic(t *testing.T) {
 	t.Parallel()
 	const n = 100_000 // A sufficiently large number for the test
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	progressChan := make(chan ProgressUpdate, 200)
 	var progressUpdates []float64
 	var wg sync.WaitGroup
@@ -106,23 +106,21 @@ func TestProgressCalculationLogic(t *testing.T) {
 	}
 }
 
-// TestNilCoreCalculatorPanic verifies that `NewCalculator` panics if called
+// TestNilCoreCalculatorError verifies that `NewCalculator` returns an error if called
 // with a nil `CoreCalculator`.
-func TestNilCoreCalculatorPanic(t *testing.T) {
+func TestNilCoreCalculatorError(t *testing.T) {
 	t.Parallel()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("NewCalculator should have panicked with a nil core.")
-		}
-	}()
-	_ = NewCalculator(nil)
+	_, err := NewCalculator(nil)
+	if err == nil {
+		t.Error("NewCalculator should have returned an error with a nil core.")
+	}
 }
 
 // TestProgressCallback validates the monotonic notification of progress.
 func TestProgressCallback(t *testing.T) {
 	calculators := map[string]Calculator{
-		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
-		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
+		"FastDoubling": MustNewCalculator(&OptimizedFastDoubling{}),
+		"MatrixExp":    MustNewCalculator(&MatrixExponentiation{}),
 	}
 
 	for name, calc := range calculators {
@@ -161,8 +159,8 @@ func TestProgressCallback(t *testing.T) {
 // context cancellation.
 func TestContextCancellation(t *testing.T) {
 	calculators := map[string]Calculator{
-		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
-		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
+		"FastDoubling": MustNewCalculator(&OptimizedFastDoubling{}),
+		"MatrixExp":    MustNewCalculator(&MatrixExponentiation{}),
 	}
 
 	for name, calc := range calculators {
@@ -197,9 +195,9 @@ func BenchmarkFibonacci(b *testing.B) {
 	}
 
 	calculators := map[string]Calculator{
-		"FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
-		"MatrixExp":    NewCalculator(&MatrixExponentiation{}),
-		"FFTBased":     NewCalculator(&FFTBasedCalculator{}),
+		"FastDoubling": MustNewCalculator(&OptimizedFastDoubling{}),
+		"MatrixExp":    MustNewCalculator(&MatrixExponentiation{}),
+		"FFTBased":     MustNewCalculator(&FFTBasedCalculator{}),
 	}
 
 	for _, bm := range benchmarks {
@@ -215,7 +213,7 @@ func BenchmarkFibonacci(b *testing.B) {
 // to calculate a Fibonacci number.
 func ExampleCalculator_Calculate() {
 	// Create a new calculator with the Fast Doubling algorithm.
-	calculator := NewCalculator(&OptimizedFastDoubling{})
+	calculator := MustNewCalculator(&OptimizedFastDoubling{})
 
 	// Calculate the 20th Fibonacci number.
 	result, err := calculator.Calculate(context.Background(), nil, 0, 20, Options{ParallelThreshold: DefaultParallelThreshold})

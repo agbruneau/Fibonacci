@@ -105,7 +105,7 @@ func TestShouldParallelizeMultiplication(t *testing.T) {
 func TestPreSizing_ReducesAllocations(t *testing.T) {
 	t.Parallel()
 
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 
 	// Medium-sized calculation that benefits from pre-sizing
@@ -123,7 +123,7 @@ func TestPreSizing_ReducesAllocations(t *testing.T) {
 func TestFastDoubling_ReducedState_Correctness(t *testing.T) {
 	t.Parallel()
 
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 
 	cases := []struct {
@@ -161,7 +161,7 @@ func TestFastDoubling_ReducedState_Correctness(t *testing.T) {
 func TestFFTBased_ReducedState_Correctness(t *testing.T) {
 	t.Parallel()
 
-	calc := NewCalculator(&FFTBasedCalculator{})
+	calc := MustNewCalculator(&FFTBasedCalculator{})
 	ctx := context.Background()
 
 	cases := []struct {

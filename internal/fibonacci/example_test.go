@@ -7,11 +7,11 @@ import (
 
 // ExampleNewCalculator demonstrates creating a Calculator with
 // different algorithm implementations.
-func ExampleNewCalculator() {
+func ExampleMustNewCalculator() {
 	// Create calculators for each algorithm.
-	fast := NewCalculator(&OptimizedFastDoubling{})
-	matrix := NewCalculator(&MatrixExponentiation{})
-	fft := NewCalculator(&FFTBasedCalculator{})
+	fast := MustNewCalculator(&OptimizedFastDoubling{})
+	matrix := MustNewCalculator(&MatrixExponentiation{})
+	fft := MustNewCalculator(&FFTBasedCalculator{})
 
 	fmt.Println(fast.Name())
 	fmt.Println(matrix.Name())
@@ -52,7 +52,7 @@ func ExampleDefaultFactory() {
 // ExampleFibCalculator_CalculateWithObservers demonstrates observer-based
 // progress tracking during a calculation.
 func ExampleFibCalculator_CalculateWithObservers() {
-	calc := NewCalculator(&OptimizedFastDoubling{}).(*FibCalculator)
+	calc := MustNewCalculator(&OptimizedFastDoubling{}).(*FibCalculator)
 
 	// Create a subject with a channel observer.
 	subject := NewProgressSubject()
@@ -84,7 +84,7 @@ func ExampleFibCalculator_CalculateWithObservers() {
 // Example_smallValues shows that small Fibonacci values (n <= 93)
 // are computed via the optimised iterative path.
 func Example_smallValues() {
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 
 	// F(0) through F(93) use the fast iterative path.
 	for _, n := range []uint64{0, 1, 2, 10, 93} {

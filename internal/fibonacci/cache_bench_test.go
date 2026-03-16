@@ -17,7 +17,7 @@ func BenchmarkCacheImpact(b *testing.B) {
 	defaultConfig := bigfft.DefaultTransformCacheConfig()
 	bigfft.SetTransformCacheConfig(defaultConfig)
 
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 
 	opts := Options{
@@ -91,7 +91,7 @@ func BenchmarkCacheHitRate(b *testing.B) {
 	defaultConfig := bigfft.DefaultTransformCacheConfig()
 	bigfft.SetTransformCacheConfig(defaultConfig)
 
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 
 	enabled := true

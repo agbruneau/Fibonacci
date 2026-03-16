@@ -127,7 +127,7 @@ func FuzzFibonacciIdentities(f *testing.F) {
 	f.Add(uint64(2), uint64(1))       // Small edge case
 	f.Add(uint64(9999), uint64(5000)) // Near upper bound
 
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	opts := Options{ParallelThreshold: DefaultParallelThreshold}
 

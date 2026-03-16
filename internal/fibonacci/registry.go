@@ -107,7 +107,11 @@ func (f *DefaultFactory) Create(name string) (Calculator, error) {
 		registryLogger.Debug().Str("calculator", name).Msg("calculator not found")
 		return nil, fmt.Errorf("unknown calculator: %s", name)
 	}
-	calc := NewCalculator(creator())
+	calc, err := NewCalculator(creator())
+	if err != nil {
+		registryLogger.Error().Err(err).Str("calculator", name).Msg("failed to create calculator")
+		return nil, err
+	}
 	registryLogger.Debug().Str("calculator", name).Msg("calculator created")
 	return calc, nil
 }
@@ -146,7 +150,11 @@ func (f *DefaultFactory) Get(name string) (Calculator, error) {
 		return nil, fmt.Errorf("unknown calculator: %s", name)
 	}
 
-	calc := NewCalculator(creator())
+	calc, err := NewCalculator(creator())
+	if err != nil {
+		registryLogger.Error().Err(err).Str("calculator", name).Msg("failed to pool create calculator")
+		return nil, err
+	}
 	f.calculators[name] = calc
 	registryLogger.Debug().Str("calculator", name).Msg("calculator created and cached")
 	return calc, nil
@@ -182,7 +190,12 @@ func (f *DefaultFactory) GetAll() map[string]Calculator {
 	// Ensure all calculators are initialized
 	for name, creator := range f.creators {
 		if _, exists := f.calculators[name]; !exists {
-			f.calculators[name] = NewCalculator(creator())
+			calc, err := NewCalculator(creator())
+			if err == nil {
+				f.calculators[name] = calc
+			} else {
+				registryLogger.Error().Err(err).Str("calculator", name).Msg("failed to default pool create calculator")
+			}
 		}
 	}
 

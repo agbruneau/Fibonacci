@@ -114,7 +114,7 @@
 
 ---
 
-#### R-05 : Remplacer `panic` par `(T, error)` dans `NewCalculator` (D-09)
+#### ✅ R-05 : Remplacer `panic` par `(T, error)` dans `NewCalculator` (D-09) — *Réalisé*
 
 **Justification :** `panic` dans un constructeur est non-idiomatique en Go et rend le code appelant fragile.
 
@@ -318,7 +318,7 @@
 | ✅ R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | ~~**Haute**~~ Réalisé |
 | ✅ R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
 | ✅ R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | ~~**Moyenne**~~ Réalisé |
-| R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | Moyenne |
+| ✅ R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
 | R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | Moyenne |
 | O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |
 | O-02 | Performance | Transform caching agressif | 🟡 Moyen | ~6h | Moyenne |

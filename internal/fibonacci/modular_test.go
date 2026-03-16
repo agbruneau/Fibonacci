@@ -43,7 +43,7 @@ func TestFastDoublingMod_ConsistentWithFull(t *testing.T) {
 	t.Parallel()
 
 	// Compute F(500) fully, then verify last 100 digits match modular result
-	calc := NewCalculator(&OptimizedFastDoubling{})
+	calc := MustNewCalculator(&OptimizedFastDoubling{})
 	ctx := context.Background()
 	full, err := calc.Calculate(ctx, nil, 0, 500, Options{})
 	if err != nil {

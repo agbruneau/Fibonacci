@@ -1,0 +1,14 @@
+# github.com/agbru/fibcalc/internal/fibonacci [github.com/agbru/fibcalc/internal/fibonacci.test]
+internal\fibonacci\cache_bench_test.go:20:10: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\cache_bench_test.go:94:10: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\calculator_test.go:14:11: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\calculator_test.go:31:11: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\calculator_test.go:48:11: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\example_test.go:12:10: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\example_test.go:13:12: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\example_test.go:14:9: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\example_test.go:55:10: multiple-value NewCalculator(&OptimizedFastDoubling{}) (value of type (Calculator, error)) in single-value context
+internal\fibonacci\example_test.go:87:10: assignment mismatch: 1 variable but NewCalculator returns 2 values
+internal\fibonacci\example_test.go:87:10: too many errors
+FAIL	github.com/agbru/fibcalc/internal/fibonacci [build failed]
+FAIL
