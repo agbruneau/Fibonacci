@@ -27,7 +27,7 @@ func BenchmarkCacheImpact(b *testing.B) {
 
 	b.Run("WithDefaultCache", func(b *testing.B) {
 		// Use default cache configuration
-		configureFFTCache(opts)
+		configureFFTCache(opts, n)
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
@@ -48,7 +48,7 @@ func BenchmarkCacheImpact(b *testing.B) {
 			FFTCacheMaxEntries: 256,   // Larger cache
 			FFTCacheEnabled:    &enabled,
 		}
-		configureFFTCache(optsOptimized)
+		configureFFTCache(optsOptimized, n)
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
@@ -67,7 +67,7 @@ func BenchmarkCacheImpact(b *testing.B) {
 			FFTThreshold:      DefaultFFTThreshold,
 			FFTCacheEnabled:   &disabled,
 		}
-		configureFFTCache(optsDisabled)
+		configureFFTCache(optsDisabled, n)
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
@@ -104,7 +104,7 @@ func BenchmarkCacheHitRate(b *testing.B) {
 		FFTCacheEnabled:    &enabled,
 	}
 
-	configureFFTCache(opts)
+	configureFFTCache(opts, n)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

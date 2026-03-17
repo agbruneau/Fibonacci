@@ -10,6 +10,7 @@ import (
 	"math/bits"
 	"time"
 
+	"github.com/agbru/fibcalc/internal/bigfft"
 	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
 )
 
@@ -223,6 +224,24 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 			if adjusted {
 				currentOpts.FFTThreshold = newFFT
 				currentOpts.ParallelThreshold = newParallel
+			}
+
+			// Dynamically adjust FFT cache based on hit rate
+			cache := bigfft.GetTransformCache()
+			stats := cache.Stats()
+
+			// If evicting frequently with good hit rate, increase cache size
+			if stats.Evictions > 0 && stats.HitRate > 0.5 {
+				cfg := cache.Config()
+				if cfg.MaxEntries < 8192 { // Hard upper limit to prevent excessive memory
+					cfg.MaxEntries = int(float64(cfg.MaxEntries) * 1.2) // Increase by 20%
+					bigfft.SetTransformCacheConfig(cfg)
+				}
+			} else if stats.HitRate < 0.1 && (stats.Misses+stats.Hits) > 10 {
+				// If cache is not useful, prune smaller transforms
+				cfg := cache.Config()
+				cfg.MinBitLen = int(float64(cfg.MinBitLen) * 1.1) // Increase threshold by 10%
+				bigfft.SetTransformCacheConfig(cfg)
 			}
 		}
 

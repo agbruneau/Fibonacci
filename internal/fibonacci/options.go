@@ -2,7 +2,11 @@
 
 package fibonacci
 
-import "github.com/agbru/fibcalc/internal/bigfft"
+import (
+	"math/bits"
+
+	"github.com/agbru/fibcalc/internal/bigfft"
+)
 
 // Options configures the Fibonacci calculation.
 type Options struct {
@@ -63,7 +67,8 @@ func normalizeOptions(opts Options) Options {
 // configureFFTCache configures the FFT transform cache based on the provided options.
 // This optimization allows reusing expensive FFT transforms across iterations,
 // providing 15-30% speedup for large calculations where FFT is used.
-func configureFFTCache(opts Options) {
+// It sizes the cache dynamically based on the Fibonacci number n to be computed.
+func configureFFTCache(opts Options, n uint64) {
 	// Get default config to use as base
 	defaultConfig := bigfft.DefaultTransformCacheConfig()
 	config := bigfft.TransformCacheConfig{
@@ -75,7 +80,17 @@ func configureFFTCache(opts Options) {
 	// Override with user-provided options if specified
 	if opts.FFTCacheMaxEntries > 0 {
 		config.MaxEntries = opts.FFTCacheMaxEntries
+	} else if n > 0 {
+		// Log2(N) iterations roughly, producing at most 2 new transforms each
+		dynamicSize := 2 * bits.Len64(n)
+		if dynamicSize < 64 {
+			dynamicSize = 64
+		} else if dynamicSize > 4096 {
+			dynamicSize = 4096
+		}
+		config.MaxEntries = dynamicSize
 	}
+
 	if opts.FFTCacheMinBitLen > 0 {
 		config.MinBitLen = opts.FFTCacheMinBitLen
 	}
