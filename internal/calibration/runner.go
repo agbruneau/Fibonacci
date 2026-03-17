@@ -76,7 +76,7 @@ func (r *calibrationRunner) findBestParallelThreshold(calc fibonacci.Calculator,
 //   - int: The best FFT threshold found.
 //   - time.Duration: The duration achieved with the best threshold.
 func (r *calibrationRunner) findBestFFTThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (threshold int, duration time.Duration) {
-	candidates := GenerateQuickFFTThresholds()
+	candidates := GenerateFFTThresholds()
 	best := defaultThreshold
 	bestDur := time.Duration(1<<63 - 1)
 

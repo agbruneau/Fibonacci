@@ -32,6 +32,7 @@ type CalibrationProfile struct {
 	CalibratedAt    time.Time `json:"calibrated_at"`
 	CalibrationN    uint64    `json:"calibration_n"`
 	CalibrationTime string    `json:"calibration_time"`
+	Confidence      float64   `json:"confidence"` // 0.0 to 1.0 indicating calibration reliability
 
 	// Version for forward compatibility
 	ProfileVersion int `json:"profile_version"`
@@ -167,11 +168,12 @@ func (p *CalibrationProfile) String() string {
 	}
 
 	return fmt.Sprintf(
-		"CalibrationProfile{CPU: %s, Parallel: %d bits, FFT: %d bits, Strassen: %d bits, Calibrated: %s}",
+		"CalibrationProfile{CPU: %s, Parallel: %d bits, FFT: %d bits, Strassen: %d bits, Confidence: %.2f, Calibrated: %s}",
 		p.CPUModel,
 		p.OptimalParallelThreshold,
 		p.OptimalFFTThreshold,
 		p.OptimalStrassenThreshold,
+		p.Confidence,
 		p.CalibratedAt.Format(time.RFC3339),
 	)
 }

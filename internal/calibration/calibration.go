@@ -153,6 +153,8 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 		profile.CalibrationN = fibonacci.CalibrationN
 		profile.CalibrationTime = calibrationDuration.String()
 
+		profile.Confidence = 1.0
+
 		if err := profile.SaveProfile(opts.ProfilePath); err != nil {
 			fmt.Fprintf(out, "%sWarning: failed to save profile: %v%s\n",
 				ui.ColorYellow(), err, ui.ColorReset())
@@ -234,7 +236,7 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 			microResults.Confidence*100)
 
 		// Save profile for future use
-		saveCalibrationProfile(updated, profilePath, out)
+		saveCalibrationProfile(updated, profilePath, out, microResults.Confidence)
 		return updated, true
 	}
 
@@ -260,7 +262,7 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	}
 
 	// Save profile and print output
-	saveCalibrationProfile(updated, profilePath, out)
+	saveCalibrationProfile(updated, profilePath, out, 1.0)
 	printCalibrationOutput(updated, out)
 
 	return updated, true
@@ -321,12 +323,14 @@ func applyCalibrationResults(cfg config.AppConfig, bestPar int, bestParDur time.
 //   - cfg: The updated configuration with calibration results.
 //   - profilePath: The path to save the profile.
 //   - out: The writer for warning messages.
-func saveCalibrationProfile(cfg config.AppConfig, profilePath string, out io.Writer) {
+//   - confidence: The confidence score of the calibration.
+func saveCalibrationProfile(cfg config.AppConfig, profilePath string, out io.Writer, confidence float64) {
 	profile := NewProfile()
 	profile.OptimalParallelThreshold = cfg.Threshold
 	profile.OptimalFFTThreshold = cfg.FFTThreshold
 	profile.OptimalStrassenThreshold = cfg.StrassenThreshold
 	profile.CalibrationN = fibonacci.CalibrationN
+	profile.Confidence = confidence
 
 	if err := profile.SaveProfile(profilePath); err != nil {
 		fmt.Fprintf(out, "%sWarning: could not save calibration profile: %v%s\n",
