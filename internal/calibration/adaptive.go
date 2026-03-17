@@ -71,6 +71,18 @@ func GenerateQuickParallelThresholds() []int {
 	}
 }
 
+// GenerateFFTThresholds generates a comprehensive list of FFT thresholds to test,
+// sweeping the range 200K-1M bits by steps of 50K bits.
+func GenerateFFTThresholds() []int {
+	thresholds := []int{0} // Always include sequential baseline
+
+	for t := 200000; t <= 1000000; t += 50000 {
+		thresholds = append(thresholds, t)
+	}
+
+	return thresholds
+}
+
 // GenerateQuickFFTThresholds generates a smaller set for quick calibration.
 func GenerateQuickFFTThresholds() []int {
 	return []int{0, 750000, 1000000, 1500000}
