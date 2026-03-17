@@ -68,6 +68,13 @@ type TransformCache struct {
 	logger    zerolog.Logger
 }
 
+// Config returns the current configuration of the transform cache.
+func (tc *TransformCache) Config() TransformCacheConfig {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	return tc.config
+}
+
 // NewTransformCache creates a new FFT transform cache with the given config.
 func NewTransformCache(config TransformCacheConfig) *TransformCache {
 	return &TransformCache{

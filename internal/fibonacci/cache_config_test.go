@@ -16,7 +16,7 @@ func TestConfigureFFTCacheDefault(t *testing.T) {
 		// FFTCache options not set - should use defaults
 	}
 
-	configureFFTCache(opts)
+	configureFFTCache(opts, 1000000)
 
 	// Verify cache is configured with defaults
 	cache := bigfft.GetTransformCache()
@@ -45,7 +45,7 @@ func TestConfigureFFTCacheCustom(t *testing.T) {
 		FFTCacheEnabled:    &enabled,
 	}
 
-	configureFFTCache(opts)
+	configureFFTCache(opts, 1000000)
 
 	// Verify cache configuration was applied
 	cache := bigfft.GetTransformCache()
@@ -72,7 +72,7 @@ func TestConfigureFFTCacheDisabled(t *testing.T) {
 		FFTCacheEnabled:   &disabled,
 	}
 
-	configureFFTCache(opts)
+	configureFFTCache(opts, 1000000)
 
 	// Verify cache is disabled
 	cache := bigfft.GetTransformCache()
