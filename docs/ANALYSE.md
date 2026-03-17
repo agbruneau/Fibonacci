@@ -170,27 +170,27 @@
 
 ### 3.1 Performance
 
-#### O-01 : Optimiser le seuil FFT par profilage systématique
+#### ✅ O-01 : Optimiser le seuil FFT par profilage systématique — *Réalisé*
 
-**Situation actuelle :** Le `DefaultFFTThreshold` (500K bits) est une estimation conservatrice. La calibration automatique (`AutoCalibrate`) le raffine, mais le processus pourrait être plus granulaire.
+**Situation actuelle :** Le `DefaultFFTThreshold` (500K bits) est une estimation conservatrice. La calibration automatique (`AutoCalibrate`) le raffine désormais de manière granulaire.
 
-**Optimisation proposée :**
-1. Implémenter un benchmark dédié balayant la plage 200K–1M bits par pas de 50K
-2. Générer une courbe crossover FFT/Karatsuba par architecture (amd64/arm64)
-3. Intégrer les résultats dans les profils de calibration avec un score de confiance
+**Actions :**
+1. ~~Implémenter un benchmark dédié balayant la plage 200K–1M bits par pas de 50K~~ ✅
+2. ~~Générer une courbe crossover FFT/Karatsuba par architecture (amd64/arm64)~~ ✅
+3. ~~Intégrer les résultats dans les profils de calibration avec un score de confiance~~ ✅
 
 **Gain estimé :** 5-15% sur les cas proches du seuil de crossover
 
 ---
 
-#### O-02 : Exploiter le transform caching de manière plus agressive
+#### ✅ O-02 : Exploiter le transform caching de manière plus agressive — *Réalisé*
 
-**Situation actuelle :** Le cache FFT (`fft_cache.go`) est configurable via `Options` mais la taille est fixe. Le cache n'est pas partagé entre les itérations de la boucle de calcul principal.
+**Situation actuelle :** Le cache FFT (`fft_cache.go`) est implémenté et réduit les calculs redondants lors des itérations de la boucle de doubling.
 
-**Optimisation proposée :**
-1. Dimensionner le cache en fonction de N (log₂(N) entrées maximum)
-2. Explorer le partage de transforms entre `Sqr(FK)` et `Sqr(FK1)` quand les tailles sont proches
-3. Mesurer le hit-rate du cache et ajuster dynamiquement
+**Actions :**
+1. ~~Dimensionner le cache en fonction de N (log₂(N) entrées maximum)~~ ✅
+2. ~~Explorer le partage de transforms entre `Sqr(FK)` et `Sqr(FK1)` quand les tailles sont proches~~ ✅
+3. ~~Mesurer le hit-rate du cache et ajuster dynamiquement~~ ✅
 
 **Gain estimé :** 10-20% pour les calculs FFT-dominés
 
@@ -314,14 +314,14 @@
 
 | # | Catégorie | Titre | Impact | Effort | Priorité |
 |---|-----------|-------|--------|--------|----------|
-| ✅ R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | ~~**Haute**~~ Réalisé |
-| ✅ R-02 | Concurrence | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | ~~**Haute**~~ Réalisé |
-| ✅ R-03 | Architecture | Exporter `coreCalculator` | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
-| ✅ R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | ~~**Moyenne**~~ Réalisé |
-| ✅ R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
-| ✅ R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | ~~**Moyenne**~~ Réalisé |
-| ✅O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |
-| ✅ O-02 | Performance | Transform caching agressif | 🟡 Moyen | ~6h | Moyenne |
+| ✅ R-01 | Documentation | Harmoniser ARCH.md / README.md | 🟡 Moyen | ~1h | Réalisé |
+| ✅ R-02 | Concurrence   | Fix `executeParallel3` sémaphore | 🟡 Moyen | ~30min | Réalisé |
+| ✅ R-03 | Architecture  | Exporter `coreCalculator`        | 🟡 Moyen | ~1h | Réalisé |
+| ✅ R-04 | Architecture  | Remplacer globales mutables      | 🟡 Moyen | ~2h | Réalisé |
+| ✅ R-05 | Code          | Remplacer `panic` par erreur     | 🟡 Moyen | ~1h | Réalisé |
+| ✅ R-06 | Tests         | Enrichir tests e2e               | 🟡 Moyen | ~3h | Réalisé |
+| ✅ O-01 | Performance   | Profilage seuil FFT              | 🟡 Moyen | ~4h | Réalisé |
+| ✅ O-02 | Performance   | Transform caching agressif       | 🟡 Moyen | ~6h | Réalisé |
 | O-05 | Maintenabilité | Extraire lifecycle | 🟠 Faible | ~2h | Basse |
 | O-06 | Maintenabilité | Typer les modes | 🟠 Faible | ~1h | Basse |
 | O-07 | Maintenabilité | Consolider loggers | 🟠 Faible | ~2h | Basse |
