@@ -320,8 +320,8 @@
 | ✅ R-04 | Architecture | Remplacer globales mutables | 🟡 Moyen | ~2h | ~~**Moyenne**~~ Réalisé |
 | ✅ R-05 | Code | Remplacer `panic` par erreur | 🟡 Moyen | ~1h | ~~**Moyenne**~~ Réalisé |
 | ✅ R-06 | Tests | Enrichir tests e2e | 🟡 Moyen | ~3h | ~~**Moyenne**~~ Réalisé |
-| O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |
-| O-02 | Performance | Transform caching agressif | 🟡 Moyen | ~6h | Moyenne |
+| ✅O-01 | Performance | Profilage seuil FFT | 🟡 Moyen | ~4h | Moyenne |
+| ✅ O-02 | Performance | Transform caching agressif | 🟡 Moyen | ~6h | Moyenne |
 | O-05 | Maintenabilité | Extraire lifecycle | 🟠 Faible | ~2h | Basse |
 | O-06 | Maintenabilité | Typer les modes | 🟠 Faible | ~1h | Basse |
 | O-07 | Maintenabilité | Consolider loggers | 🟠 Faible | ~2h | Basse |
