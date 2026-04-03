@@ -38,6 +38,34 @@ go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
 go test -bench=BenchmarkFastDoubling -benchtime=5x ./internal/fibonacci/
 ```
 
+### Versioned benchmark snapshots (regression tracking)
+
+To compare performance across Git revisions on the **same machine**, use a fixed command and record the environment:
+
+1. **Record a snapshot** (writes `build/bench/snapshot-*.txt` with `go version`, full Git SHA, and benchmark output):
+
+   ```bash
+   make bench-versioned
+   ```
+
+   This runs `go test` with fixed flags: `-bench=BenchmarkFastDoubling -benchmem -count=3 -benchtime=2s ./internal/fibonacci/`.
+
+2. **Annotate the result**: note the Git tag or commit (`git rev-parse HEAD`) in your changelog or ticket when you archive a snapshot. Single-run numbers are noisy; compare trends only on an idle machine, same flags, same `GOMAXPROCS` if you tune it.
+
+3. **CHANGELOG** (optional): add a one-line entry such as  
+   `Perf: benchmark snapshot @ <SHA> — FastDoubling ns/op ±X% vs previous main` when you publish a measured change.
+
+The reference table in [Reference Benchmarks](#reference-benchmarks) above is tied to a specific hardware and Go 1.25.0 configuration; your snapshots document *your* runner.
+
+## Hardware heuristic defaults (P3)
+
+When CLI thresholds are left at **0** (auto) and no valid calibration profile is loaded, FibCalc applies `internal/config.ApplyAdaptiveThresholds`, which calls `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, and `EstimateOptimalStrassenThreshold`. These functions use:
+
+- **`runtime.NumCPU()`** for parallelism tiers (unchanged broad behavior).
+- **`HardwareHeuristic`** (`internal/config/hardware.go`): on **amd64** and **386**, **AVX2** and **AVX-512 (AVX512F)** are read from `golang.org/x/sys/cpu` to nudge defaults (e.g. slightly lower FFT crossover on SIMD-rich CPUs, adjusted Strassen threshold when at least four cores are available).
+
+Diagnostics and unit tests use the exported `EstimateParallelThresholdForHeuristic`, `EstimateFFTThresholdForHeuristic`, and `EstimateStrassenThresholdForHeuristic` with a synthetic `HardwareHeuristic`. Cached calibration profiles store `cpu_heuristic_key` (profile format v3) so a change in SIMD class invalidates stale JSON — see [CALIBRATION.md](CALIBRATION.md).
+
 ## Implemented Optimizations
 
 ### 1. Zero-Allocation Strategy

@@ -39,6 +39,27 @@ Ce document est la **déclinaison opérationnelle** de [INNOVATION.md](INNOVATIO
 
 ---
 
+## Suivi des tâches
+
+Tableau opérationnel : chaque ligne correspond à une entrée de la **matrice synthèse** ci-dessus (colonne **#**) et au **code** utilisé dans les sections détaillées (P1-a … P4-a). Le **statut** reflète l’état courant du dépôt ; à mettre à jour lors des PR.
+
+| # | Code | Piste (rappel) | Priorité | Statut | Emplacement / notes |
+|---|------|------------------|----------|--------|------------------------|
+| 2 | P1-a | Erreurs enrichies (`CalculationError`) | P1 | Fait | `internal/errors`, `WrapCalculationError` (orchestrateur) |
+| 9 | P1-b | Mode « quiet machine » CLI | P1 | Fait | `-q` / `--quiet`, `FIBCALC_QUIET` |
+| 6 | P1-c | Bench comparatifs versionnés | P1 | Fait | `make bench-versioned`, [PERFORMANCE.md](PERFORMANCE.md) |
+| 3 | P2-a | Réduire friction des mocks (`CoreCalculator`) | P2 | Fait | `internal/fibonacci/fibonaccitest`, [ARCH.md](ARCH.md) §11 |
+| 4 | P2-b | Tests de contrat orchestration / `Calculator` | P2 | Fait | `internal/orchestration/contract_test.go` |
+| 5 | P2-c | CI multi-`GOOS` (`bigfft`) | P2 | Fait | [.github/workflows/ci.yml](../.github/workflows/ci.yml) |
+| 1 | P2-d | Audit `context` (chemins longs) | P2 | Fait | Calibration, doubling/FFT, `executeParallel3`, point avant transforms FFT |
+| 10 | P2-e | TUI : thèmes / accessibilité | P2 | Fait | `FIBCALC_TUI_THEME=high-contrast`, symboles pied de page, [TUI_GUIDE.md](TUI_GUIDE.md) |
+| 8 | P3-a | Affinage heuristique CPU | P3 | Fait | `internal/config/hardware.go`, `thresholds.go`, profil calibration v3 (`cpu_heuristic_key`) |
+| 7 | P4-a | Backends arith. au-delà de GMP | P4 | Fait (doc / décision) | ADR dans [ARCH.md](ARCH.md), section « Recherche » dans [algorithms/GMP.md](algorithms/GMP.md) — pas de second backend C dans `main` |
+
+*Ordre des lignes : même numérotation que la matrice (#), pas l’ordre d’implémentation.*
+
+---
+
 ## Dépendances suggérées
 
 ```mermaid
@@ -230,5 +251,6 @@ flowchart LR
 ## Traçabilité
 
 - **Source des pistes :** [INNOVATION.md](INNOVATION.md).  
+- **Suivi d’avancement :** section [Suivi des tâches](#suivi-des-tâches) de ce document.  
 - **Architecture et mockabilité :** [ARCH.md](ARCH.md).  
 - **Ce document** est un plan d’exécution : les PR et revues restent le lieu des choix d’implémentation détaillés.

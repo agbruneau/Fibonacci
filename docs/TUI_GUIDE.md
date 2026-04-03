@@ -334,6 +334,11 @@ case CalculationCompleteMsg:
 | `statusDoneStyle` | Orange "Status: Done" |
 | `statusErrorStyle` | Red "Status: Error" |
 
+### High contrast and non-color cues
+
+- Set **`FIBCALC_TUI_THEME=high-contrast`** before launch (in addition to `--tui` / `FIBCALC_TUI=true`) to use [`HighContrastTUITheme`](../internal/ui/themes.go) (black/white/yellow palette via `ui.GetCurrentTUITheme`). Ignored when the CLI theme is `none` (`NO_COLOR` / `--no-color`).
+- Footer status lines include **ASCII prefixes** (`[>]`, `[||]`, `[OK]`, `[!]`) so state is not conveyed by color alone.
+
 ---
 
 ## 11. Run() Entry Point

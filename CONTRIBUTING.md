@@ -70,6 +70,7 @@ go build -o build/fibcalc ./cmd/fibcalc
 | `make test-short` | Run quick tests          |
 | `make coverage`   | Generate coverage report |
 | `make benchmark`  | Run benchmarks           |
+| `make bench-versioned` | Fixed-flag benchmark snapshot + Git/Go metadata (`build/bench/`, see [docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | `make lint`       | Run linter               |
 | `make format`     | Format code              |
 | `make check`      | Run all checks           |
@@ -256,6 +257,10 @@ internal/
    ```bash
    go test -fuzz=FuzzFastDoubling ./internal/fibonacci/
    ```
+
+### Testing `CoreCalculator` in isolation
+
+For tests that need a tiny algorithm implementation without registering a global factory type, use [`internal/fibonacci/fibonaccitest`](internal/fibonacci/fibonaccitest) (`CoreStub`). Wrap with [`fibonacci.NewCalculator`](internal/fibonacci/calculator.go) to obtain a [`fibonacci.Calculator`](internal/fibonacci/calculator.go) for orchestration or integration tests.
 
 ### Writing Tests
 

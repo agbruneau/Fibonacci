@@ -64,6 +64,9 @@ type AppConfig struct {
 	// Quiet mode - minimal output for scripting purposes.
 	// Suppresses progress bars, banners, and informational messages.
 	Quiet bool
+	// MachineOutput requests predictable, non-ANSI CLI output for pipelines
+	// (stderr and themed text). Combine with -quiet for minimal stdout.
+	MachineOutput bool
 	// Completion, if set, generates shell completion script for the specified shell.
 	// Valid values are: "bash", "zsh", "fish", "powershell".
 	Completion string
@@ -159,6 +162,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.StringVar(&config.OutputFile, "o", "", "Output file path (shorthand).")
 	fs.BoolVar(&config.Quiet, "quiet", false, "Quiet mode - minimal output for scripts.")
 	fs.BoolVar(&config.Quiet, "q", false, "Quiet mode (shorthand).")
+	fs.BoolVar(&config.MachineOutput, "machine", false, "Machine-readable output: no ANSI colors (for scripts and CI).")
 	fs.StringVar(&config.Completion, "completion", "", "Generate shell completion script (bash, zsh, fish, powershell).")
 	fs.BoolVar(&config.ShowValue, "calculate", false, "Display the calculated value (disabled by default).")
 	fs.BoolVar(&config.ShowValue, "c", false, "Display the calculated value (shorthand).")

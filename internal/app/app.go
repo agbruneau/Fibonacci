@@ -77,7 +77,7 @@ func (a *Application) Run(ctx context.Context, out io.Writer) int {
 	}
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	ui.InitTheme(false)
+	ui.InitTheme(a.Config.Quiet || a.Config.MachineOutput)
 
 	if a.Config.Calibrate {
 		return a.runCalibration(ctx, out)

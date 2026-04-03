@@ -162,6 +162,9 @@ var envOverrides = []envOverride{
 	{"QUIET", []string{"quiet", "q"}, func(c *AppConfig, v string) {
 		c.Quiet = parseBoolEnv(v, c.Quiet)
 	}},
+	{"MACHINE_OUTPUT", []string{"machine"}, func(c *AppConfig, v string) {
+		c.MachineOutput = parseBoolEnv(v, c.MachineOutput)
+	}},
 	{"CALIBRATE", []string{"calibrate"}, func(c *AppConfig, v string) {
 		c.Calibrate = parseBoolEnv(v, c.Calibrate)
 	}},
@@ -195,8 +198,9 @@ func parseBoolEnv(val string, defaultVal bool) bool {
 //
 // Supported environment variables (all prefixed with FIBCALC_):
 //   - N, ALGO, TIMEOUT, THRESHOLD, FFT_THRESHOLD, STRASSEN_THRESHOLD,
-//     VERBOSE, DETAILS, QUIET, CALIBRATE, AUTO_CALIBRATE, CALCULATE,
+//     VERBOSE, DETAILS, QUIET, MACHINE_OUTPUT, CALIBRATE, AUTO_CALIBRATE, CALCULATE,
 //     OUTPUT, CALIBRATION_PROFILE, MEMORY_LIMIT, TUI
+//   - FIBCALC_TUI_THEME: TUI palette (read by ui.GetCurrentTUITheme), e.g. high-contrast
 func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
 	for _, o := range envOverrides {
 		if isFlagSetAny(fs, o.flags...) {

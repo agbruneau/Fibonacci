@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/agbru/fibcalc/internal/config"
 )
 
 // CalibrationProfile stores the results of a calibration run.
@@ -16,12 +18,13 @@ import (
 // to allow validation of cached results.
 type CalibrationProfile struct {
 	// Hardware identification
-	CPUModel  string `json:"cpu_model"`
-	NumCPU    int    `json:"num_cpu"`
-	GOARCH    string `json:"goarch"`
-	GOOS      string `json:"goos"`
-	GoVersion string `json:"go_version"`
-	WordSize  int    `json:"word_size"` // 32 or 64
+	CPUModel          string `json:"cpu_model"`
+	NumCPU            int    `json:"num_cpu"`
+	GOARCH            string `json:"goarch"`
+	GOOS              string `json:"goos"`
+	GoVersion         string `json:"go_version"`
+	WordSize          int    `json:"word_size"` // 32 or 64
+	CPUHeuristicKey   string `json:"cpu_heuristic_key"` // config.DetectHardwareHeuristic().HeuristicKey() — SIMD / arch class
 
 	// Calibrated thresholds (default/fallback values)
 	OptimalParallelThreshold int `json:"optimal_parallel_threshold"`
@@ -41,7 +44,8 @@ type CalibrationProfile struct {
 const (
 	// CurrentProfileVersion is the current version of the profile format.
 	// Increment this when making breaking changes to the profile structure.
-	CurrentProfileVersion = 2
+	// Version 3 adds cpu_heuristic_key (SIMD / arch classification for default thresholds).
+	CurrentProfileVersion = 3
 
 	// DefaultProfileFileName is the default name for the calibration profile file.
 	DefaultProfileFileName = ".fibcalc_calibration.json"
@@ -60,14 +64,15 @@ func GetDefaultProfilePath() string {
 // NewProfile creates a new CalibrationProfile with current hardware info.
 func NewProfile() *CalibrationProfile {
 	return &CalibrationProfile{
-		CPUModel:       getCPUModel(),
-		NumCPU:         runtime.NumCPU(),
-		GOARCH:         runtime.GOARCH,
-		GOOS:           runtime.GOOS,
-		GoVersion:      runtime.Version(),
-		WordSize:       32 << (^uint(0) >> 63), // 32 or 64
-		CalibratedAt:   time.Now(),
-		ProfileVersion: CurrentProfileVersion,
+		CPUModel:        getCPUModel(),
+		NumCPU:          runtime.NumCPU(),
+		GOARCH:          runtime.GOARCH,
+		GOOS:            runtime.GOOS,
+		GoVersion:       runtime.Version(),
+		WordSize:        32 << (^uint(0) >> 63), // 32 or 64
+		CPUHeuristicKey: config.CurrentHardwareHeuristicKey(),
+		CalibratedAt:    time.Now(),
+		ProfileVersion:  CurrentProfileVersion,
 	}
 }
 
@@ -125,6 +130,7 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 // - The number of CPUs matches
 // - The architecture matches
 // - The word size matches
+// - The CPU heuristic key (SIMD / arch class) matches
 func (p *CalibrationProfile) IsValid() bool {
 	if p == nil {
 		return false
@@ -146,6 +152,10 @@ func (p *CalibrationProfile) IsValid() bool {
 
 	wordSize := 32 << (^uint(0) >> 63)
 	if p.WordSize != wordSize {
+		return false
+	}
+
+	if p.CPUHeuristicKey != config.CurrentHardwareHeuristicKey() {
 		return false
 	}
 

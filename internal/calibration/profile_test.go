@@ -36,6 +36,10 @@ func TestNewProfile(t *testing.T) {
 		t.Errorf("ProfileVersion = %d, want %d", profile.ProfileVersion, CurrentProfileVersion)
 	}
 
+	if profile.CPUHeuristicKey == "" {
+		t.Error("CPUHeuristicKey should be non-empty")
+	}
+
 	expectedWordSize := 32 << (^uint(0) >> 63)
 	if profile.WordSize != expectedWordSize {
 		t.Errorf("WordSize = %d, want %d", profile.WordSize, expectedWordSize)
@@ -135,6 +139,13 @@ func TestProfileIsValid(t *testing.T) {
 	wrongVersion.ProfileVersion = 999
 	if wrongVersion.IsValid() {
 		t.Error("Expected profile with wrong version to be invalid")
+	}
+
+	// Invalid: wrong CPU heuristic key (SIMD / arch class)
+	wrongHeur := NewProfile()
+	wrongHeur.CPUHeuristicKey = "mismatched-key"
+	if wrongHeur.IsValid() {
+		t.Error("Expected profile with wrong CPUHeuristicKey to be invalid")
 	}
 
 	// Nil profile

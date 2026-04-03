@@ -29,13 +29,16 @@ func (CLIProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <-ch
 // CLIResultPresenter implements orchestration.ResultPresenter for CLI output.
 // It provides formatted, colorized output for calculation results in the
 // command-line interface.
-type CLIResultPresenter struct{}
+type CLIResultPresenter struct {
+	// MachineOutput disables ANSI in error messages (use with [github.com/agbru/fibcalc/internal/ui.InitTheme]).
+	MachineOutput bool
+}
 
 // Verify interface compliance.
 var (
-	_ orchestration.ResultPresenter = CLIResultPresenter{}
+	_ orchestration.ResultPresenter   = CLIResultPresenter{}
 	_ orchestration.DurationFormatter = CLIResultPresenter{}
-	_ orchestration.ErrorHandler = CLIResultPresenter{}
+	_ orchestration.ErrorHandler      = CLIResultPresenter{}
 )
 
 // PresentComparisonTable displays the comparison summary table with
@@ -106,8 +109,12 @@ func (CLIResultPresenter) FormatDuration(d time.Duration) string {
 }
 
 // HandleError handles calculation errors and returns an appropriate exit code.
-func (CLIResultPresenter) HandleError(err error, duration time.Duration, out io.Writer) int {
-	return apperrors.HandleCalculationError(err, duration, out, CLIColorProvider{})
+func (p CLIResultPresenter) HandleError(err error, duration time.Duration, out io.Writer) int {
+	colors := apperrors.ColorProvider(CLIColorProvider{})
+	if p.MachineOutput {
+		colors = apperrors.DefaultColorProvider{}
+	}
+	return apperrors.HandleCalculationError(err, duration, out, colors)
 }
 
 // DisplayMemoryStats shows memory statistics after a calculation.

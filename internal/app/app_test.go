@@ -577,10 +577,11 @@ func TestRunAutoCalibrationIfEnabled(t *testing.T) {
 		// Create a valid profile that matches current hardware
 		wordSize := 32 << (^uint(0) >> 63)
 		profile := calibration.CalibrationProfile{
-			ProfileVersion:           2, // CurrentProfileVersion
+			ProfileVersion:           calibration.CurrentProfileVersion,
 			NumCPU:                   runtime.NumCPU(),
 			GOARCH:                   runtime.GOARCH,
 			WordSize:                 wordSize,
+			CPUHeuristicKey:          config.CurrentHardwareHeuristicKey(),
 			OptimalParallelThreshold: 8192,
 			OptimalFFTThreshold:      600000,
 			OptimalStrassenThreshold: 4096,

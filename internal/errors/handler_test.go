@@ -53,6 +53,18 @@ func TestHandleCalculationError(t *testing.T) {
 			expectedMsg:  "Status: Failure. An unexpected error occurred: random error",
 		},
 		{
+			name: "Generic Error with calculation diagnostic",
+			err: WrapCalculationError(fmt.Errorf("compute failed"), CalculationContext{
+				N:                     42,
+				ParallelThresholdBits: 0,
+				FFTThresholdBits:      0,
+				StrassenThresholdBits: 0,
+				MemoryEstimateBytes:   1024,
+			}),
+			expectedCode: ExitErrorGeneric,
+			expectedMsg:  "Status: Failure. An unexpected error occurred: compute failed\nDiagnostic: n=42; parallel_bits=auto; fft_bits=auto; strassen_bits=auto; mem_est=",
+		},
+		{
 			name:         "Default Colors",
 			err:          context.DeadlineExceeded,
 			duration:     1 * time.Second,

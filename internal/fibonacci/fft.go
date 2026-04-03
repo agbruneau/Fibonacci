@@ -94,6 +94,10 @@ func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Optio
 	targetWords := 2*fk1Words + FFTSafetyMarginWords
 	k, m := bigfft.GetFFTParams(targetWords)
 
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("canceled before FFT transforms: %w", err)
+	}
+
 	// Transform operands once
 	// Use ValueSize to get the correct coefficient length n in words
 	nWords := bigfft.ValueSize(k, m, 2)

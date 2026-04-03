@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/charmbracelet/lipgloss"
@@ -141,16 +142,35 @@ var (
 		Dim:     lipgloss.NoColor{},
 		Info:    lipgloss.NoColor{},
 	}
+
+	// HighContrastTUITheme is a black/white/yellow palette for low-vision and
+	// high-contrast terminal profiles (WCAG-oriented, not a certification).
+	HighContrastTUITheme = TUITheme{
+		Bg:      lipgloss.Color("#000000"),
+		Text:    lipgloss.Color("#FFFFFF"),
+		Border:  lipgloss.Color("#FFFF00"),
+		Accent:  lipgloss.Color("#FFFF00"),
+		Success: lipgloss.Color("#00FF00"),
+		Warning: lipgloss.Color("#FFAA00"),
+		Error:   lipgloss.Color("#FF3333"),
+		Dim:     lipgloss.Color("#CCCCCC"),
+		Info:    lipgloss.Color("#66CCFF"),
+	}
 )
 
 // GetCurrentTUITheme returns the TUI theme matching the currently active theme.
-// When NoColorTheme is active, returns NoColorTUITheme; otherwise DarkTUITheme.
+// When NoColorTheme is active, returns NoColorTUITheme. If the environment
+// variable FIBCALC_TUI_THEME is set to "high-contrast" (case-insensitive),
+// returns HighContrastTUITheme; otherwise DarkTUITheme.
 func GetCurrentTUITheme() TUITheme {
 	themeMutex.RLock()
 	defer themeMutex.RUnlock()
 
 	if currentTheme.Name == "none" {
 		return NoColorTUITheme
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("FIBCALC_TUI_THEME"))); v == "high-contrast" || v == "highcontrast" {
+		return HighContrastTUITheme
 	}
 	return DarkTUITheme
 }

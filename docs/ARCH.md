@@ -154,9 +154,9 @@ internal/
 
 ## `internal/config`
 - **Responsibility:** parse CLI flags, validate configuration, apply `FIBCALC_` env overrides, apply adaptive thresholds.
-- **Key types:** `AppConfig` (23 fields covering all runtime parameters).
-- **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`.
-- **Precedence chain:** CLI flags > env vars > calibration profile > adaptive estimation > static defaults.
+- **Key types:** `AppConfig` (23 fields covering all runtime parameters), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
+- **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`, and `Estimate*ForHeuristic` for tests/diagnostics.
+- **Precedence chain:** CLI flags > env vars > calibration profile > adaptive estimation (CPU cores + x86 SIMD tier via `golang.org/x/sys/cpu`) > static defaults.
 
 ## `internal/calibration`
 - **Responsibility:** full/quick calibration, adaptive threshold candidate generation, micro-benchmarks, profile file persistence.
@@ -635,7 +635,7 @@ FibCalc uses a layered testing approach with 93 `*_test.go` files:
 - **Benchmarks:** algorithm and subsystem benchmarks with alloc stats and profiling hooks.
 - **Race detector:** standard test invocation includes `-race`.
 - **E2E tests:** build and execute binary subprocesses in `test/e2e`.
-- **Spy/mock patterns:** orchestration spy tests, manual mocks (factory not mockable with mockgen due to unexported `coreCalculator`).
+- **Spy/mock patterns:** orchestration spy tests ; pour le cœur d’algorithme, implémenter [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (interface exportée) ou utiliser [`fibonacci/fibonaccitest`](../internal/fibonacci/fibonaccitest) pour un double minimal.
 
 Typical commands:
 
@@ -756,6 +756,16 @@ From `go.mod`, direct dependencies are:
 - **Context:** Fast Doubling and FFT-Based algorithms shared identical loop structures with different multiplication strategies.
 - **Decision:** Extract `DoublingFramework` and `MatrixFramework` to own bit-iteration, progress reporting, and context checks, delegating operations to pluggable strategies.
 - **Results:** Eliminated significant code duplication; new strategies can be added without modifying loop logic.
+
+### ADR-009: Heuristique matérielle pour les seuils par défaut (P3)
+- **Context:** Les seuils à 0 (auto) ne devaient pas dépendre uniquement de `runtime.NumCPU()` alors que les chemins FFT et multiplications larges bénéficient fortement des jeux d’instructions x86 (AVX2 / AVX-512).
+- **Decision:** `internal/config/hardware.go` classifie l’hôte (`DetectHardwareHeuristic`) ; `thresholds.go` ajuste les estimations FFT / Strassen / parallélisme en conséquence. Le profil de calibration inclut `cpu_heuristic_key` (format v3) pour invalider un cache si la classe SIMD change.
+- **Results:** Comportement documenté et testable via `Estimate*ForHeuristic` ; profils v2 obsolètes (version incrémentée).
+
+### ADR-010: Backends arithmétiques hors GMP (P4 — décision recherche)
+- **Context:** [INNOVATION.md](INNOVATION.md) mentionne FLINT et bibliothèques externes pour comparaison recherche ; charge de build, licences et CI hétérogène.
+- **Decision:** Pas d’intégration C/C++ supplémentaire dans la branche `main` tant qu’une matrice de build reproductible, une revue de licence et des tests d’équivalence sur un sous-ensemble de `N` ne sont pas bouclés. Point d’extension supporté : `fibonacci.RegisterCalculator` (même modèle que le tag `gmp`).
+- **Results:** Décision **no-go** pour un second backend obligatoire ; expérimentations possibles sur branche dédiée ou fork en suivant [docs/algorithms/GMP.md](algorithms/GMP.md) (section recherche).
 
 ---
 

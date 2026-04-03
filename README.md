@@ -68,7 +68,7 @@ FibCalc serves as both a practical high-performance tool and a reference impleme
 - **Runtime-Configurable FFT Parallelism**: FFT recursion parallelism thresholds (`ParallelFFTRecursionThreshold`, `MaxParallelFFTDepth`) can be tuned at runtime via `SetFFTParallelismConfig()` for hardware-specific optimization.
 - **Adaptive Parallelism**: Automatically parallelizes recursive branches and matrix operations across CPU cores based on input size and hardware capabilities.
 - **Concurrency Limiting**: Task semaphore limits concurrent goroutines to `runtime.NumCPU()*2`, preventing contention and memory pressure during parallel multiplication.
-- **Auto-Calibration**: Built-in benchmarking tool (`-calibrate`) to empirically determine the optimal parallelism and FFT thresholds for the host machine. Adaptive threshold estimation at startup based on CPU core count and architecture.
+- **Auto-Calibration**: Built-in benchmarking tool (`-calibrate`) to empirically determine the optimal parallelism and FFT thresholds for the host machine. Adaptive threshold estimation at startup uses CPU core count, architecture, and (on x86) AVX2/AVX-512 detection for default thresholds when flags are left at auto; calibration profiles (v3) store a `cpu_heuristic_key` to invalidate stale cache if the SIMD class changes.
 - **Go Generics**: `executeTasks[T, PT]()` uses generics with pointer constraint pattern to eliminate code duplication between multiplication and squaring task execution.
 
 ### Robust Architecture
@@ -190,6 +190,8 @@ graph TD
 
 > **Full architecture documentation**: [docs/architecture/README.md](docs/architecture/README.md) | [Interface Hierarchy](docs/architecture/patterns/interface-hierarchy.mermaid)
 
+> **Innovation & delivery plan**: product and technical tracks are listed in [docs/INNOVATION.md](docs/INNOVATION.md); the operational checklist and task status table (including completed P3 CPU heuristics and the documented P4 decision on research backends) live in [docs/INNOVEPLAN.md](docs/INNOVEPLAN.md).
+
 ---
 
 ## Installation
@@ -227,6 +229,7 @@ fibcalc [flags]
 | `-details`             | `-d` | `false`       | Display performance details and result metadata.                         |
 | `-output`              | `-o` |                 | Write result to a file.                                                  |
 | `-quiet`               | `-q` | `false`       | Minimal output for scripting.                                            |
+| `-machine`             |      | `false`       | Machine-readable CLI: disables ANSI colors (for scripts and CI).        |
 | `-calibrate`           |        | `false`       | Run system benchmarks to find optimal thresholds.                        |
 | `-auto-calibrate`      |        | `false`       | Quick automatic calibration at startup.                                  |
 | `-calibration-profile` |        |                 | Path to calibration profile file.                                        |
@@ -443,6 +446,7 @@ Environment variables can override CLI flags. Priority: CLI flags > Environment 
 | `FIBCALC_VERBOSE`             | Enable verbose output                                       | `false`   |
 | `FIBCALC_DETAILS`             | Display performance details                                 | `false`   |
 | `FIBCALC_QUIET`               | Enable quiet mode                                           | `false`   |
+| `FIBCALC_MACHINE_OUTPUT`      | Same as `--machine` (no ANSI in CLI output)                 | `false`   |
 | `FIBCALC_TUI`                 | Enable interactive TUI dashboard                            | `false`   |
 | `FIBCALC_CALCULATE`           | Display calculated value                                    | `false`   |
 | `FIBCALC_OUTPUT`              | Output file path                                            |             |
@@ -536,6 +540,8 @@ fibcalc/
 │   └── testutil/            # Shared test utilities
 ├── docs/
 │   ├── PERFORMANCE.md
+│   ├── INNOVATION.md
+│   ├── INNOVEPLAN.md
 │   ├── BUILD.md
 │   ├── TESTING.md
 │   ├── CALIBRATION.md

@@ -177,6 +177,7 @@ type CalibrationProfile struct {
     GOOS                      string    `json:"goos"`
     GoVersion                 string    `json:"go_version"`
     WordSize                  int       `json:"word_size"`
+    CPUHeuristicKey           string    `json:"cpu_heuristic_key"`
 
     OptimalParallelThreshold  int       `json:"optimal_parallel_threshold"`
     OptimalFFTThreshold       int       `json:"optimal_fft_threshold"`
@@ -189,11 +190,11 @@ type CalibrationProfile struct {
 }
 ```
 
-`NewProfile()` populates hardware fields from `runtime` and sets `ProfileVersion` to `CurrentProfileVersion` (currently 2).
+`NewProfile()` populates hardware fields from `runtime`, définit `CPUHeuristicKey` via `config.CurrentHardwareHeuristicKey()` (classe SIMD / arch pour les seuils par défaut), et fixe `ProfileVersion` à `CurrentProfileVersion` (actuellement **3**).
 
 ### Validation
 
-`IsValid()` checks four conditions against the current system:
+`IsValid()` vérifie les conditions suivantes par rapport au système courant :
 
 | Field | Comparison |
 |-------|-----------|
@@ -201,8 +202,11 @@ type CalibrationProfile struct {
 | `NumCPU` | Must equal `runtime.NumCPU()` |
 | `GOARCH` | Must equal `runtime.GOARCH` |
 | `WordSize` | Must equal system word size (32 or 64) |
+| `CPUHeuristicKey` | Must equal `config.CurrentHardwareHeuristicKey()` (ex. `amd64-avx2`, `amd64-generic`) |
 
-If any field differs, the profile is considered invalid and a fresh calibration is triggered.
+Si un champ diffère, le profil est invalide et une nouvelle calibration est déclenchée. Les profils au format **v2** (sans `cpu_heuristic_key`) ne sont plus acceptés après montée de version.
+
+**Migration :** supprimez ou renommez `~/.fibcalc_calibration.json` si vous passez d’une version antérieure du binaire, ou relancez `--calibrate` / `--auto-calibrate` pour régénérer un profil v3.
 
 `IsStale(maxAge time.Duration)` provides time-based invalidation. A profile older than `maxAge` is considered stale. This can be used to trigger periodic re-calibration.
 
@@ -231,13 +235,16 @@ Example profile on disk:
   "calibrated_at": "2025-03-15T10:30:00Z",
   "calibration_n": 10000000,
   "calibration_time": "45.2s",
-  "profile_version": 2
+  "cpu_heuristic_key": "amd64-avx2",
+  "profile_version": 3
 }
 ```
 
 ## Adaptive Threshold Generation
 
 File: `internal/calibration/adaptive.go`
+
+Les **estimations sans benchmark** (`EstimateOptimal*`, utilisées quand les seuils restent à 0 et qu’aucun profil valide n’est chargé) sont définies dans `internal/config/thresholds.go` et tiennent compte du nombre de cœurs et, sur **amd64/386**, des capacités **AVX2 / AVX-512** détectées via `golang.org/x/sys/cpu` (`internal/config/hardware.go`). Voir aussi [PERFORMANCE.md](PERFORMANCE.md#hardware-heuristic-defaults-p3).
 
 ### Parallel Threshold Candidates
 

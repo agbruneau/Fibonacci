@@ -5,6 +5,8 @@ Ce document complète [ARCH.md](ARCH.md) : il propose des évolutions **actionna
 **Légende — complexité :** faible · moyenne · élevée  
 **Légende — risque :** impact possible sur perfs, stabilité API, ou maintenance.
 
+Les priorités **P1–P4**, les livrables, critères de fin et le **tableau de suivi des tâches** (état du dépôt) sont dans **[INNOVEPLAN.md](INNOVEPLAN.md#suivi-des-tâches)**. Le suivi y indique l’état courant (y compris P3 heuristique CPU et la décision documentée P4 sur les backends de recherche).
+
 ---
 
 ## 1) Fiabilité et contexte

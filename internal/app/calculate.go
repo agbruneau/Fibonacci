@@ -163,7 +163,8 @@ func (a *Application) analyzeResultsWithOutput(results []orchestration.Calculati
 		Details:   a.Config.Details,
 		ShowValue: a.Config.ShowValue,
 	}
-	exitCode := orchestration.AnalyzeComparisonResults(results, presOpts, cli.CLIResultPresenter{}, cli.CLIResultPresenter{}, out)
+	presenter := cli.CLIResultPresenter{MachineOutput: a.Config.MachineOutput}
+	exitCode := orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, out)
 
 	// Handle file output for non-quiet mode
 	if bestResult != nil && exitCode == apperrors.ExitSuccess {

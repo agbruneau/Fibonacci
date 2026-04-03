@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/agbru/fibcalc/internal/format"
 )
 
 // Application exit codes define the standard exit statuses for the application.
@@ -45,19 +49,43 @@ func NewConfigError(format string, a ...any) error {
 	return ConfigError{Message: fmt.Sprintf(format, a...)}
 }
 
+// CalculationContext holds optional diagnostic metadata for a failed calculation.
+// Zero values in a field mean “omit” except thresholds where 0 means “auto” when
+// the context is considered present (see [CalculationError.HasDiagnostic]).
+type CalculationContext struct {
+	// N is the Fibonacci index for the failed run.
+	N uint64
+	// ParallelThresholdBits is the parallelism threshold in bits (0 = auto).
+	ParallelThresholdBits int
+	// FFTThresholdBits is the FFT multiplication threshold in bits (0 = auto).
+	FFTThresholdBits int
+	// StrassenThresholdBits is the Strassen matrix threshold in bits (0 = auto).
+	StrassenThresholdBits int
+	// MemoryEstimateBytes is an approximate memory budget for F(N) (best-effort).
+	MemoryEstimateBytes uint64
+	// ConfigExcerpt is a single-line, non-sensitive summary (no secrets or tokens).
+	ConfigExcerpt string
+}
+
 // CalculationError encapsulates a calculation error while preserving the
 // original cause. This allows for structured error handling and inspection
 // of what went wrong during the Fibonacci calculation.
 type CalculationError struct {
 	// Cause is the underlying error that triggered this calculation error.
 	Cause error
+	CalculationContext
 }
 
 // Error returns the error message from the underlying cause.
 //
 // Returns:
 //   - string: The error message string from the wrapped error.
-func (e CalculationError) Error() string { return e.Cause.Error() }
+func (e CalculationError) Error() string {
+	if e.Cause == nil {
+		return "calculation error"
+	}
+	return e.Cause.Error()
+}
 
 // Unwrap returns the original wrapped error, allowing for error chain
 // inspection (e.g., using errors.Is or errors.As).
@@ -65,6 +93,69 @@ func (e CalculationError) Error() string { return e.Cause.Error() }
 // Returns:
 //   - error: The underlying cause of the CalculationError.
 func (e CalculationError) Unwrap() error { return e.Cause }
+
+// HasDiagnostic reports whether optional diagnostic fields should be shown.
+func (e CalculationError) HasDiagnostic() bool {
+	if e.ConfigExcerpt != "" || e.MemoryEstimateBytes != 0 {
+		return true
+	}
+	if e.N != 0 {
+		return true
+	}
+	return e.ParallelThresholdBits != 0 || e.FFTThresholdBits != 0 || e.StrassenThresholdBits != 0
+}
+
+func formatThresholdBits(v int) string {
+	if v == 0 {
+		return "auto"
+	}
+	return strconv.Itoa(v)
+}
+
+func sanitizeConfigExcerpt(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.TrimSpace(s)
+	const max = 200
+	if len(s) > max {
+		return s[:max] + "…"
+	}
+	return s
+}
+
+// FormatDiagnostic returns a single-line, machine-readable diagnostic summary
+// (no ANSI). Empty if [CalculationError.HasDiagnostic] is false.
+func (e CalculationError) FormatDiagnostic() string {
+	if !e.HasDiagnostic() {
+		return ""
+	}
+	var b strings.Builder
+	if e.N != 0 {
+		fmt.Fprintf(&b, "n=%d", e.N)
+	}
+	if b.Len() > 0 {
+		b.WriteString("; ")
+	}
+	fmt.Fprintf(&b, "parallel_bits=%s; fft_bits=%s; strassen_bits=%s",
+		formatThresholdBits(e.ParallelThresholdBits),
+		formatThresholdBits(e.FFTThresholdBits),
+		formatThresholdBits(e.StrassenThresholdBits))
+	if e.MemoryEstimateBytes != 0 {
+		fmt.Fprintf(&b, "; mem_est=%s", format.FormatBytes(e.MemoryEstimateBytes))
+	}
+	if ex := sanitizeConfigExcerpt(e.ConfigExcerpt); ex != "" {
+		fmt.Fprintf(&b, "; config=%s", ex)
+	}
+	return b.String()
+}
+
+// WrapCalculationError attaches a [CalculationContext] to a calculation failure.
+// It returns nil if cause is nil.
+func WrapCalculationError(cause error, ctx CalculationContext) error {
+	if cause == nil {
+		return nil
+	}
+	return CalculationError{Cause: cause, CalculationContext: ctx}
+}
 
 // TimeoutError represents a calculation timeout. It captures the operation
 // name and the duration limit that was exceeded.

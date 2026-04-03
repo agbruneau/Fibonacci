@@ -4,6 +4,7 @@ package apperrors
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -403,5 +404,53 @@ func TestExitCodes(t *testing.T) {
 			t.Errorf("duplicate exit code %d: %s and %s", code, existing, name)
 		}
 		seen[code] = name
+	}
+}
+
+func TestWrapCalculationError_nil(t *testing.T) {
+	t.Parallel()
+	if WrapCalculationError(nil, CalculationContext{N: 1}) != nil {
+		t.Fatal("expected nil when cause is nil")
+	}
+}
+
+func TestCalculationError_FormatDiagnostic(t *testing.T) {
+	t.Parallel()
+	err := WrapCalculationError(errors.New("fail"), CalculationContext{
+		N:                     1_000_000,
+		ParallelThresholdBits: 4096,
+		FFTThresholdBits:      500_000,
+		StrassenThresholdBits: 3072,
+		MemoryEstimateBytes:   1024 * 1024,
+		ConfigExcerpt:         "algo=fast",
+	})
+	var ce CalculationError
+	if !errors.As(err, &ce) {
+		t.Fatal("expected CalculationError")
+	}
+	if !ce.HasDiagnostic() {
+		t.Fatal("expected HasDiagnostic true")
+	}
+	d := ce.FormatDiagnostic()
+	for _, want := range []string{"n=1000000", "parallel_bits=4096", "fft_bits=500000", "strassen_bits=3072", "mem_est=", "config=algo=fast"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("FormatDiagnostic() missing %q in %q", want, d)
+		}
+	}
+}
+
+func TestCalculationError_FormatDiagnostic_sanitizesExcerpt(t *testing.T) {
+	t.Parallel()
+	err := WrapCalculationError(errors.New("x"), CalculationContext{
+		N:             10,
+		ConfigExcerpt: "line1\nline2\tsecret",
+	})
+	var ce CalculationError
+	if !errors.As(err, &ce) {
+		t.Fatal("expected CalculationError")
+	}
+	d := ce.FormatDiagnostic()
+	if strings.Contains(d, "\n") {
+		t.Errorf("diagnostic should not contain newlines: %q", d)
 	}
 }

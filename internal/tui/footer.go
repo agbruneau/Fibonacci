@@ -51,13 +51,13 @@ func (f FooterModel) View() string {
 	var status string
 	switch {
 	case f.hasErr:
-		status = statusErrorStyle.Render("Status: Error")
+		status = statusErrorStyle.Render("[!] Status: Error")
 	case f.done:
-		status = statusDoneStyle.Render("Status: Done")
+		status = statusDoneStyle.Render("[OK] Status: Done")
 	case f.paused:
-		status = statusPausedStyle.Render("Status: Paused")
+		status = statusPausedStyle.Render("[||] Status: Paused")
 	default:
-		status = statusRunningStyle.Render("Status: Running")
+		status = statusRunningStyle.Render("[>] Status: Running")
 	}
 
 	innerWidth := f.width - 2

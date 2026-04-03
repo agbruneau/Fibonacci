@@ -38,6 +38,7 @@ var flagRegistry = []FlagCompletion{
 	{Long: "calibration-profile", Help: "Calibration profile file", IsFile: true, ValueName: "file"},
 	{Long: "output", Short: "o", Help: "Output file path", IsFile: true, ValueName: "file"},
 	{Long: "quiet", Short: "q", Help: "Quiet mode for scripts"},
+	{Long: "machine", Help: "Machine-readable output (no ANSI colors)"},
 	{Long: "completion", Help: "Generate completion script", Values: []string{"bash", "zsh", "fish", "powershell"}, ValueName: "shell"},
 }
 
@@ -321,7 +322,7 @@ func generateFishCompletion(out io.Writer, algorithms []string) error {
 		{comment: "# Help and version", flags: filterFlags("help", "version")},
 		{comment: "# Main options", flags: filterFlags("n_short", "v_short", "details", "timeout", "algo", "threshold", "fft-threshold", "strassen-threshold")},
 		{comment: "# Calibration", flags: filterFlags("calibrate", "auto-calibrate", "calibration-profile")},
-		{comment: "# Output options", flags: filterFlags("output", "quiet")},
+		{comment: "# Output options", flags: filterFlags("output", "quiet", "machine")},
 		{comment: "# Completion", flags: filterFlags("completion")},
 	}
 

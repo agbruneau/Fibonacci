@@ -60,6 +60,17 @@ func TestParseConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("MachineFlag", func(t *testing.T) {
+		t.Parallel()
+		cfg, err := ParseConfig("fibcalc", []string{"--machine"}, io.Discard, availableAlgos)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if !cfg.MachineOutput {
+			t.Error("Expected MachineOutput true")
+		}
+	})
+
 	t.Run("EnvOverrides", func(t *testing.T) {
 		// Set env vars
 		env := map[string]string{
@@ -72,6 +83,7 @@ func TestParseConfig(t *testing.T) {
 			"FIBCALC_VERBOSE":             "true",
 			"FIBCALC_DETAILS":             "true",
 			"FIBCALC_QUIET":               "true",
+			"FIBCALC_MACHINE_OUTPUT":      "true",
 			"FIBCALC_CALIBRATE":           "true",
 			"FIBCALC_AUTO_CALIBRATE":      "true",
 			"FIBCALC_OUTPUT":              "out.txt",
@@ -119,6 +131,9 @@ func TestParseConfig(t *testing.T) {
 		}
 		if !cfg.Quiet {
 			t.Error("Expected Quiet true")
+		}
+		if !cfg.MachineOutput {
+			t.Error("Expected MachineOutput true")
 		}
 		if !cfg.Calibrate {
 			t.Error("Expected Calibrate true")

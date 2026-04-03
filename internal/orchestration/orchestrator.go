@@ -12,6 +12,7 @@ import (
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/progress"
 )
 
@@ -50,7 +51,8 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 		startTime := time.Now()
 		res, err := calculators[0].Calculate(ctx, progressChan, 0, n, opts)
 		results[0] = CalculationResult{
-			Name: calculators[0].Name(), Result: res, Duration: time.Since(startTime), Err: err,
+			Name: calculators[0].Name(), Result: res, Duration: time.Since(startTime),
+			Err: wrapCalculationFailure(err, n, opts),
 		}
 	} else {
 		g, ctx := errgroup.WithContext(ctx)
@@ -60,7 +62,8 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 				startTime := time.Now()
 				res, err := calculator.Calculate(ctx, progressChan, idx, n, opts)
 				results[idx] = CalculationResult{
-					Name: calculator.Name(), Result: res, Duration: time.Since(startTime), Err: err,
+					Name: calculator.Name(), Result: res, Duration: time.Since(startTime),
+					Err: wrapCalculationFailure(err, n, opts),
 				}
 				return nil
 			})
@@ -72,6 +75,20 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 	displayWg.Wait()
 
 	return results
+}
+
+func wrapCalculationFailure(err error, n uint64, opts fibonacci.Options) error {
+	if err == nil {
+		return nil
+	}
+	est := memory.EstimateMemoryUsage(n)
+	return apperrors.WrapCalculationError(err, apperrors.CalculationContext{
+		N:                     n,
+		ParallelThresholdBits: opts.ParallelThreshold,
+		FFTThresholdBits:      opts.FFTThreshold,
+		StrassenThresholdBits: opts.StrassenThreshold,
+		MemoryEstimateBytes:   est.TotalBytes,
+	})
 }
 
 // AnalyzeComparisonResults processes the results from multiple algorithms and

@@ -50,12 +50,25 @@ func HandleCalculationError(err error, duration time.Duration, out io.Writer, co
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		fmt.Fprintf(out, "Status: Failure (Timeout). The execution limit was reached%s.\n", msgSuffix)
+		writeCalculationDiagnostic(out, err)
 		return ExitErrorTimeout
 	}
 	if errors.Is(err, context.Canceled) {
 		fmt.Fprintf(out, "%sStatus: Canceled%s.%s\n", colors.Yellow(), msgSuffix, colors.Reset())
+		writeCalculationDiagnostic(out, err)
 		return ExitErrorCanceled
 	}
 	fmt.Fprintf(out, "Status: Failure. An unexpected error occurred: %v\n", err)
+	writeCalculationDiagnostic(out, err)
 	return ExitErrorGeneric
+}
+
+func writeCalculationDiagnostic(out io.Writer, err error) {
+	var ce CalculationError
+	if !errors.As(err, &ce) || !ce.HasDiagnostic() {
+		return
+	}
+	if d := ce.FormatDiagnostic(); d != "" {
+		fmt.Fprintf(out, "Diagnostic: %s\n", d)
+	}
 }

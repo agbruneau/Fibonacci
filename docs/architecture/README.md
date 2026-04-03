@@ -35,7 +35,7 @@ L'architecture repose sur 14 design patterns documentés ici :
   - **Decorator :** Enrichissement des calculateurs.
   - *Etc.*
 
-Pour les décisions historiques majeures, consultez les ADR indexés dans **[docs/ARCH.md](../ARCH.md#L714)**.
+Pour les décisions historiques majeures, consultez les ADR indexés dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)** (y compris les ADR récents sur l’heuristique CPU et les backends de recherche).
 
 ---
 [← Retour à la vue d'ensemble (ARCH.md)](../ARCH.md)

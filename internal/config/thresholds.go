@@ -1,7 +1,5 @@
 package config
 
-import "runtime"
-
 // Threshold resolution chain (highest priority first):
 //   1. CLI flags (--threshold, --fft-threshold, --strassen-threshold)
 //   2. Environment variables (FIBCALC_THRESHOLD, etc.)
@@ -33,8 +31,28 @@ func ApplyAdaptiveThresholds(cfg AppConfig) AppConfig {
 // parallel threshold without running benchmarks.
 // This can be used as a fallback or starting point.
 func EstimateOptimalParallelThreshold() int {
-	numCPU := runtime.NumCPU()
+	return EstimateParallelThresholdForHeuristic(DetectHardwareHeuristic())
+}
 
+// EstimateParallelThresholdForHeuristic applies the same rules as EstimateOptimalParallelThreshold
+// for a simulated host (tests, diagnostics).
+func EstimateParallelThresholdForHeuristic(h HardwareHeuristic) int {
+	base := parallelThresholdFromCPUCount(h.NumCPU)
+	// Slightly more aggressive parallelism when SIMD throughput is high and enough cores exist.
+	switch h.SIMD {
+	case SIMDAVX512:
+		if h.NumCPU >= 8 && base > 512 {
+			return max(512, base-512)
+		}
+	case SIMDAVX2:
+		if h.NumCPU >= 8 && base > 512 {
+			return max(512, base-256)
+		}
+	}
+	return base
+}
+
+func parallelThresholdFromCPUCount(numCPU int) int {
 	switch {
 	case numCPU == 1:
 		return 0 // No parallelism
@@ -54,21 +72,46 @@ func EstimateOptimalParallelThreshold() int {
 // EstimateOptimalFFTThreshold provides a heuristic estimate of the optimal
 // FFT threshold without running benchmarks.
 func EstimateOptimalFFTThreshold() int {
+	return EstimateFFTThresholdForHeuristic(DetectHardwareHeuristic())
+}
+
+// EstimateFFTThresholdForHeuristic applies the same rules as EstimateOptimalFFTThreshold
+// for a simulated host (tests, diagnostics).
+func EstimateFFTThresholdForHeuristic(h HardwareHeuristic) int {
 	wordSize := 32 << (^uint(0) >> 63)
 
-	if wordSize == 64 {
-		return 500000 // 500K bits on 64-bit (optimal for modern CPUs with large L3 caches)
+	if wordSize != 64 {
+		return 250000 // 32-bit: lower due to smaller word size
 	}
-	return 250000 // 250K bits on 32-bit (lower due to smaller word size)
+	// On 64-bit x86 with strong SIMD, FFT paths become attractive slightly earlier (lower crossover).
+	switch h.SIMD {
+	case SIMDAVX512:
+		return 460000
+	case SIMDAVX2:
+		return 480000
+	default:
+		return 500000
+	}
 }
 
 // EstimateOptimalStrassenThreshold provides a heuristic estimate of the optimal
 // Strassen threshold without running benchmarks.
 func EstimateOptimalStrassenThreshold() int {
-	numCPU := runtime.NumCPU()
+	return EstimateStrassenThresholdForHeuristic(DetectHardwareHeuristic())
+}
 
-	if numCPU >= 4 {
-		return 256 // With parallelism, lower threshold
+// EstimateStrassenThresholdForHeuristic applies the same rules as EstimateOptimalStrassenThreshold
+// for a simulated host (tests, diagnostics).
+func EstimateStrassenThresholdForHeuristic(h HardwareHeuristic) int {
+	if h.NumCPU < 4 {
+		return 3072 // Default from constants when parallelism is limited
 	}
-	return 3072 // Default from constants
+	switch h.SIMD {
+	case SIMDAVX512:
+		return 224
+	case SIMDAVX2:
+		return 240
+	default:
+		return 256
+	}
 }

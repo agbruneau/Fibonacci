@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build clean test coverage benchmark run help install lint format check pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all generate-mocks install-mockgen
+.PHONY: all build clean test coverage benchmark bench-versioned run help install lint format check pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all generate-mocks install-mockgen
 
 # Default target
 all: clean build test
@@ -164,6 +164,22 @@ coverage:
 benchmark:
 	@echo "Running benchmarks..."
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
+
+## bench-versioned: Comparable benchmark run with Go version and Git revision (see docs/PERFORMANCE.md)
+bench-versioned:
+	@echo "Recording versioned benchmark snapshot to $(BUILD_DIR)/bench/"
+	@mkdir -p $(BUILD_DIR)/bench
+	@{ \
+		echo "=== FibCalc benchmark snapshot ==="; \
+		echo "Date (UTC): $$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)"; \
+		echo "Git revision: $$(git rev-parse HEAD 2>/dev/null || echo unknown)"; \
+		echo "Git describe: $$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"; \
+		echo "Go version: $$($(GO) version)"; \
+		echo ""; \
+		echo "Command: $(GO) test -bench=BenchmarkFastDoubling -benchmem -count=3 -benchtime=2s ./internal/fibonacci/"; \
+		echo ""; \
+		$(GO) test -bench=BenchmarkFastDoubling -benchmem -count=3 -benchtime=2s ./internal/fibonacci/; \
+	} | tee $(BUILD_DIR)/bench/snapshot-$$(date -u +%Y%m%d-%H%M%SZ 2>/dev/null || echo manual).txt
 
 ## run: Build and run the application with default settings
 run: build

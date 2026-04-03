@@ -230,3 +230,20 @@ func TestColorFunctions(t *testing.T) {
 		}
 	})
 }
+
+func TestGetCurrentTUITheme_HighContrastEnv(t *testing.T) {
+	orig := GetCurrentTheme()
+	t.Cleanup(func() { SetCurrentTheme(orig) })
+
+	SetTheme("dark")
+	t.Setenv("FIBCALC_TUI_THEME", "high-contrast")
+	ht := GetCurrentTUITheme()
+	if ht != HighContrastTUITheme {
+		t.Errorf("GetCurrentTUITheme() with FIBCALC_TUI_THEME=high-contrast: got %+v, want HighContrastTUITheme", ht)
+	}
+
+	t.Setenv("FIBCALC_TUI_THEME", "")
+	if got := GetCurrentTUITheme(); got != DarkTUITheme {
+		t.Errorf("with empty FIBCALC_TUI_THEME: got %+v, want DarkTUITheme", got)
+	}
+}

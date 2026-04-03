@@ -96,3 +96,11 @@ Each call to a GMP function incurs CGO overhead (typically 50-100ns per call). F
 - **File**: `internal/fibonacci/calculator_gmp.go`
 - **Name()**: Returns `"GMP (Fast Doubling)"`
 - **Registration**: `"gmp"` key in the calculator factory
+
+## Research backends beyond GMP (P4)
+
+FibCalc may cite **FLINT**, other LGPL/GPL C libraries, or experimental arbitrary-precision stacks as *research comparisons*. As of the innovation plan closure:
+
+- **Decision (main branch):** no additional mandatory C/C++ arithmetic backend is integrated alongside `math/big` and optional GMP. Adding one requires a reproducible build matrix, license review, and golden-style equivalence tests on a bounded set of indices — see **ADR-010** in [ARCH.md](../ARCH.md).
+- **Extension point:** new calculators register through `fibonacci.RegisterCalculator` (same pattern as the `gmp` build tag). Prototypes should live on a dedicated branch or fork until CI and legal criteria are met.
+- **Equivalence:** when evaluating a candidate backend, compare against `"fast"` / `"gmp"` on shared `N` values and existing `testdata` where applicable.
