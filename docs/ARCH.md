@@ -1,6 +1,6 @@
 # FibGo / FibCalc Architecture
 
-> **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
+> **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**. Pour des pistes d’évolution produit et technique, voir **[docs/INNOVATION.md](INNOVATION.md)**.
 
 ## 1) Project Overview
 
@@ -9,7 +9,7 @@
 - **Go module path:** `github.com/agbru/fibcalc`
 - **Go version:** 1.25.0
 - **Primary binary:** `cmd/fibcalc`
-- **Codebase stats:** 20 Go packages | 105 source files | 89 test files | 20 documentation files
+- **Codebase stats:** 19 Go packages (`go list ./...`) | 105 source (non-`*_test.go`) files | 93 test files | 19 Markdown files at repo root and under `docs/`
 - **Purpose:** compute very large Fibonacci values efficiently, compare multiple algorithms, and expose both CLI and TUI execution modes.
 - **Core strengths:**
   - Multiple `O(log n)` Fibonacci algorithms (Fast Doubling, Matrix Exponentiation, FFT-Based Doubling)
@@ -88,7 +88,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 ├── cmd/
 │   ├── fibcalc/                 # Main application entrypoint
 │   └── generate-golden/         # Golden-data generator for tests
-├── internal/                    # Application and domain internals (16 packages)
+├── internal/                    # 16 top-level packages (+ fibonacci/memory, fibonacci/threshold)
 ├── test/
 │   └── e2e/                     # End-to-end CLI tests
 ├── docs/                        # Architecture, algorithm, build, test, perf docs
@@ -109,15 +109,18 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 ```text
 internal/
 ├── app/                         # Lifecycle, mode dispatch, version, DI via WithFactory()
-├── bigfft/                      # FFT multiplication engine for big.Int (14 files)
+├── bigfft/                      # FFT multiplication engine for big.Int (~17 non-test .go files)
 │   ├── fft.go                   # Public API: Mul, MulTo, Sqr, SqrTo
 │   ├── fft_core.go              # Core FFT algorithm
 │   ├── fft_recursion.go         # Recursive FFT decomposition, parallelism config
 │   ├── fft_poly.go              # Polynomial operations
 │   ├── fft_cache.go             # FFT transform caching
+│   ├── scan.go                  # Fast base-10 string → big.Int (scanner)
+│   ├── memory_est.go            # Memory estimates for transforms
 │   ├── fermat.go                # Fermat ring arithmetic (Z/(2^k+1))
 │   ├── pool.go, pool_warming.go # Size-class pools, adaptive pre-warming
 │   ├── allocator.go, bump.go    # Memory allocators (bump allocator)
+│   ├── arith_decl.go            # go:linkname declarations into math/big
 │   ├── arith_amd64.go           # amd64 SIMD vector wrappers (go:linkname)
 │   ├── arith_generic.go         # Portable fallback arithmetic
 │   └── cpu_amd64.go             # Runtime CPU feature detection (AVX2, etc.)
@@ -623,7 +626,7 @@ Additional helpers: `WrapError` (contextual wrapping with `%w`), `IsContextError
 
 ## 11) Testing Strategy
 
-FibCalc uses a layered testing approach with 89 test files:
+FibCalc uses a layered testing approach with 93 `*_test.go` files:
 
 - **Unit tests:** extensive table-driven tests across internal packages.
 - **Golden file tests:** canonical expected Fibonacci outputs (`internal/fibonacci/testdata/fibonacci_golden.json`), plus CLI output goldens.
