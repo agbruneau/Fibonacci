@@ -63,7 +63,13 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 		FFTThreshold:      a.Config.FFTThreshold,
 		StrassenThreshold: a.Config.StrassenThreshold,
 	}
-	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, a.Config.N, opts, progressReporter, progressOut)
+	results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
+		Calculators:      calculatorsToRun,
+		N:                a.Config.N,
+		Opts:             opts,
+		ProgressReporter: progressReporter,
+		Out:              progressOut,
+	})
 
 	// Build output config for the CLI options
 	outputCfg := cli.OutputConfig{

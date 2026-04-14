@@ -355,7 +355,13 @@ func startCalculationCmd(ref *programRef, ctx context.Context, calculators []fib
 			FFTThreshold:      cfg.FFTThreshold,
 			StrassenThreshold: cfg.StrassenThreshold,
 		}
-		results := orchestration.ExecuteCalculations(ctx, calculators, cfg.N, opts, progressReporter, io.Discard)
+		results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
+			Calculators:      calculators,
+			N:                cfg.N,
+			Opts:             opts,
+			ProgressReporter: progressReporter,
+			Out:              io.Discard,
+		})
 		presOpts := orchestration.PresentationOptions{
 			N:         cfg.N,
 			Verbose:   cfg.Verbose,

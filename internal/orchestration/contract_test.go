@@ -32,7 +32,13 @@ func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results := ExecuteCalculations(ctx, []fibonacci.Calculator{calc}, 200, fibonacci.Options{}, NullProgressReporter{}, &DiscardWriter{})
+	results := ExecuteCalculations(ctx, ExecutionConfig{
+		Calculators:      []fibonacci.Calculator{calc},
+		N:                200,
+		Opts:             fibonacci.Options{},
+		ProgressReporter: NullProgressReporter{},
+		Out:              &DiscardWriter{},
+	})
 	if len(results) != 1 {
 		t.Fatalf("len(results) = %d", len(results))
 	}
@@ -59,7 +65,13 @@ func TestExecuteCalculations_progressChannelClosedAndDrained(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		ExecuteCalculations(context.Background(), []fibonacci.Calculator{calc}, 200, fibonacci.Options{}, NullProgressReporter{}, &DiscardWriter{})
+		ExecuteCalculations(context.Background(), ExecutionConfig{
+			Calculators:      []fibonacci.Calculator{calc},
+			N:                200,
+			Opts:             fibonacci.Options{},
+			ProgressReporter: NullProgressReporter{},
+			Out:              &DiscardWriter{},
+		})
 		close(done)
 	}()
 
@@ -87,7 +99,13 @@ func TestExecuteCalculations_noPanicFromCalculatorError(t *testing.T) {
 			t.Errorf("unexpected panic: %v", r)
 		}
 	}()
-	results := ExecuteCalculations(context.Background(), []fibonacci.Calculator{calc}, 200, fibonacci.Options{}, NullProgressReporter{}, &DiscardWriter{})
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      []fibonacci.Calculator{calc},
+		N:                200,
+		Opts:             fibonacci.Options{},
+		ProgressReporter: NullProgressReporter{},
+		Out:              &DiscardWriter{},
+	})
 	if len(results) != 1 || results[0].Err == nil {
 		t.Fatalf("expected wrapped error, got %+v", results)
 	}

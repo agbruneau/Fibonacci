@@ -30,40 +30,36 @@ const ProgressBufferMultiplier = 5
 //
 // Parameters:
 //   - ctx: The context for managing cancellation and deadlines.
-//   - calculators: A slice of calculators to execute.
-//   - n: The Fibonacci index to compute.
-//   - opts: Calculation options (thresholds, etc.).
-//   - progressReporter: The progress reporter for displaying updates (use NullProgressReporter for quiet mode).
-//   - out: The io.Writer for displaying progress updates.
+//   - cfg: Execution configuration (calculators, n, options, reporter, etc.).
 //
 // Returns:
 //   - []CalculationResult: A slice containing the results of each calculation.
-func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator, n uint64, opts fibonacci.Options, progressReporter ProgressReporter, out io.Writer) []CalculationResult {
-	results := make([]CalculationResult, len(calculators))
-	progressChan := make(chan progress.ProgressUpdate, len(calculators)*ProgressBufferMultiplier)
+func ExecuteCalculations(ctx context.Context, cfg ExecutionConfig) []CalculationResult {
+	results := make([]CalculationResult, len(cfg.Calculators))
+	progressChan := make(chan progress.ProgressUpdate, len(cfg.Calculators)*ProgressBufferMultiplier)
 
 	var displayWg sync.WaitGroup
 	displayWg.Add(1)
-	go progressReporter.DisplayProgress(&displayWg, progressChan, len(calculators), out)
+	go cfg.ProgressReporter.DisplayProgress(&displayWg, progressChan, len(cfg.Calculators), cfg.Out)
 
 	// Fast path: single calculator doesn't need errgroup overhead
-	if len(calculators) == 1 {
+	if len(cfg.Calculators) == 1 {
 		startTime := time.Now()
-		res, err := calculators[0].Calculate(ctx, progressChan, 0, n, opts)
+		res, err := cfg.Calculators[0].Calculate(ctx, progressChan, 0, cfg.N, cfg.Opts)
 		results[0] = CalculationResult{
-			Name: calculators[0].Name(), Result: res, Duration: time.Since(startTime),
-			Err: wrapCalculationFailure(err, n, opts),
+			Name: cfg.Calculators[0].Name(), Result: res, Duration: time.Since(startTime),
+			Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),
 		}
 	} else {
 		g, ctx := errgroup.WithContext(ctx)
-		for i, calc := range calculators {
+		for i, calc := range cfg.Calculators {
 			idx, calculator := i, calc
 			g.Go(func() error {
 				startTime := time.Now()
-				res, err := calculator.Calculate(ctx, progressChan, idx, n, opts)
+				res, err := calculator.Calculate(ctx, progressChan, idx, cfg.N, cfg.Opts)
 				results[idx] = CalculationResult{
 					Name: calculator.Name(), Result: res, Duration: time.Since(startTime),
-					Err: wrapCalculationFailure(err, n, opts),
+					Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),
 				}
 				return nil
 			})

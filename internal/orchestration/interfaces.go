@@ -6,8 +6,23 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/progress"
 )
+
+// ExecutionConfig groups the parameters required to execute Fibonacci calculations.
+type ExecutionConfig struct {
+	// Calculators is a slice of calculators to execute.
+	Calculators []fibonacci.Calculator
+	// N is the Fibonacci index to compute.
+	N uint64
+	// Opts contains calculation options (thresholds, etc.).
+	Opts fibonacci.Options
+	// ProgressReporter is used for displaying updates.
+	ProgressReporter ProgressReporter
+	// Out is the io.Writer for displaying progress updates.
+	Out io.Writer
+}
 
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
 // It serves as the shared domain type between orchestration and presentation layers.
