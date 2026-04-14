@@ -92,7 +92,13 @@ func TestExecuteCalculations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			results := ExecuteCalculations(context.Background(), tt.calculators, 0, fibonacci.Options{}, NullProgressReporter{}, &DiscardWriter{})
+			results := ExecuteCalculations(context.Background(), ExecutionConfig{
+				Calculators:      tt.calculators,
+				N:                0,
+				Opts:             fibonacci.Options{},
+				ProgressReporter: NullProgressReporter{},
+				Out:              &DiscardWriter{},
+			})
 			if len(results) != tt.expectedLen {
 				t.Errorf("expected %d results, got %d", tt.expectedLen, len(results))
 			}

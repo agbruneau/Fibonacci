@@ -30,7 +30,13 @@ func TestExecuteCalculationsRespectsStrassenConfig(t *testing.T) {
 		StrassenThreshold: 12345, // Unique value to verify
 	}
 
-	ExecuteCalculations(context.Background(), calculators, 10, opts, NullProgressReporter{}, io.Discard)
+	ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      calculators,
+		N:                10,
+		Opts:             opts,
+		ProgressReporter: NullProgressReporter{},
+		Out:              io.Discard,
+	})
 
 	if spy.capturedOpts.StrassenThreshold != 12345 {
 		t.Errorf("ExecuteCalculations failed to pass StrassenThreshold. Expected 12345, got %d", spy.capturedOpts.StrassenThreshold)
