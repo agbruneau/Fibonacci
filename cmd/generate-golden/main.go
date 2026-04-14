@@ -23,13 +23,13 @@ func main() {
 	outputDir := flag.String("out", "internal/fibonacci/testdata", "Output directory for the golden file")
 	flag.Parse()
 
-	if err := os.MkdirAll(*outputDir, 0755); err != nil {
+	if err := os.MkdirAll(*outputDir, 0700); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
 		os.Exit(1)
 	}
 
 	filename := filepath.Join(*outputDir, "fibonacci_golden.json")
-	file, err := os.Create(filename)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
 		os.Exit(1)

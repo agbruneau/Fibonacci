@@ -63,12 +63,12 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 	// Ensure directory exists
 	dir := filepath.Dir(config.OutputFile)
 	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0700); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 	}
 
-	file, err := os.Create(config.OutputFile)
+	file, err := os.OpenFile(config.OutputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
