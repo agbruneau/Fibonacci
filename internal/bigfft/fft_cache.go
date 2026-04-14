@@ -4,8 +4,6 @@ package bigfft
 
 import (
 	"container/list"
-	"encoding/binary"
-	"hash/fnv"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -103,6 +101,12 @@ func GetTransformCache() *TransformCache {
 	return globalTransformCache
 }
 
+// FNV-1a constants for 64-bit hash.
+const (
+	offset64 = 14695981039346656037
+	prime64  = 1099511628211
+)
+
 // SetTransformCacheConfig updates the global cache configuration.
 // This should be called before any FFT operations for consistent behavior.
 func SetTransformCacheConfig(config TransformCacheConfig) {
@@ -118,39 +122,52 @@ func SetTransformCacheConfig(config TransformCacheConfig) {
 	}
 }
 
+// fnvWriteUint64 updates the FNV-1a hash with a uint64 value in little-endian order.
+func fnvWriteUint64(h uint64, x uint64) uint64 {
+	h ^= x & 0xff
+	h *= prime64
+	h ^= (x >> 8) & 0xff
+	h *= prime64
+	h ^= (x >> 16) & 0xff
+	h *= prime64
+	h ^= (x >> 24) & 0xff
+	h *= prime64
+	h ^= (x >> 32) & 0xff
+	h *= prime64
+	h ^= (x >> 40) & 0xff
+	h *= prime64
+	h ^= (x >> 48) & 0xff
+	h *= prime64
+	h ^= (x >> 56) & 0xff
+	h *= prime64
+	return h
+}
+
 // computeCacheKey generates a cache key from the input data using FNV-1a.
 // FNV-1a is much faster than SHA-256 and provides sufficient collision
 // resistance for cache key purposes.
 func computeCacheKey(data nat, k uint, n int) uint64 {
-	h := fnv.New64a()
-	var buf [8]byte
-	binary.LittleEndian.PutUint64(buf[:], uint64(k))
-	h.Write(buf[:])
-	binary.LittleEndian.PutUint64(buf[:], uint64(n))
-	h.Write(buf[:])
+	h := uint64(offset64)
+	h = fnvWriteUint64(h, uint64(k))
+	h = fnvWriteUint64(h, uint64(n))
 	for _, word := range data {
-		binary.LittleEndian.PutUint64(buf[:], uint64(word))
-		h.Write(buf[:])
+		h = fnvWriteUint64(h, uint64(word))
 	}
-	return h.Sum64()
+	return h
 }
 
 // computePolyKey generates a cache key directly from polynomial coefficients,
 // avoiding the intermediate allocation of flattenPolyData.
 func computePolyKey(p *Poly, k uint, n int) uint64 {
-	h := fnv.New64a()
-	var buf [8]byte
-	binary.LittleEndian.PutUint64(buf[:], uint64(k))
-	h.Write(buf[:])
-	binary.LittleEndian.PutUint64(buf[:], uint64(n))
-	h.Write(buf[:])
+	h := uint64(offset64)
+	h = fnvWriteUint64(h, uint64(k))
+	h = fnvWriteUint64(h, uint64(n))
 	for _, a := range p.A {
 		for _, word := range a {
-			binary.LittleEndian.PutUint64(buf[:], uint64(word))
-			h.Write(buf[:])
+			h = fnvWriteUint64(h, uint64(word))
 		}
 	}
-	return h.Sum64()
+	return h
 }
 
 // computeKey is an alias for computeCacheKey for backward compatibility.
