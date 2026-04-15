@@ -456,13 +456,16 @@ func generatePowerShellCompletion(out io.Writer, algorithms []string) error {
 	}
 
 	// Format algorithm list for PowerShell
-	psAlgoList := ""
+	var sb strings.Builder
 	for i, algo := range algorithms {
 		if i > 0 {
-			psAlgoList += ", "
+			sb.WriteString(", ")
 		}
-		psAlgoList += fmt.Sprintf("'%s'", algo)
+		sb.WriteByte('\'')
+		sb.WriteString(algo)
+		sb.WriteByte('\'')
 	}
+	psAlgoList := sb.String()
 
 	script := fmt.Sprintf(`# PowerShell completion script for fibcalc
 # Add this to your $PROFILE
