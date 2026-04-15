@@ -266,9 +266,17 @@ func (p *Poly) NTransform(n int) PolValues {
 	// q(x) = a_0 + θa_1 x + ... + θ^(K-1) a_{K-1} x^(K-1)
 	//
 	// Twist p by θ to obtain q.
-	tbits := make([]big.Word, (n+1)<<k)
-	twisted := make([]fermat, 1<<k)
-	src := make(fermat, n+1)
+	wordCount := (n + 1) << k
+	tbits := acquireWordSliceUnsafe(wordCount)
+	defer releaseWordSlice(tbits)
+
+	K := 1 << k
+	twisted := acquireFermatSlice(K)
+	defer releaseFermatSlice(twisted)
+
+	src := fermat(acquireWordSliceUnsafe(n + 1))
+	defer releaseWordSlice([]big.Word(src))
+
 	for i := range twisted {
 		twisted[i] = fermat(tbits[i*(n+1) : (i+1)*(n+1)])
 		if i < len(p.A) {
@@ -281,8 +289,8 @@ func (p *Poly) NTransform(n int) PolValues {
 	}
 
 	// Now computed q(ω^i) for i = 0 ... K-1
-	valbits := make([]big.Word, (n+1)<<k)
-	values := make([]fermat, 1<<k)
+	valbits := acquireWordSliceUnsafe(wordCount)
+	values := acquireFermatSlice(K)
 	for i := range values {
 		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
 	}
