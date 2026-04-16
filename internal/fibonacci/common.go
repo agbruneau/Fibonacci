@@ -100,19 +100,44 @@ func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	var ec parallel.ErrorCollector
 	wg.Add(3)
 
-	for _, op := range [3]func() error{op1, op2, op3} {
-		go func(fn func() error) {
-			defer wg.Done()
-			// Acquire semaphore token to limit concurrency
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			if err := ctx.Err(); err != nil {
-				ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-				return
-			}
-			ec.SetError(fn())
-		}(op)
-	}
+	go func() {
+		sem <- struct{}{}
+		if err := ctx.Err(); err != nil {
+			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
+			<-sem
+			wg.Done()
+			return
+		}
+		ec.SetError(op1())
+		<-sem
+		wg.Done()
+	}()
+
+	go func() {
+		sem <- struct{}{}
+		if err := ctx.Err(); err != nil {
+			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
+			<-sem
+			wg.Done()
+			return
+		}
+		ec.SetError(op2())
+		<-sem
+		wg.Done()
+	}()
+
+	go func() {
+		sem <- struct{}{}
+		if err := ctx.Err(); err != nil {
+			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
+			<-sem
+			wg.Done()
+			return
+		}
+		ec.SetError(op3())
+		<-sem
+		wg.Done()
+	}()
 
 	wg.Wait()
 	return ec.Err()
@@ -188,11 +213,11 @@ func executeTasks[T any, PT interface {
 		wg.Add(len(tasks))
 		for i := range tasks {
 			go func(t PT) {
-				defer wg.Done()
 				// Acquire semaphore token to limit concurrency
 				sem <- struct{}{}
-				defer func() { <-sem }()
 				ec.SetError(t.execute())
+				<-sem
+				wg.Done()
 			}(PT(&tasks[i]))
 		}
 		wg.Wait()
@@ -238,22 +263,22 @@ func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, i
 		// Execute squaring tasks in parallel
 		for i := range sqrTasks {
 			go func(t *squaringTask) {
-				defer wg.Done()
 				// Acquire semaphore token to limit concurrency
 				sem <- struct{}{}
-				defer func() { <-sem }()
 				ec.SetError(t.execute())
+				<-sem
+				wg.Done()
 			}(&sqrTasks[i])
 		}
 
 		// Execute multiplication tasks in parallel
 		for i := range mulTasks {
 			go func(t *multiplicationTask) {
-				defer wg.Done()
 				// Acquire semaphore token to limit concurrency
 				sem <- struct{}{}
-				defer func() { <-sem }()
 				ec.SetError(t.execute())
+				<-sem
+				wg.Done()
 			}(&mulTasks[i])
 		}
 
