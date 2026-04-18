@@ -42,6 +42,7 @@ build:
 	fi
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
+# POSIX-only (requires bash/date/tee)
 ## pgo-profile: Generate CPU profile from benchmarks for PGO
 pgo-profile:
 	@echo "Generating CPU profile for PGO..."
@@ -177,6 +178,7 @@ benchmark:
 	@echo "Running benchmarks..."
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
 
+# POSIX-only (requires bash/date/tee)
 ## bench-versioned: Comparable benchmark run with Go version and Git revision (see docs/PERFORMANCE.md)
 bench-versioned:
 	@echo "Recording versioned benchmark snapshot to $(BUILD_DIR)/bench/"
