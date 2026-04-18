@@ -26,6 +26,9 @@ test_results.txt
 
 # Go profile-guided optimization files
 *.pgo
+# P1-22: keep the canonical PGO profile checked in — `go build -pgo=auto`
+# picks it up implicitly when building ./cmd/fibcalc.
+!cmd/fibcalc/default.pgo
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
