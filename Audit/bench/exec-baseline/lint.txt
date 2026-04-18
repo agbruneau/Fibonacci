@@ -1,0 +1,1532 @@
+internal\orchestration\orchestrator.go:67:9: Error return value of `g.Wait` is not checked (errcheck)
+		g.Wait()
+		      ^
+internal\orchestration\calculator_selection.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\doc.go:1:1: File is not properly formatted (gofmt)
+// Package orchestration coordinates concurrent execution of Fibonacci calculations
+^
+internal\orchestration\interfaces.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\orchestrator.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\progress.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\calculator_selection_test.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\contract_test.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\orchestration_spy_test.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\orchestrator_test.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\orchestration\progress_test.go:1:1: File is not properly formatted (gofmt)
+package orchestration
+^
+internal\app\app.go:31:6: exported: type name will be used as app.AppOption by other packages, and that is repetitive; consider calling this Option (revive)
+type AppOption func(*Application)
+     ^
+internal\app\app.go:1:1: File is not properly formatted (gofmt)
+package app
+^
+internal\app\calculate.go:1:1: File is not properly formatted (gofmt)
+package app
+^
+internal\app\doc.go:1:1: File is not properly formatted (gofmt)
+// Package app provides the core application structure for the fibcalc CLI.
+^
+internal\app\version.go:1:1: File is not properly formatted (gofmt)
+package app
+^
+internal\app\app_test.go:1:1: File is not properly formatted (gofmt)
+package app
+^
+internal\app\version_test.go:1:1: File is not properly formatted (gofmt)
+package app
+^
+internal\app\calculate.go:114:2: ineffectual assignment to ctx (ineffassign)
+	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	^
+internal\fibonacci\memory\budget.go:22:23: G115: integer overflow conversion int -> uint64 (gosec)
+	bytesPerFib := uint64(wordsPerFib) * 8
+	                     ^
+internal\fibonacci\memory\budget.go:10:6: exported: type name will be used as memory.MemoryEstimate by other packages, and that is repetitive; consider calling this Estimate (revive)
+type MemoryEstimate struct {
+     ^
+internal\fibonacci\memory\budget_test.go:22:3: The copy of the 'for' variable "tc" can be deleted (Go 1.22+) (copyloopvar)
+		tc := tc
+		^
+internal\fibonacci\memory\budget_test.go:50:3: The copy of the 'for' variable "tc" can be deleted (Go 1.22+) (copyloopvar)
+		tc := tc
+		^
+internal\fibonacci\memory\budget_test.go:69:3: The copy of the 'for' variable "input" can be deleted (Go 1.22+) (copyloopvar)
+		input := input
+		^
+internal\fibonacci\memory\budget.go:42:5: emptyStringTest: replace `len(s) == 0` with `s == ""` (gocritic)
+	if len(s) == 0 {
+	   ^
+internal\fibonacci\memory\gc_control_test.go:39:2: unnecessaryDefer: defer gc.End() is placed just before return (gocritic)
+	defer gc.End()
+	^
+internal\fibonacci\memory\gc_control_test.go:50:2: unnecessaryDefer: defer gc.End() is placed just before return (gocritic)
+	defer gc.End()
+	^
+internal\fibonacci\memory\arena.go:1:1: File is not properly formatted (gofmt)
+package memory
+^
+internal\fibonacci\memory\budget.go:1:1: File is not properly formatted (gofmt)
+package memory
+^
+internal\fibonacci\memory\gc_control.go:1:1: File is not properly formatted (gofmt)
+package memory
+^
+internal\fibonacci\memory\arena_test.go:1:1: File is not properly formatted (gofmt)
+package memory
+^
+internal\fibonacci\memory\budget_test.go:1:1: File is not properly formatted (gofmt)
+package memory
+^
+internal\fibonacci\memory\gc_control_test.go:1:1: File is not properly formatted (gofmt)
+package memory
+^
+internal\ui\colors.go:1:1: File is not properly formatted (gofmt)
+package ui
+^
+internal\ui\doc.go:1:1: File is not properly formatted (gofmt)
+// Package ui provides theme and color support for the application's user interface.
+^
+internal\ui\themes.go:1:1: File is not properly formatted (gofmt)
+package ui
+^
+internal\ui\themes_test.go:1:1: File is not properly formatted (gofmt)
+package ui
+^
+test\e2e\cli_e2e_test.go:246:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// F(50) = 12586269025
+	^
+test\e2e\cli_e2e_test.go:320:7: emptyStringTest: replace `len(strings.TrimSpace(outStr)) == 0` with `strings.TrimSpace(outStr) == ""` (gocritic)
+			if len(strings.TrimSpace(outStr)) == 0 {
+			   ^
+test\e2e\extended_e2e_test.go:146:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// F(70) = 190,392,490,709,135
+	^
+test\e2e\cli_e2e_test.go:1:1: File is not properly formatted (gofmt)
+package e2e
+^
+test\e2e\extended_e2e_test.go:1:1: File is not properly formatted (gofmt)
+package e2e
+^
+test\e2e\extended_e2e_test.go:112:2: ineffectual assignment to want (ineffassign)
+	want := "228875" // Last digits of F(1000) are ...228875, padded to 10? 
+	^
+cmd\generate-golden\main.go:69:3: exitAfterDefer: os.Exit will exit, and `defer file.Close()` will not run (gocritic)
+		os.Exit(1)
+		^
+cmd\generate-golden\main.go:26:36: octalLiteral: use new octal literal style, 0o700 (gocritic)
+	if err := os.MkdirAll(*outputDir, 0700); err != nil {
+	                                  ^
+cmd\generate-golden\main.go:32:71: octalLiteral: use new octal literal style, 0o600 (gocritic)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	                                                                     ^
+cmd\generate-golden\main.go:1:1: File is not properly formatted (gofmt)
+// Package main provides a standalone tool that generates the golden test data
+^
+cmd\generate-golden\main_test.go:1:1: File is not properly formatted (gofmt)
+package main
+^
+cmd\generate-golden\main.go:52:2: Consider pre-allocating `data` (prealloc)
+	var data []GoldenData
+	^
+internal\calibration\microbench.go:200:49: G115: integer overflow conversion int -> uint64 (gosec)
+		bits[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ uint64(i*0x1234567))
+		                                              ^
+internal\calibration\calibration.go:24:6: exported: type name will be used as calibration.CalibrationOptions by other packages, and that is repetitive; consider calling this Options (revive)
+type CalibrationOptions struct {
+     ^
+internal\calibration\profile.go:19:6: exported: type name will be used as calibration.CalibrationProfile by other packages, and that is repetitive; consider calling this Profile (revive)
+type CalibrationProfile struct {
+     ^
+internal\calibration\calibration.go:65:6: Function 'RunCalibrationWithOptions' has too many statements (61 > 50) (funlen)
+func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, opts CalibrationOptions, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) int {
+     ^
+internal\calibration\profile.go:120:37: octalLiteral: use new octal literal style, 0o600 (gocritic)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+	                                   ^
+internal\calibration\calibration_test.go:197:53: octalLiteral: use new octal literal style, 0o600 (gocritic)
+		if err := os.WriteFile(profilePath, []byte("{}"), 0600); err != nil {
+		                                                  ^
+internal\calibration\io_test.go:58:6: emptyStringTest: replace `len(output) == 0` with `output == ""` (gocritic)
+		if len(output) == 0 {
+		   ^
+internal\calibration\profile_test.go:216:64: octalLiteral: use new octal literal style, 0o644 (gocritic)
+	if err := os.WriteFile(invalidPath, []byte("not valid json"), 0644); err != nil {
+	                                                              ^
+internal\calibration\adaptive.go:1:1: File is not properly formatted (gofmt)
+// This file implements adaptive threshold generation based on hardware characteristics.
+^
+internal\calibration\calibration.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\doc.go:1:1: File is not properly formatted (gofmt)
+// Package calibration provides performance calibration for the Fibonacci calculator.
+^
+internal\calibration\io.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\microbench.go:1:1: File is not properly formatted (gofmt)
+// This file implements fast micro-benchmarks for quick threshold estimation (~100ms).
+^
+internal\calibration\profile.go:1:1: File is not properly formatted (gofmt)
+// This file implements calibration profile persistence.
+^
+internal\calibration\runner.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\adaptive_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\calibration_advanced_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\calibration_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\io_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\microbench_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\profile_test.go:1:1: File is not properly formatted (gofmt)
+package calibration
+^
+internal\calibration\microbench_test.go:111:2: SA9003: empty branch (staticcheck)
+	if len(num.Bits()) != words {
+	^
+internal\calibration\microbench.go:169:84: `(*MicroBenchmark).runSingleTest` - `parallel` is unused (unparam)
+func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) {
+                                                                                   ^
+internal\calibration\microbench.go:208:47: multiplyTest - result 0 (*math/big.Int) is never used (unparam)
+func multiplyTest(x, y *big.Int, useFFT bool) *big.Int {
+                                              ^
+internal\config\usage.go:30:7: emptyStringTest: replace `len(name) > 0` with `name != ""` (gocritic)
+			if len(name) > 0 {
+			   ^
+internal\config\config.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\doc.go:1:1: File is not properly formatted (gofmt)
+// Package config provides configuration management for the fibcalc application.
+^
+internal\config\env.go:1:1: File is not properly formatted (gofmt)
+// This file contains environment variable utilities for configuration override.
+^
+internal\config\hardware.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\thresholds.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\usage.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\config_exhaustive_test.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\config_extra_test.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\config_test.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\env_test.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\hardware_test.go:1:1: File is not properly formatted (gofmt)
+package config
+^
+internal\config\env.go:19:24: `getEnvString` - `defaultVal` always receives `"default"` (unparam)
+func getEnvString(key, defaultVal string) string {
+                       ^
+internal\fibonacci\fibonaccitest\doc.go:1:1: File is not properly formatted (gofmt)
+// Package fibonaccitest provides minimal test doubles for [fibonacci.CoreCalculator].
+^
+internal\fibonacci\fibonaccitest\stub.go:1:1: File is not properly formatted (gofmt)
+package fibonaccitest
+^
+internal\fibonacci\fibonaccitest\stub_test.go:1:1: File is not properly formatted (gofmt)
+package fibonaccitest
+^
+internal\cli\completion.go:96:1: cognitive complexity 39 of func `generateBashCompletion` is high (> 30) (gocognit)
+func generateBashCompletion(out io.Writer, algorithms []string) error {
+^
+internal\cli\presenter.go:19:6: exported: type name will be used as cli.CLIProgressReporter by other packages, and that is repetitive; consider calling this ProgressReporter (revive)
+type CLIProgressReporter struct{}
+     ^
+internal\cli\presenter.go:32:6: exported: type name will be used as cli.CLIResultPresenter by other packages, and that is repetitive; consider calling this ResultPresenter (revive)
+type CLIResultPresenter struct {
+     ^
+internal\cli\provider.go:19:6: exported: type name will be used as cli.CLIColorProvider by other packages, and that is repetitive; consider calling this ColorProvider (revive)
+type CLIColorProvider struct{}
+     ^
+internal\cli\completion.go:307:2: appendCombine: can combine chain of 6 appends into one (gocritic)
+	lines = append(lines, "# Fish completion script for fibcalc")
+	^
+internal\cli\completion.go:280:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if f.IsFile {
+	^
+internal\cli\completion.go:387:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if f.IsFile {
+	^
+internal\cli\completion.go:169:3: nestingReduce: invert if cond, replace body with `continue`, move old body after the statement (gocritic)
+		if f.BashGroup != "" && !seenGroups[f.BashGroup] {
+		^
+internal\cli\completion.go:117:14: sprintfQuotedString: use %q instead of "%s" for quoted strings (gocritic)
+			body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(f.Values, " ")),
+			          ^
+internal\cli\completion.go:180:15: sprintfQuotedString: use %q instead of "%s" for quoted strings (gocritic)
+				body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(vals, " ")),
+				          ^
+internal\cli\output.go:66:30: octalLiteral: use new octal literal style, 0o700 (gocritic)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+		                           ^
+internal\cli\output.go:71:80: octalLiteral: use new octal literal style, 0o600 (gocritic)
+	file, err := os.OpenFile(config.OutputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	                                                                              ^
+internal\cli\calculate.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\completion.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\doc.go:1:1: File is not properly formatted (gofmt)
+// Package cli provides the command-line interface for the Fibonacci calculator:
+^
+internal\cli\output.go:1:1: File is not properly formatted (gofmt)
+// # Naming Conventions
+^
+internal\cli\presenter.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\provider.go:1:1: File is not properly formatted (gofmt)
+// This file provides a color provider implementation for use with the errors package.
+^
+internal\cli\ui.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\ui_display.go:1:1: File is not properly formatted (gofmt)
+// Display functions for progress reporting and result presentation.
+^
+internal\cli\calculate_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\completion_bench_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\completion_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\goldens_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\output_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\provider_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\ui_advanced_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\ui_test.go:1:1: File is not properly formatted (gofmt)
+package cli
+^
+internal\cli\completion.go:235:2: Consider pre-allocating `args` (prealloc)
+	var args []string
+	^
+internal\cli\completion.go:305:2: Consider pre-allocating `lines` (prealloc)
+	var lines []string
+	^
+internal\cli\completion.go:420:2: Consider pre-allocating `switchEntries` (prealloc)
+	var switchEntries []string
+	^
+internal\cli\presenter.go:92:15: `padRight` - `s` always receives `""` (unparam)
+func padRight(s string, length int) string {
+              ^
+internal\cli\output_test.go:191:1: unnecessary trailing newline (whitespace)
+}
+^
+internal\errors\errors.go:118:8: builtinShadow: shadowing of predeclared identifier: max (gocritic)
+	const max = 200
+	      ^
+internal\errors\doc.go:1:1: File is not properly formatted (gofmt)
+// Package apperrors defines structured application error types,
+^
+internal\errors\errors.go:1:1: File is not properly formatted (gofmt)
+package apperrors
+^
+internal\errors\handler.go:1:1: File is not properly formatted (gofmt)
+package apperrors
+^
+internal\errors\errors_test.go:1:1: File is not properly formatted (gofmt)
+// Package apperrors provides tests for application error types.
+^
+internal\errors\handler_test.go:1:1: File is not properly formatted (gofmt)
+package apperrors
+^
+internal\tui\model.go:136:1: cyclomatic complexity 20 of func `(Model).Update` is high (> 15) (gocyclo)
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+^
+internal\tui\sparkline.go:126:1: cyclomatic complexity 17 of func `RenderBrailleChart` is high (> 15) (gocyclo)
+func RenderBrailleChart(values []float64, width, rows int) []string {
+^
+internal\tui\bridge.go:43:6: exported: type name will be used as tui.TUIProgressReporter by other packages, and that is repetitive; consider calling this ProgressReporter (revive)
+type TUIProgressReporter struct {
+     ^
+internal\tui\bridge.go:74:6: exported: type name will be used as tui.TUIResultPresenter by other packages, and that is repetitive; consider calling this ResultPresenter (revive)
+type TUIResultPresenter struct {
+     ^
+internal\tui\model.go:348:43: context-as-argument: context.Context should be the first parameter of a function (revive)
+func startCalculationCmd(ref *programRef, ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
+                                          ^
+internal\tui\chart.go:47:1: paramTypeCombine: func(progress float64, avg float64, eta time.Duration) could be replaced with func(progress, avg float64, eta time.Duration) (gocritic)
+func (c *ChartModel) AddDataPoint(progress float64, avg float64, eta time.Duration) {
+^
+internal\tui\logs.go:58:2: appendCombine: can combine chain of 4 appends into one (gocritic)
+	l.entries = append(l.entries, logAlgoStyle.Render("--- Execution Configuration ---"))
+	^
+internal\tui\logs.go:75:2: appendCombine: can combine chain of 2 appends into one (gocritic)
+	l.entries = append(l.entries, fmt.Sprintf("  Execution mode: %s.", modeDesc))
+	^
+internal\tui\logs.go:101:2: appendCombine: can combine chain of 2 appends into one (gocritic)
+	l.entries = append(l.entries, "")
+	^
+internal\tui\logs.go:140:2: appendCombine: can combine chain of 4 appends into one (gocritic)
+	l.entries = append(l.entries, "")
+	^
+internal\tui\footer_test.go:88:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\footer_test.go:99:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\footer_test.go:110:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\header_test.go:44:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\logs_test.go:187:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\model_test.go:200:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\model_test.go:486:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\model_test.go:622:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\model_test.go:644:5: emptyStringTest: replace `len(view) == 0` with `view == ""` (gocritic)
+	if len(view) == 0 {
+	   ^
+internal\tui\bridge.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\chart.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\doc.go:1:1: File is not properly formatted (gofmt)
+// Package tui provides an interactive terminal user interface (TUI) dashboard
+^
+internal\tui\footer.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\header.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\keymap.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\logs.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\messages.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\metrics.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\model.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\sparkline.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\styles.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\bridge_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\chart_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\cli_flags_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\footer_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\header_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\keymap_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\logs_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\metrics_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\model_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\sparkline_test.go:1:1: File is not properly formatted (gofmt)
+package tui
+^
+internal\tui\messages.go:70:53: `cancelled` is a misspelling of `canceled` (misspell)
+// ContextCancelledMsg signals that the context was cancelled.
+                                                    ^
+internal\tui\model_test.go:328:52: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Error("expected model to be done after context cancelled")
+		                                                 ^
+internal\tui\model_test.go:331:51: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Error("expected tea.Quit command from context cancelled")
+		                                                ^
+internal\tui\model_test.go:344:35: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Error("expected stale context cancelled to be ignored")
+		                                ^
+internal\tui\model_test.go:347:51: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Error("expected no command from stale context cancelled")
+		                                                ^
+internal\tui\model_test.go:745:29: `cancelled` is a misspelling of `canceled` (misspell)
+	// Child context should be cancelled after quit
+	                           ^
+internal\tui\model_test.go:748:27: `cancelled` is a misspelling of `canceled` (misspell)
+		// Good — context was cancelled
+		                        ^
+internal\tui\model_test.go:750:35: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Error("expected context to be cancelled after quit")
+		                                ^
+internal\bigfft\fft_parallel_test.go:63:6: Error return value is not checked (errcheck)
+		Mul(x, y)
+		   ^
+internal\bigfft\fft_poly.go:297:9: Error return value is not checked (errcheck)
+	fourier(values, twisted, false, n, k)
+	       ^
+internal\bigfft\fft_poly.go:315:9: Error return value is not checked (errcheck)
+	fourier(q, v.Values, true, n, k)
+	       ^
+internal\bigfft\fft_precision_test.go:482:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(aBytes)
+	         ^
+internal\bigfft\fft_precision_test.go:483:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(bBytes)
+	         ^
+internal\bigfft\fft_precision_test.go:503:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(aBytes)
+	         ^
+internal\bigfft\fft_precision_test.go:504:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(bBytes)
+	         ^
+internal\bigfft\pool_test.go:647:8: Error return value is not checked (errcheck)
+		MulTo(z, x, y)
+		     ^
+internal\bigfft\pool_test.go:659:8: Error return value is not checked (errcheck)
+		MulTo(z, x, y)
+		     ^
+internal\bigfft\pool_test.go:669:7: Error return value is not checked (errcheck)
+			Mul(x, y)
+			   ^
+internal\bigfft\pool_test.go:676:9: Error return value is not checked (errcheck)
+			MulTo(z, x, y)
+			     ^
+internal\bigfft\pool_test.go:684:9: Error return value is not checked (errcheck)
+			MulTo(z, x, y)
+			     ^
+internal\bigfft\pool_warming_bench_test.go:28:8: Error return value is not checked (errcheck)
+		MulTo(z, x, y)
+		     ^
+internal\bigfft\sqr_test.go:372:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\bigfft\sqr_test.go:389:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\bigfft\sqr_test.go:415:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\bigfft\sqr_test.go:426:7: Error return value is not checked (errcheck)
+			Mul(x, x)
+			   ^
+internal\bigfft\fermat.go:100:18: G115: integer overflow conversion int -> uint (gosec)
+	shlVU(z, z, uint(kb))
+	                ^
+internal\bigfft\fft.go:218:19: G115: integer overflow conversion uint -> int (gosec)
+	n := 2*m*_W + int(k) // necessary bits
+	                 ^
+internal\bigfft\fft_cache.go:152:30: G115: integer overflow conversion int -> uint64 (gosec)
+	h = fnvWriteUint64(h, uint64(n))
+	                            ^
+internal\bigfft\fft_cache.go:164:30: G115: integer overflow conversion int -> uint64 (gosec)
+	h = fnvWriteUint64(h, uint64(n))
+	                            ^
+internal\bigfft\fft_poly.go:246:21: G115: integer overflow conversion uint -> int (gosec)
+		u.Shift(p[i], -int(k))
+		                  ^
+internal\bigfft\fft_poly.go:321:21: G115: integer overflow conversion uint -> int (gosec)
+		u.Shift(q[i], -int(k)-i*θshift)
+		                  ^
+internal\bigfft\memory_est.go:20:16: G115: integer overflow conversion uint64 -> int (gosec)
+	wordLen := int((bitLen + 63) / 64)
+	              ^
+internal\bigfft\pool.go:50:23: G115: integer overflow conversion int -> uint (gosec)
+	idx := (bits.Len(uint(size-1)) - 5) / 2
+	                     ^
+internal\bigfft\pool.go:158:23: G115: integer overflow conversion int -> uint (gosec)
+	idx := (bits.Len(uint(size-1)) - 4) / 2
+	                     ^
+internal\bigfft\pool.go:246:23: G115: integer overflow conversion int -> uint (gosec)
+	idx := (bits.Len(uint(size-1)) - 2) / 2
+	                     ^
+internal\bigfft\pool.go:333:23: G115: integer overflow conversion int -> uint (gosec)
+	idx := (bits.Len(uint(size-1)) - 2) / 2
+	                     ^
+internal\bigfft\scan.go:39:34: G115: integer overflow conversion uint -> int (gosec)
+	for i := len(s.powers); i <= int(k); i++ {
+	                                ^
+internal\bigfft\fermat.go:23:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) norm() {
+	n := len(z) - 1
+	c := z[n]
+	if c == 0 {
+		return
+	}
+	if z[0] >= c {
+		z[n] = 0
+		z[0] -= c
+		return
+	}
+	// z[0] < z[n].
+	subVW(z, z, c) // Subtract c
+	if c > 1 {
+		z[n] -= c - 1
+		c = 1
+	}
+	// Add back c.
+	if z[n] == 1 {
+		z[n] = 0
+		return
+	}
+	addVW(z, z, 1)
+}
+internal\bigfft\fermat.go:49:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Shift(x fermat, k int) {
+	if len(z) != len(x) {
+		panic("len(z) != len(x) in Shift")
+	}
+	n := len(x) - 1
+	// Shift by n*_W is taking the opposite.
+	k %= 2 * n * _W
+	if k < 0 {
+		k += 2 * n * _W
+	}
+	neg := false
+	if k >= n*_W {
+		k -= n * _W
+		neg = true
+	}
+
+	kw, kb := k/_W, k%_W
+
+	z[n] = 1 // Add (-1)
+	if !neg {
+		for i := 0; i < kw; i++ {
+			z[i] = 0
+		}
+		// Shift left by kw words.
+		// x = a·2^(n-k) + b
+		// x<<k = (b<<k) - a
+		copy(z[kw:], x[:n-kw])
+		b := subVV(z[:kw+1], z[:kw+1], x[n-kw:])
+		if z[kw+1] > 0 {
+			z[kw+1] -= b
+		} else {
+			subVW(z[kw+1:], z[kw+1:], b)
+		}
+	} else {
+		for i := kw + 1; i < n; i++ {
+			z[i] = 0
+		}
+		// Shift left and negate, by kw words.
+		copy(z[:kw+1], x[n-kw:n+1])            // z_low = x_high
+		b := subVV(z[kw:n], z[kw:n], x[:n-kw]) // z_high -= x_low
+		z[n] -= b
+	}
+	// Add back 1.
+	if z[n] > 0 {
+		z[n]--
+	} else if z[0] < ^big.Word(0) {
+		z[0]++
+	} else {
+		addVW(z, z, 1)
+	}
+	// Shift left by kb bits
+	shlVU(z, z, uint(kb))
+	z.norm()
+}
+internal\bigfft\fermat.go:107:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) ShiftHalf(x fermat, k int, tmp fermat) {
+	n := len(z) - 1
+	if k%2 == 0 {
+		z.Shift(x, k/2)
+		return
+	}
+	u := (k - 1) / 2
+	a := u + (3*_W/4)*n
+	b := u + (_W/4)*n
+	z.Shift(x, a)
+	tmp.Shift(x, b)
+	z.Sub(z, tmp)
+}
+internal\bigfft\allocator.go:50:49: unexported-return: exported method AllocFermatTemp returns unexported type bigfft.fermat, which can be annoying to use (revive)
+func (p *PoolAllocator) AllocFermatTemp(n int) (fermat, func()) {
+                                                ^
+internal\bigfft\fermat.go:122:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Add(x, y fermat) fermat {
+	if len(z) != len(x) {
+		panic("Add: len(z) != len(x)")
+	}
+	addVV(z, x, y) // there cannot be a carry here.
+	z.norm()
+	return z
+}
+internal\bigfft\allocator.go:63:53: unexported-return: exported method AllocFermatSlice returns unexported type []bigfft.fermat, which can be annoying to use (revive)
+func (p *PoolAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
+                                                    ^
+internal\bigfft\allocator.go:93:56: unexported-return: exported method AllocFermatTemp returns unexported type bigfft.fermat, which can be annoying to use (revive)
+func (b *BumpAllocatorAdapter) AllocFermatTemp(n int) (fermat, func()) {
+                                                       ^
+internal\bigfft\fermat.go:132:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Sub(x, y fermat) fermat {
+	if len(z) != len(x) {
+		panic("fermat.Sub: len(z) != len(x)")
+	}
+	n := len(y) - 1
+	b := subVV(z[:n], x[:n], y[:n])
+	b += y[n]
+	// If b > 0, we need to subtract b<<n, which is the same as adding b.
+	z[n] = x[n]
+	if z[0] <= ^big.Word(0)-b {
+		z[0] += b
+	} else {
+		addVW(z, z, b)
+	}
+	z.norm()
+	return z
+}
+internal\bigfft\fermat.go:150:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Mul(x, y fermat) fermat {
+	if len(x) != len(y) {
+		panic("Mul: len(x) != len(y)")
+	}
+	n := len(x) - 1
+	if n < smallMulThreshold {
+		z = z[:2*n+2]
+		basicMul(z, x, y)
+		z = z[:2*n+1]
+	} else {
+		var xi, yi, zi big.Int
+		xi.SetBits(x)
+		yi.SetBits(y)
+		zi.SetBits(z)
+		zb := zi.Mul(&xi, &yi).Bits()
+		if len(zb) <= n {
+			// Short product.
+			copy(z, zb)
+			for i := len(zb); i < len(z); i++ {
+				z[i] = 0
+			}
+			return z
+		}
+		z = zb
+	}
+	// len(z) is at most 2n+1.
+	if len(z) > 2*n+1 {
+		panic("len(z) > 2n+1")
+	}
+	// We now have
+	// z = z[:n] + 1<<(n*W) * z[n:2n+1]
+	// which normalizes to:
+	// z = z[:n] - z[n:2n] + z[2n]
+	c1 := big.Word(0)
+	if len(z) > 2*n {
+		c1 = addVW(z[:n], z[:n], z[2*n])
+	}
+	c2 := big.Word(0)
+	if len(z) >= 2*n {
+		c2 = subVV(z[:n], z[:n], z[n:2*n])
+	} else {
+		m := len(z) - n
+		c2 = subVV(z[:m], z[:m], z[n:])
+		c2 = subVW(z[m:n], z[m:n], c2)
+	}
+	// Restore carries.
+	// Subtracting z[n] -= c2 is the same
+	// as z[0] += c2
+	z = z[:n+1]
+	z[n] = c1
+	c := addVW(z, z, c2)
+	if c != 0 {
+		panic("fermat.Mul: unexpected carry after normalization")
+	}
+	z.norm()
+	return z
+}
+internal\bigfft\allocator.go:98:60: unexported-return: exported method AllocFermatSlice returns unexported type []bigfft.fermat, which can be annoying to use (revive)
+func (b *BumpAllocatorAdapter) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
+                                                           ^
+internal\bigfft\fermat.go:214:1: receiver-naming: receiver name z should be consistent with previous receiver name n for fermat (revive)
+func (z fermat) Sqr(x fermat) fermat {
+	n := len(x) - 1
+	if n < smallMulThreshold {
+		z = z[:2*n+2]
+		basicSqr(z, x)
+		z = z[:2*n+1]
+	} else {
+		var xi, zi big.Int
+		xi.SetBits(x)
+		zi.SetBits(z)
+		// Pass &xi for both operands so big.Int.Mul detects squaring
+		zb := zi.Mul(&xi, &xi).Bits()
+		if len(zb) <= n {
+			// Short product.
+			copy(z, zb)
+			for i := len(zb); i < len(z); i++ {
+				z[i] = 0
+			}
+			return z
+		}
+		z = zb
+	}
+	// len(z) is at most 2n+1.
+	if len(z) > 2*n+1 {
+		panic("len(z) > 2n+1")
+	}
+	// Reduce modulo 2^(n*_W)+1: same normalization as Mul
+	c1 := big.Word(0)
+	if len(z) > 2*n {
+		c1 = addVW(z[:n], z[:n], z[2*n])
+	}
+	c2 := big.Word(0)
+	if len(z) >= 2*n {
+		c2 = subVV(z[:n], z[:n], z[n:2*n])
+	} else {
+		m := len(z) - n
+		c2 = subVV(z[:m], z[:m], z[n:])
+		c2 = subVW(z[m:n], z[m:n], c2)
+	}
+	z = z[:n+1]
+	z[n] = c1
+	c := addVW(z, z, c2)
+	if c != 0 {
+		panic("fermat.Sqr: unexpected carry after normalization")
+	}
+	z.norm()
+	return z
+}
+internal\bigfft\bump.go:145:45: unexported-return: exported method AllocFermat returns unexported type bigfft.fermat, which can be annoying to use (revive)
+func (ba *BumpAllocator) AllocFermat(n int) fermat {
+                                            ^
+internal\bigfft\bump.go:162:54: unexported-return: exported method AllocFermatSlice returns unexported type []bigfft.fermat, which can be annoying to use (revive)
+func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word) {
+                                                     ^
+internal\bigfft\fft_poly.go:329:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) Mul(q *PolValues) (PolValues, error) {
+	return p.mul(q, GetPoolAllocator())
+}
+internal\bigfft\fft_poly.go:335:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, error) {
+	return p.mul(q, NewBumpAllocatorAdapter(ba))
+}
+internal\bigfft\fft_poly.go:339:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
+	n := p.N
+	K := len(p.Values)
+	var r PolValues
+	r.K, r.N = p.K, p.N
+
+	// Use pooled allocation for returned data (contiguous backing array)
+	r.Values = acquireFermatSlice(K)
+	wordCount := K * (n + 1)
+	bits := acquireWordSliceUnsafe(wordCount)
+
+	// Use allocator for temporary multiplication result
+	// The temporary buffer needs to be 8*n (or 8*n - 1 if optimized)
+	// We use 8*n to be safe and consistent with previous code
+	buf, cleanup := alloc.AllocFermatTemp(8 * n)
+	defer cleanup()
+
+	for i := 0; i < K; i++ {
+		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		z := buf.Mul(p.Values[i], q.Values[i])
+		copy(r.Values[i], z)
+	}
+
+	return r, nil
+}
+internal\bigfft\fft_poly.go:367:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) Sqr() (PolValues, error) {
+	return p.sqr(GetPoolAllocator())
+}
+internal\bigfft\fft_poly.go:373:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
+	return p.sqr(NewBumpAllocatorAdapter(ba))
+}
+internal\bigfft\fft_poly.go:377:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
+	n := p.N
+	K := len(p.Values)
+	var r PolValues
+	r.K, r.N = p.K, p.N
+
+	// Use pooled allocation for returned data (contiguous backing array)
+	r.Values = acquireFermatSlice(K)
+	wordCount := K * (n + 1)
+	bits := acquireWordSliceUnsafe(wordCount)
+
+	// Use allocator for temporary multiplication result
+	buf, cleanup := alloc.AllocFermatTemp(8 * n)
+	defer cleanup()
+
+	for i := 0; i < K; i++ {
+		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+		// Square: use specialized squaring
+		z := buf.Sqr(p.Values[i])
+		copy(r.Values[i], z)
+	}
+
+	return r, nil
+}
+internal\bigfft\fft_poly.go:405:1: receiver-naming: receiver name p should be consistent with previous receiver name v for PolValues (revive)
+func (p *PolValues) Clone() PolValues {
+	K := len(p.Values)
+	n := p.N
+	wordCount := K * (n + 1)
+
+	// Allocate new backing array and values slice
+	bits := make([]big.Word, wordCount)
+	values := make([]fermat, K)
+
+	for i := 0; i < K; i++ {
+		values[i] = fermat(bits[i*(n+1) : (i+1)*(n+1)])
+		copy(values[i], p.Values[i])
+	}
+
+	return PolValues{
+		K:      p.K,
+		N:      p.N,
+		Values: values,
+	}
+}
+internal\bigfft\fft_poly.go:48:22: unexported-return: exported method Int returns unexported type bigfft.nat, which can be annoying to use (revive)
+func (p *Poly) Int() nat {
+                     ^
+internal\bigfft\fft_poly.go:59:31: unexported-return: exported method IntTo returns unexported type bigfft.nat, which can be annoying to use (revive)
+func (p *Poly) IntTo(dst nat) nat {
+                              ^
+internal\bigfft\fermat_test.go:20:3: The copy of the 'for' variable "n" can be deleted (Go 1.22+) (copyloopvar)
+		n := n
+		^
+internal\bigfft\fermat_test.go:55:3: The copy of the 'for' variable "n" can be deleted (Go 1.22+) (copyloopvar)
+		n := n
+		^
+internal\bigfft\fermat_test.go:74:3: The copy of the 'for' variable "n" can be deleted (Go 1.22+) (copyloopvar)
+		n := n
+		^
+internal\bigfft\fermat_test.go:99:3: The copy of the 'for' variable "n" can be deleted (Go 1.22+) (copyloopvar)
+		n := n
+		^
+internal\bigfft\fermat_test.go:129:3: The copy of the 'for' variable "n" can be deleted (Go 1.22+) (copyloopvar)
+		n := n
+		^
+internal\bigfft\fermat.go:87:42: commentedOutCode: may want to remove commented-out code (gocritic)
+		copy(z[:kw+1], x[n-kw:n+1])            // z_low = x_high
+		                                       ^
+internal\bigfft\fermat.go:88:42: commentedOutCode: may want to remove commented-out code (gocritic)
+		b := subVV(z[kw:n], z[kw:n], x[:n-kw]) // z_high -= x_low
+		                                       ^
+internal\bigfft\fermat.go:92:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if z[n] > 0 {
+	^
+internal\bigfft\fft_cache.go:126:1: paramTypeCombine: func(h uint64, x uint64) uint64 could be replaced with func(h, x uint64) uint64 (gocritic)
+func fnvWriteUint64(h uint64, x uint64) uint64 {
+^
+internal\bigfft\fft_core.go:6:1: paramTypeCombine: func(dst []fermat, src []fermat, backward bool, n int, k uint) error could be replaced with func(dst, src []fermat, backward bool, n int, k uint) error (gocritic)
+func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
+^
+internal\bigfft\fft_core.go:12:1: paramTypeCombine: func(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) error could be replaced with func(dst, src []fermat, backward bool, n int, k uint, state *fftState) error (gocritic)
+func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) error {
+^
+internal\bigfft\fft_core.go:31:1: paramTypeCombine: func(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error could be replaced with func(dst, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error (gocritic)
+func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
+^
+internal\bigfft\memory_est.go:37:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if wordLen > 1000000 {
+	^
+internal\bigfft\pool.go:115:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(slice)
+	^
+internal\bigfft\pool.go:208:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(f)
+	^
+internal\bigfft\pool.go:295:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(slice)
+	^
+internal\bigfft\pool.go:382:2: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+	cap := cap(slice)
+	^
+internal\bigfft\pool_warming.go:57:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+	if n >= 10_000_000 {
+	^
+internal\bigfft\bump_test.go:162:4: builtinShadow: shadowing of predeclared identifier: cap (gocritic)
+			cap := EstimateBumpCapacity(tc.wordLen)
+			^
+internal\bigfft\fft_extra_test.go:287:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	if len(p.A) != 3 { // ceil(25/10) = 3
+	                   ^
+internal\bigfft\allocator.go:1:1: File is not properly formatted (gofmt)
+// This file provides the TempAllocator interface for unified temporary buffer management.
+^
+internal\bigfft\arith_amd64.go:1:1: File is not properly formatted (gofmt)
+//go:build amd64
+^
+internal\bigfft\arith_decl.go:1:1: File is not properly formatted (gofmt)
+// Copyright 2010 The Go Authors.  All rights reserved.
+^
+internal\bigfft\bump.go:1:1: File is not properly formatted (gofmt)
+// This file provides a bump allocator for fast temporary allocations during FFT operations.
+^
+internal\bigfft\cpu_amd64.go:1:1: File is not properly formatted (gofmt)
+//go:build amd64
+^
+internal\bigfft\doc.go:1:1: File is not properly formatted (gofmt)
+// Package bigfft implements multiplication of big.Int using FFT.
+^
+internal\bigfft\fermat.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft.go:1:1: File is not properly formatted (gofmt)
+// The implementation is based on the Schönhage-Strassen method
+^
+internal\bigfft\fft_cache.go:1:1: File is not properly formatted (gofmt)
+// This file provides a thread-safe LRU cache for FFT transform results.
+^
+internal\bigfft\fft_core.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_poly.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_recursion.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\memory_est.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\pool.go:1:1: File is not properly formatted (gofmt)
+// This file provides memory pooling for FFT operations to reduce GC pressure.
+^
+internal\bigfft\pool_warming.go:1:1: File is not properly formatted (gofmt)
+// Pool pre-warming for adaptive buffer pre-allocation based on calculation size.
+^
+internal\bigfft\scan.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\arith_amd64_test.go:1:1: File is not properly formatted (gofmt)
+//go:build amd64
+^
+internal\bigfft\bump_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\cpu_amd64_extended_test.go:1:1: File is not properly formatted (gofmt)
+//go:build amd64
+^
+internal\bigfft\fermat_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_cache_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_extra_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_parallel_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_poly_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fft_precision_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\memory_est_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\pool_extra_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\pool_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\pool_warming_bench_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\scan_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\sqr_test.go:1:1: File is not properly formatted (gofmt)
+package bigfft
+^
+internal\bigfft\fermat.go:38:3: ineffectual assignment to c (ineffassign)
+		c = 1
+		^
+internal\bigfft\pool.go:119:27: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		wordSlicePools[idx].Put(slice[:cap])
+		                        ^
+internal\bigfft\pool.go:211:24: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		fermatPools[idx].Put(f[:cap])
+		                     ^
+internal\bigfft\pool.go:298:26: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		natSlicePools[idx].Put(slice[:cap])
+		                       ^
+internal\bigfft\pool.go:385:29: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+		fermatSlicePools[idx].Put(slice[:cap])
+		                          ^
+internal\bigfft\pool_warming.go:70:32: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			wordSlicePools[wordIdx].Put(buf)
+			                            ^
+internal\bigfft\pool_warming.go:79:31: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			fermatPools[fermatIdx].Put(buf)
+			                           ^
+internal\bigfft\pool_warming.go:88:30: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			natSlicePools[natIdx].Put(buf)
+			                          ^
+internal\bigfft\pool_warming.go:97:41: SA6002: argument should be pointer-like to avoid allocations (staticcheck)
+			fermatSlicePools[fermatSliceIdx].Put(buf)
+			                                     ^
+internal\fibonacci\fft_squaring_test.go:322:14: Error return value is not checked (errcheck)
+		smartSquare(z, x, 0)
+		           ^
+internal\fibonacci\fft_squaring_test.go:329:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\fibonacci\fft_squaring_test.go:335:14: Error return value is not checked (errcheck)
+		smartSquare(z, x, 0)
+		           ^
+internal\fibonacci\fft_squaring_test.go:346:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\fibonacci\fft_squaring_test.go:352:14: Error return value is not checked (errcheck)
+		smartSquare(z, x, 1000)
+		           ^
+internal\fibonacci\fft_squaring_test.go:359:11: Error return value of `rand.Read` is not checked (errcheck)
+	rand.Read(xBytes)
+	         ^
+internal\fibonacci\fft_squaring_test.go:365:15: Error return value is not checked (errcheck)
+			smartSquare(z, x, 1000)
+			           ^
+internal\fibonacci\fft_squaring_test.go:372:17: Error return value is not checked (errcheck)
+			smartMultiply(z, x, x, 1000)
+			             ^
+internal\fibonacci\registry_test.go:24:19: Error return value of `factory.Register` is not checked (errcheck)
+		factory.Register("test", func() CoreCalculator { return &mockCoreCalculator{} })
+		                ^
+internal\fibonacci\registry_test.go:155:20: Error return value is not checked (errcheck)
+	RegisterCalculator("global_test", func() CoreCalculator { return &mockCoreCalculator{} })
+	                  ^
+internal\fibonacci\matrix_types.go:154:1: cyclomatic complexity 24 of func `releaseMatrixState` is high (> 15) (gocyclo)
+func releaseMatrixState(s *matrixState) {
+^
+internal\fibonacci\doubling_framework.go:206:14: G115: integer overflow conversion int -> uint (gosec)
+		if (n>>uint(i))&1 == 1 {
+		           ^
+internal\fibonacci\matrix_framework.go:82:21: G115: integer overflow conversion int -> uint (gosec)
+		if (exponent>>uint(i))&1 == 1 {
+		                  ^
+internal\fibonacci\matrix_ops.go:24:42: G115: integer overflow conversion int -> int32 (gosec)
+	defaultStrassenThresholdBits.Store(int32(bits))
+	                                        ^
+internal\fibonacci\modular.go:56:14: G115: integer overflow conversion int -> uint (gosec)
+		if (n>>uint(i))&1 == 1 {
+		           ^
+internal\fibonacci\fastdoubling_test.go:145:3: The copy of the 'for' variable "tc" can be deleted (Go 1.22+) (copyloopvar)
+		tc := tc
+		^
+internal\fibonacci\fastdoubling_test.go:178:3: The copy of the 'for' variable "tc" can be deleted (Go 1.22+) (copyloopvar)
+		tc := tc
+		^
+internal\fibonacci\fibonacci_edge_test.go:309:3: The copy of the 'for' variable "n" can be deleted (Go 1.22+) (copyloopvar)
+		n := n // capture loop var
+		^
+internal\fibonacci\fibonacci_golden_test.go:46:5: The copy of the 'for' variable "tc" can be deleted (Go 1.22+) (copyloopvar)
+				tc := tc
+				^
+internal\fibonacci\modular_test.go:26:3: The copy of the 'for' variable "tc" can be deleted (Go 1.22+) (copyloopvar)
+		tc := tc
+		^
+internal\fibonacci\fft.go:87:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// FK1 = F(k) * (2*F(k+1) - F(k))
+	^
+internal\fibonacci\matrix_ops.go:124:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s1.Add(m1.c, m1.d) // S1 = A21 + A22
+	                   ^
+internal\fibonacci\matrix_ops.go:126:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s3.Sub(m1.a, m1.c) // S3 = A11 - A21
+	                   ^
+internal\fibonacci\matrix_ops.go:128:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s5.Sub(m2.b, m2.a) // S5 = B12 - B11
+	                   ^
+internal\fibonacci\matrix_ops.go:130:21: commentedOutCode: may want to remove commented-out code (gocritic)
+	s7.Sub(m2.d, m2.b) // S7 = B22 - B12
+	                   ^
+internal\fibonacci\matrix_ops.go:154:2: commentedOutCode: may want to remove commented-out code (gocritic)
+	// C12 = T1 + P5 + P6
+	^
+internal\fibonacci\matrix_ops.go:50:1: paramTypeCombine: func(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error could be replaced with func(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold, strassenThreshold int) error (gocritic)
+func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error {
+^
+internal\fibonacci\fft_nil_test.go:89:38: commentedOutCode: may want to remove commented-out code (gocritic)
+		expected := new(big.Int).Mul(x, y) // 999 * 1001 = 999999
+		                                   ^
+internal\fibonacci\fft_nil_test.go:105:38: commentedOutCode: may want to remove commented-out code (gocritic)
+		expected := new(big.Int).Mul(x, x) // 999^2 = 998001
+		                                   ^
+internal\fibonacci\fibonacci_property_test.go:227:4: commentedOutCode: may want to remove commented-out code (gocritic)
+			// GCD(F(m), F(n))
+			^
+internal\fibonacci\calculator.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\common.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\constants.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\doc.go:1:1: File is not properly formatted (gofmt)
+// Package fibonacci provides implementations for calculating Fibonacci numbers.
+^
+internal\fibonacci\doubling_framework.go:1:1: File is not properly formatted (gofmt)
+// This file contains the common Fast Doubling framework used by multiple
+^
+internal\fibonacci\fastdoubling.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fft.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fft_based.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\generator.go:1:1: File is not properly formatted (gofmt)
+// This file defines the SequenceGenerator interface for iterative/streaming
+^
+internal\fibonacci\generator_iterative.go:1:1: File is not properly formatted (gofmt)
+// This file provides an iterative implementation of SequenceGenerator.
+^
+internal\fibonacci\matrix.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\matrix_framework.go:1:1: File is not properly formatted (gofmt)
+// This file contains the common Matrix Exponentiation framework used by the
+^
+internal\fibonacci\matrix_ops.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\matrix_types.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\modular.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\options.go:1:1: File is not properly formatted (gofmt)
+// This file contains configuration options for Fibonacci calculations.
+^
+internal\fibonacci\progress_aliases.go:1:1: File is not properly formatted (gofmt)
+// This file provides type aliases for progress types that were moved to
+^
+internal\fibonacci\registry.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\strategy.go:1:1: File is not properly formatted (gofmt)
+// This file defines the multiplication strategy abstraction to eliminate code
+^
+internal\fibonacci\testing.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\cache_bench_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\cache_config_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\calculator_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\common_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\doubling_framework_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\example_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fastdoubling_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fft_nil_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fft_race_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fft_squaring_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fft_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fibonacci_edge_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fibonacci_fuzz_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fibonacci_golden_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fibonacci_property_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fibonacci_strassen_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\fibonacci_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\generator_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\karatsuba_integration_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\modular_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\options_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\registry_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\state_pool_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\strategy_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\testing_test.go:1:1: File is not properly formatted (gofmt)
+package fibonacci
+^
+internal\fibonacci\generator.go:33:40: `cancelled` is a misspelling of `canceled` (misspell)
+	// Returns an error if the context is cancelled.
+	                                      ^
+internal\fibonacci\generator.go:40:59: `cancelled` is a misspelling of `canceled` (misspell)
+	//   - error: An error if generation fails or context is cancelled.
+	                                                         ^
+internal\fibonacci\generator.go:71:59: `cancelled` is a misspelling of `canceled` (misspell)
+	//   - error: An error if generation fails or context is cancelled.
+	                                                         ^
+internal\fibonacci\generator_iterative.go:89:42: `cancelled` is a misspelling of `canceled` (misspell)
+//   - error: An error if the context is cancelled.
+                                         ^
+internal\fibonacci\generator_iterative.go:168:58: `cancelled` is a misspelling of `canceled` (misspell)
+//   - error: An error if generation fails or context is cancelled.
+                                                         ^
+internal\fibonacci\example_test.go:85:25: `optimised` is a misspelling of `optimized` (misspell)
+// are computed via the optimised iterative path.
+                        ^
+internal\fibonacci\generator_test.go:194:14: `cancelled` is a misspelling of `canceled` (misspell)
+	// Create a cancelled context
+	            ^
+internal\fibonacci\generator_test.go:201:25: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Errorf("Next() with cancelled context: got %v, want context.Canceled", err)
+		                      ^
+internal\fibonacci\generator_test.go:207:25: `cancelled` is a misspelling of `canceled` (misspell)
+		t.Errorf("Skip() with cancelled context: got %v, want context.Canceled", err)
+		                      ^
+internal\fibonacci\registry_test.go:86:4: SA9003: empty branch (staticcheck)
+			if r := recover(); r != nil {
+			^
+internal\fibonacci\fft.go:86:71: `executeDoublingStepFFT` - `opts` is unused (unparam)
+func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Options, inParallel bool) error {
+                                                                      ^
+internal\format\duration.go:18:6: exported: func name will be used as format.FormatExecutionDuration by other packages, and that is repetitive; consider calling this ExecutionDuration (revive)
+func FormatExecutionDuration(d time.Duration) string {
+     ^
+internal\format\numbers.go:18:6: exported: func name will be used as format.FormatNumberString by other packages, and that is repetitive; consider calling this NumberString (revive)
+func FormatNumberString(s string) string {
+     ^
+internal\format\numbers.go:54:6: exported: func name will be used as format.FormatBytes by other packages, and that is repetitive; consider calling this Bytes (revive)
+func FormatBytes(b uint64) string {
+     ^
+internal\format\progress_eta.go:183:6: exported: func name will be used as format.FormatETA by other packages, and that is repetitive; consider calling this ETA (revive)
+func FormatETA(eta time.Duration) string {
+     ^
+internal\format\progress_eta.go:251:6: exported: func name will be used as format.FormatProgressBarWithETA by other packages, and that is repetitive; consider calling this ProgressBarWithETA (revive)
+func FormatProgressBarWithETA(progress float64, eta time.Duration, width int) string {
+     ^
+internal\format\progress_eta_test.go:328:50: emptyStringTest: replace `len(s) > 0` with `s != ""` (gocritic)
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+	                                                ^
+internal\format\duration.go:1:1: File is not properly formatted (gofmt)
+package format
+^
+internal\format\numbers.go:1:1: File is not properly formatted (gofmt)
+// Number formatting utilities shared across CLI and TUI layers.
+^
+internal\format\progress_eta.go:1:1: File is not properly formatted (gofmt)
+package format
+^
+internal\format\progress_eta_test.go:1:1: File is not properly formatted (gofmt)
+package format
+^
+internal\progress\observer.go:145:13: Error return value is not checked (errcheck)
+					recover() // prevent panicking observer from crashing calculation
+					       ^
+internal\metrics\indicators.go:46:25: G115: integer overflow conversion int -> uint64 (gosec)
+			DoublingSteps: uint64(bits.Len64(n)),
+			                     ^
+internal\metrics\indicators.go:56:25: G115: integer overflow conversion int -> uint64 (gosec)
+	doublingSteps := uint64(bits.Len64(n))
+	                       ^
+internal\metrics\indicators.go:80:25: G115: integer overflow conversion int -> uint64 (gosec)
+	doublingSteps := uint64(bits.Len64(n))
+	                       ^
+internal\fibonacci\threshold\types.go:18:6: exported: type name will be used as threshold.ThresholdStats by other packages, and that is repetitive; consider calling this Stats (revive)
+type ThresholdStats struct {
+     ^
+internal\progress\observer.go:16:6: exported: type name will be used as progress.ProgressObserver by other packages, and that is repetitive; consider calling this Observer (revive)
+type ProgressObserver interface {
+     ^
+internal\progress\observer.go:35:6: exported: type name will be used as progress.ProgressSubject by other packages, and that is repetitive; consider calling this Subject (revive)
+type ProgressSubject struct {
+     ^
+internal\progress\progress.go:17:6: exported: type name will be used as progress.ProgressUpdate by other packages, and that is repetitive; consider calling this Update (revive)
+type ProgressUpdate struct {
+     ^
+internal\progress\progress.go:32:6: exported: type name will be used as progress.ProgressCallback by other packages, and that is repetitive; consider calling this Callback (revive)
+type ProgressCallback func(progress float64)
+     ^
+cmd\fibcalc\main_test.go:200:1: unnamedResult: consider giving a name to these results (gocritic)
+func runBinary(t *testing.T, binPath string, args ...string) (string, int) {
+^
+internal\metrics\indicators_test.go:81:26: commentedOutCode: may want to remove commented-out code (gocritic)
+	result := fibSmall(100) // F(100) = 354224848179261915075
+	                        ^
+internal\progress\observer_test.go:351:34: commentedOutCode: may want to remove commented-out code (gocritic)
+	ch := make(chan ProgressUpdate) // Unbuffered = full
+	                                ^
+cmd\fibcalc\main.go:1:1: File is not properly formatted (gofmt)
+// Package main is the entry point for the fibcalc CLI. It handles version/help
+^
+cmd\fibcalc\main_test.go:1:1: File is not properly formatted (gofmt)
+package main
+^
+internal\fibonacci\threshold\manager.go:1:1: File is not properly formatted (gofmt)
+// This file implements dynamic threshold adjustment during calculation.
+^
+internal\fibonacci\threshold\types.go:1:1: File is not properly formatted (gofmt)
+package threshold
+^
+internal\fibonacci\threshold\manager_test.go:1:1: File is not properly formatted (gofmt)
+package threshold
+^
+internal\metrics\indicators.go:1:1: File is not properly formatted (gofmt)
+package metrics
+^
+internal\metrics\memory.go:1:1: File is not properly formatted (gofmt)
+package metrics
+^
+internal\metrics\indicators_test.go:1:1: File is not properly formatted (gofmt)
+package metrics
+^
+internal\metrics\memory_test.go:1:1: File is not properly formatted (gofmt)
+package metrics
+^
+internal\parallel\doc.go:1:1: File is not properly formatted (gofmt)
+// Package parallel provides utilities for concurrent operations.
+^
+internal\parallel\errors.go:1:1: File is not properly formatted (gofmt)
+package parallel
+^
+internal\parallel\errors_test.go:1:1: File is not properly formatted (gofmt)
+package parallel
+^
+internal\progress\observer.go:1:1: File is not properly formatted (gofmt)
+// This file contains the Observer pattern implementation for progress reporting.
+^
+internal\progress\observers.go:1:1: File is not properly formatted (gofmt)
+// This file contains concrete observer implementations for the Observer pattern.
+^
+internal\progress\progress.go:1:1: File is not properly formatted (gofmt)
+// This file contains progress reporting types and utilities used by calculators.
+^
+internal\progress\observer_test.go:1:1: File is not properly formatted (gofmt)
+package progress
+^
+internal\progress\progress_test.go:1:1: File is not properly formatted (gofmt)
+package progress
+^
+internal\sysmon\sysmon.go:1:1: File is not properly formatted (gofmt)
+// Package sysmon provides system-wide CPU and memory usage sampling.
+^
+internal\sysmon\sysmon_test.go:1:1: File is not properly formatted (gofmt)
+package sysmon
+^
+internal\testutil\ansi.go:1:1: File is not properly formatted (gofmt)
+package testutil
+^
+internal\testutil\doc.go:1:1: File is not properly formatted (gofmt)
+// Package testutil provides shared testing utilities used across the project.
+^
+internal\testutil\ansi_test.go:1:1: File is not properly formatted (gofmt)
+package testutil
+^
+internal\progress\progress_test.go:168:3: SA9003: empty branch (staticcheck)
+		if result == 0 {
+		^
+LINT_EXIT=1
