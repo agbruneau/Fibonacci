@@ -166,13 +166,20 @@ func (mb *MicroBenchmark) runParallelTests(ctx context.Context) []testResult {
 }
 
 // runSingleTest performs a single multiplication test.
-func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) {
+//
+// The `parallel` flag is retained (even though the current implementation
+// does not branch on it) because callers pass cfg.parallel to record the
+// intent of the benchmark, and future work — e.g. actually running the
+// multiplication through the parallel fibonacci harness — is expected to
+// consume it. See P1-07.
+func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) { //nolint:unparam // parallel kept for planned parallel-path benchmarking
+	_ = parallel // documented above; silence unparam without dropping the knob
 	// Create test numbers
 	x := generateTestNumber(wordSize)
 	y := generateTestNumber(wordSize)
 
 	// Warm up
-	_ = multiplyTest(x, y, useFFT)
+	multiplyTest(x, y, useFFT)
 
 	// Run timed iterations
 	var totalDuration time.Duration
@@ -184,7 +191,7 @@ func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFF
 		}
 
 		start := time.Now()
-		_ = multiplyTest(x, y, useFFT)
+		multiplyTest(x, y, useFFT)
 		totalDuration += time.Since(start)
 	}
 
@@ -207,12 +214,18 @@ func generateTestNumber(words int) *big.Int {
 }
 
 // multiplyTest performs a multiplication using the specified method.
-func multiplyTest(x, y *big.Int, useFFT bool) *big.Int {
+//
+// The return value is intentionally discarded — every caller runs this
+// for its side effect (measuring wall-clock time). Previously the
+// function returned the product; P1-07 dropped the unused result to
+// clean up the unparam finding while keeping the work the compiler
+// actually performs (Mul still writes to a heap big.Int).
+func multiplyTest(x, y *big.Int, useFFT bool) {
 	if useFFT {
-		result, _ := bigfft.Mul(x, y)
-		return result
+		_, _ = bigfft.Mul(x, y)
+		return
 	}
-	return new(big.Int).Mul(x, y)
+	_ = new(big.Int).Mul(x, y)
 }
 
 // analyzeResults examines test results to determine optimal thresholds.

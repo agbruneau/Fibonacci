@@ -83,7 +83,15 @@ func smartSquare(z, x *big.Int, fftThreshold int) (*big.Int, error) {
 // executeDoublingStepFFT performs the three multiplications of a doubling step
 // while minimizing redundant FFT transforms.
 // It transforms F_k and F_k1 only once and then performs the calculations.
-func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Options, inParallel bool) error {
+//
+// The `opts` parameter is currently unused inside the body (thresholds are
+// only consulted by the caller to decide whether to route here), but the
+// signature is kept symmetrical with executeDoublingStepMultiplications so
+// both can be invoked uniformly from the strategy dispatcher — see
+// strategy.go AdaptiveStrategy.ExecuteStep / FFTOnlyStrategy.ExecuteStep.
+// Extra tuning knobs (e.g. an FFT-specific threshold override) will plug
+// in through this parameter without a signature break.
+func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Options, inParallel bool) error { //nolint:unparam // opts kept for dispatcher signature parity, documented above
 	// FK1 = F(k) * (2*F(k+1) - F(k))
 	// F2k1 = F(k+1)^2 + F(k)^2
 

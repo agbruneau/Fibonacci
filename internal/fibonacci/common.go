@@ -90,18 +90,19 @@ func preSizeBigInt(z *big.Int, words int) {
 
 // preSizeCalculationStateArena sizes a fresh CalculationArena for F(n) and
 // pre-sizes every *big.Int buffer inside the CalculationState from the arena
-// when n > 1000. For smaller n the arena is still returned (empty) so callers
-// keep a uniform interface.
+// when n > 1000. For n ≤ 1000 the arena is created (empty) and effectively
+// a no-op, preserving a uniform interface.
 //
-// The backing block returned must remain referenced by the caller until the
-// calculation completes — every *big.Int buffer in s shares slices carved out
-// of that block, so dropping the arena would invalidate them.
+// No arena pointer is returned: every pre-sized *big.Int in `s` retains a
+// slice carved from the arena's backing block via big.Int.SetBits, so the
+// garbage collector keeps that block alive as long as `s` is reachable. The
+// helper therefore has no outputs — only documented side effects on `s`.
 //
 // Before P1-06 this sequence (arena + pre-size FK/FK1/T1..T3 + SetInt64 on
 // FK/FK1) was duplicated verbatim between fastdoubling.go and fft_based.go.
 // Extracting it keeps both call sites lean and ensures any future change to
 // the pre-sizing strategy only has to be made in one place.
-func preSizeCalculationStateArena(s *CalculationState, n uint64) *memory.CalculationArena {
+func preSizeCalculationStateArena(s *CalculationState, n uint64) {
 	arena := memory.NewCalculationArena(n)
 	if n > 1000 {
 		estimatedBits := int(float64(n) * FibonacciGrowthFactor)
@@ -114,7 +115,6 @@ func preSizeCalculationStateArena(s *CalculationState, n uint64) *memory.Calcula
 		arena.PreSizeFromArena(s.T2, estimatedWords)
 		arena.PreSizeFromArena(s.T3, estimatedWords)
 	}
-	return arena
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -98,10 +98,9 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 
 	// Create arena for contiguous memory allocation and pre-size all
 	// big.Int buffers from the arena to avoid per-buffer GC tracking and
-	// reduce memory fragmentation. The arena's backing block lives until
-	// this function returns because `s` retains slices carved from it.
-	arena := preSizeCalculationStateArena(s, n)
-	_ = arena
+	// reduce memory fragmentation. `s`'s big.Ints retain slices into the
+	// arena's backing block, so the block stays alive as long as `s` does.
+	preSizeCalculationStateArena(s, n)
 
 	// Normalize options to ensure consistent default threshold handling
 	normalizedOpts := normalizeOptions(opts)

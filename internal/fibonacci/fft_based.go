@@ -48,11 +48,10 @@ func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter Progres
 	s := AcquireState()
 	defer ReleaseState(s)
 
-	// Create arena for contiguous memory allocation. The arena's backing
-	// block lives until this function returns because `s` retains slices
-	// carved from it.
-	arena := preSizeCalculationStateArena(s, n)
-	_ = arena
+	// Create arena for contiguous memory allocation. `s`'s big.Ints retain
+	// slices into the arena's backing block, so the block stays alive as
+	// long as `s` does.
+	preSizeCalculationStateArena(s, n)
 
 	// Use framework with FFT-only strategy
 	strategy := &FFTOnlyStrategy{}
