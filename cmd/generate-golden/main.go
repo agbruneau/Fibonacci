@@ -1,5 +1,5 @@
-// Package main provides a standalone tool that generates the golden test data
-// file (fibonacci_golden.json) used by Fibonacci tests.
+// See doc.go for the package-level overview, in particular the
+// "Independent oracle" rationale for the fibBig/calculateSmall duplication.
 package main
 
 import (
@@ -72,8 +72,16 @@ func main() {
 	fmt.Printf("Successfully generated golden file at %s\n", filename)
 }
 
-// fibBig calculates the nth Fibonacci number using math/big (iterative implementation)
-// This serves as our "Oracle" using the standard library.
+// fibBig calculates the nth Fibonacci number using math/big (iterative
+// implementation). It serves as the ground-truth oracle for the golden
+// test data in internal/fibonacci/testdata/fibonacci_golden.json.
+//
+// P2-04: this is an intentional duplicate of
+// internal/fibonacci.calculateSmall. Do NOT unify them — see doc.go for
+// the full rationale. Keeping two independent iterative kernels is what
+// makes the golden tests meaningful: if calculator.go's calculateSmall
+// ever silently regresses, the next regeneration cross-checks against
+// this copy instead of merely re-confirming itself.
 func fibBig(n uint64) *big.Int {
 	if n == 0 {
 		return big.NewInt(0)
