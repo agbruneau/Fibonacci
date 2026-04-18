@@ -71,3 +71,13 @@ godoc.log
 
 # Benchmarking artifacts
 lru_benchmark.png
+
+# Development logs and test binaries (P1-20)
+*_err.txt
+*_out.txt
+*.test.exe
+fibonacci.test.exe
+build_err.txt
+test_err.txt
+test_out.txt
+e2e_rich_out.txt
