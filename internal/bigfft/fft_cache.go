@@ -149,7 +149,7 @@ func fnvWriteUint64(h uint64, x uint64) uint64 {
 func computeCacheKey(data nat, k uint, n int) uint64 {
 	h := uint64(offset64)
 	h = fnvWriteUint64(h, uint64(k))
-	h = fnvWriteUint64(h, uint64(n))
+	h = fnvWriteUint64(h, uint64(n)) // #nosec G115 -- bit-pattern reinterpretation for FNV hash; n is a non-negative size
 	for _, word := range data {
 		h = fnvWriteUint64(h, uint64(word))
 	}
@@ -161,7 +161,7 @@ func computeCacheKey(data nat, k uint, n int) uint64 {
 func computePolyKey(p *Poly, k uint, n int) uint64 {
 	h := uint64(offset64)
 	h = fnvWriteUint64(h, uint64(k))
-	h = fnvWriteUint64(h, uint64(n))
+	h = fnvWriteUint64(h, uint64(n)) // #nosec G115 -- bit-pattern reinterpretation for FNV hash; n is a non-negative size
 	for _, a := range p.A {
 		for _, word := range a {
 			h = fnvWriteUint64(h, uint64(word))

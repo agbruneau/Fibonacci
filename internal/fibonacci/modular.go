@@ -53,6 +53,7 @@ func FastDoublingMod(n uint64, m *big.Int) (*big.Int, error) {
 		fk1.Set(t2)
 
 		// If bit is set: shift to F(2k+1), F(2k+2)
+		// i is a bit index in [0, 63], uint conversion safe. #nosec G115
 		if (n>>uint(i))&1 == 1 {
 			t1.Add(fk, fk1)
 			t1.Mod(t1, m)

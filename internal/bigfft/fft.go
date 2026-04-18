@@ -214,7 +214,8 @@ func ValueSize(k uint, m int, extra uint) int {
 
 func valueSize(k uint, m int, extra uint) int {
 	// The coefficients of P*Q are less than b^(2m)*K
-	// so we need W * valueSize >= 2*m*W+K
+	// so we need W * valueSize >= 2*m*W+K.
+	// k is the FFT level (small: typically < 32), so int(k) is safe. #nosec G115
 	n := 2*m*_W + int(k) // necessary bits
 	K := 1 << (k - extra)
 	if K < _W {

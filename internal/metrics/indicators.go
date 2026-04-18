@@ -43,6 +43,7 @@ var lastDigitsMod = new(big.Int).Exp(big.NewInt(10), big.NewInt(20), nil)
 func ComputeLive(n uint64, progress float64, elapsed time.Duration) *Indicators {
 	if elapsed <= 0 || progress <= 0 || n <= 1 {
 		return &Indicators{
+			// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
 			DoublingSteps: uint64(bits.Len64(n)),
 			IsEven:        n%3 == 0,
 			Live:          true,
@@ -53,6 +54,7 @@ func ComputeLive(n uint64, progress float64, elapsed time.Duration) *Indicators 
 	theoreticalBits := float64(n) * log2Phi
 	estimatedBitsProduced := progress * theoreticalBits
 	estimatedDigitsProduced := estimatedBitsProduced * math.Log10(2)
+	// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
 	doublingSteps := uint64(bits.Len64(n))
 	completedSteps := progress * float64(doublingSteps)
 
@@ -77,6 +79,7 @@ func Compute(result *big.Int, n uint64, duration time.Duration) *Indicators {
 	bitLen := result.BitLen()
 	seconds := duration.Seconds()
 	estimatedDigits := float64(bitLen) * math.Log10(2)
+	// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
 	doublingSteps := uint64(bits.Len64(n))
 
 	ind := &Indicators{

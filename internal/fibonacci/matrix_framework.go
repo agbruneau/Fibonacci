@@ -79,6 +79,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 			return nil, fmt.Errorf("matrix exponentiation calculation canceled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
+		// i is a bit index in [0, bits.Len64(exponent)-1] ⊂ [0, 63], uint cast safe. #nosec G115
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold

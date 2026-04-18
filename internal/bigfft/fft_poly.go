@@ -244,6 +244,7 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 	// Use pooled allocation for a
 	a := acquireNatSlice(K)
 	for i := 0; i < K; i++ {
+		// k is the FFT level (small: typically < 32), so int(k) is safe. #nosec G115
 		u.Shift(p[i], -int(k))
 		copy(p[i], u)
 		a[i] = nat(p[i])
@@ -331,6 +332,7 @@ func (v *PolValues) InvNTransform() (Poly, error) {
 	u := make(fermat, n+1)
 	a := make([]nat, 1<<k)
 	for i := range q {
+		// k is the FFT level (small: typically < 32), so int(k) is safe. #nosec G115
 		u.Shift(q[i], -int(k)-i*θshift)
 		copy(q[i], u)
 		a[i] = nat(q[i])

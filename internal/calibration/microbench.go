@@ -196,7 +196,9 @@ func generateTestNumber(words int) *big.Int {
 	// Use a deterministic pattern for reproducibility
 	bits := make([]big.Word, words)
 	for i := range bits {
-		// Pattern that exercises all bits without being uniform
+		// Pattern that exercises all bits without being uniform.
+		// i is a loop index over make([]big.Word, words) with words >= 0,
+		// so uint64(i*0x1234567) never overflows meaningfully here. #nosec G115
 		bits[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ uint64(i*0x1234567))
 	}
 	z := new(big.Int)

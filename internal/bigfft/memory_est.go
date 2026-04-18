@@ -17,6 +17,8 @@ func EstimateMemoryNeeds(n uint64) MemoryEstimate {
 	// F(n) has approximately n * log10(phi) / log10(2) bits
 	// log2(phi) ≈ 0.69424
 	bitLen := uint64(float64(n) * 0.69424)
+	// bitLen is bounded by n (practical limit ~10^9 ⇒ bitLen fits in int).
+	// This is a heuristic estimate for pool sizing. #nosec G115
 	wordLen := int((bitLen + 63) / 64)
 
 	// In the worst case (FFT multiplication), we need buffers larger than the number itself

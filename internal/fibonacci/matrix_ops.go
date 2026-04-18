@@ -20,8 +20,11 @@ func init() {
 }
 
 // SetDefaultStrassenThreshold sets the default Strassen threshold in bits.
-// This function is thread-safe.
+// This function is thread-safe. The caller is expected to pass a non-negative
+// threshold that fits in int32 (practical values are < 10^6).
 func SetDefaultStrassenThreshold(bits int) {
+	// Threshold values are configuration knobs in practice always <= 10^6,
+	// well within int32 range. #nosec G115
 	defaultStrassenThresholdBits.Store(int32(bits))
 }
 

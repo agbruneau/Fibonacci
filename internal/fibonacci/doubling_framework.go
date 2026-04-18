@@ -203,6 +203,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
 		// F(k) <- F(k+1)
 		// F(k+1) <- F(k) + F(k+1)
+		// i is a bit index in [0, bits.Len64(n)-1] ⊂ [0, 63], uint conversion safe. #nosec G115
 		if (n>>uint(i))&1 == 1 {
 			// s.T1 temporarily stores the new F(k+1).
 			// T1 is free after the rotation (holds old T2).

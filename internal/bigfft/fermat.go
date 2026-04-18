@@ -96,7 +96,8 @@ func (z fermat) Shift(x fermat, k int) {
 	} else {
 		addVW(z, z, 1)
 	}
-	// Shift left by kb bits
+	// Shift left by kb bits. kb = k%_W is in [0, _W-1] by construction
+	// so it always fits positively in uint. #nosec G115
 	shlVU(z, z, uint(kb))
 	z.norm()
 }
