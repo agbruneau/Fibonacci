@@ -72,7 +72,6 @@ Previous report (pre-audit) had 6 WARNINGs. All have been resolved.
 **Auditor**: Phase B2
 **Files verified**:
 - `docs/architecture/README.md` (Key Interfaces section)
-- `docs/architecture/patterns/design-patterns.md`
 - `CLAUDE.md` (Key Interfaces and Key Patterns sections)
 
 ### Results
@@ -134,26 +133,26 @@ Previous report (pre-audit) had 6 WARNINGs. All have been resolved.
 |-------|--------|---------|
 | Data flow accuracy in architecture README | PASS | Corrected and verified (see below) |
 | Data flow accuracy in project README | PASS | Corrected: removed `app.SetupContext()` reference |
-| CLI execution flow | PASS | New doc: `flows/cli-flow.md` verified against source |
-| TUI execution flow | PASS | New doc: `flows/tui-flow.md` verified against source |
-| Configuration resolution flow | PASS | New doc: `flows/config-flow.md` verified against source |
-| Algorithm execution flows | PASS | New doc: `flows/algorithm-flows.md` verified against source |
+| CLI execution flow | PASS | Covered in `docs/ARCH.md` §6 and `flows/cli-flow.mermaid` |
+| TUI execution flow | PASS | Covered in `docs/ARCH.md` §6 and `flows/tui-flow.mermaid` |
+| Configuration resolution flow | PASS | Covered in `docs/ARCH.md` §9 and `flows/config-flow.mermaid` |
+| Algorithm execution flows | PASS | Covered in `docs/ARCH.md` §7 and `flows/algorithm-flows.mermaid` |
 
 ### Corrections Applied
 
 1. **README.md Data Flow**: Removed reference to `app.SetupContext()` which did not exist in source; replaced with accurate call sequence (`app.New()` + `app.Run()`)
 2. **Architecture README Data Flow**: Rewrote 9-step flow to match actual call chain verified against source code
 
-### New Documentation Created
+### Flow Documentation
 
-4 detailed flow documents with Mermaid sequence diagrams:
+Execution flow narratives covering:
 
-| Document | Content |
-|----------|---------|
-| `flows/cli-flow.md` | Complete CLI mode execution path: `main()` -> `app.New()` -> `app.Run()` -> orchestration -> output |
-| `flows/tui-flow.md` | TUI mode execution path: dispatch -> `tui.Run()` -> Bubble Tea model lifecycle |
-| `flows/config-flow.md` | Configuration resolution: CLI flags -> env vars -> calibration profile -> adaptive estimation -> defaults |
-| `flows/algorithm-flows.md` | Per-algorithm execution: FibCalculator decorator -> DoublingFramework / MatrixFramework -> strategy dispatch |
+- CLI mode execution path: `main()` -> `app.New()` -> `app.Run()` -> orchestration -> output
+- TUI mode execution path: dispatch -> `tui.Run()` -> Bubble Tea model lifecycle
+- Configuration resolution: CLI flags -> env vars -> calibration profile -> adaptive estimation -> defaults
+- Per-algorithm execution: FibCalculator decorator -> DoublingFramework / MatrixFramework -> strategy dispatch
+
+These narratives are captured inline in `docs/ARCH.md` (sections 6-8) and `docs/architecture/README.md` rather than in separate flow files.
 
 ---
 
@@ -167,7 +166,7 @@ Previous report (pre-audit) had 6 WARNINGs. All have been resolved.
 - `docs/PERFORMANCE.md`
 - `docs/algorithms/FFT.md`
 - `.env.example`
-- `docs/calibration/CALIBRATION.md`
+- `docs/CALIBRATION.md`
 
 ### Results
 

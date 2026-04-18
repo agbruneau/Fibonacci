@@ -204,7 +204,7 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 
 ## Linting
 
-The project uses `golangci-lint` with 24 linters configured in `.golangci.yml`.
+The project uses `golangci-lint` with 22 linters configured in `.golangci.yml`.
 
 ```bash
 # Run linter

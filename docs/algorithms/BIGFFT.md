@@ -691,7 +691,6 @@ strategy-level threshold.
 - [FFT.md](FFT.md) -- Mathematical theory, convolution theorem, 3-tier multiplication selection
 - [FAST_DOUBLING.md](FAST_DOUBLING.md) -- Primary consumer of the BigFFT subsystem
 - [MATRIX.md](MATRIX.md) -- Secondary consumer via Strassen matrix multiplication
-- [Design Patterns](../architecture/patterns/design-patterns.md) -- Object pooling and strategy patterns
 - [../PERFORMANCE.md](../PERFORMANCE.md) -- Benchmark data and threshold tuning results
 
 ## References

@@ -2,7 +2,7 @@
 
 ![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)
-![Coverage](https://img.shields.io/badge/Coverage-80%25-green?style=for-the-badge)
+![Coverage](https://img.shields.io/badge/Coverage-87.5%25-green?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=for-the-badge)
 
 **FibCalc**, that is an academic prototype in software engineering, is a state-of-the-art command-line tool and library designed for computing arbitrarily large Fibonacci numbers with extreme speed and efficiency. Written in Go, it leverages advanced algorithmic optimizations — including Fast Doubling, Matrix Exponentiation with Strassen's algorithm, and FFT-based multiplication — to handle indices in the hundreds of millions.
@@ -190,8 +190,6 @@ graph TD
 
 > **Full architecture documentation**: [docs/architecture/README.md](docs/architecture/README.md) | [Interface Hierarchy](docs/architecture/patterns/interface-hierarchy.mermaid)
 
-> **Innovation & delivery plan**: product and technical tracks are listed in [docs/INNOVATION.md](docs/INNOVATION.md); the operational checklist and task status table (including completed P3 CPU heuristics and the documented P4 decision on research backends) live in [docs/INNOVEPLAN.md](docs/INNOVEPLAN.md).
-
 ---
 
 ## Installation
@@ -372,7 +370,7 @@ FibCalc is optimized for speed. Below is a summary of performance characteristic
 
 ### Test Suite
 
-The project has 80%+ test coverage with multiple testing strategies:
+The project has ~87.5% test coverage with multiple testing strategies:
 
 ```bash
 go test -v -race -cover ./...                          # All tests with race detector
@@ -540,8 +538,6 @@ fibcalc/
 │   └── testutil/            # Shared test utilities
 ├── docs/
 │   ├── PERFORMANCE.md
-│   ├── INNOVATION.md
-│   ├── INNOVEPLAN.md
 │   ├── BUILD.md
 │   ├── TESTING.md
 │   ├── CALIBRATION.md

@@ -1,6 +1,6 @@
 # FibGo / FibCalc Architecture
 
-> **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**. Pour des pistes d’évolution produit et technique, voir **[docs/INNOVATION.md](INNOVATION.md)**.
+> **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
 
 ## 1) Project Overview
 
@@ -9,7 +9,7 @@
 - **Go module path:** `github.com/agbru/fibcalc`
 - **Go version:** 1.25.0
 - **Primary binary:** `cmd/fibcalc`
-- **Codebase stats:** 19 Go packages (`go list ./...`) | 105 source (non-`*_test.go`) files | 93 test files | 19 Markdown files at repo root and under `docs/`
+- **Codebase stats:** 22 Go packages (`go list ./...`) | 108 source (non-`*_test.go`) files | 95 test files | 19 Markdown files at repo root and under `docs/`
 - **Purpose:** compute very large Fibonacci values efficiently, compare multiple algorithms, and expose both CLI and TUI execution modes.
 - **Core strengths:**
   - Multiple `O(log n)` Fibonacci algorithms (Fast Doubling, Matrix Exponentiation, FFT-Based Doubling)
@@ -763,7 +763,7 @@ From `go.mod`, direct dependencies are:
 - **Results:** Comportement documenté et testable via `Estimate*ForHeuristic` ; profils v2 obsolètes (version incrémentée).
 
 ### ADR-010: Backends arithmétiques hors GMP (P4 — décision recherche)
-- **Context:** [INNOVATION.md](INNOVATION.md) mentionne FLINT et bibliothèques externes pour comparaison recherche ; charge de build, licences et CI hétérogène.
+- **Context:** des bibliothèques externes (FLINT et autres) pourraient être évaluées pour comparaison recherche ; charge de build, licences et CI hétérogène.
 - **Decision:** Pas d’intégration C/C++ supplémentaire dans la branche `main` tant qu’une matrice de build reproductible, une revue de licence et des tests d’équivalence sur un sous-ensemble de `N` ne sont pas bouclés. Point d’extension supporté : `fibonacci.RegisterCalculator` (même modèle que le tag `gmp`).
 - **Results:** Décision **no-go** pour un second backend obligatoire ; expérimentations possibles sur branche dédiée ou fork en suivant [docs/algorithms/GMP.md](algorithms/GMP.md) (section recherche).
 
