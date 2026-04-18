@@ -1,6 +1,7 @@
 package fibonacci
 
 import (
+	"context"
 	"sync/atomic"
 )
 
@@ -47,15 +48,15 @@ func GetDefaultStrassenThreshold() int {
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error {
+func multiplyMatrices(ctx context.Context, dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error {
 	strassenThresholdBits := strassenThreshold
 	if strassenThresholdBits == 0 {
 		strassenThresholdBits = GetDefaultStrassenThreshold()
 	}
 	if maxBitLenTwoMatrices(m1, m2) <= strassenThresholdBits {
-		return multiplyMatrix2x2(dest, m1, m2, state, inParallel, fftThreshold)
+		return multiplyMatrix2x2(ctx, dest, m1, m2, state, inParallel, fftThreshold)
 	}
-	return multiplyMatrixStrassen(dest, m1, m2, state, inParallel, fftThreshold)
+	return multiplyMatrixStrassen(ctx, dest, m1, m2, state, inParallel, fftThreshold)
 }
 
 // multiplyMatrixStrassen implements the Strassen-Winograd algorithm for 2x2 matrices.
@@ -72,7 +73,7 @@ func multiplyMatrices(dest, m1, m2 *matrix, state *matrixState, inParallel bool,
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func multiplyMatrixStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
+func multiplyMatrixStrassen(ctx context.Context, dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	// Winograd's variant uses 7 multiplications and 15 additions/subtractions.
 	//
 	// Pre-computations (8 additions/subtractions) are handled by computeStrassenIntermediates.
@@ -98,7 +99,7 @@ func multiplyMatrixStrassen(dest, m1, m2 *matrix, state *matrixState, inParallel
 		{&p6, s4, m2.d, fftThreshold},
 		{&p7, m1.d, s8, fftThreshold},
 	}
-	if err := executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel); err != nil {
+	if err := executeTasks[multiplicationTask, *multiplicationTask](ctx, tasks, inParallel); err != nil {
 		return err
 	}
 
@@ -181,7 +182,7 @@ func assembleStrassenResult(dest *matrix, state *matrixState) {
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
+func squareSymmetricMatrix(ctx context.Context, dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	a2, b2, d2 := state.t1, state.t2, state.t3
 	bAd, ad := state.t4, state.t5
 	ad.Add(mat.a, mat.d)
@@ -199,7 +200,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 	}
 
 	// Use unified execution function for both parallel and sequential cases
-	if err := executeMixedTasks(sqrTasks, mulTasks, inParallel); err != nil {
+	if err := executeMixedTasks(ctx, sqrTasks, mulTasks, inParallel); err != nil {
 		return err
 	}
 
@@ -223,7 +224,7 @@ func squareSymmetricMatrix(dest, mat *matrix, state *matrixState, inParallel boo
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func multiplyMatrix2x2(dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
+func multiplyMatrix2x2(ctx context.Context, dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int) error {
 	// m1 = [[a,b],[c,d]], m2 = [[e,f],[g,h]]
 	// Uses buffers from the state to avoid allocations
 	// a = a*e + b*g
@@ -248,7 +249,7 @@ func multiplyMatrix2x2(dest, m1, m2 *matrix, state *matrixState, inParallel bool
 		{&cf, m1.c, m2.b, fftThreshold},
 		{&dh, m1.d, m2.d, fftThreshold},
 	}
-	if err := executeTasks[multiplicationTask, *multiplicationTask](tasks, inParallel); err != nil {
+	if err := executeTasks[multiplicationTask, *multiplicationTask](ctx, tasks, inParallel); err != nil {
 		return err
 	}
 

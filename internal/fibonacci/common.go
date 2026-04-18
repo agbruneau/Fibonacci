@@ -200,7 +200,7 @@ func (t *squaringTask) execute() error {
 func executeTasks[T any, PT interface {
 	*T
 	task
-}](tasks []T, inParallel bool) error {
+}](ctx context.Context, tasks []T, inParallel bool) error {
 	taskLogger.Debug().
 		Int("task_count", len(tasks)).
 		Bool("parallel", inParallel).
@@ -212,11 +212,20 @@ func executeTasks[T any, PT interface {
 		wg.Add(len(tasks))
 		for i := range tasks {
 			go func(t PT) {
-				// Acquire semaphore token to limit concurrency
+				defer wg.Done()
+				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
+				defer func() { <-sem }()
+				// Check for context cancellation after acquiring the semaphore:
+				// the token may have been held for a while during contention,
+				// and the context could have been canceled in the meantime.
+				// Skipping this check would execute expensive multiplications
+				// after the caller has already abandoned the computation.
+				if err := ctx.Err(); err != nil {
+					ec.SetError(err)
+					return
+				}
 				ec.SetError(t.execute())
-				<-sem
-				wg.Done()
 			}(PT(&tasks[i]))
 		}
 		wg.Wait()
@@ -241,7 +250,7 @@ func executeTasks[T any, PT interface {
 //
 // Returns:
 //   - error: An error if any task failed.
-func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, inParallel bool) error {
+func executeMixedTasks(ctx context.Context, sqrTasks []squaringTask, mulTasks []multiplicationTask, inParallel bool) error {
 	totalTasks := len(sqrTasks) + len(mulTasks)
 	if totalTasks == 0 {
 		return nil
@@ -262,22 +271,34 @@ func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, i
 		// Execute squaring tasks in parallel
 		for i := range sqrTasks {
 			go func(t *squaringTask) {
-				// Acquire semaphore token to limit concurrency
+				defer wg.Done()
+				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
+				defer func() { <-sem }()
+				// Check for context cancellation after acquiring the semaphore
+				// (the token may have been held for a while during contention).
+				if err := ctx.Err(); err != nil {
+					ec.SetError(err)
+					return
+				}
 				ec.SetError(t.execute())
-				<-sem
-				wg.Done()
 			}(&sqrTasks[i])
 		}
 
 		// Execute multiplication tasks in parallel
 		for i := range mulTasks {
 			go func(t *multiplicationTask) {
-				// Acquire semaphore token to limit concurrency
+				defer wg.Done()
+				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
+				defer func() { <-sem }()
+				// Check for context cancellation after acquiring the semaphore
+				// (the token may have been held for a while during contention).
+				if err := ctx.Err(); err != nil {
+					ec.SetError(err)
+					return
+				}
 				ec.SetError(t.execute())
-				<-sem
-				wg.Done()
 			}(&mulTasks[i])
 		}
 

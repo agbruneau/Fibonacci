@@ -1,6 +1,7 @@
 package fibonacci
 
 import (
+	"context"
 	"math/big"
 	"testing"
 )
@@ -69,7 +70,7 @@ func TestExecuteTasksSequential(t *testing.T) {
 		},
 	}
 
-	err := executeTasks[multiplicationTask, *multiplicationTask](tasks, false)
+	err := executeTasks[multiplicationTask, *multiplicationTask](context.Background(), tasks, false)
 	if err != nil {
 		t.Fatalf("executeTasks failed: %v", err)
 	}
@@ -100,7 +101,7 @@ func TestExecuteTasksParallel(t *testing.T) {
 		big.NewInt(3000),
 	}
 
-	err := executeTasks[multiplicationTask, *multiplicationTask](tasks, true)
+	err := executeTasks[multiplicationTask, *multiplicationTask](context.Background(), tasks, true)
 	if err != nil {
 		t.Fatalf("executeTasks parallel failed: %v", err)
 	}
@@ -132,7 +133,7 @@ func TestExecuteSquaringTasks(t *testing.T) {
 		},
 	}
 
-	err := executeTasks[squaringTask, *squaringTask](tasks, false)
+	err := executeTasks[squaringTask, *squaringTask](context.Background(), tasks, false)
 	if err != nil {
 		t.Fatalf("executeTasks failed: %v", err)
 	}
@@ -153,12 +154,12 @@ func TestExecuteSquaringTasks(t *testing.T) {
 func TestExecuteMixedTasksEmpty(t *testing.T) {
 	t.Parallel()
 
-	err := executeMixedTasks(nil, nil, false)
+	err := executeMixedTasks(context.Background(), nil, nil, false)
 	if err != nil {
 		t.Errorf("executeMixedTasks with empty slices failed: %v", err)
 	}
 
-	err = executeMixedTasks(nil, nil, true)
+	err = executeMixedTasks(context.Background(), nil, nil, true)
 	if err != nil {
 		t.Errorf("executeMixedTasks parallel with empty slices failed: %v", err)
 	}
@@ -177,7 +178,7 @@ func TestExecuteMixedTasksSequential(t *testing.T) {
 		{dest: &mulResult, a: big.NewInt(5), b: big.NewInt(6), fftThreshold: 0},
 	}
 
-	err := executeMixedTasks(sqrTasks, mulTasks, false)
+	err := executeMixedTasks(context.Background(), sqrTasks, mulTasks, false)
 	if err != nil {
 		t.Fatalf("executeMixedTasks failed: %v", err)
 	}
@@ -206,7 +207,7 @@ func TestExecuteMixedTasksParallel(t *testing.T) {
 		{dest: &mulResults[1], a: big.NewInt(5), b: big.NewInt(6), fftThreshold: 0},
 	}
 
-	err := executeMixedTasks(sqrTasks, mulTasks, true)
+	err := executeMixedTasks(context.Background(), sqrTasks, mulTasks, true)
 	if err != nil {
 		t.Fatalf("executeMixedTasks parallel failed: %v", err)
 	}
