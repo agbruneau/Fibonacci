@@ -304,7 +304,7 @@ Strategy, golden files, E2E, mocking policy: [`docs/TESTING.md`](docs/TESTING.md
 
 ## Changelog
 
-See [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format, SemVer). Audit notes live under [`Audit/`](Audit/).
+See [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format, SemVer). Audit notes live under [`docs/audits/2026-04/`](docs/audits/2026-04/).
 
 ---
 
