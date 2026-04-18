@@ -428,14 +428,22 @@ func (p *Poly) MulCached(q *Poly) (Poly, error) {
 	if err != nil {
 		return Poly{}, err
 	}
+	// Release pv/qv pooled backing (no-op on cache hits because the cache
+	// stores its own, non-pooled copy).
+	defer pv.Release()
+
 	qv, err := q.TransformCached(n)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer qv.Release()
+
 	rv, err := pv.Mul(&qv)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer rv.Release()
+
 	r, err := rv.InvTransform()
 	if err != nil {
 		return Poly{}, err
@@ -452,14 +460,23 @@ func (p *Poly) MulCachedWithBump(q *Poly, ba *BumpAllocator) (Poly, error) {
 	if err != nil {
 		return Poly{}, err
 	}
+	// Release pv/qv pooled backing (no-op on cache hits; the bump-allocator
+	// path still uses sync.Pool for the returned PolValues storage — see
+	// transform() — so Release is meaningful here too).
+	defer pv.Release()
+
 	qv, err := q.TransformCachedWithBump(n, ba)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer qv.Release()
+
 	rv, err := pv.MulWithBump(&qv, ba)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer rv.Release()
+
 	r, err := rv.InvTransformWithBump(ba)
 	if err != nil {
 		return Poly{}, err
@@ -476,10 +493,14 @@ func (p *Poly) SqrCached() (Poly, error) {
 	if err != nil {
 		return Poly{}, err
 	}
+	defer pv.Release()
+
 	rv, err := pv.Sqr()
 	if err != nil {
 		return Poly{}, err
 	}
+	defer rv.Release()
+
 	r, err := rv.InvTransform()
 	if err != nil {
 		return Poly{}, err
@@ -496,10 +517,14 @@ func (p *Poly) SqrCachedWithBump(ba *BumpAllocator) (Poly, error) {
 	if err != nil {
 		return Poly{}, err
 	}
+	defer pv.Release()
+
 	rv, err := pv.SqrWithBump(ba)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer rv.Release()
+
 	r, err := rv.InvTransformWithBump(ba)
 	if err != nil {
 		return Poly{}, err

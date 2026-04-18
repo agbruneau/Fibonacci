@@ -67,7 +67,10 @@ func fftmulTo(dst, x, y nat) (nat, error) {
 	if err != nil {
 		return nil, err
 	}
-	return rp.IntTo(dst), nil
+	result := rp.IntTo(dst)
+	// rp owns pooled buffers — release them now that result has been copied.
+	rp.Release()
+	return result, nil
 }
 
 func fftsqr(x nat) (nat, error) {
@@ -100,5 +103,7 @@ func fftsqrTo(dst, x nat) (nat, error) {
 		return nil, err
 	}
 	rp.M = m
-	return rp.IntTo(dst), nil
+	result := rp.IntTo(dst)
+	rp.Release()
+	return result, nil
 }

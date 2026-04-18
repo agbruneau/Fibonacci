@@ -13,6 +13,37 @@ type Poly struct {
 	K uint  // K is such that 1<<K is the FFT length.
 	M int   // the M such that P(b^M) is the original number.
 	A []nat // a slice of at most 1<<K M-word coefficients.
+
+	// pooledBacking, if non-nil, is the big.Word backing that should be
+	// returned to the word-slice pool when Release() is called. This is set
+	// by invTransform() which acquires the backing via acquireWordSliceUnsafe.
+	// Left nil when Poly is constructed directly (e.g. polyFromNat) or copied
+	// from non-pooled memory.
+	pooledBacking []big.Word
+	// pooledA indicates whether A itself was obtained from the []nat pool and
+	// should be released on Release().
+	pooledA bool
+}
+
+// Release returns any pooled backing buffers of p to their sync.Pool shards.
+// Safe to call multiple times and on a zero-value Poly. After Release() the
+// Poly must not be used again.
+//
+// This addresses audit finding P0-01: callers of Transform/InvTransform/Mul/Sqr
+// previously leaked pool buffers because Poly/PolValues had no release API.
+func (p *Poly) Release() {
+	if p == nil {
+		return
+	}
+	if p.pooledBacking != nil {
+		releaseWordSlice(p.pooledBacking)
+		p.pooledBacking = nil
+	}
+	if p.pooledA && p.A != nil {
+		releaseNatSlice(p.A)
+	}
+	p.A = nil
+	p.pooledA = false
 }
 
 // polyFromNat slices the number x into a Polynomial
@@ -119,14 +150,22 @@ func (p *Poly) mul(q *Poly, alloc TempAllocator) (Poly, error) {
 	if err != nil {
 		return Poly{}, err
 	}
+	// pv is not returned — release its pooled backing once mul() finishes.
+	// invTransform below no longer needs pv after producing rv.
+	defer pv.Release()
+
 	qv, err := q.transform(n, alloc)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer qv.Release()
+
 	rv, err := pv.mul(&qv, alloc)
 	if err != nil {
 		return Poly{}, err
 	}
+	defer rv.Release()
+
 	r, err := rv.invTransform(alloc)
 	if err != nil {
 		return Poly{}, err
@@ -141,6 +180,40 @@ type PolValues struct {
 	K      uint     // K is such that 1<<K is the FFT length.
 	N      int      // the length of coefficients, n*_W a multiple of K/4.
 	Values []fermat // a slice of 1<<K (n+1)-word values
+
+	// pooledBacking, if non-nil, is the big.Word backing that should be
+	// returned to the word-slice pool when Release() is called. This is set
+	// only when PolValues was built from sync.Pool buffers (see transform(),
+	// PolValues.mul, PolValues.sqr).
+	//
+	// It is deliberately left nil on cache hits (see TransformCache.getByKey)
+	// so that callers that Release() a cache-shared PolValues do not poison
+	// the pool.
+	pooledBacking []big.Word
+	// pooledValues indicates Values was obtained from the []fermat pool.
+	pooledValues bool
+}
+
+// Release returns any pooled backing buffers of v to their sync.Pool shards.
+// Safe to call on a zero-value PolValues and on cache-shared values
+// (which have no pooled backing — Release() becomes a no-op).
+// After Release() the PolValues must not be used again.
+//
+// This addresses audit finding P0-01/P0-09: Transform/InvTransform/Mul/Sqr
+// previously leaked pool buffers because there was no release API.
+func (v *PolValues) Release() {
+	if v == nil {
+		return
+	}
+	if v.pooledBacking != nil {
+		releaseWordSlice(v.pooledBacking)
+		v.pooledBacking = nil
+	}
+	if v.pooledValues && v.Values != nil {
+		releaseFermatSlice(v.Values)
+	}
+	v.Values = nil
+	v.pooledValues = false
 }
 
 // Transform evaluates p at θ^i for i = 0...K-1, where
@@ -192,7 +265,13 @@ func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
 		}
 	}
 
-	return PolValues{k, n, values}, nil
+	return PolValues{
+		K:             k,
+		N:             n,
+		Values:        values,
+		pooledBacking: valbits,
+		pooledValues:  true,
+	}, nil
 }
 
 // InvTransform reconstructs p (modulo X^K - 1) from its
@@ -213,9 +292,14 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 	wordCount := (n + 1) * K
 
 	// Perform an inverse Fourier transform to recover p.
-	// Use pooled allocation for output buffers (contiguous backing array)
+	// Use pooled allocation for output buffers (contiguous backing array).
+	// pbits ends up shared with the returned Poly.A via a[i] = nat(p[i]).
+	// p (the []fermat slice container) is only needed locally and can be
+	// released before we return — its elements continue to reference pbits
+	// through the nat slices in a.
 	pbits := acquireWordSliceUnsafe(wordCount)
 	p := acquireFermatSlice(K)
+	defer releaseFermatSlice(p)
 	for i := 0; i < K; i++ {
 		p[i] = fermat(pbits[i*(n+1) : (i+1)*(n+1)])
 	}
@@ -250,7 +334,13 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 		a[i] = nat(p[i])
 	}
 
-	return Poly{K: k, M: 0, A: a}, nil
+	return Poly{
+		K:             k,
+		M:             0,
+		A:             a,
+		pooledBacking: pbits,
+		pooledA:       true,
+	}, nil
 }
 
 // NTransform evaluates p at θω^i for i = 0...K-1, where
@@ -303,7 +393,7 @@ func (p *Poly) NTransform(n int) (PolValues, error) {
 	if err := fourier(values, twisted, false, n, k); err != nil {
 		return PolValues{}, fmt.Errorf("NTransform: forward fourier failed: %w", err)
 	}
-	return PolValues{k, n, values}, nil
+	return PolValues{K: k, N: n, Values: values, pooledBacking: valbits, pooledValues: true}, nil
 }
 
 // InvNTransform reconstructs a polynomial from its values at
@@ -374,6 +464,8 @@ func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
 		copy(r.Values[i], z)
 	}
 
+	r.pooledBacking = bits
+	r.pooledValues = true
 	return r, nil
 }
 
@@ -411,6 +503,8 @@ func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 		copy(r.Values[i], z)
 	}
 
+	r.pooledBacking = bits
+	r.pooledValues = true
 	return r, nil
 }
 
