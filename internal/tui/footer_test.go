@@ -6,6 +6,7 @@ import (
 )
 
 func TestFooterModel_View_Running(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(80)
 
@@ -16,6 +17,7 @@ func TestFooterModel_View_Running(t *testing.T) {
 }
 
 func TestFooterModel_View_Paused(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(80)
 	f.SetPaused(true)
@@ -27,6 +29,7 @@ func TestFooterModel_View_Paused(t *testing.T) {
 }
 
 func TestFooterModel_View_Done(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(80)
 	f.SetDone(true)
@@ -38,6 +41,7 @@ func TestFooterModel_View_Done(t *testing.T) {
 }
 
 func TestFooterModel_View_Error(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(80)
 	f.SetError(true)
@@ -50,6 +54,7 @@ func TestFooterModel_View_Error(t *testing.T) {
 }
 
 func TestFooterModel_View_ErrorPrecedence(t *testing.T) {
+	t.Parallel()
 	// Error should take precedence over Done and Paused
 	f := NewFooterModel()
 	f.SetWidth(80)
@@ -64,6 +69,7 @@ func TestFooterModel_View_ErrorPrecedence(t *testing.T) {
 }
 
 func TestFooterModel_View_Shortcuts(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(120)
 
@@ -80,6 +86,7 @@ func TestFooterModel_View_Shortcuts(t *testing.T) {
 }
 
 func TestFooterModel_View_NarrowWidth(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(5)
 
@@ -91,6 +98,7 @@ func TestFooterModel_View_NarrowWidth(t *testing.T) {
 }
 
 func TestFooterModel_SetWidth_Negative(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(-1)
 
@@ -102,6 +110,7 @@ func TestFooterModel_SetWidth_Negative(t *testing.T) {
 }
 
 func TestFooterModel_SetWidth_Zero(t *testing.T) {
+	t.Parallel()
 	f := NewFooterModel()
 	f.SetWidth(0)
 

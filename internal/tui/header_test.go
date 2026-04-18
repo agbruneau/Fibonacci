@@ -6,6 +6,7 @@ import (
 )
 
 func TestHeaderModel_View_ContainsTitle(t *testing.T) {
+	t.Parallel()
 	h := NewHeaderModel("v1.0.0")
 	h.SetWidth(80)
 
@@ -16,6 +17,7 @@ func TestHeaderModel_View_ContainsTitle(t *testing.T) {
 }
 
 func TestHeaderModel_View_ContainsVersion(t *testing.T) {
+	t.Parallel()
 	h := NewHeaderModel("v2.3.4")
 	h.SetWidth(80)
 
@@ -26,6 +28,7 @@ func TestHeaderModel_View_ContainsVersion(t *testing.T) {
 }
 
 func TestHeaderModel_View_ContainsElapsed(t *testing.T) {
+	t.Parallel()
 	h := NewHeaderModel("v1.0.0")
 	h.SetWidth(80)
 
@@ -36,6 +39,7 @@ func TestHeaderModel_View_ContainsElapsed(t *testing.T) {
 }
 
 func TestHeaderModel_View_NarrowWidth(t *testing.T) {
+	t.Parallel()
 	h := NewHeaderModel("v1.0.0")
 	h.SetWidth(10)
 
@@ -47,6 +51,7 @@ func TestHeaderModel_View_NarrowWidth(t *testing.T) {
 }
 
 func TestHeaderModel_View_ZeroWidth(t *testing.T) {
+	t.Parallel()
 	h := NewHeaderModel("v1.0.0")
 	h.SetWidth(0)
 
@@ -56,6 +61,7 @@ func TestHeaderModel_View_ZeroWidth(t *testing.T) {
 }
 
 func TestSpaces(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		n    int
 		want string

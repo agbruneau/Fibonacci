@@ -13,6 +13,7 @@ import (
 )
 
 func TestLogsModel_AddProgressEntry(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling", "Matrix"})
 	logs.SetSize(60, 20)
 
@@ -35,6 +36,7 @@ func TestLogsModel_AddProgressEntry(t *testing.T) {
 }
 
 func TestLogsModel_AddProgressEntry_Complete(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling"})
 	logs.SetSize(60, 20)
 
@@ -51,6 +53,7 @@ func TestLogsModel_AddProgressEntry_Complete(t *testing.T) {
 }
 
 func TestLogsModel_AddResults(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling", "Matrix"})
 	logs.SetSize(60, 20)
 
@@ -78,6 +81,7 @@ func TestLogsModel_AddResults(t *testing.T) {
 }
 
 func TestLogsModel_AddResults_WithError(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling"})
 	logs.SetSize(60, 20)
 
@@ -93,6 +97,7 @@ func TestLogsModel_AddResults_WithError(t *testing.T) {
 }
 
 func TestLogsModel_AddFinalResult(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling"})
 	logs.SetSize(60, 20)
 
@@ -119,6 +124,7 @@ func TestLogsModel_AddFinalResult(t *testing.T) {
 }
 
 func TestLogsModel_AddFinalResult_NilResult(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling"})
 	logs.SetSize(60, 20)
 
@@ -139,6 +145,7 @@ func TestLogsModel_AddFinalResult_NilResult(t *testing.T) {
 }
 
 func TestLogsModel_AddError(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{})
 	logs.SetSize(60, 20)
 
@@ -159,6 +166,7 @@ func TestLogsModel_AddError(t *testing.T) {
 }
 
 func TestLogsModel_AlgoName_OutOfBounds(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling"})
 
 	// Valid index
@@ -178,6 +186,7 @@ func TestLogsModel_AlgoName_OutOfBounds(t *testing.T) {
 }
 
 func TestLogsModel_View(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling"})
 	logs.SetSize(60, 20)
 
@@ -190,6 +199,7 @@ func TestLogsModel_View(t *testing.T) {
 }
 
 func TestLogsModel_AutoScroll(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast"})
 	logs.SetSize(60, 10)
 
@@ -205,6 +215,7 @@ func TestLogsModel_AutoScroll(t *testing.T) {
 }
 
 func TestLogsModel_Update_ScrollKeys(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast"})
 	logs.SetSize(60, 10)
 
@@ -221,6 +232,7 @@ func TestLogsModel_Update_ScrollKeys(t *testing.T) {
 }
 
 func TestLogsModel_AddProgressEntry_BoundedGrowth(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping stress test in short mode")
 	}
@@ -239,6 +251,7 @@ func TestLogsModel_AddProgressEntry_BoundedGrowth(t *testing.T) {
 }
 
 func TestLogsModel_algoName_NegativeProducesUnknown(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast Doubling", "Matrix"})
 
 	tests := []struct {
@@ -262,6 +275,7 @@ func TestLogsModel_algoName_NegativeProducesUnknown(t *testing.T) {
 }
 
 func TestLogsModel_AutoScroll_DisablesOnScrollUp(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast"})
 	logs.SetSize(60, 5)
 
@@ -288,6 +302,7 @@ func TestLogsModel_AutoScroll_DisablesOnScrollUp(t *testing.T) {
 }
 
 func TestLogsModel_AddProgressEntry_StressTest(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping stress test in short mode")
 	}
@@ -306,6 +321,7 @@ func TestLogsModel_AddProgressEntry_StressTest(t *testing.T) {
 }
 
 func TestLogsModel_SetSize(t *testing.T) {
+	t.Parallel()
 	logs := NewLogsModel([]string{"Fast"})
 	logs.SetSize(80, 30)
 

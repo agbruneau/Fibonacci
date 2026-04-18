@@ -14,6 +14,7 @@ import (
 )
 
 func TestTUIProgressReporter_DrainsChannel(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{} // nil program - Send is a no-op
 
 	reporter := &TUIProgressReporter{ref: ref}
@@ -37,6 +38,7 @@ func TestTUIProgressReporter_DrainsChannel(t *testing.T) {
 }
 
 func TestTUIProgressReporter_ZeroCalculators(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	reporter := &TUIProgressReporter{ref: ref}
 
@@ -51,6 +53,7 @@ func TestTUIProgressReporter_ZeroCalculators(t *testing.T) {
 }
 
 func TestTUIResultPresenter_FormatDuration(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -66,7 +69,9 @@ func TestTUIResultPresenter_FormatDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := presenter.FormatDuration(tt.input)
 			if result == "" {
 				t.Errorf("expected non-empty duration format for %v", tt.input)
@@ -76,12 +81,14 @@ func TestTUIResultPresenter_FormatDuration(t *testing.T) {
 }
 
 func TestProgramRef_Send_NilProgram(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{} // program is nil
 	// Should not panic
 	ref.Send(ProgressMsg{Value: 0.5})
 }
 
 func TestTUIResultPresenter_PresentComparisonTable(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{} // nil program — just verify no panic
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -94,6 +101,7 @@ func TestTUIResultPresenter_PresentComparisonTable(t *testing.T) {
 }
 
 func TestTUIResultPresenter_PresentResult(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -107,6 +115,7 @@ func TestTUIResultPresenter_PresentResult(t *testing.T) {
 }
 
 func TestTUIResultPresenter_HandleError_Timeout(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -117,6 +126,7 @@ func TestTUIResultPresenter_HandleError_Timeout(t *testing.T) {
 }
 
 func TestTUIResultPresenter_HandleError_Canceled(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -127,6 +137,7 @@ func TestTUIResultPresenter_HandleError_Canceled(t *testing.T) {
 }
 
 func TestTUIResultPresenter_HandleError_Generic(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -137,6 +148,7 @@ func TestTUIResultPresenter_HandleError_Generic(t *testing.T) {
 }
 
 func TestTUIResultPresenter_HandleError_Nil(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -147,6 +159,7 @@ func TestTUIResultPresenter_HandleError_Nil(t *testing.T) {
 }
 
 func TestTUIProgressReporter_MultipleCalculators(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	reporter := &TUIProgressReporter{ref: ref}
 
@@ -165,6 +178,7 @@ func TestTUIProgressReporter_MultipleCalculators(t *testing.T) {
 }
 
 func TestProgramRef_Send_Concurrent(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{} // nil program - Send is a no-op
 
 	var wg sync.WaitGroup
@@ -180,6 +194,7 @@ func TestProgramRef_Send_Concurrent(t *testing.T) {
 }
 
 func TestTUIResultPresenter_HandleError_PassesDuration(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	presenter := &TUIResultPresenter{ref: ref}
 
@@ -193,6 +208,7 @@ func TestTUIResultPresenter_HandleError_PassesDuration(t *testing.T) {
 }
 
 func TestTUIProgressReporter_EmptyChannel(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	reporter := &TUIProgressReporter{ref: ref}
 

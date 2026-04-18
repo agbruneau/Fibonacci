@@ -5,6 +5,7 @@ import (
 )
 
 func TestRingBuffer_PushAndSlice(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
@@ -23,6 +24,7 @@ func TestRingBuffer_PushAndSlice(t *testing.T) {
 }
 
 func TestRingBuffer_Overflow(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
@@ -42,6 +44,7 @@ func TestRingBuffer_Overflow(t *testing.T) {
 }
 
 func TestRingBuffer_Last(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(5)
 	if rb.Last() != 0 {
 		t.Error("expected 0 for empty buffer")
@@ -55,6 +58,7 @@ func TestRingBuffer_Last(t *testing.T) {
 }
 
 func TestRingBuffer_Last_AfterOverflow(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(2)
 	rb.Push(10)
 	rb.Push(20)
@@ -65,6 +69,7 @@ func TestRingBuffer_Last_AfterOverflow(t *testing.T) {
 }
 
 func TestRingBuffer_Reset(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(5)
 	rb.Push(1)
 	rb.Push(2)
@@ -79,6 +84,7 @@ func TestRingBuffer_Reset(t *testing.T) {
 }
 
 func TestRingBuffer_Resize_Grow(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
@@ -101,6 +107,7 @@ func TestRingBuffer_Resize_Grow(t *testing.T) {
 }
 
 func TestRingBuffer_Resize_Shrink(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(5)
 	rb.Push(1)
 	rb.Push(2)
@@ -122,6 +129,7 @@ func TestRingBuffer_Resize_Shrink(t *testing.T) {
 }
 
 func TestRingBuffer_ZeroCapacity(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(0)
 	if rb.Cap() != 1 {
 		t.Errorf("expected min cap 1, got %d", rb.Cap())
@@ -133,6 +141,7 @@ func TestRingBuffer_ZeroCapacity(t *testing.T) {
 }
 
 func TestRingBuffer_Resize_SameCapacity(t *testing.T) {
+	t.Parallel()
 	rb := NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
@@ -144,6 +153,7 @@ func TestRingBuffer_Resize_SameCapacity(t *testing.T) {
 }
 
 func TestRenderSparkline_Empty(t *testing.T) {
+	t.Parallel()
 	got := RenderSparkline(nil)
 	if got != "" {
 		t.Errorf("expected empty, got %q", got)
@@ -151,6 +161,7 @@ func TestRenderSparkline_Empty(t *testing.T) {
 }
 
 func TestRenderSparkline_AllZero(t *testing.T) {
+	t.Parallel()
 	got := RenderSparkline([]float64{0, 0, 0})
 	runes := []rune(got)
 	for i, r := range runes {
@@ -161,6 +172,7 @@ func TestRenderSparkline_AllZero(t *testing.T) {
 }
 
 func TestRenderSparkline_AllMax(t *testing.T) {
+	t.Parallel()
 	got := RenderSparkline([]float64{100, 100, 100})
 	runes := []rune(got)
 	for i, r := range runes {
@@ -171,6 +183,7 @@ func TestRenderSparkline_AllMax(t *testing.T) {
 }
 
 func TestRenderSparkline_Gradient(t *testing.T) {
+	t.Parallel()
 	values := []float64{0, 14.3, 28.6, 42.9, 57.1, 71.4, 85.7, 100}
 	got := RenderSparkline(values)
 	runes := []rune(got)
@@ -186,6 +199,7 @@ func TestRenderSparkline_Gradient(t *testing.T) {
 }
 
 func TestRenderSparkline_Clamping(t *testing.T) {
+	t.Parallel()
 	got := RenderSparkline([]float64{-10, 150})
 	runes := []rune(got)
 	if runes[0] != '▁' {
@@ -197,6 +211,7 @@ func TestRenderSparkline_Clamping(t *testing.T) {
 }
 
 func TestRenderSparkline_MidValue(t *testing.T) {
+	t.Parallel()
 	got := RenderSparkline([]float64{50})
 	runes := []rune(got)
 	// 50/100 * 7 = 3.5 -> index 3 -> '▄'
