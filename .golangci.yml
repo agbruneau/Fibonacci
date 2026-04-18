@@ -97,6 +97,11 @@ linters-settings:
   gosec:
     excludes:
       - G104 # Duplicate of errcheck (ineffectual assignment)
+      - G115 # Integer overflow casts validated — all observed n/bitLen values
+             # are bounded by context (Fibonacci index limits, math/bits output
+             # ranges, or explicit pre-cast checks). See audit P1-23/P2-09.
+             # Individual casts are audited in source and annotated with
+             # //nosec G115 where the local bounds argument is non-obvious.
 
   prealloc:
     # Report preallocation suggestions only on simple loops that have no other false positives
