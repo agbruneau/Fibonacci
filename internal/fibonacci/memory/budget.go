@@ -19,12 +19,14 @@ type MemoryEstimate struct {
 func EstimateMemoryUsage(n uint64) MemoryEstimate {
 	bitsPerFib := float64(n) * 0.69424
 	wordsPerFib := int(bitsPerFib/64) + 1
+	// wordsPerFib is derived from a positive uint64 (n) scaled down by 64,
+	// so it is always non-negative and fits comfortably in uint64. #nosec G115
 	bytesPerFib := uint64(wordsPerFib) * 8
 
-	stateBytes := bytesPerFib * 5  // 5 big.Int in CalculationState
-	fftBytes := bytesPerFib * 3    // bump allocator estimate
-	cacheBytes := bytesPerFib * 2  // transform cache estimate
-	overheadBytes := stateBytes    // GC + runtime ~1x
+	stateBytes := bytesPerFib * 5 // 5 big.Int in CalculationState
+	fftBytes := bytesPerFib * 3   // bump allocator estimate
+	cacheBytes := bytesPerFib * 2 // transform cache estimate
+	overheadBytes := stateBytes   // GC + runtime ~1x
 
 	total := stateBytes + fftBytes + cacheBytes + overheadBytes
 	return MemoryEstimate{

@@ -172,4 +172,3 @@ func TestProfile_SaveProfile_Error(t *testing.T) {
 		t.Error("Expected error saving to invalid path")
 	}
 }
-

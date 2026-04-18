@@ -83,7 +83,15 @@ func smartSquare(z, x *big.Int, fftThreshold int) (*big.Int, error) {
 // executeDoublingStepFFT performs the three multiplications of a doubling step
 // while minimizing redundant FFT transforms.
 // It transforms F_k and F_k1 only once and then performs the calculations.
-func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Options, inParallel bool) error {
+//
+// The `opts` parameter is currently unused inside the body (thresholds are
+// only consulted by the caller to decide whether to route here), but the
+// signature is kept symmetrical with executeDoublingStepMultiplications so
+// both can be invoked uniformly from the strategy dispatcher — see
+// strategy.go AdaptiveStrategy.ExecuteStep / FFTOnlyStrategy.ExecuteStep.
+// Extra tuning knobs (e.g. an FFT-specific threshold override) will plug
+// in through this parameter without a signature break.
+func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Options, inParallel bool) error { //nolint:unparam // opts kept for dispatcher signature parity, documented above
 	// FK1 = F(k) * (2*F(k+1) - F(k))
 	// F2k1 = F(k+1)^2 + F(k)^2
 
@@ -103,17 +111,33 @@ func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Optio
 	nWords := bigfft.ValueSize(k, m, 2)
 	n := nWords
 
+	// P1-01: allocate a bump allocator for the two forward transforms.
+	// The bump allocator supplies the transient fermat input buffers, keeping
+	// them contiguous and avoiding per-call sync.Pool churn for the initial
+	// transforms. The returned PolValues' output storage is still pooled
+	// (see internal/bigfft/fft_poly.go transform()) and gets released via
+	// fkPoly.Release()/fk1Poly.Release() in the parallel/sequential helpers.
+	//
+	// Sizing: two forward transforms each need ~K*(n+1) words of temp plus
+	// some FFT working memory — EstimateBumpCapacity sizes for a full
+	// mul/sqr, which is a safe over-estimate for two transforms.
+	baCap := bigfft.EstimateBumpCapacity(2 * fk1Words)
+	ba := bigfft.AcquireBumpAllocator(baCap)
+	defer bigfft.ReleaseBumpAllocator(ba)
+
 	pFk := bigfft.PolyFromInt(s.FK, k, m)
-	fkPoly, err := pFk.Transform(n)
+	fkPoly, err := pFk.TransformWithBump(n, ba)
 	if err != nil {
 		return fmt.Errorf("FFT transform FK failed: %w", err)
 	}
+	defer fkPoly.Release()
 
 	pFk1 := bigfft.PolyFromInt(s.FK1, k, m)
-	fk1Poly, err := pFk1.Transform(n)
+	fk1Poly, err := pFk1.TransformWithBump(n, ba)
 	if err != nil {
 		return fmt.Errorf("FFT transform FK1 failed: %w", err)
 	}
+	defer fk1Poly.Release()
 
 	if inParallel {
 		return executeFFTTransformsParallel(ctx, &fkPoly, &fk1Poly, s, m)
@@ -137,10 +161,12 @@ func executeFFTTransformsParallel(ctx context.Context, fkPoly, fk1Poly *bigfft.P
 			if err != nil {
 				return err
 			}
+			defer v.Release()
 			p, err := v.InvTransform()
 			if err != nil {
 				return err
 			}
+			defer p.Release()
 			p.M = m
 			s.T3 = p.IntToBigInt(s.T3)
 			return nil
@@ -150,10 +176,12 @@ func executeFFTTransformsParallel(ctx context.Context, fkPoly, fk1Poly *bigfft.P
 			if err != nil {
 				return err
 			}
+			defer v.Release()
 			p, err := v.InvTransform()
 			if err != nil {
 				return err
 			}
+			defer p.Release()
 			p.M = m
 			s.T1 = p.IntToBigInt(s.T1)
 			return nil
@@ -163,10 +191,12 @@ func executeFFTTransformsParallel(ctx context.Context, fkPoly, fk1Poly *bigfft.P
 			if err != nil {
 				return err
 			}
+			defer v.Release()
 			p, err := v.InvTransform()
 			if err != nil {
 				return err
 			}
+			defer p.Release()
 			p.M = m
 			s.T2 = p.IntToBigInt(s.T2)
 			return nil
@@ -181,10 +211,12 @@ func executeFFTTransformsSequential(ctx context.Context, fkPoly, fk1Poly *bigfft
 	if err != nil {
 		return err
 	}
+	defer v1.Release()
 	p1, err := v1.InvTransform()
 	if err != nil {
 		return err
 	}
+	defer p1.Release()
 	p1.M = m
 	s.T3 = p1.IntToBigInt(s.T3)
 
@@ -196,10 +228,12 @@ func executeFFTTransformsSequential(ctx context.Context, fkPoly, fk1Poly *bigfft
 	if err != nil {
 		return err
 	}
+	defer v2.Release()
 	p2, err := v2.InvTransform()
 	if err != nil {
 		return err
 	}
+	defer p2.Release()
 	p2.M = m
 	s.T1 = p2.IntToBigInt(s.T1)
 
@@ -211,10 +245,12 @@ func executeFFTTransformsSequential(ctx context.Context, fkPoly, fk1Poly *bigfft
 	if err != nil {
 		return err
 	}
+	defer v3.Release()
 	p3, err := v3.InvTransform()
 	if err != nil {
 		return err
 	}
+	defer p3.Release()
 	p3.M = m
 	s.T2 = p3.IntToBigInt(s.T2)
 

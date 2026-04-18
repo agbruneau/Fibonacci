@@ -101,9 +101,9 @@ func isFlagSetAny(fs *flag.FlagSet, names ...string) bool {
 // Each entry maps an env key (without the FIBCALC_ prefix) to the CLI flag
 // name(s) it corresponds to and a function that applies the env value.
 type envOverride struct {
-	envKey   string
-	flags    []string
-	apply    func(*AppConfig, string)
+	envKey string
+	flags  []string
+	apply  func(*AppConfig, string)
 }
 
 // envOverrides is the declarative table of all environment variable overrides.

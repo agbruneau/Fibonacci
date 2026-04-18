@@ -7,7 +7,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Module** : `github.com/agbru/fibcalc`
 - **Go** : 1.25.0+
 - **Licence** : Apache 2.0
-- **Taille** : ~31 900 lignes Go, 103 fichiers source, 89 fichiers de test
+- **Taille** : ~31 900 lignes Go, 108 fichiers source, 95 fichiers de test, 22 packages Go
 
 ## Architecture (Clean Architecture, 4 couches)
 
@@ -23,6 +23,9 @@ internal/
   config/            # Parsing config, flags, variables d'environnement
   errors/            # Types d'erreurs structurées (ConfigError, CalcError)
   fibonacci/         # CŒUR : Fast Doubling, Matrix Exp., FFT, Strassen, GMP
+    memory/          # Arena, GCController, budget mémoire
+    threshold/       # Gestionnaire dynamique de seuils (FFT/parallèle)
+    fibonaccitest/   # Doubles de test pour CoreCalculator
   format/            # Formatage durées, nombres, ETA
   metrics/           # Indicateurs de performance, monitoring mémoire
   orchestration/     # Exécution concurrente, agrégation résultats

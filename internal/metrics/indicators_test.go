@@ -29,8 +29,8 @@ func TestDigitalRoot(t *testing.T) {
 		{"one", big.NewInt(1), 1},
 		{"nine", big.NewInt(9), 9},
 		{"ten", big.NewInt(10), 1},
-		{"55 (F10)", big.NewInt(55), 1},  // 5+5=10, 1+0=1
-		{"89 (F11)", big.NewInt(89), 8},  // 8+9=17, 1+7=8
+		{"55 (F10)", big.NewInt(55), 1},   // 5+5=10, 1+0=1
+		{"89 (F11)", big.NewInt(89), 8},   // 8+9=17, 1+7=8
 		{"144 (F12)", big.NewInt(144), 9}, // 1+4+4=9
 		{"233 (F13)", big.NewInt(233), 8}, // 2+3+3=8
 	}
@@ -46,10 +46,10 @@ func TestDigitalRoot(t *testing.T) {
 
 func TestLastNDigits(t *testing.T) {
 	tests := []struct {
-		name   string
-		x      *big.Int
-		n      int
-		want   string
+		name string
+		x    *big.Int
+		n    int
+		want string
 	}{
 		{"F10 last 5", big.NewInt(55), 5, "55"},
 		{"F12 last 3", big.NewInt(144), 3, "144"},

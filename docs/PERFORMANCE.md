@@ -25,6 +25,20 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
 | 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,909 |
 
+### Comparison snapshot — Intel Core Ultra 9 275HX (24 cores)
+
+Informative only; kept for cross-architecture comparison. Ryzen remains the canonical reference.
+
+| N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
+|---|---------------|-------------|-----------|-----------------|
+| 10,000       | 120us  | 180us  | 280us  | 2,090      |
+| 1,000,000    | ~3ms   | 55ms   | 45ms   | 208,988    |
+| 10,000,000   | ~60ms  | 750ms  | 600ms  | 2,089,877  |
+| 100,000,000  | 30s    | 42s    | 33s    | 20,898,764 |
+| 250,000,000  | 2m10s  | 3m05s  | 2m25s  | 52,246,909 |
+
+Intel figures reflect a mobile workstation profile with higher single-thread performance; absolute ordering of algorithms (Fast Doubling < FFT < Matrix for medium N) is consistent across both platforms.
+
 ### Running Benchmarks
 
 ```bash
@@ -156,7 +170,7 @@ For large calculations (N ≥ 1M), the `GCController` disables Go's garbage coll
 | `aggressive` | Always | Disable GC regardless of N |
 | `disabled` | Never | Standard GC behavior |
 
-Configure via `--gc-control` or `FIBCALC_GC_CONTROL`.
+GC control is handled automatically; no user-facing flag or environment variable is exposed. The mode is selected internally based on the calculation size.
 
 ### 7. Memory Budget Estimation
 

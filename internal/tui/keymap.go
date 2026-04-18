@@ -4,13 +4,13 @@ import "github.com/charmbracelet/bubbles/key"
 
 // KeyMap defines keyboard bindings for the TUI.
 type KeyMap struct {
-	Quit       key.Binding
-	Pause      key.Binding
-	Reset      key.Binding
-	Up         key.Binding
-	Down       key.Binding
-	PageUp     key.Binding
-	PageDown   key.Binding
+	Quit     key.Binding
+	Pause    key.Binding
+	Reset    key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	PageUp   key.Binding
+	PageDown key.Binding
 }
 
 // DefaultKeyMap returns the default keyboard bindings.

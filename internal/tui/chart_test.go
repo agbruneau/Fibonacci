@@ -7,6 +7,7 @@ import (
 )
 
 func TestChartModel_AddDataPoint(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 10)
 
@@ -20,6 +21,7 @@ func TestChartModel_AddDataPoint(t *testing.T) {
 }
 
 func TestChartModel_Reset(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.AddDataPoint(0.5, 0.5, 10*time.Second)
 	chart.AddDataPoint(0.8, 0.8, 5*time.Second)
@@ -39,6 +41,7 @@ func TestChartModel_Reset(t *testing.T) {
 }
 
 func TestChartModel_View(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 10)
 
@@ -55,6 +58,7 @@ func TestChartModel_View(t *testing.T) {
 }
 
 func TestChartModel_RenderProgressBar(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 10)
 	chart.AddDataPoint(0.5, 0.5, 10*time.Second)
@@ -72,6 +76,7 @@ func TestChartModel_RenderProgressBar(t *testing.T) {
 }
 
 func TestChartModel_RenderProgressBar_Zero(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 10)
 	chart.AddDataPoint(0.0, 0.0, 0)
@@ -86,6 +91,7 @@ func TestChartModel_RenderProgressBar_Zero(t *testing.T) {
 }
 
 func TestChartModel_RenderProgressBar_Full(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 10)
 	chart.AddDataPoint(1.0, 1.0, 0)
@@ -100,6 +106,7 @@ func TestChartModel_RenderProgressBar_Full(t *testing.T) {
 }
 
 func TestChartModel_RenderProgressBar_TooNarrow(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(10, 5) // too narrow for a progress bar
 
@@ -110,6 +117,7 @@ func TestChartModel_RenderProgressBar_TooNarrow(t *testing.T) {
 }
 
 func TestChartModel_View_ContainsProgressBar(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 15)
 	chart.AddDataPoint(0.65, 0.65, 5*time.Second)
@@ -124,6 +132,7 @@ func TestChartModel_View_ContainsProgressBar(t *testing.T) {
 }
 
 func TestChartModel_UpdateSysStats(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 15)
 
@@ -145,6 +154,7 @@ func TestChartModel_UpdateSysStats(t *testing.T) {
 }
 
 func TestChartModel_View_ContainsSparklines(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 15) // height >= 8, braille chart visible
 
@@ -161,6 +171,7 @@ func TestChartModel_View_ContainsSparklines(t *testing.T) {
 }
 
 func TestChartModel_View_HidesSparklines_SmallHeight(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 6) // height < 8, braille chart hidden
 
@@ -173,6 +184,7 @@ func TestChartModel_View_HidesSparklines_SmallHeight(t *testing.T) {
 }
 
 func TestChartModel_SetSize_ResizesBuffers(t *testing.T) {
+	t.Parallel()
 	chart := NewChartModel()
 	chart.SetSize(50, 15)
 

@@ -62,37 +62,97 @@ func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[s
 }
 
 // RunCalibrationWithOptions executes calibration with the specified options.
+//
+// P2-05: the body was previously a single 80-line function mixing profile
+// short-circuit, hardware detection, pass execution, result aggregation and
+// profile save. It now delegates to three focused helpers
+// (configureHardwareDetection, runPassSequence, persistCalibrationProfile)
+// so each concern stays under the package's funlen / cyclo thresholds and
+// can be exercised independently by tests.
 func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, opts CalibrationOptions, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) int {
 	fmt.Fprintf(out, "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---\n")
 
 	// Try to load existing profile if requested
 	if opts.LoadProfile {
-		profile, loaded := LoadOrCreateProfile(opts.ProfilePath)
-		if loaded && profile.IsValid() {
-			fmt.Fprintf(out, "%sLoaded existing calibration profile from %s%s\n",
-				ui.ColorGreen(), GetDefaultProfilePath(), ui.ColorReset())
-			fmt.Fprintf(out, "Profile: %s\n", profile.String())
-			fmt.Fprintf(out, "\n%s✅ Using cached calibration: %s--threshold %d%s\n",
-				ui.ColorGreen(), ui.ColorYellow(), profile.OptimalParallelThreshold, ui.ColorReset())
-			return apperrors.ExitSuccess
+		if code, handled := tryUseCachedCalibrationProfile(opts.ProfilePath, out); handled {
+			return code
 		}
 	}
 
+	calculator, thresholdsToTest, code := configureHardwareDetection(out, calculatorRegistry)
+	if calculator == nil {
+		return code
+	}
+
+	calibrationStart := time.Now()
+	bestThreshold, results, code := runPassSequence(ctx, out, calculator, thresholdsToTest, progressDisplay, colorProvider)
+	if code != apperrors.ExitSuccess {
+		return code
+	}
+	calibrationDuration := time.Since(calibrationStart)
+
+	// Print results table
+	printCalibrationResults(out, results, bestThreshold)
+
+	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
+		ui.ColorGreen(), ui.ColorYellow(), bestThreshold, ui.ColorReset())
+
+	if opts.SaveProfile {
+		persistCalibrationProfile(out, opts.ProfilePath, bestThreshold, calibrationDuration)
+	}
+
+	return apperrors.ExitSuccess
+}
+
+// tryUseCachedCalibrationProfile attempts to short-circuit calibration by
+// loading an existing valid profile. Returns (exitCode, true) if the caller
+// should return early with that code; (0, false) if no valid profile exists
+// and the caller must run a fresh calibration.
+func tryUseCachedCalibrationProfile(profilePath string, out io.Writer) (int, bool) {
+	profile, loaded := LoadOrCreateProfile(profilePath)
+	if !loaded || !profile.IsValid() {
+		return 0, false
+	}
+	fmt.Fprintf(out, "%sLoaded existing calibration profile from %s%s\n",
+		ui.ColorGreen(), GetDefaultProfilePath(), ui.ColorReset())
+	fmt.Fprintf(out, "Profile: %s\n", profile.String())
+	fmt.Fprintf(out, "\n%s✅ Using cached calibration: %s--threshold %d%s\n",
+		ui.ColorGreen(), ui.ColorYellow(), profile.OptimalParallelThreshold, ui.ColorReset())
+	return apperrors.ExitSuccess, true
+}
+
+// configureHardwareDetection resolves the calculator used for calibration
+// and the hardware-adaptive threshold list. On failure (missing "fast"
+// calculator) it returns (nil, nil, ExitErrorGeneric); the caller must
+// return that code. On success it returns the calculator, the ordered
+// threshold list to test, and ExitSuccess.
+func configureHardwareDetection(out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (fibonacci.Calculator, []int, int) {
 	calculator := calculatorRegistry["fast"]
 	if calculator == nil {
 		fmt.Fprintf(out, "%sCritical error: the 'fast' algorithm is required for calibration but was not found.%s\n", ui.ColorRed(), ui.ColorReset())
-		return apperrors.ExitErrorGeneric
+		return nil, nil, apperrors.ExitErrorGeneric
 	}
-
-	// Use adaptive thresholds based on CPU characteristics
 	thresholdsToTest := GenerateParallelThresholds()
 	fmt.Fprintf(out, "%sUsing adaptive thresholds for %d CPU cores%s\n",
 		ui.ColorCyan(), runtime.NumCPU(), ui.ColorReset())
+	return calculator, thresholdsToTest, apperrors.ExitSuccess
+}
 
+// runPassSequence executes one calibration pass per threshold, tracking
+// the fastest. It manages the progress-display goroutine lifecycle and
+// translates context cancellation / calculation errors into exit codes.
+//
+// Returns:
+//   - bestThreshold: the threshold that yielded the shortest duration.
+//   - results: every pass's outcome (used for the summary table).
+//   - code: ExitSuccess when at least one pass produced a valid timing;
+//     ExitErrorCanceled on context cancellation mid-loop;
+//     ExitErrorGeneric when every pass failed to produce a valid result;
+//     HandleCalculationError's return code on unrecoverable calc error.
+func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Calculator, thresholdsToTest []int, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) (int, []calibrationResult, int) {
 	results := make([]calibrationResult, 0, len(thresholdsToTest))
 	bestDuration := time.Duration(1<<63 - 1)
 	bestThreshold := 0
-	calibrationStart := time.Now()
 
 	var wg sync.WaitGroup
 	progressChan := make(chan progress.ProgressUpdate, 5)
@@ -104,7 +164,7 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 			fmt.Fprintf(out, "\n%sCalibration interrupted.%s\n", ui.ColorYellow(), ui.ColorReset())
 			close(progressChan)
 			wg.Wait()
-			return apperrors.ExitErrorCanceled
+			return 0, results, apperrors.ExitErrorCanceled
 		}
 
 		startTime := time.Now()
@@ -117,7 +177,7 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				close(progressChan)
 				wg.Wait()
-				return apperrors.HandleCalculationError(err, duration, out, colorProvider)
+				return 0, results, apperrors.HandleCalculationError(err, duration, out, colorProvider)
 			}
 			continue
 		}
@@ -130,41 +190,33 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 	close(progressChan)
 	wg.Wait()
 
-	// Check if we found any valid result
 	if bestDuration == time.Duration(1<<63-1) {
 		fmt.Fprintf(out, "\n%sCalibration failed: no valid results obtained.%s\n", ui.ColorRed(), ui.ColorReset())
-		return apperrors.ExitErrorGeneric
+		return 0, results, apperrors.ExitErrorGeneric
 	}
+	return bestThreshold, results, apperrors.ExitSuccess
+}
 
-	calibrationDuration := time.Since(calibrationStart)
+// persistCalibrationProfile materialises a full-confidence profile for
+// the winning parallel threshold and writes it to profilePath. Warnings
+// are printed to out but save errors are non-fatal (the caller's exit
+// code reflects calibration success, not persistence success).
+func persistCalibrationProfile(out io.Writer, profilePath string, bestThreshold int, calibrationDuration time.Duration) {
+	profile := NewProfile()
+	profile.OptimalParallelThreshold = bestThreshold
+	profile.OptimalFFTThreshold = config.EstimateOptimalFFTThreshold()
+	profile.OptimalStrassenThreshold = config.EstimateOptimalStrassenThreshold()
+	profile.CalibrationN = fibonacci.CalibrationN
+	profile.CalibrationTime = calibrationDuration.String()
+	profile.Confidence = 1.0
 
-	// Print results table
-	printCalibrationResults(out, results, bestThreshold)
-
-	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
-		ui.ColorGreen(), ui.ColorYellow(), bestThreshold, ui.ColorReset())
-
-	// Save profile if requested
-	if opts.SaveProfile {
-		profile := NewProfile()
-		profile.OptimalParallelThreshold = bestThreshold
-		profile.OptimalFFTThreshold = config.EstimateOptimalFFTThreshold()
-		profile.OptimalStrassenThreshold = config.EstimateOptimalStrassenThreshold()
-		profile.CalibrationN = fibonacci.CalibrationN
-		profile.CalibrationTime = calibrationDuration.String()
-
-		profile.Confidence = 1.0
-
-		if err := profile.SaveProfile(opts.ProfilePath); err != nil {
-			fmt.Fprintf(out, "%sWarning: failed to save profile: %v%s\n",
-				ui.ColorYellow(), err, ui.ColorReset())
-		} else {
-			fmt.Fprintf(out, "%sCalibration profile saved to %s%s\n",
-				ui.ColorGreen(), GetDefaultProfilePath(), ui.ColorReset())
-		}
+	if err := profile.SaveProfile(profilePath); err != nil {
+		fmt.Fprintf(out, "%sWarning: failed to save profile: %v%s\n",
+			ui.ColorYellow(), err, ui.ColorReset())
+		return
 	}
-
-	return apperrors.ExitSuccess
+	fmt.Fprintf(out, "%sCalibration profile saved to %s%s\n",
+		ui.ColorGreen(), GetDefaultProfilePath(), ui.ColorReset())
 }
 
 // AutoCalibrate runs a quick startup calibration to fine-tune performance

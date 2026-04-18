@@ -8,8 +8,8 @@ import (
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/ui"
 )
 
@@ -48,7 +48,7 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 	fmt.Fprintf(out, "\n--- Comparison Summary ---\n")
 
 	// Find the maximum algorithm name width for proper alignment
-	maxNameLen := 9 // "Algorithm" header length
+	maxNameLen := 9     // "Algorithm" header length
 	maxDurationLen := 8 // "Duration" header length
 	for _, res := range results {
 		if len(res.Name) > maxNameLen {
@@ -65,8 +65,8 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 
 	// Print header with proper padding
 	fmt.Fprintf(out, "%sAlgorithm%s%s   %sDuration%s%s   %sStatus%s\n",
-		ui.ColorUnderline(), ui.ColorReset(), padRight("", maxNameLen-9),
-		ui.ColorUnderline(), ui.ColorReset(), padRight("", maxDurationLen-8),
+		ui.ColorUnderline(), ui.ColorReset(), padSpaces(maxNameLen-9),
+		ui.ColorUnderline(), ui.ColorReset(), padSpaces(maxDurationLen-8),
 		ui.ColorUnderline(), ui.ColorReset())
 
 	// Print each result row
@@ -82,18 +82,20 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 			duration = "< 1µs"
 		}
 		fmt.Fprintf(out, "%s%s%s%s   %s%s%s%s   %s\n",
-			ui.ColorBlue(), res.Name, ui.ColorReset(), padRight("", maxNameLen-len(res.Name)),
-			ui.ColorYellow(), duration, ui.ColorReset(), padRight("", maxDurationLen-len(duration)),
+			ui.ColorBlue(), res.Name, ui.ColorReset(), padSpaces(maxNameLen-len(res.Name)),
+			ui.ColorYellow(), duration, ui.ColorReset(), padSpaces(maxDurationLen-len(duration)),
 			status)
 	}
 }
 
-// padRight returns a string of spaces with the given length.
-func padRight(s string, length int) string {
+// padSpaces returns a string of `length` spaces (empty when length <= 0).
+// Previously this was padRight(s string, length int) but every call site
+// passed s=""; dropping the dead parameter (P1-07) simplifies the API.
+func padSpaces(length int) string {
 	if length <= 0 {
-		return s
+		return ""
 	}
-	return s + fmt.Sprintf("%*s", length, "")
+	return fmt.Sprintf("%*s", length, "")
 }
 
 // PresentResult displays the final calculation result using the CLI's
@@ -129,4 +131,3 @@ func DisplayMemoryStats(heapAlloc, totalAlloc uint64, numGC uint32, pauseTotalNs
 		fmt.Fprintf(out, "  GC pause total:  0ms (GC disabled)\n")
 	}
 }
-

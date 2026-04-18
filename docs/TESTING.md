@@ -205,9 +205,14 @@ go tool trace trace.out
 
 ## Mock Generation
 
-Mock generation infrastructure (`go.uber.org/mock`, `mockgen`) is configured in the Makefile (`make generate-mocks`, `make install-mockgen`) but is not currently wired into the codebase — no `//go:generate` directives or `mocks/` directories exist. Mocks can be set up in the future by adding `go:generate` directives to interface source files.
+The project currently uses hand-written mocks and spies. There is no `mockgen`
+wiring in the codebase: no `//go:generate mockgen ...` directives, no
+`mocks/` directories, and no dependency on `go.uber.org/mock`. The previous
+`make generate-mocks` / `make install-mockgen` Makefile targets were removed
+(audit P2-07) because they produced no output.
 
-Regeneration (once configured): `go generate ./...` or `make generate-mocks`
+If mockgen is later required, re-introduce the Makefile targets together
+with the first `//go:generate mockgen` directive.
 
 ### Spy-Based Testing
 
@@ -278,8 +283,10 @@ go test -v ./test/e2e/
 
 | Package | Key Test Files | Testing Approach |
 |---------|---------------|-----------------|
-| `internal/fibonacci` | `fibonacci_test.go`, `fibonacci_golden_test.go`, `fibonacci_fuzz_test.go`, `fibonacci_property_test.go`, `fibonacci_strassen_test.go`, `arena_test.go`, `gc_control_test.go`, `memory_budget_test.go`, `modular_test.go` | Unit, golden, fuzz, property-based, Strassen correctness, arena allocation, GC control, modular arithmetic, benchmarks |
-| `internal/bigfft` | `fft_precision_test.go`, `fft_parallel_test.go`, `pool_test.go`, `fermat_test.go` | Unit, precision, parallel correctness, pool recycling, Fermat arithmetic |
+| `internal/fibonacci` | `fibonacci_test.go`, `fibonacci_golden_test.go`, `fibonacci_fuzz_test.go`, `fibonacci_property_test.go`, `fibonacci_strassen_test.go`, `fibonacci_edge_test.go`, `modular_test.go`, `generator_test.go`, `registry_test.go`, `strategy_test.go` | Unit, golden, fuzz, property-based, Strassen correctness, modular arithmetic, generator API, calculator registry, strategy selection |
+| `internal/fibonacci/memory` | `arena_test.go`, `budget_test.go`, `gc_control_test.go` | Bump arena allocation, memory-budget pre-flight estimation, GC controller |
+| `internal/fibonacci/threshold` | `manager_test.go` | Threshold manager (parallelism / FFT / Strassen decisions) |
+| `internal/bigfft` | `fft_precision_test.go`, `fft_parallel_test.go`, `pool_test.go`, `fermat_test.go`, `bump_test.go`, `fft_cache_test.go` | Unit, precision, parallel correctness, pool recycling, Fermat arithmetic, bump allocator, FFT cache |
 | `internal/cli` | `output_test.go`, `ui_test.go`, `goldens_test.go`, `progress_eta_test.go` | Unit, golden output, ETA accuracy |
 | `internal/tui` | `model_test.go`, `bridge_test.go`, `header_test.go`, `chart_test.go`, `metrics_test.go`, `sparkline_test.go`, `footer_test.go`, `logs_test.go`, `keymap_test.go`, `cli_flags_test.go` | Unit, sub-model testing, message handling |
 | `internal/orchestration` | `orchestrator_test.go`, `orchestration_spy_test.go`, `calculator_selection_test.go` | Integration, spy-based config propagation, calculator selection |

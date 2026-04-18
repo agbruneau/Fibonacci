@@ -12,9 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Interactive TUI mode**: btop-style dashboard built with Bubble Tea (Elm architecture), featuring real-time progress charts, algorithm comparison, and keyboard navigation
 - Portable arithmetic fallback for non-amd64 architectures (`arith_generic.go`)
 - Godoc example functions for `Calculator`, `DefaultFactory`, and `CalculateWithObservers`
+- `doc.go` for every internal package; enriched `internal/bigfft`, `internal/calibration`, `internal/app`, `internal/parallel`, `internal/testutil` with role/invariants/example comments (audit P2-13, P2-18)
+- Cross-compilation targets for Linux and Windows **arm64** in the Makefile
+- `.env.example` coverage for `FIBCALC_TUI_THEME`, `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_MEMORY_LIMIT` (audit P1-13, P1-14)
+- `docs/architecture/patterns/design-patterns.md` inventory of concrete design patterns in use (audit P2-21)
 
 ### Changed
 
+- **Go toolchain**: bumped `go.mod` to Go 1.25 (toolchain go1.26.2) — audit P0-02
+- **Dependencies**: minor/patch upgrades for `golang.org/x/sync`, `x/sys`, `x/term`, `x/text`, `github.com/rs/zerolog`, and `gopsutil` (audit P1-24)
 - **Package restructuring**: Extracted `internal/progress/` package from `internal/fibonacci/` (observer pattern, progress types); backward-compatible type aliases in `progress_aliases.go`
 - **Package restructuring**: Extracted `internal/fibonacci/memory/` sub-package (arena, GC control, memory budget)
 - **Package restructuring**: Extracted `internal/fibonacci/threshold/` sub-package (dynamic threshold manager)
@@ -24,7 +30,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency injection: `app.New()` accepts `WithFactory()` option for custom `CalculatorFactory`
 - Removed `MultiplicationStrategy` deprecated type alias from `strategy.go`
 - Removed server, REPL, and observability layers to simplify the codebase
-- Cleaned up documentation to reflect CLI + TUI architecture
+- Documentation restructure: badge coverage updated to 87.5%; README condensed (~38 KB → ≤ 22 KB) with deep-links to `docs/PERFORMANCE.md`, `docs/BUILD.md`, `docs/TUI_GUIDE.md`
+- Benchmark reporting unified on AMD Ryzen 9 5900X reference; Intel Core Ultra 9 numbers retained as comparison annex (audit P2-19)
+- Dependency graph (`docs/architecture/dependency-graph.mermaid`) now includes `progress`, `memory`, `threshold` nodes (audit P2-22)
+- Makefile hygiene: POSIX-only targets, `go mod tidy`, removed dead cross-compile targets (audit P2-23 to P2-26)
+
+### Fixed
+
+- **orchestration**: propagate `errgroup` error instead of silently ignoring (audit P0-08)
+- **fibonacci**: check `ctx.Err()` after semaphore acquisition (audit P1-19)
+- **bigfft / io**: handle `Flush()` and `fourier()` errors explicitly (audit P2-11, P2-12)
+- Documentation links: fixed 20+ broken cross-references across `README.md`, `docs/ARCH.md`, `docs/TESTING.md`, architecture/ hub (audit P0-04 through P0-07, P1-16)
+- `docs/TESTING.md` Test Organization table: paths updated for extracted sub-packages (audit P1-15)
+- `docs/PERFORMANCE.md`: removed phantom `FIBCALC_GC_CONTROL` reference; GC control is automatic (audit P1-12)
+- `CONTRIBUTING.md` vs `docs/TESTING.md` mockgen divergence: `TESTING.md` is now the single source of truth (audit P2-17)
+- Formatting: applied `gofmt -s` and `goimports` across the tree (audit P1-09)
+
+### Security
+
+- **gosec G115**: explicit whitelist with justification in `.golangci.yml` (audit P1-23, P2-09)
+- **gosec G304**: documented file-path inclusion exceptions (audit P2-10)
+
+### Performance
+
+- **FFT pool leak**: release `PolValues` / `Poly` buffers in `internal/bigfft` (audit P0-01, P0-09)
+
+### Removed
+
+- Phantom `FIBCALC_GC_CONTROL` environment variable reference from `docs/PERFORMANCE.md` (never implemented)
+- Tracked development log artifacts and stale files (audit P1-20)
 
 ---
 

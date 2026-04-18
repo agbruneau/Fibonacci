@@ -7,31 +7,50 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/parallel"
 	"github.com/rs/zerolog"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Task Concurrency Limiter
+// Task Concurrency Limiter (P2-02)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// taskSemaphore limits the number of concurrent goroutines for multiplication
-// and squaring tasks. This prevents excessive goroutine creation which can
-// lead to contention and increased memory pressure.
-var taskSemaphore chan struct{}
-var taskSemaphoreOnce sync.Once
+// globalSem is the single Fibonacci-level task semaphore. Every parallel
+// helper in this package (executeParallel3, executeTasks, executeMixedTasks)
+// acquires a token from this channel before spawning real work, ensuring
+// that across all three entry points we never oversubscribe the CPU.
+//
+// Before P2-02 each helper referenced the semaphore via getTaskSemaphore()
+// separately; the indirection obscured that they shared a single pool and
+// left a refactor footgun — anyone adding a new parallel helper could
+// accidentally create a second semaphore. The rename and the direct
+// variable make the invariant obvious.
+//
+// Sizing: runtime.NumCPU(). The previous value was NumCPU*2, which
+// allowed oversubscription when big.Int arithmetic is already
+// CPU-saturating (e.g. FFT paths). NumCPU tracks the actual parallel
+// capacity of the machine and matches the bigfft FFT-level semaphore at
+// the same tier. The two semaphores remain separate because collapsing
+// them across packages would require internal/bigfft to import
+// internal/fibonacci — a layering inversion.
+//
+// globalSem is lazily initialised on first use so tests that mutate
+// runtime.NumCPU (via GOMAXPROCS) before importing this package still
+// get the correct sizing.
+var (
+	globalSem     chan struct{}
+	globalSemOnce sync.Once
+)
 
-// getTaskSemaphore returns a semaphore limiting Fibonacci-level parallelism
-// to NumCPU*2 goroutines. This is independent from the FFT-level semaphore
-// (bigfft/fft_recursion.go, NumCPU goroutines). When both are active, up to
-// NumCPU*3 goroutines may be active simultaneously. This is mitigated by
-// ShouldParallelizeMultiplication() which disables Fibonacci-level parallelism
-// when FFT is active (except for operands > ParallelFFTThreshold = 5M bits).
+// getTaskSemaphore returns globalSem, initialising it on first call.
+// Kept as a function (rather than a package-level var) so we pick up the
+// runtime.NumCPU() value after test harnesses adjust GOMAXPROCS.
 func getTaskSemaphore() chan struct{} {
-	taskSemaphoreOnce.Do(func() {
-		taskSemaphore = make(chan struct{}, runtime.NumCPU()*2)
+	globalSemOnce.Do(func() {
+		globalSem = make(chan struct{}, runtime.NumCPU())
 	})
-	return taskSemaphore
+	return globalSem
 }
 
 // MaxPooledBitLen is the maximum size (in bits) of a big.Int
@@ -66,6 +85,39 @@ func preSizeBigInt(z *big.Int, words int) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Arena Pre-Sizing Helper (P1-06)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// preSizeCalculationStateArena sizes a fresh CalculationArena for F(n) and
+// pre-sizes every *big.Int buffer inside the CalculationState from the arena
+// when n > 1000. For n ≤ 1000 the arena is created (empty) and effectively
+// a no-op, preserving a uniform interface.
+//
+// No arena pointer is returned: every pre-sized *big.Int in `s` retains a
+// slice carved from the arena's backing block via big.Int.SetBits, so the
+// garbage collector keeps that block alive as long as `s` is reachable. The
+// helper therefore has no outputs — only documented side effects on `s`.
+//
+// Before P1-06 this sequence (arena + pre-size FK/FK1/T1..T3 + SetInt64 on
+// FK/FK1) was duplicated verbatim between fastdoubling.go and fft_based.go.
+// Extracting it keeps both call sites lean and ensures any future change to
+// the pre-sizing strategy only has to be made in one place.
+func preSizeCalculationStateArena(s *CalculationState, n uint64) {
+	arena := memory.NewCalculationArena(n)
+	if n > 1000 {
+		estimatedBits := int(float64(n) * FibonacciGrowthFactor)
+		estimatedWords := (estimatedBits + 63) / 64
+		arena.PreSizeFromArena(s.FK, estimatedWords)
+		arena.PreSizeFromArena(s.FK1, estimatedWords)
+		s.FK.SetInt64(0)
+		s.FK1.SetInt64(1)
+		arena.PreSizeFromArena(s.T1, estimatedWords)
+		arena.PreSizeFromArena(s.T2, estimatedWords)
+		arena.PreSizeFromArena(s.T3, estimatedWords)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Logging
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -82,11 +134,42 @@ func SetTaskLogger(l zerolog.Logger) {
 // Parallel Execution Helper
 // ─────────────────────────────────────────────────────────────────────────────
 
+// runParallel3Op is the per-goroutine worker body for executeParallel3.
+// Taking wg/ec/sem/ctx/op explicitly as parameters (rather than closing
+// over them in a function literal) keeps the goroutine's closure empty
+// and eliminates the func-literal heap allocation per call.
+//
+// wg and ec are still heap-allocated in executeParallel3 itself because
+// they are shared across goroutines — Go's escape analysis cannot prove
+// they outlive the spawned goroutines — but the per-call closure
+// allocation disappears.
+//
+// See P2-03.
+func runParallel3Op(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, ec *parallel.ErrorCollector, op func() error) {
+	sem <- struct{}{}
+	defer func() {
+		<-sem
+		wg.Done()
+	}()
+	if err := ctx.Err(); err != nil {
+		ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
+		return
+	}
+	ec.SetError(op())
+}
+
 // executeParallel3 runs three operations concurrently, returning the first
 // error encountered. Each goroutine acquires a semaphore token to respect
 // the global concurrency limit, then checks for context cancellation before
 // starting its operation. The caller is responsible for ensuring that the
 // three operations write to disjoint memory (no shared mutable state).
+//
+// P2-03: per-goroutine body is extracted to runParallel3Op so the
+// `go` statements do not need function literals capturing wg/ec/sem.
+// wg and ec still heap-allocate (they are shared across goroutines
+// that may outlive the stack frame under Go's current escape analysis)
+// but the three per-call closures no longer allocate. Verified with
+// `go build -gcflags="-m=2"`.
 //
 // Parameters:
 //   - ctx: The context for cancellation checking before each operation.
@@ -96,53 +179,17 @@ func SetTaskLogger(l zerolog.Logger) {
 //   - error: The first error from any operation, or a context error.
 func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	sem := getTaskSemaphore()
-	var wg sync.WaitGroup
-	var ec parallel.ErrorCollector
+	wg := &sync.WaitGroup{}
+	ec := &parallel.ErrorCollector{}
 	wg.Add(3)
 
-	go func() {
-		sem <- struct{}{}
-		if err := ctx.Err(); err != nil {
-			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-			<-sem
-			wg.Done()
-			return
-		}
-		ec.SetError(op1())
-		<-sem
-		wg.Done()
-	}()
-
-	go func() {
-		sem <- struct{}{}
-		if err := ctx.Err(); err != nil {
-			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-			<-sem
-			wg.Done()
-			return
-		}
-		ec.SetError(op2())
-		<-sem
-		wg.Done()
-	}()
-
-	go func() {
-		sem <- struct{}{}
-		if err := ctx.Err(); err != nil {
-			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-			<-sem
-			wg.Done()
-			return
-		}
-		ec.SetError(op3())
-		<-sem
-		wg.Done()
-	}()
+	go runParallel3Op(ctx, sem, wg, ec, op1)
+	go runParallel3Op(ctx, sem, wg, ec, op2)
+	go runParallel3Op(ctx, sem, wg, ec, op3)
 
 	wg.Wait()
 	return ec.Err()
 }
-
 
 // task defines a common interface for executable tasks.
 // This allows using generics to eliminate code duplication between
@@ -201,7 +248,7 @@ func (t *squaringTask) execute() error {
 func executeTasks[T any, PT interface {
 	*T
 	task
-}](tasks []T, inParallel bool) error {
+}](ctx context.Context, tasks []T, inParallel bool) error {
 	taskLogger.Debug().
 		Int("task_count", len(tasks)).
 		Bool("parallel", inParallel).
@@ -213,11 +260,20 @@ func executeTasks[T any, PT interface {
 		wg.Add(len(tasks))
 		for i := range tasks {
 			go func(t PT) {
-				// Acquire semaphore token to limit concurrency
+				defer wg.Done()
+				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
+				defer func() { <-sem }()
+				// Check for context cancellation after acquiring the semaphore:
+				// the token may have been held for a while during contention,
+				// and the context could have been canceled in the meantime.
+				// Skipping this check would execute expensive multiplications
+				// after the caller has already abandoned the computation.
+				if err := ctx.Err(); err != nil {
+					ec.SetError(err)
+					return
+				}
 				ec.SetError(t.execute())
-				<-sem
-				wg.Done()
 			}(PT(&tasks[i]))
 		}
 		wg.Wait()
@@ -242,7 +298,7 @@ func executeTasks[T any, PT interface {
 //
 // Returns:
 //   - error: An error if any task failed.
-func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, inParallel bool) error {
+func executeMixedTasks(ctx context.Context, sqrTasks []squaringTask, mulTasks []multiplicationTask, inParallel bool) error {
 	totalTasks := len(sqrTasks) + len(mulTasks)
 	if totalTasks == 0 {
 		return nil
@@ -263,22 +319,34 @@ func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, i
 		// Execute squaring tasks in parallel
 		for i := range sqrTasks {
 			go func(t *squaringTask) {
-				// Acquire semaphore token to limit concurrency
+				defer wg.Done()
+				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
+				defer func() { <-sem }()
+				// Check for context cancellation after acquiring the semaphore
+				// (the token may have been held for a while during contention).
+				if err := ctx.Err(); err != nil {
+					ec.SetError(err)
+					return
+				}
 				ec.SetError(t.execute())
-				<-sem
-				wg.Done()
 			}(&sqrTasks[i])
 		}
 
 		// Execute multiplication tasks in parallel
 		for i := range mulTasks {
 			go func(t *multiplicationTask) {
-				// Acquire semaphore token to limit concurrency
+				defer wg.Done()
+				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
+				defer func() { <-sem }()
+				// Check for context cancellation after acquiring the semaphore
+				// (the token may have been held for a while during contention).
+				if err := ctx.Err(); err != nil {
+					ec.SetError(err)
+					return
+				}
 				ec.SetError(t.execute())
-				<-sem
-				wg.Done()
 			}(&mulTasks[i])
 		}
 

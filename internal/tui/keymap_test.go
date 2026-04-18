@@ -7,6 +7,7 @@ import (
 )
 
 func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
+	t.Parallel()
 	km := DefaultKeyMap()
 
 	bindings := []struct {
@@ -23,7 +24,9 @@ func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
 	}
 
 	for _, b := range bindings {
+		b := b
 		t.Run(b.name, func(t *testing.T) {
+			t.Parallel()
 			if !b.binding.Enabled() {
 				t.Errorf("expected %s binding to be enabled", b.name)
 			}
@@ -36,6 +39,7 @@ func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
 }
 
 func TestDefaultKeyMap_QuitKeys(t *testing.T) {
+	t.Parallel()
 	km := DefaultKeyMap()
 
 	keys := km.Quit.Keys()

@@ -9,22 +9,22 @@ import (
 // Style variables for the TUI dashboard.
 // Initialized from the ui theme system via initTUIStyles().
 var (
-	panelStyle        lipgloss.Style
-	headerStyle       lipgloss.Style
-	titleStyle        lipgloss.Style
-	versionStyle      lipgloss.Style
-	elapsedStyle      lipgloss.Style
-	logTimeStyle      lipgloss.Style
-	logAlgoStyle      lipgloss.Style
-	logProgressStyle  lipgloss.Style
-	logSuccessStyle   lipgloss.Style
-	logErrorStyle     lipgloss.Style
-	metricLabelStyle  lipgloss.Style
-	metricValueStyle  lipgloss.Style
-	chartBarStyle     lipgloss.Style
-	chartEmptyStyle   lipgloss.Style
-	footerKeyStyle    lipgloss.Style
-	footerDescStyle   lipgloss.Style
+	panelStyle         lipgloss.Style
+	headerStyle        lipgloss.Style
+	titleStyle         lipgloss.Style
+	versionStyle       lipgloss.Style
+	elapsedStyle       lipgloss.Style
+	logTimeStyle       lipgloss.Style
+	logAlgoStyle       lipgloss.Style
+	logProgressStyle   lipgloss.Style
+	logSuccessStyle    lipgloss.Style
+	logErrorStyle      lipgloss.Style
+	metricLabelStyle   lipgloss.Style
+	metricValueStyle   lipgloss.Style
+	chartBarStyle      lipgloss.Style
+	chartEmptyStyle    lipgloss.Style
+	footerKeyStyle     lipgloss.Style
+	footerDescStyle    lipgloss.Style
 	statusRunningStyle lipgloss.Style
 	statusPausedStyle  lipgloss.Style
 	statusDoneStyle    lipgloss.Style

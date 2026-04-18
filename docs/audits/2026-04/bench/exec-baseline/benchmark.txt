@@ -1,0 +1,3 @@
+PASS
+ok  	github.com/agbru/fibcalc/internal/fibonacci	0.318s
+BENCH_EXIT=0

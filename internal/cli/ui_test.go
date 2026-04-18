@@ -38,54 +38,54 @@ func TestDisplayResult(t *testing.T) {
 	ui.InitTheme(false)
 
 	tests := []struct {
-		name     string
-		result   *big.Int
-		n        uint64
-		duration time.Duration
-		verbose  bool
-		details  bool
+		name      string
+		result    *big.Int
+		n         uint64
+		duration  time.Duration
+		verbose   bool
+		details   bool
 		showValue bool
-		contains []string
+		contains  []string
 	}{
 		{
-			name:     "Details only",
-			result:   big.NewInt(12345),
-			n:        10,
-			duration: time.Millisecond,
-			verbose:  false,
-			details:  true,
+			name:      "Details only",
+			result:    big.NewInt(12345),
+			n:         10,
+			duration:  time.Millisecond,
+			verbose:   false,
+			details:   true,
 			showValue: false,
-			contains: []string{"Result binary size:", "Detailed result analysis", "Calculation time", "Number of digits"},
+			contains:  []string{"Result binary size:", "Detailed result analysis", "Calculation time", "Number of digits"},
 		},
 		{
-			name:     "ShowValue Output",
-			result:   big.NewInt(12345),
-			n:        10,
-			duration: time.Millisecond,
-			verbose:  false,
-			details:  false,
+			name:      "ShowValue Output",
+			result:    big.NewInt(12345),
+			n:         10,
+			duration:  time.Millisecond,
+			verbose:   false,
+			details:   false,
 			showValue: true,
-			contains: []string{"Calculated value", "F(", ") =", "12,345"},
+			contains:  []string{"Calculated value", "F(", ") =", "12,345"},
 		},
 		{
-			name:     "Truncated Output",
-			result:   new(big.Int).Exp(big.NewInt(10), big.NewInt(200), nil), // Very large number
-			n:        100,
-			duration: time.Millisecond,
-			verbose:  false,
-			details:  false,
+			name:      "Truncated Output",
+			result:    new(big.Int).Exp(big.NewInt(10), big.NewInt(200), nil), // Very large number
+			n:         100,
+			duration:  time.Millisecond,
+			verbose:   false,
+			details:   false,
 			showValue: true,
-			contains: []string{"(truncated)", "Tip: use"},
+			contains:  []string{"(truncated)", "Tip: use"},
 		},
 		{
-			name:     "Verbose Output",
-			result:   new(big.Int).Exp(big.NewInt(10), big.NewInt(200), nil),
-			n:        100,
-			duration: time.Millisecond,
-			verbose:  true,
-			details:  false,
+			name:      "Verbose Output",
+			result:    new(big.Int).Exp(big.NewInt(10), big.NewInt(200), nil),
+			n:         100,
+			duration:  time.Millisecond,
+			verbose:   true,
+			details:   false,
 			showValue: true,
-			contains: []string{"F(", ") ="}, // Should not contain truncated
+			contains:  []string{"F(", ") ="}, // Should not contain truncated
 		},
 	}
 

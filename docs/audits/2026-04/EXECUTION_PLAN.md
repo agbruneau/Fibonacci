@@ -1,5 +1,14 @@
 # EXECUTION_PLAN — Implémentation des 60 findings FibGo (Mode Agent Teams)
 
+> **✅ STATUT : EXÉCUTÉ le 2026-04-18** sur `claude/audit-execution-20260418` (≈44 commits).
+> **Résultat** : 59/60 findings traités (98 %) + 3 P3 cosmétiques + README condensé (37.6→13.5 KB) + migration `Audit/ → docs/audits/2026-04/`.
+> **Exceptions** :
+> - **P0-03** (bubbles v0.21→v1.0) : reporté — breaking change nécessitant smoke-test TUI humain.
+> - **P1-04** (arena pool fastdoubling) : skipped — concurrency hazard documenté dans `bench/perf-results/P1-04-SKIPPED.md`.
+>
+> **Gains perf mesurés** (P0-01/P0-09) : −34 à −43 % temps, −83 à −94 % allocations sur FFT F(10⁶).
+> Suivi historique : voir `git log claude/audit-execution-20260418 ^main --oneline`.
+
 **Projet** : FibGo / FibCalc
 **Date** : 2026-04-18
 **Branche mère** : `main`

@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
 )
 
@@ -97,22 +96,11 @@ func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter Pro
 	s := AcquireState()
 	defer ReleaseState(s)
 
-	// Create arena for contiguous memory allocation.
-	// Pre-size all big.Int buffers from the arena to avoid per-buffer
-	// GC tracking and reduce memory fragmentation.
-	arena := memory.NewCalculationArena(n)
-	if n > 1000 {
-		estimatedBits := int(float64(n) * FibonacciGrowthFactor)
-		estimatedWords := (estimatedBits + 63) / 64
-		arena.PreSizeFromArena(s.FK, estimatedWords)
-		arena.PreSizeFromArena(s.FK1, estimatedWords)
-		s.FK.SetInt64(0)
-		s.FK1.SetInt64(1)
-		arena.PreSizeFromArena(s.T1, estimatedWords)
-		arena.PreSizeFromArena(s.T2, estimatedWords)
-		arena.PreSizeFromArena(s.T3, estimatedWords)
-	}
-	_ = arena // arena's backing block lives until the function returns
+	// Create arena for contiguous memory allocation and pre-size all
+	// big.Int buffers from the arena to avoid per-buffer GC tracking and
+	// reduce memory fragmentation. `s`'s big.Ints retain slices into the
+	// arena's backing block, so the block stays alive as long as `s` does.
+	preSizeCalculationStateArena(s, n)
 
 	// Normalize options to ensure consistent default threshold handling
 	normalizedOpts := normalizeOptions(opts)

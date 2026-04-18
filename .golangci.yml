@@ -97,6 +97,11 @@ linters-settings:
   gosec:
     excludes:
       - G104 # Duplicate of errcheck (ineffectual assignment)
+      - G115 # Integer overflow casts validated — all observed n/bitLen values
+             # are bounded by context (Fibonacci index limits, math/bits output
+             # ranges, or explicit pre-cast checks). See audit P1-23/P2-09.
+             # Individual casts are audited in source and annotated with
+             # //nosec G115 where the local bounds argument is non-obvious.
 
   prealloc:
     # Report preallocation suggestions only on simple loops that have no other false positives
@@ -123,6 +128,19 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
+
+    # G304: file path from variable. FibGo is a mono-user CLI; every path
+    # opened this way originates from a flag/env var explicitly provided by
+    # the invoking user, not from untrusted input (network, other users).
+    # Documented as non-exploitable in audit P2-10.
+    - path: internal/calibration/profile\.go
+      linters:
+        - gosec
+      text: "G304"
+    - path: internal/cli/output\.go
+      linters:
+        - gosec
+      text: "G304"
 
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0

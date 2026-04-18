@@ -13,7 +13,7 @@ import (
 
 // SquareSymmetricMatrixFunc is the function signature for symmetric matrix squaring.
 // It is injectable on MatrixFramework for testing purposes.
-type SquareSymmetricMatrixFunc func(dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error
+type SquareSymmetricMatrixFunc func(ctx context.Context, dest, mat *matrix, state *matrixState, inParallel bool, fftThreshold int) error
 
 // MatrixFramework encapsulates the common Matrix Exponentiation algorithm logic.
 // The framework manages the binary exponentiation loop and progress reporting.
@@ -79,10 +79,11 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 			return nil, fmt.Errorf("matrix exponentiation calculation canceled at bit %d/%d: %w", i, numBits-1, err)
 		}
 
+		// i is a bit index in [0, bits.Len64(exponent)-1] ⊂ [0, 63], uint cast safe. #nosec G115
 		if (exponent>>uint(i))&1 == 1 {
 			// Decide on parallelism based on the max size of the operands involved
 			inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold
-			if err := multiplyMatrices(state.tempMatrix, state.res, state.p, state, inParallel, normalizedOpts.FFTThreshold, normalizedOpts.StrassenThreshold); err != nil {
+			if err := multiplyMatrices(ctx, state.tempMatrix, state.res, state.p, state, inParallel, normalizedOpts.FFTThreshold, normalizedOpts.StrassenThreshold); err != nil {
 				return nil, fmt.Errorf("matrix multiplication failed at bit %d/%d: %w", i, numBits-1, err)
 			}
 			state.res, state.tempMatrix = state.tempMatrix, state.res
@@ -90,7 +91,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 
 		if i < numBits-1 {
 			inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold
-			if err := f.SquareFunc(state.tempMatrix, state.p, state, inParallel, normalizedOpts.FFTThreshold); err != nil {
+			if err := f.SquareFunc(ctx, state.tempMatrix, state.p, state, inParallel, normalizedOpts.FFTThreshold); err != nil {
 				return nil, fmt.Errorf("matrix squaring failed at bit %d/%d: %w", i, numBits-1, err)
 			}
 			state.p, state.tempMatrix = state.tempMatrix, state.p

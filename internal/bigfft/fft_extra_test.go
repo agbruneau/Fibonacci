@@ -160,10 +160,16 @@ func TestNTransform_InvNTransform(t *testing.T) {
 	}
 
 	// NTransform
-	vals := p.NTransform(n)
+	vals, err := p.NTransform(n)
+	if err != nil {
+		t.Fatalf("NTransform failed: %v", err)
+	}
 
 	// InvNTransform
-	pRes := vals.InvNTransform()
+	pRes, err := vals.InvNTransform()
+	if err != nil {
+		t.Fatalf("InvNTransform failed: %v", err)
+	}
 
 	// Verify we got back original coefficients (scaled/shifted? InvNTransform docs say m is unspecified)
 	// Usually NTransform/InvNTransform round trip should preserve data up to scaling/modulus.

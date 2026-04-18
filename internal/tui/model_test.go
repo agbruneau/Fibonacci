@@ -46,6 +46,7 @@ func newTestModelWithSize(t *testing.T, w, h int) Model {
 }
 
 func TestNewModel(t *testing.T) {
+	t.Parallel()
 	model := newTestModel(t)
 
 	if model.paused {
@@ -60,6 +61,7 @@ func TestNewModel(t *testing.T) {
 }
 
 func TestNewModel_WithCalculators(t *testing.T) {
+	t.Parallel()
 	calcs := []fibonacci.Calculator{
 		mockCalculator{name: "Fast Doubling"},
 		mockCalculator{name: "Matrix"},
@@ -74,6 +76,7 @@ func TestNewModel_WithCalculators(t *testing.T) {
 }
 
 func TestModel_Update_WindowSize(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -94,6 +97,7 @@ func TestModel_Update_WindowSize(t *testing.T) {
 }
 
 func TestModel_Update_ProgressMsg(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -117,6 +121,7 @@ func TestModel_Update_ProgressMsg(t *testing.T) {
 }
 
 func TestModel_Update_ProgressMsg_Paused(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -137,6 +142,7 @@ func TestModel_Update_ProgressMsg_Paused(t *testing.T) {
 }
 
 func TestModel_Update_CalculationComplete(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -154,6 +160,7 @@ func TestModel_Update_CalculationComplete(t *testing.T) {
 }
 
 func TestModel_Update_ErrorMsg(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -175,6 +182,7 @@ func TestModel_Update_ErrorMsg(t *testing.T) {
 }
 
 func TestModel_View_Initializing(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -186,6 +194,7 @@ func TestModel_View_Initializing(t *testing.T) {
 }
 
 func TestModel_View_WithSize(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -203,6 +212,7 @@ func TestModel_View_WithSize(t *testing.T) {
 }
 
 func TestModel_HandleKey_Pause(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	model := NewModel(context.Background(), nil, cfg, "v0.1.0")
 	defer model.cancel()
@@ -223,6 +233,7 @@ func TestModel_HandleKey_Pause(t *testing.T) {
 }
 
 func TestModel_HandleKey_Restart(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 80, 24)
 
 	// Add some chart data and log entries
@@ -255,6 +266,7 @@ func TestModel_HandleKey_Restart(t *testing.T) {
 }
 
 func TestModel_Update_ComparisonResultsMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 120, 40)
 
 	msg := ComparisonResultsMsg{
@@ -274,6 +286,7 @@ func TestModel_Update_ComparisonResultsMsg(t *testing.T) {
 }
 
 func TestModel_Update_FinalResultMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 120, 40)
 
 	msg := FinalResultMsg{
@@ -303,6 +316,7 @@ func TestModel_Update_FinalResultMsg(t *testing.T) {
 }
 
 func TestModel_Update_ProgressDoneMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	updated, cmd := m.Update(ProgressDoneMsg{})
@@ -318,6 +332,7 @@ func TestModel_Update_ProgressDoneMsg(t *testing.T) {
 }
 
 func TestModel_Update_ContextCancelledMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	msg := ContextCancelledMsg{Err: context.Canceled, Generation: m.generation}
@@ -333,6 +348,7 @@ func TestModel_Update_ContextCancelledMsg(t *testing.T) {
 }
 
 func TestModel_Update_ContextCancelledMsg_StaleGeneration(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	// Stale generation should be ignored
@@ -349,6 +365,7 @@ func TestModel_Update_ContextCancelledMsg_StaleGeneration(t *testing.T) {
 }
 
 func TestModel_Update_CalculationComplete_NonZeroExitCode(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	msg := CalculationCompleteMsg{ExitCode: apperrors.ExitErrorMismatch}
@@ -364,6 +381,7 @@ func TestModel_Update_CalculationComplete_NonZeroExitCode(t *testing.T) {
 }
 
 func TestModel_Update_MemStatsMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	msg := MemStatsMsg{
@@ -380,6 +398,7 @@ func TestModel_Update_MemStatsMsg(t *testing.T) {
 }
 
 func TestModel_Update_TickMsg_NotPaused(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	updated, cmd := m.Update(TickMsg(time.Now()))
@@ -392,6 +411,7 @@ func TestModel_Update_TickMsg_NotPaused(t *testing.T) {
 }
 
 func TestModel_Update_TickMsg_Paused(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 	m.paused = true
 
@@ -405,6 +425,7 @@ func TestModel_Update_TickMsg_Paused(t *testing.T) {
 }
 
 func TestModel_HandleKey_Quit_Q(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -414,6 +435,7 @@ func TestModel_HandleKey_Quit_Q(t *testing.T) {
 }
 
 func TestModel_HandleKey_Quit_CtrlC(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
@@ -423,6 +445,7 @@ func TestModel_HandleKey_Quit_CtrlC(t *testing.T) {
 }
 
 func TestModel_HandleKey_ScrollKeys(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 120, 40)
 
 	// Add enough content to scroll
@@ -448,6 +471,7 @@ func TestModel_HandleKey_ScrollKeys(t *testing.T) {
 }
 
 func TestModel_HandleKey_Unknown(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
@@ -462,6 +486,7 @@ func TestModel_HandleKey_Unknown(t *testing.T) {
 }
 
 func TestModel_Update_UnknownMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	// Send an arbitrary message type
@@ -475,6 +500,7 @@ func TestModel_Update_UnknownMsg(t *testing.T) {
 }
 
 func TestModel_LayoutPanels_VerySmallTerminal(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	// Very small terminal — bodyHeight would be negative without the clamp
@@ -489,6 +515,7 @@ func TestModel_LayoutPanels_VerySmallTerminal(t *testing.T) {
 }
 
 func TestModel_LayoutPanels_MinBodyHeight(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 
 	// Height = 6 means bodyHeight = 0 -> clamped to 4
@@ -502,6 +529,7 @@ func TestModel_LayoutPanels_MinBodyHeight(t *testing.T) {
 }
 
 func TestModel_HandleKey_Restart_ClearsMetrics(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 80, 24)
 
 	// Set some metrics
@@ -522,6 +550,7 @@ func TestModel_HandleKey_Restart_ClearsMetrics(t *testing.T) {
 }
 
 func TestModel_Init_ReturnsCommands(t *testing.T) {
+	t.Parallel()
 	m := newTestModel(t)
 	cmd := m.Init()
 	if cmd == nil {
@@ -530,6 +559,7 @@ func TestModel_Init_ReturnsCommands(t *testing.T) {
 }
 
 func TestSampleMemStatsCmd_ReturnsMemStatsMsg(t *testing.T) {
+	t.Parallel()
 	cmd := sampleMemStatsCmd()
 	if cmd == nil {
 		t.Fatal("expected non-nil command from sampleMemStatsCmd")
@@ -541,6 +571,7 @@ func TestSampleMemStatsCmd_ReturnsMemStatsMsg(t *testing.T) {
 }
 
 func TestWatchContextCmd_SendsOnCancel(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := watchContextCmd(ctx, 0)
 	if cmd == nil {
@@ -565,6 +596,7 @@ func TestWatchContextCmd_SendsOnCancel(t *testing.T) {
 }
 
 func TestWatchContextCmd_AlreadyCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before creating cmd
 
@@ -576,6 +608,7 @@ func TestWatchContextCmd_AlreadyCancelled(t *testing.T) {
 }
 
 func TestModel_layoutPanels_Percentages(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 100, 40)
 
 	// Logs should get 60% of width
@@ -595,6 +628,7 @@ func TestModel_layoutPanels_Percentages(t *testing.T) {
 }
 
 func TestModel_layoutPanels_MinimumSizes(t *testing.T) {
+	t.Parallel()
 	// Very small terminal: bodyHeight would be negative, clamped to minBodyHeight
 	m := newTestModelWithSize(t, 20, 4)
 
@@ -607,6 +641,7 @@ func TestModel_layoutPanels_MinimumSizes(t *testing.T) {
 }
 
 func TestModel_metricsHeight_ConsistentWithLayout(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 100, 40)
 
 	// metricsHeight() should match the value assigned during layoutPanels
@@ -616,6 +651,7 @@ func TestModel_metricsHeight_ConsistentWithLayout(t *testing.T) {
 }
 
 func TestModel_View_ContainsAllComponents(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 120, 40)
 
 	view := m.View()
@@ -637,6 +673,7 @@ func TestModel_View_ContainsAllComponents(t *testing.T) {
 }
 
 func TestModel_Update_VeryWideTerminal(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 500, 40)
 
 	// Should not panic
@@ -647,6 +684,7 @@ func TestModel_Update_VeryWideTerminal(t *testing.T) {
 }
 
 func TestModel_metricsHeight_SmallTerminal(t *testing.T) {
+	t.Parallel()
 	// When height is very small, bodyHeight gets clamped to minBodyHeight.
 	// metricsFixedH (8) is capped at bodyHeight*2/3 = 4*2/3 = 2.
 	m := newTestModelWithSize(t, 80, 4)
@@ -658,6 +696,7 @@ func TestModel_metricsHeight_SmallTerminal(t *testing.T) {
 }
 
 func TestTickCmd_ReturnsCmd(t *testing.T) {
+	t.Parallel()
 	cmd := tickCmd()
 	if cmd == nil {
 		t.Error("expected non-nil command from tickCmd")
@@ -665,6 +704,7 @@ func TestTickCmd_ReturnsCmd(t *testing.T) {
 }
 
 func TestStartCalculationCmd_ReturnsCompleteMsg(t *testing.T) {
+	t.Parallel()
 	ref := &programRef{}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -682,6 +722,7 @@ func TestStartCalculationCmd_ReturnsCompleteMsg(t *testing.T) {
 }
 
 func TestModel_Update_SysStatsMsg(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 80, 24)
 
 	msg := SysStatsMsg{CPUPercent: 25.5, MemPercent: 60.0}
@@ -703,6 +744,7 @@ func TestModel_Update_SysStatsMsg(t *testing.T) {
 }
 
 func TestSampleSysStatsCmd_ReturnsSysStatsMsg(t *testing.T) {
+	t.Parallel()
 	cmd := sampleSysStatsCmd()
 	if cmd == nil {
 		t.Fatal("expected non-nil command from sampleSysStatsCmd")
@@ -714,6 +756,7 @@ func TestSampleSysStatsCmd_ReturnsSysStatsMsg(t *testing.T) {
 }
 
 func TestModel_HandleKey_Restart_ClearsSysStats(t *testing.T) {
+	t.Parallel()
 	m := newTestModelWithSize(t, 80, 24)
 
 	m.chart.UpdateSysStats(50.0, 70.0)
@@ -736,6 +779,7 @@ func TestModel_HandleKey_Restart_ClearsSysStats(t *testing.T) {
 }
 
 func TestModel_HandleKey_Quit_CancelsContext(t *testing.T) {
+	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
 	m := NewModel(context.Background(), nil, cfg, "v1.0.0")
 

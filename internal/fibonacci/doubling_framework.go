@@ -152,7 +152,16 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 	currentOpts := normalizeOptions(opts)
 	dtm := f.dynamicThreshold
 
+	// P1-02: counter used to throttle the per-iteration cache.Stats() read
+	// + SetTransformCacheConfig() block. The block is advisory (it tunes
+	// MaxEntries/MinBitLen heuristically) and was running every iteration —
+	// 24+ times for F(1M) — each call taking RLocks on the cache. Sampling
+	// every 8 iterations preserves the adjustment behaviour while cutting
+	// the overhead roughly 8x.
+	iterCount := 0
+
 	for i := numBits - 1; i >= 0; i-- {
+		iterCount++
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("fast doubling calculation canceled at bit %d/%d: %w", i, numBits-1, err)
 		}
@@ -203,6 +212,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
 		// F(k) <- F(k+1)
 		// F(k+1) <- F(k) + F(k+1)
+		// i is a bit index in [0, bits.Len64(n)-1] ⊂ [0, 63], uint conversion safe. #nosec G115
 		if (n>>uint(i))&1 == 1 {
 			// s.T1 temporarily stores the new F(k+1).
 			// T1 is free after the rotation (holds old T2).
@@ -226,22 +236,29 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 				currentOpts.ParallelThreshold = newParallel
 			}
 
-			// Dynamically adjust FFT cache based on hit rate
-			cache := bigfft.GetTransformCache()
-			stats := cache.Stats()
+			// P1-02: Dynamically adjust FFT cache based on hit rate.
+			// Throttled: only sample/adjust once every 8 iterations (and always
+			// on the final iteration) to avoid 24+ RLock'd Stats() reads for
+			// large N. This is advisory tuning — the slower response time
+			// between checks is acceptable given the geometric growth in
+			// iteration cost.
+			if iterCount%8 == 0 || i == 0 {
+				cache := bigfft.GetTransformCache()
+				stats := cache.Stats()
 
-			// If evicting frequently with good hit rate, increase cache size
-			if stats.Evictions > 0 && stats.HitRate > 0.5 {
-				cfg := cache.Config()
-				if cfg.MaxEntries < 8192 { // Hard upper limit to prevent excessive memory
-					cfg.MaxEntries = int(float64(cfg.MaxEntries) * 1.2) // Increase by 20%
+				// If evicting frequently with good hit rate, increase cache size
+				if stats.Evictions > 0 && stats.HitRate > 0.5 {
+					cfg := cache.Config()
+					if cfg.MaxEntries < 8192 { // Hard upper limit to prevent excessive memory
+						cfg.MaxEntries = int(float64(cfg.MaxEntries) * 1.2) // Increase by 20%
+						bigfft.SetTransformCacheConfig(cfg)
+					}
+				} else if stats.HitRate < 0.1 && (stats.Misses+stats.Hits) > 10 {
+					// If cache is not useful, prune smaller transforms
+					cfg := cache.Config()
+					cfg.MinBitLen = int(float64(cfg.MinBitLen) * 1.1) // Increase threshold by 10%
 					bigfft.SetTransformCacheConfig(cfg)
 				}
-			} else if stats.HitRate < 0.1 && (stats.Misses+stats.Hits) > 10 {
-				// If cache is not useful, prune smaller transforms
-				cfg := cache.Config()
-				cfg.MinBitLen = int(float64(cfg.MinBitLen) * 1.1) // Increase threshold by 10%
-				bigfft.SetTransformCacheConfig(cfg)
 			}
 		}
 

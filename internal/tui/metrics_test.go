@@ -9,6 +9,7 @@ import (
 )
 
 func TestMetricsModel_UpdateMemStats(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 
 	msg := MemStatsMsg{
@@ -30,6 +31,7 @@ func TestMetricsModel_UpdateMemStats(t *testing.T) {
 }
 
 func TestMetricsModel_UpdateProgress(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	// Force the lastUpdate back in time to ensure dt > 0.05
 	m.lastUpdate = time.Now().Add(-1 * time.Second)
@@ -44,6 +46,7 @@ func TestMetricsModel_UpdateProgress(t *testing.T) {
 }
 
 func TestMetricsModel_UpdateProgress_Smoothing(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	m.lastUpdate = time.Now().Add(-1 * time.Second)
 
@@ -69,6 +72,7 @@ func TestMetricsModel_UpdateProgress_Smoothing(t *testing.T) {
 }
 
 func TestMetricsModel_UpdateProgress_TooFast(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	// lastUpdate is now, so dt < 0.05 — should not update speed
 	m.UpdateProgress(0.5)
@@ -79,6 +83,7 @@ func TestMetricsModel_UpdateProgress_TooFast(t *testing.T) {
 }
 
 func TestMetricsModel_UpdateProgress_NoForward(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	m.lastUpdate = time.Now().Add(-1 * time.Second)
 	m.lastProgress = 0.5
@@ -92,6 +97,7 @@ func TestMetricsModel_UpdateProgress_NoForward(t *testing.T) {
 }
 
 func TestMetricsModel_View(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	m.SetSize(40, 15)
 
@@ -117,6 +123,7 @@ func TestMetricsModel_View(t *testing.T) {
 }
 
 func TestFormatBytes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    uint64
@@ -130,7 +137,9 @@ func TestFormatBytes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := format.FormatBytes(tt.input)
 			if !strings.Contains(got, tt.contains) {
 				t.Errorf("format.FormatBytes(%d) = %q, want to contain %q", tt.input, got, tt.contains)
@@ -140,6 +149,7 @@ func TestFormatBytes(t *testing.T) {
 }
 
 func TestFormatBytes_Boundaries(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    uint64
@@ -154,7 +164,9 @@ func TestFormatBytes_Boundaries(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := format.FormatBytes(tt.input)
 			if !strings.Contains(got, tt.contains) {
 				t.Errorf("format.FormatBytes(%d) = %q, want to contain %q", tt.input, got, tt.contains)
@@ -164,6 +176,7 @@ func TestFormatBytes_Boundaries(t *testing.T) {
 }
 
 func TestMetricsModel_UpdateProgress_RapidUpdates(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	m.lastUpdate = time.Now().Add(-1 * time.Second)
 
@@ -182,6 +195,7 @@ func TestMetricsModel_UpdateProgress_RapidUpdates(t *testing.T) {
 }
 
 func TestMetricsModel_SetSize(t *testing.T) {
+	t.Parallel()
 	m := NewMetricsModel()
 	m.SetSize(50, 20)
 
@@ -194,6 +208,7 @@ func TestMetricsModel_SetSize(t *testing.T) {
 }
 
 func TestFormatMetricCol(t *testing.T) {
+	t.Parallel()
 	col := formatMetricCol("Memory:", "50.0 MB", 30)
 	if !strings.Contains(col, "Memory") {
 		t.Error("expected column to contain label")

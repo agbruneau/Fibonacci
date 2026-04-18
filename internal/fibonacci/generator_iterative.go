@@ -88,6 +88,25 @@ func NewIterativeGeneratorWithCalculator(calc Calculator) *IterativeGenerator {
 //     and is safe to modify.
 //   - error: An error if the context is cancelled.
 func (g *IterativeGenerator) Next(ctx context.Context) (*big.Int, error) {
+	return g.NextInto(ctx, nil)
+}
+
+// NextInto is like Next but writes the result into the caller-supplied
+// buffer dst when non-nil, avoiding the two per-iteration big.Int
+// allocations that Next() required.
+//
+// When dst is nil a fresh *big.Int is allocated (matching Next() semantics).
+//
+// The returned pointer is either dst (on reuse) or the freshly allocated
+// big.Int. Calling code should use the returned value rather than dst
+// directly — this keeps Next()'s API compatible.
+//
+// This addresses audit finding P1-03: the hot generator loop allocated
+// 2 big.Int per tick (one for the sum, one for the returned snapshot).
+// By reusing g.current's backing for the sum and accepting a dst buffer
+// for the snapshot, tight loops that recycle a single dst can run with
+// zero per-iteration big.Int allocations.
+func (g *IterativeGenerator) NextInto(ctx context.Context, dst *big.Int) (*big.Int, error) {
 	// Check for context cancellation
 	select {
 	case <-ctx.Done():
@@ -101,6 +120,9 @@ func (g *IterativeGenerator) Next(ctx context.Context) (*big.Int, error) {
 	if !g.started {
 		g.started = true
 		// First call: return F(0) = 0
+		if dst != nil {
+			return dst.Set(g.current), nil
+		}
 		return new(big.Int).Set(g.current), nil
 	}
 
@@ -109,9 +131,15 @@ func (g *IterativeGenerator) Next(ctx context.Context) (*big.Int, error) {
 	// After advance: (current, next) = (F(n+1), F(n+2)) = (next, current+next)
 	g.index++
 
-	// Swap and add: new_current = old_next, new_next = old_current + old_next
-	g.current, g.next = g.next, new(big.Int).Add(g.current, g.next)
+	// Swap and add using g.current as the destination buffer for the sum.
+	// old_current is then rebound to g.next (the old value) and g.next is
+	// rebound to the freshly-summed value — no heap allocation per tick.
+	g.current.Add(g.current, g.next)
+	g.current, g.next = g.next, g.current
 
+	if dst != nil {
+		return dst.Set(g.current), nil
+	}
 	return new(big.Int).Set(g.current), nil
 }
 

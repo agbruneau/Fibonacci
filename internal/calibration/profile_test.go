@@ -270,4 +270,3 @@ func TestGetDefaultProfilePath(t *testing.T) {
 		t.Errorf("Path %s doesn't end with %s", path, DefaultProfileFileName)
 	}
 }
-

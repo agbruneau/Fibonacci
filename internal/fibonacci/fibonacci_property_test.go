@@ -166,9 +166,9 @@ func TestDoublingIdentity_PropertyBased(t *testing.T) {
 				}
 
 				// F(2n) = F(n) * (2*F(n+1) - F(n))
-				twoFn1 := new(big.Int).Lsh(fn1, 1)         // 2*F(n+1)
-				twoFn1.Sub(twoFn1, fn)                      // 2*F(n+1) - F(n)
-				expected := new(big.Int).Mul(fn, twoFn1)     // F(n) * (...)
+				twoFn1 := new(big.Int).Lsh(fn1, 1)       // 2*F(n+1)
+				twoFn1.Sub(twoFn1, fn)                   // 2*F(n+1) - F(n)
+				expected := new(big.Int).Mul(fn, twoFn1) // F(n) * (...)
 
 				return f2n.Cmp(expected) == 0
 			},

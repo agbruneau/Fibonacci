@@ -18,13 +18,13 @@ import (
 // to allow validation of cached results.
 type CalibrationProfile struct {
 	// Hardware identification
-	CPUModel          string `json:"cpu_model"`
-	NumCPU            int    `json:"num_cpu"`
-	GOARCH            string `json:"goarch"`
-	GOOS              string `json:"goos"`
-	GoVersion         string `json:"go_version"`
-	WordSize          int    `json:"word_size"` // 32 or 64
-	CPUHeuristicKey   string `json:"cpu_heuristic_key"` // config.DetectHardwareHeuristic().HeuristicKey() — SIMD / arch class
+	CPUModel        string `json:"cpu_model"`
+	NumCPU          int    `json:"num_cpu"`
+	GOARCH          string `json:"goarch"`
+	GOOS            string `json:"goos"`
+	GoVersion       string `json:"go_version"`
+	WordSize        int    `json:"word_size"`         // 32 or 64
+	CPUHeuristicKey string `json:"cpu_heuristic_key"` // config.DetectHardwareHeuristic().HeuristicKey() — SIMD / arch class
 
 	// Calibrated thresholds (default/fallback values)
 	OptimalParallelThreshold int `json:"optimal_parallel_threshold"`
@@ -204,4 +204,3 @@ func LoadOrCreateProfile(path string) (*CalibrationProfile, bool) {
 
 	return profile, true
 }
-

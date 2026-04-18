@@ -36,6 +36,7 @@ func (s *scanner) chunkSize(size int) (int, *big.Int) {
 }
 
 func (s *scanner) power(k uint) *big.Int {
+	// k is a scan tree level (small, log-bounded), so int(k) is safe. #nosec G115
 	for i := len(s.powers); i <= int(k); i++ {
 		z := new(big.Int)
 		if i == 0 {

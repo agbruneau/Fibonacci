@@ -139,4 +139,3 @@ func formatMetricCol(label, value string, colWidth int) string {
 	}
 	return cell
 }
-

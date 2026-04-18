@@ -17,34 +17,34 @@ func TestDisplayResult_Golden(t *testing.T) {
 	ui.InitTheme(false) // Disable colors for deterministic output
 
 	tests := []struct {
-		name     string
-		result   *big.Int
-		n        uint64
-		duration time.Duration
-		verbose  bool
-		details  bool
+		name      string
+		result    *big.Int
+		n         uint64
+		duration  time.Duration
+		verbose   bool
+		details   bool
 		showValue bool
-		expected string
+		expected  string
 	}{
 		{
-			name:     "Simple Result",
-			result:   big.NewInt(55),
-			n:        10,
-			duration: 1 * time.Millisecond,
-			verbose:  false,
-			details:  false,
+			name:      "Simple Result",
+			result:    big.NewInt(55),
+			n:         10,
+			duration:  1 * time.Millisecond,
+			verbose:   false,
+			details:   false,
 			showValue: true,
-			expected: "Result binary size: 6 bits.\n\n--- Calculated value ---\nF(10) = 55\n",
+			expected:  "Result binary size: 6 bits.\n\n--- Calculated value ---\nF(10) = 55\n",
 		},
 		{
-			name:     "Detailed Result",
-			result:   big.NewInt(55),
-			n:        10,
-			duration: 0, // 0 duration -> < 1µs
-			verbose:  false,
-			details:  true,
+			name:      "Detailed Result",
+			result:    big.NewInt(55),
+			n:         10,
+			duration:  0, // 0 duration -> < 1µs
+			verbose:   false,
+			details:   true,
 			showValue: false,
-			expected: "Result binary size: 6 bits.\n\n--- Detailed result analysis ---\nCalculation time        : < 1µs\nNumber of digits      : 2\n",
+			expected:  "Result binary size: 6 bits.\n\n--- Detailed result analysis ---\nCalculation time        : < 1µs\nNumber of digits      : 2\n",
 		},
 	}
 

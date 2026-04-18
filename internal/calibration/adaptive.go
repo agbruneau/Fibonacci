@@ -110,4 +110,3 @@ func EstimateOptimalFFTThreshold() int { return config.EstimateOptimalFFTThresho
 
 // EstimateOptimalStrassenThreshold delegates to config.EstimateOptimalStrassenThreshold.
 func EstimateOptimalStrassenThreshold() int { return config.EstimateOptimalStrassenThreshold() }
-

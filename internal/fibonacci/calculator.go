@@ -222,6 +222,14 @@ func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *Pro
 
 // calculateSmall returns the n-th Fibonacci number for small n using
 // iterative addition. This replaces the old LUT approach.
+//
+// P2-04: intentionally duplicates cmd/generate-golden.fibBig. The
+// golden-data oracle must not import this package (using the library
+// to generate the library's own ground truth would turn every golden
+// test into a tautology). If this function changes, update
+// cmd/generate-golden/main.go#fibBig in lock-step, regenerate the
+// golden JSON, and verify the Fibonacci golden suite still passes —
+// otherwise drift silently invalidates every downstream test.
 func calculateSmall(n uint64) *big.Int {
 	if n == 0 {
 		return big.NewInt(0)

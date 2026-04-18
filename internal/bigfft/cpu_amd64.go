@@ -166,4 +166,3 @@ func (f CPUFeatures) String() string {
 	}
 	return result
 }
-

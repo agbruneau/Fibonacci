@@ -21,6 +21,13 @@ type Options struct {
 	StrassenThreshold int
 	// FFTCacheMinBitLen is the minimum operand bit length to cache FFT transforms.
 	// Smaller values don't benefit from caching. If 0, uses the default (100,000 bits).
+	//
+	// P2-01 warning: lowering this below the default (e.g. 50,000) is a
+	// pessimisation for typical Fibonacci workloads — operand values
+	// change every iteration so the hit rate collapses (~4.55% measured
+	// at MinBitLen=50000) and hashing + deep-copy cost dominates. Raise
+	// this, don't lower it, unless profiling on your exact workload
+	// confirms a win.
 	FFTCacheMinBitLen int
 	// FFTCacheMaxEntries is the maximum number of cached FFT transforms.
 	// If 0, uses the default (128 entries). Larger values improve hit rates

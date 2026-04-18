@@ -18,12 +18,12 @@ const maxLogEntries = 10000
 
 // LogsModel manages the scrollable log panel.
 type LogsModel struct {
-	viewport    viewport.Model
-	entries     []string
-	autoScroll  bool
-	width       int
-	height      int
-	algoNames   []string // algorithm names for mapping index -> name
+	viewport   viewport.Model
+	entries    []string
+	autoScroll bool
+	width      int
+	height     int
+	algoNames  []string // algorithm names for mapping index -> name
 }
 
 // NewLogsModel creates a new logs panel.
