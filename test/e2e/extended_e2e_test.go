@@ -109,20 +109,20 @@ func TestCLI_ModesCombination(t *testing.T) {
 	}
 
 	got := strings.TrimSpace(string(output))
-	want := "228875" // Last digits of F(1000) are ...228875, padded to 10? 
-	// Wait, F(1000) result ends in 228875. Padded to 10 digits would be 166849228875? 
+	want := "228875" // Last digits of F(1000) are ...228875, padded to 10?
+	// Wait, F(1000) result ends in 228875. Padded to 10 digits would be 166849228875?
 	// No, let's see. F(1000) = ...298969649928516003704476137795166849228875
 	// Last 10 digits: 166849228875? No, 66849228875 is 11 digits.
 	// 5166849228875 -> 13 digits.
 	// ...166849228875
-	
+
 	// Let's check exactly.
 	// Last 10: 66849228875? No.
 	// 1 6 6 8 4 9 2 2 8 8 7 5
 	// counts from right: 5(1) 7(2) 8(3) 8(4) 2(5) 2(6) 9(7) 4(8) 8(9) 6(10)
 	// So 6849228875.
 	want = "6849228875"
-	
+
 	if got != want {
 		t.Errorf("Combined mode mismatch.\nWant: %s\nGot:  %s", want, got)
 	}

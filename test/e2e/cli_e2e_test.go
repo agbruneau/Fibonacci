@@ -112,7 +112,7 @@ func TestCLI_E2E(t *testing.T) {
 			name:     "Very Short Timeout",
 			args:     []string{"-n", "10000000", "--timeout", "1ms"},
 			wantOut:  "", // may produce error output on stderr
-			wantCode: 2, // non-zero exit code expected (timeout error)
+			wantCode: 2,  // non-zero exit code expected (timeout error)
 		},
 		{
 			name:     "Invalid N Zero",

@@ -21,10 +21,10 @@ func EstimateMemoryUsage(n uint64) MemoryEstimate {
 	wordsPerFib := int(bitsPerFib/64) + 1
 	bytesPerFib := uint64(wordsPerFib) * 8
 
-	stateBytes := bytesPerFib * 5  // 5 big.Int in CalculationState
-	fftBytes := bytesPerFib * 3    // bump allocator estimate
-	cacheBytes := bytesPerFib * 2  // transform cache estimate
-	overheadBytes := stateBytes    // GC + runtime ~1x
+	stateBytes := bytesPerFib * 5 // 5 big.Int in CalculationState
+	fftBytes := bytesPerFib * 3   // bump allocator estimate
+	cacheBytes := bytesPerFib * 2 // transform cache estimate
+	overheadBytes := stateBytes   // GC + runtime ~1x
 
 	total := stateBytes + fftBytes + cacheBytes + overheadBytes
 	return MemoryEstimate{

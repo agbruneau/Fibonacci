@@ -143,7 +143,6 @@ func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	return ec.Err()
 }
 
-
 // task defines a common interface for executable tasks.
 // This allows using generics to eliminate code duplication between
 // multiplication and squaring task execution.

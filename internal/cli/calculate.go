@@ -27,7 +27,6 @@ func PrintExecutionConfig(cfg config.AppConfig, out io.Writer) {
 		ui.ColorCyan(), cfg.Threshold, ui.ColorReset(), ui.ColorCyan(), cfg.FFTThreshold, ui.ColorReset())
 }
 
-
 // PrintExecutionMode displays the execution mode (single algorithm vs comparison).
 //
 // Parameters:
@@ -44,4 +43,3 @@ func PrintExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
 	fmt.Fprintf(out, "Execution mode: %s.\n", modeDesc)
 	fmt.Fprintf(out, "\n--- Starting Execution ---\n")
 }
-

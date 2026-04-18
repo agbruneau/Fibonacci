@@ -9,8 +9,8 @@ import (
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // programRef is a shared reference to the tea.Program.
@@ -77,9 +77,9 @@ type TUIResultPresenter struct {
 
 // Verify interface compliance.
 var (
-	_ orchestration.ResultPresenter  = (*TUIResultPresenter)(nil)
+	_ orchestration.ResultPresenter   = (*TUIResultPresenter)(nil)
 	_ orchestration.DurationFormatter = (*TUIResultPresenter)(nil)
-	_ orchestration.ErrorHandler     = (*TUIResultPresenter)(nil)
+	_ orchestration.ErrorHandler      = (*TUIResultPresenter)(nil)
 )
 
 // PresentComparisonTable sends comparison results to the TUI.

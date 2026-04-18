@@ -362,4 +362,3 @@ func QuickCalibrate(ctx context.Context) (ThresholdResults, error) {
 	mb := NewMicroBenchmark()
 	return mb.RunQuick(ctx)
 }
-

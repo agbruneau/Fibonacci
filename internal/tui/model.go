@@ -304,11 +304,11 @@ func (m Model) View() string {
 
 // Layout constants for the TUI dashboard.
 const (
-	headerHeight         = 1
-	footerHeight         = 1
-	minBodyHeight        = 4
+	headerHeight          = 1
+	footerHeight          = 1
+	minBodyHeight         = 4
 	LogsPanelWidthPercent = 60
-	MetricsPanelHeight   = 7 // compact: top line + 1 data row + borders; expands to ~9 with indicators
+	MetricsPanelHeight    = 7 // compact: top line + 1 data row + borders; expands to ~9 with indicators
 )
 
 func (m *Model) layoutPanels() {

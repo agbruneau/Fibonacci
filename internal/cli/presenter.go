@@ -8,8 +8,8 @@ import (
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/ui"
 )
 
@@ -48,7 +48,7 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 	fmt.Fprintf(out, "\n--- Comparison Summary ---\n")
 
 	// Find the maximum algorithm name width for proper alignment
-	maxNameLen := 9 // "Algorithm" header length
+	maxNameLen := 9     // "Algorithm" header length
 	maxDurationLen := 8 // "Duration" header length
 	for _, res := range results {
 		if len(res.Name) > maxNameLen {
@@ -129,4 +129,3 @@ func DisplayMemoryStats(heapAlloc, totalAlloc uint64, numGC uint32, pauseTotalNs
 		fmt.Fprintf(out, "  GC pause total:  0ms (GC disabled)\n")
 	}
 }
-

@@ -239,4 +239,3 @@ func WrapError(err error, format string, args ...any) error {
 func IsContextError(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
-
