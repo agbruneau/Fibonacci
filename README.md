@@ -446,6 +446,7 @@ Environment variables can override CLI flags. Priority: CLI flags > Environment 
 | `FIBCALC_QUIET`               | Enable quiet mode                                           | `false`   |
 | `FIBCALC_MACHINE_OUTPUT`      | Same as `--machine` (no ANSI in CLI output)                 | `false`   |
 | `FIBCALC_TUI`                 | Enable interactive TUI dashboard                            | `false`   |
+| `FIBCALC_TUI_THEME`           | TUI palette (`high-contrast` or empty/dark default)         |             |
 | `FIBCALC_CALCULATE`           | Display calculated value                                    | `false`   |
 | `FIBCALC_OUTPUT`              | Output file path                                            |             |
 | `FIBCALC_CALIBRATE`           | Enable calibration mode                                     | `false`   |

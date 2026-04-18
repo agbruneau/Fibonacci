@@ -276,6 +276,9 @@ When set to `0` (the default), thresholds are resolved via: calibration profile 
 | `FIBCALC_CALCULATE` | Display the computed Fibonacci value | `false` |
 | `FIBCALC_OUTPUT` | Write result to file path | (none) |
 | `FIBCALC_TUI` | Launch interactive TUI dashboard | `false` |
+| `FIBCALC_TUI_THEME` | TUI palette; `high-contrast` for the accessible variant, empty for the dark default | (dark) |
+| `FIBCALC_MACHINE_OUTPUT` | Emit machine-readable output (same as `--machine`) | `false` |
+| `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling (e.g. `4GB`); pre-flight estimator aborts if exceeded | (unbounded) |
 | `NO_COLOR` | Disable ANSI color output (standard) | (unset) |
 
 ### Calibration
