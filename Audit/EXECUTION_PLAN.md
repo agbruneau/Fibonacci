@@ -10,6 +10,166 @@
 
 ---
 
+## ⚡ Instructions d'exécution (à lire avant toute action)
+
+### Instruction A — Exécution via Agent Teams dans Claude Code
+
+**Ce plan DOIT être exécuté intégralement via les Agent Teams de Claude Code** (outil `Agent` avec sous-agents). Le Coordinateur (conversation principale) orchestre, chaque team est déléguée à un sous-agent parallèle ou séquentiel selon les dépendances (cf. §2).
+
+**Procédure de lancement (à suivre phase par phase)** :
+
+1. **Phase 0 (Coordinateur, séquentiel)** : créer la branche `claude/audit-execution-20260418`, figer la baseline (`make test`, `make coverage`, `make benchmark`, `make lint`) dans `Audit/bench/exec-baseline/`.
+2. **Phases 1 → 6 (délégation Agent)** : pour chaque sous-phase, le Coordinateur envoie **un seul message multi-Agent** contenant une invocation `Agent` par team indépendante. Exemple Phase 1 :
+   ```
+   Agent(subagent_type="general-purpose", description="Team F Phase 1.1-1.7", prompt="<template §5.2 pour Team F>")
+   Agent(subagent_type="general-purpose", description="Team D Phase 1.8-1.11", prompt="<template §5.2 pour Team D>")
+   ```
+3. **Findings risqués (P0, `bigfft`, `go.mod`, `bubbles v1.0`)** : lancement avec `isolation: "worktree"` obligatoire.
+4. **Findings séquentiels (Phase 3 perf)** : un Agent à la fois, avec `benchstat` committé avant la PR suivante.
+5. **Chaque Agent produit** : code modifié + tests + commit conforme à §5.2 + résumé ≤ 20 lignes renvoyé au Coordinateur.
+6. **Coordinateur vérifie** avant merge : `make test`, `make lint`, diff conforme au finding, et marque la ligne à ✅ dans le tableau ci-dessous.
+
+**Règle stricte** : aucune modification de code en dehors du cadre Agent Teams. Aucune action manuelle hors délégation / revue.
+
+### Instruction B — Mise à jour du suivi à chaque tâche terminée
+
+**À chaque fois qu'une tâche (ligne) du tableau §A ci-dessous est exécutée avec succès** (PR mergée, tests verts, gate de phase passée), le Coordinateur **DOIT** :
+
+1. Passer le statut de `⏸️` à `✅` dans le tableau de suivi global (§A) **ET** dans la matrice de traçabilité §4.
+2. Ajouter une entrée datée au **Journal d'exécution §8** : `| YYYY-MM-DD HH:MM | <phase> | PR#<n> | <finding-id> | Team <X> | Merged: <sha court> |`.
+3. Si un finding est reporté ou abandonné : statut `⏭️` (skip justifié) ou `❌` (bloqué), avec justification dans le journal.
+4. Committer ces mises à jour dans `Audit/EXECUTION_PLAN.md` (même PR que le finding ou PR suivante dédiée au suivi — au plus tard en fin de phase).
+
+**Légende statuts** : `⏸️` En attente · `⏳` En cours · `✅` Terminé · `❌` Bloqué · `⏭️` Skipped (justifié) · `⚠️` Partiel
+
+---
+
+## A. Tableau de suivi global des phases
+
+Ce tableau est **la source de vérité** de l'avancement. À maintenir à jour selon l'Instruction B.
+
+### Phase 0 — Préparation
+
+| Tâche | Description | Owner | Statut | Horodatage |
+|-------|-------------|-------|--------|------------|
+| 0.1 | Créer branche `claude/audit-execution-20260418` | Coord. | ⏸️ | — |
+| 0.2 | Baseline `make test` → `Audit/bench/exec-baseline/test.txt` | Coord. | ⏸️ | — |
+| 0.3 | Baseline `make coverage` → `coverage.txt` + `coverage.out` | Coord. | ⏸️ | — |
+| 0.4 | Baseline `make benchmark -count=10 -benchtime=2s` | Coord. | ⏸️ | — |
+| 0.5 | Baseline `make lint` → `lint.txt` | Coord. | ⏸️ | — |
+| 0.6 | `go install golang.org/x/perf/cmd/benchstat@latest` | Coord. | ⏸️ | — |
+| 0.7 | Commit initial `chore: open execution branch` | Coord. | ⏸️ | — |
+
+### Phase 1 — Quick wins & hygiène (PR#1 à #5)
+
+| Tâche | Finding | Action | Team | PR | Statut | Horodatage |
+|-------|---------|--------|------|----|--------|------------|
+| 1.1 | P1-09 | `gofmt -s -w ./... && goimports -w ./...` | F | #1 | ⏸️ | — |
+| 1.2 | P1-20 | `.gitignore` + `git rm` 4 fichiers `*_err/*_out.txt` | F | #2 | ⏸️ | — |
+| 1.3 | P2-23 | `.PHONY` Makefile (10 cibles manquantes) | F | #3 | ⏸️ | — |
+| 1.4 | P1-21 | `-trimpath` dans LDFLAGS Makefile | F | #3 | ⏸️ | — |
+| 1.5 | P2-24 | `make help` portable (awk POSIX) | F | #3 | ⏸️ | — |
+| 1.6 | P2-25 | `build-all` : `linux/arm64`, `windows/arm64` | F | #3 | ⏸️ | — |
+| 1.7 | P2-26 | `go mod tidy` + tag POSIX-only targets | F | #4 | ⏸️ | — |
+| 1.8 | P0-04/05/06/07 | Liens Markdown cassés corrigés | D | #5 | ⏸️ | — |
+| 1.9 | P1-16 | `BUILD.md` "24 → 22 linters" | D | #5 | ⏸️ | — |
+| 1.10 | P2-14/15/16 | Stats `Claude.md`, `docs/ARCH.md` | D | #5 | ⏸️ | — |
+| 1.11 | P2-20 | Badge coverage README dynamique/87.5% | D | #5 | ⏸️ | — |
+
+### Phase 2 — Contrat Go, sécurité & deps (PR#6 à #14)
+
+| Tâche | Finding | Action | Team | PR | Statut | Horodatage |
+|-------|---------|--------|------|----|--------|------------|
+| 2a.1 | P0-02 | `go.mod` Go 1.25 + `toolchain` | F | #6 | ⏸️ | — |
+| 2b.1 | P1-24 | Deps mineures (`x/sync`, `x/sys`, `x/term`, `x/text`, `zerolog`, `gopsutil`) | F | #7 | ⏸️ | — |
+| 2b.2 | P0-03 | `bubbles v0.21 → v1.0` + TUI smoke-test | F | #8 | ⏸️ | — |
+| 2c.1 | P0-08 | `orchestrator.go:67` errgroup cancellation | E | #9 | ⏸️ | — |
+| 2c.2 | P1-19 | `ctx.Err()` post-sémaphore `common.go` | E | #10 | ⏸️ | — |
+| 2c.3 | P1-23 | `.golangci.yml` gosec G115 whitelist explicite | E+F | #11 | ⏸️ | — |
+| 2c.4 | P2-11 | `calibration/io.go:38` `tw.Flush()` err | E | #12 | ⏸️ | — |
+| 2c.5 | P2-12 | `fft_poly.go:297,315` `fourier()` err | E | #12 | ⏸️ | — |
+| 2c.6 | P2-09 | 21 G115 casts audités individuellement | E | #13 | ⏸️ | — |
+| 2c.7 | P2-10 | 2 G304 documentés en excludes | E | #13 | ⏸️ | — |
+| 2c.8 | P2-13 | Convention `Must*` documentée (doc.go) | E | #14 | ⏸️ | — |
+| 2c.9 | P1-18 | 5 `doc.go` manquants créés | D+E | #14 | ⏸️ | — |
+
+### Phase 3 — Performance (PR#15 à #23)
+
+| Tâche | Finding | Action | Team | PR | Statut | Horodatage |
+|-------|---------|--------|------|----|--------|------------|
+| 3.1 | P0-01 + P0-09 | FFT pool leak : `Release()` sur `PolValues`/`Poly` | A | #15 | ⏸️ | — |
+| 3.2 | P1-01 | BumpAllocator pour `executeDoublingStepFFT` | A | #16 | ⏸️ | — |
+| 3.3 | P1-02 | Throttling `cache.Stats()` doubling_framework | A | #17 | ⏸️ | — |
+| 3.4 | P1-03 | `NextInto(dst)` generator_iterative | A | #18 | ⏸️ | — |
+| 3.5 | P1-04 | Arena pool `fastdoubling.go` | A | #19 | ⏸️ | — |
+| 3.6 | P1-22 | PGO : `default.pgo` committé + cible CI | A | #20 | ⏸️ | — |
+| 3.7 | P2-01 | Anomalie `WithOptimizedCache` -20% | A | #21 | ⏸️ | — |
+| 3.8 | P2-02 | Sémaphore global partagé NumCPU×1 | A | #22 | ⏸️ | — |
+| 3.9 | P2-03 | Escape analysis `executeParallel3` | A | #23 | ⏸️ | — |
+
+### Phase 4 — Refactor & tests (PR#24 à #35)
+
+| Tâche | Finding | Action | Team | PR | Statut | Horodatage |
+|-------|---------|--------|------|----|--------|------------|
+| 4a.1 | P1-05 | Helper `executeParallel3` dédup | B | #24 | ⏸️ | — |
+| 4a.2 | P1-06 | Helper arena pre-size dédup | B | #24 | ⏸️ | — |
+| 4a.3 | P1-08 | `releaseMatrixState` cyclo 24 → 4 | B | #25 | ⏸️ | — |
+| 4a.4 | P1-07 | 5 `unparam` nettoyés | B | #26 | ⏸️ | — |
+| 4a.5 | P1-25 | `presenter.go` wrappers triviaux | B | #27 | ⏸️ | — |
+| 4a.6 | P2-04 | Doc duplication volontaire oracle | B | #28 | ⏸️ | — |
+| 4a.7 | P2-05 | `RunCalibrationWithOptions` split | B | #29 | ⏸️ | — |
+| 4b.1 | P1-10 | 122 × `t.Parallel()` TUI tests | C | #30 | ⏸️ | — |
+| 4b.2 | P1-11 | `thresholds.go` code mort supprimé/testé | C | #31 | ⏸️ | — |
+| 4b.3 | P1-26 | Tests `generate-golden` FFT-bound n>700k | C | #32 | ⏸️ | — |
+| 4b.4 | P2-06 | `TestFactory` privé ou couvert | C | #33 | ⏸️ | — |
+| 4b.5 | P2-07 | `generate-mocks`/`install-mockgen` supprimés | C | #33 | ⏸️ | — |
+| 4b.6 | P2-08 | `testdata/fuzz-seed/` corpus | C | #34 | ⏸️ | — |
+| 4b.7 | P3-01 | `logs_test.go:283` skip viewport traité | C | #35 | ⏸️ | — |
+| 4b.8 | P3-02 | `ui_advanced_test.go:43` sleep → sync | C | #35 | ⏸️ | — |
+| 4b.9 | P3-03 | `bench-versioned` étendu | C | #35 | ⏸️ | — |
+
+### Phase 5 — Documentation & README (PR#36 à #43)
+
+| Tâche | Finding | Action | Team | PR | Statut | Horodatage |
+|-------|---------|--------|------|----|--------|------------|
+| 5a.1 | P1-12 | `FIBCALC_GC_CONTROL` implémenté ou retiré | D | #36 | ⏸️ | — |
+| 5a.2 | P1-13 | `FIBCALC_TUI_THEME` documenté partout | D | #37 | ⏸️ | — |
+| 5a.3 | P1-14 | `.env.example` complété (3 vars) | D | #37 | ⏸️ | — |
+| 5a.4 | P1-15 | `docs/TESTING.md` chemins mis à jour | D | #38 | ⏸️ | — |
+| 5a.5 | P2-17 | `CONTRIBUTING.md` ↔ `TESTING.md` mockgen | D | #38 | ⏸️ | — |
+| 5a.6 | P2-18 | 5 `doc.go` triviaux enrichis | D | #39 | ⏸️ | — |
+| 5a.7 | P2-19 | Benchmarks README ↔ PERFORMANCE.md | D | #40 | ⏸️ | — |
+| 5a.8 | P2-21 | `docs/architecture/patterns/` créé ou retiré | D | #41 | ⏸️ | — |
+| 5a.9 | P2-22 | `dependency-graph.mermaid` enrichi | D | #42 | ⏸️ | — |
+| 5b.1 | P1-17 | `CHANGELOG.md [Unreleased]` récap complet | D | #43 | ⏸️ | — |
+| 5b.2 | README | Réécriture condensée (≤ 22 Ko) | D | #43 | ⏸️ | — |
+| 5b.3 | P2-19/20 | Benchs + badge cohérents dans README | D | #43 | ⏸️ | — |
+
+### Phase 6 — Nettoyage final (PR#44 à #45)
+
+| Tâche | Description | Team | PR | Statut | Horodatage |
+|-------|-------------|------|----|--------|------------|
+| 6.1 | Exécution 5 commandes détection fichiers orphelins | Coord. | — | ⏸️ | — |
+| 6.2 | `git rm` fichiers orphelins confirmés | Coord. | #44 | ⏸️ | — |
+| 6.3 | `.gitignore` final complet | Coord. | #44 | ⏸️ | — |
+| 6.4 | Dossier `Audit/` → `docs/audits/2026-04/` (Option A) | Coord. | #45 | ⏸️ | — |
+| 6.5 | Tag release `v3.0.0` sur merge final | Coord. | — | ⏸️ | — |
+
+### Synthèse — Tableau de bord
+
+| Phase | Tâches | Terminées | Statut global |
+|-------|--------|-----------|---------------|
+| 0 — Préparation | 7 | 0 / 7 | ⏸️ |
+| 1 — Quick wins | 11 | 0 / 11 | ⏸️ |
+| 2 — Go/Sécu/Deps | 12 | 0 / 12 | ⏸️ |
+| 3 — Performance | 9 | 0 / 9 | ⏸️ |
+| 4 — Refactor/Tests | 16 | 0 / 16 | ⏸️ |
+| 5 — Docs/README | 12 | 0 / 12 | ⏸️ |
+| 6 — Nettoyage | 5 | 0 / 5 | ⏸️ |
+| **TOTAL** | **72** | **0 / 72** | **⏸️** |
+
+---
+
 ## 0. Principes directeurs
 
 1. **Modifications chirurgicales** (CLAUDE.md #7) — pas de refactor au-delà du finding.
