@@ -17,7 +17,13 @@ import (
 // However, if we run `go test ./internal/cli/ui_advanced_test.go ...`, we need to include ui_test.go or redefine it.
 // Since we want `go test ./internal/cli` to work, we don't redefine it.
 
-// TestDisplayProgress_LoopCoverage ensures the ticker and updates are processed
+// TestDisplayProgress_LoopCoverage ensures every update sent on the
+// progress channel is consumed and that the spinner lifecycle
+// (Start / Stop) is honoured by DisplayProgress.
+//
+// Synchronisation is deterministic: the channel is unbuffered, so each
+// send blocks until DisplayProgress receives it — no time.Sleep needed.
+// Closing the channel drives DisplayProgress out of its select loop.
 func TestDisplayProgress_LoopCoverage(t *testing.T) {
 	// Setup mock spinner
 	originalNewSpinner := newSpinner
@@ -33,23 +39,33 @@ func TestDisplayProgress_LoopCoverage(t *testing.T) {
 	progressChan := make(chan progress.ProgressUpdate)
 	out := io.Discard
 
+	// A second WaitGroup makes the producer goroutine joinable so the
+	// test never returns while the sender is still running (no leaks).
+	var sendWG sync.WaitGroup
+	sendWG.Add(1)
 	go func() {
-		// Send updates
+		defer sendWG.Done()
+		// Unbuffered channel: each send rendezvous with DisplayProgress's
+		// receive, providing a happens-before edge — the 5th send is
+		// observed before close.
 		for i := 0; i < 5; i++ {
 			progressChan <- progress.ProgressUpdate{
 				CalculatorIndex: 0,
 				Value:           float64(i) * 0.2,
 			}
-			time.Sleep(50 * time.Millisecond) // enough to trigger ticker potentially
 		}
 		close(progressChan)
 	}()
 
 	DisplayProgress(&wg, progressChan, 1, out)
-	wg.Wait()
+	wg.Wait()     // ensure DisplayProgress returned
+	sendWG.Wait() // ensure producer returned
 
 	if !mockS.started {
 		t.Error("Spinner should have started")
+	}
+	if !mockS.stopped {
+		t.Error("Spinner should have stopped after channel close")
 	}
 }
 

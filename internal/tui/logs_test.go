@@ -279,7 +279,9 @@ func TestLogsModel_AutoScroll_DisablesOnScrollUp(t *testing.T) {
 	logs := NewLogsModel([]string{"Fast"})
 	logs.SetSize(60, 5)
 
-	// Add many entries to overflow viewport
+	// Add many entries to overflow the viewport. With height=5 the viewport
+	// body is 3 lines, so any content > 3 lines exceeds it — 100 entries is
+	// more than enough.
 	for i := 0; i < 100; i++ {
 		logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: float64(i) / 100})
 	}
@@ -288,13 +290,25 @@ func TestLogsModel_AutoScroll_DisablesOnScrollUp(t *testing.T) {
 		t.Fatal("precondition: autoScroll should be true")
 	}
 
-	// Scroll up
+	// Force the viewport into "overflowing content" state. GotoBottom in
+	// updateContent may not always pin AtBottom() in a deterministic way
+	// when the underlying bubbles viewport has not yet measured line counts
+	// (e.g. when only the body width is known at call time). Running a
+	// no-op Update after we've queued 100 entries lets the model commit its
+	// measured state, which is the precondition of the scroll-up check.
+	logs.viewport.GotoBottom()
+	if !logs.viewport.AtBottom() {
+		t.Fatal("precondition: viewport should be at bottom after GotoBottom")
+	}
+
+	// Now scroll up one page.
 	logs.Update(tea.KeyMsg{Type: tea.KeyPgUp})
 
-	// After scrolling up and not being at bottom, autoScroll should be false
+	// After PgUp on overflowing content, AtBottom must become false and
+	// autoScroll must be disabled. Both assertions replace the previous
+	// t.Skip escape hatch (P3-01): the test is now deterministic.
 	if logs.viewport.AtBottom() {
-		// If we're still at bottom (viewport larger than content), this test is not meaningful
-		t.Skip("viewport is larger than content, scroll test not applicable")
+		t.Fatal("viewport still AtBottom after PgUp; content should overflow height=5")
 	}
 	if logs.autoScroll {
 		t.Error("expected autoScroll to be false after scrolling up")

@@ -180,6 +180,10 @@ benchmark:
 
 # POSIX-only (requires bash/date/tee)
 ## bench-versioned: Comparable benchmark run with Go version and Git revision (see docs/PERFORMANCE.md)
+##
+## The -bench regex targets the three algorithmic subtests of
+## BenchmarkFibonacci (FastDoubling / MatrixExp / FFTBased), so a single
+## snapshot covers every algorithm (P3-03).
 bench-versioned:
 	@echo "Recording versioned benchmark snapshot to $(BUILD_DIR)/bench/"
 	@mkdir -p $(BUILD_DIR)/bench
@@ -190,9 +194,9 @@ bench-versioned:
 		echo "Git describe: $$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"; \
 		echo "Go version: $$($(GO) version)"; \
 		echo ""; \
-		echo "Command: $(GO) test -bench=BenchmarkFastDoubling -benchmem -count=3 -benchtime=2s ./internal/fibonacci/"; \
+		echo "Command: $(GO) test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -count=3 -benchtime=2s ./internal/fibonacci/"; \
 		echo ""; \
-		$(GO) test -bench=BenchmarkFastDoubling -benchmem -count=3 -benchtime=2s ./internal/fibonacci/; \
+		$(GO) test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -count=3 -benchtime=2s ./internal/fibonacci/; \
 	} | tee $(BUILD_DIR)/bench/snapshot-$$(date -u +%Y%m%d-%H%M%SZ 2>/dev/null || echo manual).txt
 
 ## run: Build and run the application with default settings
