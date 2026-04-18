@@ -39,12 +39,25 @@ func BenchmarkCacheImpact(b *testing.B) {
 	})
 
 	b.Run("WithOptimizedCache", func(b *testing.B) {
-		// Use optimized cache with larger size and lower threshold
+		// P2-01: "Optimized" is a misnomer — this configuration
+		// (MinBitLen=50000, MaxEntries=256) is ~20% SLOWER than
+		// WithDefaultCache on BenchmarkCacheImpact/F(10^7):
+		//   WithDefaultCache  : 77.3 ms/op
+		//   WithOptimizedCache: 92.7 ms/op (+20%)
+		// Audit bench/TEAM_A_PERFORMANCE.md F-A6 attributes the
+		// regression to MinBitLen=50000 being below the Fibonacci
+		// iteration's break-even point: caching transforms for
+		// small-ish operands costs more in hashing + deep-copy than
+		// the infrequent hit saves. Hit rate drops to ~4.55%.
+		//
+		// Retained as a benchmark reference so regressions in the
+		// default config are visible against the misconfigured
+		// baseline. See also options.go doc on FFTCacheMinBitLen.
 		enabled := true
 		optsOptimized := Options{
 			ParallelThreshold:  DefaultParallelThreshold,
 			FFTThreshold:       DefaultFFTThreshold,
-			FFTCacheMinBitLen:  50000, // Lower threshold to cache more
+			FFTCacheMinBitLen:  50000, // Deliberately low — see note above
 			FFTCacheMaxEntries: 256,   // Larger cache
 			FFTCacheEnabled:    &enabled,
 		}
