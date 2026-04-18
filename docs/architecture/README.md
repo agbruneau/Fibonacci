@@ -30,10 +30,8 @@ Les répertoires suivants contiennent des diagrammes de séquence illustrant les
 L'architecture repose sur 14 design patterns documentés ici :
 
 - **[Patterns/](./patterns/) :**
-  - **Strategy :** Sélection de l'algorithme de multiplication.
-  - **Observer :** Propagation du progrès vers l'Interface.
-  - **Decorator :** Enrichissement des calculateurs.
-  - *Etc.*
+  - **[Design Patterns inventory](./patterns/design-patterns.md)** — table des patterns concrets utilisés (Strategy, Observer, Object Pool, Bump Allocator, Decorator, Factory/Registry, Template Method, LRU Cache, etc.) avec liens vers les sites d'implémentation.
+  - **[interface-hierarchy.mermaid](./patterns/interface-hierarchy.mermaid)** — hiérarchie des interfaces clés.
 
 Pour les décisions historiques majeures, consultez les ADR indexés dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)** (y compris les ADR récents sur l’heuristique CPU et les backends de recherche).
 
