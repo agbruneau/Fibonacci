@@ -12,26 +12,44 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Task Concurrency Limiter
+// Task Concurrency Limiter (P2-02)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// taskSemaphore limits the number of concurrent goroutines for multiplication
-// and squaring tasks. This prevents excessive goroutine creation which can
-// lead to contention and increased memory pressure.
-var taskSemaphore chan struct{}
-var taskSemaphoreOnce sync.Once
+// globalSem is the single Fibonacci-level task semaphore. Every parallel
+// helper in this package (executeParallel3, executeTasks, executeMixedTasks)
+// acquires a token from this channel before spawning real work, ensuring
+// that across all three entry points we never oversubscribe the CPU.
+//
+// Before P2-02 each helper referenced the semaphore via getTaskSemaphore()
+// separately; the indirection obscured that they shared a single pool and
+// left a refactor footgun — anyone adding a new parallel helper could
+// accidentally create a second semaphore. The rename and the direct
+// variable make the invariant obvious.
+//
+// Sizing: runtime.NumCPU(). The previous value was NumCPU*2, which
+// allowed oversubscription when big.Int arithmetic is already
+// CPU-saturating (e.g. FFT paths). NumCPU tracks the actual parallel
+// capacity of the machine and matches the bigfft FFT-level semaphore at
+// the same tier. The two semaphores remain separate because collapsing
+// them across packages would require internal/bigfft to import
+// internal/fibonacci — a layering inversion.
+//
+// globalSem is lazily initialised on first use so tests that mutate
+// runtime.NumCPU (via GOMAXPROCS) before importing this package still
+// get the correct sizing.
+var (
+	globalSem     chan struct{}
+	globalSemOnce sync.Once
+)
 
-// getTaskSemaphore returns a semaphore limiting Fibonacci-level parallelism
-// to NumCPU*2 goroutines. This is independent from the FFT-level semaphore
-// (bigfft/fft_recursion.go, NumCPU goroutines). When both are active, up to
-// NumCPU*3 goroutines may be active simultaneously. This is mitigated by
-// ShouldParallelizeMultiplication() which disables Fibonacci-level parallelism
-// when FFT is active (except for operands > ParallelFFTThreshold = 5M bits).
+// getTaskSemaphore returns globalSem, initialising it on first call.
+// Kept as a function (rather than a package-level var) so we pick up the
+// runtime.NumCPU() value after test harnesses adjust GOMAXPROCS.
 func getTaskSemaphore() chan struct{} {
-	taskSemaphoreOnce.Do(func() {
-		taskSemaphore = make(chan struct{}, runtime.NumCPU()*2)
+	globalSemOnce.Do(func() {
+		globalSem = make(chan struct{}, runtime.NumCPU())
 	})
-	return taskSemaphore
+	return globalSem
 }
 
 // MaxPooledBitLen is the maximum size (in bits) of a big.Int
