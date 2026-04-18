@@ -61,10 +61,21 @@ func ExecuteCalculations(ctx context.Context, cfg ExecutionConfig) []Calculation
 					Name: calculator.Name(), Result: res, Duration: time.Since(startTime),
 					Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),
 				}
-				return nil
+				// Propagate the raw calculation error to errgroup so that a
+				// failure in one calculator cancels sibling goroutines via the
+				// shared context. Each goroutine's error is already captured
+				// in results[idx].Err above, so g.Wait()'s return value is
+				// redundant for callers — but propagating here enables
+				// cross-calculator cancellation (P0-08).
+				return err
 			})
 		}
-		g.Wait()
+		// g.Wait() returns the first non-nil error from a goroutine. We
+		// intentionally discard it: per-calculator errors are already stored
+		// in results[i].Err (see goroutine body above), and callers read the
+		// error from there. Wait() is still required to block until all
+		// goroutines finish before closing progressChan below.
+		_ = g.Wait()
 	}
 
 	close(progressChan)
