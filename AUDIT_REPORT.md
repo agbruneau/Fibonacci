@@ -12,17 +12,16 @@
 
 FibGo est un codebase Go mature (~35 600 lignes, 108 sources, 97 tests, 22 packages, couverture pondérée **87.5 %**). Les 6 équipes confirment **une posture solide globale** : Clean Architecture respectée (zéro violation de couches), zéro vulnérabilité `govulncheck`, zéro panic non justifié en code prod, suite verte (22 packages OK), `golangci-lint` aligné sur CLAUDE.md (22 linters, seuils cyclo/cognitive/funlen identiques). Les findings sont **du polish chirurgical**, pas un redesign.
 
-**Total : 65 findings — P0 = 11 · P1 = 27 · P2 = 27** (après dédup inter-équipes).
+**Total : 60 findings — P0 = 9 · P1 = 25 · P2 = 26** (après dédup inter-équipes).
 
 ### Points saillants à corriger en priorité
 
 1. **Performance (F-A1)** : `internal/bigfft/fft_poly.go` — buffers `sync.Pool` jamais relâchés ⇒ 64 % du trafic alloc FFT (~1 GB/calcul F(10⁶)). Patch ROI extrême.
-2. **CI quasi nulle (F-F2)** : seul `internal/bigfft/...` testé, pas de race detector, pas de lint — viole explicitement CLAUDE.md. Régressions invisibles.
-3. **Contrat Go (F-F8)** : `go.mod` déclare `go 1.24.3` ; CLAUDE.md exige 1.25.0+. Aucune directive `toolchain`.
-4. **Dépendances (F-F13)** : 6 directes obsolètes dont **majeure** `bubbles v0.21 → v1.0` (rupture API potentielle TUI), `golang.org/x/text` 28 versions de retard.
-5. **Documentation cassée (F-D1/D2/D3/D4)** : 4 fichiers `.md` référencés mais **inexistants** (`docs/INNOVATION.md`, `docs/INNOVEPLAN.md`, `docs/architecture/patterns/design-patterns.md`, et 4 sous-fichiers `flows/*.md`).
-6. **Sécurité errgroup (B-1/E-3/A-via)** : `g.Wait()` ignoré dans `orchestrator.go:67` — sémantique errgroup sous-utilisée, cancellation cross-calculator absente.
-7. **Hygiène repo (E-8/F-9)** : 4 fichiers `*_err.txt`/`*_out.txt` trackés à la racine, non couverts par `.gitignore`.
+2. **Contrat Go (F-F8)** : `go.mod` déclare `go 1.24.3` ; CLAUDE.md exige 1.25.0+. Aucune directive `toolchain`.
+3. **Dépendances (F-F13)** : 6 directes obsolètes dont **majeure** `bubbles v0.21 → v1.0` (rupture API potentielle TUI), `golang.org/x/text` 28 versions de retard.
+4. **Documentation cassée (F-D1/D2/D3/D4)** : 4 fichiers `.md` référencés mais **inexistants** (`docs/INNOVATION.md`, `docs/INNOVEPLAN.md`, `docs/architecture/patterns/design-patterns.md`, et 4 sous-fichiers `flows/*.md`).
+5. **Sécurité errgroup (B-1/E-3)** : `g.Wait()` ignoré dans `orchestrator.go:67` — sémantique errgroup sous-utilisée, cancellation cross-calculator absente.
+6. **Hygiène repo (E-8/F-9)** : 4 fichiers `*_err.txt`/`*_out.txt` trackés à la racine, non couverts par `.gitignore`.
 
 ### Verdict global
 
@@ -33,29 +32,27 @@ FibGo est un codebase Go mature (~35 600 lignes, 108 sources, 97 tests, 22 packa
 | Tests | ✅ Bonne | 87.5 % couverture, 0 FAIL ; améliorer `internal/tui` parallélisme |
 | Documentation | ⚠️ Plusieurs liens cassés | 4 fichiers fantômes, 5 `doc.go` manquants |
 | Sécurité | ✅ Bonne | 0 vuln, panics justifiés, mono-user CLI |
-| CI/CD | ❌ Critique | Couverture 1/16 packages, race off, pas de lint en CI |
+| Build local | ⚠️ Polish | `-trimpath` absent, PGO morte, deps obsolètes |
 
 ---
 
 ## 2. Tableau consolidé des findings (priorisé P0 → P2)
 
-### P0 — Critique (11 findings)
+### P0 — Critique (9 findings)
 
 | ID | Catégorie | Fichier | Effort | Impact | Source |
 |----|-----------|---------|--------|--------|--------|
 | **P0-01** | Performance | `internal/bigfft/fft_poly.go:158-400` (pool leak Transform/InvTransform/mul/sqr) | M | -60 % allocs FFT, -10 % CPU | A-1 |
-| **P0-02** | CI/CD | `.github/workflows/ci.yml:27-28` (1 seul package testé, pas de race, pas de lint) | M | régression invisible sur 15 packages | F-2 |
-| **P0-03** | Build/contrat | `go.mod:3` (`go 1.24.3` vs CLAUDE.md 1.25+, pas de `toolchain`) | S | dérive silencieuse Go 1.26 | F-8 |
-| **P0-04** | Dépendances | `go.mod` (6 directes obsolètes, dont **`bubbles v0.21 → v1.0` majeure**) | M-L | rupture API TUI, sécurité | F-13 |
-| **P0-05** | Doc cassée | `README.md:193,543` ; `docs/ARCH.md:3,766` (`INNOVATION.md`/`INNOVEPLAN.md` inexistants) | S | confusion lecteurs, ADR-010 fantôme | D-1 |
-| **P0-06** | Doc cassée | `docs/TUI_GUIDE.md:7,391` ; `docs/algorithms/BIGFFT.md:694` ; validation-report.md (`patterns/design-patterns.md` inexistant) | S | doc orpheline | D-2 |
-| **P0-07** | Doc cassée | `docs/architecture/validation/validation-report.md:148-156` (annonce 4 `flows/*.md` absents) | S | rapport trompeur | D-3 |
-| **P0-08** | Doc cassée | `docs/architecture/validation/validation-report.md:170` (`docs/calibration/CALIBRATION.md` n'existe pas — réel : `docs/CALIBRATION.md`) | S | lien mort | D-4 |
-| **P0-09** | Sécurité/erreur | `internal/orchestration/orchestrator.go:67` (`g.Wait()` ignoré, errgroup sous-utilisé) | S | cancellation cross-calculator absente | B-1 / E-3 |
-| **P0-10** | Pool FFT (lié P0-01) | `internal/bigfft/fft_poly.go:158,209,339,377` (pas de `release*` non-test hors legacy) | M | confirmé par profiling pprof | A-1 |
-| **P0-11** | Lint critique | `bench/baseline/lint.txt` — 4 violations `gocyclo` actives + `gocognit` 39 + `funlen` > 100 | M | dette qualité visible | F-16 / B-8 |
+| **P0-02** | Build/contrat | `go.mod:3` (`go 1.24.3` vs CLAUDE.md 1.25+, pas de `toolchain`) | S | dérive silencieuse Go 1.26 | F-8 |
+| **P0-03** | Dépendances | `go.mod` (6 directes obsolètes, dont **`bubbles v0.21 → v1.0` majeure**) | M-L | rupture API TUI, sécurité | F-13 |
+| **P0-04** | Doc cassée | `README.md:193,543` ; `docs/ARCH.md:3,766` (`INNOVATION.md`/`INNOVEPLAN.md` inexistants) | S | confusion lecteurs, ADR-010 fantôme | D-1 |
+| **P0-05** | Doc cassée | `docs/TUI_GUIDE.md:7,391` ; `docs/algorithms/BIGFFT.md:694` ; validation-report.md (`patterns/design-patterns.md` inexistant) | S | doc orpheline | D-2 |
+| **P0-06** | Doc cassée | `docs/architecture/validation/validation-report.md:148-156` (annonce 4 `flows/*.md` absents) | S | rapport trompeur | D-3 |
+| **P0-07** | Doc cassée | `docs/architecture/validation/validation-report.md:170` (`docs/calibration/CALIBRATION.md` n'existe pas — réel : `docs/CALIBRATION.md`) | S | lien mort | D-4 |
+| **P0-08** | Sécurité/erreur | `internal/orchestration/orchestrator.go:67` (`g.Wait()` ignoré, errgroup sous-utilisé) | S | cancellation cross-calculator absente | B-1 / E-3 |
+| **P0-09** | Pool FFT (lié P0-01) | `internal/bigfft/fft_poly.go:158,209,339,377` (pas de `release*` non-test hors legacy) | M | confirmé par profiling pprof | A-1 |
 
-### P1 — Important (27 findings)
+### P1 — Important (25 findings)
 
 | ID | Catégorie | Fichier | Effort | Impact | Source |
 |----|-----------|---------|--------|--------|--------|
@@ -67,7 +64,7 @@ FibGo est un codebase Go mature (~35 600 lignes, 108 sources, 97 tests, 22 packa
 | P1-06 | Refactor | `fibonacci/fastdoubling.go:100-115` + `fft_based.go:53-66` (dup arena pre-size) | S | dette DRY | B-3 |
 | P1-07 | Code mort | `calibration/microbench.go:169,208` ; `cli/presenter.go:92` ; `config/env.go:19` ; `fibonacci/fft.go:86` (5 `unparam`) | S×5 | clean-up signaux lint | B-5 |
 | P1-08 | Refactor | `fibonacci/matrix_types.go:154-170` (`releaseMatrixState` cyclo 24 → 4 via helper) | S | passe seuil lint 15 | B-8 |
-| P1-09 | Hygiène | ~80 fichiers (`gofmt -s` non passé, baseline lint:803-1099) | S | bloquant CI strict | B-9 |
+| P1-09 | Hygiène | ~80 fichiers (`gofmt -s` non passé, baseline lint:803-1099) | S | dette de format | B-9 |
 | P1-10 | Tests | `internal/tui/{bridge,chart,footer,header,keymap,logs,metrics,model,sparkline}_test.go` (122 tests sans `t.Parallel()`) | M | durée suite, debug parallélisme | C-1 |
 | P1-11 | Code mort | `internal/config/thresholds.go:17,33,74,99` (4 fonctions à 0 % cov, dup probable de `calibration/adaptive.go`) | S→M | suppression possible | C-3 |
 | P1-12 | Doc impl | `docs/PERFORMANCE.md:159` (`FIBCALC_GC_CONTROL` documenté sans implémentation) | S (doc) ou M (impl) | UX trompeuse | D-5 |
@@ -79,15 +76,14 @@ FibGo est un codebase Go mature (~35 600 lignes, 108 sources, 97 tests, 22 packa
 | P1-18 | Doc package | `internal/{format, metrics, progress, fibonacci/memory, fibonacci/threshold}/` (5 packages sans `doc.go`) | S | viole CLAUDE.md #5 | D-15 |
 | P1-19 | Sécurité | `fibonacci/common.go:215,265,276` (`executeTasks`/`executeMixedTasks` sans `ctx.Err()` post-sem) | M | cancellation utilisateur retardée | E-6 |
 | P1-20 | Hygiène repo | `build_err.txt`, `e2e_rich_out.txt`, `test_err.txt`, `test_out.txt` (trackés, non gitignorés) | S | fuite logs dev | E-8 / F-9 |
-| P1-21 | CI | `.github/workflows/ci.yml:28` (`-race` absent — viole CLAUDE.md) | S | bugs concurrentiels invisibles | F-3 |
-| P1-22 | Build | `Makefile:22-26` (`-trimpath` absent → chemins absolus dans binaires) | S | builds non reproductibles | F-4 |
-| P1-23 | PGO | `cmd/fibcalc/default.pgo` absent + `.gitignore *.pgo` (branche PGO morte) | M | gain PGO 2-5 % perdu | A-8 / F-5 |
-| P1-24 | Sécurité lint | `.golangci.yml:42` (gosec actif, 21 findings G115 ignorés silencieusement, pas de gate CI) | S | dette gosec invisible | F-11 |
-| P1-25 | Dépendances | `golang.org/x/term v0.36→v0.42`, `x/text v0.8→v0.36` (28 versions !), `x/sync`, `x/sys`, `zerolog`, `gopsutil` | M | sécurité, perf | F-13 |
-| P1-26 | Refactor | `internal/cli/presenter.go` (7 méthodes adapter à 0 % cov, wrappers triviaux) | S | F-B7 + F-C2 | B-7 / C-2 |
-| P1-27 | Tests | `cmd/generate-golden` (29.4 % cov, `targets[]` codés en dur, manque cas FFT-bound n>700k) | S | golden ne couvre pas FFT | C-4 |
+| P1-21 | Build | `Makefile:22-26` (`-trimpath` absent → chemins absolus dans binaires) | S | builds non reproductibles | F-4 |
+| P1-22 | PGO | `cmd/fibcalc/default.pgo` absent + `.gitignore *.pgo` (branche PGO morte) | M | gain PGO 2-5 % perdu | A-8 / F-5 |
+| P1-23 | Sécurité lint | `.golangci.yml:42` (gosec actif, 21 findings G115 ignorés silencieusement) | S | dette gosec invisible | F-11 |
+| P1-24 | Dépendances | `golang.org/x/term v0.36→v0.42`, `x/text v0.8→v0.36` (28 versions !), `x/sync`, `x/sys`, `zerolog`, `gopsutil` | M | sécurité, perf | F-13 |
+| P1-25 | Refactor | `internal/cli/presenter.go` (7 méthodes adapter à 0 % cov, wrappers triviaux) | S | F-B7 + F-C2 | B-7 / C-2 |
+| P1-26 | Tests | `cmd/generate-golden` (29.4 % cov, `targets[]` codés en dur, manque cas FFT-bound n>700k) | S | golden ne couvre pas FFT | C-4 |
 
-### P2 — Mineur (27 findings)
+### P2 — Mineur (26 findings)
 
 | ID | Catégorie | Source | Note |
 |----|-----------|--------|------|
@@ -116,8 +112,7 @@ FibGo est un codebase Go mature (~35 600 lignes, 108 sources, 97 tests, 22 packa
 | P2-23 | Build | F-1 | `.PHONY` Makefile incomplet (10 cibles manquantes) |
 | P2-24 | Build | F-6 | `make help` non portable Windows (`column`, `sed`) |
 | P2-25 | Build | F-7 | Cross-compil `linux/arm64` et `windows/arm64` absents |
-| P2-26 | Build | F-10 | `bench-versioned`/`pgo-profile` POSIX-only |
-| P2-27 | Build | F-12 / F-14 | `go.mod` non `tidy` (x/sync isolé) ; `setup-go` sans `check-latest` |
+| P2-26 | Build | F-10 / F-12 | `bench-versioned`/`pgo-profile` POSIX-only ; `go.mod` non `tidy` (x/sync isolé) |
 
 ### P3 — Cosmétique (3 findings, hors quota P0/P1/P2)
 
@@ -138,40 +133,39 @@ Objectif : nettoyer les évidences avant les changements de fond.
 1. **`gofmt -s -w ./...`** (P1-09) — commit isolé.
 2. **`.gitignore` + `git rm`** des 4 `*_err.txt`/`*_out.txt` racine (P1-20).
 3. **Compléter `.PHONY`** Makefile (P2-23).
-4. **`-trimpath`** dans Makefile LDFLAGS (P1-22).
+4. **`-trimpath`** dans Makefile LDFLAGS (P1-21).
 5. **Stats périmées doc** : `Claude.md` 103/89 → 108/97, `docs/ARCH.md`, `BUILD.md` "24 linters" → 22 (P1-16, P2-14, P2-15, P2-16).
-6. **Liens cassés docs** P0 quick fixes (P0-05, P0-06, P0-07, P0-08).
+6. **Liens cassés docs** P0 quick fixes (P0-04, P0-05, P0-06, P0-07).
 7. **`CHANGELOG.md` `[Unreleased]`** : ajouter les 8 commits perf récents (P1-17).
 
 **Livrables** : 2-3 PRs distinctes, pas de risque régression.
 
-### Phase 2 — Sécurité, CI & contrat Go (3-5 jours)
+### Phase 2 — Sécurité, contrat Go & dépendances (3-5 jours)
 
-Objectif : restaurer les garanties de qualité de la CI.
+Objectif : remettre à niveau le contrat Go et corriger les findings sécurité.
 
-1. **CI complète** (P0-02) : ajouter jobs `test-full` (`go test -race ./...`), `lint` (`golangci-lint-action@v6`), `coverage`. Conserver matrice OS.
-2. **`go.mod` 1.25 + `toolchain`** (P0-03) — revalider tests sur 1.25.
-3. **Mises à jour deps mineures/patch** (P1-25) : `x/sync`, `x/sys`, `x/term`, `x/text`, `zerolog`, `gopsutil`.
-4. **`bubbles v0.21 → v1.0`** (P0-04) : à isoler dans une PR dédiée + smoke-test TUI complet.
-5. **`g.Wait()` orchestrator** (P0-09) : soit `_ = g.Wait()` documenté, soit refactor pour exploiter cancellation errgroup.
-6. **`gosec` excludes G115** (P1-24) explicite + commentaire.
-7. **Contexte propagé** `executeTasks`/`executeMixedTasks` (P1-19).
-8. **5 `doc.go` manquants** (P1-18).
+1. **`go.mod` 1.25 + `toolchain`** (P0-02) — revalider tests sur 1.25.
+2. **Mises à jour deps mineures/patch** (P1-24) : `x/sync`, `x/sys`, `x/term`, `x/text`, `zerolog`, `gopsutil`.
+3. **`bubbles v0.21 → v1.0`** (P0-03) : à isoler dans une PR dédiée + smoke-test TUI complet.
+4. **`g.Wait()` orchestrator** (P0-08) : soit `_ = g.Wait()` documenté, soit refactor pour exploiter cancellation errgroup.
+5. **`gosec` excludes G115** (P1-23) explicite + commentaire.
+6. **Contexte propagé** `executeTasks`/`executeMixedTasks` (P1-19).
+7. **5 `doc.go` manquants** (P1-18).
 
-**Livrables** : 4-6 PRs, gate CI activée.
+**Livrables** : 4-6 PRs.
 
 ### Phase 3 — Performance, refactor chirurgical & docs (5-7 jours)
 
 Objectif : matérialiser les gains identifiés par Team A et nettoyer l'architecture.
 
-1. **F-A1 pool leak FFT** (P0-01/P0-10) : ajout `Release()` sur `PolValues`/`Poly` + defers call-sites. **Bench A/B obligatoire `benchstat`** sur F(10⁶), F(10⁷).
+1. **F-A1 pool leak FFT** (P0-01/P0-09) : ajout `Release()` sur `PolValues`/`Poly` + defers call-sites. **Bench A/B obligatoire `benchstat`** sur F(10⁶), F(10⁷).
 2. **F-A4 IterativeGenerator + `NextInto`** (P1-03).
 3. **F-A5 arena pool** (P1-04).
 4. **F-A2 BumpAllocator dans `executeDoublingStepFFT`** (P1-01).
 5. **F-A3 cache stats throttling** (P1-02).
-6. **F-A8 PGO** : générer + commit `default.pgo`, ajuster `.gitignore` (P1-23).
-7. **Refactos B** : `executeParallel3` dédup (P1-05), arena pre-size dédup (P1-06), `releaseMatrixState` cyclo (P1-08), 5 `unparam` (P1-07), `CLIProgressReporter` wrapper (P1-26).
-8. **Tests** : `t.Parallel()` `internal/tui` (P1-10), suppression `internal/config/thresholds.go` si confirmé mort (P1-11), tests `cmd/generate-golden` (P1-27).
+6. **F-A8 PGO** : générer + commit `default.pgo`, ajuster `.gitignore` (P1-22).
+7. **Refactos B** : `executeParallel3` dédup (P1-05), arena pre-size dédup (P1-06), `releaseMatrixState` cyclo (P1-08), 5 `unparam` (P1-07), `CLIProgressReporter` wrapper (P1-25).
+8. **Tests** : `t.Parallel()` `internal/tui` (P1-10), suppression `internal/config/thresholds.go` si confirmé mort (P1-11), tests `cmd/generate-golden` (P1-26).
 9. **Documentation** : env vars (P1-12, P1-13, P1-14), chemins TESTING.md (P1-15), condensation README (annexe Team D).
 
 **Livrables** : 8-10 PRs, gains perf mesurés et documentés.
@@ -191,7 +185,7 @@ Objectif : matérialiser les gains identifiés par Team A et nettoyer l'architec
 - [bench/TEAM_C_TESTS.md](bench/TEAM_C_TESTS.md) — matrice couverture 22 packages, 5 fuzz audités
 - [bench/TEAM_D_DOCS.md](bench/TEAM_D_DOCS.md) — 19 .md + 9 .mermaid + matrice doc.go par package
 - [bench/TEAM_E_SECURITY.md](bench/TEAM_E_SECURITY.md) — `govulncheck` 0, `gosec` 27, panic inventaire
-- [bench/TEAM_F_TOOLING.md](bench/TEAM_F_TOOLING.md) — Makefile (34 cibles), CI, .golangci, `go.mod`
+- [bench/TEAM_F_TOOLING.md](bench/TEAM_F_TOOLING.md) — Makefile (34 cibles), `.golangci`, `go.mod`
 
 ### 4.2 Baseline capturée
 
@@ -217,14 +211,13 @@ Objectif : matérialiser les gains identifiés par Team A et nettoyer l'architec
 | Findings lint baseline | 201 | gocritic 66, revive 42, errcheck 29, gosec 21, ... |
 | Vulnérabilités govulncheck | 0 | exit 0 |
 | Cibles Makefile | 34 | dont 10 manquantes au `.PHONY` |
-| Workflows CI | 1 (`ci.yml`) | un seul package testé |
 | Dépendances directes obsolètes | 6 (1 majeure) | `go list -u -m all` |
 
 ### 4.4 Limitations de cet audit
 
-- **Race detector désactivé** sur la machine d'audit (Windows, pas de gcc/cgo). À revalider sur runner Linux/macOS dans la Phase 2.
-- **Bench en mode warm-up court** pour le profiling (300-500 ms) ; les chiffres définitifs A/B doivent être capturés via `benchstat` `-count=10 -benchtime=2s` sur runner dédié.
-- **Aucune modification de code** effectuée — toutes les actions sont à valider avant la Phase 4 d'exécution (PRD §4 phase 4).
+- **Race detector désactivé** sur la machine d'audit (Windows, pas de gcc/cgo) — à revalider sur une machine Linux/macOS lors de l'exécution Phase 2.
+- **Bench en mode warm-up court** pour le profiling (300-500 ms) ; les chiffres définitifs A/B doivent être capturés via `benchstat` `-count=10 -benchtime=2s` sur machine dédiée.
+- **Aucune modification de code** effectuée — toutes les actions sont à valider avant la Phase 4 d'exécution (PRD §4).
 
 ---
 
