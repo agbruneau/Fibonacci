@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build clean test coverage benchmark bench-versioned run help install lint format check pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all generate-mocks install-mockgen
+.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-versioned run run-fast run-calibrate help version install install-tools install-mockgen lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all generate-mocks
 
 # Default target
 all: clean build test
@@ -36,9 +36,9 @@ build:
 	@mkdir -p $(BUILD_DIR)
 	@if [ -f $(PGO_PROFILE) ]; then \
 		echo "PGO profile found, building with PGO..."; \
-		$(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR); \
+		$(GO) build $(GOFLAGS) -trimpath -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR); \
 	else \
-		$(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR); \
+		$(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR); \
 	fi
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
@@ -68,27 +68,27 @@ pgo-check:
 build-pgo: pgo-check
 	@echo "Building $(BINARY_NAME) with PGO..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
+	$(GO) build $(GOFLAGS) -trimpath -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
 	@echo "PGO Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 ## build-pgo-linux: Build for Linux with PGO
 build-pgo-linux: pgo-check
 	@echo "Building for Linux with PGO..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_UNIX) $(CMD_DIR)
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -trimpath -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_UNIX) $(CMD_DIR)
 
 ## build-pgo-windows: Build for Windows with PGO
 build-pgo-windows: pgo-check
 	@echo "Building for Windows with PGO..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_WIN) $(CMD_DIR)
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -trimpath -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_WIN) $(CMD_DIR)
 
 ## build-pgo-darwin: Build for macOS with PGO
 build-pgo-darwin: pgo-check
 	@echo "Building for macOS with PGO..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_amd64 $(CMD_DIR)
-	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_arm64 $(CMD_DIR)
+	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -trimpath -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_amd64 $(CMD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -trimpath -pgo=$(PGO_PROFILE) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_arm64 $(CMD_DIR)
 
 ## build-pgo-all: Build for all platforms with PGO
 build-pgo-all: build-pgo-linux build-pgo-windows build-pgo-darwin
@@ -107,28 +107,40 @@ pgo-clean:
 version: build
 	@$(BUILD_DIR)/$(BINARY_NAME) --version
 
-## build-all: Build for all platforms
-build-all: build-linux build-windows build-darwin
+## build-all: Build for all platforms (linux/windows amd64+arm64, macOS amd64+arm64)
+build-all: build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin
 
 ## build-linux: Build for Linux (amd64)
 build-linux:
-	@echo "Building for Linux..."
+	@echo "Building for Linux (amd64)..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_UNIX) $(CMD_DIR)
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_UNIX) $(CMD_DIR)
+
+## build-linux-arm64: Build for Linux (arm64)
+build-linux-arm64:
+	@echo "Building for Linux (arm64)..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_NAME)_linux_arm64 $(CMD_DIR)
 
 ## build-windows: Build for Windows (amd64)
 build-windows:
-	@echo "Building for Windows..."
+	@echo "Building for Windows (amd64)..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_WIN) $(CMD_DIR)
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_WIN) $(CMD_DIR)
+
+## build-windows-arm64: Build for Windows (arm64)
+build-windows-arm64:
+	@echo "Building for Windows (arm64)..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=windows GOARCH=arm64 $(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_NAME)_windows_arm64.exe $(CMD_DIR)
 
 ## build-darwin: Build for macOS (amd64 and arm64)
 build-darwin:
 	@echo "Building for macOS (amd64)..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_amd64 $(CMD_DIR)
+	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_amd64 $(CMD_DIR)
 	@echo "Building for macOS (arm64)..."
-	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_arm64 $(CMD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -trimpath -o $(BUILD_DIR)/$(BINARY_NAME)_darwin_arm64 $(CMD_DIR)
 
 ## install: Install the binary to $GOPATH/bin
 install:
@@ -250,6 +262,6 @@ upgrade:
 ## help: Display this help message
 help:
 	@echo "Available targets:"
-	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' | sed -e 's/^/ /'
+	@awk 'BEGIN {FS = ":[[:space:]]*"} /^##[[:space:]]+/ {sub(/^##[[:space:]]+/, "", $$0); split($$0, a, ":[[:space:]]*"); printf "  %-24s %s\n", a[1], substr($$0, length(a[1]) + 2)}' $(MAKEFILE_LIST)
 
 .DEFAULT_GOAL := help
