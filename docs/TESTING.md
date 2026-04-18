@@ -205,9 +205,14 @@ go tool trace trace.out
 
 ## Mock Generation
 
-Mock generation infrastructure (`go.uber.org/mock`, `mockgen`) is configured in the Makefile (`make generate-mocks`, `make install-mockgen`) but is not currently wired into the codebase — no `//go:generate` directives or `mocks/` directories exist. Mocks can be set up in the future by adding `go:generate` directives to interface source files.
+The project currently uses hand-written mocks and spies. There is no `mockgen`
+wiring in the codebase: no `//go:generate mockgen ...` directives, no
+`mocks/` directories, and no dependency on `go.uber.org/mock`. The previous
+`make generate-mocks` / `make install-mockgen` Makefile targets were removed
+(audit P2-07) because they produced no output.
 
-Regeneration (once configured): `go generate ./...` or `make generate-mocks`
+If mockgen is later required, re-introduce the Makefile targets together
+with the first `//go:generate mockgen` directive.
 
 ### Spy-Based Testing
 

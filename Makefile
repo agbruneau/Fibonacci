@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-versioned run run-fast run-calibrate help version install install-tools install-mockgen lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all generate-mocks
+.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-versioned run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
 
 # Default target
 all: clean build test
@@ -223,16 +223,6 @@ install-tools:
 	@echo "Installing tools..."
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
-
-## generate-mocks: Generate mock implementations for all interfaces
-generate-mocks:
-	@echo "Generating mocks..."
-	@go generate ./...
-
-## install-mockgen: Install mockgen tool for mock generation
-install-mockgen:
-	@echo "Installing mockgen..."
-	@go install go.uber.org/mock/mockgen@latest
 
 ## format: Format Go code
 format:
