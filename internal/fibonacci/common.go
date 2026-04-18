@@ -100,11 +100,42 @@ func SetTaskLogger(l zerolog.Logger) {
 // Parallel Execution Helper
 // ─────────────────────────────────────────────────────────────────────────────
 
+// runParallel3Op is the per-goroutine worker body for executeParallel3.
+// Taking wg/ec/sem/ctx/op explicitly as parameters (rather than closing
+// over them in a function literal) keeps the goroutine's closure empty
+// and eliminates the func-literal heap allocation per call.
+//
+// wg and ec are still heap-allocated in executeParallel3 itself because
+// they are shared across goroutines — Go's escape analysis cannot prove
+// they outlive the spawned goroutines — but the per-call closure
+// allocation disappears.
+//
+// See P2-03.
+func runParallel3Op(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, ec *parallel.ErrorCollector, op func() error) {
+	sem <- struct{}{}
+	defer func() {
+		<-sem
+		wg.Done()
+	}()
+	if err := ctx.Err(); err != nil {
+		ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
+		return
+	}
+	ec.SetError(op())
+}
+
 // executeParallel3 runs three operations concurrently, returning the first
 // error encountered. Each goroutine acquires a semaphore token to respect
 // the global concurrency limit, then checks for context cancellation before
 // starting its operation. The caller is responsible for ensuring that the
 // three operations write to disjoint memory (no shared mutable state).
+//
+// P2-03: per-goroutine body is extracted to runParallel3Op so the
+// `go` statements do not need function literals capturing wg/ec/sem.
+// wg and ec still heap-allocate (they are shared across goroutines
+// that may outlive the stack frame under Go's current escape analysis)
+// but the three per-call closures no longer allocate. Verified with
+// `go build -gcflags="-m=2"`.
 //
 // Parameters:
 //   - ctx: The context for cancellation checking before each operation.
@@ -114,48 +145,13 @@ func SetTaskLogger(l zerolog.Logger) {
 //   - error: The first error from any operation, or a context error.
 func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	sem := getTaskSemaphore()
-	var wg sync.WaitGroup
-	var ec parallel.ErrorCollector
+	wg := &sync.WaitGroup{}
+	ec := &parallel.ErrorCollector{}
 	wg.Add(3)
 
-	go func() {
-		sem <- struct{}{}
-		if err := ctx.Err(); err != nil {
-			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-			<-sem
-			wg.Done()
-			return
-		}
-		ec.SetError(op1())
-		<-sem
-		wg.Done()
-	}()
-
-	go func() {
-		sem <- struct{}{}
-		if err := ctx.Err(); err != nil {
-			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-			<-sem
-			wg.Done()
-			return
-		}
-		ec.SetError(op2())
-		<-sem
-		wg.Done()
-	}()
-
-	go func() {
-		sem <- struct{}{}
-		if err := ctx.Err(); err != nil {
-			ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
-			<-sem
-			wg.Done()
-			return
-		}
-		ec.SetError(op3())
-		<-sem
-		wg.Done()
-	}()
+	go runParallel3Op(ctx, sem, wg, ec, op1)
+	go runParallel3Op(ctx, sem, wg, ec, op2)
+	go runParallel3Op(ctx, sem, wg, ec, op3)
 
 	wg.Wait()
 	return ec.Err()
