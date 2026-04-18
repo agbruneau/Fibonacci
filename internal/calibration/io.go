@@ -35,7 +35,14 @@ func printCalibrationResults(out io.Writer, results []calibrationResult, bestThr
 		}
 		fmt.Fprintf(tw, "  %s%-12s%s │ %s%s%s%s\n", ui.ColorCyan(), thresholdLabel, ui.ColorReset(), ui.ColorYellow(), durationStr, ui.ColorReset(), highlight)
 	}
-	tw.Flush()
+	// tabwriter.Flush can only fail when the underlying io.Writer fails. We
+	// report the failure to stderr but do not propagate: this is a cosmetic
+	// summary printer invoked from a CLI command and its caller has no
+	// meaningful recovery beyond what the writer itself has already done.
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintf(out, "%scalibration summary: tabwriter flush failed: %v%s\n",
+			ui.ColorRed(), err, ui.ColorReset())
+	}
 }
 
 // printCalibrationOutput prints the calibration results.

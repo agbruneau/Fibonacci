@@ -1,6 +1,7 @@
 package bigfft
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -254,7 +255,11 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 // NTransform evaluates p at θω^i for i = 0...K-1, where
 // θ is a (2K)-th primitive root of unity in Z/(b^n+1)Z
 // and ω = θ².
-func (p *Poly) NTransform(n int) PolValues {
+//
+// Returns an error if the underlying Fourier transform fails validation
+// (e.g. malformed operand sizes). Callers previously silently discarded
+// this error — see audit P2-12.
+func (p *Poly) NTransform(n int) (PolValues, error) {
 	k := p.K
 	if len(p.A) >= 1<<k {
 		panic("Transform: len(p.A) >= 1<<k")
@@ -294,14 +299,20 @@ func (p *Poly) NTransform(n int) PolValues {
 	for i := range values {
 		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
 	}
-	fourier(values, twisted, false, n, k)
-	return PolValues{k, n, values}
+	if err := fourier(values, twisted, false, n, k); err != nil {
+		return PolValues{}, fmt.Errorf("NTransform: forward fourier failed: %w", err)
+	}
+	return PolValues{k, n, values}, nil
 }
 
 // InvNTransform reconstructs a polynomial from its values at
 // roots of x^K+1. The M field of the returned polynomial
 // is unspecified.
-func (v *PolValues) InvNTransform() Poly {
+//
+// Returns an error if the underlying inverse Fourier transform fails
+// validation. Callers previously silently discarded this error — see
+// audit P2-12.
+func (v *PolValues) InvNTransform() (Poly, error) {
 	k := v.K
 	n := v.N
 	θshift := (n * _W) >> k
@@ -312,7 +323,9 @@ func (v *PolValues) InvNTransform() Poly {
 	for i := range q {
 		q[i] = fermat(qbits[i*(n+1) : (i+1)*(n+1)])
 	}
-	fourier(q, v.Values, true, n, k)
+	if err := fourier(q, v.Values, true, n, k); err != nil {
+		return Poly{}, fmt.Errorf("InvNTransform: inverse fourier failed: %w", err)
+	}
 
 	// Divide by K, and untwist q to recover p.
 	u := make(fermat, n+1)
@@ -322,7 +335,7 @@ func (v *PolValues) InvNTransform() Poly {
 		copy(q[i], u)
 		a[i] = nat(q[i])
 	}
-	return Poly{K: k, M: 0, A: a}
+	return Poly{K: k, M: 0, A: a}, nil
 }
 
 // Mul returns the pointwise product of p and q.
