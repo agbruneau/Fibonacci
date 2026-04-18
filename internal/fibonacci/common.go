@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/parallel"
 	"github.com/rs/zerolog"
 )
@@ -81,6 +82,39 @@ func preSizeBigInt(z *big.Int, words int) {
 	// We use a slice with length=0, cap=words to give z the backing array.
 	buf := make([]big.Word, 0, words)
 	z.SetBits(buf)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Arena Pre-Sizing Helper (P1-06)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// preSizeCalculationStateArena sizes a fresh CalculationArena for F(n) and
+// pre-sizes every *big.Int buffer inside the CalculationState from the arena
+// when n > 1000. For smaller n the arena is still returned (empty) so callers
+// keep a uniform interface.
+//
+// The backing block returned must remain referenced by the caller until the
+// calculation completes — every *big.Int buffer in s shares slices carved out
+// of that block, so dropping the arena would invalidate them.
+//
+// Before P1-06 this sequence (arena + pre-size FK/FK1/T1..T3 + SetInt64 on
+// FK/FK1) was duplicated verbatim between fastdoubling.go and fft_based.go.
+// Extracting it keeps both call sites lean and ensures any future change to
+// the pre-sizing strategy only has to be made in one place.
+func preSizeCalculationStateArena(s *CalculationState, n uint64) *memory.CalculationArena {
+	arena := memory.NewCalculationArena(n)
+	if n > 1000 {
+		estimatedBits := int(float64(n) * FibonacciGrowthFactor)
+		estimatedWords := (estimatedBits + 63) / 64
+		arena.PreSizeFromArena(s.FK, estimatedWords)
+		arena.PreSizeFromArena(s.FK1, estimatedWords)
+		s.FK.SetInt64(0)
+		s.FK1.SetInt64(1)
+		arena.PreSizeFromArena(s.T1, estimatedWords)
+		arena.PreSizeFromArena(s.T2, estimatedWords)
+		arena.PreSizeFromArena(s.T3, estimatedWords)
+	}
+	return arena
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
