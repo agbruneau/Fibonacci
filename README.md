@@ -346,15 +346,15 @@ fibcalc -n 1000000000 --memory-limit 8G
 
 ## Performance Benchmarks
 
-FibCalc is optimized for speed. Below is a summary of performance characteristics on a high-end workstation (Intel Core Ultra 9 275HX, 24 cores).
+Reference platform: **AMD Ryzen 9 5900X** (12 C / 24 T), 32 GB DDR4-3600, Linux 6.1, Go 1.25.0. The summary below mirrors the reference table in [docs/PERFORMANCE.md](docs/PERFORMANCE.md); see that document for the full methodology, alternate hardware (Intel Core Ultra 9 275HX) comparison, and regression-tracking workflow.
 
-| Index ($N$)         | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
-| :-------------------- | :------------ | :---------- | :-------- | :-------------- |
-| **10,000**      | 120us         | 180us       | 280us     | 2,090           |
-| **1,000,000**   | ~3ms          | 55ms        | 45ms      | 208,988         |
-| **10,000,000**  | ~60ms         | 750ms       | 600ms     | 2,089,877       |
-| **100,000,000** | 30s           | 42s         | 33s       | 20,898,764      |
-| **250,000,000** | 2m 10s        | 3m 05s      | 2m 25s    | 52,246,909      |
+| N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
+|---|---------------|-------------|-----------|-----------------|
+| 10,000       | 180us | 220us | 350us | 2,090      |
+| 1,000,000    | 85ms  | 110ms | 95ms  | 208,988    |
+| 10,000,000   | 2.1s  | 2.8s  | 2.3s  | 2,089,877  |
+| 100,000,000  | 45s   | 62s   | 48s   | 20,898,764 |
+| 250,000,000  | 3m12s | 4m25s | 3m28s | 52,246,909 |
 
 ### Algorithm Selection Guide
 
