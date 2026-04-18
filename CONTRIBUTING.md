@@ -290,53 +290,11 @@ make coverage
 
 ## Mock Generation
 
-This project uses [mockgen](https://github.com/uber-go/mock) for generating test mocks automatically.
-
-### Regenerating Mocks
-
-After modifying an interface, regenerate mocks:
-
-```bash
-make generate-mocks
-# or
-go generate ./...
-```
-
-### Installing mockgen
-
-```bash
-make install-mockgen
-# or
-go install go.uber.org/mock/mockgen@latest
-```
-
-### Mock Locations
-
-| Interface                | Mock Location                                 |
-| ------------------------ | --------------------------------------------- |
-| `Calculator`             | `internal/fibonacci/mocks/mock_calculator.go` |
-| `CalculatorFactory`      | `internal/fibonacci/mocks/mock_registry.go`   |
-| `DoublingStepExecutor`   | `internal/fibonacci/mocks/mock_strategy.go`   |
-| `Spinner`                | `internal/cli/mocks/mock_ui.go`               |
-
-### Using Mocks in Tests
-
-```go
-import (
-    "testing"
-    "go.uber.org/mock/gomock"
-    "github.com/agbru/fibcalc/internal/fibonacci/mocks"
-)
-
-func TestWithMock(t *testing.T) {
-    ctrl := gomock.NewController(t)
-    defer ctrl.Finish()
-
-    mockCalc := mocks.NewMockCalculator(ctrl)
-    mockCalc.EXPECT().Name().Return("test").AnyTimes()
-    // Use mockCalc in your test...
-}
-```
+The test suite currently uses hand-written mocks; `mockgen` is not wired in
+(no `//go:generate` directives, no `mocks/` directories). The Makefile
+targets `make generate-mocks` / `make install-mockgen` are provided for
+future adoption. See [docs/TESTING.md — Mock Generation](docs/TESTING.md#mock-generation)
+for the authoritative reference and migration plan.
 
 ## Documentation
 
