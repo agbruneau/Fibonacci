@@ -16,6 +16,8 @@ flowchart LR
         fib["internal/fibonacci<br/>Algorithms & Frameworks"]
         bigfft["internal/bigfft<br/>FFT Multiplication"]
         calib["internal/calibration<br/>Benchmarking & Tuning"]
+        fibmem["internal/fibonacci/memory<br/>Arena, GC, Budget"]
+        fibthr["internal/fibonacci/threshold<br/>Parallel/FFT Thresholds"]
     end
 
     subgraph Presentation["Presentation Layer"]
@@ -28,6 +30,7 @@ flowchart LR
         format["internal/format"]
         metrics["internal/metrics"]
         parallel["internal/parallel"]
+        progress["internal/progress"]
         sysmon["internal/sysmon"]
         ui["internal/ui"]
         testutil["internal/testutil"]
@@ -46,6 +49,8 @@ flowchart LR
     orch --> fib
     orch --> config
     orch --> errors
+    orch --> progress
+    orch --> fibmem
 
     calib --> fib
     calib --> bigfft
@@ -54,9 +59,13 @@ flowchart LR
     calib --> errors
     calib --> format
     calib --> ui
+    calib --> progress
 
     fib --> bigfft
     fib --> parallel
+    fib --> progress
+    fib --> fibmem
+    fib --> fibthr
 
     cli --> format
     cli --> errors
@@ -65,6 +74,7 @@ flowchart LR
     cli --> orch
     cli --> fib
     cli --> config
+    cli --> progress
 
     tui --> format
     tui --> metrics
@@ -74,6 +84,9 @@ flowchart LR
     tui --> config
     tui --> fib
     tui --> orch
+    tui --> progress
+
+    app --> fibmem
 
     style Entry fill:#e1f5fe
     style Core fill:#f3e5f5
