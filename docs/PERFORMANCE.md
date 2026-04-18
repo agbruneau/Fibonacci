@@ -156,7 +156,7 @@ For large calculations (N ≥ 1M), the `GCController` disables Go's garbage coll
 | `aggressive` | Always | Disable GC regardless of N |
 | `disabled` | Never | Standard GC behavior |
 
-Configure via `--gc-control` or `FIBCALC_GC_CONTROL`.
+GC control is handled automatically; no user-facing flag or environment variable is exposed. The mode is selected internally based on the calculation size.
 
 ### 7. Memory Budget Estimation
 
