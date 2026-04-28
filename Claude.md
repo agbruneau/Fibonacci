@@ -79,7 +79,74 @@ make build-all       # Cross-compilation (linux, windows, macOS)
 - **Complexité cyclomatique** max 15, cognitive max 30
 - **Longueur fonction** max 100 lignes / 50 statements
 
+## Lignes directrices comportementales
+
+Principes généraux qui complètent les directives projet ci-dessous. Compromis : favorise la prudence sur la vitesse — pour les tâches triviales, utiliser le jugement.
+
+### 1. Réfléchir avant de coder
+
+**Ne pas supposer. Ne pas masquer la confusion. Exposer les compromis.**
+
+Avant d'implémenter :
+- Énoncer les hypothèses explicitement. En cas de doute, demander.
+- Si plusieurs interprétations existent, les présenter — ne pas choisir silencieusement.
+- Si une approche plus simple existe, le dire. Pousser en arrière si justifié.
+- Si quelque chose n'est pas clair, s'arrêter. Nommer la confusion. Demander.
+
+### 2. Simplicité d'abord
+
+**Code minimum qui résout le problème. Rien de spéculatif.**
+
+- Pas de fonctionnalités au-delà de ce qui est demandé.
+- Pas d'abstractions pour du code à usage unique.
+- Pas de « flexibilité » ou « configurabilité » non demandée.
+- Pas de gestion d'erreurs pour des scénarios impossibles.
+- Si 200 lignes peuvent en faire 50, réécrire.
+
+Question test : « Un ingénieur senior dirait-il que c'est sur-compliqué ? » Si oui, simplifier.
+
+### 3. Modifications chirurgicales
+
+**Toucher uniquement ce qui est nécessaire. Nettoyer uniquement son propre désordre.**
+
+Lors d'édition de code existant :
+- Ne pas « améliorer » le code adjacent, les commentaires ou le formatage.
+- Ne pas refactorer ce qui n'est pas cassé.
+- Respecter le style existant, même si vous feriez différemment.
+- Si vous remarquez du code mort non lié, le mentionner — ne pas le supprimer.
+
+Lorsque vos changements créent des orphelins :
+- Supprimer imports/variables/fonctions devenus inutilisés *par* vos changements.
+- Ne pas supprimer du code mort préexistant sans demande.
+
+Test : chaque ligne modifiée doit tracer directement à la demande utilisateur.
+
+### 4. Exécution dirigée par l'objectif
+
+**Définir des critères de succès. Itérer jusqu'à vérification.**
+
+Transformer les tâches en objectifs vérifiables :
+- « Ajouter une validation » → « Écrire les tests pour entrées invalides, puis les faire passer »
+- « Corriger le bug » → « Écrire un test qui le reproduit, puis le faire passer »
+- « Refactorer X » → « S'assurer que les tests passent avant et après »
+
+Pour les tâches multi-étapes, énoncer un plan bref :
+
+```
+1. [Étape] → vérifier : [contrôle]
+2. [Étape] → vérifier : [contrôle]
+3. [Étape] → vérifier : [contrôle]
+```
+
+Des critères de succès forts permettent d'itérer de manière autonome. Des critères faibles (« faire que ça marche ») exigent des clarifications constantes.
+
+---
+
+**Ces lignes directrices fonctionnent si :** moins de changements inutiles dans les diffs, moins de réécritures pour cause de sur-complication, et les questions de clarification arrivent avant l'implémentation plutôt qu'après les erreurs.
+
 ## Directives pour Claude
+
+Directives spécifiques à ce projet (FibGo). À lire en complément des lignes directrices comportementales ci-dessus.
 
 1. **Performance critique** : Ce projet optimise au niveau mémoire/GC. Ne pas introduire d'allocations inutiles.
 2. **Tests obligatoires** : Tout changement algorithmique doit passer les golden tests (`testdata/fibonacci_golden.json`).
