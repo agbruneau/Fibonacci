@@ -100,11 +100,6 @@ type ResultPresenter interface {
 	PresentResult(result CalculationResult, n uint64, verbose, details, showValue bool, out io.Writer)
 }
 
-// DurationFormatter formats durations for display.
-type DurationFormatter interface {
-	FormatDuration(d time.Duration) string
-}
-
 // ErrorHandler handles calculation errors and returns exit codes.
 type ErrorHandler interface {
 	HandleError(err error, duration time.Duration, out io.Writer) int

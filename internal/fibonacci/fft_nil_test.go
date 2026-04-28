@@ -121,9 +121,8 @@ func TestAdaptiveStrategyNilZ(t *testing.T) {
 // results when z is nil. This ensures the fix maintains API consistency.
 func TestStrategyConsistencyWithNilZ(t *testing.T) {
 	strategies := map[string]Multiplier{
-		"Adaptive":  &AdaptiveStrategy{},
-		"Karatsuba": &KaratsubaStrategy{},
-		"FFTOnly":   &FFTOnlyStrategy{},
+		"Adaptive": &AdaptiveStrategy{},
+		"FFTOnly":  &FFTOnlyStrategy{},
 	}
 
 	x := big.NewInt(123456)

@@ -13,7 +13,7 @@ var concurrencyOnce sync.Once
 
 // getSemaphore returns the global concurrency semaphore for FFT recursion,
 // initializing it to runtime.NumCPU() on the first call. This is independent
-// from the Fibonacci-level task semaphore (fibonacci/common.go, NumCPU*2).
+// from the Fibonacci-level task semaphore (fibonacci/common.go, NumCPU).
 // See getTaskSemaphore documentation for interaction details.
 func getSemaphore() chan struct{} {
 	concurrencyOnce.Do(func() {

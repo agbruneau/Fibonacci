@@ -59,7 +59,7 @@ import (
 //   - Adaptive Multiplication: To handle extremely large numbers efficiently,
 //     the calculator dynamically switches to an FFT-based multiplication method
 //     when the numbers exceed a specified `fftThreshold`. This threshold
-//     defaults to 20000 bits, a conservative value where FFT's superior
+//     defaults to 500,000 bits, a conservative value where FFT's superior
 //     asymptotic complexity reliably outperforms standard multiplication.
 type OptimizedFastDoubling struct{}
 

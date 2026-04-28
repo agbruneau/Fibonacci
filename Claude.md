@@ -7,7 +7,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Module** : `github.com/agbru/fibcalc`
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
-- **Taille** : ~37 000 lignes Go, 21 packages
+- **Taille** : ~37 000 lignes Go, 22 packages
 
 ## Architecture (Clean Architecture, 4 couches)
 
@@ -53,7 +53,7 @@ docs/
 - **sync.Pool** pour `big.Int` — réduction GC >95 %
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
 - **GC désactivé** pendant calculs N ≥ 1M
-- **Parallélisme adaptatif** via sémaphore (`NumCPU()*2`)
+- **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
 - **Cache FFT** LRU thread-safe — 15-30 % speedup
 - **PGO** supporté via `make build-pgo`
 

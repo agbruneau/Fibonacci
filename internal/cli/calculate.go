@@ -6,7 +6,6 @@ import (
 	"runtime"
 
 	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/ui"
 )
 
@@ -28,17 +27,14 @@ func PrintExecutionConfig(cfg config.AppConfig, out io.Writer) {
 }
 
 // PrintExecutionMode displays the execution mode (single algorithm vs comparison).
-//
-// Parameters:
-//   - calculators: The slice of calculators that will be executed.
-//   - out: The writer for standard output.
-func PrintExecutionMode(calculators []fibonacci.Calculator, out io.Writer) {
+// names is the list of human-readable algorithm names that will run.
+func PrintExecutionMode(names []string, out io.Writer) {
 	var modeDesc string
-	if len(calculators) > 1 {
+	if len(names) > 1 {
 		modeDesc = "Parallel comparison of all algorithms"
 	} else {
 		modeDesc = fmt.Sprintf("Single calculation with the %s%s%s algorithm",
-			ui.ColorGreen(), calculators[0].Name(), ui.ColorReset())
+			ui.ColorGreen(), names[0], ui.ColorReset())
 	}
 	fmt.Fprintf(out, "Execution mode: %s.\n", modeDesc)
 	fmt.Fprintf(out, "\n--- Starting Execution ---\n")

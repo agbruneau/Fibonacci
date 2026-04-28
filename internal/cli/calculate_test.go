@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/orchestration"
 )
 
 // TestPrintExecutionConfig tests the PrintExecutionConfig function.
@@ -36,17 +34,12 @@ func TestPrintExecutionConfig(t *testing.T) {
 // TestPrintExecutionMode tests the PrintExecutionMode function.
 func TestPrintExecutionMode(t *testing.T) {
 	t.Parallel()
-	factory := fibonacci.GlobalFactory()
 
 	t.Run("Single calculator mode", func(t *testing.T) {
 		t.Parallel()
 		var buf bytes.Buffer
-		calculators := []fibonacci.Calculator{factory.MustGet("fast")}
-
-		PrintExecutionMode(calculators, &buf)
-
-		output := buf.String()
-		if output == "" {
+		PrintExecutionMode([]string{"Fast Doubling"}, &buf)
+		if buf.Len() == 0 {
 			t.Error("PrintExecutionMode should produce output")
 		}
 	})
@@ -54,12 +47,8 @@ func TestPrintExecutionMode(t *testing.T) {
 	t.Run("Multiple calculators mode", func(t *testing.T) {
 		t.Parallel()
 		var buf bytes.Buffer
-		calculators := orchestration.GetCalculatorsToRun("all", factory)
-
-		PrintExecutionMode(calculators, &buf)
-
-		output := buf.String()
-		if output == "" {
+		PrintExecutionMode([]string{"Fast Doubling", "Matrix Exp", "FFT"}, &buf)
+		if buf.Len() == 0 {
 			t.Error("PrintExecutionMode should produce output for multiple calculators")
 		}
 	})

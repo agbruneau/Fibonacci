@@ -172,7 +172,7 @@ func (mb *MicroBenchmark) runParallelTests(ctx context.Context) []testResult {
 // intent of the benchmark, and future work — e.g. actually running the
 // multiplication through the parallel fibonacci harness — is expected to
 // consume it. See P1-07.
-func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) { //nolint:unparam // parallel kept for planned parallel-path benchmarking
+func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) {
 	_ = parallel // documented above; silence unparam without dropping the knob
 	// Create test numbers
 	x := generateTestNumber(wordSize)

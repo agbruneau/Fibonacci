@@ -1,7 +1,6 @@
 package fibonacci
 
 import (
-	"context"
 	"math/big"
 	"testing"
 )
@@ -94,97 +93,6 @@ func TestAdaptiveStrategy(t *testing.T) {
 		}
 
 		expected := big.NewInt(20000)
-		if result.Cmp(expected) != 0 {
-			t.Errorf("expected %s, got %s", expected.String(), result.String())
-		}
-	})
-}
-
-// TestKaratsubaStrategy tests the Karatsuba-only strategy.
-func TestKaratsubaStrategy(t *testing.T) {
-	t.Parallel()
-	s := &KaratsubaStrategy{}
-
-	t.Run("Name", func(t *testing.T) {
-		t.Parallel()
-		name := s.Name()
-		if name == "" {
-			t.Error("expected non-empty name")
-		}
-		if name != "Karatsuba-Only" {
-			t.Errorf("expected 'Karatsuba-Only', got '%s'", name)
-		}
-	})
-
-	t.Run("Multiply with nil z", func(t *testing.T) {
-		t.Parallel()
-		x := big.NewInt(12345)
-		y := big.NewInt(67890)
-		opts := Options{}
-
-		result, err := s.Multiply(nil, x, y, opts)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		expected := big.NewInt(0).Mul(x, y)
-		if result.Cmp(expected) != 0 {
-			t.Errorf("expected %s, got %s", expected.String(), result.String())
-		}
-	})
-
-	t.Run("Multiply with non-nil z", func(t *testing.T) {
-		t.Parallel()
-		z := big.NewInt(999999)
-		x := big.NewInt(100)
-		y := big.NewInt(200)
-		opts := Options{}
-
-		result, err := s.Multiply(z, x, y, opts)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != z {
-			t.Error("expected z to be returned")
-		}
-
-		expected := big.NewInt(20000)
-		if result.Cmp(expected) != 0 {
-			t.Errorf("expected %s, got %s", expected.String(), result.String())
-		}
-	})
-
-	t.Run("Square with nil z", func(t *testing.T) {
-		t.Parallel()
-		x := big.NewInt(12345)
-		opts := Options{}
-
-		result, err := s.Square(nil, x, opts)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		expected := big.NewInt(0).Mul(x, x)
-		if result.Cmp(expected) != 0 {
-			t.Errorf("expected %s, got %s", expected.String(), result.String())
-		}
-	})
-
-	t.Run("Square with non-nil z", func(t *testing.T) {
-		t.Parallel()
-		z := big.NewInt(0)
-		x := big.NewInt(100)
-		opts := Options{}
-
-		result, err := s.Square(z, x, opts)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if result != z {
-			t.Error("expected z to be returned")
-		}
-
-		expected := big.NewInt(10000)
 		if result.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s", expected.String(), result.String())
 		}
@@ -285,7 +193,6 @@ func TestMultiplierInterface(t *testing.T) {
 	t.Parallel()
 	var _ Multiplier = &AdaptiveStrategy{}
 	var _ Multiplier = &FFTOnlyStrategy{}
-	var _ Multiplier = &KaratsubaStrategy{}
 }
 
 // TestDoublingStepExecutorInterface verifies that all strategies implement DoublingStepExecutor.
@@ -293,57 +200,4 @@ func TestDoublingStepExecutorInterface(t *testing.T) {
 	t.Parallel()
 	var _ DoublingStepExecutor = &AdaptiveStrategy{}
 	var _ DoublingStepExecutor = &FFTOnlyStrategy{}
-	var _ DoublingStepExecutor = &KaratsubaStrategy{}
-}
-
-func TestKaratsubaStrategy_ExecuteStep(t *testing.T) {
-	t.Parallel()
-
-	t.Run("ExecuteStep with parallel disabled", func(t *testing.T) {
-		t.Parallel()
-		strategy := &KaratsubaStrategy{}
-
-		// Create a calculation state
-		state := &CalculationState{
-			FK:  big.NewInt(5),
-			FK1: big.NewInt(8),
-			T1:  big.NewInt(0),
-			T2:  big.NewInt(0),
-			T3:  big.NewInt(0),
-		}
-
-		opts := Options{
-			ParallelThreshold: 4096,
-			FFTThreshold:      1000000,
-		}
-
-		err := strategy.ExecuteStep(context.Background(), state, opts, false)
-		if err != nil {
-			t.Errorf("ExecuteStep() error = %v, want nil", err)
-		}
-	})
-
-	t.Run("ExecuteStep with parallel enabled", func(t *testing.T) {
-		t.Parallel()
-		strategy := &KaratsubaStrategy{}
-
-		// Create a calculation state
-		state := &CalculationState{
-			FK:  big.NewInt(5),
-			FK1: big.NewInt(8),
-			T1:  big.NewInt(0),
-			T2:  big.NewInt(0),
-			T3:  big.NewInt(0),
-		}
-
-		opts := Options{
-			ParallelThreshold: 4096,
-			FFTThreshold:      1000000,
-		}
-
-		err := strategy.ExecuteStep(context.Background(), state, opts, true)
-		if err != nil {
-			t.Errorf("ExecuteStep() error = %v, want nil", err)
-		}
-	})
 }

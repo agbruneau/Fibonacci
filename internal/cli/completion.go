@@ -92,9 +92,99 @@ func flagKey(f FlagCompletion) string {
 	return f.Short
 }
 
+type bashCase struct {
+	patterns []string
+	body     string
+}
+
+func bashStaticValueCase(f FlagCompletion) bashCase {
+	return bashCase{
+		patterns: []string{"--" + f.Long},
+		body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(f.Values, " ")),
+	}
+}
+
+func collectBashAlgoCases() []bashCase {
+	var cases []bashCase
+	for _, f := range flagRegistry {
+		if f.IsAlgo {
+			cases = append(cases, bashCase{
+				patterns: []string{"--" + f.Long},
+				body:     `COMPREPLY=( $(compgen -W "${algorithms}" -- "${cur}") )`,
+			})
+		}
+	}
+	return cases
+}
+
+func collectBashCompletionCases() []bashCase {
+	var cases []bashCase
+	for _, f := range flagRegistry {
+		if f.Long == "completion" && len(f.Values) > 0 {
+			cases = append(cases, bashStaticValueCase(f))
+		}
+	}
+	return cases
+}
+
+func collectBashFileCases() []bashCase {
+	var patterns []string
+	for _, f := range flagRegistry {
+		if !f.IsFile {
+			continue
+		}
+		if f.Long != "" {
+			patterns = append(patterns, "--"+f.Long)
+		}
+		if f.Short != "" {
+			patterns = append(patterns, "-"+f.Short)
+		}
+	}
+	if len(patterns) == 0 {
+		return nil
+	}
+	return []bashCase{{
+		patterns: patterns,
+		body: `# File/directory completion
+            COMPREPLY=( $(compgen -f -- "${cur}") )`,
+	}}
+}
+
+func collectBashStaticCases() []bashCase {
+	var cases []bashCase
+	for _, f := range flagRegistry {
+		if !f.IsAlgo && !f.IsFile && f.BashGroup == "" && f.Long != "completion" && len(f.Values) > 0 {
+			cases = append(cases, bashStaticValueCase(f))
+		}
+	}
+	return cases
+}
+
+func collectBashGroupedCases() []bashCase {
+	var cases []bashCase
+	seen := map[string]bool{}
+	for _, f := range flagRegistry {
+		if f.BashGroup == "" || seen[f.BashGroup] {
+			continue
+		}
+		seen[f.BashGroup] = true
+		var patterns []string
+		for _, gf := range flagRegistry {
+			if gf.BashGroup == f.BashGroup {
+				patterns = append(patterns, "--"+gf.Long)
+			}
+		}
+		vals := bashGroupValues[f.BashGroup]
+		cases = append(cases, bashCase{
+			patterns: patterns,
+			body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(vals, " ")),
+		})
+	}
+	return cases
+}
+
 // generateBashCompletion generates a Bash completion script.
 func generateBashCompletion(out io.Writer, algorithms []string) error {
-	// Build opts string from registry
 	var opts []string
 	for _, f := range flagRegistry {
 		if f.Long != "" {
@@ -105,84 +195,14 @@ func generateBashCompletion(out io.Writer, algorithms []string) error {
 		}
 	}
 
-	// Build case entries from registry.
-	// Order: algo, completion, file, timeout, threshold (matches original layout).
-	type caseEntry struct {
-		patterns []string
-		body     string
-	}
-	bashCaseEntry := func(f FlagCompletion) caseEntry {
-		return caseEntry{
-			patterns: []string{"--" + f.Long},
-			body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(f.Values, " ")),
-		}
-	}
-	var orderedCases []caseEntry
+	// Order: algo, completion, file, static-with-values, grouped (matches the original layout).
+	var orderedCases []bashCase
+	orderedCases = append(orderedCases, collectBashAlgoCases()...)
+	orderedCases = append(orderedCases, collectBashCompletionCases()...)
+	orderedCases = append(orderedCases, collectBashFileCases()...)
+	orderedCases = append(orderedCases, collectBashStaticCases()...)
+	orderedCases = append(orderedCases, collectBashGroupedCases()...)
 
-	// 1. Algo flags
-	for _, f := range flagRegistry {
-		if f.IsAlgo {
-			orderedCases = append(orderedCases, caseEntry{
-				patterns: []string{"--" + f.Long},
-				body:     `COMPREPLY=( $(compgen -W "${algorithms}" -- "${cur}") )`,
-			})
-		}
-	}
-
-	// 2. Completion flag (static values, comes before file/timeout)
-	for _, f := range flagRegistry {
-		if f.Long == "completion" && len(f.Values) > 0 {
-			orderedCases = append(orderedCases, bashCaseEntry(f))
-		}
-	}
-
-	// 3. File completion flags
-	var filePatterns []string
-	for _, f := range flagRegistry {
-		if f.IsFile {
-			if f.Long != "" {
-				filePatterns = append(filePatterns, "--"+f.Long)
-			}
-			if f.Short != "" {
-				filePatterns = append(filePatterns, "-"+f.Short)
-			}
-		}
-	}
-	if len(filePatterns) > 0 {
-		orderedCases = append(orderedCases, caseEntry{
-			patterns: filePatterns,
-			body: `# File/directory completion
-            COMPREPLY=( $(compgen -f -- "${cur}") )`,
-		})
-	}
-
-	// 4. Remaining flags with static values (non-algo, non-file, non-grouped, non-completion)
-	for _, f := range flagRegistry {
-		if !f.IsAlgo && !f.IsFile && f.BashGroup == "" && f.Long != "completion" && len(f.Values) > 0 {
-			orderedCases = append(orderedCases, bashCaseEntry(f))
-		}
-	}
-
-	// 5. Grouped flags (threshold group)
-	seenGroups := map[string]bool{}
-	for _, f := range flagRegistry {
-		if f.BashGroup != "" && !seenGroups[f.BashGroup] {
-			seenGroups[f.BashGroup] = true
-			var patterns []string
-			for _, gf := range flagRegistry {
-				if gf.BashGroup == f.BashGroup {
-					patterns = append(patterns, "--"+gf.Long)
-				}
-			}
-			vals := bashGroupValues[f.BashGroup]
-			orderedCases = append(orderedCases, caseEntry{
-				patterns: patterns,
-				body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(vals, " ")),
-			})
-		}
-	}
-
-	// Format case entries
 	var caseBody strings.Builder
 	for _, c := range orderedCases {
 		caseBody.WriteString("        ")

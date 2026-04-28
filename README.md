@@ -67,7 +67,7 @@ See [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING.md](docs/algorithm
 - **GC controller** disables GC during large calculations (N ≥ 1M) with a soft memory-limit safety net.
 - **Zero-copy result return**: steal pointers out of pooled state.
 - **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup.
-- **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()*2`.
+- **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()`.
 - **Dynamic thresholds** with hysteresis (parallel, FFT, Strassen) adjusted from observed metrics.
 - **Auto-calibration** (`-calibrate`), versioned profile persistence, CPU-heuristic key to invalidate stale cache.
 - **PGO** (Profile-Guided Optimization) supported via `make build-pgo`.
@@ -234,7 +234,7 @@ Most common commands:
 make all          # clean + build + test
 make test         # go test -v -race -cover ./...
 make test-short   # skip slow tests
-make lint         # golangci-lint (22 linters)
+make lint         # golangci-lint (24 linters)
 make coverage     # coverage.html report
 make benchmark    # performance benchmarks
 make build-pgo    # build with PGO

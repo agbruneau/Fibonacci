@@ -3,28 +3,13 @@ package cli
 import (
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/format"
 	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/ui"
 )
-
-// CLIProgressReporter implements orchestration.ProgressReporter for CLI output.
-// It wraps the DisplayProgress function to provide a spinner and progress bar
-// display during calculations.
-type CLIProgressReporter struct{}
-
-// Verify that CLIProgressReporter implements orchestration.ProgressReporter.
-var _ orchestration.ProgressReporter = CLIProgressReporter{}
-
-// DisplayProgress displays a spinner and progress bar for ongoing calculations.
-func (CLIProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <-chan progress.ProgressUpdate, numCalculators int, out io.Writer) {
-	DisplayProgress(wg, progressChan, numCalculators, out)
-}
 
 // CLIResultPresenter implements orchestration.ResultPresenter for CLI output.
 // It provides formatted, colorized output for calculation results in the
@@ -36,9 +21,8 @@ type CLIResultPresenter struct {
 
 // Verify interface compliance.
 var (
-	_ orchestration.ResultPresenter   = CLIResultPresenter{}
-	_ orchestration.DurationFormatter = CLIResultPresenter{}
-	_ orchestration.ErrorHandler      = CLIResultPresenter{}
+	_ orchestration.ResultPresenter = CLIResultPresenter{}
+	_ orchestration.ErrorHandler    = CLIResultPresenter{}
 )
 
 // PresentComparisonTable displays the comparison summary table with

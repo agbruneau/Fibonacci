@@ -147,34 +147,3 @@ func (s *FFTOnlyStrategy) ExecuteStep(ctx context.Context, state *CalculationSta
 	return executeDoublingStepFFT(ctx, state, opts, inParallel)
 }
 
-// KaratsubaStrategy forces standard multiplication via math/big.Mul for all
-// operations, regardless of operand size. Named "Karatsuba" because math/big
-// internally uses Karatsuba for large operands. Primarily useful for testing
-// and comparison purposes.
-type KaratsubaStrategy struct{}
-
-// Name returns the name of the Karatsuba-only strategy.
-func (s *KaratsubaStrategy) Name() string {
-	return "Karatsuba-Only"
-}
-
-// Multiply performs multiplication using math/big.Mul.
-func (s *KaratsubaStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
-	if z == nil {
-		z = new(big.Int)
-	}
-	return z.Mul(x, y), nil
-}
-
-// Square performs squaring using math/big.Mul.
-func (s *KaratsubaStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
-	if z == nil {
-		z = new(big.Int)
-	}
-	return z.Mul(x, x), nil
-}
-
-// ExecuteStep performs a standard doubling step using math/big multiplication.
-func (s *KaratsubaStrategy) ExecuteStep(ctx context.Context, state *CalculationState, opts Options, inParallel bool) error {
-	return executeDoublingStepMultiplications(ctx, s, state, opts, inParallel)
-}

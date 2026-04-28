@@ -30,14 +30,10 @@ type CalculatorFactory interface {
 	GetAll() map[string]Calculator
 }
 
-// registryLogger is the package-level logger for the registry.
-// Defaults to zerolog.Nop() (no output) to avoid performance impact.
+// registryLogger is the package-level logger for the registry. It is fixed at
+// zerolog.Nop() since no production caller installs a logger; the field is
+// retained so existing instrumentation calls compile to no-ops.
 var registryLogger = zerolog.Nop()
-
-// SetRegistryLogger configures the logger used by the calculator registry.
-func SetRegistryLogger(l zerolog.Logger) {
-	registryLogger = l
-}
 
 // DefaultFactory is the default implementation of CalculatorFactory.
 // It maintains a thread-safe registry of calculator creators and
@@ -264,20 +260,3 @@ func RegisterCalculator(name string, creator func() CoreCalculator) error {
 	return globalFactory.Register(name, creator)
 }
 
-// ResetGlobalFactory replaces the global factory with a fresh DefaultFactory.
-// This is intended for test isolation: tests that modify the global factory
-// should call this in a cleanup function to avoid leaking state to other tests.
-//
-// Production code should prefer dependency injection via app.WithFactory()
-// instead of relying on the global factory.
-//
-// Example:
-//
-//	func TestMyFeature(t *testing.T) {
-//	    t.Cleanup(fibonacci.ResetGlobalFactory)
-//	    fibonacci.RegisterCalculator("custom", func() fibonacci.CoreCalculator { ... })
-//	    // test code
-//	}
-func ResetGlobalFactory() {
-	globalFactory = NewDefaultFactory()
-}

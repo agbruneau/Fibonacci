@@ -3,15 +3,12 @@ package cli
 import (
 	"bytes"
 	"errors"
-	"io"
 	"math/big"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // PR#27 / P1-25:
@@ -21,34 +18,12 @@ import (
 // their arguments through and that CLIResultPresenter satisfies the
 // three orchestration interfaces it is documented to implement.
 
-// TestCLIProgressReporter_InterfaceCompliance is a compile-time assertion
-// moved into a test so the regression would fail the suite rather than
-// silently the build.
-func TestCLIProgressReporter_InterfaceCompliance(t *testing.T) {
-	t.Parallel()
-	var _ orchestration.ProgressReporter = CLIProgressReporter{}
-}
-
 func TestCLIResultPresenter_InterfaceCompliance(t *testing.T) {
 	t.Parallel()
 	var (
-		_ orchestration.ResultPresenter   = CLIResultPresenter{}
-		_ orchestration.DurationFormatter = CLIResultPresenter{}
-		_ orchestration.ErrorHandler      = CLIResultPresenter{}
+		_ orchestration.ResultPresenter = CLIResultPresenter{}
+		_ orchestration.ErrorHandler    = CLIResultPresenter{}
 	)
-}
-
-// TestCLIProgressReporter_DisplayProgress drains an immediately-closed
-// channel so DisplayProgress returns without blocking. The goal is coverage
-// of the wrapper, not the spinner logic (covered in ui_display_test.go).
-func TestCLIProgressReporter_DisplayProgress(t *testing.T) {
-	t.Parallel()
-	var wg sync.WaitGroup
-	ch := make(chan progress.ProgressUpdate)
-	close(ch)
-	wg.Add(1)
-	CLIProgressReporter{}.DisplayProgress(&wg, ch, 1, io.Discard)
-	wg.Wait()
 }
 
 func TestCLIResultPresenter_PresentComparisonTable(t *testing.T) {

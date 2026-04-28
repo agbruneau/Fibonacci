@@ -44,7 +44,11 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 	// Skip verbose output in quiet mode
 	if !a.Config.Quiet {
 		cli.PrintExecutionConfig(a.Config, out)
-		cli.PrintExecutionMode(calculatorsToRun, out)
+		names := make([]string, len(calculatorsToRun))
+		for i, c := range calculatorsToRun {
+			names[i] = c.Name()
+		}
+		cli.PrintExecutionMode(names, out)
 	}
 
 	// Choose progress reporter based on quiet mode
@@ -54,7 +58,7 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 		progressOut = io.Discard
 		progressReporter = orchestration.NullProgressReporter{}
 	} else {
-		progressReporter = cli.CLIProgressReporter{}
+		progressReporter = orchestration.ProgressReporterFunc(cli.DisplayProgress)
 	}
 
 	// Execute calculations

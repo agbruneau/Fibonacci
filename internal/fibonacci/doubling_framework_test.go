@@ -44,18 +44,4 @@ func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {
 		}
 	})
 
-	t.Run("Create with KaratsubaStrategy", func(t *testing.T) {
-		t.Parallel()
-		strategy := &KaratsubaStrategy{}
-		dtm := threshold.NewDynamicThresholdManager(1000000, 4096)
-
-		framework := NewDoublingFrameworkWithDynamicThresholds(strategy, dtm)
-
-		if framework == nil {
-			t.Fatal("Framework should not be nil")
-		}
-		if framework.strategy != strategy {
-			t.Error("Strategy should be set correctly")
-		}
-	})
 }

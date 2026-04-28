@@ -19,7 +19,6 @@ type MockResultPresenter struct{}
 func (MockResultPresenter) PresentComparisonTable(results []CalculationResult, out io.Writer) {}
 func (MockResultPresenter) PresentResult(result CalculationResult, n uint64, verbose, details, showValue bool, out io.Writer) {
 }
-func (MockResultPresenter) FormatDuration(d time.Duration) string { return d.String() }
 func (MockResultPresenter) HandleError(err error, duration time.Duration, out io.Writer) int {
 	return apperrors.ExitErrorGeneric
 }
@@ -175,4 +174,146 @@ type DiscardWriter struct{}
 
 func (d *DiscardWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
+}
+
+// TestExecuteCalculations_MultiSuccess covers the errgroup branch (>1 calculator)
+// where every calculator succeeds.
+func TestExecuteCalculations_MultiSuccess(t *testing.T) {
+	t.Parallel()
+	calcs := []fibonacci.Calculator{
+		&MockCalculator{
+			NameFunc: func() string { return "A" },
+			CalculateFunc: func(ctx context.Context, reporter progress.ProgressCallback, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+				return big.NewInt(11), nil
+			},
+		},
+		&MockCalculator{
+			NameFunc: func() string { return "B" },
+			CalculateFunc: func(ctx context.Context, reporter progress.ProgressCallback, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+				return big.NewInt(22), nil
+			},
+		},
+	}
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      calcs,
+		N:                10,
+		Opts:             fibonacci.Options{},
+		ProgressReporter: NullProgressReporter{},
+		Out:              &DiscardWriter{},
+	})
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	for i, r := range results {
+		if r.Err != nil {
+			t.Errorf("results[%d].Err = %v, want nil", i, r.Err)
+		}
+		if r.Result == nil {
+			t.Errorf("results[%d].Result = nil", i)
+		}
+	}
+	if results[0].Name != "A" || results[1].Name != "B" {
+		t.Errorf("result name order wrong: got %q, %q", results[0].Name, results[1].Name)
+	}
+}
+
+// TestExecuteCalculations_PartialFailure covers the errgroup branch where one
+// calculator returns an error and the sibling still gets to record its result.
+// errgroup propagates the first error to cancel siblings; we assert that:
+//   - the failing slot has Err != nil
+//   - successful slots still have a recorded result (or, if they observed the
+//     cancellation, an error)
+func TestExecuteCalculations_PartialFailure(t *testing.T) {
+	t.Parallel()
+	calcs := []fibonacci.Calculator{
+		&MockCalculator{
+			NameFunc: func() string { return "Fail" },
+			CalculateFunc: func(ctx context.Context, reporter progress.ProgressCallback, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+				return nil, errors.New("boom")
+			},
+		},
+		&MockCalculator{
+			NameFunc: func() string { return "Slow" },
+			CalculateFunc: func(ctx context.Context, reporter progress.ProgressCallback, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+				// Wait briefly so the failing goroutine has time to error first
+				// and propagate cancellation through the errgroup context.
+				select {
+				case <-time.After(50 * time.Millisecond):
+					return big.NewInt(99), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			},
+		},
+	}
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      calcs,
+		N:                10,
+		Opts:             fibonacci.Options{},
+		ProgressReporter: NullProgressReporter{},
+		Out:              &DiscardWriter{},
+	})
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if results[0].Err == nil {
+		t.Errorf("results[0] (failing calc) Err = nil, want non-nil")
+	}
+	// Either the slow goroutine completed before cancellation propagated, or it
+	// observed ctx.Done(). Both outcomes are valid; what matters is that a
+	// per-slot result was recorded — no goroutine leak / lost write.
+	if results[1].Name != "Slow" {
+		t.Errorf("results[1].Name = %q, want Slow", results[1].Name)
+	}
+}
+
+// TestExecuteCalculations_ContextCancellation verifies that when the caller
+// cancels the parent context, all calculators observe Done() and return an
+// error, and every slot is filled (no leaked goroutine).
+func TestExecuteCalculations_ContextCancellation(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	started := make(chan struct{}, 2)
+	calcs := []fibonacci.Calculator{
+		&MockCalculator{
+			NameFunc: func() string { return "A" },
+			CalculateFunc: func(ctx context.Context, reporter progress.ProgressCallback, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+				started <- struct{}{}
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		},
+		&MockCalculator{
+			NameFunc: func() string { return "B" },
+			CalculateFunc: func(ctx context.Context, reporter progress.ProgressCallback, index int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+				started <- struct{}{}
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		},
+	}
+
+	// Cancel after both goroutines have begun blocking on ctx.Done().
+	go func() {
+		<-started
+		<-started
+		cancel()
+	}()
+
+	results := ExecuteCalculations(ctx, ExecutionConfig{
+		Calculators:      calcs,
+		N:                10,
+		Opts:             fibonacci.Options{},
+		ProgressReporter: NullProgressReporter{},
+		Out:              &DiscardWriter{},
+	})
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	for i, r := range results {
+		if r.Err == nil {
+			t.Errorf("results[%d].Err = nil, want context error", i)
+		}
+	}
 }

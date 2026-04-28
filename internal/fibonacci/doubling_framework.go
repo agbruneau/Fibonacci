@@ -138,7 +138,7 @@ func executeDoublingStepMultiplications(ctx context.Context, strategy Multiplier
 // Returns:
 //   - *big.Int: The calculated Fibonacci number F(n).
 //   - error: An error if one occurred (e.g., context cancellation).
-func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) {
+func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) { //nolint:gocognit // hot algorithmic loop, extracting would obscure Fast Doubling identity flow and risk perf regression
 	numBits := bits.Len64(n)
 
 	// Calculate total work for progress reporting via common utility

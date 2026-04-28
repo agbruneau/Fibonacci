@@ -77,9 +77,8 @@ type TUIResultPresenter struct {
 
 // Verify interface compliance.
 var (
-	_ orchestration.ResultPresenter   = (*TUIResultPresenter)(nil)
-	_ orchestration.DurationFormatter = (*TUIResultPresenter)(nil)
-	_ orchestration.ErrorHandler      = (*TUIResultPresenter)(nil)
+	_ orchestration.ResultPresenter = (*TUIResultPresenter)(nil)
+	_ orchestration.ErrorHandler    = (*TUIResultPresenter)(nil)
 )
 
 // PresentComparisonTable sends comparison results to the TUI.
