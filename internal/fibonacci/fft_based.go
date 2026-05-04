@@ -45,18 +45,20 @@ func (c *FFTBasedCalculator) Name() string {
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
 func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error) {
-	s := AcquireState()
-	defer ReleaseState(s)
-
-	// Create arena for contiguous memory allocation. `s`'s big.Ints retain
-	// slices into the arena's backing block, so the block stays alive as
-	// long as `s` does.
-	preSizeCalculationStateArena(s, n)
+	// AcquireStateForN: state-bound arena (see fastdoubling.go for the
+	// invariant). On success we hand off via ReleaseStateWithResult so the
+	// returned big.Int does not alias pooled arena memory.
+	s := AcquireStateForN(n)
 
 	// Use framework with FFT-only strategy
 	strategy := &FFTOnlyStrategy{}
 	framework := NewDoublingFramework(strategy)
 
 	// Execute the doubling loop (no parallelization for FFT-based)
-	return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, false)
+	raw, err := framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, false)
+	if err != nil {
+		ReleaseState(s)
+		return nil, err
+	}
+	return ReleaseStateWithResult(s, raw), nil
 }

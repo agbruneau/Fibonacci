@@ -1,4 +1,19 @@
-# P1-04 — Arena pool in fastdoubling — SKIPPED
+# P1-04 — Arena pool in fastdoubling — RESOLVED (was SKIPPED)
+
+> **Update (2026-05-04):** Resolved. The fix is the "state owns its arena"
+> redesign (combined approaches A+B). `CalculationState` now carries
+> `arena *memory.CalculationArena` and `arenaCapWords int`; arena
+> acquisition/reuse is folded into `AcquireStateForN(n)` and a new
+> `ReleaseStateWithResult(s, src)` deep-copies the result out of the arena
+> before detaching every state slot and resetting the arena for pool reuse.
+> The "steal" optimization in `DoublingFramework.ExecuteDoublingLoop` was
+> removed (incompatible with arena pooling — see P1-04 commit message).
+> Regression suite: `TestArenaStateConcurrent` runs cleanly under
+> `-count=50` and the previously-flaky `TestConcurrentCalculations` passes
+> under `-count=10`. Original analysis kept below for historical record.
+
+---
+
 
 ## Finding
 

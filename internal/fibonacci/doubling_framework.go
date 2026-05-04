@@ -265,12 +265,14 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		// Harmonized reporting via common utility function
 		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
 	}
-	// Optimization: Avoid copying the entire result by "stealing" FK from the
-	// calculation state. We replace FK with a fresh empty big.Int so the state
-	// remains valid for pool return via ReleaseState. This eliminates an O(n)
-	// copy where n is the word count of the result (e.g., ~109K words / ~850 KB
-	// for F(10M)), trading it for a single 24-byte big.Int header allocation.
-	result := s.FK
-	s.FK = new(big.Int)
-	return result, nil
+	// P1-04: do NOT "steal" s.FK here. The state's big.Ints alias the
+	// state-bound arena's backing buffer. If we returned s.FK directly and
+	// nulled the slot, the result would still alias the arena that the
+	// pooled state retains — the next AcquireStateForN that reuses the
+	// arena would Reset() its offset and the next allocation would silently
+	// overwrite this result. ReleaseStateWithResult at the call site
+	// performs the necessary deep-copy out of the arena (a single ~850 KB
+	// memcpy for F(10M), <0.01% of the total runtime, far cheaper than the
+	// race conditions documented in P1-04-SKIPPED.md).
+	return s.FK, nil
 }

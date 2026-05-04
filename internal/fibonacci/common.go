@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/parallel"
 	"github.com/rs/zerolog"
 )
@@ -82,39 +81,6 @@ func preSizeBigInt(z *big.Int, words int) {
 	// We use a slice with length=0, cap=words to give z the backing array.
 	buf := make([]big.Word, 0, words)
 	z.SetBits(buf)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Arena Pre-Sizing Helper (P1-06)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// preSizeCalculationStateArena sizes a fresh CalculationArena for F(n) and
-// pre-sizes every *big.Int buffer inside the CalculationState from the arena
-// when n > 1000. For n ≤ 1000 the arena is created (empty) and effectively
-// a no-op, preserving a uniform interface.
-//
-// No arena pointer is returned: every pre-sized *big.Int in `s` retains a
-// slice carved from the arena's backing block via big.Int.SetBits, so the
-// garbage collector keeps that block alive as long as `s` is reachable. The
-// helper therefore has no outputs — only documented side effects on `s`.
-//
-// Before P1-06 this sequence (arena + pre-size FK/FK1/T1..T3 + SetInt64 on
-// FK/FK1) was duplicated verbatim between fastdoubling.go and fft_based.go.
-// Extracting it keeps both call sites lean and ensures any future change to
-// the pre-sizing strategy only has to be made in one place.
-func preSizeCalculationStateArena(s *CalculationState, n uint64) {
-	arena := memory.NewCalculationArena(n)
-	if n > 1000 {
-		estimatedBits := int(float64(n) * FibonacciGrowthFactor)
-		estimatedWords := (estimatedBits + 63) / 64
-		arena.PreSizeFromArena(s.FK, estimatedWords)
-		arena.PreSizeFromArena(s.FK1, estimatedWords)
-		s.FK.SetInt64(0)
-		s.FK1.SetInt64(1)
-		arena.PreSizeFromArena(s.T1, estimatedWords)
-		arena.PreSizeFromArena(s.T2, estimatedWords)
-		arena.PreSizeFromArena(s.T3, estimatedWords)
-	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
