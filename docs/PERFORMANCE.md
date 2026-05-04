@@ -109,7 +109,7 @@ var statePool = sync.Pool{
 - 20-30% performance improvement
 - Reduced GC pause times
 
-**Calculation Arena**: For N > 1,000, a contiguous `CalculationArena` pre-allocates all 5 `big.Int` backing arrays from a single block, reducing GC tracking overhead and memory fragmentation. The arena falls back to heap allocation when exhausted.
+**Calculation Arena (state-bound)**: For N > 1,000 a contiguous `CalculationArena` pre-allocates all 5 `big.Int` backing arrays from a single `[]big.Word` block, reducing GC tracking overhead and memory fragmentation. As of audit P1-04 the arena is owned by `CalculationState` and travels through the same `sync.Pool`: `AcquireStateForN(n)` reuses the existing arena (`Reset()` only) when the previous tenancy was large enough, otherwise it reallocates. `ReleaseStateWithResult(s, src)` deep-copies the result out of the arena before resetting it and detaches every state slot before pool return, so a subsequent acquisition cannot alias another caller's result. The arena falls back to heap allocation when exhausted, and is dropped (not pooled) past `maxArenaPoolWords` (~50M words ≈ 400 MB) to bound resident memory.
 
 ### 2. 2-Tier Adaptive Multiplication
 

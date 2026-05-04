@@ -16,11 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-compilation targets for Linux and Windows **arm64** in the Makefile
 - `.env.example` coverage for `FIBCALC_TUI_THEME`, `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_MEMORY_LIMIT` (audit P1-13, P1-14)
 - `docs/architecture/patterns/design-patterns.md` inventory of concrete design patterns in use (audit P2-21)
+- **Arena pooling**: `AcquireStateForN(n)` / `ReleaseStateWithResult(s, src)` API in `internal/fibonacci/` — `CalculationState` now owns its `CalculationArena`, the two pools share a single lifecycle, and all big.Int slot aliases are detached before `sync.Pool.Put` to keep the arena race-free for reuse (audit P1-04)
+- New regression tests: `TestArenaPoolingNoAliasing`, `TestArenaStateConcurrent` (16 goroutines × 8 iters × 3 sizes), `TestStateReuseAcrossSizes` in `internal/fibonacci/state_pool_arena_test.go`
+- `docs/audits/2026-04/INTERVENTION_PLAN.md` and `docs/audits/2026-04/bench/perf-results/P1-04-arena-pool/` (before/after benchmarks + validation summary) tracking the post-PR-#17 finalization
 
 ### Changed
 
 - **Go toolchain**: bumped `go.mod` to Go 1.25 (toolchain go1.26.2) — audit P0-02
 - **Dependencies**: minor/patch upgrades for `golang.org/x/sync`, `x/sys`, `x/term`, `x/text`, `github.com/rs/zerolog`, and `gopsutil` (audit P1-24)
+- **Dependencies (major)**: bumped `github.com/charmbracelet/bubbles` from `v0.21.1` to `v1.0.0`. The bubbles v1.0 release preserved the `key` and `viewport` sub-package surfaces actually used by the TUI; zero source changes were required (audit P0-03)
 - **Package restructuring**: Extracted `internal/progress/` package from `internal/fibonacci/` (observer pattern, progress types); backward-compatible type aliases in `progress_aliases.go`
 - **Package restructuring**: Extracted `internal/fibonacci/memory/` sub-package (arena, GC control, memory budget)
 - **Package restructuring**: Extracted `internal/fibonacci/threshold/` sub-package (dynamic threshold manager)
@@ -54,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 
 - **FFT pool leak**: release `PolValues` / `Poly` buffers in `internal/bigfft` (audit P0-01, P0-09)
+- **Arena reuse**: `CalculationArena` is now retained across calls inside the pooled `CalculationState` (sized once, `Reset()` between uses; rebuilt only when `n` outgrows the previous tenancy). `B/op` improves ~7 % on `BenchmarkFibonacci/FastDoubling/1M`; `ns/op` is unchanged within run-to-run variance. The "steal `s.FK`" zero-copy trick was removed in `ExecuteDoublingLoop` (incompatible with arena reuse) and replaced by a single deep-copy in `ReleaseStateWithResult` (~850 KB memcpy for F(10M), <0.01 % of runtime). Audit P1-04 — previously SKIPPED due to a race documented in `docs/audits/2026-04/bench/perf-results/P1-04-SKIPPED.md`, now resolved.
 
 ### Removed
 

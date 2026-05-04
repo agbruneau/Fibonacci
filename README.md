@@ -63,9 +63,9 @@ See [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING.md](docs/algorithm
 
 - **Zero-allocation**: `sync.Pool` recycles `big.Int`, reducing GC pressure 95%+.
 - **Bump allocator** (O(1), no fragmentation) for FFT temporaries.
-- **Calculation arena** (`internal/fibonacci/memory/`) for contiguous state.
+- **State-bound calculation arena** (`internal/fibonacci/memory/`): pooled `CalculationState` owns its arena; same `[]big.Word` block is reused across calls when wide enough (`Reset()` only on the hot path). Aliases are severed before pool return — see audit P1-04.
 - **GC controller** disables GC during large calculations (N ≥ 1M) with a soft memory-limit safety net.
-- **Zero-copy result return**: steal pointers out of pooled state.
+- **Result detachment**: `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the caller never aliases pooled memory.
 - **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup.
 - **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()`.
 - **Dynamic thresholds** with hysteresis (parallel, FFT, Strassen) adjusted from observed metrics.
@@ -234,7 +234,7 @@ Most common commands:
 make all          # clean + build + test
 make test         # go test -v -race -cover ./...
 make test-short   # skip slow tests
-make lint         # golangci-lint (24 linters)
+make lint         # golangci-lint (22 linters)
 make coverage     # coverage.html report
 make benchmark    # performance benchmarks
 make build-pgo    # build with PGO

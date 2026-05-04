@@ -184,17 +184,17 @@ defer ReleaseState(state)
 
 Objects exceeding `MaxPooledBitLen` (100M bits) are left for GC rather than returned to the pool.
 
-### 5. Calculation Arena
+### 5. Calculation Arena (state-bound, P1-04)
 
-For N > 1,000, a `CalculationArena` pre-allocates a single contiguous block for all `big.Int` backing arrays. This reduces GC pressure and improves cache locality:
+For N > 1,000, a `CalculationArena` pre-allocates a single contiguous block for all `big.Int` backing arrays. This reduces GC pressure and improves cache locality. The arena is owned by the pooled `CalculationState`, so the same `[]big.Word` block is reused across calls when the previous tenancy was wide enough — only `Reset()` runs in the hot path:
 
 ```go
-arena := NewCalculationArena(n)
-arena.PreSizeFromArena(s.FK, estimatedWords)
-// ... pre-size all 5 state fields
+s := AcquireStateForN(n)         // reuses or grows the bound arena
+// ... Fast Doubling loop fills s.FK / s.FK1 / s.T1..3 from the arena
+result := ReleaseStateWithResult(s, s.FK)  // deep-copies result OUT of arena, resets, returns to pool
 ```
 
-If the arena is exhausted, allocation falls back to the standard heap.
+If the arena is exhausted, allocation falls back to the standard heap. Past `maxArenaPoolWords` (~50M words / ~400 MB), the arena is dropped rather than pooled. The "steal `s.FK`" zero-copy trick used before P1-04 is incompatible with arena reuse: it was replaced by a single deep-copy in `ReleaseStateWithResult` (one `~850 KB` memcpy for F(10M), <0.01 % of runtime — far cheaper than the race documented in `docs/audits/2026-04/bench/perf-results/P1-04-SKIPPED.md`).
 
 ### 3. Parallel Multiplication via Strategy
 

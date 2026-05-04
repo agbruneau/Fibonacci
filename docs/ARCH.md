@@ -413,15 +413,15 @@ Core Algorithm
   - `F(2k)   = F(k) * (2F(k+1) - F(k))`
   - `F(2k+1) = F(k+1)² + F(k)²`
 - Uses `DoublingFramework` + `AdaptiveStrategy`.
-- Employs pooled `CalculationState` (5 big.Int), memory arena pre-sizing, and optional dynamic threshold updates.
-- **Zero-copy result return:** steals FK pointer from pooled state, replaces with fresh big.Int.
+- Employs pooled `CalculationState` (5 big.Int + bound `CalculationArena`), memory arena pre-sizing, and optional dynamic threshold updates.
+- **Result detachment (P1-04):** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite — see `docs/audits/2026-04/bench/perf-results/P1-04-SKIPPED.md`.
 
 ### B. Matrix Exponentiation (`MatrixExponentiation`)
 - Uses binary exponentiation of Fibonacci Q-matrix: `[[1,1],[1,0]]^(n-1)`.
 - `MatrixFramework` drives loop (LSB → MSB iteration).
 - Matrix ops switch between naive 2×2 multiply and Strassen based on `StrassenThreshold`.
 - Includes symmetric squaring optimization (exploits `[a,b; b,c]` symmetry to reduce multiplications).
-- **Zero-copy result return:** steals `res.a` from matrix state.
+- **Zero-copy result return:** steals `res.a` from matrix state. Matrix exponentiation does not use the state-bound arena, so the steal trick is still safe here.
 
 ### C. FFT-Based Doubling (`FFTBasedCalculator`)
 - Same doubling loop model (via `DoublingFramework`), but strategy is `FFTOnlyStrategy`.

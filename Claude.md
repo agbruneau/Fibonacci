@@ -51,6 +51,7 @@ docs/
 ## Patterns de performance critiques
 
 - **sync.Pool** pour `big.Int` — réduction GC >95 %
+- **State + arena unifiés** — `CalculationState` owne sa `CalculationArena` ; mêmes `[]big.Word` réutilisés entre appels via `AcquireStateForN`/`ReleaseStateWithResult` (audit P1-04)
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
 - **GC désactivé** pendant calculs N ≥ 1M
 - **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
@@ -66,7 +67,7 @@ make test-short      # Tests rapides
 make coverage        # Rapport couverture HTML
 make benchmark       # Benchmarks
 make bench-versioned # Benchmarks avec versionnage
-make lint            # golangci-lint (24 linters)
+make lint            # golangci-lint (22 linters)
 make build-pgo       # Build avec PGO
 make build-all       # Cross-compilation (linux, windows, macOS)
 ```

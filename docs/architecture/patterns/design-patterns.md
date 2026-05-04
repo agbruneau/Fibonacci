@@ -12,8 +12,8 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
 | **Strategy**     | Pluggable Fibonacci algorithms behind a uniform `Calculator` interface | `internal/fibonacci/calculator.go`, `fastdoubling.go`, `matrix.go`, `fft.go`        |
 | **Factory / Registry** | Centralized calculator construction, decoupled from callers     | `internal/fibonacci/registry.go`                                                    |
 | **Observer**     | Streaming progress updates to CLI / TUI / metrics sinks | `internal/progress/`, `internal/fibonacci.ProgressUpdate` channel                   |
-| **Object Pool**  | `big.Int` recycling to eliminate GC pressure on large N  | `sync.Pool` in `internal/fibonacci/state_pool.go`                                   |
-| **Bump Allocator** | O(1) linear arena for FFT intermediate buffers         | `internal/bigfft/bump.go`, `internal/fibonacci/memory/arena.go`                     |
+| **Object Pool**  | `big.Int` recycling to eliminate GC pressure on large N. State-bound: `CalculationState` owns its arena, both share one lifecycle (audit P1-04). | `sync.Pool` in `internal/fibonacci/state_pool.go`, `AcquireStateForN`/`ReleaseStateWithResult` in `internal/fibonacci/fastdoubling.go` |
+| **Bump Allocator** | O(1) linear arena for FFT intermediate buffers and Fast Doubling state. | `internal/bigfft/bump.go`, `internal/fibonacci/memory/arena.go`                     |
 | **Decorator**    | Optional capabilities (cache, metrics) layered on a base calculator | `WithOptimizedCache`, `WithMetrics` option helpers in `internal/fibonacci/options.go` |
 | **Builder / Options** | Functional options for calculator configuration           | `Options` struct + `WithXxx` setters in `internal/fibonacci/options.go`             |
 | **Facade**       | `app.Application` hides CLI parsing, dispatch, and error-to-exit-code mapping | `internal/app/app.go`                                                               |
@@ -29,7 +29,11 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
   [`internal/parallel/doc.go`](../../../internal/parallel/doc.go)) or
   `errgroup` depending on the call site.
 - **Resource ownership**: every `sync.Pool` Get is paired with a deferred
-  Put in the same scope. Bump arenas must call `Reset` before reuse.
+  Put in the same scope. Bump arenas must call `Reset` before reuse. When
+  a pooled state owns an arena, every `*big.Int` slot must be detached
+  (`s.FK = new(big.Int)` and friends) before the state is returned to the
+  pool — otherwise the arena would alias data the next tenant overwrites
+  (audit P1-04 `clearStateAliases`).
 
 ## Notes
 
