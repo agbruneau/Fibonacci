@@ -1,0 +1,56 @@
+// Package completion provides shell completion script generation for fibcalc.
+//
+// All shell completion functions are generated from a single source of truth:
+// flagRegistry. Adding a new flag only requires appending to that registry.
+package completion
+
+import "strings"
+
+// FlagCompletion describes a CLI flag for shell completion generation.
+// All shell completion functions generate from this registry, so adding
+// a new flag only requires appending to flagRegistry.
+type FlagCompletion struct {
+	Long      string   // long flag name without "--" (e.g., "help")
+	Short     string   // short flag without "-" (e.g., "h")
+	Help      string   // description text
+	Values    []string // suggested completion values (nil = boolean/no suggestions)
+	ValueName string   // label for the value in zsh (e.g., "number", "duration")
+	IsFile    bool     // true if the flag takes a file path
+	IsAlgo    bool     // true if values come from algorithm list (dynamic)
+	BashGroup string   // flags with same non-empty BashGroup share a bash case entry
+}
+
+// flagRegistry is the central list of all CLI flags for completion generation.
+// The order matches the original completion output for each shell.
+var flagRegistry = []FlagCompletion{
+	{Long: "help", Short: "h", Help: "Show help message"},
+	{Long: "version", Short: "V", Help: "Show version information"},
+	{Short: "n", Help: "Fibonacci index to calculate", ValueName: "number"},
+	{Short: "v", Help: "Display full result value"},
+	{Long: "details", Short: "d", Help: "Show performance details"},
+	{Long: "timeout", Help: "Maximum execution time", Values: []string{"1m", "5m", "10m", "30m", "1h"}, ValueName: "duration"},
+	{Long: "algo", Help: "Algorithm to use", IsAlgo: true, ValueName: "algorithm"},
+	{Long: "threshold", Help: "Parallelism threshold in bits", Values: []string{"1024", "2048", "4096", "8192", "16384"}, ValueName: "bits", BashGroup: "threshold"},
+	{Long: "fft-threshold", Help: "FFT threshold in bits", Values: []string{"100000", "500000", "1000000"}, ValueName: "bits", BashGroup: "threshold"},
+	{Long: "strassen-threshold", Help: "Strassen threshold", Values: []string{"1024", "2048", "3072", "4096"}, ValueName: "bits", BashGroup: "threshold"},
+	{Long: "calibrate", Help: "Run calibration mode"},
+	{Long: "auto-calibrate", Help: "Enable auto-calibration"},
+	{Long: "calibration-profile", Help: "Calibration profile file", IsFile: true, ValueName: "file"},
+	{Long: "output", Short: "o", Help: "Output file path", IsFile: true, ValueName: "file"},
+	{Long: "quiet", Short: "q", Help: "Quiet mode for scripts"},
+	{Long: "machine", Help: "Machine-readable output (no ANSI colors)"},
+	{Long: "completion", Help: "Generate completion script", Values: []string{"bash", "zsh", "fish", "powershell"}, ValueName: "shell"},
+}
+
+// formatAlgoList joins algorithm names with space separators.
+func formatAlgoList(algorithms []string) string {
+	return strings.Join(algorithms, " ")
+}
+
+// flagKey returns the identifier used for lookups: Long name if present, else Short.
+func flagKey(f FlagCompletion) string {
+	if f.Long != "" {
+		return f.Long
+	}
+	return f.Short
+}

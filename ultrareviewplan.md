@@ -67,11 +67,11 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 
 | ID | Tâche | Lot | Files | Effort | Statut | Owner | Commit |
 |----|-------|-----|-------|--------|--------|-------|--------|
-| R3.1 | Décomposer `threshold/manager.go` (3 types) | 3A | `internal/fibonacci/threshold/` | 4 h | ⬜ | — | — |
-| R3.3 | Stratégie `Calibrate` adaptative | 3A | `internal/calibration/calibration.go` | 3 h | ⬜ | — | — |
-| R3.4 | Décomposer `tui/model.go` en composants | 3A | `internal/tui/model.go` + nouveau `internal/tui/component/` | 1,5 j | ⬜ | — | — |
-| R3.5 | Éclater `cli/completion.go` par shell | 3A | `internal/cli/completion.go` → `internal/cli/completion/` | 4 h | ⬜ | — | — |
-| R3.10 | Standardiser noms `*Calculator` | 3A | `internal/fibonacci/{fastdoubling,matrix,fft_based}.go` | 1 h | ⬜ | — | — |
+| R3.1 | Décomposer `threshold/manager.go` (3 types) | 3A | `internal/fibonacci/threshold/` | 4 h | ✅ | agent | (Vague3A) MetricsBuffer + ThresholdAnalyzer + Manager ; 97.4% coverage |
+| R3.3 | Stratégie `Calibrate` adaptative | 3A | `internal/calibration/calibration.go` | 3 h | ✅ | agent | (Vague3A) FastStrategy + CompleteStrategy + escalation orchestrator |
+| R3.4 | Décomposer `tui/model.go` en composants | 3A | `internal/tui/model.go` + nouveau `internal/tui/component/` | 1,5 j | ⚠ | agent | PARTIAL: model.go 425→177 LOC via routing/handlers/commands/layout ; physical relocation des 5 composants vers component/ deferred (white-box tests bloqueraient) |
+| R3.5 | Éclater `cli/completion.go` par shell | 3A | `internal/cli/completion.go` → `internal/cli/completion/` | 4 h | ✅ | agent | (Vague3A) sous-package créé, parité bit-pour-bit confirmée |
+| R3.10 | Standardiser noms `*Calculator` | 3A | `internal/fibonacci/{fastdoubling,matrix,fft_based}.go` | 1 h | ✅ | agent | (Vague3A) OptimizedFastDoubling→FastDoublingCalculator ; MatrixExponentiation→MatrixExponentiationCalculator |
 | R3.6 | Scinder `runCalculate` + extraire `lastdigits` | 3B | `internal/app/calculate.go`, `internal/orchestration/lastdigits.go` (new) | 4 h | ⬜ | — | — |
 | R3.8 | Errors au lieu de panics dans Fermat | 3B | `internal/bigfft/fermat.go` + propagation | 4 h | ⬜ | — | — |
 | R3.9 | Cache fast-path lock-free | 3B | `internal/bigfft/fft_cache.go` | 4 h | ⬜ | — | — |

@@ -23,8 +23,8 @@ func calcF(calc CoreCalculator, n uint64) (*big.Int, error) {
 // allCalculators returns the three core calculator implementations.
 func allCalculators() []CoreCalculator {
 	return []CoreCalculator{
-		&OptimizedFastDoubling{},
-		&MatrixExponentiation{},
+		&FastDoublingCalculator{},
+		&MatrixExponentiationCalculator{},
 		&FFTBasedCalculator{},
 	}
 }
@@ -191,7 +191,7 @@ func TestGCDIdentity_PropertyBased(t *testing.T) {
 
 	// Use a single fast calculator since we're testing a mathematical property,
 	// not cross-validating implementations.
-	calculator := &OptimizedFastDoubling{}
+	calculator := &FastDoublingCalculator{}
 
 	properties.Property("GCD(F(m), F(n)) = F(GCD(m, n))", prop.ForAll(
 		func(m, n uint64) bool {

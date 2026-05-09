@@ -120,7 +120,7 @@ func executeDoublingStepMultiplications(ctx context.Context, strategy Multiplier
 }
 
 // ExecuteDoublingLoop executes the Fast Doubling algorithm loop.
-// This is the core computation logic shared by OptimizedFastDoubling and
+// This is the core computation logic shared by FastDoublingCalculator and
 // FFTBasedCalculator.
 //
 // The algorithm iterates over the bits of n from most significant to least

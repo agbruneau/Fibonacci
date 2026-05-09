@@ -20,7 +20,7 @@ func noopReporter(float64) {}
 func TestArenaPoolingNoAliasing(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	fd := &OptimizedFastDoubling{}
+	fd := &FastDoublingCalculator{}
 
 	r1, err := fd.CalculateCore(ctx, noopReporter, 100_000, Options{})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestArenaStateConcurrent(t *testing.T) {
 	const goroutines = 16
 	const itersPerG = 8
 
-	fd := &OptimizedFastDoubling{}
+	fd := &FastDoublingCalculator{}
 	ctx := context.Background()
 
 	// Reference values computed once.
@@ -101,7 +101,7 @@ func (m *mismatchErr) Error() string {
 // either reused (if large enough) or grown for a larger N without crashing.
 func TestStateReuseAcrossSizes(t *testing.T) {
 	t.Parallel()
-	fd := &OptimizedFastDoubling{}
+	fd := &FastDoublingCalculator{}
 	ctx := context.Background()
 
 	seq := []uint64{1000, 100_000, 1000, 500_000, 10_000}

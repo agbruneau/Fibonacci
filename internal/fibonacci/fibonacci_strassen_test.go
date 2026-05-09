@@ -22,7 +22,7 @@ func TestStrassenConfiguration(t *testing.T) {
 	// 2. Run a calculation with the custom option.
 	// We use a small n, so Strassen vs Classic doesn't matter for correctness,
 	// but we want to ensure it doesn't crash or error out.
-	calc := &MatrixExponentiation{}
+	calc := &MatrixExponentiationCalculator{}
 	reporter := func(p float64) {}
 
 	// F(10) = 55
@@ -45,7 +45,7 @@ func TestStrassenConfiguration(t *testing.T) {
 // - Threshold = Huge (Force Classic)
 // Correctness should be maintained in both cases.
 func TestStrassenThresholdEffect(t *testing.T) {
-	calc := &MatrixExponentiation{}
+	calc := &MatrixExponentiationCalculator{}
 	reporter := func(p float64) {}
 	n := uint64(100) // F(100) is large enough to potentially trigger different paths if thresholds are low
 
@@ -87,7 +87,7 @@ func TestStrassenOptionsPrecedence(t *testing.T) {
 	// This should force Classic algorithm if Options is respected.
 	opts := Options{StrassenThreshold: 1_000_000}
 
-	calc := &MatrixExponentiation{}
+	calc := &MatrixExponentiationCalculator{}
 	reporter := func(p float64) {}
 	n := uint64(100) // ~70 bits elements
 

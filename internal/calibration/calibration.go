@@ -275,101 +275,118 @@ func AutoCalibrate(parentCtx context.Context, cfg config.AppConfig, out io.Write
 }
 
 // AutoCalibrateWithProfile runs auto-calibration with a specific profile path.
-// It first tries to load a cached profile, then falls back to quick micro-benchmarks,
-// and finally uses full calibration if needed.
+//
+// Lookup order (each step short-circuits when it succeeds):
+//  1. Load the on-disk profile; if hardware-valid AND fresh, apply it.
+//  2. If the profile is hardware-valid but stale (R1.3), skip the fast
+//     tier and run CompleteStrategy so the persisted thresholds track
+//     current runtime conditions.
+//  3. Otherwise escalate FastStrategy → CompleteStrategy: keep the
+//     fast result iff its Confidence is ≥ EscalationConfidenceThreshold.
+//
+// The exported signature is preserved for compatibility with cmd/ and
+// existing tests; the body delegates to the CalibrationStrategy
+// abstraction (see strategy.go).
 func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string) (updated config.AppConfig, ok bool) {
-	// Check if calculators are available before attempting calibration
-	fastCalc := calculatorRegistry["fast"]
-	if fastCalc == nil {
-		// No calculators available - cannot calibrate
+	// Check if calculators are available before attempting calibration.
+	// CompleteStrategy needs "fast"; without it we cannot escalate even
+	// if FastStrategy returns low confidence, so refuse early.
+	if calculatorRegistry["fast"] == nil {
 		return cfg, false
 	}
 
-	// Try to load existing profile first
+	// Try to load existing profile first.
 	profile, loaded := LoadOrCreateProfile(profilePath)
 	profileFresh := loaded && profile.IsValid()
 	maxAge := profileMaxAgeFromEnv()
 	profileStale := profileFresh && profile.IsStale(maxAge)
 
 	if profileFresh && !profileStale {
-		// Use cached calibration
-		updated := cfg
-		updated.Threshold = profile.OptimalParallelThreshold
-		updated.FFTThreshold = profile.OptimalFFTThreshold
-		updated.StrassenThreshold = profile.OptimalStrassenThreshold
+		return applyCachedProfile(cfg, profile, out), true
+	}
 
-		fmt.Fprintf(out, "%sUsing cached calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
-			ui.ColorGreen(), ui.ColorReset(),
-			ui.ColorYellow(), updated.Threshold, ui.ColorReset(),
-			ui.ColorYellow(), updated.FFTThreshold, ui.ColorReset(),
-			ui.ColorYellow(), updated.StrassenThreshold, ui.ColorReset())
-		return updated, true
+	stratOpts := StrategyOptions{
+		BaseConfig:         cfg,
+		CalculatorRegistry: calculatorRegistry,
+		Out:                out,
 	}
 
 	if profileStale {
-		// Profile is hardware-compatible but too old: discard cache and
-		// jump straight to full calibration so the persisted thresholds
-		// reflect current runtime conditions.
+		// R1.3: profile hardware-compatible but expired. Skip the fast
+		// tier and re-measure with the authoritative complete sweep so
+		// the on-disk values reflect today's runtime characteristics.
 		age := time.Since(profile.CalibratedAt).Round(time.Second)
 		fmt.Fprintf(out, "%sProfile stale (age=%s), re-calibrating%s\n",
 			ui.ColorYellow(), age, ui.ColorReset())
-		return runFullCalibration(parentCtx, cfg, out, calculatorRegistry, profilePath, fastCalc)
+		return runStrategy(parentCtx, NewCompleteStrategy(), stratOpts, profilePath, true)
 	}
 
-	// Try quick micro-benchmarks first (~100ms)
-	microResults, err := QuickCalibrate(parentCtx)
-	if err == nil && microResults.Confidence >= 0.5 {
-		updated := cfg
-		updated.Threshold = microResults.ParallelThreshold
-		updated.FFTThreshold = microResults.FFTThreshold
-		// Keep default Strassen threshold (micro-benchmarks don't test it)
-
-		fmt.Fprintf(out, "%sQuick calibration%s (%v): parallelism=%s%d%s bits, FFT=%s%d%s bits (confidence: %.0f%%)\n",
-			ui.ColorGreen(), ui.ColorReset(),
-			microResults.Duration.Round(time.Millisecond),
-			ui.ColorYellow(), updated.Threshold, ui.ColorReset(),
-			ui.ColorYellow(), updated.FFTThreshold, ui.ColorReset(),
-			microResults.Confidence*100)
-
-		// Save profile for future use
-		saveCalibrationProfile(updated, profilePath, out, microResults.Confidence)
+	// Standard escalation: fast first; if it does not clear the
+	// confidence bar, fall through to complete.
+	if updated, ok := tryFastThenEscalate(parentCtx, stratOpts, profilePath); ok {
 		return updated, true
 	}
-
-	// Fall back to full calibration if quick calibration failed or has low confidence
-	return runFullCalibration(parentCtx, cfg, out, calculatorRegistry, profilePath, fastCalc)
+	return runStrategy(parentCtx, NewCompleteStrategy(), stratOpts, profilePath, true)
 }
 
-// runFullCalibration executes the runner-based calibration sweep
-// (parallel + FFT + optional Strassen) and persists the results. It is
-// shared between the quick-calibrate fallback path and the stale-profile
-// re-calibration path. fastCalc must be non-nil; the caller has already
-// resolved it from calculatorRegistry.
-func runFullCalibration(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string, fastCalc fibonacci.Calculator) (updated config.AppConfig, ok bool) {
-	runner := newCalibrationRunner(parentCtx, cfg.Timeout)
+// applyCachedProfile copies the cached threshold values onto cfg and
+// emits the legacy "Using cached calibration" log line. It does not
+// touch disk: the caller has already loaded and validated the profile.
+func applyCachedProfile(cfg config.AppConfig, profile *CalibrationProfile, out io.Writer) config.AppConfig {
+	updated := cfg
+	updated.Threshold = profile.OptimalParallelThreshold
+	updated.FFTThreshold = profile.OptimalFFTThreshold
+	updated.StrassenThreshold = profile.OptimalStrassenThreshold
 
-	// Find optimal thresholds
-	bestPar, bestParDur := runner.findBestParallelThreshold(fastCalc, cfg.Threshold)
-	bestFFT, bestFFTDur := runner.findBestFFTThreshold(fastCalc, bestPar, cfg.FFTThreshold)
+	fmt.Fprintf(out, "%sUsing cached calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
+		ui.ColorGreen(), ui.ColorReset(),
+		ui.ColorYellow(), updated.Threshold, ui.ColorReset(),
+		ui.ColorYellow(), updated.FFTThreshold, ui.ColorReset(),
+		ui.ColorYellow(), updated.StrassenThreshold, ui.ColorReset())
+	return updated
+}
 
-	// Find optimal Strassen threshold using matrix calculator
-	bestStrassen := cfg.StrassenThreshold
-	bestStrassenDur := time.Duration(1<<63 - 1)
-	if matCalc := calculatorRegistry["matrix"]; matCalc != nil {
-		bestStrassen, bestStrassenDur = runner.findBestStrassenThreshold(matCalc, bestPar, cfg.StrassenThreshold)
+// tryFastThenEscalate runs FastStrategy and returns (updated, true)
+// only if the strategy produced a profile with confidence high enough
+// to skip the complete sweep. Any error or low-confidence result
+// returns (_, false) so the caller can escalate.
+func tryFastThenEscalate(parentCtx context.Context, stratOpts StrategyOptions, profilePath string) (config.AppConfig, bool) {
+	fast := NewFastStrategy()
+	profile, conf, err := fast.Calibrate(parentCtx, stratOpts)
+	if err != nil || conf < EscalationConfidenceThreshold {
+		return stratOpts.BaseConfig, false
 	}
+	return finalizeStrategyResult(stratOpts.BaseConfig, profile, profilePath, stratOpts.Out, false), true
+}
 
-	// Apply results and check if calibration was successful
-	updated, ok = applyCalibrationResults(cfg, bestPar, bestParDur, bestFFT, bestFFTDur, bestStrassen, bestStrassenDur)
-	if !ok {
-		return cfg, false
+// runStrategy invokes a CalibrationStrategy and converts its
+// (profile, confidence, error) tuple into the (config, ok) shape the
+// public AutoCalibrateWithProfile contract requires. When announce is
+// true it also emits the legacy "Auto-calibration: ..." summary line
+// — historically only the complete path printed it.
+func runStrategy(parentCtx context.Context, strategy CalibrationStrategy, stratOpts StrategyOptions, profilePath string, announce bool) (config.AppConfig, bool) {
+	profile, _, err := strategy.Calibrate(parentCtx, stratOpts)
+	if err != nil || profile == nil {
+		return stratOpts.BaseConfig, false
 	}
+	return finalizeStrategyResult(stratOpts.BaseConfig, profile, profilePath, stratOpts.Out, announce), true
+}
 
-	// Save profile and print output
-	saveCalibrationProfile(updated, profilePath, out, 1.0)
-	printCalibrationOutput(updated, out)
+// finalizeStrategyResult merges a strategy's *CalibrationProfile back
+// into the running config, persists it for future startups, and
+// optionally prints the human-facing summary. Persistence failures are
+// non-fatal (saveCalibrationProfile already logs a warning).
+func finalizeStrategyResult(cfg config.AppConfig, profile *CalibrationProfile, profilePath string, out io.Writer, announce bool) config.AppConfig {
+	updated := cfg
+	updated.Threshold = profile.OptimalParallelThreshold
+	updated.FFTThreshold = profile.OptimalFFTThreshold
+	updated.StrassenThreshold = profile.OptimalStrassenThreshold
 
-	return updated, true
+	saveCalibrationProfile(updated, profilePath, out, profile.Confidence)
+	if announce {
+		printCalibrationOutput(updated, out)
+	}
+	return updated
 }
 
 // LoadCachedCalibration attempts to load a cached calibration profile and

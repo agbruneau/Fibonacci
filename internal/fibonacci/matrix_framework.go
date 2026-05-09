@@ -1,5 +1,5 @@
 // This file contains the common Matrix Exponentiation framework used by the
-// MatrixExponentiation calculator to eliminate code duplication potential.
+// MatrixExponentiationCalculator calculator to eliminate code duplication potential.
 
 package fibonacci
 

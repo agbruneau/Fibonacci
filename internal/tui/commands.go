@@ -1,0 +1,122 @@
+package tui
+
+import (
+	"context"
+	"io"
+	"runtime"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/agbru/fibcalc/internal/config"
+	apperrors "github.com/agbru/fibcalc/internal/errors"
+	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/metrics"
+	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/sysmon"
+)
+
+// Run is the public entry point for the TUI mode.
+// It creates the bubbletea program, runs it, and returns the exit code.
+func Run(ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, version string) int {
+	// Rebuild styles from the current ui theme (set by app.Run via InitTheme).
+	initTUIStyles()
+
+	model := NewModel(ctx, calculators, cfg, version)
+	defer model.cancel()
+
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	// Inject the program reference before running so bridge goroutines can Send.
+	model.ref.SetProgram(p)
+
+	finalModel, err := p.Run()
+	if err != nil {
+		return apperrors.ExitErrorGeneric
+	}
+
+	if m, ok := finalModel.(Model); ok {
+		m.cancel()
+		return m.exitCode
+	}
+	return apperrors.ExitSuccess
+}
+
+// startCalculationCmd returns a tea.Cmd that launches the orchestration.
+func startCalculationCmd(ref *programRef, ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
+	return func() tea.Msg {
+		progressReporter := &TUIProgressReporter{ref: ref}
+		presenter := &TUIResultPresenter{ref: ref}
+
+		opts := fibonacci.Options{
+			ParallelThreshold: cfg.Threshold,
+			FFTThreshold:      cfg.FFTThreshold,
+			StrassenThreshold: cfg.StrassenThreshold,
+		}
+		results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
+			Calculators:      calculators,
+			N:                cfg.N,
+			Opts:             opts,
+			ProgressReporter: progressReporter,
+			Out:              io.Discard,
+		})
+		presOpts := orchestration.PresentationOptions{
+			N:         cfg.N,
+			Verbose:   cfg.Verbose,
+			Details:   cfg.Details,
+			ShowValue: cfg.ShowValue,
+		}
+		exitCode := orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, io.Discard)
+
+		return CalculationCompleteMsg{ExitCode: exitCode, Generation: gen}
+	}
+}
+
+// tickCmd returns a command that sends a TickMsg after 500ms.
+func tickCmd() tea.Cmd {
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
+
+// sampleMemStatsCmd reads runtime memory stats and returns a MemStatsMsg.
+func sampleMemStatsCmd() tea.Cmd {
+	return func() tea.Msg {
+		var ms runtime.MemStats
+		runtime.ReadMemStats(&ms)
+		return MemStatsMsg{
+			Alloc:        ms.Alloc,
+			HeapSys:      ms.HeapSys,
+			NumGC:        ms.NumGC,
+			PauseTotalNs: ms.PauseTotalNs,
+			NumGoroutine: runtime.NumGoroutine(),
+		}
+	}
+}
+
+// sampleSysStatsCmd reads system-wide CPU and memory stats and returns a SysStatsMsg.
+func sampleSysStatsCmd() tea.Cmd {
+	return func() tea.Msg {
+		s := sysmon.Sample()
+		return SysStatsMsg{
+			CPUPercent: s.CPUPercent,
+			MemPercent: s.MemPercent,
+		}
+	}
+}
+
+// computeIndicatorsCmd returns a tea.Cmd that computes post-calculation
+// indicators asynchronously, ensuring no impact on the UI thread.
+func computeIndicatorsCmd(msg FinalResultMsg) tea.Cmd {
+	return func() tea.Msg {
+		ind := metrics.Compute(msg.Result.Result, msg.N, msg.Result.Duration)
+		return IndicatorsMsg{Indicators: ind}
+	}
+}
+
+// watchContextCmd waits for context cancellation and sends a message.
+func watchContextCmd(ctx context.Context, gen uint64) tea.Cmd {
+	return func() tea.Msg {
+		<-ctx.Done()
+		return ContextCancelledMsg{Err: ctx.Err(), Generation: gen}
+	}
+}

@@ -7,7 +7,7 @@ import (
 	"github.com/agbru/fibcalc/internal/progress"
 )
 
-// MatrixExponentiation offers a classic and efficient approach to calculating
+// MatrixExponentiationCalculator offers a classic and efficient approach to calculating
 // Fibonacci numbers.
 //
 // Mathematical Basis:
@@ -42,7 +42,7 @@ import (
 //     reduce the number of expensive `big.Int` multiplications from 8 to 7.
 //     The threshold is set to overcome the overhead of the extra additions and
 //     subtractions involved.
-type MatrixExponentiation struct{}
+type MatrixExponentiationCalculator struct{}
 
 // Name returns the descriptive name of the algorithm.
 // This name is displayed in the application's user interface, providing a clear
@@ -51,7 +51,7 @@ type MatrixExponentiation struct{}
 //
 // Returns:
 //   - string: The name of the algorithm.
-func (c *MatrixExponentiation) Name() string {
+func (c *MatrixExponentiationCalculator) Name() string {
 	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
 
@@ -70,7 +70,7 @@ func (c *MatrixExponentiation) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (c *MatrixExponentiationCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	state := acquireMatrixState()
 	defer releaseMatrixState(state)
 

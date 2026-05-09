@@ -17,7 +17,7 @@ import (
 // does not pin ~400 MB of backing memory in the pool forever.
 const maxArenaPoolWords = 50_000_000
 
-// OptimizedFastDoubling provides a high-performance implementation of the "Fast
+// FastDoublingCalculator provides a high-performance implementation of the "Fast
 // Doubling" algorithm for calculating Fibonacci numbers.
 // This method is highly efficient, making it one of the fastest known algorithms
 // for this purpose.
@@ -69,7 +69,7 @@ const maxArenaPoolWords = 50_000_000
 //     when the numbers exceed a specified `fftThreshold`. This threshold
 //     defaults to 500,000 bits, a conservative value where FFT's superior
 //     asymptotic complexity reliably outperforms standard multiplication.
-type OptimizedFastDoubling struct{}
+type FastDoublingCalculator struct{}
 
 // Name returns the descriptive name of the algorithm.
 // This name is displayed in the application's user interface, providing a clear
@@ -78,7 +78,7 @@ type OptimizedFastDoubling struct{}
 //
 // Returns:
 //   - string: The name of the algorithm.
-func (fd *OptimizedFastDoubling) Name() string {
+func (fd *FastDoublingCalculator) Name() string {
 	return "Fast Doubling (O(log n), Parallel, Zero-Alloc)"
 }
 
@@ -100,7 +100,7 @@ func (fd *OptimizedFastDoubling) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	// AcquireStateForN reuses (or grows) the state's bound arena and pre-sizes
 	// all big.Int slots from it. The arena is owned by the state, so the
 	// invariant "no big.Int alias outlives its backing arena" is enforced

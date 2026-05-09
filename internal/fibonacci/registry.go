@@ -48,8 +48,8 @@ type DefaultFactory struct {
 // Fibonacci calculator implementations pre-registered.
 //
 // Pre-registered calculators:
-//   - "fast": OptimizedFastDoubling (O(log n), Parallel, Zero-Alloc)
-//   - "matrix": MatrixExponentiation (O(log n), Parallel, Zero-Alloc)
+//   - "fast": FastDoublingCalculator (O(log n), Parallel, Zero-Alloc)
+//   - "matrix": MatrixExponentiationCalculator (O(log n), Parallel, Zero-Alloc)
 //   - "fft": FFTBasedCalculator (O(log n), FFT-accelerated)
 //
 // Returns:
@@ -61,8 +61,8 @@ func NewDefaultFactory() *DefaultFactory {
 	}
 
 	// Register the default calculators
-	_ = f.Register("fast", func() CoreCalculator { return &OptimizedFastDoubling{} })
-	_ = f.Register("matrix", func() CoreCalculator { return &MatrixExponentiation{} })
+	_ = f.Register("fast", func() CoreCalculator { return &FastDoublingCalculator{} })
+	_ = f.Register("matrix", func() CoreCalculator { return &MatrixExponentiationCalculator{} })
 	_ = f.Register("fft", func() CoreCalculator { return &FFTBasedCalculator{} })
 
 	return f

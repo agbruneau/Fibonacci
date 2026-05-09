@@ -11,7 +11,7 @@ import (
 // Doubling algorithm, but with a significant modification: it exclusively relies
 // on FFT-based multiplication for all big.Int operations.
 //
-// Unlike the OptimizedFastDoubling calculator, which adaptively switches
+// Unlike the FastDoublingCalculator calculator, which adaptively switches
 // between standard and FFT-based multiplication, this implementation uses
 // mulFFT for every multiplication, regardless of the numbers' size. This makes
 // it an excellent tool for benchmarking the performance of FFT-based
