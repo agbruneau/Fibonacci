@@ -57,11 +57,11 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 | R2.4 | Supprimer `BumpAllocatorAdapter` | 2A | `internal/bigfft/allocator.go` | 30 min | ✅ | agent | (Vague2A) |
 | R2.6 | Fusionner `cli/{presenter,ui_display,output}` | 2A | `internal/cli/{presenter,ui_display,output}.go` | 4 h | ✅ | agent | (Vague2A) |
 | R2.7 | Fusionner `ui/{colors,themes}` + `tui/styles` | 2A | `internal/ui/`, `internal/tui/styles.go` | 6 h | ✅ | agent | (Vague2A) |
-| R2.3 | Supprimer code mort `bigfft` (scan, CPU, …) | 2B | `internal/bigfft/{scan.go,cpu_amd64.go,arith_amd64.go}` + `pool.go` | 2 h | ⬜ | — | — |
-| R2.5 | Fusionner triple couche progression | 2B | `internal/orchestration/progress.go`, `internal/format/progress_eta.go` | 1 j | ⬜ | — | — |
-| R2.8 | Fusionner `bigfft fft.go ↔ fft_poly.go` | 2B | `internal/bigfft/fft.go`, `internal/bigfft/fft_poly.go` | 1 j | ⬜ | — | — |
-| R2.9 | Fusionner `executeFFTTransforms{P,S}` | 2B | `internal/fibonacci/fft.go` | 1 h | ⬜ | — | — |
-| R2.10 | Consolider hash FNV | 2B | `internal/bigfft/fft_cache.go` | 1 h | ⬜ | — | — |
+| R2.3 | Supprimer code mort `bigfft` (scan, CPU, …) | 2B | `internal/bigfft/{scan.go,cpu_amd64.go,arith_amd64.go}` + `pool.go` | 2 h | ⚠ | agent | BLOCKED: tests existants (scan_test, pool_test, cpu_amd64_extended_test, arith_amd64_test) référencent ces symboles. Suppression nécessite autorisation conjointe sur les tests. |
+| R2.5 | Fusionner triple couche progression | 2B | `internal/orchestration/progress.go`, `internal/format/progress_eta.go` | 1 j | ✅ | agent | (Vague2B) split format/eta.go + progress.go ; orchestration/progress.go intégré |
+| R2.8 | Fusionner `bigfft fft.go ↔ fft_poly.go` | 2B | `internal/bigfft/fft.go`, `internal/bigfft/fft_poly.go` | 1 j | ⚠ | agent | BLOCKED: fusion déjà appliquée historiquement (fftmulTo délègue à Poly.MulCachedWithBump). Reste duplication dans fft_cache.go (Mul/MulCached/MulCachedWithBump) — interdite par R2.10 en parallèle. |
+| R2.9 | Fusionner `executeFFTTransforms{P,S}` | 2B | `internal/fibonacci/fft.go` | 1 h | ✅ | agent | (Vague2B) -49 LOC, helper fftInvTransformInto extrait |
+| R2.10 | Consolider hash FNV | 2B | `internal/bigfft/fft_cache.go` | 1 h | ✅ | agent | (Vague2B) cacheKeyBuilder consolide les 3 versions |
 
 ### Vague 3 — Décompositions structurelles (3 semaines, 4 lots)
 

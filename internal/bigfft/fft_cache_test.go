@@ -728,3 +728,134 @@ func BenchmarkCachePut(b *testing.B) {
 		cache.Put(testData, mockValues)
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hash invariance regression test (R2.10)
+//
+// computeCacheKey and computePolyKey were refactored to share a single
+// FNV-1a implementation via cacheKeyBuilder. Since FFT cache lookups depend
+// on the exact bit-pattern of the produced keys, any change to the hash
+// algorithm would silently invalidate previously hot cache entries between
+// rebuilds — and, worse, between callers within the same process if some
+// path were missed in the refactor. This test pins the algorithm to the
+// pre-refactor reference (an inline FNV-1a) and verifies bit-equality.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// referenceFnvWriteUint64 is a verbatim copy of the pre-R2.10 fnvWriteUint64
+// helper. It serves as the oracle for the consolidated implementation.
+func referenceFnvWriteUint64(h uint64, x uint64) uint64 {
+	h ^= x & 0xff
+	h *= prime64
+	h ^= (x >> 8) & 0xff
+	h *= prime64
+	h ^= (x >> 16) & 0xff
+	h *= prime64
+	h ^= (x >> 24) & 0xff
+	h *= prime64
+	h ^= (x >> 32) & 0xff
+	h *= prime64
+	h ^= (x >> 40) & 0xff
+	h *= prime64
+	h ^= (x >> 48) & 0xff
+	h *= prime64
+	h ^= (x >> 56) & 0xff
+	h *= prime64
+	return h
+}
+
+// referenceComputeCacheKey is a verbatim copy of the pre-R2.10 algorithm.
+func referenceComputeCacheKey(data nat, k uint, n int) uint64 {
+	h := uint64(offset64)
+	h = referenceFnvWriteUint64(h, uint64(k))
+	h = referenceFnvWriteUint64(h, uint64(n))
+	for _, word := range data {
+		h = referenceFnvWriteUint64(h, uint64(word))
+	}
+	return h
+}
+
+// referenceComputePolyKey is a verbatim copy of the pre-R2.10 algorithm.
+func referenceComputePolyKey(p *Poly, k uint, n int) uint64 {
+	h := uint64(offset64)
+	h = referenceFnvWriteUint64(h, uint64(k))
+	h = referenceFnvWriteUint64(h, uint64(n))
+	for _, a := range p.A {
+		for _, word := range a {
+			h = referenceFnvWriteUint64(h, uint64(word))
+		}
+	}
+	return h
+}
+
+func TestComputeCacheKeyInvariantR2_10(t *testing.T) {
+	t.Parallel()
+
+	// Cover edge cases: empty, single word, multiple words, large words.
+	cases := []struct {
+		name string
+		data nat
+		k    uint
+		n    int
+	}{
+		{"empty", nat{}, 0, 0},
+		{"single_zero", nat{0}, 1, 1},
+		{"single_max", nat{^big.Word(0)}, 7, 13},
+		{"sequential", func() nat {
+			d := make(nat, 16)
+			for i := range d {
+				d[i] = big.Word(i + 1)
+			}
+			return d
+		}(), 4, 100},
+		{"large_k_n", nat{0xdeadbeef, 0xcafebabe, 0x12345678}, 1 << 20, 1 << 30},
+	}
+
+	for _, tc := range cases {
+		got := computeCacheKey(tc.data, tc.k, tc.n)
+		want := referenceComputeCacheKey(tc.data, tc.k, tc.n)
+		if got != want {
+			t.Errorf("%s: computeCacheKey hash drift: got=%#x want=%#x", tc.name, got, want)
+		}
+	}
+}
+
+func TestComputePolyKeyInvariantR2_10(t *testing.T) {
+	t.Parallel()
+
+	makePoly := func(coeffs [][]big.Word) *Poly {
+		p := &Poly{A: make([]nat, len(coeffs))}
+		for i, c := range coeffs {
+			p.A[i] = nat(c)
+		}
+		return p
+	}
+
+	cases := []struct {
+		name string
+		poly *Poly
+		k    uint
+		n    int
+	}{
+		{"empty_poly", makePoly(nil), 0, 0},
+		{"single_empty_coeff", makePoly([][]big.Word{{}}), 1, 1},
+		{"uniform_small", makePoly([][]big.Word{
+			{1, 2, 3},
+			{4, 5, 6},
+			{7, 8, 9},
+		}), 3, 27},
+		{"jagged", makePoly([][]big.Word{
+			{0xdeadbeef},
+			{},
+			{1, 2, 3, 4, 5, 6, 7, 8},
+			{^big.Word(0)},
+		}), 5, 200},
+	}
+
+	for _, tc := range cases {
+		got := computePolyKey(tc.poly, tc.k, tc.n)
+		want := referenceComputePolyKey(tc.poly, tc.k, tc.n)
+		if got != want {
+			t.Errorf("%s: computePolyKey hash drift: got=%#x want=%#x", tc.name, got, want)
+		}
+	}
+}

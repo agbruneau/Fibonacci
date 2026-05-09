@@ -123,8 +123,24 @@ func SetTransformCacheConfig(config TransformCacheConfig) {
 	}
 }
 
-// fnvWriteUint64 updates the FNV-1a hash with a uint64 value in little-endian order.
-func fnvWriteUint64(h uint64, x uint64) uint64 {
+// cacheKeyBuilder accumulates an FNV-1a 64-bit hash. It is the single
+// implementation behind every cache-key computation in this file; both
+// computeCacheKey and computePolyKey use it to ensure bit-identical hashes
+// across input shapes (nat slice vs. polynomial coefficients).
+type cacheKeyBuilder struct {
+	h uint64
+}
+
+// newCacheKeyBuilder returns a builder initialized with the FNV-1a offset.
+func newCacheKeyBuilder() cacheKeyBuilder {
+	return cacheKeyBuilder{h: offset64}
+}
+
+// writeUint64 mixes a uint64 into the hash, byte by byte in little-endian
+// order. This matches the historical fnvWriteUint64 byte-ordering exactly so
+// that previously persisted/expected keys remain valid.
+func (b *cacheKeyBuilder) writeUint64(x uint64) {
+	h := b.h
 	h ^= x & 0xff
 	h *= prime64
 	h ^= (x >> 8) & 0xff
@@ -141,34 +157,40 @@ func fnvWriteUint64(h uint64, x uint64) uint64 {
 	h *= prime64
 	h ^= (x >> 56) & 0xff
 	h *= prime64
-	return h
+	b.h = h
 }
+
+// writeNat mixes every word of a nat into the hash in slice order.
+func (b *cacheKeyBuilder) writeNat(data nat) {
+	for _, word := range data {
+		b.writeUint64(uint64(word))
+	}
+}
+
+// sum returns the accumulated 64-bit hash.
+func (b *cacheKeyBuilder) sum() uint64 { return b.h }
 
 // computeCacheKey generates a cache key from the input data using FNV-1a.
 // FNV-1a is much faster than SHA-256 and provides sufficient collision
 // resistance for cache key purposes.
 func computeCacheKey(data nat, k uint, n int) uint64 {
-	h := uint64(offset64)
-	h = fnvWriteUint64(h, uint64(k))
-	h = fnvWriteUint64(h, uint64(n)) // #nosec G115 -- bit-pattern reinterpretation for FNV hash; n is a non-negative size
-	for _, word := range data {
-		h = fnvWriteUint64(h, uint64(word))
-	}
-	return h
+	b := newCacheKeyBuilder()
+	b.writeUint64(uint64(k))
+	b.writeUint64(uint64(n)) // #nosec G115 -- bit-pattern reinterpretation for FNV hash; n is a non-negative size
+	b.writeNat(data)
+	return b.sum()
 }
 
 // computePolyKey generates a cache key directly from polynomial coefficients,
 // avoiding the intermediate allocation of flattenPolyData.
 func computePolyKey(p *Poly, k uint, n int) uint64 {
-	h := uint64(offset64)
-	h = fnvWriteUint64(h, uint64(k))
-	h = fnvWriteUint64(h, uint64(n)) // #nosec G115 -- bit-pattern reinterpretation for FNV hash; n is a non-negative size
+	b := newCacheKeyBuilder()
+	b.writeUint64(uint64(k))
+	b.writeUint64(uint64(n)) // #nosec G115 -- bit-pattern reinterpretation for FNV hash; n is a non-negative size
 	for _, a := range p.A {
-		for _, word := range a {
-			h = fnvWriteUint64(h, uint64(word))
-		}
+		b.writeNat(a)
 	}
-	return h
+	return b.sum()
 }
 
 // computeKey is an alias for computeCacheKey for backward compatibility.
