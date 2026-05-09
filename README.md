@@ -176,6 +176,7 @@ fibcalc [flags]
 | `--version` | `-V` | | Display version info. |
 | `--last-digits` | | `0` | Compute only the last K decimal digits (O(K) memory). |
 | `--memory-limit` | | | Memory budget (e.g. `8G`). Pre-flight estimator aborts if exceeded. |
+| `--gc-control` | | `auto` | GC behaviour during calculation: `auto`, `aggressive`, or `disabled`. |
 
 > Threshold `0` triggers hardware-adaptive estimation. Static fallbacks: parallel = 4,096 bits, FFT = 500,000 bits, Strassen = 3,072 bits (config) / 256 bits (internal).
 
@@ -225,7 +226,7 @@ Build and deployment details (cross-compilation, PGO, signing): [`docs/BUILD.md`
 ## Development
 
 - Go 1.25+, optional `golangci-lint` and `gosec`.
-- Guidance for AI assistants: [`CLAUDE.md`](CLAUDE.md).
+- Guidance for AI assistants: [`Claude.md`](Claude.md).
 - Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Most common commands:
@@ -304,7 +305,7 @@ Strategy, golden files, E2E, mocking policy: [`docs/TESTING.md`](docs/TESTING.md
 
 ## Changelog
 
-See [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format, SemVer). Audit notes live under [`docs/audits/2026-04/`](docs/audits/2026-04/).
+See [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format, SemVer).
 
 ---
 

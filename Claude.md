@@ -7,7 +7,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Module** : `github.com/agbru/fibcalc`
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
-- **Taille** : ~37 000 lignes Go, 22 packages
+- **Taille** : ~36 500 lignes Go, 21 packages (19 internes + 2 sous `cmd/`)
 
 ## Architecture (Clean Architecture, 4 couches)
 
@@ -36,9 +36,8 @@ internal/
   tui/               # Dashboard TUI interactif (Bubble Tea)
   ui/                # Thèmes couleur et styling
 docs/
-  architecture/      # Diagrammes C4 (Mermaid)
-  algorithms/        # Documentation mathématique
-  audits/            # Rapports d'audits archivés
+  architecture/      # Diagrammes C4 (Mermaid), validation
+  algorithms/        # Documentation mathématique par algorithme
 ```
 
 ## Algorithmes

@@ -72,7 +72,7 @@ Previous report (pre-audit) had 6 WARNINGs. All have been resolved.
 **Auditor**: Phase B2
 **Files verified**:
 - `docs/architecture/README.md` (Key Interfaces section)
-- `CLAUDE.md` (Key Interfaces and Key Patterns sections)
+- `Claude.md` (Key Interfaces and Key Patterns sections)
 
 ### Results
 
@@ -160,7 +160,7 @@ These narratives are captured inline in `docs/ARCH.md` (sections 6-8) and `docs/
 
 **Auditor**: Phase B4
 **Files verified**:
-- `CLAUDE.md`
+- `Claude.md`
 - `docs/BUILD.md`
 - `docs/TESTING.md`
 - `docs/PERFORMANCE.md`
@@ -172,11 +172,11 @@ These narratives are captured inline in `docs/ARCH.md` (sections 6-8) and `docs/
 
 | Check | Status | Details |
 |-------|--------|---------|
-| CLAUDE.md build commands | PASS | All commands verified |
-| CLAUDE.md architecture overview | PASS | Layer descriptions accurate |
-| CLAUDE.md package table | PASS | All packages and files verified |
-| CLAUDE.md code conventions | PASS | Linter count corrected (22 -> 24) |
-| CLAUDE.md key patterns | PASS | All patterns match source |
+| Claude.md build commands | PASS | All commands verified |
+| Claude.md architecture overview | PASS | Layer descriptions accurate |
+| Claude.md package table | PASS | All packages and files verified |
+| Claude.md code conventions | PASS | Linter count corrected (22 -> 24) |
+| Claude.md key patterns | PASS | All patterns match source |
 | BUILD.md compilation instructions | PASS | Build commands verified |
 | BUILD.md PGO documentation | PASS | Profile path and workflow correct |
 | TESTING.md test strategy | PASS | Fuzz target count corrected (17 -> 4) |
@@ -189,7 +189,7 @@ These narratives are captured inline in `docs/ARCH.md` (sections 6-8) and `docs/
 
 ### Corrections Applied
 
-**CLAUDE.md** (3 fixes):
+**Claude.md** (3 fixes):
 1. Linter count: `22 linters enabled` -> `24 linters enabled` (verified against `.golangci.yml`)
 2. Fuzz target count: `17 oracle-based fuzz targets` -> `4 fuzz targets` (verified against actual `_fuzz_test.go` files)
 3. Formal verification: Marked Coq proofs as planned rather than verified
@@ -239,7 +239,7 @@ The previous validation report contained 6 WARNINGs. All have been resolved:
 | B1 | C4 Diagrams | 37+ | 3 mermaid files |
 | B2 | Interfaces & Patterns | 2 | architecture README, patterns doc |
 | B3 | Execution Flows | 2 + 4 new docs | README.md, architecture README, 4 new flow docs |
-| B4 | Operational Guides | 14 | CLAUDE.md, TESTING.md, README.md, .env.example, BUILD.md, FFT.md |
+| B4 | Operational Guides | 14 | Claude.md, TESTING.md, README.md, .env.example, BUILD.md, FFT.md |
 | **Total** | | **53+ corrections** | **14 files** |
 
 ---

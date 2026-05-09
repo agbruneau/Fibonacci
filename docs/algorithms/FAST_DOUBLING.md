@@ -194,7 +194,7 @@ s := AcquireStateForN(n)         // reuses or grows the bound arena
 result := ReleaseStateWithResult(s, s.FK)  // deep-copies result OUT of arena, resets, returns to pool
 ```
 
-If the arena is exhausted, allocation falls back to the standard heap. Past `maxArenaPoolWords` (~50M words / ~400 MB), the arena is dropped rather than pooled. The "steal `s.FK`" zero-copy trick used before P1-04 is incompatible with arena reuse: it was replaced by a single deep-copy in `ReleaseStateWithResult` (one `~850 KB` memcpy for F(10M), <0.01 % of runtime — far cheaper than the race documented in `docs/audits/2026-04/bench/perf-results/P1-04-SKIPPED.md`).
+If the arena is exhausted, allocation falls back to the standard heap. Past `maxArenaPoolWords` (~50M words / ~400 MB), the arena is dropped rather than pooled. The "steal `s.FK`" zero-copy trick used before P1-04 is incompatible with arena reuse: stealing the slice left the released result aliasing pooled memory that the next tenant's `Reset()` would overwrite. It was replaced by a single deep-copy in `ReleaseStateWithResult` (one `~850 KB` memcpy for F(10M), <0.01 % of runtime).
 
 ### 3. Parallel Multiplication via Strategy
 
