@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -15,6 +16,34 @@ import (
 	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/agbru/fibcalc/internal/ui"
 )
+
+// DefaultProfileMaxAge is the default freshness window for a cached
+// calibration profile. Beyond this age, AutoCalibrateWithProfile ignores
+// the cached values and re-runs a full calibration so that the saved
+// thresholds keep tracking the current hardware/runtime characteristics.
+const DefaultProfileMaxAge = 7 * 24 * time.Hour
+
+// ProfileMaxAgeEnv is the environment variable name read by
+// profileMaxAgeFromEnv to override DefaultProfileMaxAge. The value must
+// be parseable by time.ParseDuration (e.g. "168h", "30m"). Invalid or
+// non-positive values fall back to DefaultProfileMaxAge.
+const ProfileMaxAgeEnv = "FIBCALC_PROFILE_MAX_AGE"
+
+// profileMaxAgeFromEnv returns the configured maximum age for a cached
+// calibration profile. It honours the FIBCALC_PROFILE_MAX_AGE environment
+// variable when set to a valid, positive time.Duration string; otherwise
+// it returns DefaultProfileMaxAge.
+func profileMaxAgeFromEnv() time.Duration {
+	raw := os.Getenv(ProfileMaxAgeEnv)
+	if raw == "" {
+		return DefaultProfileMaxAge
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return DefaultProfileMaxAge
+	}
+	return d
+}
 
 // ProgressDisplayFunc is a function that displays progress from a channel.
 // It decouples calibration from CLI display concerns.
@@ -257,7 +286,12 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	}
 
 	// Try to load existing profile first
-	if profile, loaded := LoadOrCreateProfile(profilePath); loaded && profile.IsValid() {
+	profile, loaded := LoadOrCreateProfile(profilePath)
+	profileFresh := loaded && profile.IsValid()
+	maxAge := profileMaxAgeFromEnv()
+	profileStale := profileFresh && profile.IsStale(maxAge)
+
+	if profileFresh && !profileStale {
 		// Use cached calibration
 		updated := cfg
 		updated.Threshold = profile.OptimalParallelThreshold
@@ -270,6 +304,16 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 			ui.ColorYellow(), updated.FFTThreshold, ui.ColorReset(),
 			ui.ColorYellow(), updated.StrassenThreshold, ui.ColorReset())
 		return updated, true
+	}
+
+	if profileStale {
+		// Profile is hardware-compatible but too old: discard cache and
+		// jump straight to full calibration so the persisted thresholds
+		// reflect current runtime conditions.
+		age := time.Since(profile.CalibratedAt).Round(time.Second)
+		fmt.Fprintf(out, "%sProfile stale (age=%s), re-calibrating%s\n",
+			ui.ColorYellow(), age, ui.ColorReset())
+		return runFullCalibration(parentCtx, cfg, out, calculatorRegistry, profilePath, fastCalc)
 	}
 
 	// Try quick micro-benchmarks first (~100ms)
@@ -293,7 +337,15 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	}
 
 	// Fall back to full calibration if quick calibration failed or has low confidence
+	return runFullCalibration(parentCtx, cfg, out, calculatorRegistry, profilePath, fastCalc)
+}
 
+// runFullCalibration executes the runner-based calibration sweep
+// (parallel + FFT + optional Strassen) and persists the results. It is
+// shared between the quick-calibrate fallback path and the stale-profile
+// re-calibration path. fastCalc must be non-nil; the caller has already
+// resolved it from calculatorRegistry.
+func runFullCalibration(parentCtx context.Context, cfg config.AppConfig, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string, fastCalc fibonacci.Calculator) (updated config.AppConfig, ok bool) {
 	runner := newCalibrationRunner(parentCtx, cfg.Timeout)
 
 	// Find optimal thresholds

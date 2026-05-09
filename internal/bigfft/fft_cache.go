@@ -42,10 +42,11 @@ func DefaultTransformCacheConfig() TransformCacheConfig {
 
 // cacheEntry holds a cached FFT transform result.
 type cacheEntry struct {
-	key    uint64   // FNV-1a hash of input
-	values []fermat // cached polValues.values
-	k      uint     // FFT size parameter
-	n      int      // coefficient length
+	key     uint64     // FNV-1a hash of input
+	values  []fermat   // cached polValues.values (sub-slices of backing)
+	backing []big.Word // contiguous storage for values; recycled on eviction
+	k       uint       // FFT size parameter
+	n       int        // coefficient length
 }
 
 // cacheLogInterval is the number of accesses between periodic cache stats logging.
@@ -260,6 +261,11 @@ func (tc *TransformCache) Put(data nat, pv PolValues) {
 }
 
 // putByKey stores a transform result in the cache by precomputed key.
+//
+// When the cache is at capacity, the oldest entry is evicted and its
+// contiguous backing buffer is recycled to back the new entry whenever its
+// capacity is sufficient. This avoids an O(K·n) allocation on the hot path
+// of cache turnover. Eviction order (LRU) and thread-safety are preserved.
 func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
@@ -269,22 +275,42 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		return
 	}
 
-	// Evict oldest entries if at capacity
-	for tc.lru.Len() >= tc.config.MaxEntries {
-		oldest := tc.lru.Back()
-		if oldest != nil {
-			tc.lru.Remove(oldest)
-			entry := oldest.Value.(*cacheEntry)
-			delete(tc.entries, entry.key)
-			tc.evictions.Add(1)
-		}
-	}
-
-	// Create a deep copy using a contiguous buffer to reduce allocations
 	K := len(pv.Values)
 	n := pv.N
 	wordCount := K * (n + 1)
-	backing := make([]big.Word, wordCount)
+
+	// Evict oldest entries if at capacity, salvaging a backing buffer
+	// large enough to host the new entry when possible.
+	var backing []big.Word
+	for tc.lru.Len() >= tc.config.MaxEntries {
+		oldest := tc.lru.Back()
+		if oldest == nil {
+			break
+		}
+		tc.lru.Remove(oldest)
+		entry := oldest.Value.(*cacheEntry)
+		delete(tc.entries, entry.key)
+		tc.evictions.Add(1)
+
+		// Salvage the largest suitable evicted backing. We keep the first
+		// fit (LRU order); subsequent evictions in the same loop drop their
+		// buffers to GC, matching the prior semantics for them.
+		if backing == nil && cap(entry.backing) >= wordCount {
+			backing = entry.backing[:wordCount]
+			// Zero recycled storage to avoid leaking stale words into the
+			// new entry's fermat sub-slices (copy below only writes len(v)
+			// words per coefficient, which may be < n+1).
+			for i := range backing {
+				backing[i] = 0
+			}
+		}
+	}
+
+	// Allocate fresh storage if no suitable buffer was salvaged.
+	if backing == nil {
+		backing = make([]big.Word, wordCount)
+	}
+
 	valuesCopy := make([]fermat, K)
 	for i, v := range pv.Values {
 		valuesCopy[i] = fermat(backing[i*(n+1) : (i+1)*(n+1)])
@@ -292,10 +318,11 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	}
 
 	entry := &cacheEntry{
-		key:    key,
-		values: valuesCopy,
-		k:      pv.K,
-		n:      pv.N,
+		key:     key,
+		values:  valuesCopy,
+		backing: backing,
+		k:       pv.K,
+		n:       pv.N,
 	}
 
 	elem := tc.lru.PushFront(entry)

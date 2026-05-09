@@ -374,6 +374,115 @@ func TestCalibrationRunner(t *testing.T) {
 	}
 }
 
+func TestProfileMaxAgeFromEnv(t *testing.T) {
+	// Not parallel: mutates process-wide environment variable.
+
+	t.Run("Unset returns default", func(t *testing.T) {
+		t.Setenv(ProfileMaxAgeEnv, "")
+		if got := profileMaxAgeFromEnv(); got != DefaultProfileMaxAge {
+			t.Errorf("profileMaxAgeFromEnv() = %v, want %v", got, DefaultProfileMaxAge)
+		}
+	})
+
+	t.Run("Valid override is honoured", func(t *testing.T) {
+		t.Setenv(ProfileMaxAgeEnv, "30m")
+		if got := profileMaxAgeFromEnv(); got != 30*time.Minute {
+			t.Errorf("profileMaxAgeFromEnv() = %v, want 30m", got)
+		}
+	})
+
+	t.Run("Invalid value falls back to default", func(t *testing.T) {
+		t.Setenv(ProfileMaxAgeEnv, "not-a-duration")
+		if got := profileMaxAgeFromEnv(); got != DefaultProfileMaxAge {
+			t.Errorf("profileMaxAgeFromEnv() = %v, want %v", got, DefaultProfileMaxAge)
+		}
+	})
+
+	t.Run("Non-positive value falls back to default", func(t *testing.T) {
+		t.Setenv(ProfileMaxAgeEnv, "0s")
+		if got := profileMaxAgeFromEnv(); got != DefaultProfileMaxAge {
+			t.Errorf("profileMaxAgeFromEnv() = %v, want %v", got, DefaultProfileMaxAge)
+		}
+	})
+}
+
+func TestAutoCalibrateWithProfile_StaleProfileTriggersRecalibration(t *testing.T) {
+	// Not parallel: t.Setenv pins this test to a single goroutine.
+	tmpDir := t.TempDir()
+	profilePath := tmpDir + "/profile.json"
+
+	// Build a profile that is hardware-valid (NewProfile populates current
+	// hardware fields) but predates the freshness window by two weeks.
+	profile := NewProfile()
+	profile.OptimalParallelThreshold = 4096
+	profile.OptimalFFTThreshold = 1000000
+	profile.OptimalStrassenThreshold = 256
+	profile.Confidence = 1.0
+	profile.CalibratedAt = time.Now().Add(-14 * 24 * time.Hour)
+
+	// Sanity: IsValid stays true (hardware match), IsStale must report true
+	// against any reasonable max-age (default = 7 days).
+	if !profile.IsValid() {
+		t.Fatalf("precondition failed: profile should be valid for current hardware")
+	}
+	if !profile.IsStale(DefaultProfileMaxAge) {
+		t.Fatalf("precondition failed: 14-day-old profile should be stale vs default max age")
+	}
+
+	if err := profile.SaveProfile(profilePath); err != nil {
+		t.Fatalf("Failed to save profile: %v", err)
+	}
+
+	// Force the default max-age (7d) regardless of caller environment.
+	t.Setenv(ProfileMaxAgeEnv, "")
+
+	registry := map[string]fibonacci.Calculator{
+		"fast":   &MockCalculator{name: "fast"},
+		"matrix": &MockCalculator{name: "matrix"},
+	}
+
+	cfg := config.AppConfig{
+		Timeout: 5 * time.Second,
+	}
+
+	var outBuf bytes.Buffer
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+	if !ok {
+		t.Fatalf("AutoCalibrateWithProfile should succeed; output=%q", outBuf.String())
+	}
+
+	output := outBuf.String()
+	if !strings.Contains(output, "Profile stale") {
+		t.Errorf("Output should mention stale profile re-calibration. Got: %s", output)
+	}
+	if !strings.Contains(output, "re-calibrating") {
+		t.Errorf("Output should mention re-calibrating. Got: %s", output)
+	}
+	if strings.Contains(output, "Using cached calibration") {
+		t.Errorf("Output should NOT advertise cached calibration when profile is stale. Got: %s", output)
+	}
+	if strings.Contains(output, "Quick calibration") {
+		t.Errorf("Stale profile must skip the quick path and run full calibration. Got: %s", output)
+	}
+
+	// The full calibration path must overwrite the on-disk profile with a
+	// fresh CalibratedAt timestamp; verify the persisted profile is no
+	// longer stale.
+	reloaded, reloadedOK := LoadOrCreateProfile(profilePath)
+	if !reloadedOK {
+		t.Fatalf("Reloaded profile should be valid after re-calibration")
+	}
+	if reloaded.IsStale(DefaultProfileMaxAge) {
+		t.Errorf("Profile persisted after re-calibration should not be stale; CalibratedAt=%s", reloaded.CalibratedAt)
+	}
+	if updated.Threshold == 0 {
+		t.Errorf("Re-calibrated config should have a non-zero parallel threshold")
+	}
+}
+
 func TestApplyCalibrationResults(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{}

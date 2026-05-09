@@ -59,6 +59,22 @@ func (gc *GCController) SetLogger(l zerolog.Logger) {
 	gc.logger = l
 }
 
+// WithGC executes fn under GC control: it disables GC via Begin before running
+// fn and guarantees restoration via a deferred End, even if fn panics. If fn
+// panics, GC settings are restored before the panic is re-raised, preventing
+// the silent process-wide GC leak that occurs when Begin/End are used directly
+// and a panic escapes between the two calls.
+//
+// Returns the error returned by fn (nil on success).
+func (gc *GCController) WithGC(fn func() error) (err error) {
+	gc.Begin()
+	defer gc.End()
+	return fn()
+}
+
+// Deprecated: Use WithGC() for panic-safe usage. Begin/End used directly leak
+// GC settings if a panic escapes between the two calls.
+//
 // Begin disables GC if the controller is active.
 func (gc *GCController) Begin() {
 	if !gc.active {

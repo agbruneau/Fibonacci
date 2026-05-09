@@ -139,3 +139,96 @@ func TestAcquireStateForN_RoundTrip(t *testing.T) {
 		t.Fatalf("expected 123, got %s", out.String())
 	}
 }
+
+// TestReleaseState_OverLimit_AliasesCleared is the regression guard for the
+// R1.1 latent use-after-free fix. It asserts that even when overLimit is true
+// (which causes the state to be DROPPED from the pool rather than reused),
+// every big.Int slot has been re-pointed to a fresh, empty header BEFORE the
+// release returns. Without this guarantee, a slot left aliasing arena memory
+// could observe a stale buffer if the arena were ever reused independently
+// (e.g., via a refactor that detaches the arena from the state lifecycle).
+//
+// We construct the over-limit condition synthetically by inflating one slot
+// past MaxPooledBitLen via SetBit (which only allocates the necessary words,
+// avoiding the cost of computing a real F(n) > 50M bits).
+func TestReleaseState_OverLimit_AliasesCleared(t *testing.T) {
+	t.Parallel()
+
+	// Helper: assert every slot is a fresh big.Int (BitLen == 0) and is a
+	// distinct pointer from the captured aliased header.
+	assertCleared := func(t *testing.T, s *CalculationState, captured map[string]*big.Int) {
+		t.Helper()
+		slots := map[string]*big.Int{
+			"FK": s.FK, "FK1": s.FK1, "T1": s.T1, "T2": s.T2, "T3": s.T3,
+		}
+		for name, slot := range slots {
+			if slot == nil {
+				t.Fatalf("slot %s is nil after release", name)
+			}
+			if slot.BitLen() != 0 {
+				t.Fatalf("slot %s has BitLen=%d after release, want 0 (alias not cleared)", name, slot.BitLen())
+			}
+			if slot == captured[name] {
+				t.Fatalf("slot %s pointer unchanged after release; clearStateAliases did not run on overLimit branch", name)
+			}
+		}
+	}
+
+	t.Run("ReleaseState_overLimit", func(t *testing.T) {
+		t.Parallel()
+		s := AcquireState()
+		// Force overLimit: inflate FK past MaxPooledBitLen.
+		s.FK.SetBit(s.FK, MaxPooledBitLen+1, 1)
+		if !checkLimit(s.FK) {
+			t.Fatalf("precondition failed: FK BitLen=%d not over MaxPooledBitLen=%d", s.FK.BitLen(), MaxPooledBitLen)
+		}
+
+		captured := map[string]*big.Int{
+			"FK": s.FK, "FK1": s.FK1, "T1": s.T1, "T2": s.T2, "T3": s.T3,
+		}
+
+		ReleaseState(s)
+
+		// After release we still hold the state pointer (we are testing the
+		// invariant that the state itself was scrubbed before the pool drop).
+		assertCleared(t, s, captured)
+	})
+
+	t.Run("ReleaseStateWithResult_overLimit", func(t *testing.T) {
+		t.Parallel()
+		s := AcquireState()
+		// Force overLimit on a different slot to cover the OR chain.
+		s.T2.SetBit(s.T2, MaxPooledBitLen+1, 1)
+		if !checkLimit(s.T2) {
+			t.Fatalf("precondition failed: T2 BitLen=%d not over MaxPooledBitLen=%d", s.T2.BitLen(), MaxPooledBitLen)
+		}
+
+		captured := map[string]*big.Int{
+			"FK": s.FK, "FK1": s.FK1, "T1": s.T1, "T2": s.T2, "T3": s.T3,
+		}
+
+		src := big.NewInt(7)
+		out := ReleaseStateWithResult(s, src)
+		if out == nil || out.Cmp(big.NewInt(7)) != 0 {
+			t.Fatalf("expected result=7, got %v", out)
+		}
+
+		assertCleared(t, s, captured)
+	})
+
+	t.Run("ReleaseState_nominal_alsoCleared", func(t *testing.T) {
+		// Belt-and-suspenders: the nominal (non-overLimit) path must also
+		// clear aliases. This is the historically-correct path; we check it
+		// here so a regression on EITHER branch trips this test.
+		t.Parallel()
+		s := AcquireState()
+		s.FK.SetInt64(42) // small enough: not over-limit
+
+		captured := map[string]*big.Int{
+			"FK": s.FK, "FK1": s.FK1, "T1": s.T1, "T2": s.T2, "T3": s.T3,
+		}
+
+		ReleaseState(s)
+		assertCleared(t, s, captured)
+	})
+}

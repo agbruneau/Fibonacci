@@ -173,8 +173,6 @@ func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *Pro
 		gcMode = "auto"
 	}
 	gcCtrl := memory.NewGCController(gcMode, n)
-	gcCtrl.Begin()
-	defer gcCtrl.End()
 
 	start := time.Now()
 	defer func() {
@@ -213,7 +211,14 @@ func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *Pro
 	// Pre-warm pools once for large calculations (one-time initialization)
 	bigfft.EnsurePoolsWarmed(n)
 
-	result, err = c.core.CalculateCore(ctx, reporter, n, opts)
+	// Run the core calculation under panic-safe GC control. WithGC guarantees
+	// debug.SetGCPercent restoration even if CalculateCore panics, preventing
+	// process-wide GC leaks.
+	err = gcCtrl.WithGC(func() error {
+		var coreErr error
+		result, coreErr = c.core.CalculateCore(ctx, reporter, n, opts)
+		return coreErr
+	})
 	if err == nil && result != nil {
 		reporter(1.0)
 	}

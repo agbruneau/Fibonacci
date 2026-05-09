@@ -42,11 +42,11 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 
 | ID | Tâche | Sévérité | Files | Effort | Statut | Owner | Commit |
 |----|-------|----------|-------|--------|--------|-------|--------|
-| R1.1 | Fix `clearStateAliases` toujours appelé | Critique | `internal/fibonacci/fastdoubling.go` | 30 min | ⬜ | — | — |
-| R1.2 | `defer gc.End()` panic-safe | Haute | `internal/fibonacci/memory/gc_control.go` | 1 h | ⬜ | — | — |
-| R1.3 | Invalidation profil via `IsStale` | Haute | `internal/calibration/calibration.go` | 30 min | ⬜ | — | — |
-| R1.4 | Fix `releaseWordSlice` | Critique | `internal/bigfft/pool.go` | 30 min | ⬜ | — | — |
-| R1.5 | Fix `putByKey` eager alloc | Critique | `internal/bigfft/fft_cache.go` | 2 h | ⬜ | — | — |
+| R1.1 | Fix `clearStateAliases` toujours appelé | Critique | `internal/fibonacci/fastdoubling.go` | 30 min | ✅ | agent (parallel) | (Vague1) |
+| R1.2 | `defer gc.End()` panic-safe | Haute | `internal/fibonacci/memory/gc_control.go` | 1 h | ✅ | agent (parallel) | (Vague1) |
+| R1.3 | Invalidation profil via `IsStale` | Haute | `internal/calibration/calibration.go` | 30 min | ✅ | agent (parallel) | (Vague1) |
+| R1.4 | Fix `releaseWordSlice` | Critique | `internal/bigfft/pool.go` | 30 min | ✅ | agent (parallel) | (Vague1) |
+| R1.5 | Fix `putByKey` eager alloc | Critique | `internal/bigfft/fft_cache.go` | 2 h | ✅ | agent (parallel) | (Vague1) |
 
 ### Vague 2 — Suppressions et fusions à fort levier (1 semaine, 2 lots parallèles)
 
@@ -99,11 +99,11 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 
 | Vague | Total tâches | ⬜ Pending | 🟡 InProgress | 🔵 InReview | ✅ Done | ⚠ Blocked | ⛔ Skipped |
 |-------|--------------|-----------|--------------|-------------|---------|-----------|-----------|
-| 1 | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 5 | 0 | 0 | 0 | **5** | 0 | 0 |
 | 2 | 10 | 10 | 0 | 0 | 0 | 0 | 0 |
 | 3 | 10 | 10 | 0 | 0 | 0 | 0 | 0 |
 | 4 | 12 | 12 | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **37** | **37** | **0** | **0** | **0** | **0** | **0** |
+| **Total** | **37** | **32** | **0** | **0** | **5** | **0** | **0** |
 
 ---
 

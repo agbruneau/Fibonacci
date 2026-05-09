@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/bits"
 	"sync"
+	"sync/atomic"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,12 +100,36 @@ func acquireWordSliceUnsafe(size int) []big.Word {
 	return slice[:size]
 }
 
+// wordSlicePoolMissCount counts release calls whose slice capacity does not
+// map to any exact bucket size. A non-zero value usually means a caller
+// reshaped a pooled slice (e.g. three-index slicing s[:n:n] or append-driven
+// reallocation) before releasing it, so the underlying buffer cannot be
+// returned to a pool and falls back to GC. Read with WordSlicePoolMissCount.
+var wordSlicePoolMissCount atomic.Uint64
+
+// WordSlicePoolMissCount returns the cumulative number of releaseWordSlice
+// calls that could not return their slice to a pool because its capacity did
+// not match any bucket size exactly. Intended for observability: a steadily
+// growing value indicates pool churn that defeats the GC pressure savings.
+func WordSlicePoolMissCount() uint64 {
+	return wordSlicePoolMissCount.Load()
+}
+
 // releaseWordSlice returns a word slice to the pool.
-// The slice must have been obtained from acquireWordSlice.
-// This should be called with defer immediately after acquireWordSlice:
+// The slice must have been obtained from acquireWordSlice or
+// acquireWordSliceUnsafe. This should be called with defer immediately after
+// acquisition:
 //
 //	slice := acquireWordSlice(size)
 //	defer releaseWordSlice(slice)
+//
+// Routing rule: the bucket is selected from the slice's *real* capacity, not
+// its length. A pooled slice that was re-sliced down (e.g. `s[:n]`) keeps the
+// same underlying array and therefore the same cap, so it is restored to its
+// original bucket. A slice whose cap no longer matches any bucket exactly
+// (three-index slicing, append-realloc, direct make()) cannot be safely Put
+// back — doing so would corrupt the bucket's size invariant — so it is
+// dropped to GC and counted in wordSlicePoolMissCount for observability.
 //
 // Parameters:
 //   - slice: The slice to return to the pool. Safe to call with nil.
@@ -112,14 +137,21 @@ func releaseWordSlice(slice []big.Word) {
 	if slice == nil {
 		return
 	}
-	// Get the original capacity to determine which pool it came from
-	cap := cap(slice)
-	idx := getWordSlicePoolIndex(cap)
-	if idx >= 0 && wordSliceSizes[idx] == cap {
-		// Restore full capacity before returning to pool
-		wordSlicePools[idx].Put(slice[:cap])
+	// Route based on real capacity, never on len(slice). The slice may have
+	// been shortened by the caller; the underlying array still has its
+	// original capacity.
+	c := cap(slice)
+	idx := getWordSlicePoolIndex(c)
+	if idx >= 0 && wordSliceSizes[idx] == c {
+		// Exact bucket match. Restore full capacity (defensive: in case the
+		// caller passed slice[:n] for some n < c) before handing back.
+		wordSlicePools[idx].Put(slice[:c])
+		return
 	}
-	// If capacity doesn't match a pool size, it was directly allocated - let GC handle it
+	// Capacity doesn't match any bucket exactly: either the slice was
+	// allocated directly (cap > largest bucket), or it was reshaped after
+	// acquisition. Let GC reclaim it and record the miss for observability.
+	wordSlicePoolMissCount.Add(1)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

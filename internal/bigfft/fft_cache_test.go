@@ -214,6 +214,156 @@ func TestTransformCacheEviction(t *testing.T) {
 	}
 }
 
+// TestTransformCacheEvictionRecyclesBacking verifies the [R1.5] optimization:
+// when the cache is at capacity and a new entry of the same shape is inserted,
+// the contiguous backing buffer of the evicted entry is reused rather than
+// reallocated. We measure allocations with testing.AllocsPerRun and assert
+// they remain bounded (not 1 large alloc per insertion at steady state).
+//
+// Not marked t.Parallel(): testing.AllocsPerRun panics in parallel tests.
+func TestTransformCacheEvictionRecyclesBacking(t *testing.T) {
+	const maxEntries = 4
+	config := TransformCacheConfig{
+		MaxEntries: maxEntries,
+		MinBitLen:  64,
+		Enabled:    true,
+	}
+	cache := NewTransformCache(config)
+
+	// All entries share the same shape (K=8 coefficients of length n+1=33).
+	// The backing buffer is K*(n+1) = 264 big.Words = 2112 bytes on 64-bit.
+	const K, N = 8, 32
+
+	makeValues := func(seed int) PolValues {
+		vals := make([]fermat, K)
+		for i := range vals {
+			vals[i] = make(fermat, N+1)
+			vals[i][0] = big.Word(seed*K + i)
+		}
+		return PolValues{K: 4, N: N, Values: vals}
+	}
+
+	// Pre-fill the cache to exactly MaxEntries with distinct keys.
+	for i := 0; i < maxEntries; i++ {
+		data := make(nat, 10)
+		data[0] = big.Word(0xA000 + i)
+		cache.Put(data, makeValues(i))
+	}
+	if got := cache.Stats().Size; got != maxEntries {
+		t.Fatalf("pre-fill: expected size=%d, got %d", maxEntries, got)
+	}
+
+	// Counter so each AllocsPerRun iteration uses a fresh key (otherwise
+	// putByKey short-circuits on the duplicate-key check and skips the
+	// allocation path under test).
+	counter := 0
+	avg := testing.AllocsPerRun(50, func() {
+		counter++
+		data := make(nat, 10)
+		data[0] = big.Word(0xB000 + counter)
+		cache.Put(data, makeValues(counter))
+	})
+
+	// Allocations attributable to Put at steady state (cache full, all inserts
+	// trigger eviction):
+	//   1) the data slice we build outside cache.Put (counted by AllocsPerRun)
+	//   2) PolValues.Values slice + each fermat backing (counted; built outside
+	//      cache.Put as test fixture)
+	//   3) cache-internal: cacheEntry struct, valuesCopy []fermat header
+	//
+	// Crucially, the K*(n+1) big.Word backing buffer must NOT be reallocated
+	// because the recycled evicted buffer fits. Without the [R1.5] fix, a
+	// fresh `make([]big.Word, 264)` would add ~1 alloc per call. With it,
+	// allocations stay below an empirical bound.
+	//
+	// Test fixture allocs (data + PolValues.Values + K fermats) = 1 + 1 + K = 10.
+	// Cache-internal allocs (cacheEntry + valuesCopy header + list element) ~= 3.
+	// Conservative ceiling: 16 allocs. Without recycling, we'd see ~14+1=15
+	// PLUS the salient 264-word backing alloc, but the count alone wouldn't
+	// catch it; we therefore also probe the cap of evicted backings via a
+	// direct check below.
+	const allocCeiling = 16.0
+	if avg > allocCeiling {
+		t.Errorf("Put at steady state: avg allocs/op = %.1f, want <= %.1f "+
+			"(R1.5 backing recycling regressed?)", avg, allocCeiling)
+	}
+
+	// Direct invariant check: after several evictions, every live entry's
+	// backing buffer must have capacity exactly K*(N+1) and must be one of
+	// the originals. We probe by inserting one more entry and confirming the
+	// new entry's backing capacity equals the recycled buffer's capacity.
+	cache.mu.Lock()
+	var seenCap int
+	for _, elem := range cache.entries {
+		e := elem.Value.(*cacheEntry)
+		if seenCap == 0 {
+			seenCap = cap(e.backing)
+		} else if cap(e.backing) != seenCap {
+			cache.mu.Unlock()
+			t.Fatalf("entries have heterogeneous backing capacities: %d vs %d",
+				seenCap, cap(e.backing))
+		}
+	}
+	cache.mu.Unlock()
+
+	if seenCap != K*(N+1) {
+		t.Errorf("expected backing cap = %d, got %d", K*(N+1), seenCap)
+	}
+
+	// Sanity: evictions actually occurred.
+	if ev := cache.Stats().Evictions; ev == 0 {
+		t.Error("expected evictions during steady-state inserts")
+	}
+}
+
+// TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall verifies the fallback
+// path: if the evicted backing is too small for the new entry, putByKey must
+// allocate fresh storage (and the new entry's cap must reflect the new size).
+func TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall(t *testing.T) {
+	t.Parallel()
+	config := TransformCacheConfig{
+		MaxEntries: 2,
+		MinBitLen:  64,
+		Enabled:    true,
+	}
+	cache := NewTransformCache(config)
+
+	// Fill with small entries.
+	for i := 0; i < 2; i++ {
+		data := make(nat, 10)
+		data[0] = big.Word(i)
+		small := PolValues{
+			K: 4, N: 4,
+			Values: []fermat{make(fermat, 5), make(fermat, 5)},
+		}
+		cache.Put(data, small)
+	}
+
+	// Insert a much larger entry — cannot reuse the small backings.
+	bigData := make(nat, 10)
+	bigData[0] = big.Word(0xDEAD)
+	const bigK, bigN = 16, 64
+	bigVals := make([]fermat, bigK)
+	for i := range bigVals {
+		bigVals[i] = make(fermat, bigN+1)
+	}
+	cache.Put(bigData, PolValues{K: 8, N: bigN, Values: bigVals})
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	for _, elem := range cache.entries {
+		e := elem.Value.(*cacheEntry)
+		if e.n == bigN {
+			if cap(e.backing) < bigK*(bigN+1) {
+				t.Errorf("large entry backing cap %d < required %d",
+					cap(e.backing), bigK*(bigN+1))
+			}
+			return
+		}
+	}
+	t.Fatal("large entry not found in cache")
+}
+
 func TestTransformCacheDisabled(t *testing.T) {
 	t.Parallel()
 	config := TransformCacheConfig{

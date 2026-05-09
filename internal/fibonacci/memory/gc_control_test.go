@@ -1,6 +1,8 @@
 package memory
 
 import (
+	"errors"
+	"runtime/debug"
 	"testing"
 )
 
@@ -73,4 +75,84 @@ func TestGCController_Stats_AfterBeginEnd(t *testing.T) {
 	// HeapAlloc should be non-zero after some allocations
 	// (we can't assert exact values due to runtime variability)
 	_ = stats
+}
+
+// TestGCController_WithGC_PanicRestoresGC verifies that WithGC restores the
+// GC settings even when fn panics. Without WithGC, a panic between Begin and
+// End would leave debug.SetGCPercent(-1) in place process-wide, silently
+// disabling GC for the remainder of the process lifetime (the bug WithGC
+// is designed to prevent).
+//
+// This test cannot run with t.Parallel() because debug.SetGCPercent is a
+// process-global setting; concurrent tests mutating GCPercent would race.
+func TestGCController_WithGC_PanicRestoresGC(t *testing.T) {
+	// Snapshot the current GCPercent without changing it. SetGCPercent
+	// returns the previous value; immediately restore so we observe but
+	// do not perturb global state.
+	original := debug.SetGCPercent(100)
+	debug.SetGCPercent(original)
+
+	gc := NewGCController("aggressive", 2_000_000)
+	if !gc.active {
+		t.Fatal("test prerequisite: GC controller must be active")
+	}
+
+	defer func() {
+		// The panic must propagate; recover here to keep the test green.
+		if r := recover(); r == nil {
+			t.Fatal("expected panic to propagate out of WithGC, but recover returned nil")
+		}
+
+		// After WithGC unwinds via deferred End, GCPercent must be back
+		// to its original value. SetGCPercent again returns the value
+		// that was active at call time.
+		current := debug.SetGCPercent(original)
+		if current != original {
+			t.Errorf("GCPercent not restored after panic: got %d, want %d", current, original)
+		}
+	}()
+
+	_ = gc.WithGC(func() error {
+		panic("simulated calculation failure")
+	})
+	t.Fatal("WithGC should not return when fn panics")
+}
+
+// TestGCController_WithGC_ReturnsError verifies that a non-panicking fn's
+// error is propagated and that GC is restored normally.
+func TestGCController_WithGC_ReturnsError(t *testing.T) {
+	original := debug.SetGCPercent(100)
+	debug.SetGCPercent(original)
+
+	gc := NewGCController("aggressive", 2_000_000)
+	sentinel := errors.New("sentinel")
+
+	err := gc.WithGC(func() error { return sentinel })
+	if !errors.Is(err, sentinel) {
+		t.Errorf("WithGC should propagate fn error: got %v, want %v", err, sentinel)
+	}
+
+	current := debug.SetGCPercent(original)
+	if current != original {
+		t.Errorf("GCPercent not restored after normal return: got %d, want %d", current, original)
+	}
+}
+
+// TestGCController_WithGC_InactiveNoOp verifies that WithGC on an inactive
+// controller still calls fn and propagates its result without touching GC.
+func TestGCController_WithGC_InactiveNoOp(t *testing.T) {
+	t.Parallel()
+
+	gc := NewGCController("disabled", 2_000_000)
+	called := false
+	err := gc.WithGC(func() error {
+		called = true
+		return nil
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Error("fn was not invoked")
+	}
 }

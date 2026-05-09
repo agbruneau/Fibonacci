@@ -338,26 +338,7 @@ func ReleaseState(s *CalculationState) {
 	if s == nil {
 		return
 	}
-	// Avoid keeping oversized objects in memory.
-	// We check if any of the big.Ints exceed the pool limit before detaching
-	// (otherwise BitLen would always be 0 after clearStateAliases).
-	overLimit := checkLimit(s.FK) || checkLimit(s.FK1) ||
-		checkLimit(s.T1) || checkLimit(s.T2) ||
-		checkLimit(s.T3)
-
-	clearStateAliases(s)
-	if s.arena != nil {
-		s.arena.Reset()
-		if s.arenaCapWords > maxArenaPoolWords {
-			s.arena = nil
-			s.arenaCapWords = 0
-		}
-	}
-
-	if overLimit {
-		return
-	}
-	statePool.Put(s)
+	finalizeStateRelease(s)
 }
 
 // ReleaseStateWithResult is the success-path release. It deep-copies src out
@@ -391,13 +372,43 @@ func ReleaseStateWithResult(s *CalculationState, src *big.Int) *big.Int {
 		result = new(big.Int).Set(src)
 	}
 
-	// Same over-limit check as ReleaseState, evaluated before we wipe the
-	// big.Int headers.
+	finalizeStateRelease(s)
+	return result
+}
+
+// finalizeStateRelease is the single shared teardown path used by both
+// ReleaseState (error path) and ReleaseStateWithResult (success path). It
+// guarantees by construction that:
+//
+//  1. clearStateAliases is ALWAYS invoked before any return — including the
+//     overLimit branch where the state itself is dropped from the pool. This
+//     prevents an arena buffer that has been detached from the pooled state
+//     from continuing to be aliased by stale big.Int headers held elsewhere
+//     (e.g., a future statePool.Get caller that inherits the dropped state's
+//     replacement, or an arena that is reused on a different state after the
+//     dropped state is GC'd).
+//  2. The arena reset and over-limit drop are applied uniformly.
+//
+// The ordering is critical: checkLimit must be evaluated BEFORE
+// clearStateAliases (otherwise every BitLen would be 0 and overLimit would
+// never trigger), and clearStateAliases must run BEFORE statePool.Put so a
+// concurrent acquirer never observes a state whose slots still alias the
+// arena. Any future edit must preserve this ordering — see the unit test
+// TestReleaseState_OverLimit_AliasesCleared for the regression guard.
+//
+// Precondition: s != nil. Callers handle the nil case before invocation.
+func finalizeStateRelease(s *CalculationState) {
+	// Evaluate overLimit FIRST while the original big.Int headers still
+	// reflect the calculation's true bit-length.
 	overLimit := checkLimit(s.FK) || checkLimit(s.FK1) ||
 		checkLimit(s.T1) || checkLimit(s.T2) ||
 		checkLimit(s.T3)
 
+	// Detach every alias from the arena. This must happen on EVERY release
+	// path (nominal or overLimit) so that no big.Int header survives pointing
+	// into arena memory after this function returns.
 	clearStateAliases(s)
+
 	if s.arena != nil {
 		s.arena.Reset()
 		if s.arenaCapWords > maxArenaPoolWords {
@@ -406,9 +417,11 @@ func ReleaseStateWithResult(s *CalculationState, src *big.Int) *big.Int {
 		}
 	}
 
-	if !overLimit {
-		statePool.Put(s)
+	if overLimit {
+		// Drop the state from the pool, but only AFTER clearStateAliases has
+		// run, so the dropped state cannot leak aliased slots through any
+		// remaining reference.
+		return
 	}
-
-	return result
+	statePool.Put(s)
 }
