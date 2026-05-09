@@ -12,8 +12,8 @@ import (
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/metrics"
+	"github.com/agbru/fibcalc/internal/metrics/system"
 	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/sysmon"
 )
 
 // Run is the public entry point for the TUI mode.
@@ -96,7 +96,7 @@ func sampleMemStatsCmd() tea.Cmd {
 // sampleSysStatsCmd reads system-wide CPU and memory stats and returns a SysStatsMsg.
 func sampleSysStatsCmd() tea.Cmd {
 	return func() tea.Msg {
-		s := sysmon.Sample()
+		s := system.Sample()
 		return SysStatsMsg{
 			CPUPercent: s.CPUPercent,
 			MemPercent: s.MemPercent,

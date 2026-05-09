@@ -20,6 +20,21 @@ const (
 // GCAutoThreshold is the minimum N for auto GC control to activate.
 const GCAutoThreshold uint64 = 1_000_000
 
+// DefaultMemoryLimitMultiplier is the factor applied to runtime.MemStats.Sys
+// to derive the soft GOMEMLIMIT installed while GC is disabled. It acts as
+// an OOM safety net: if the calculation runs away, the Go runtime will
+// trigger emergency GC instead of letting the process consume unbounded
+// memory.
+//
+// The value (3.0) was chosen empirically — see audit R4.2 — to leave room
+// for the doubling-loop working set (a + b + temp + arena) without giving
+// up the OOM guard. The same value is mirrored in
+// config.DefaultThresholdTuning.MemoryLimitMultiplier; this package owns
+// the canonical value because internal/config already imports
+// internal/fibonacci/memory, so the reverse direction would be an import
+// cycle.
+const DefaultMemoryLimitMultiplier = 3.0
+
 // GCController manages Go's garbage collector during intensive calculations.
 // It disables GC during computation and restores it afterward, reducing
 // pause times and memory overhead for large calculations.
@@ -84,7 +99,7 @@ func (gc *GCController) Begin() {
 	gc.originalGCPercent = debug.SetGCPercent(-1)
 	// Set soft memory limit as OOM safety net.
 	if gc.startStats.Sys > 0 {
-		limit := int64(float64(gc.startStats.Sys) * 3)
+		limit := int64(float64(gc.startStats.Sys) * DefaultMemoryLimitMultiplier)
 		if limit > 0 {
 			debug.SetMemoryLimit(limit)
 		}

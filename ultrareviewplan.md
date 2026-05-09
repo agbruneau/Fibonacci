@@ -82,11 +82,11 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 
 | ID | Tâche | Lot | Files | Effort | Statut | Owner | Commit |
 |----|-------|-----|-------|--------|--------|-------|--------|
-| R4.1 | **GitHub Actions CI/CD** (priorité ABSOLUE) | 4A | `.github/workflows/ci.yml` (new) | ½ j | ⬜ | — | — |
-| R4.2 | Centraliser magic numbers `threshold_tuning.go` | 4A | `internal/config/threshold_tuning.go` (new) | 2 h | ⬜ | — | — |
-| R4.5 | Fusionner `sysmon/` dans `metrics/` | 4A | `internal/sysmon/` → `internal/metrics/system/` | 1 h | ⬜ | — | — |
-| R4.6 | `ExitAction` enum typé | 4A | `cmd/fibcalc/main.go`, `internal/app/` | 30 min | ⬜ | — | — |
-| R4.11 | Fusionner property test ↔ unit test fibonacci | 4A | `internal/fibonacci/fibonacci_test.go`, `fibonacci_property_test.go` | 30 min | ⬜ | — | — |
+| R4.1 | **GitHub Actions CI/CD** (priorité ABSOLUE) | 4A | `.github/workflows/ci.yml` (new) | ½ j | ✅ | agent | (Vague4A) ci.yml (test/lint/build matrix) + coverage.yml + README badge |
+| R4.2 | Centraliser magic numbers `threshold_tuning.go` | 4A | `internal/config/threshold_tuning.go` (new) | 2 h | ✅ | agent | (Vague4A) ThresholdTuningProfile + DefaultThresholdTuning ; 7 constantes migrées |
+| R4.5 | Fusionner `sysmon/` dans `metrics/` | 4A | `internal/sysmon/` → `internal/metrics/system/` | 1 h | ✅ | agent | (Vague4A) sysmon supprimé, sous-package metrics/system créé |
+| R4.6 | `ExitAction` enum typé | 4A | `cmd/fibcalc/main.go`, `internal/app/` | 30 min | ✅ | agent | (Vague4A) ExitAction + ShouldExit() + Code() ; codes POSIX préservés |
+| R4.11 | Fusionner property test ↔ unit test fibonacci | 4A | `internal/fibonacci/fibonacci_test.go`, `fibonacci_property_test.go` | 30 min | ⛔ | agent | SKIPPED: pas de duplication, fichiers complémentaires (oracle vs property-based) |
 | R4.3 | `envOverrides` via reflection | 4B | `internal/config/env.go` | 4 h | ⬜ | — | — |
 | R4.4 | Centraliser erreurs via `HandleCalculationError` | 4B | `internal/app/calculate.go`, `internal/errors/handler.go` | 2 h | ⬜ | — | — |
 | R4.7 | Pré-flight memory check dans `Calculator` | 4B | `internal/fibonacci/calculator.go` | 1,5 h | ⬜ | — | — |

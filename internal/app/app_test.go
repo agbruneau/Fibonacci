@@ -136,7 +136,7 @@ func TestApplicationRun(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -163,7 +163,7 @@ func TestApplicationRun(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -199,7 +199,7 @@ func TestApplicationRun(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitErrorTimeout {
 			t.Errorf("Expected exit code %d (timeout), got %d", apperrors.ExitErrorTimeout, exitCode)
@@ -236,7 +236,7 @@ func TestApplicationRun(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		exitCode := app.Run(ctx, &outBuf)
+		exitCode := app.Run(ctx, &outBuf).Code()
 
 		if exitCode != apperrors.ExitErrorCanceled {
 			t.Errorf("Expected exit code %d (canceled), got %d", apperrors.ExitErrorCanceled, exitCode)
@@ -257,7 +257,7 @@ func TestApplicationRun(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -295,7 +295,7 @@ func TestRunCompletion(t *testing.T) {
 		ErrWriter: &bytes.Buffer{},
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	if exitCode != apperrors.ExitSuccess {
 		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -319,7 +319,7 @@ func TestRunCompletionInvalid(t *testing.T) {
 		ErrWriter: &errBuf,
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	if exitCode == apperrors.ExitSuccess {
 		t.Error("Expected error exit code for invalid shell")
@@ -342,7 +342,7 @@ func TestRunAutoCalibrationDisabled(t *testing.T) {
 		ErrWriter: &bytes.Buffer{},
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	if exitCode != apperrors.ExitSuccess {
 		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -365,7 +365,7 @@ func TestMultipleAlgorithms(t *testing.T) {
 		ErrWriter: &bytes.Buffer{},
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	if exitCode != apperrors.ExitSuccess {
 		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -703,7 +703,7 @@ func TestRunAllModes(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
-		exitCode := app.Run(ctx, &outBuf)
+		exitCode := app.Run(ctx, &outBuf).Code()
 
 		if exitCode != apperrors.ExitSuccess &&
 			exitCode != apperrors.ExitErrorTimeout &&
@@ -931,7 +931,7 @@ func TestRunLastDigitsViaRun(t *testing.T) {
 		ErrWriter: &bytes.Buffer{},
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	if exitCode != apperrors.ExitSuccess {
 		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -963,7 +963,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitErrorConfig {
 			t.Errorf("Expected exit code %d (config error), got %d",
@@ -992,7 +992,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitErrorConfig {
 			t.Errorf("Expected exit code %d (config error), got %d",
@@ -1024,7 +1024,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -1052,7 +1052,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 			ErrWriter: &bytes.Buffer{},
 		}
 
-		exitCode := app.Run(context.Background(), &outBuf)
+		exitCode := app.Run(context.Background(), &outBuf).Code()
 
 		if exitCode != apperrors.ExitSuccess {
 			t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -1214,7 +1214,7 @@ func TestNewWithCustomFactory(t *testing.T) {
 
 	// Verify it can run successfully with the custom factory
 	var outBuf bytes.Buffer
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 	if exitCode != apperrors.ExitSuccess {
 		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
 	}
@@ -1239,7 +1239,7 @@ func TestRunCalculateVerboseMode(t *testing.T) {
 		ErrWriter: &bytes.Buffer{},
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	if exitCode != apperrors.ExitSuccess {
 		t.Errorf("Expected exit code %d, got %d", apperrors.ExitSuccess, exitCode)
@@ -1266,7 +1266,7 @@ func TestRunCalculateCalculatorError(t *testing.T) {
 		ErrWriter: &bytes.Buffer{},
 	}
 
-	exitCode := app.Run(context.Background(), &outBuf)
+	exitCode := app.Run(context.Background(), &outBuf).Code()
 
 	// Should return an error exit code
 	if exitCode == apperrors.ExitSuccess {

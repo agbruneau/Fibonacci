@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/agbru/fibcalc/internal/app"
 )
 
 // --- Unit tests calling run() directly (instrumented for coverage) ---
@@ -26,10 +28,13 @@ func TestRun_Version(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			code := run(tt.args, &stdout, &stderr)
+			action := run(tt.args, &stdout, &stderr)
 
-			if code != exitVersion {
-				t.Errorf("Expected exit code %d, got %d", exitVersion, code)
+			if action != app.ActionVersionHandled {
+				t.Errorf("Expected ActionVersionHandled, got %v", action)
+			}
+			if action.ShouldExit() {
+				t.Error("ActionVersionHandled.ShouldExit() should be false")
 			}
 			out := stdout.String()
 			if !strings.Contains(out, "fibcalc") {
@@ -62,10 +67,10 @@ func TestRun_Help(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			code := run(tt.args, &stdout, &stderr)
+			action := run(tt.args, &stdout, &stderr)
 
-			if code != 0 {
-				t.Errorf("Expected exit code 0, got %d", code)
+			if action.Code() != 0 {
+				t.Errorf("Expected exit code 0, got %d", action.Code())
 			}
 			// Help text goes to stderr via flag package
 			combined := stdout.String() + stderr.String()
@@ -80,10 +85,10 @@ func TestRun_Help(t *testing.T) {
 func TestRun_InvalidFlag(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"fibcalc", "--invalid-flag-xyz"}, &stdout, &stderr)
+	action := run([]string{"fibcalc", "--invalid-flag-xyz"}, &stdout, &stderr)
 
-	if code != 1 {
-		t.Errorf("Expected exit code 1, got %d", code)
+	if action.Code() != 1 {
+		t.Errorf("Expected exit code 1, got %d", action.Code())
 	}
 }
 
@@ -93,7 +98,7 @@ func TestRun_Calculation(t *testing.T) {
 	t.Run("small N with show-value", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "-n", "10", "-c"}, &stdout, &stderr)
+		code := run([]string{"fibcalc", "-n", "10", "-c"}, &stdout, &stderr).Code()
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d. Output:\n%s", code, stdout.String())
@@ -106,7 +111,7 @@ func TestRun_Calculation(t *testing.T) {
 	t.Run("quiet mode", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "-n", "10", "--quiet"}, &stdout, &stderr)
+		code := run([]string{"fibcalc", "-n", "10", "--quiet"}, &stdout, &stderr).Code()
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d. Output:\n%s", code, stdout.String())
@@ -122,7 +127,7 @@ func TestRun_Calculation(t *testing.T) {
 			t.Run(algo, func(t *testing.T) {
 				t.Parallel()
 				var stdout, stderr bytes.Buffer
-				code := run([]string{"fibcalc", "-n", "10", "--algo", algo, "--quiet"}, &stdout, &stderr)
+				code := run([]string{"fibcalc", "-n", "10", "--algo", algo, "--quiet"}, &stdout, &stderr).Code()
 
 				if code != 0 {
 					t.Errorf("Expected exit code 0 for algo %s, got %d", algo, code)
@@ -137,7 +142,7 @@ func TestRun_Calculation(t *testing.T) {
 	t.Run("all algorithms comparison", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "-n", "10", "--algo", "all"}, &stdout, &stderr)
+		code := run([]string{"fibcalc", "-n", "10", "--algo", "all"}, &stdout, &stderr).Code()
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d. Output:\n%s", code, stdout.String())
@@ -155,7 +160,7 @@ func TestRun_Completion(t *testing.T) {
 	t.Run("bash completion", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "--completion", "bash"}, &stdout, &stderr)
+		code := run([]string{"fibcalc", "--completion", "bash"}, &stdout, &stderr).Code()
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d", code)
@@ -169,7 +174,7 @@ func TestRun_Completion(t *testing.T) {
 	t.Run("invalid shell", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "--completion", "invalid-shell"}, &stdout, &stderr)
+		code := run([]string{"fibcalc", "--completion", "invalid-shell"}, &stdout, &stderr).Code()
 
 		if code == 0 {
 			t.Error("Expected non-zero exit code for invalid shell completion")

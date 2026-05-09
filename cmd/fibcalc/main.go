@@ -10,33 +10,32 @@ import (
 	"github.com/agbru/fibcalc/internal/app"
 )
 
-// exitVersion is the sentinel exit code returned when --version is handled.
-const exitVersion = -1
-
-// main parses arguments, builds the application, and runs it; exit code
-// reflects success, help, or error.
+// main parses arguments, builds the application, and runs it; the exit
+// code reflects success, help, or error.
 func main() {
-	code := run(os.Args, os.Stdout, os.Stderr)
-	if code >= 0 {
-		os.Exit(code)
+	action := run(os.Args, os.Stdout, os.Stderr)
+	if action.ShouldExit() {
+		os.Exit(action.Code())
 	}
 }
 
 // run contains the core logic extracted from main for testability.
-// It returns an exit code: 0 for success, positive for errors,
-// or exitVersion (-1) when --version was handled (no os.Exit needed).
-func run(args []string, stdout, stderr io.Writer) int {
+// It returns an app.ExitAction describing the outcome: ActionSuccess
+// for success, ActionError (or one of the more specific Action* values)
+// for failures, or ActionVersionHandled when --version was handled (in
+// which case main MUST NOT call os.Exit).
+func run(args []string, stdout, stderr io.Writer) app.ExitAction {
 	if app.HasVersionFlag(args[1:]) {
 		app.PrintVersion(stdout)
-		return exitVersion
+		return app.ActionVersionHandled
 	}
 
 	application, err := app.New(args, stderr)
 	if err != nil {
 		if app.IsHelpError(err) {
-			return 0
+			return app.ActionSuccess
 		}
-		return 1
+		return app.ActionError
 	}
 
 	return application.Run(context.Background(), stdout)

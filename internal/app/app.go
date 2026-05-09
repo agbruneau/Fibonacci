@@ -70,8 +70,20 @@ func New(args []string, errWriter io.Writer, opts ...AppOption) (*Application, e
 	return app, nil
 }
 
-// Run executes the application based on the configured mode.
-func (a *Application) Run(ctx context.Context, out io.Writer) int {
+// Run executes the application based on the configured mode and returns a
+// typed ExitAction describing the outcome. Use ExitAction.Code for the
+// POSIX exit status and ExitAction.ShouldExit to decide whether main
+// should call os.Exit.
+func (a *Application) Run(ctx context.Context, out io.Writer) ExitAction {
+	return exitActionFromCode(a.runDispatch(ctx, out))
+}
+
+// runDispatch performs the mode dispatch and returns a raw POSIX exit
+// code. It is kept private so that the public Run signature can expose
+// the typed ExitAction without forcing every internal helper to be
+// rewritten — they continue to operate in terms of the POSIX codes
+// defined in internal/errors.
+func (a *Application) runDispatch(ctx context.Context, out io.Writer) int {
 	if a.Config.Completion != "" {
 		return a.runCompletion(out)
 	}

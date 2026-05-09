@@ -1,5 +1,5 @@
-// Package sysmon provides system-wide CPU and memory usage sampling.
-package sysmon
+// Package system provides system-wide CPU and memory usage sampling.
+package system
 
 import (
 	"github.com/shirou/gopsutil/v4/cpu"

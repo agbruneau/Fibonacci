@@ -1,4 +1,4 @@
-package sysmon
+package system
 
 import "testing"
 

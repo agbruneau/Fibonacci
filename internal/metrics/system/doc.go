@@ -1,8 +1,8 @@
-// Package sysmon provides system-wide CPU and memory usage sampling.
+// Package system provides system-wide CPU and memory usage sampling.
 //
 // # Role
 //
-// sysmon offers a single, dependency-light entry point — Sample — that
+// system offers a single, dependency-light entry point — Sample — that
 // returns a snapshot of host-level resource usage. It is consumed by the
 // metrics and TUI packages to surface live CPU/memory pressure alongside
 // per-calculation indicators.
@@ -16,6 +16,6 @@
 //
 // # Example
 //
-//	s := sysmon.Sample()
+//	s := system.Sample()
 //	fmt.Printf("CPU %.1f%%  Mem %.1f%%\n", s.CPUPercent, s.MemPercent)
-package sysmon
+package system

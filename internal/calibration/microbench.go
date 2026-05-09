@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbru/fibcalc/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,12 +21,18 @@ const (
 	// MicroBenchIterations is the number of iterations per test for averaging.
 	MicroBenchIterations = 3
 
-	// MicroBenchTimeout is the maximum time for the entire micro-benchmark suite.
-	MicroBenchTimeout = 150 * time.Millisecond
-
 	// MicroBenchPerTestTimeout is the maximum time per individual test.
 	MicroBenchPerTestTimeout = 30 * time.Millisecond
 )
+
+// MicroBenchTimeout is the maximum time for the entire micro-benchmark suite.
+//
+// Sourced from config.DefaultThresholdTuning.MicroBenchTimeout since audit
+// R4.2 — the canonical value lives there alongside the other dynamic-tuning
+// knobs. Declared as a var (not const) so callers can re-point this package
+// at an alternative profile in tests if needed without changing the
+// public symbol name.
+var MicroBenchTimeout = config.DefaultThresholdTuning.MicroBenchTimeout
 
 // MicroBenchTestSizes defines the word sizes to test for threshold estimation.
 // These sizes are chosen to span the critical ranges where algorithm switches occur.

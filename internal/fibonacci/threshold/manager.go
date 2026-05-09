@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/agbru/fibcalc/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,17 +24,28 @@ const (
 
 	// MaxMetricsHistory is the maximum number of metrics to keep for analysis.
 	MaxMetricsHistory = 20
+)
 
-	// FFTSpeedupThreshold is the minimum speedup ratio to switch to FFT.
-	// If FFT is expected to be at least this much faster, switch to it.
-	FFTSpeedupThreshold = 1.2
+// Tuning knobs sourced from config.DefaultThresholdTuning. These were
+// constants prior to audit R4.2; they are now declared as vars so the
+// canonical value lives in one place (internal/config/threshold_tuning.go)
+// without breaking the existing `threshold.FFTSpeedupThreshold` etc.
+// callers in tests and docs.
+var (
+	// FFTSpeedupThreshold is the minimum speedup ratio (baseline / FFT)
+	// at which the dynamic-threshold manager will lower the FFT
+	// activation threshold. See config.ThresholdTuningProfile for the
+	// rationale behind the default value.
+	FFTSpeedupThreshold = config.DefaultThresholdTuning.FFTSpeedupThreshold
 
-	// ParallelSpeedupThreshold is the minimum speedup to enable parallelism.
-	ParallelSpeedupThreshold = 1.1
+	// ParallelSpeedupThreshold is the analogous ratio for the parallel
+	// multiplication path. See config.ThresholdTuningProfile.
+	ParallelSpeedupThreshold = config.DefaultThresholdTuning.ParallelSpeedupThreshold
 
-	// HysteresisMargin prevents oscillating between modes.
-	// Threshold must change by at least this factor to trigger adjustment.
-	HysteresisMargin = 0.15
+	// HysteresisMargin is the minimum relative change required before a
+	// new threshold is committed; damps oscillation. See
+	// config.ThresholdTuningProfile.
+	HysteresisMargin = config.DefaultThresholdTuning.HysteresisMargin
 )
 
 // DynamicThresholdManager adjusts FFT and parallel thresholds during calculation
@@ -199,7 +212,7 @@ func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
 		SpeedupThreshold:  FFTSpeedupThreshold,
 		LowerNumerator:    9,
 		RaiseNumerator:    11,
-		MinThreshold:      100000,
+		MinThreshold:      config.DefaultThresholdTuning.MinFFTThreshold,
 		MaxCapMultiplier:  2,
 		CurrentThreshold:  m.currentFFTThreshold,
 		OriginalThreshold: m.originalFFTThreshold,
@@ -213,7 +226,7 @@ func (m *DynamicThresholdManager) analyzeParallelThreshold() int {
 		SpeedupThreshold:  ParallelSpeedupThreshold,
 		LowerNumerator:    8,
 		RaiseNumerator:    12,
-		MinThreshold:      1024,
+		MinThreshold:      config.DefaultThresholdTuning.MinParallelThreshold,
 		MaxCapMultiplier:  4,
 		CurrentThreshold:  m.currentParallelThreshold,
 		OriginalThreshold: m.originalParallelThreshold,

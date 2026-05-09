@@ -22,10 +22,13 @@
 // # Example
 //
 //	func main() {
-//	    app, err := app.New(os.Args[1:], os.Stderr)
+//	    a, err := app.New(os.Args[1:], os.Stderr)
 //	    if err != nil {
 //	        // handle wiring error
 //	    }
-//	    os.Exit(app.Run(context.Background()))
+//	    action := a.Run(context.Background(), os.Stdout)
+//	    if action.ShouldExit() {
+//	        os.Exit(action.Code())
+//	    }
 //	}
 package app

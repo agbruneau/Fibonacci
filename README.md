@@ -1,6 +1,7 @@
 # FibCalc: High-Performance Fibonacci Calculator
 
 ![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)
+[![CI](https://github.com/agbru/fibcalc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbru/fibcalc/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)
 ![Coverage](https://img.shields.io/badge/Coverage-87.5%25-green?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=for-the-badge)
