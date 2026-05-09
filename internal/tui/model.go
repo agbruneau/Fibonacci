@@ -142,6 +142,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the entire dashboard by composing each component's View().
+// Composition adapts to terminal size (R4.10): narrow terminals stack the
+// logs panel on top of the metrics + chart column instead of side-by-side.
 func (m Model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return "Initializing..."
@@ -152,26 +154,30 @@ func (m Model) View() string {
 
 	metrics := m.metrics.View()
 	chart := m.chart.View()
-
-	// Right column: metrics on top, chart on bottom.
 	rightCol := lipgloss.JoinVertical(lipgloss.Left, metrics, chart)
 
-	// Render logs panel to match the right column's actual height.
-	logs := m.logs.renderToHeight(lipgloss.Height(rightCol))
-
-	// Main body: logs on left, right column on right.
-	body := lipgloss.JoinHorizontal(lipgloss.Top, logs, rightCol)
+	var body string
+	if m.isNarrow() {
+		// Single-column: logs on top, metrics + chart stacked below.
+		logs := m.logs.renderToHeight(m.logsHeight())
+		body = lipgloss.JoinVertical(lipgloss.Left, logs, rightCol)
+	} else {
+		// Side-by-side: logs on the left, right column on the right.
+		logs := m.logs.renderToHeight(lipgloss.Height(rightCol))
+		body = lipgloss.JoinHorizontal(lipgloss.Top, logs, rightCol)
+	}
 
 	// Full layout: header + body + footer.
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
 }
 
 // layoutPanels propagates the current terminal dimensions to every component
-// using the LayoutManager's percentage/clamp rules.
+// using the LayoutManager's percentage/clamp rules. Adaptive behaviour
+// (single-column / compact metrics) is encapsulated in LayoutManager.
 func (m *Model) layoutPanels() {
 	m.header.SetWidth(m.width)
 	m.footer.SetWidth(m.width)
-	m.logs.SetSize(m.logsWidth(), m.bodyHeight())
+	m.logs.SetSize(m.logsWidth(), m.logsHeight())
 	m.metrics.SetSize(m.rightWidth(), m.metricsHeight())
 	m.chart.SetSize(m.rightWidth(), m.chartHeight())
 }

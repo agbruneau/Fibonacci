@@ -1,9 +1,13 @@
 package tui
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"log"
 	"math/big"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -83,8 +87,54 @@ func TestTUIResultPresenter_FormatDuration(t *testing.T) {
 func TestProgramRef_Send_NilProgram(t *testing.T) {
 	t.Parallel()
 	ref := &programRef{} // program is nil
-	// Should not panic
-	ref.Send(ProgressMsg{Value: 0.5})
+	// Should not panic and must surface the race window via an explicit error.
+	err := ref.Send(ProgressMsg{Value: 0.5})
+	if err == nil {
+		t.Fatal("expected error when program is nil, got nil")
+	}
+	if !errors.Is(err, ErrProgramNotInitialized) {
+		t.Errorf("expected ErrProgramNotInitialized, got %v", err)
+	}
+}
+
+// withBridgeLogger temporarily redirects the package-level bridgeLogger to a
+// caller-provided buffer for the duration of the test, restoring the original
+// (io.Discard) destination on cleanup. Tests using this helper must NOT run in
+// parallel with each other because bridgeLogger is package-global.
+func withBridgeLogger(t *testing.T, buf *bytes.Buffer) {
+	t.Helper()
+	orig := bridgeLogger
+	bridgeLogger = log.New(buf, "tui-bridge: ", 0)
+	t.Cleanup(func() { bridgeLogger = orig })
+}
+
+func TestProgramRef_SendOrLog_NilProgramLogs(t *testing.T) {
+	// Not parallel: mutates the package-level bridgeLogger.
+	var buf bytes.Buffer
+	withBridgeLogger(t, &buf)
+
+	ref := &programRef{}
+	ref.sendOrLog(ProgressMsg{Value: 0.5}, "TestSite")
+
+	out := buf.String()
+	if !strings.Contains(out, "TestSite") {
+		t.Errorf("expected log to contain call site, got %q", out)
+	}
+	if !strings.Contains(out, "ProgressMsg") {
+		t.Errorf("expected log to mention dropped message type, got %q", out)
+	}
+	if !strings.Contains(out, ErrProgramNotInitialized.Error()) {
+		t.Errorf("expected log to contain %q, got %q", ErrProgramNotInitialized.Error(), out)
+	}
+}
+
+func TestProgramRef_SendOrLog_DefaultLoggerDiscards(t *testing.T) {
+	t.Parallel()
+	// Sanity check: by default, bridgeLogger writes to io.Discard so the TUI
+	// rendering on stdout/stderr stays intact.
+	if bridgeLogger.Writer() != io.Discard {
+		t.Errorf("expected default bridgeLogger writer to be io.Discard, got %T", bridgeLogger.Writer())
+	}
 }
 
 func TestTUIResultPresenter_PresentComparisonTable(t *testing.T) {

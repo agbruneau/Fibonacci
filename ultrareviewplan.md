@@ -92,18 +92,18 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 | R4.7 | Pré-flight memory check dans `Calculator` | 4B | `internal/fibonacci/calculator.go` | 1,5 h | ✅ | agent | (Vague4B) CanCalculate() + garde dans CalculateWithObservers ; Options.MemoryLimitBytes |
 | R4.8 | RingBuffer pour `tui/logs.go` | 4B | `internal/tui/logs.go` | 2 h | ✅ | agent | (Vague4B) Ring[T] générique extrait dans tui/ringbuffer.go ; logs.go utilise Ring[string] |
 | R4.12 | Étendre `t.Parallel()` aux tests file-based | 4B | divers `*_test.go` | 1 h | ✅ | agent | (Vague4B) +25 t.Parallel() sur 5 fichiers SAFE ; ratio 86/105 → 91/105 |
-| R4.9 | Bridge `Send` retourne `error` | 4C | `internal/tui/bridge.go` | 1 h | ⬜ | — | — |
-| R4.10 | Layout TUI adaptatif <80 cols | 4C | `internal/tui/model.go` | 1 h | ⬜ | — | — |
+| R4.9 | Bridge `Send` retourne `error` | 4C | `internal/tui/bridge.go` | 1 h | ✅ | agent | (Vague4C) ErrProgramNotInitialized exporté ; sendOrLog helper ; bridgeLogger discret |
+| R4.10 | Layout TUI adaptatif <80 cols | 4C | `internal/tui/model.go` | 1 h | ✅ | agent | (Vague4C) seuils 80×20 ; mode single-column si narrow ; metrics compact si short ; garde-fous anti-zéro |
 
 ### Synthèse de progression (à mettre à jour)
 
 | Vague | Total tâches | ⬜ Pending | 🟡 InProgress | 🔵 InReview | ✅ Done | ⚠ Blocked | ⛔ Skipped |
 |-------|--------------|-----------|--------------|-------------|---------|-----------|-----------|
 | 1 | 5 | 0 | 0 | 0 | **5** | 0 | 0 |
-| 2 | 10 | 10 | 0 | 0 | 0 | 0 | 0 |
-| 3 | 10 | 10 | 0 | 0 | 0 | 0 | 0 |
-| 4 | 12 | 12 | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **37** | **32** | **0** | **0** | **5** | **0** | **0** |
+| 2 | 10 | 0 | 0 | 0 | **7** | **3** | 0 |
+| 3 | 10 | 0 | 0 | 0 | **8** (+ 2 ⚠ Partial) | 0 | 0 |
+| 4 | 12 | 0 | 0 | 0 | **11** | 0 | **1** |
+| **Total** | **37** | **0** | **0** | **0** | **31** (+ 2 partial) | **3** | **1** |
 
 ---
 

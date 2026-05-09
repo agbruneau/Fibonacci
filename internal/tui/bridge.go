@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"errors"
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -12,6 +14,16 @@ import (
 	"github.com/agbru/fibcalc/internal/orchestration"
 	"github.com/agbru/fibcalc/internal/progress"
 )
+
+// ErrProgramNotInitialized is returned by programRef.Send when the underlying
+// tea.Program reference has not yet been wired (race window between bridge
+// goroutines starting and SetProgram being called from the model's Init).
+var ErrProgramNotInitialized = errors.New("tui: program not initialized")
+
+// bridgeLogger is the discreet logger used to surface Send failures without
+// corrupting the active TUI rendering on stderr/stdout. Writes are discarded
+// by default; tests may swap the destination via the unexported helper below.
+var bridgeLogger = log.New(io.Discard, "tui-bridge: ", log.LstdFlags)
 
 // programRef is a shared reference to the tea.Program.
 // Because bubbletea copies the model on every Update, we need a pointer
@@ -29,12 +41,26 @@ func (r *programRef) SetProgram(p *tea.Program) {
 }
 
 // Send sends a message to the bubbletea program (thread-safe).
-func (r *programRef) Send(msg tea.Msg) {
+// Returns ErrProgramNotInitialized when called before SetProgram has wired
+// the underlying tea.Program — this lets callers surface the race instead of
+// dropping the message silently.
+func (r *programRef) Send(msg tea.Msg) error {
 	r.mu.RLock()
 	p := r.program
 	r.mu.RUnlock()
-	if p != nil {
-		p.Send(msg)
+	if p == nil {
+		return ErrProgramNotInitialized
+	}
+	p.Send(msg)
+	return nil
+}
+
+// sendOrLog forwards msg via the program reference and logs any Send failure
+// to bridgeLogger (discarded by default). Used by bridge call sites that have
+// no meaningful way to propagate the error to the caller.
+func (r *programRef) sendOrLog(msg tea.Msg, site string) {
+	if err := r.Send(msg); err != nil {
+		bridgeLogger.Printf("%s: dropped %T: %v", site, msg, err)
 	}
 }
 
@@ -59,14 +85,14 @@ func (t *TUIProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <
 
 	for update := range progressChan {
 		ap := agg.Update(update)
-		t.ref.Send(ProgressMsg{
+		t.ref.sendOrLog(ProgressMsg{
 			CalculatorIndex: ap.CalculatorIndex,
 			Value:           ap.Value,
 			AverageProgress: ap.AverageProgress,
 			ETA:             ap.ETA,
-		})
+		}, "DisplayProgress")
 	}
-	t.ref.Send(ProgressDoneMsg{})
+	t.ref.sendOrLog(ProgressDoneMsg{}, "DisplayProgress")
 }
 
 // TUIResultPresenter implements orchestration.ResultPresenter.
@@ -83,18 +109,18 @@ var (
 
 // PresentComparisonTable sends comparison results to the TUI.
 func (t *TUIResultPresenter) PresentComparisonTable(results []orchestration.CalculationResult, _ io.Writer) {
-	t.ref.Send(ComparisonResultsMsg{Results: results})
+	t.ref.sendOrLog(ComparisonResultsMsg{Results: results}, "PresentComparisonTable")
 }
 
 // PresentResult sends the final result to the TUI.
 func (t *TUIResultPresenter) PresentResult(result orchestration.CalculationResult, n uint64, verbose, details, showValue bool, _ io.Writer) {
-	t.ref.Send(FinalResultMsg{
+	t.ref.sendOrLog(FinalResultMsg{
 		Result:    result,
 		N:         n,
 		Verbose:   verbose,
 		Details:   details,
 		ShowValue: showValue,
-	})
+	}, "PresentResult")
 }
 
 // FormatDuration delegates to the CLI formatter.
@@ -104,6 +130,6 @@ func (t *TUIResultPresenter) FormatDuration(d time.Duration) string {
 
 // HandleError sends an error message to the TUI and returns the exit code.
 func (t *TUIResultPresenter) HandleError(err error, duration time.Duration, _ io.Writer) int {
-	t.ref.Send(ErrorMsg{Err: err, Duration: duration})
+	t.ref.sendOrLog(ErrorMsg{Err: err, Duration: duration}, "HandleError")
 	return apperrors.HandleCalculationError(err, duration, io.Discard, nil)
 }

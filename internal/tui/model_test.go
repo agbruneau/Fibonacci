@@ -795,3 +795,157 @@ func TestModel_HandleKey_Quit_CancelsContext(t *testing.T) {
 		t.Error("expected context to be cancelled after quit")
 	}
 }
+
+// --- R4.10: adaptive layout for narrow / short terminals ---
+
+// TestModel_AdaptiveLayout_Narrow verifies that a 60x18 terminal switches to
+// the single-column layout (logs full width, metrics + chart stacked below)
+// without producing zero-sized panels or an empty view.
+func TestModel_AdaptiveLayout_Narrow(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 60, 18)
+
+	if !m.isNarrow() {
+		t.Fatalf("expected isNarrow()=true for width=60 (threshold=%d)", minNormalWidth)
+	}
+	if !m.isShort() {
+		t.Fatalf("expected isShort()=true for height=18 (threshold=%d)", minNormalHeight)
+	}
+
+	// Logs panel must take the full terminal width in single-column mode.
+	if m.logs.width != 60 {
+		t.Errorf("expected logs width 60 (full width), got %d", m.logs.width)
+	}
+	// Metrics + chart must also span the full width.
+	if m.metrics.width != 60 {
+		t.Errorf("expected metrics width 60, got %d", m.metrics.width)
+	}
+	if m.chart.width != 60 {
+		t.Errorf("expected chart width 60, got %d", m.chart.width)
+	}
+
+	// Compact metrics: metricsHeight is bounded by the right column's space
+	// but must remain strictly positive (no division by zero downstream).
+	if m.metrics.height <= 0 {
+		t.Errorf("expected metrics height > 0, got %d", m.metrics.height)
+	}
+	if m.chart.height <= 0 {
+		t.Errorf("expected chart height > 0, got %d", m.chart.height)
+	}
+	if m.logs.height <= 0 {
+		t.Errorf("expected logs height > 0, got %d", m.logs.height)
+	}
+
+	// The compact mode must shrink the metrics base height.
+	if m.baseMetricsHeight() != compactMetricsHeight {
+		t.Errorf("expected baseMetricsHeight()=%d, got %d", compactMetricsHeight, m.baseMetricsHeight())
+	}
+
+	// The full body partition must fit inside the available body height
+	// (no overlapping panels in the stacked layout).
+	if m.logsHeight()+m.rightColumnHeight() > m.bodyHeight() {
+		t.Errorf("logs+right=%d exceeds bodyHeight=%d", m.logsHeight()+m.rightColumnHeight(), m.bodyHeight())
+	}
+
+	// View() must produce a non-empty rendering.
+	view := m.View()
+	if view == "Initializing..." {
+		t.Fatal("expected rendered view, got 'Initializing...'")
+	}
+	if !strings.Contains(view, "FibGo") {
+		t.Error("expected narrow view to contain header 'FibGo'")
+	}
+	if !strings.Contains(view, "Heap") {
+		t.Error("expected narrow view to contain 'Heap' from metrics panel")
+	}
+}
+
+// TestModel_AdaptiveLayout_NormalUnchanged confirms that terminals at or
+// above the thresholds keep the side-by-side layout with the historical
+// 60/40 split.
+func TestModel_AdaptiveLayout_NormalUnchanged(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 80, 24)
+
+	if m.isNarrow() {
+		t.Errorf("expected isNarrow()=false for width=80")
+	}
+	if m.isShort() {
+		t.Errorf("expected isShort()=false for height=24")
+	}
+	if m.baseMetricsHeight() != MetricsPanelHeight {
+		t.Errorf("expected baseMetricsHeight()=%d at normal size, got %d", MetricsPanelHeight, m.baseMetricsHeight())
+	}
+	if m.logs.width != 80*LogsPanelWidthPercent/100 {
+		t.Errorf("expected logs width %d at normal size, got %d", 80*LogsPanelWidthPercent/100, m.logs.width)
+	}
+	if m.metrics.width != 80-(80*LogsPanelWidthPercent/100) {
+		t.Errorf("expected metrics width %d at normal size, got %d", 80-(80*LogsPanelWidthPercent/100), m.metrics.width)
+	}
+}
+
+// TestModel_AdaptiveLayout_ShortOnly verifies the compact-metrics branch
+// when only the height threshold is crossed.
+func TestModel_AdaptiveLayout_ShortOnly(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 18)
+
+	if m.isNarrow() {
+		t.Errorf("expected isNarrow()=false for width=120")
+	}
+	if !m.isShort() {
+		t.Errorf("expected isShort()=true for height=18")
+	}
+	if m.baseMetricsHeight() != compactMetricsHeight {
+		t.Errorf("expected compact metrics base height %d, got %d", compactMetricsHeight, m.baseMetricsHeight())
+	}
+	// Side-by-side layout preserved.
+	if m.logs.width != 120*LogsPanelWidthPercent/100 {
+		t.Errorf("expected side-by-side logs width %d, got %d", 120*LogsPanelWidthPercent/100, m.logs.width)
+	}
+	if m.metrics.height <= 0 || m.chart.height <= 0 {
+		t.Errorf("expected positive panel heights, got metrics=%d chart=%d", m.metrics.height, m.chart.height)
+	}
+	view := m.View()
+	if len(view) == 0 {
+		t.Error("expected non-empty view for short terminal")
+	}
+}
+
+// TestLayoutManager_NoNegativeDimensions exercises a sweep of pathological
+// sizes (including 0x0 and 1x1) to make sure no calculation returns a
+// negative or zero dimension that would crash downstream renderers.
+func TestLayoutManager_NoNegativeDimensions(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ w, h int }{
+		{0, 0},
+		{1, 1},
+		{40, 10},
+		{60, 18},
+		{79, 19},
+		{80, 20},
+		{120, 40},
+		{500, 200},
+	}
+	for _, c := range cases {
+		l := LayoutManager{width: c.w, height: c.h}
+		if l.bodyHeight() < minBodyHeight {
+			t.Errorf("[%dx%d] bodyHeight=%d < min=%d", c.w, c.h, l.bodyHeight(), minBodyHeight)
+		}
+		if l.logsWidth() < 0 {
+			t.Errorf("[%dx%d] logsWidth=%d", c.w, c.h, l.logsWidth())
+		}
+		if l.rightWidth() < 0 {
+			t.Errorf("[%dx%d] rightWidth=%d", c.w, c.h, l.rightWidth())
+		}
+		if l.metricsHeight() < 1 {
+			t.Errorf("[%dx%d] metricsHeight=%d < 1", c.w, c.h, l.metricsHeight())
+		}
+		if l.chartHeight() < 1 {
+			t.Errorf("[%dx%d] chartHeight=%d < 1", c.w, c.h, l.chartHeight())
+		}
+		if l.logsHeight() < 1 {
+			t.Errorf("[%dx%d] logsHeight=%d < 1", c.w, c.h, l.logsHeight())
+		}
+	}
+}
