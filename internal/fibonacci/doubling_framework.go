@@ -12,6 +12,7 @@ import (
 
 	"github.com/agbru/fibcalc/internal/bigfft"
 	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // DoublingFramework encapsulates the common Fast Doubling algorithm logic.
@@ -138,13 +139,13 @@ func executeDoublingStepMultiplications(ctx context.Context, strategy Multiplier
 // Returns:
 //   - *big.Int: The calculated Fibonacci number F(n).
 //   - error: An error if one occurred (e.g., context cancellation).
-func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) { //nolint:gocognit // hot algorithmic loop, extracting would obscure Fast Doubling identity flow and risk perf regression
+func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) { //nolint:gocognit // hot algorithmic loop, extracting would obscure Fast Doubling identity flow and risk perf regression
 	numBits := bits.Len64(n)
 
 	// Calculate total work for progress reporting via common utility
-	totalWork := CalcTotalWork(numBits)
+	totalWork := progress.CalcTotalWork(numBits)
 	// Pre-compute powers of 4 for O(1) progress calculation
-	powers := PrecomputePowers4(numBits)
+	powers := progress.PrecomputePowers4(numBits)
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
@@ -263,7 +264,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter Pr
 		}
 
 		// Harmonized reporting via common utility function
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
+		workDone = progress.ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
 	}
 	// P1-04: do NOT "steal" s.FK here. The state's big.Ints alias the
 	// state-bound arena's backing buffer. If we returned s.FK directly and

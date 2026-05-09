@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 func TestCoreStub_Name_default(t *testing.T) {
@@ -32,7 +33,7 @@ func TestCoreStub_WrapAsCalculator(t *testing.T) {
 	t.Parallel()
 	stub := &CoreStub{
 		NameVal: "inject",
-		CoreFunc: func(ctx context.Context, reporter fibonacci.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) {
+		CoreFunc: func(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) {
 			return big.NewInt(42), nil
 		},
 	}

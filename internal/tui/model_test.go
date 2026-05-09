@@ -13,6 +13,7 @@ import (
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // mockCalculator implements fibonacci.Calculator for testing.
@@ -20,7 +21,7 @@ type mockCalculator struct {
 	name string
 }
 
-func (m mockCalculator) Calculate(_ context.Context, _ chan<- fibonacci.ProgressUpdate, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
+func (m mockCalculator) Calculate(_ context.Context, _ chan<- progress.ProgressUpdate, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 

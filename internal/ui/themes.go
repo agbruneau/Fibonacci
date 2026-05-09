@@ -240,3 +240,38 @@ func InitTheme(noColor bool) {
 	// Default to dark theme
 	currentTheme = DarkTheme
 }
+
+// ---------------------------------------------------------------------------
+// CLI color helpers
+// ---------------------------------------------------------------------------
+// The Color* functions below return ANSI escape codes from the currently
+// active CLI theme. They are the primary API used by CLI presentation code
+// (cli/, calibration/, app/) for consistent coloring. Each call is
+// thread-safe via GetCurrentTheme.
+
+// ColorReset returns the reset escape code from the current theme.
+func ColorReset() string { return GetCurrentTheme().Reset }
+
+// ColorRed returns the error color from the current theme.
+func ColorRed() string { return GetCurrentTheme().Error }
+
+// ColorGreen returns the success color from the current theme.
+func ColorGreen() string { return GetCurrentTheme().Success }
+
+// ColorYellow returns the warning color from the current theme.
+func ColorYellow() string { return GetCurrentTheme().Warning }
+
+// ColorBlue returns the primary color from the current theme.
+func ColorBlue() string { return GetCurrentTheme().Primary }
+
+// ColorMagenta returns the info color from the current theme.
+func ColorMagenta() string { return GetCurrentTheme().Info }
+
+// ColorCyan returns the secondary color from the current theme.
+func ColorCyan() string { return GetCurrentTheme().Secondary }
+
+// ColorBold returns the bold escape code from the current theme.
+func ColorBold() string { return GetCurrentTheme().Bold }
+
+// ColorUnderline returns the underline escape code from the current theme.
+func ColorUnderline() string { return GetCurrentTheme().Underline }

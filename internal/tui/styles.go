@@ -33,12 +33,18 @@ var (
 	memSparklineStyle  lipgloss.Style
 )
 
+// init builds the TUI styles once at package load so that tests and callers
+// that exercise rendering helpers without going through Run() observe a
+// consistent, non-zero set of styles. Run() invokes initTUIStyles() again
+// after app.Run has resolved the final theme via ui.InitTheme — this second
+// call is required because the active theme may have changed (e.g. NO_COLOR,
+// FIBCALC_TUI_THEME=high-contrast) between package load and Run().
 func init() {
 	initTUIStyles()
 }
 
 // initTUIStyles rebuilds all TUI styles from the current ui theme.
-// Called at package init and again from Run() after InitTheme has been invoked.
+// Idempotent: safe to call multiple times.
 func initTUIStyles() {
 	t := ui.GetCurrentTUITheme()
 

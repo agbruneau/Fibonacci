@@ -3,6 +3,8 @@ package fibonacci
 import (
 	"context"
 	"math/big"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // MockCalculator is a mock implementation of the Calculator interface.
@@ -19,12 +21,12 @@ func (m *MockCalculator) Name() string {
 }
 
 // Calculate returns the pre-configured Result and Err, or calls Fn if provided.
-func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error) {
+func (m *MockCalculator) Calculate(ctx context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error) {
 	if m.Fn != nil {
 		return m.Fn(ctx, n)
 	}
 	if progressChan != nil {
-		progressChan <- ProgressUpdate{CalculatorIndex: calcIndex, Value: 1.0}
+		progressChan <- progress.ProgressUpdate{CalculatorIndex: calcIndex, Value: 1.0}
 	}
 	return m.Result, m.Err
 }

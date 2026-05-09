@@ -10,6 +10,7 @@ import (
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/fibonacci/fibonaccitest"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // Contract tests: invariants that should hold for orchestration + Calculator implementations
@@ -22,7 +23,7 @@ func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 
 	core := &fibonaccitest.CoreStub{
 		NameVal: "slow",
-		CoreFunc: func(ctx context.Context, _ fibonacci.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
+		CoreFunc: func(ctx context.Context, _ progress.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		},
@@ -53,7 +54,7 @@ func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 func TestExecuteCalculations_progressChannelClosedAndDrained(t *testing.T) {
 	t.Parallel()
 	core := &fibonaccitest.CoreStub{
-		CoreFunc: func(ctx context.Context, reporter fibonacci.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
+		CoreFunc: func(ctx context.Context, reporter progress.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
 			reporter(0.5)
 			return big.NewInt(1), nil
 		},
@@ -85,7 +86,7 @@ func TestExecuteCalculations_progressChannelClosedAndDrained(t *testing.T) {
 func TestExecuteCalculations_noPanicFromCalculatorError(t *testing.T) {
 	t.Parallel()
 	core := &fibonaccitest.CoreStub{
-		CoreFunc: func(context.Context, fibonacci.ProgressCallback, uint64, fibonacci.Options) (*big.Int, error) {
+		CoreFunc: func(context.Context, progress.ProgressCallback, uint64, fibonacci.Options) (*big.Int, error) {
 			return nil, errors.New("expected failure")
 		},
 	}

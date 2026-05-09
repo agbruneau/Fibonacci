@@ -168,7 +168,7 @@ The project uses the Decorator pattern. To add a new algorithm, you only need to
    ```go
    type MyAlgorithm struct{}
    
-   func (a *MyAlgorithm) CalculateCore(ctx context.Context, reporter fibonacci.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) {
+   func (a *MyAlgorithm) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) {
        // Your core algorithm logic here...
        // Report progress via reporter(float64) between 0.0 and 1.0
        return result, nil

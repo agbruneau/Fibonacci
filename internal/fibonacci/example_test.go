@@ -3,6 +3,8 @@ package fibonacci
 import (
 	"context"
 	"fmt"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // ExampleNewCalculator demonstrates creating a Calculator with
@@ -55,9 +57,9 @@ func ExampleFibCalculator_CalculateWithObservers() {
 	calc := MustNewCalculator(&OptimizedFastDoubling{}).(*FibCalculator)
 
 	// Create a subject with a channel observer.
-	subject := NewProgressSubject()
-	progressChan := make(chan ProgressUpdate, 100)
-	subject.Register(NewChannelObserver(progressChan))
+	subject := progress.NewProgressSubject()
+	progressChan := make(chan progress.ProgressUpdate, 100)
+	subject.Register(progress.NewChannelObserver(progressChan))
 
 	result, err := calc.CalculateWithObservers(
 		context.Background(), subject, 0, 50, Options{},

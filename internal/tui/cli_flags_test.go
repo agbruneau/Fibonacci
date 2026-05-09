@@ -13,6 +13,7 @@ import (
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // capturingCalculator captures the parameters passed to Calculate
@@ -24,11 +25,11 @@ type capturingCalculator struct {
 	name         string
 }
 
-func (c *capturingCalculator) Calculate(_ context.Context, progressChan chan<- fibonacci.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+func (c *capturingCalculator) Calculate(_ context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
 	c.capturedN = n
 	c.capturedOpts = opts
 	if progressChan != nil {
-		progressChan <- fibonacci.ProgressUpdate{CalculatorIndex: calcIndex, Value: 1.0}
+		progressChan <- progress.ProgressUpdate{CalculatorIndex: calcIndex, Value: 1.0}
 	}
 	return c.result, nil
 }
@@ -46,7 +47,7 @@ var _ fibonacci.Calculator = (*capturingCalculator)(nil)
 // blockingCalculator blocks until context cancellation.
 type blockingCalculator struct{}
 
-func (b blockingCalculator) Calculate(ctx context.Context, _ chan<- fibonacci.ProgressUpdate, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
+func (b blockingCalculator) Calculate(ctx context.Context, _ chan<- progress.ProgressUpdate, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
 	<-ctx.Done()
 	return nil, ctx.Err()
 }

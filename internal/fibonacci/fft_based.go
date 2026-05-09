@@ -3,6 +3,8 @@ package fibonacci
 import (
 	"context"
 	"math/big"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // FFTBasedCalculator is a specialized Fibonacci calculator that uses the Fast
@@ -44,7 +46,7 @@ func (c *FFTBasedCalculator) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	// AcquireStateForN: state-bound arena (see fastdoubling.go for the
 	// invariant). On success we hand off via ReleaseStateWithResult so the
 	// returned big.Int does not alias pooled arena memory.

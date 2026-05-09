@@ -224,7 +224,7 @@ type SpyCalculator struct {
 }
 
 func (s *SpyCalculator) Calculate(ctx context.Context,
-    progressChan chan<- fibonacci.ProgressUpdate,
+    progressChan chan<- progress.ProgressUpdate,
     calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
     s.capturedOpts = opts
     return big.NewInt(55), nil

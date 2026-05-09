@@ -9,6 +9,8 @@ import (
 	"math/big"
 	"math/bits"
 	"runtime"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // SquareSymmetricMatrixFunc is the function signature for symmetric matrix squaring.
@@ -56,7 +58,7 @@ func NewMatrixFrameworkWithSquareFunc(fn SquareSymmetricMatrixFunc) *MatrixFrame
 // Returns:
 //   - *big.Int: The calculated Fibonacci number F(n).
 //   - error: An error if one occurred (e.g., context cancellation).
-func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter ProgressCallback, n uint64, opts Options, state *matrixState) (*big.Int, error) {
+func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options, state *matrixState) (*big.Int, error) {
 	if n == 0 {
 		return big.NewInt(0), nil
 	}
@@ -68,9 +70,9 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 	useParallel := runtime.NumCPU() > 1 && normalizedOpts.ParallelThreshold > 0
 
 	// Calculate total work for progress reporting via common utility
-	totalWork := CalcTotalWork(numBits)
+	totalWork := progress.CalcTotalWork(numBits)
 	// Pre-compute powers of 4 for O(1) progress calculation
-	powers := PrecomputePowers4(numBits)
+	powers := progress.PrecomputePowers4(numBits)
 	workDone := 0.0
 	lastReportedProgress := -1.0
 
@@ -102,7 +104,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter Progre
 		// However, ReportStepProgress assumes `i` counts down from MSB (large work) to LSB.
 		// To correct this, we invert the index passed to ReportStepProgress so that
 		// stepIndex becomes `i`, resulting in increasing work values.
-		workDone = ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits, powers)
+		workDone = progress.ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits, powers)
 	}
 	// Optimization: Avoid copying the entire result by "stealing" res.a from
 	// the matrix state. We replace it with a fresh empty big.Int so the state

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // knownFibResults is a test oracle containing reference values
@@ -71,7 +73,7 @@ func TestProgressCalculationLogic(t *testing.T) {
 	t.Parallel()
 	const n = 100_000 // A sufficiently large number for the test
 	calc := MustNewCalculator(&OptimizedFastDoubling{})
-	progressChan := make(chan ProgressUpdate, 200)
+	progressChan := make(chan progress.ProgressUpdate, 200)
 	var progressUpdates []float64
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -126,7 +128,7 @@ func TestProgressCallback(t *testing.T) {
 	for name, calc := range calculators {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			progressChan := make(chan ProgressUpdate, 200)
+			progressChan := make(chan progress.ProgressUpdate, 200)
 			var lastProgress float64
 			var wg sync.WaitGroup
 			wg.Add(1)

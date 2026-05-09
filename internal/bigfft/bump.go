@@ -146,11 +146,23 @@ func (ba *BumpAllocator) AllocFermat(n int) fermat {
 	return fermat(ba.Alloc(n + 1))
 }
 
+// AllocFermatTemp implements TempAllocator. It allocates a fermat buffer of
+// size n+1 from the bump allocator. The cleanup function is a no-op since the
+// bump allocator releases all memory at once when ReleaseBumpAllocator is called.
+func (ba *BumpAllocator) AllocFermatTemp(n int) (fermat, func()) {
+	return ba.AllocFermat(n), noopCleanup
+}
+
 // AllocFermatSlice allocates K fermat numbers, each of size n+1.
-// Returns both the slice of fermat references and the backing word buffer.
+// Returns the slice of fermat references, the backing word buffer, and a
+// cleanup function. The cleanup function is a no-op since the bump allocator
+// releases all memory at once when ReleaseBumpAllocator is called.
 //
-// This is optimized for FFT where we need K coefficient buffers that
-// are accessed sequentially, benefiting from cache locality.
+// This signature satisfies the TempAllocator interface, so *BumpAllocator can
+// be passed wherever a TempAllocator is expected.
+//
+// This is optimized for FFT where we need K coefficient buffers that are
+// accessed sequentially, benefiting from cache locality.
 //
 // Parameters:
 //   - K: Number of fermat slices to allocate.
@@ -159,7 +171,8 @@ func (ba *BumpAllocator) AllocFermat(n int) fermat {
 // Returns:
 //   - []fermat: Slice of K fermat references.
 //   - []big.Word: The backing buffer (for potential release tracking).
-func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word) {
+//   - func(): No-op cleanup (bulk release via ReleaseBumpAllocator).
+func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
 	wordCount := K * (n + 1)
 	bits := ba.Alloc(wordCount)
 
@@ -169,8 +182,13 @@ func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word) {
 		fermats[i] = fermat(bits[i*(n+1) : (i+1)*(n+1)])
 	}
 
-	return fermats, bits
+	return fermats, bits, noopCleanup
 }
+
+// noopCleanup is a shared no-op cleanup closure used by BumpAllocator's
+// TempAllocator methods. The bump allocator releases all memory at once via
+// ReleaseBumpAllocator, so per-allocation cleanup is unnecessary.
+var noopCleanup = func() {}
 
 // Remaining returns the number of words still available in the buffer.
 func (ba *BumpAllocator) Remaining() int {

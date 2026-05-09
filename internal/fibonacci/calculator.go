@@ -8,6 +8,7 @@ import (
 
 	"github.com/agbru/fibcalc/internal/bigfft"
 	"github.com/agbru/fibcalc/internal/fibonacci/memory"
+	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,7 +37,7 @@ type Calculator interface {
 	// Returns:
 	//   - *big.Int: The calculated Fibonacci number.
 	//   - error: An error if one occurred (e.g., context cancellation).
-	Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error)
+	Calculate(ctx context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, n uint64, opts Options) (*big.Int, error)
 
 	// Name returns the display name of the calculation algorithm (e.g., "Fast Doubling").
 	//
@@ -54,13 +55,13 @@ type Calculator interface {
 // To register a custom algorithm:
 //
 //	type MyAlgorithm struct{}
-//	func (a *MyAlgorithm) CalculateCore(ctx context.Context, reporter fibonacci.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) { ... }
+//	func (a *MyAlgorithm) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) { ... }
 //	func (a *MyAlgorithm) Name() string { return "My Algorithm" }
 //
 //	factory := fibonacci.NewDefaultFactory()
 //	factory.Register("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} })
 type CoreCalculator interface {
-	CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error)
+	CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error)
 	Name() string
 }
 
@@ -139,11 +140,11 @@ func (c *FibCalculator) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
-func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- ProgressUpdate, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
+func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
 	// Create a subject with a channel observer for backward compatibility
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	if progressChan != nil {
-		subject.Register(NewChannelObserver(progressChan))
+		subject.Register(progress.NewChannelObserver(progressChan))
 	}
 	return c.CalculateWithObservers(ctx, subject, calcIndex, n, opts)
 }
@@ -166,7 +167,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- Progr
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
-func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *ProgressSubject, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
+func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *progress.ProgressSubject, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
 	// GC control for large calculations
 	gcMode := opts.GCMode
 	if gcMode == "" {
@@ -193,7 +194,7 @@ func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *Pro
 	// Fast path: if no observers are registered, use a no-op reporter
 	// to avoid lock acquisition and iteration overhead on every progress update.
 	// Use Freeze() to create a lock-free snapshot for the calculation loop.
-	var reporter ProgressCallback
+	var reporter progress.ProgressCallback
 	if subject != nil && subject.ObserverCount() > 0 {
 		reporter = subject.Freeze(calcIndex)
 	} else {

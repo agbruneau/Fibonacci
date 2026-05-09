@@ -3,6 +3,8 @@ package fibonacci
 import (
 	"context"
 	"math/big"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // MatrixExponentiation offers a classic and efficient approach to calculating
@@ -68,7 +70,7 @@ func (c *MatrixExponentiation) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	state := acquireMatrixState()
 	defer releaseMatrixState(state)
 

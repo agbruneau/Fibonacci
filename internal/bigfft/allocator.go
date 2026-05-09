@@ -77,28 +77,9 @@ func (p *PoolAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()
 	return fermats, bits, cleanup
 }
 
-// BumpAllocatorAdapter adapts BumpAllocator to the TempAllocator interface.
-// Since bump allocator releases all memory at once, cleanup is a no-op.
-type BumpAllocatorAdapter struct {
-	ba *BumpAllocator
-}
-
-// NewBumpAllocatorAdapter creates a new adapter wrapping the given BumpAllocator.
-func NewBumpAllocatorAdapter(ba *BumpAllocator) *BumpAllocatorAdapter {
-	return &BumpAllocatorAdapter{ba: ba}
-}
-
-// AllocFermatTemp allocates a fermat buffer from the bump allocator.
-// The cleanup function is a no-op since bump allocator releases all at once.
-func (b *BumpAllocatorAdapter) AllocFermatTemp(n int) (fermat, func()) {
-	return b.ba.AllocFermat(n), func() {} // no-op cleanup
-}
-
-// AllocFermatSlice allocates K fermat numbers from the bump allocator.
-func (b *BumpAllocatorAdapter) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
-	f, w := b.ba.AllocFermatSlice(K, n)
-	return f, w, func() {} // no-op cleanup
-}
+// Note: *BumpAllocator implements TempAllocator directly (see bump.go).
+// The previous BumpAllocatorAdapter wrapper has been removed; pass a
+// *BumpAllocator wherever a TempAllocator is expected.
 
 // defaultPoolAllocator is a shared instance of PoolAllocator.
 var defaultPoolAllocator = &PoolAllocator{}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // maxArenaPoolWords caps the size of a CalculationArena retained in the pool
@@ -99,7 +100,7 @@ func (fd *OptimizedFastDoubling) Name() string {
 // Returns:
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
-func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (fd *OptimizedFastDoubling) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	// AcquireStateForN reuses (or grows) the state's bound arena and pre-sizes
 	// all big.Int slots from it. The arena is owned by the state, so the
 	// invariant "no big.Int alias outlives its backing arena" is enforced

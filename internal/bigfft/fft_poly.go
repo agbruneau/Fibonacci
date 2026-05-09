@@ -137,7 +137,7 @@ func (p *Poly) Mul(q *Poly) (Poly, error) {
 // MulWithBump multiplies p and q using a bump allocator for temporary allocations.
 // This provides better cache locality and reduces GC pressure.
 func (p *Poly) MulWithBump(q *Poly, ba *BumpAllocator) (Poly, error) {
-	return p.mul(q, NewBumpAllocatorAdapter(ba))
+	return p.mul(q, ba)
 }
 
 func (p *Poly) mul(q *Poly, alloc TempAllocator) (Poly, error) {
@@ -226,7 +226,7 @@ func (p *Poly) Transform(n int) (PolValues, error) {
 // for temporary allocations. This provides better cache locality and reduces
 // GC pressure compared to Transform().
 func (p *Poly) TransformWithBump(n int, ba *BumpAllocator) (PolValues, error) {
-	return p.transform(n, NewBumpAllocatorAdapter(ba))
+	return p.transform(n, ba)
 }
 
 func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
@@ -250,12 +250,7 @@ func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
 	}
 
 	// Determine if we are using bump allocator to pass down
-	var ba *BumpAllocator
-	if adapter, ok := alloc.(*BumpAllocatorAdapter); ok {
-		ba = adapter.ba
-	}
-
-	if ba != nil {
+	if ba, ok := alloc.(*BumpAllocator); ok {
 		if err := fourierWithBump(values, input, false, n, k, ba); err != nil {
 			return PolValues{}, err
 		}
@@ -283,7 +278,7 @@ func (v *PolValues) InvTransform() (Poly, error) {
 // InvTransformWithBump reconstructs p (modulo X^K - 1) from its values,
 // using a bump allocator for temporary allocations.
 func (v *PolValues) InvTransformWithBump(ba *BumpAllocator) (Poly, error) {
-	return v.invTransform(NewBumpAllocatorAdapter(ba))
+	return v.invTransform(ba)
 }
 
 func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
@@ -305,12 +300,7 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 	}
 
 	// Determine if we are using bump allocator to pass down
-	var ba *BumpAllocator
-	if adapter, ok := alloc.(*BumpAllocatorAdapter); ok {
-		ba = adapter.ba
-	}
-
-	if ba != nil {
+	if ba, ok := alloc.(*BumpAllocator); ok {
 		if err := fourierWithBump(p, v.Values, true, n, k, ba); err != nil {
 			return Poly{}, err
 		}
@@ -438,7 +428,7 @@ func (p *PolValues) Mul(q *PolValues) (PolValues, error) {
 // MulWithBump returns the pointwise product of p and q, using a bump allocator
 // for temporary buffers.
 func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, error) {
-	return p.mul(q, NewBumpAllocatorAdapter(ba))
+	return p.mul(q, ba)
 }
 
 func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
@@ -478,7 +468,7 @@ func (p *PolValues) Sqr() (PolValues, error) {
 // SqrWithBump returns the pointwise square of p, using a bump allocator
 // for temporary buffers.
 func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
-	return p.sqr(NewBumpAllocatorAdapter(ba))
+	return p.sqr(ba)
 }
 
 func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {

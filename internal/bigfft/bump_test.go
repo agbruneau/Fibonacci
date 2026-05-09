@@ -109,7 +109,7 @@ func TestBumpAllocatorAllocFermatSlice(t *testing.T) {
 	K := 8
 	n := 15 // fermat size = 16
 
-	fermats, bits := ba.AllocFermatSlice(K, n)
+	fermats, bits, _ := ba.AllocFermatSlice(K, n)
 
 	if len(fermats) != K {
 		t.Errorf("Expected %d fermats, got %d", K, len(fermats))

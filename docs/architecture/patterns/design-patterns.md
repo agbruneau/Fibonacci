@@ -11,7 +11,7 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
 |------------------|----------------------------------------------|-------------------------------------------------------------------------------------|
 | **Strategy**     | Pluggable Fibonacci algorithms behind a uniform `Calculator` interface | `internal/fibonacci/calculator.go`, `fastdoubling.go`, `matrix.go`, `fft.go`        |
 | **Factory / Registry** | Centralized calculator construction, decoupled from callers     | `internal/fibonacci/registry.go`                                                    |
-| **Observer**     | Streaming progress updates to CLI / TUI / metrics sinks | `internal/progress/`, `internal/fibonacci.ProgressUpdate` channel                   |
+| **Observer**     | Streaming progress updates to CLI / TUI / metrics sinks | `internal/progress/` — `progress.ProgressUpdate` channel                            |
 | **Object Pool**  | `big.Int` recycling to eliminate GC pressure on large N. State-bound: `CalculationState` owns its arena, both share one lifecycle (audit P1-04). | `sync.Pool` in `internal/fibonacci/state_pool.go`, `AcquireStateForN`/`ReleaseStateWithResult` in `internal/fibonacci/fastdoubling.go` |
 | **Bump Allocator** | O(1) linear arena for FFT intermediate buffers and Fast Doubling state. | `internal/bigfft/bump.go`, `internal/fibonacci/memory/arena.go`                     |
 | **Decorator**    | Optional capabilities (cache, metrics) layered on a base calculator | `WithOptimizedCache`, `WithMetrics` option helpers in `internal/fibonacci/options.go` |

@@ -32,9 +32,8 @@ func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, b
 	tmp := ba.AllocFermat(n)
 	tmp2 := ba.AllocFermat(n)
 
-	// Use the unified recursive function with bump allocator adapter
-	alloc := NewBumpAllocatorAdapter(ba)
-	return fourierRecursiveUnified(dst, src, backward, n, k, k, 0, tmp, tmp2, alloc)
+	// *BumpAllocator implements TempAllocator directly (see bump.go).
+	return fourierRecursiveUnified(dst, src, backward, n, k, k, 0, tmp, tmp2, ba)
 }
 
 func fftmul(x, y nat) (nat, error) {

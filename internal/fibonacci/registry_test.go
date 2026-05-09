@@ -5,13 +5,15 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 // mockCoreCalculator is a simple implementation of CoreCalculator for testing.
 type mockCoreCalculator struct{}
 
 func (m *mockCoreCalculator) Name() string { return "mock" }
-func (m *mockCoreCalculator) CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (m *mockCoreCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 

@@ -23,6 +23,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/ncw/gmp"
 )
 
@@ -104,7 +105,7 @@ func gmpToStdBigInt(g *gmp.Int) *big.Int {
 }
 
 // CalculateCore executes the calculation using GMP's optimized arithmetic.
-func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
 	// Handle base cases
 	if n == 0 {
 		return big.NewInt(0), nil
@@ -124,9 +125,9 @@ func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter ProgressCall
 
 	// Progress reporting setup
 	var lastReported float64
-	totalWork := CalcTotalWork(numBits)
+	totalWork := progress.CalcTotalWork(numBits)
 	currentWork := 0.0
-	powers := PrecomputePowers4(numBits)
+	powers := progress.PrecomputePowers4(numBits)
 
 	// Iterate from MSB-1 down to 0
 	for i := numBits - 1; i >= 0; i-- {
@@ -146,7 +147,7 @@ func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter ProgressCall
 		}
 
 		// Report progress
-		currentWork = ReportStepProgress(reporter, &lastReported, totalWork, currentWork, i, numBits, powers)
+		currentWork = progress.ReportStepProgress(reporter, &lastReported, totalWork, currentWork, i, numBits, powers)
 	}
 
 	return gmpToStdBigInt(a), nil

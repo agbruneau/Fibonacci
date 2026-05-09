@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"sort"
 	"testing"
+
+	"github.com/agbru/fibcalc/internal/progress"
 )
 
 func TestMockCalculator_Name(t *testing.T) {
@@ -83,7 +85,7 @@ func TestMockCalculator_Calculate(t *testing.T) {
 	t.Run("Calculate with progress channel", func(t *testing.T) {
 		t.Parallel()
 		expectedResult := big.NewInt(55)
-		progressChan := make(chan ProgressUpdate, 1)
+		progressChan := make(chan progress.ProgressUpdate, 1)
 		mock := &MockCalculator{
 			Result: expectedResult,
 			Err:    nil,
