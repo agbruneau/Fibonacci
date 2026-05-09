@@ -76,7 +76,7 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 | R3.8 | Errors au lieu de panics dans Fermat | 3B | `internal/bigfft/fermat.go` + propagation | 4 h | ✅ | agent | (Vague3B) Stratégie hybride : panics internes préservés + wrappers Safe (MulSafe/SqrSafe/...) |
 | R3.9 | Cache fast-path lock-free | 3B | `internal/bigfft/fft_cache.go` | 4 h | ✅ | agent | (Vague3B) -70% latency parallèle (3.3x speedup) en cache hit chaude |
 | R3.7 | `bigfft.FFTContext` injectable | 3C | `internal/bigfft/` (refactor large) | 1 j | ⚠ | agent | PARTIAL: FFTContext + MulWithContext/SqrWithContext exposés, isolation 2 contextes vérifiée. Pools globaux conservés (scope conservateur, bench dans gate -5%). |
-| R3.2 | Découpler cache FFT de `DoublingFramework` | 3D | `internal/fibonacci/doubling_framework.go` + `internal/bigfft/` | 1 j | ⬜ | — | — |
+| R3.2 | Découpler cache FFT de `DoublingFramework` | 3D | `internal/fibonacci/doubling_framework.go` + `internal/bigfft/` | 1 j | ✅ | agent | (Vague3D) ExecuteDoublingLoop 137→91 LOC ; CacheStrategy injectable ; import bigfft retiré |
 
 ### Vague 4 — Polissage & outillage (1 semaine, 3 lots)
 

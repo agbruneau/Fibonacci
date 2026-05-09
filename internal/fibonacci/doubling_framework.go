@@ -10,7 +10,6 @@ import (
 	"math/bits"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
 	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
 	"github.com/agbru/fibcalc/internal/progress"
 )
@@ -18,9 +17,16 @@ import (
 // DoublingFramework encapsulates the common Fast Doubling algorithm logic.
 // It uses a DoublingStepExecutor to perform multiplications, allowing
 // different strategies (adaptive, FFT-only, etc.) to be plugged in.
+//
+// CacheStrategy is an optional pluggable hook called from inside the doubling
+// loop to let an adapter tune an underlying transform cache (e.g. the bigfft
+// global cache). When nil, no cache adjustment is performed. The DTM-driven
+// constructors install the default bigfft-backed strategy automatically so
+// the historical behaviour is preserved.
 type DoublingFramework struct {
 	strategy         DoublingStepExecutor
 	dynamicThreshold *threshold.DynamicThresholdManager
+	CacheStrategy    CacheStrategy
 }
 
 // NewDoublingFramework creates a new Fast Doubling framework with the given strategy.
@@ -46,6 +52,7 @@ func NewDoublingFrameworkWithDynamicThresholds(strategy DoublingStepExecutor, dt
 	return &DoublingFramework{
 		strategy:         strategy,
 		dynamicThreshold: dtm,
+		CacheStrategy:    NewBigFFTCacheStrategy(),
 	}
 }
 
@@ -139,7 +146,7 @@ func executeDoublingStepMultiplications(ctx context.Context, strategy Multiplier
 // Returns:
 //   - *big.Int: The calculated Fibonacci number F(n).
 //   - error: An error if one occurred (e.g., context cancellation).
-func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) { //nolint:gocognit // hot algorithmic loop, extracting would obscure Fast Doubling identity flow and risk perf regression
+func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) {
 	numBits := bits.Len64(n)
 
 	// Calculate total work for progress reporting via common utility
@@ -152,13 +159,9 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 	// Normalize options to ensure consistent default threshold handling
 	currentOpts := normalizeOptions(opts)
 	dtm := f.dynamicThreshold
-
-	// P1-02: counter used to throttle the per-iteration cache.Stats() read
-	// + SetTransformCacheConfig() block. The block is advisory (it tunes
-	// MaxEntries/MinBitLen heuristically) and was running every iteration —
-	// 24+ times for F(1M) — each call taking RLocks on the cache. Sampling
-	// every 8 iterations preserves the adjustment behaviour while cutting
-	// the overhead roughly 8x.
+	// P1-02 / R3.2: cache adjustment is delegated to a CacheStrategy. The
+	// strategy implements its own throttling so the loop stays algorithm-only.
+	cacheStrategy := f.CacheStrategy
 	iterCount := 0
 
 	for i := numBits - 1; i >= 0; i-- {
@@ -173,92 +176,49 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 			iterStart = time.Now()
 		}
 
-		// Doubling Step
-		// Cache bit lengths to avoid repeated calls (BitLen() traverses internal representation)
+		// Doubling Step — cache bit lengths once (BitLen() walks the rep).
 		fkBitLen := s.FK.BitLen()
 		fk1BitLen := s.FK1.BitLen()
-
-		// Get current bit length for metrics (use cached value)
 		bitLen := fkBitLen
-
-		// Check if we should use FFT based on current thresholds
-		// (thresholds are already normalized, so no need to check for 0)
 		usedFFT := bitLen > currentOpts.FFTThreshold
-		usedParallel := false
 
-		// Execute the three multiplications for the doubling step:
-		// T3 = FK × FK1, T2 = FK², T1 = FK1²
-		// All three have independent destinations and read-only sources.
+		// Execute the three multiplications: T3 = FK·FK1, T2 = FK², T1 = FK1².
 		shouldParallel := useParallel && shouldParallelizeMultiplicationCached(currentOpts, fkBitLen, fk1BitLen)
-		if shouldParallel {
-			usedParallel = true
-		}
 		if err := f.strategy.ExecuteStep(ctx, s, currentOpts, shouldParallel); err != nil {
 			return nil, fmt.Errorf("doubling step failed at bit %d/%d: %w", i, numBits-1, err)
 		}
 
-		// Post-multiply: compute F(2k) and F(2k+1) from the three products.
-		// F(2k)   = 2·FK·FK1 - FK² = 2·T3 - T2
-		// F(2k+1) = FK1² + FK²     = T1 + T2
+		// Post-multiply: F(2k) = 2·T3 - T2, F(2k+1) = T1 + T2.
 		s.T3.Lsh(s.T3, 1)
 		s.T3.Sub(s.T3, s.T2)
 		s.T1.Add(s.T1, s.T2)
 
-		// Swap the pointers for the next iteration.
-		// FK becomes F(2k) (from T3), FK1 becomes F(2k+1) (from T1).
-		// T2 and T3 become the old FK and FK1, now temporaries.
-		// T1 becomes the old T2 (free).
+		// Rotate pointers so FK/FK1 hold F(2k)/F(2k+1) and the rest become temps.
 		s.FK, s.FK1, s.T2, s.T3, s.T1 = s.T3, s.T1, s.FK, s.FK1, s.T2
 
-		// Addition Step: If the i-th bit of n is 1, update F(k) and F(k+1)
-		// F(k) <- F(k+1)
-		// F(k+1) <- F(k) + F(k+1)
+		// Addition Step: if bit i of n is set, advance one extra index.
 		// i is a bit index in [0, bits.Len64(n)-1] ⊂ [0, 63], uint conversion safe. #nosec G115
 		if (n>>uint(i))&1 == 1 {
-			// s.T1 temporarily stores the new F(k+1).
-			// T1 is free after the rotation (holds old T2).
 			s.T1.Add(s.FK, s.FK1)
-			// Swap pointers to avoid large allocations:
-			// s.FK becomes the old s.FK1
-			// s.FK1 becomes the new sum (s.T1)
-			// s.T1 becomes the old s.FK, now a temporary
 			s.FK, s.FK1, s.T1 = s.FK1, s.T1, s.FK
 		}
 
 		// Record metrics and check for threshold adjustments
 		if dtm != nil {
 			iterDuration := time.Since(iterStart)
-			dtm.RecordIteration(bitLen, iterDuration, usedFFT, usedParallel)
+			dtm.RecordIteration(bitLen, iterDuration, usedFFT, shouldParallel)
 
-			// Check if thresholds should be adjusted
-			newFFT, newParallel, adjusted := dtm.ShouldAdjust()
-			if adjusted {
+			if newFFT, newParallel, adjusted := dtm.ShouldAdjust(); adjusted {
 				currentOpts.FFTThreshold = newFFT
 				currentOpts.ParallelThreshold = newParallel
 			}
 
-			// P1-02: Dynamically adjust FFT cache based on hit rate.
-			// Throttled: only sample/adjust once every 8 iterations (and always
-			// on the final iteration) to avoid 24+ RLock'd Stats() reads for
-			// large N. This is advisory tuning — the slower response time
-			// between checks is acceptable given the geometric growth in
-			// iteration cost.
-			if iterCount%8 == 0 || i == 0 {
-				cache := bigfft.GetTransformCache()
-				stats := cache.Stats()
-
-				// If evicting frequently with good hit rate, increase cache size
-				if stats.Evictions > 0 && stats.HitRate > 0.5 {
-					cfg := cache.Config()
-					if cfg.MaxEntries < 8192 { // Hard upper limit to prevent excessive memory
-						cfg.MaxEntries = int(float64(cfg.MaxEntries) * 1.2) // Increase by 20%
-						bigfft.SetTransformCacheConfig(cfg)
-					}
-				} else if stats.HitRate < 0.1 && (stats.Misses+stats.Hits) > 10 {
-					// If cache is not useful, prune smaller transforms
-					cfg := cache.Config()
-					cfg.MinBitLen = int(float64(cfg.MinBitLen) * 1.1) // Increase threshold by 10%
-					bigfft.SetTransformCacheConfig(cfg)
+			// Cache tuning is delegated to the pluggable strategy. Preserves
+			// the historical "only when DTM is enabled" gate so loops without
+			// dynamic thresholds remain side-effect-free on the global cache.
+			if cacheStrategy != nil {
+				if err := cacheStrategy.Sample(iterCount, numBits); err != nil {
+					return nil, fmt.Errorf("cache strategy sample failed at bit %d/%d: %w", i, numBits-1, err)
 				}
 			}
 		}
