@@ -683,6 +683,54 @@ func BenchmarkCacheHit(b *testing.B) {
 	}
 }
 
+// BenchmarkCacheHitParallel measures the contention of cache hits under
+// concurrent load. This is the hot-path scenario targeted by R3.9: with a
+// single hot key, every goroutine races on the same elem and would, under
+// the old implementation, contend on the exclusive Lock used for
+// MoveToFront. The R3.9 fast path detects "already at front" under RLock
+// and skips the exclusive Lock entirely, dramatically reducing contention.
+func BenchmarkCacheHitParallel(b *testing.B) {
+	b.ReportAllocs()
+	config := TransformCacheConfig{
+		MaxEntries: 100,
+		MinBitLen:  64,
+		Enabled:    true,
+	}
+	cache := NewTransformCache(config)
+
+	testData := make(nat, 100)
+	for i := range testData {
+		testData[i] = big.Word(i + 1)
+	}
+
+	mockValues := PolValues{
+		K:      4,
+		N:      100,
+		Values: make([]fermat, 16),
+	}
+	for i := range mockValues.Values {
+		mockValues.Values[i] = make(fermat, 101)
+	}
+
+	cache.Put(testData, mockValues)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			cache.Get(testData, 4, 100)
+		}
+	})
+}
+
+// BenchmarkTransformCache exposes the suite of micro-benchmarks for the
+// transform cache hot path under a single canonical name (used by R3.9
+// validation). It runs the parallel hit benchmark — the scenario where
+// the optimization matters most.
+func BenchmarkTransformCache(b *testing.B) {
+	b.Run("HitParallel", BenchmarkCacheHitParallel)
+	b.Run("Hit", BenchmarkCacheHit)
+}
+
 func BenchmarkCacheMiss(b *testing.B) {
 	b.ReportAllocs()
 	config := TransformCacheConfig{

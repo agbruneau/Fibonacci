@@ -1,9 +1,32 @@
 package bigfft
 
 import (
+	"fmt"
 	"math/big"
 	"math/bits"
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error-returning wrappers (audit R3.8)
+//
+// The Mul, Sqr, Add, Sub and Shift methods below panic on size mismatches.
+// Historically those were treated as programmer-error invariants because the
+// internal FFT code always sizes its operands correctly. However, the public
+// bigfft.Mul / Sqr / MulTo / SqrTo entry points (fft.go) recover those panics
+// and report them as opaque errors, which makes it impossible to distinguish a
+// genuine logic bug from external corruption.
+//
+// The *Safe wrappers below return a structured error on size mismatch instead
+// of panicking, while preserving the panic-based fast path used everywhere
+// inside the package. They are intended for callers who want to validate
+// untrusted layouts (e.g. data crossing a serialization boundary) without
+// relying on recover().
+//
+// Internal post-condition panics (e.g. "len(z) > 2n+1", "unexpected carry
+// after normalization") are NOT converted: they signal a bug inside Mul/Sqr
+// itself, not bad input from the caller. Surfacing them as errors would mask
+// regressions.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // smallMulThreshold is the number of words below which basicMul is used
 // instead of big.Int.Mul for fermat multiplication. This value was determined
@@ -259,6 +282,60 @@ func (z fermat) Sqr(x fermat) fermat {
 	}
 	z.norm()
 	return z
+}
+
+// MulSafe is the error-returning counterpart of (fermat).Mul. It validates
+// that len(x) == len(y) before delegating to Mul, returning a descriptive
+// error on mismatch instead of panicking. Internal post-condition violations
+// inside Mul still panic (they signal a bug, not bad input).
+func (z fermat) MulSafe(x, y fermat) (fermat, error) {
+	if len(x) != len(y) {
+		return nil, fmt.Errorf("fermat.MulSafe: operand size mismatch: len(x)=%d, len(y)=%d", len(x), len(y))
+	}
+	return z.Mul(x, y), nil
+}
+
+// SqrSafe is the error-returning counterpart of (fermat).Sqr. Sqr itself has
+// no externally-validatable size precondition (it only requires len(x) >= 1),
+// but we expose this wrapper for symmetry with MulSafe and to centralize the
+// minimal validation. Internal post-condition violations still panic.
+func (z fermat) SqrSafe(x fermat) (fermat, error) {
+	if len(x) < 1 {
+		return nil, fmt.Errorf("fermat.SqrSafe: empty operand: len(x)=%d", len(x))
+	}
+	return z.Sqr(x), nil
+}
+
+// ShiftSafe is the error-returning counterpart of (fermat).Shift. It
+// validates that len(z) == len(x) before delegating to Shift.
+func (z fermat) ShiftSafe(x fermat, k int) error {
+	if len(z) != len(x) {
+		return fmt.Errorf("fermat.ShiftSafe: operand size mismatch: len(z)=%d, len(x)=%d", len(z), len(x))
+	}
+	z.Shift(x, k)
+	return nil
+}
+
+// AddSafe is the error-returning counterpart of (fermat).Add.
+func (z fermat) AddSafe(x, y fermat) (fermat, error) {
+	if len(z) != len(x) {
+		return nil, fmt.Errorf("fermat.AddSafe: operand size mismatch: len(z)=%d, len(x)=%d", len(z), len(x))
+	}
+	if len(z) != len(y) {
+		return nil, fmt.Errorf("fermat.AddSafe: operand size mismatch: len(z)=%d, len(y)=%d", len(z), len(y))
+	}
+	return z.Add(x, y), nil
+}
+
+// SubSafe is the error-returning counterpart of (fermat).Sub.
+func (z fermat) SubSafe(x, y fermat) (fermat, error) {
+	if len(z) != len(x) {
+		return nil, fmt.Errorf("fermat.SubSafe: operand size mismatch: len(z)=%d, len(x)=%d", len(z), len(x))
+	}
+	if len(z) != len(y) {
+		return nil, fmt.Errorf("fermat.SubSafe: operand size mismatch: len(z)=%d, len(y)=%d", len(z), len(y))
+	}
+	return z.Sub(x, y), nil
 }
 
 // copied from math/big

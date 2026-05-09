@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strings"
 	"testing"
 )
 
@@ -147,6 +148,104 @@ func TestBasicSqrVsBasicMul(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFermatSafeWrappersReturnError verifies that the *Safe wrappers (audit
+// R3.8) return a descriptive error on size-mismatched inputs instead of
+// panicking. The non-Safe variants are expected to keep panicking and are
+// covered by the existing happy-path tests above.
+func TestFermatSafeWrappersReturnError(t *testing.T) {
+	t.Parallel()
+
+	// Build operands with intentionally mismatched sizes. The exact contents
+	// don't matter — the wrappers must reject the call before any arithmetic
+	// happens.
+	x := make(fermat, 10) // n+1 = 10  → n = 9
+	y := make(fermat, 12) // n+1 = 12  → n = 11
+	z := make(fermat, 10)
+
+	t.Run("MulSafe rejects mismatched len(x), len(y)", func(t *testing.T) {
+		t.Parallel()
+		buf := make(fermat, 8*9)
+		_, err := buf.MulSafe(x, y)
+		if err == nil {
+			t.Fatalf("MulSafe: expected error on len(x)=%d != len(y)=%d, got nil", len(x), len(y))
+		}
+		if !strings.Contains(err.Error(), "operand size mismatch") {
+			t.Fatalf("MulSafe: error message missing context: %v", err)
+		}
+	})
+
+	t.Run("ShiftSafe rejects mismatched len(z), len(x)", func(t *testing.T) {
+		t.Parallel()
+		err := y.ShiftSafe(x, 3) // len(y)=12 != len(x)=10
+		if err == nil {
+			t.Fatalf("ShiftSafe: expected error on len(z)=%d != len(x)=%d, got nil", len(y), len(x))
+		}
+		if !strings.Contains(err.Error(), "operand size mismatch") {
+			t.Fatalf("ShiftSafe: error message missing context: %v", err)
+		}
+	})
+
+	t.Run("AddSafe rejects mismatched len(z), len(x)", func(t *testing.T) {
+		t.Parallel()
+		_, err := z.AddSafe(y, z) // len(z)=10 != len(y)=12
+		if err == nil {
+			t.Fatalf("AddSafe: expected error on len(z)=%d != len(x)=%d, got nil", len(z), len(y))
+		}
+		if !strings.Contains(err.Error(), "operand size mismatch") {
+			t.Fatalf("AddSafe: error message missing context: %v", err)
+		}
+	})
+
+	t.Run("SubSafe rejects mismatched len(z), len(y)", func(t *testing.T) {
+		t.Parallel()
+		_, err := z.SubSafe(z, y) // len(z)=10 != len(y)=12
+		if err == nil {
+			t.Fatalf("SubSafe: expected error on len(z)=%d != len(y)=%d, got nil", len(z), len(y))
+		}
+		if !strings.Contains(err.Error(), "operand size mismatch") {
+			t.Fatalf("SubSafe: error message missing context: %v", err)
+		}
+	})
+
+	t.Run("SqrSafe rejects empty operand", func(t *testing.T) {
+		t.Parallel()
+		buf := make(fermat, 8)
+		_, err := buf.SqrSafe(fermat{})
+		if err == nil {
+			t.Fatalf("SqrSafe: expected error on empty operand, got nil")
+		}
+	})
+
+	// Happy path: matched sizes still work and produce the same result as the
+	// underlying panic-based methods. This guards against the wrappers ever
+	// silently diverging from Mul/Sqr/Add/Sub/Shift.
+	t.Run("MulSafe matches Mul on valid input", func(t *testing.T) {
+		t.Parallel()
+		n := 5
+		a := make(fermat, n+1)
+		b := make(fermat, n+1)
+		for i := 0; i < n; i++ {
+			a[i] = big.Word(i*7 + 3)
+			b[i] = big.Word(i*11 + 5)
+		}
+		bufRef := make(fermat, 8*n)
+		bufSafe := make(fermat, 8*n)
+		ref := bufRef.Mul(a, b)
+		got, err := bufSafe.MulSafe(a, b)
+		if err != nil {
+			t.Fatalf("MulSafe on valid input returned error: %v", err)
+		}
+		if len(ref) != len(got) {
+			t.Fatalf("MulSafe length mismatch with Mul: %d vs %d", len(got), len(ref))
+		}
+		for i := range ref {
+			if ref[i] != got[i] {
+				t.Fatalf("MulSafe diverges from Mul at word %d: got %x, want %x", i, got[i], ref[i])
+			}
+		}
+	})
 }
 
 // BenchmarkFermatSqrVsMul benchmarks fermat.Sqr vs fermat.Mul at sizes

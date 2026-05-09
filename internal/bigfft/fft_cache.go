@@ -217,33 +217,58 @@ func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
 // The returned PolValues shares its backing data with the cache.
 // Callers MUST NOT modify the returned values. PolValues.Mul() and
 // PolValues.Sqr() are safe as they produce new result values.
+//
+// Hot-path optimization (R3.9): under a single RLock we both look up the
+// entry and snapshot its (immutable) fields. We then check whether the
+// element is already at the LRU front; if so, no exclusive lock is taken
+// (a MoveToFront on the front is a documented no-op, so LRU order is
+// strictly preserved). Otherwise we acquire a brief Lock for MoveToFront.
+// On a very hot cache (entries that stay near the front), this eliminates
+// most exclusive Lock acquisitions, removing the contention measured at
+// 10k+ accesses/s. Cache entries are immutable after insertion, so reading
+// k/n/values via the snapshot under RLock is safe even if the element is
+// later evicted concurrently.
 func (tc *TransformCache) getByKey(key uint64) (PolValues, bool) {
 	tc.mu.RLock()
 	elem, found := tc.entries[key]
-	tc.mu.RUnlock()
-
 	if !found {
+		tc.mu.RUnlock()
 		tc.misses.Add(1)
 		tc.logPeriodicStats()
 		return PolValues{}, false
 	}
 
-	tc.mu.Lock()
-	tc.lru.MoveToFront(elem)
-	tc.mu.Unlock()
+	// Snapshot immutable entry fields under RLock so the returned value
+	// is consistent regardless of any concurrent eviction after RUnlock.
+	entry := elem.Value.(*cacheEntry)
+	pv := PolValues{
+		K:      entry.k,
+		N:      entry.n,
+		Values: entry.values,
+	}
+	// Fast path: if the element is already at the front, MoveToFront would
+	// be a no-op. Skip the exclusive Lock entirely. Reading lru.Front() is
+	// safe under RLock (no concurrent mutators).
+	atFront := tc.lru.Front() == elem
+	tc.mu.RUnlock()
+
+	if !atFront {
+		tc.mu.Lock()
+		// Re-check membership: a concurrent eviction between RUnlock and
+		// Lock would have removed elem from the list. MoveToFront is
+		// documented as a no-op when the element is not in the list, so
+		// this is safe — but the explicit guard avoids any future
+		// container/list semantic drift and documents the intent.
+		if _, stillPresent := tc.entries[key]; stillPresent {
+			tc.lru.MoveToFront(elem)
+		}
+		tc.mu.Unlock()
+	}
 
 	tc.hits.Add(1)
 	tc.logPeriodicStats()
 
-	entry := elem.Value.(*cacheEntry)
-
-	// Return a reference to cached values (zero-copy).
-	// Safe because Mul/Sqr create new result slices without mutating inputs.
-	return PolValues{
-		K:      entry.k,
-		N:      entry.n,
-		Values: entry.values,
-	}, true
+	return pv, true
 }
 
 // logPeriodicStats logs cache statistics every cacheLogInterval accesses.

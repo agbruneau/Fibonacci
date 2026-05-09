@@ -2,15 +2,16 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/agbru/fibcalc/internal/cli"
+	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/fibonacci/memory"
@@ -18,7 +19,9 @@ import (
 	"github.com/agbru/fibcalc/internal/ui"
 )
 
-// runCalculate orchestrates the execution of the CLI calculation command.
+// runCalculate is a thin orchestrator: it dispatches to the partial-digits
+// path, validates the memory budget, sets up the lifecycle (timeout +
+// signals), runs the calculators and presents the results.
 func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 	// Partial computation mode: last K digits only
 	if a.Config.LastDigits > 0 {
@@ -26,10 +29,8 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 	}
 
 	// Memory budget validation
-	if a.Config.MemoryLimit != "" {
-		if code := a.validateMemoryBudget(out); code != apperrors.ExitSuccess {
-			return code
-		}
+	if code := a.validateMemoryBudget(out); code != apperrors.ExitSuccess {
+		return code
 	}
 
 	// Setup lifecycle (timeout + signals)
@@ -38,10 +39,25 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 
-	// Get calculators to run
+	// Execute calculations
+	results := a.executeCalculations(ctx, out)
+
+	// Build output config and present results
+	outputCfg := cli.OutputConfig{
+		OutputFile: a.Config.OutputFile,
+		Quiet:      a.Config.Quiet,
+		Verbose:    a.Config.Verbose,
+		ShowValue:  a.Config.ShowValue,
+	}
+	return a.analyzeResultsWithOutput(results, outputCfg, out)
+}
+
+// executeCalculations runs the configured calculators and returns their
+// results. It also handles the (verbose) banner printing and progress
+// reporter selection based on quiet mode.
+func (a *Application) executeCalculations(ctx context.Context, out io.Writer) []orchestration.CalculationResult {
 	calculatorsToRun := orchestration.GetCalculatorsToRun(a.Config.Algo, a.Factory)
 
-	// Skip verbose output in quiet mode
 	if !a.Config.Quiet {
 		cli.PrintExecutionConfig(a.Config, out)
 		names := make([]string, len(calculatorsToRun))
@@ -51,7 +67,6 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 		cli.PrintExecutionMode(names, out)
 	}
 
-	// Choose progress reporter based on quiet mode
 	var progressReporter orchestration.ProgressReporter
 	progressOut := out
 	if a.Config.Quiet {
@@ -61,57 +76,60 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 		progressReporter = orchestration.ProgressReporterFunc(cli.DisplayProgress)
 	}
 
-	// Execute calculations
 	opts := fibonacci.Options{
 		ParallelThreshold: a.Config.Threshold,
 		FFTThreshold:      a.Config.FFTThreshold,
 		StrassenThreshold: a.Config.StrassenThreshold,
 	}
-	results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
+	return orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 		Calculators:      calculatorsToRun,
 		N:                a.Config.N,
 		Opts:             opts,
 		ProgressReporter: progressReporter,
 		Out:              progressOut,
 	})
-
-	// Build output config for the CLI options
-	outputCfg := cli.OutputConfig{
-		OutputFile: a.Config.OutputFile,
-		Quiet:      a.Config.Quiet,
-		Verbose:    a.Config.Verbose,
-		ShowValue:  a.Config.ShowValue,
-	}
-
-	return a.analyzeResultsWithOutput(results, outputCfg, out)
 }
 
-// validateMemoryBudget checks if the estimated memory usage fits within the configured limit.
+// validateMemoryBudget checks if the estimated memory usage fits within the
+// configured limit. It delegates the pure validation logic to
+// config.ValidateMemoryBudget and only handles presentation and exit-code
+// mapping here.
 func (a *Application) validateMemoryBudget(out io.Writer) int {
-	limit, err := memory.ParseMemoryLimit(a.Config.MemoryLimit)
-	if err != nil {
-		fmt.Fprintf(out, "Invalid --memory-limit: %v\n", err)
+	report, err := config.ValidateMemoryBudget(a.Config)
+	if err == nil {
+		if a.Config.MemoryLimit != "" && !a.Config.Quiet {
+			fmt.Fprintf(out, "Memory estimate: %s (limit: %s)\n",
+				memory.FormatMemoryEstimate(report.Estimate), report.LimitRaw)
+		}
+		return apperrors.ExitSuccess
+	}
+
+	var parseErr config.MemoryLimitParseError
+	if errors.As(err, &parseErr) {
+		fmt.Fprintf(out, "Invalid --memory-limit: %v\n", parseErr.Cause)
 		return apperrors.ExitErrorConfig
 	}
-	est := memory.EstimateMemoryUsage(a.Config.N)
-	if est.TotalBytes > limit {
+
+	var memErr apperrors.MemoryError
+	if errors.As(err, &memErr) {
 		fmt.Fprintf(out, "Estimated memory %s exceeds limit %s.\n",
-			memory.FormatMemoryEstimate(est),
-			a.Config.MemoryLimit)
+			memory.FormatMemoryEstimate(report.Estimate),
+			report.LimitRaw)
 		if a.Config.LastDigits == 0 {
 			fmt.Fprintf(out, "Consider using --last-digits K for O(K) memory usage.\n")
 		}
 		return apperrors.ExitErrorConfig
 	}
-	if !a.Config.Quiet {
-		fmt.Fprintf(out, "Memory estimate: %s (limit: %s)\n",
-			memory.FormatMemoryEstimate(est), a.Config.MemoryLimit)
-	}
-	return apperrors.ExitSuccess
+
+	// Unknown error type: surface it generically.
+	fmt.Fprintf(out, "Memory budget validation failed: %v\n", err)
+	return apperrors.ExitErrorConfig
 }
 
 // runLastDigits computes only the last K decimal digits of F(N) using modular
-// arithmetic, requiring O(K) memory regardless of N.
+// arithmetic, requiring O(K) memory regardless of N. It owns the lifecycle
+// (timeout + signals) and presentation; the math itself lives in
+// orchestration.ComputeLastDigits.
 func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 	ctx, cancelTimeout := context.WithTimeout(ctx, a.Config.Timeout)
 	defer cancelTimeout()
@@ -121,52 +139,58 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 	k := a.Config.LastDigits
 	n := a.Config.N
 
-	// Compute modulus = 10^k
-	mod := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(k)), nil)
-
 	if !a.Config.Quiet {
 		fmt.Fprintf(out, "Computing last %d digits of F(%d)...\n", k, n)
 	}
 
-	start := time.Now()
-	result, err := fibonacci.FastDoublingMod(n, mod)
-	elapsed := time.Since(start)
-
+	res, err := orchestration.ComputeLastDigits(ctx, n, k)
 	if err != nil {
 		fmt.Fprintf(a.ErrWriter, "Error: %v\n", err)
 		return apperrors.ExitErrorGeneric
 	}
 
-	// Format with leading zeros to exactly k digits
-	format := fmt.Sprintf("%%0%ds", k)
-	digits := fmt.Sprintf(format, result.String())
-
 	if a.Config.Quiet {
-		fmt.Fprintln(out, digits)
+		fmt.Fprintln(out, res.Digits)
 	} else {
-		fmt.Fprintf(out, "Last %d digits of F(%d): %s\n", k, n, digits)
-		fmt.Fprintf(out, "Computed in %s\n", elapsed.Round(time.Millisecond))
+		fmt.Fprintf(out, "Last %d digits of F(%d): %s\n", k, n, res.Digits)
+		fmt.Fprintf(out, "Computed in %s\n", res.Duration.Round(time.Millisecond))
 	}
 
 	return apperrors.ExitSuccess
 }
 
+// analyzeResultsWithOutput chains the three result-handling responsibilities:
+// selecting the best result, presenting it (quiet vs verbose), and saving it
+// to a file when requested.
 func (a *Application) analyzeResultsWithOutput(results []orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) int {
-	bestResult := findBestResult(results)
-
-	// Handle quiet mode for single result
-	if outputCfg.Quiet && bestResult != nil {
-		cli.DisplayQuietResult(out, bestResult.Result, a.Config.N, bestResult.Duration)
-
-		// Save to file if requested
-		if err := a.saveResultIfNeeded(bestResult, outputCfg); err != nil {
+	bestResult := a.selectBest(results)
+	exitCode := a.present(results, bestResult, outputCfg, out)
+	if bestResult != nil && exitCode == apperrors.ExitSuccess {
+		if err := a.save(bestResult, outputCfg, out); err != nil {
 			return apperrors.ExitErrorGeneric
 		}
+	}
+	return exitCode
+}
 
+// selectBest picks the fastest successful result, or nil if there is none.
+func (a *Application) selectBest(results []orchestration.CalculationResult) *orchestration.CalculationResult {
+	return findBestResult(results)
+}
+
+// present renders the results to the user and returns the resulting exit
+// code. In quiet mode with at least one success, it prints the value alone;
+// otherwise it delegates to the comparison analyzer.
+func (a *Application) present(
+	results []orchestration.CalculationResult,
+	best *orchestration.CalculationResult,
+	outputCfg cli.OutputConfig,
+	out io.Writer,
+) int {
+	if outputCfg.Quiet && best != nil {
+		cli.DisplayQuietResult(out, best.Result, a.Config.N, best.Duration)
 		return apperrors.ExitSuccess
 	}
-
-	// Use standard analysis for non-quiet mode
 	presOpts := orchestration.PresentationOptions{
 		N:         a.Config.N,
 		Verbose:   a.Config.Verbose,
@@ -174,21 +198,23 @@ func (a *Application) analyzeResultsWithOutput(results []orchestration.Calculati
 		ShowValue: a.Config.ShowValue,
 	}
 	presenter := cli.CLIResultPresenter{MachineOutput: a.Config.MachineOutput}
-	exitCode := orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, out)
+	return orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, out)
+}
 
-	// Handle file output for non-quiet mode
-	if bestResult != nil && exitCode == apperrors.ExitSuccess {
-		// Save to file if requested
-		if err := a.saveResultIfNeeded(bestResult, outputCfg); err != nil {
-			return apperrors.ExitErrorGeneric
-		}
-		if outputCfg.OutputFile != "" {
-			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
-				ui.ColorGreen(), ui.ColorCyan(), outputCfg.OutputFile, ui.ColorReset())
-		}
+// save writes the result to disk if requested and prints a success notice
+// (only in non-quiet mode).
+func (a *Application) save(best *orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) error {
+	if outputCfg.OutputFile == "" {
+		return nil
 	}
-
-	return exitCode
+	if err := a.saveResultIfNeeded(best, outputCfg); err != nil {
+		return err
+	}
+	if !outputCfg.Quiet {
+		fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
+			ui.ColorGreen(), ui.ColorCyan(), outputCfg.OutputFile, ui.ColorReset())
+	}
+	return nil
 }
 
 func findBestResult(results []orchestration.CalculationResult) *orchestration.CalculationResult {
