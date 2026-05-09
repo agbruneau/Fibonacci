@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/agbru/fibcalc/internal/bigfft"
+	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 	"github.com/agbru/fibcalc/internal/progress"
 	"github.com/rs/zerolog/log"
@@ -149,6 +150,32 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- progr
 	return c.CalculateWithObservers(ctx, subject, calcIndex, n, opts)
 }
 
+// CanCalculate reports whether F(n) is expected to fit within the supplied
+// memory budget. It returns the underlying [memory.MemoryEstimate] so callers
+// can present the predicted breakdown regardless of the verdict.
+//
+// Semantics:
+//   - memLimitBytes == 0 disables the check; CanCalculate always returns true.
+//   - Otherwise, the verdict is (estimate.TotalBytes <= memLimitBytes).
+//
+// CanCalculate is a pure function: it performs no allocation beyond the
+// returned estimate and does not consult runtime.MemStats. It is the
+// programmatic entry point shared by [FibCalculator.CalculateWithObservers]
+// (calculator-level guard) and external callers that want to gate work
+// upstream of the calculator (e.g. dispatch layer, tests).
+//
+// This complements (does not replace) config.ValidateMemoryBudget which
+// performs the same check at config-parsing time; CanCalculate intervenes
+// lower in the stack so the protection holds even when the validator is
+// bypassed.
+func CanCalculate(n uint64, memLimitBytes uint64) (bool, memory.MemoryEstimate) {
+	est := memory.EstimateMemoryUsage(n)
+	if memLimitBytes == 0 {
+		return true, est
+	}
+	return est.TotalBytes <= memLimitBytes, est
+}
+
 // CalculateWithObservers executes the calculation with observer-based progress reporting.
 // This method allows for dynamic registration of multiple progress observers,
 // enabling decoupled handling of progress events for UI, logging, metrics, etc.
@@ -168,6 +195,21 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- progr
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
 func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *progress.ProgressSubject, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
+	// Defence-in-depth memory budget check. Runs before any heavy allocation
+	// or pool warm-up so an over-budget request fails fast. Mirrors the
+	// contract of config.ValidateMemoryBudget but at the calculator boundary,
+	// so the guard holds even when the config-level validator is bypassed
+	// (programmatic embedding, tests, future entry points).
+	if opts.MemoryLimitBytes > 0 {
+		if ok, est := CanCalculate(n, opts.MemoryLimitBytes); !ok {
+			return nil, apperrors.MemoryError{
+				Requested: est.TotalBytes,
+				Available: opts.MemoryLimitBytes,
+				Limit:     opts.MemoryLimitBytes,
+			}
+		}
+	}
+
 	// GC control for large calculations
 	gcMode := opts.GCMode
 	if gcMode == "" {

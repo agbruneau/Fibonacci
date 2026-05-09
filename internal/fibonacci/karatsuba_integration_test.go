@@ -8,6 +8,7 @@ import (
 // TestKaratsubaIntegration verifies that smartMultiply correctly selects
 // between math/big (Karatsuba) and FFT tiers based on the FFT threshold.
 func TestKaratsubaIntegration(t *testing.T) {
+	t.Parallel()
 	x := new(big.Int).Lsh(big.NewInt(1), 5000) // ~5000 bits
 	y := new(big.Int).Lsh(big.NewInt(1), 5000)
 

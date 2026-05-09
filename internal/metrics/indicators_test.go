@@ -20,6 +20,7 @@ func fibSmall(n int) *big.Int {
 }
 
 func TestDigitalRoot(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		x    *big.Int
@@ -45,6 +46,7 @@ func TestDigitalRoot(t *testing.T) {
 }
 
 func TestLastNDigits(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		x    *big.Int
@@ -66,6 +68,7 @@ func TestLastNDigits(t *testing.T) {
 }
 
 func TestLastNDigitsLargeNumber(t *testing.T) {
+	t.Parallel()
 	// F(1000) is a large number; verify last 10 digits
 	f1000 := fibSmall(1000)
 	got := lastNDigits(f1000, 10)
@@ -78,6 +81,7 @@ func TestLastNDigitsLargeNumber(t *testing.T) {
 }
 
 func TestCompute(t *testing.T) {
+	t.Parallel()
 	result := fibSmall(100) // F(100) = 354224848179261915075
 	duration := 500 * time.Millisecond
 	n := uint64(100)
@@ -128,6 +132,7 @@ func TestCompute(t *testing.T) {
 }
 
 func TestComputeNilResult(t *testing.T) {
+	t.Parallel()
 	ind := Compute(nil, 100, time.Second)
 	if ind.BitsPerSecond != 0 {
 		t.Errorf("expected zero indicators for nil result")
@@ -135,6 +140,7 @@ func TestComputeNilResult(t *testing.T) {
 }
 
 func TestComputeZeroDuration(t *testing.T) {
+	t.Parallel()
 	ind := Compute(big.NewInt(55), 10, 0)
 	if ind.BitsPerSecond != 0 {
 		t.Errorf("expected zero indicators for zero duration")
@@ -142,6 +148,7 @@ func TestComputeZeroDuration(t *testing.T) {
 }
 
 func TestGoldenRatioDeviationConverges(t *testing.T) {
+	t.Parallel()
 	// For larger n, the deviation should get smaller
 	var prevDeviation float64 = math.MaxFloat64
 	for _, n := range []int{50, 100, 500, 1000} {
@@ -155,6 +162,7 @@ func TestGoldenRatioDeviationConverges(t *testing.T) {
 }
 
 func TestFormatBitsPerSecond(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		bps  float64
 		want string
@@ -173,6 +181,7 @@ func TestFormatBitsPerSecond(t *testing.T) {
 }
 
 func TestComputeLive(t *testing.T) {
+	t.Parallel()
 	n := uint64(1_000_000)
 	progress := 0.5
 	elapsed := 2 * time.Second
@@ -211,6 +220,7 @@ func TestComputeLive(t *testing.T) {
 }
 
 func TestComputeLiveZeroProgress(t *testing.T) {
+	t.Parallel()
 	ind := ComputeLive(1000, 0, time.Second)
 	if !ind.Live {
 		t.Error("expected Live = true")
@@ -221,6 +231,7 @@ func TestComputeLiveZeroProgress(t *testing.T) {
 }
 
 func TestFormatDigitsPerSecond(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		dps  float64
 		want string

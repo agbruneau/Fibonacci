@@ -28,6 +28,7 @@ var knownFibValues = map[uint64]string{
 // TestFibBig tests the oracle Fibonacci function with known values.
 // Targets are generated dynamically from knownFibValues.
 func TestFibBig(t *testing.T) {
+	t.Parallel()
 	// Deterministic iteration order for readable subtest names.
 	ns := make([]uint64, 0, len(knownFibValues))
 	for n := range knownFibValues {
@@ -55,6 +56,7 @@ func TestFibBig(t *testing.T) {
 
 // TestFibBig_Properties tests mathematical properties of Fibonacci numbers.
 func TestFibBig_Properties(t *testing.T) {
+	t.Parallel()
 	t.Run("F(n) + F(n+1) = F(n+2)", func(t *testing.T) {
 		for n := uint64(0); n < 50; n++ {
 			fn := fibBig(n)
@@ -84,6 +86,7 @@ func TestFibBig_Properties(t *testing.T) {
 
 // TestFibBig_LargeValues tests larger Fibonacci numbers.
 func TestFibBig_LargeValues(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large value tests in short mode")
 	}
@@ -121,6 +124,7 @@ func TestFibBig_LargeValues(t *testing.T) {
 // result using Fibonacci's identity: F(n-1) + F(n-2) = F(n). This keeps the
 // test self-contained while still exercising the FFT-bound code path.
 func TestFibBig_FFTBound(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping FFT-bound test in short mode (F(800000) takes ~1s and uses ~70KB)")
 	}
@@ -148,6 +152,7 @@ func TestFibBig_FFTBound(t *testing.T) {
 // identity on smaller inputs so regressions in the iterative core are
 // caught cheaply before exercising the ~1s FFT-bound case above.
 func TestFibBig_FFTBound_IdentityMatchesSmall(t *testing.T) {
+	t.Parallel()
 	// A quick correlate test: grows through the powers-of-10 boundary.
 	for _, n := range []uint64{100, 1_000, 10_000} {
 		n := n

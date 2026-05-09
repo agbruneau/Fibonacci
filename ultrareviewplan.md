@@ -87,11 +87,11 @@ Document opérationnel : décompose les 37 recommandations (R1.1 → R4.12) en *
 | R4.5 | Fusionner `sysmon/` dans `metrics/` | 4A | `internal/sysmon/` → `internal/metrics/system/` | 1 h | ✅ | agent | (Vague4A) sysmon supprimé, sous-package metrics/system créé |
 | R4.6 | `ExitAction` enum typé | 4A | `cmd/fibcalc/main.go`, `internal/app/` | 30 min | ✅ | agent | (Vague4A) ExitAction + ShouldExit() + Code() ; codes POSIX préservés |
 | R4.11 | Fusionner property test ↔ unit test fibonacci | 4A | `internal/fibonacci/fibonacci_test.go`, `fibonacci_property_test.go` | 30 min | ⛔ | agent | SKIPPED: pas de duplication, fichiers complémentaires (oracle vs property-based) |
-| R4.3 | `envOverrides` via reflection | 4B | `internal/config/env.go` | 4 h | ⬜ | — | — |
-| R4.4 | Centraliser erreurs via `HandleCalculationError` | 4B | `internal/app/calculate.go`, `internal/errors/handler.go` | 2 h | ⬜ | — | — |
-| R4.7 | Pré-flight memory check dans `Calculator` | 4B | `internal/fibonacci/calculator.go` | 1,5 h | ⬜ | — | — |
-| R4.8 | RingBuffer pour `tui/logs.go` | 4B | `internal/tui/logs.go` | 2 h | ⬜ | — | — |
-| R4.12 | Étendre `t.Parallel()` aux tests file-based | 4B | divers `*_test.go` | 1 h | ⬜ | — | — |
+| R4.3 | `envOverrides` via reflection | 4B | `internal/config/env.go` | 4 h | ✅ | agent | (Vague4B) Option B (sanity check `validateEnvOverrides` ; reflection écartée pour éviter complexité) |
+| R4.4 | Centraliser erreurs via `HandleCalculationError` | 4B | `internal/app/calculate.go`, `internal/errors/handler.go` | 2 h | ✅ | agent | (Vague4B) runLastDigits migré ; bug bonus fix : codes timeout/cancel correctement propagés |
+| R4.7 | Pré-flight memory check dans `Calculator` | 4B | `internal/fibonacci/calculator.go` | 1,5 h | ✅ | agent | (Vague4B) CanCalculate() + garde dans CalculateWithObservers ; Options.MemoryLimitBytes |
+| R4.8 | RingBuffer pour `tui/logs.go` | 4B | `internal/tui/logs.go` | 2 h | ✅ | agent | (Vague4B) Ring[T] générique extrait dans tui/ringbuffer.go ; logs.go utilise Ring[string] |
+| R4.12 | Étendre `t.Parallel()` aux tests file-based | 4B | divers `*_test.go` | 1 h | ✅ | agent | (Vague4B) +25 t.Parallel() sur 5 fichiers SAFE ; ratio 86/105 → 91/105 |
 | R4.9 | Bridge `Send` retourne `error` | 4C | `internal/tui/bridge.go` | 1 h | ⬜ | — | — |
 | R4.10 | Layout TUI adaptatif <80 cols | 4C | `internal/tui/model.go` | 1 h | ⬜ | — | — |
 

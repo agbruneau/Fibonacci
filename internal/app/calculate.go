@@ -143,10 +143,17 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 		fmt.Fprintf(out, "Computing last %d digits of F(%d)...\n", k, n)
 	}
 
+	start := time.Now()
 	res, err := orchestration.ComputeLastDigits(ctx, n, k)
 	if err != nil {
-		fmt.Fprintf(a.ErrWriter, "Error: %v\n", err)
-		return apperrors.ExitErrorGeneric
+		// Centralised error handling: maps timeout/cancel/generic to the
+		// correct exit code and writes a uniform "Status: …" message to
+		// the user-facing stream (matches the comparison-mode behaviour).
+		colors := apperrors.ColorProvider(cli.CLIColorProvider{})
+		if a.Config.MachineOutput {
+			colors = apperrors.DefaultColorProvider{}
+		}
+		return apperrors.HandleCalculationError(err, time.Since(start), a.ErrWriter, colors)
 	}
 
 	if a.Config.Quiet {

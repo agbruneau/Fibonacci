@@ -16,6 +16,7 @@ import (
 // TestSmartMultiplyNilZ verifies that smartMultiply handles nil z parameter.
 // This test would PANIC before the fix was applied.
 func TestSmartMultiplyNilZ(t *testing.T) {
+	t.Parallel()
 	x := big.NewInt(12345)
 	y := big.NewInt(67890)
 	expected := new(big.Int).Mul(x, y)
@@ -48,6 +49,7 @@ func TestSmartMultiplyNilZ(t *testing.T) {
 // TestSmartSquareNilZ verifies that smartSquare handles nil z parameter.
 // This test would PANIC before the fix was applied.
 func TestSmartSquareNilZ(t *testing.T) {
+	t.Parallel()
 	x := big.NewInt(12345)
 	expected := new(big.Int).Mul(x, x)
 
@@ -80,6 +82,7 @@ func TestSmartSquareNilZ(t *testing.T) {
 // nil z parameter, which is allowed by the Multiplier interface.
 // This test would PANIC before the fix was applied.
 func TestAdaptiveStrategyNilZ(t *testing.T) {
+	t.Parallel()
 	strategy := &AdaptiveStrategy{}
 	opts := Options{FFTThreshold: 0} // Disable FFT to force the standard path
 
@@ -120,6 +123,7 @@ func TestAdaptiveStrategyNilZ(t *testing.T) {
 // TestStrategyConsistencyWithNilZ verifies that all strategies produce consistent
 // results when z is nil. This ensures the fix maintains API consistency.
 func TestStrategyConsistencyWithNilZ(t *testing.T) {
+	t.Parallel()
 	strategies := map[string]Multiplier{
 		"Adaptive": &AdaptiveStrategy{},
 		"FFTOnly":  &FFTOnlyStrategy{},

@@ -119,31 +119,13 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	return nil
 }
 
-// ParseConfig parses the command-line arguments and populates an AppConfig
-// struct. It defines all the command-line flags, sets their default values, and
-// handles the parsing process. After parsing, it performs validation on the
-// resulting configuration.
-//
-// The function is designed to be testable by allowing the input arguments and
-// output writer to be specified.
-//
-// Parameters:
-//   - programName: The name of the program, used in the usage message.
-//   - args: A slice of strings representing the command-line arguments
-//     (typically os.Args[1:]).
-//   - errorWriter: An io.Writer where parsing errors and usage information
-//     will be printed.
-//   - availableAlgos: A slice of valid algorithm names for validation.
-//
-// Returns:
-//   - AppConfig: The populated configuration struct.
-//   - error: An error if flag parsing fails or validation fails.
-func ParseConfig(programName string, args []string, errorWriter io.Writer, availableAlgos []string) (AppConfig, error) {
-	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
-	fs.SetOutput(errorWriter)
+// registerFlags binds all CLI flags to the given AppConfig on the provided
+// FlagSet. It is the single source of truth for flag names and defaults, and
+// is shared between ParseConfig and integrity tests that verify env-override
+// flag references stay in sync with the actual flag set.
+func registerFlags(fs *flag.FlagSet, config *AppConfig, availableAlgos []string) {
 	algoHelp := fmt.Sprintf("Algorithm to use: 'all' (default) or one of [%s].", strings.Join(availableAlgos, ", "))
 
-	config := AppConfig{}
 	fs.Uint64Var(&config.N, "n", DefaultN, "Index n of the Fibonacci number to calculate.")
 	fs.BoolVar(&config.Verbose, "v", false, "Display the full value of the result (can be very long).")
 	fs.BoolVar(&config.Verbose, "verbose", false, "Alias for -v.")
@@ -170,6 +152,33 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.IntVar(&config.LastDigits, "last-digits", 0, "Compute only the last K decimal digits (uses O(K) memory).")
 	fs.StringVar(&config.MemoryLimit, "memory-limit", "", "Maximum memory budget (e.g., 8G, 512M). Warns if estimate exceeds limit.")
 	fs.StringVar(&config.GCControl, "gc-control", "auto", "GC control during calculation (auto, aggressive, disabled).")
+}
+
+// ParseConfig parses the command-line arguments and populates an AppConfig
+// struct. It defines all the command-line flags, sets their default values, and
+// handles the parsing process. After parsing, it performs validation on the
+// resulting configuration.
+//
+// The function is designed to be testable by allowing the input arguments and
+// output writer to be specified.
+//
+// Parameters:
+//   - programName: The name of the program, used in the usage message.
+//   - args: A slice of strings representing the command-line arguments
+//     (typically os.Args[1:]).
+//   - errorWriter: An io.Writer where parsing errors and usage information
+//     will be printed.
+//   - availableAlgos: A slice of valid algorithm names for validation.
+//
+// Returns:
+//   - AppConfig: The populated configuration struct.
+//   - error: An error if flag parsing fails or validation fails.
+func ParseConfig(programName string, args []string, errorWriter io.Writer, availableAlgos []string) (AppConfig, error) {
+	fs := flag.NewFlagSet(programName, flag.ContinueOnError)
+	fs.SetOutput(errorWriter)
+
+	config := AppConfig{}
+	registerFlags(fs, &config, availableAlgos)
 	setCustomUsage(fs)
 
 	if err := fs.Parse(args); err != nil {

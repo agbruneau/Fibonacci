@@ -39,6 +39,7 @@ func allCalculators() []CoreCalculator {
 // implementations. The test generates a range of random `n` values and asserts
 // that the identity holds true for each calculator.
 func TestCassinisIdentity_PropertyBased(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 	properties := gopter.NewProperties(parameters)
@@ -95,6 +96,7 @@ func TestCassinisIdentity_PropertyBased(t *testing.T) {
 //
 // This is the defining property of the Fibonacci sequence.
 func TestRecurrenceRelation_PropertyBased(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 	properties := gopter.NewProperties(parameters)
@@ -138,6 +140,7 @@ func TestRecurrenceRelation_PropertyBased(t *testing.T) {
 //
 // This is the identity at the heart of the Fast Doubling algorithm.
 func TestDoublingIdentity_PropertyBased(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 	properties := gopter.NewProperties(parameters)
@@ -185,6 +188,7 @@ func TestDoublingIdentity_PropertyBased(t *testing.T) {
 //
 // This is a deep number-theoretic property of the Fibonacci sequence.
 func TestGCDIdentity_PropertyBased(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 	properties := gopter.NewProperties(parameters)

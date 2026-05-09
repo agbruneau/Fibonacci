@@ -47,6 +47,17 @@ type Options struct {
 	// GCMode controls the garbage collector during calculation.
 	// Valid values: "auto" (default), "aggressive", "disabled".
 	GCMode string
+	// MemoryLimitBytes, when > 0, enforces an upper bound on the estimated
+	// memory required to compute F(n). If the estimate (see
+	// memory.EstimateMemoryUsage) exceeds this limit, Calculate returns an
+	// apperrors.MemoryError before any heavy work is done. A zero value
+	// disables the check.
+	//
+	// This is a defence-in-depth complement to config.ValidateMemoryBudget
+	// (R3.6): the validator runs at config-parsing time, while this check
+	// runs at the calculator boundary so the protection survives any path
+	// that bypasses the validator (programmatic embedding, tests, …).
+	MemoryLimitBytes uint64
 }
 
 // normalizeOptions returns a copy of opts with default values filled in for zero values.

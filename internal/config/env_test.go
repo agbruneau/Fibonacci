@@ -2,8 +2,25 @@ package config
 
 import (
 	"flag"
+	"io"
 	"testing"
 )
+
+// TestEnvOverridesIntegrity guards against silent drift between the
+// envOverrides table and the canonical CLI FlagSet built by registerFlags.
+// Any new flag that gains an env override (or any rename) must keep both in
+// sync; this test fails loudly if they don't.
+func TestEnvOverridesIntegrity(t *testing.T) {
+	t.Parallel()
+	fs := flag.NewFlagSet("integrity", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var cfg AppConfig
+	registerFlags(fs, &cfg, []string{"fast", "matrix"})
+
+	if err := validateEnvOverrides(fs); err != nil {
+		t.Fatalf("envOverrides table is inconsistent with the CLI FlagSet: %v", err)
+	}
+}
 
 func TestIsFlagSetAny(t *testing.T) {
 	t.Parallel()

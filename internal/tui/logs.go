@@ -17,8 +17,17 @@ import (
 const maxLogEntries = 10000
 
 // LogsModel manages the scrollable log panel.
+//
+// Storage layout (audit task R4.8): entries are pushed into a fixed-capacity
+// Ring[string] (`buffer`). The `entries` field is a chronological snapshot
+// (oldest first) refreshed in updateContent and exposed for the white-box
+// tests that read len(entries) / entries[i] / strings.Join(entries, "\n").
+// Compared to the previous append-then-trim implementation this caps the
+// underlying allocation at maxLogEntries strings rather than letting `append`
+// grow the backing array unboundedly between trims.
 type LogsModel struct {
 	viewport   viewport.Model
+	buffer     *Ring[string]
 	entries    []string
 	autoScroll bool
 	width      int
@@ -31,7 +40,7 @@ func NewLogsModel(algoNames []string) LogsModel {
 	vp := viewport.New(40, 10)
 	return LogsModel{
 		viewport:   vp,
-		entries:    make([]string, 0, 64),
+		buffer:     NewRing[string](maxLogEntries),
 		autoScroll: true,
 		algoNames:  algoNames,
 	}
@@ -39,7 +48,8 @@ func NewLogsModel(algoNames []string) LogsModel {
 
 // Reset clears all log entries.
 func (l *LogsModel) Reset() {
-	l.entries = l.entries[:0]
+	l.buffer.Reset()
+	l.entries = nil
 	l.autoScroll = true
 	l.updateContent()
 }
@@ -55,14 +65,14 @@ func (l *LogsModel) SetSize(w, h int) {
 
 // AddExecutionConfig adds the execution configuration summary as initial log entries.
 func (l *LogsModel) AddExecutionConfig(cfg config.AppConfig) {
-	l.entries = append(l.entries, logAlgoStyle.Render("--- Execution Configuration ---"))
-	l.entries = append(l.entries, fmt.Sprintf("  Calculating %s with a timeout of %s.",
+	l.buffer.Push(logAlgoStyle.Render("--- Execution Configuration ---"))
+	l.buffer.Push(fmt.Sprintf("  Calculating %s with a timeout of %s.",
 		logAlgoStyle.Render(fmt.Sprintf("F(%d)", cfg.N)),
 		metricValueStyle.Render(cfg.Timeout.String())))
-	l.entries = append(l.entries, fmt.Sprintf("  Environment: %s logical processors, Go %s.",
+	l.buffer.Push(fmt.Sprintf("  Environment: %s logical processors, Go %s.",
 		metricValueStyle.Render(fmt.Sprintf("%d", runtime.NumCPU())),
 		metricValueStyle.Render(runtime.Version())))
-	l.entries = append(l.entries, fmt.Sprintf("  Optimization thresholds: Parallelism=%s bits, FFT=%s bits.",
+	l.buffer.Push(fmt.Sprintf("  Optimization thresholds: Parallelism=%s bits, FFT=%s bits.",
 		metricValueStyle.Render(fmt.Sprintf("%d", cfg.Threshold)),
 		metricValueStyle.Render(fmt.Sprintf("%d", cfg.FFTThreshold))))
 
@@ -72,8 +82,8 @@ func (l *LogsModel) AddExecutionConfig(cfg config.AppConfig) {
 	} else if len(l.algoNames) == 1 {
 		modeDesc = fmt.Sprintf("Single calculation with the %s algorithm", logSuccessStyle.Render(l.algoNames[0]))
 	}
-	l.entries = append(l.entries, fmt.Sprintf("  Execution mode: %s.", modeDesc))
-	l.entries = append(l.entries, "")
+	l.buffer.Push(fmt.Sprintf("  Execution mode: %s.", modeDesc))
+	l.buffer.Push("")
 	l.updateContent()
 }
 
@@ -91,15 +101,14 @@ func (l *LogsModel) AddProgressEntry(msg ProgressMsg) {
 	}
 
 	entry := fmt.Sprintf("[%s] %s %s", ts, algoStr, progressStr)
-	l.entries = append(l.entries, entry)
-	l.trimEntries()
+	l.buffer.Push(entry)
 	l.updateContent()
 }
 
 // AddResults adds comparison results to the log.
 func (l *LogsModel) AddResults(results []orchestration.CalculationResult) {
-	l.entries = append(l.entries, "")
-	l.entries = append(l.entries, logAlgoStyle.Render("--- Comparison Summary ---"))
+	l.buffer.Push("")
+	l.buffer.Push(logAlgoStyle.Render("--- Comparison Summary ---"))
 
 	// Find max name and duration widths for column alignment
 	maxNameLen := 0
@@ -129,23 +138,21 @@ func (l *LogsModel) AddResults(results []orchestration.CalculationResult) {
 			logAlgoStyle.Render(fmt.Sprintf(nameFmt, res.Name)),
 			metricValueStyle.Render(fmt.Sprintf(durFmt, duration)),
 			status)
-		l.entries = append(l.entries, entry)
+		l.buffer.Push(entry)
 	}
-	l.trimEntries()
 	l.updateContent()
 }
 
 // AddFinalResult adds the final result to the log.
 func (l *LogsModel) AddFinalResult(msg FinalResultMsg) {
-	l.entries = append(l.entries, "")
-	l.entries = append(l.entries, logSuccessStyle.Render("--- Final Result ---"))
-	l.entries = append(l.entries, fmt.Sprintf("  Algorithm: %s", logAlgoStyle.Render(msg.Result.Name)))
-	l.entries = append(l.entries, fmt.Sprintf("  Duration:  %s", metricValueStyle.Render(format.FormatExecutionDuration(msg.Result.Duration))))
+	l.buffer.Push("")
+	l.buffer.Push(logSuccessStyle.Render("--- Final Result ---"))
+	l.buffer.Push(fmt.Sprintf("  Algorithm: %s", logAlgoStyle.Render(msg.Result.Name)))
+	l.buffer.Push(fmt.Sprintf("  Duration:  %s", metricValueStyle.Render(format.FormatExecutionDuration(msg.Result.Duration))))
 	if msg.Result.Result != nil {
 		bits := msg.Result.Result.BitLen()
-		l.entries = append(l.entries, fmt.Sprintf("  Bits:      %s", metricValueStyle.Render(format.FormatNumberString(fmt.Sprintf("%d", bits)))))
+		l.buffer.Push(fmt.Sprintf("  Bits:      %s", metricValueStyle.Render(format.FormatNumberString(fmt.Sprintf("%d", bits)))))
 	}
-	l.trimEntries()
 	l.updateContent()
 }
 
@@ -153,8 +160,7 @@ func (l *LogsModel) AddFinalResult(msg FinalResultMsg) {
 func (l *LogsModel) AddError(msg ErrorMsg) {
 	ts := logTimeStyle.Render(time.Now().Format("15:04:05"))
 	entry := fmt.Sprintf("[%s] %s", ts, logErrorStyle.Render(fmt.Sprintf("ERROR: %v", msg.Err)))
-	l.entries = append(l.entries, entry)
-	l.trimEntries()
+	l.buffer.Push(entry)
 	l.updateContent()
 }
 
@@ -185,13 +191,11 @@ func (l LogsModel) renderToHeight(h int) string {
 		Render(l.viewport.View())
 }
 
-func (l *LogsModel) trimEntries() {
-	if len(l.entries) > maxLogEntries {
-		l.entries = l.entries[len(l.entries)-maxLogEntries:]
-	}
-}
-
+// updateContent refreshes the chronological snapshot from the ring buffer
+// and pushes it into the viewport. The snapshot doubles as the value
+// observed by the white-box tests via LogsModel.entries.
 func (l *LogsModel) updateContent() {
+	l.entries = l.buffer.Slice()
 	content := strings.Join(l.entries, "\n")
 	l.viewport.SetContent(content)
 	if l.autoScroll {

@@ -4,6 +4,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -190,6 +191,52 @@ func parseBoolEnv(val string, defaultVal bool) bool {
 		return false
 	}
 	return defaultVal
+}
+
+// validateEnvOverrides verifies the structural consistency of the envOverrides
+// table against the canonical CLI FlagSet. It catches the silent inconsistency
+// risk inherent to the dual declaration (FlagSet in registerFlags + table here):
+//
+//  1. Every envKey is non-empty, free of the FIBCALC_ prefix, and unique.
+//  2. Every flag name referenced in an entry's flags slice exists on fs.
+//  3. No entry has an empty flags slice (would short-circuit isFlagSetAny and
+//     always apply the env override, defeating CLI > env priority).
+//  4. apply is non-nil.
+//
+// It is intended to be called from tests. Returning an error (rather than
+// panicking) keeps init-time behavior unaffected.
+func validateEnvOverrides(fs *flag.FlagSet) error {
+	known := make(map[string]struct{})
+	fs.VisitAll(func(f *flag.Flag) {
+		known[f.Name] = struct{}{}
+	})
+
+	seen := make(map[string]struct{}, len(envOverrides))
+	for _, o := range envOverrides {
+		if o.envKey == "" {
+			return fmt.Errorf("envOverrides: entry has empty envKey")
+		}
+		if strings.HasPrefix(o.envKey, EnvPrefix) {
+			return fmt.Errorf("envOverrides: envKey %q must not include the %s prefix (added automatically)", o.envKey, EnvPrefix)
+		}
+		if _, dup := seen[o.envKey]; dup {
+			return fmt.Errorf("envOverrides: duplicate envKey %q", o.envKey)
+		}
+		seen[o.envKey] = struct{}{}
+
+		if len(o.flags) == 0 {
+			return fmt.Errorf("envOverrides: entry %q has empty flags slice", o.envKey)
+		}
+		for _, name := range o.flags {
+			if _, ok := known[name]; !ok {
+				return fmt.Errorf("envOverrides: entry %q references unknown flag %q (not registered on FlagSet)", o.envKey, name)
+			}
+		}
+		if o.apply == nil {
+			return fmt.Errorf("envOverrides: entry %q has nil apply function", o.envKey)
+		}
+	}
+	return nil
 }
 
 // applyEnvOverrides applies environment variable values to the configuration
