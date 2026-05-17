@@ -359,8 +359,12 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 // this error — see audit P2-12.
 func (p *Poly) NTransform(n int) (PolValues, error) {
 	k := p.K
+	// A-07: this is a public API returning (PolValues, error); a caller
+	// passing an over-long coefficient slice must get the promised error,
+	// not an uncatchable panic raised outside any recover().
 	if len(p.A) >= 1<<k {
-		panic("Transform: len(p.A) >= 1<<k")
+		return PolValues{}, fmt.Errorf(
+			"NTransform: len(p.A)=%d must be < 1<<k=%d", len(p.A), 1<<k)
 	}
 	// θ is represented as a shift.
 	θshift := (n * _W) >> k
