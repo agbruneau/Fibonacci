@@ -1,0 +1,4 @@
+     240	   4640240 ns/op	 3193164 B/op	    2784 allocs/op
+     246	   4719074 ns/op	 3127619 B/op	    2781 allocs/op
+      24	  45027238 ns/op	26448405 B/op	    3785 allocs/op
+      26	  44064388 ns/op	27225634 B/op	    3786 allocs/op
