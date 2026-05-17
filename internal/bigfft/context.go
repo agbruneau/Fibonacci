@@ -16,10 +16,8 @@
 package bigfft
 
 import (
-	"fmt"
 	"math/big"
 	"runtime"
-	"runtime/debug"
 )
 
 // FFTContextOptions configures a new FFTContext.
@@ -133,11 +131,7 @@ func MulWithContext(ctx *FFTContext, x, y *big.Int) (res *big.Int, err error) {
 	if ctx == nil {
 		return Mul(x, y)
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.MulWithContext: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("MulWithContext", &err)
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	thr := fftThresholdValue()
@@ -154,11 +148,7 @@ func MulToWithContext(ctx *FFTContext, z, x, y *big.Int) (res *big.Int, err erro
 	if ctx == nil {
 		return MulTo(z, x, y)
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.MulToWithContext: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("MulToWithContext", &err)
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	thr := fftThresholdValue()
@@ -184,11 +174,7 @@ func SqrWithContext(ctx *FFTContext, x *big.Int) (res *big.Int, err error) {
 	if ctx == nil {
 		return Sqr(x)
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.SqrWithContext: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("SqrWithContext", &err)
 	xwords := len(x.Bits())
 	if xwords > fftThresholdValue() {
 		return sqrFFTCtx(ctx.resolved(), x)
@@ -203,11 +189,7 @@ func SqrToWithContext(ctx *FFTContext, z, x *big.Int) (res *big.Int, err error) 
 	if ctx == nil {
 		return SqrTo(z, x)
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.SqrToWithContext: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("SqrToWithContext", &err)
 	xwords := len(x.Bits())
 	if xwords > fftThresholdValue() {
 		var xb nat = x.Bits()

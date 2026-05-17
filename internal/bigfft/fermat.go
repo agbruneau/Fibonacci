@@ -4,7 +4,43 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
+	"runtime/debug"
 )
+
+// fermatInvariant is the sentinel panic value used EXCLUSIVELY for internal
+// post-condition violations inside fermat.Mul/Sqr (e.g. "len(z) > 2n+1",
+// "unexpected carry after normalization"). These signal a bug in the FFT
+// code itself, not bad input from a caller.
+//
+// The public boundary recover() (recoverFFTBoundary, used by
+// Mul/MulTo/Sqr/SqrTo and the *WithContext entry points) re-panics when it
+// recovers a fermatInvariant so a genuine regression is never silently
+// downgraded to an opaque error (audit A-06 / R3.8 intent). Caller-argument
+// mismatches keep panicking with a plain string and ARE wrapped as errors.
+type fermatInvariant struct {
+	msg string
+}
+
+func (e fermatInvariant) Error() string { return "bigfft internal invariant violated: " + e.msg }
+
+// recoverFFTBoundary is the single boundary recover() shared by the public
+// FFT entry points. It must be deferred with the address of the named
+// return error. Behaviour:
+//   - fermatInvariant  -> re-panic (internal bug; never mask).
+//   - anything else     -> wrap into *errp as an opaque error (covers
+//     caller-argument mismatches and unexpected runtime panics, preserving
+//     the historical recover-to-error fallback).
+func recoverFFTBoundary(name string, errp *error) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	if fi, ok := r.(fermatInvariant); ok {
+		// Internal post-condition: a bug. Do not mask it.
+		panic(fi)
+	}
+	*errp = fmt.Errorf("panic in bigfft.%s: %v\nStack: %s", name, r, debug.Stack())
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error-returning wrappers (audit R3.8)
@@ -198,7 +234,7 @@ func (z fermat) Mul(x, y fermat) fermat {
 	}
 	// len(z) is at most 2n+1.
 	if len(z) > 2*n+1 {
-		panic("len(z) > 2n+1")
+		panic(fermatInvariant{msg: "len(z) > 2n+1"})
 	}
 	// We now have
 	// z = z[:n] + 1<<(n*W) * z[n:2n+1]
@@ -223,7 +259,7 @@ func (z fermat) Mul(x, y fermat) fermat {
 	z[n] = c1
 	c := addVW(z, z, c2)
 	if c != 0 {
-		panic("fermat.Mul: unexpected carry after normalization")
+		panic(fermatInvariant{msg: "fermat.Mul: unexpected carry after normalization"})
 	}
 	z.norm()
 	return z
@@ -259,7 +295,7 @@ func (z fermat) Sqr(x fermat) fermat {
 	}
 	// len(z) is at most 2n+1.
 	if len(z) > 2*n+1 {
-		panic("len(z) > 2n+1")
+		panic(fermatInvariant{msg: "len(z) > 2n+1"})
 	}
 	// Reduce modulo 2^(n*_W)+1: same normalization as Mul
 	c1 := big.Word(0)
@@ -278,7 +314,7 @@ func (z fermat) Sqr(x fermat) fermat {
 	z[n] = c1
 	c := addVW(z, z, c2)
 	if c != 0 {
-		panic("fermat.Sqr: unexpected carry after normalization")
+		panic(fermatInvariant{msg: "fermat.Sqr: unexpected carry after normalization"})
 	}
 	z.norm()
 	return z

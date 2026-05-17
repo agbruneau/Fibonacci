@@ -4,9 +4,7 @@
 package bigfft
 
 import (
-	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sync/atomic"
 	"unsafe"
 )
@@ -48,11 +46,7 @@ func fftThresholdValue() int { return int(fftThreshold.Load()) }
 // It can be used instead of the Mul method of
 // *big.Int from math/big package.
 func Mul(x, y *big.Int) (res *big.Int, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.Mul: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("Mul", &err)
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	thr := fftThresholdValue()
@@ -65,11 +59,7 @@ func Mul(x, y *big.Int) (res *big.Int, err error) {
 // MulTo computes the product x*y and stores the result in z.
 // It can be used instead of the Mul method of *big.Int from math/big package.
 func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.MulTo: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("MulTo", &err)
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
 	thr := fftThresholdValue()
@@ -93,11 +83,7 @@ func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 // Squaring is optimized because we only need to transform x once,
 // which saves approximately 33% of the FFT computation compared to Mul.
 func Sqr(x *big.Int) (res *big.Int, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.Sqr: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("Sqr", &err)
 	xwords := len(x.Bits())
 	if xwords > fftThresholdValue() {
 		return sqrFFT(x)
@@ -106,11 +92,7 @@ func Sqr(x *big.Int) (res *big.Int, err error) {
 }
 
 func SqrTo(z, x *big.Int) (res *big.Int, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.SqrTo: %v\nStack: %s", r, debug.Stack())
-		}
-	}()
+	defer recoverFFTBoundary("SqrTo", &err)
 	xwords := len(x.Bits())
 	if xwords > fftThresholdValue() {
 		var xb nat = x.Bits()
