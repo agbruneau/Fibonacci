@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/PERFORMANCE.md`: removed phantom `FIBCALC_GC_CONTROL` reference; GC control is automatic (audit P1-12)
 - `CONTRIBUTING.md` vs `docs/TESTING.md` mockgen divergence: `TESTING.md` is now the single source of truth (audit P2-17)
 - Formatting: applied `gofmt -s` and `goimports` across the tree (audit P1-09)
+- **Documentation realignment (audit A-04/A-21/A-23)**: `Claude.md` rewritten to reflect post-refactoring reality (CI exists; R1.1–R1.5 resolved; removed dead `ultrareview.md`/`ultrareviewplan.md` references; `parallel` is alive; pointers now to `audit.md`/`AuditPlanning.md`). `README.md`: linter count 22→24, `sysmon`→`metrics/system`, added `FIBCALC_PROFILE_MAX_AGE`. `docs/CALIBRATION.md`: added `Confidence` field, Strategy-pattern note, `MicroBenchTimeout` var correction, env var documented. `.env.example`: added `FIBCALC_PROFILE_MAX_AGE`
 
 ### Security
 

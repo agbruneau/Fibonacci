@@ -100,6 +100,8 @@ If micro-benchmarks produce low confidence, `newCalibrationRunner()` executes ta
 
 Each method iterates over a reduced candidate set (`GenerateQuickParallelThresholds()`, `GenerateQuickFFTThresholds()`, `GenerateQuickStrassenThresholds()`). The profile is saved after successful calibration.
 
+> **Architecture note (post-refactor R3.3):** the calibration flow is structured around the **Strategy pattern** — `CalibrationStrategy` (`strategy.go`) with concrete `FastStrategy` (`strategy_fast.go`, micro-benchmark tier) and `CompleteStrategy` (`strategy_complete.go`, full runner tier). `calibration.go` selects/escalates strategies (including the stale-profile branch: `IsStale` → `CompleteStrategy`, ex-R1.3). The `calibrationRunner` described under "Calibration Runner" is the execution helper invoked by `CompleteStrategy`, not a directly-called entry point.
+
 ### Cached Profile Loading
 
 Entry point: `LoadCachedCalibration()` in `internal/calibration/calibration.go`.
@@ -115,10 +117,14 @@ The micro-benchmarking engine provides rapid threshold estimation by testing raw
 ### Configuration
 
 ```go
-const (
-    MicroBenchIterations      = 3
-    MicroBenchTimeout         = 150 * time.Millisecond
-    MicroBenchPerTestTimeout  = 30 * time.Millisecond
+const MicroBenchIterations = 3
+
+// MicroBenchTimeout / MicroBenchPerTestTimeout are vars (not consts) sourced
+// from config.DefaultThresholdTuning since audit R4.2 — the canonical values
+// live alongside the other dynamic-tuning knobs and can be re-pointed in tests.
+var (
+    MicroBenchTimeout        = config.DefaultThresholdTuning.MicroBenchTimeout        // ~150ms default
+    MicroBenchPerTestTimeout = config.DefaultThresholdTuning.MicroBenchPerTestTimeout // ~30ms default
 )
 
 var MicroBenchTestSizes = []int{500, 2000, 8000, 16000} // word counts
@@ -186,6 +192,7 @@ type CalibrationProfile struct {
     CalibratedAt              time.Time `json:"calibrated_at"`
     CalibrationN              uint64    `json:"calibration_n"`
     CalibrationTime           string    `json:"calibration_time"`
+    Confidence                float64   `json:"confidence"` // 0.0–1.0 calibration reliability
     ProfileVersion            int       `json:"profile_version"`
 }
 ```
@@ -347,6 +354,7 @@ For most users, running `fibcalc --auto-calibrate` once is sufficient. The saved
 | `FIBCALC_CALIBRATE` | Enable full calibration | `false` |
 | `FIBCALC_AUTO_CALIBRATE` | Enable auto-calibration | `false` |
 | `FIBCALC_CALIBRATION_PROFILE` | Path to calibration profile file | `~/.fibcalc_calibration.json` |
+| `FIBCALC_PROFILE_MAX_AGE` | Freshness window; a profile older than this is `IsStale` and triggers re-calibration via `CompleteStrategy` | `168h` (7 d) |
 
 These environment variables follow the `FIBCALC_*` convention and have lower priority than their corresponding CLI flags. See `internal/config/env.go` for the full list.
 
