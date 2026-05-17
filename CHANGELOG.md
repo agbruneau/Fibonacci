@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Benchmark reporting unified on AMD Ryzen 9 5900X reference; Intel Core Ultra 9 numbers retained as comparison annex (audit P2-19)
 - Dependency graph (`docs/architecture/dependency-graph.mermaid`) now includes `progress`, `memory`, `threshold` nodes (audit P2-22)
 - Makefile hygiene: POSIX-only targets, `go mod tidy`, removed dead cross-compile targets (audit P2-23 to P2-26)
+- **CI hardening (audit A-12/A-13/A-14)**: pinned `golangci-lint` to `v1.64.8` (was `latest`, non-reproducible); dropped `check-latest: true`; `-race` now runs on Windows too; `coverage.yml` runs on PRs with a minimum-coverage floor; added an informational benchmark job
+- **test/e2e (A-15)**: heavy build+subprocess e2e tests are skipped under `-short`; timeout exit-code assertions are now discriminant (`ExitErrorTimeout=2`) instead of accepting any non-zero; `TestCLI_E2E` reuses the shared one-shot build
+- **docs (A-16/A-18/A-19)**: clarified `MaxPooledBitLen` (bits) vs `maxArenaPoolWords` (words); documented the `threshold.ShouldAdjust` single-writer invariant; documented that `progress` production path is `Freeze` and annotated the TUI `ProgressDoneMsg` drain sink
 
 ### Fixed
 
@@ -49,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CONTRIBUTING.md` vs `docs/TESTING.md` mockgen divergence: `TESTING.md` is now the single source of truth (audit P2-17)
 - Formatting: applied `gofmt -s` and `goimports` across the tree (audit P1-09)
 - **Documentation realignment (audit A-04/A-21/A-23)**: `Claude.md` rewritten to reflect post-refactoring reality (CI exists; R1.1–R1.5 resolved; removed dead `ultrareview.md`/`ultrareviewplan.md` references; `parallel` is alive; pointers now to `audit.md`/`AuditPlanning.md`). `README.md`: linter count 22→24, `sysmon`→`metrics/system`, added `FIBCALC_PROFILE_MAX_AGE`. `docs/CALIBRATION.md`: added `Confidence` field, Strategy-pattern note, `MicroBenchTimeout` var correction, env var documented. `.env.example`: added `FIBCALC_PROFILE_MAX_AGE`
+- **config (A-08)**: `Validate()` now rejects `LastDigits < 0` (was silently ignored, falling back to O(memory) full computation), negative `StrassenThreshold`, out-of-set `GCControl`/`Completion`
+- **config (A-09)**: malformed explicitly-set env overrides (e.g. `FIBCALC_N=abc`) now return a structured `ConfigError` instead of being silently swallowed (phantom default)
+- **calibration (A-11)**: `SaveProfile` is now atomic (temp file + `os.Rename`) — no truncated/corrupt profile under concurrent writers or crash
+- **progress (A-10)**: `CalcTotalWork` no longer overflows to `+Inf` (`math.Pow(4,numBits)` past ~512 bits) which froze the progress bar on exactly the large-N calculations; reworked in log-space / closed form
+- **build (A-13)**: `.gitignore` `coverage.*` glob was unanchored and also hid `.github/workflows/coverage.yml` — the coverage workflow was never tracked and never ran on GitHub; now kept under version control
+- Audit reference: [`audit.md`](audit.md) (23 findings), remediation plan [`AuditPlanning.md`](AuditPlanning.md). Concurrency hardening of `internal/bigfft` (A-01 Critical use-after-free, A-02/A-03 data races, A-05/A-06/A-07) is implemented on the frozen branch `review/vague-A-bigfft-concurrency`, **pending human review before merge** (hot-path concurrency; `-race` validated only in CI)
 
 ### Security
 
@@ -59,6 +68,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **FFT pool leak**: release `PolValues` / `Poly` buffers in `internal/bigfft` (audit P0-01, P0-09)
 - **Arena reuse**: `CalculationArena` is now retained across calls inside the pooled `CalculationState` (sized once, `Reset()` between uses; rebuilt only when `n` outgrows the previous tenancy). `B/op` improves ~7 % on `BenchmarkFibonacci/FastDoubling/1M`; `ns/op` is unchanged within run-to-run variance. The "steal `s.FK`" zero-copy trick was removed in `ExecuteDoublingLoop` (incompatible with arena reuse) and replaced by a single deep-copy in `ReleaseStateWithResult` (~850 KB memcpy for F(10M), <0.01 % of runtime). Audit P1-04 — previously skipped because `s.FK` aliasing pooled memory raced with the next tenant's `Reset()`; now resolved by detaching the result before pool return.
+
+- **TUI (A-22)**: lazy log-pane content flush — `updateContent()` no longer rebuilds the whole snapshot on every push (O(N²) over a long session). `BenchmarkLogsUpdateContent` ~8× faster, −76 % allocations; observable TUI output unchanged
+- Added regression guards: `TestCalculateSmall_OracleEquivalence` (A-20, cross-checks `calculateSmall` vs an independent oracle, no golden tautology) and parallel-FFT arena-aliasing race tests (A-17)
 
 ### Removed
 
