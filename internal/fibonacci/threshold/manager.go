@@ -164,7 +164,14 @@ func (m *DynamicThresholdManager) GetParallelThreshold() int {
 
 // ShouldAdjust checks if thresholds should be adjusted based on collected metrics.
 // Returns the new thresholds and whether an adjustment was made.
-// No mutex needed: called from single goroutine in the doubling loop.
+// A-18 — single-writer invariant: ShouldAdjust mutates currentFFTThreshold /
+// currentParallelThreshold / lastAdjustment WITHOUT taking the lock. This is
+// safe ONLY because ShouldAdjust is invoked exclusively from the single
+// doubling-loop goroutine that owns this manager instance (one
+// DynamicThresholdManager per calculation). RLock-protected getters may
+// therefore observe a non-atomic in-flight write; that is tolerated under this
+// invariant. Sharing a manager across goroutines/calculations would turn this
+// into a data race — convert these fields to atomics before doing so.
 func (m *DynamicThresholdManager) ShouldAdjust() (newFFT, newParallel int, adjusted bool) {
 	if m.iterationCount%m.adjustmentInterval != 0 {
 		return m.currentFFTThreshold, m.currentParallelThreshold, false

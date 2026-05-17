@@ -15,4 +15,11 @@
 //
 // The package has no dependency on any UI library; it is deliberately a pure
 // Go domain layer.
+//
+// A-19 — production path: the only path exercised in production is the
+// snapshot-based ProgressSubject.Freeze(calcIndex) (lock-free fan-out with a
+// per-observer recover). The dynamic Register/Unregister/Notify API and the
+// ChannelObserver / LoggingObserver / NoOpObserver implementations are a
+// retained extension surface used by tests and embedders; they are NOT on the
+// hot path. New contributors should wire progress through Freeze, not Notify.
 package progress
