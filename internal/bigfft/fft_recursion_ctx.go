@@ -46,7 +46,7 @@ func fourierRecursiveCtx(ctx *FFTContext, dst, src []fermat, backward bool, n in
 	dst1 := dst[:1<<(size-1)]
 	dst2 := dst[1<<(size-1):]
 
-	if size >= ParallelFFTRecursionThreshold && depth < MaxParallelFFTDepth {
+	if uint64(size) >= ParallelFFTRecursionThreshold.Load() && uint64(depth) < MaxParallelFFTDepth.Load() {
 		select {
 		case ctx.Semaphore <- struct{}{}:
 			var wg sync.WaitGroup

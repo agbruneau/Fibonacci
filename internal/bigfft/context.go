@@ -140,7 +140,8 @@ func MulWithContext(ctx *FFTContext, x, y *big.Int) (res *big.Int, err error) {
 	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
-	if xwords > fftThreshold && ywords > fftThreshold {
+	thr := fftThresholdValue()
+	if xwords > thr && ywords > thr {
 		return mulFFTCtx(ctx.resolved(), x, y)
 	}
 	return new(big.Int).Mul(x, y), nil
@@ -160,7 +161,8 @@ func MulToWithContext(ctx *FFTContext, z, x, y *big.Int) (res *big.Int, err erro
 	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
-	if xwords > fftThreshold && ywords > fftThreshold {
+	thr := fftThresholdValue()
+	if xwords > thr && ywords > thr {
 		var xb, yb nat = x.Bits(), y.Bits()
 		zb, err := fftmulToCtx(ctx.resolved(), z.Bits(), xb, yb)
 		if err != nil {
@@ -188,7 +190,7 @@ func SqrWithContext(ctx *FFTContext, x *big.Int) (res *big.Int, err error) {
 		}
 	}()
 	xwords := len(x.Bits())
-	if xwords > fftThreshold {
+	if xwords > fftThresholdValue() {
 		return sqrFFTCtx(ctx.resolved(), x)
 	}
 	return new(big.Int).Mul(x, x), nil
@@ -207,7 +209,7 @@ func SqrToWithContext(ctx *FFTContext, z, x *big.Int) (res *big.Int, err error) 
 		}
 	}()
 	xwords := len(x.Bits())
-	if xwords > fftThreshold {
+	if xwords > fftThresholdValue() {
 		var xb nat = x.Bits()
 		zb, err := fftsqrToCtx(ctx.resolved(), z.Bits(), xb)
 		if err != nil {

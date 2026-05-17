@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"runtime/debug"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -31,8 +32,17 @@ func (n nat) String() string {
 const defaultFFTThresholdWords = 1800
 
 // fftThreshold is the size (in words) above which FFT is used over
-// standard math/big multiplication. This can be modified for tuning purposes.
-var fftThreshold = defaultFFTThresholdWords
+// standard math/big multiplication. This can be modified for tuning
+// purposes. It is read on every Mul/Sqr/MulTo/SqrTo entry by N concurrent
+// goroutines, so it is an atomic to make any (current or future) tuning
+// write race-free (audit A-03). Same global, type changed only
+// (int -> atomic.Int64); no new global introduced. Read via fftThresholdValue().
+var fftThreshold atomic.Int64
+
+func init() { fftThreshold.Store(defaultFFTThresholdWords) }
+
+// fftThresholdValue returns the current FFT threshold in words.
+func fftThresholdValue() int { return int(fftThreshold.Load()) }
 
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of
@@ -45,7 +55,8 @@ func Mul(x, y *big.Int) (res *big.Int, err error) {
 	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
-	if xwords > fftThreshold && ywords > fftThreshold {
+	thr := fftThresholdValue()
+	if xwords > thr && ywords > thr {
 		return mulFFT(x, y)
 	}
 	return new(big.Int).Mul(x, y), nil
@@ -61,7 +72,8 @@ func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
-	if xwords > fftThreshold && ywords > fftThreshold {
+	thr := fftThresholdValue()
+	if xwords > thr && ywords > thr {
 		var xb, yb nat = x.Bits(), y.Bits()
 		// Reuse z's existing buffer if available
 		zb, err := fftmulTo(z.Bits(), xb, yb)
@@ -87,7 +99,7 @@ func Sqr(x *big.Int) (res *big.Int, err error) {
 		}
 	}()
 	xwords := len(x.Bits())
-	if xwords > fftThreshold {
+	if xwords > fftThresholdValue() {
 		return sqrFFT(x)
 	}
 	return new(big.Int).Mul(x, x), nil
@@ -100,7 +112,7 @@ func SqrTo(z, x *big.Int) (res *big.Int, err error) {
 		}
 	}()
 	xwords := len(x.Bits())
-	if xwords > fftThreshold {
+	if xwords > fftThresholdValue() {
 		var xb nat = x.Bits()
 		zb, err := fftsqrTo(z.Bits(), xb)
 		if err != nil {

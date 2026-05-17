@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 )
 
 // concurrencySemaphore is a buffered channel used to limit the number of
@@ -25,12 +26,31 @@ func getSemaphore() chan struct{} {
 // ParallelFFTRecursionThreshold is the minimum size (in bits of k, where K=2^k)
 // for which FFT recursion should be parallelized. Below this threshold, the
 // overhead of goroutine creation exceeds the benefits of parallelism.
-var ParallelFFTRecursionThreshold uint = 4
+//
+// It is an atomic because it is read at every FFT recursion node by N
+// parallel goroutines while SetFFTParallelismConfig may mutate it
+// concurrently (audit A-03). This is the SAME existing global, only its
+// type changed (uint -> atomic.Uint64); no new global is introduced. Access
+// it via .Load()/.Store(); the stable public API is
+// Get/SetFFTParallelismConfig.
+var ParallelFFTRecursionThreshold atomic.Uint64
 
 // MaxParallelFFTDepth limits the maximum depth of parallel recursion to avoid
 // excessive goroutine creation. Once this depth is reached, recursion continues
-// sequentially.
-var MaxParallelFFTDepth uint = 3
+// sequentially. Atomic for the same concurrency reason as
+// ParallelFFTRecursionThreshold (audit A-03); same global, type changed only.
+var MaxParallelFFTDepth atomic.Uint64
+
+// Documented defaults, applied at init so behaviour is unchanged.
+const (
+	defaultParallelFFTRecursionThreshold = 4
+	defaultMaxParallelFFTDepth           = 3
+)
+
+func init() {
+	ParallelFFTRecursionThreshold.Store(defaultParallelFFTRecursionThreshold)
+	MaxParallelFFTDepth.Store(defaultMaxParallelFFTDepth)
+}
 
 // FFTParallelismConfig holds the configurable FFT parallelism thresholds.
 type FFTParallelismConfig struct {
@@ -44,18 +64,18 @@ type FFTParallelismConfig struct {
 // This allows runtime calibration of parallelism behavior.
 func SetFFTParallelismConfig(config FFTParallelismConfig) {
 	if config.RecursionThreshold > 0 {
-		ParallelFFTRecursionThreshold = config.RecursionThreshold
+		ParallelFFTRecursionThreshold.Store(uint64(config.RecursionThreshold))
 	}
 	if config.MaxDepth > 0 {
-		MaxParallelFFTDepth = config.MaxDepth
+		MaxParallelFFTDepth.Store(uint64(config.MaxDepth))
 	}
 }
 
 // GetFFTParallelismConfig returns the current FFT parallelism configuration.
 func GetFFTParallelismConfig() FFTParallelismConfig {
 	return FFTParallelismConfig{
-		RecursionThreshold: ParallelFFTRecursionThreshold,
-		MaxDepth:           MaxParallelFFTDepth,
+		RecursionThreshold: uint(ParallelFFTRecursionThreshold.Load()),
+		MaxDepth:           uint(MaxParallelFFTDepth.Load()),
 	}
 }
 
@@ -103,7 +123,7 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 	// Try to acquire token for parallelism
 	// We only try to parallelize if the size is large enough to justify overhead
 	// and we haven't exceeded the maximum parallelism depth
-	if size >= ParallelFFTRecursionThreshold && depth < MaxParallelFFTDepth {
+	if uint64(size) >= ParallelFFTRecursionThreshold.Load() && uint64(depth) < MaxParallelFFTDepth.Load() {
 		select {
 		case getSemaphore() <- struct{}{}:
 			// Got token, run second half in parallel
