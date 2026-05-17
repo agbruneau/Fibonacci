@@ -236,6 +236,132 @@ func TestConfigValidate(t *testing.T) {
 	})
 }
 
+// base returns a minimally-valid AppConfig for targeted validation tests.
+func base() AppConfig {
+	return AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: 10, Algo: "fast"}
+}
+
+func TestValidate_RejectsNegativeLastDigits(t *testing.T) {
+	t.Parallel()
+	algos := []string{"fast", "matrix"}
+
+	t.Run("negative is rejected", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.LastDigits = -5
+		if err := c.Validate(algos); err == nil {
+			t.Error("Expected error for negative LastDigits")
+		}
+	})
+
+	t.Run("zero is valid (disabled)", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.LastDigits = 0
+		if err := c.Validate(algos); err != nil {
+			t.Errorf("LastDigits=0 should be valid (disabled), got: %v", err)
+		}
+	})
+
+	t.Run("positive is valid", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.LastDigits = 10
+		if err := c.Validate(algos); err != nil {
+			t.Errorf("LastDigits=10 should be valid, got: %v", err)
+		}
+	})
+}
+
+func TestValidate_RejectsNegativeStrassen(t *testing.T) {
+	t.Parallel()
+	algos := []string{"fast", "matrix"}
+
+	t.Run("negative is rejected", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.StrassenThreshold = -1
+		if err := c.Validate(algos); err == nil {
+			t.Error("Expected error for negative StrassenThreshold")
+		}
+	})
+
+	t.Run("zero is valid (auto)", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.StrassenThreshold = 0
+		if err := c.Validate(algos); err != nil {
+			t.Errorf("StrassenThreshold=0 should be valid (auto), got: %v", err)
+		}
+	})
+}
+
+func TestValidate_RejectsUnknownGCControl(t *testing.T) {
+	t.Parallel()
+	algos := []string{"fast", "matrix"}
+
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{"auto is valid", "auto", false},
+		{"aggressive is valid", "aggressive", false},
+		{"disabled is valid", "disabled", false},
+		{"empty is tolerated (effective default)", "", false},
+		{"unknown is rejected", "turbo", true},
+		{"case mismatch is rejected", "Auto", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := base()
+			c.GCControl = tt.value
+			err := c.Validate(algos)
+			if tt.wantErr && err == nil {
+				t.Errorf("GCControl=%q: expected error, got nil", tt.value)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("GCControl=%q: expected no error, got: %v", tt.value, err)
+			}
+		})
+	}
+}
+
+func TestValidate_RejectsUnknownCompletion(t *testing.T) {
+	t.Parallel()
+	algos := []string{"fast", "matrix"}
+
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{"empty is valid", "", false},
+		{"bash is valid", "bash", false},
+		{"zsh is valid", "zsh", false},
+		{"fish is valid", "fish", false},
+		{"powershell is valid", "powershell", false},
+		{"unknown is rejected", "tcsh", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := base()
+			c.Completion = tt.value
+			err := c.Validate(algos)
+			if tt.wantErr && err == nil {
+				t.Errorf("Completion=%q: expected error, got nil", tt.value)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Completion=%q: expected no error, got: %v", tt.value, err)
+			}
+		})
+	}
+}
+
 func TestEnvHelpers(t *testing.T) {
 	prefix := EnvPrefix
 
