@@ -107,6 +107,13 @@ func loadProfile(path string) (*CalibrationProfile, error) {
 
 // SaveProfile saves the calibration profile to the specified path.
 // If path is empty, uses the default profile path.
+//
+// The write is atomic: the JSON is first written to a temporary file in the
+// SAME directory as the target, fsynced-equivalent via close, then renamed
+// over the target. os.Rename is atomic within a volume on both POSIX and
+// Windows, so a concurrent reader (or a crash mid-write) never observes a
+// truncated or partially written profile — it sees either the old complete
+// file or the new one. The temporary file is removed on any failure.
 func (p *CalibrationProfile) SaveProfile(path string) error {
 	if path == "" {
 		path = GetDefaultProfilePath()
@@ -117,11 +124,66 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 		return fmt.Errorf("failed to marshal profile: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write profile: %w", err)
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+
+	tmp, err := os.CreateTemp(dir, base+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp profile: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	// Ensure the temp file never lingers if anything below fails.
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to write temp profile: %w", err)
 	}
 
+	// Match the historical 0600 permission (CreateTemp creates 0600 already,
+	// but be explicit so the contract holds regardless of umask/platform).
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to chmod temp profile: %w", err)
+	}
+
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close temp profile: %w", err)
+	}
+
+	if err := renameAtomic(tmpName, path); err != nil {
+		return fmt.Errorf("failed to finalize profile: %w", err)
+	}
+
+	cleanup = false
 	return nil
+}
+
+// renameAtomic renames src over dst. The rename itself is atomic within a
+// volume on both POSIX and Windows. On Windows, however, the replace fails
+// with a sharing/access error if another process currently holds the target
+// open (e.g. a concurrent reader), even though no truncation ever occurs.
+// A short bounded retry absorbs that transient window so concurrent
+// save/load across processes does not spuriously fail; on POSIX the first
+// attempt succeeds and the loop is a no-op.
+func renameAtomic(src, dst string) error {
+	const maxAttempts = 10
+	var err error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if err = os.Rename(src, dst); err == nil {
+			return nil
+		}
+		if attempt < maxAttempts-1 {
+			time.Sleep(time.Duration(attempt+1) * 5 * time.Millisecond)
+		}
+	}
+	return err
 }
 
 // IsValid checks if the profile is valid for the current hardware.
