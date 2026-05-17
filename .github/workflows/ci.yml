@@ -29,7 +29,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
           cache: true
 
       - name: Download dependencies
@@ -38,13 +37,13 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Test (race) - Linux/macOS
-        if: runner.os != 'Windows'
+      # A-14: race detector on every OS (Windows included). The race detector
+      # requires CGO; GitHub-hosted windows-latest ships a MinGW gcc, so a
+      # unified step keeps coverage symmetric across platforms.
+      - name: Test (race)
+        env:
+          CGO_ENABLED: '1'
         run: go test -race -short ./...
-
-      - name: Test - Windows
-        if: runner.os == 'Windows'
-        run: go test -short ./...
 
   lint:
     name: Lint
@@ -57,13 +56,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
           cache: true
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          # A-12: pin an exact version for reproducible verdicts (was "latest").
+          version: v1.64.8
           args: --timeout=5m
 
   build:
@@ -77,8 +76,37 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
           cache: true
 
       - name: Build
         run: make build
+
+  bench:
+    name: Benchmark (informational)
+    runs-on: ubuntu-latest
+    # A-13: non-blocking benchmark snapshot. A real >5% regression gate needs a
+    # versioned baseline (tracked in docs/audits/); this job uploads an artifact
+    # for manual comparison until that baseline lands.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run Fibonacci benchmarks
+        run: |
+          go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
+            -benchmem -run='^$' -count=1 -benchtime=1s ./internal/fibonacci/ \
+            | tee bench-snapshot.txt
+
+      - name: Upload benchmark snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-snapshot
+          path: bench-snapshot.txt
+          retention-days: 30

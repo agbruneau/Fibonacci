@@ -9,6 +9,7 @@ import (
 
 // TestCLI_GoldenValues verifies the correctness of results for moderate N.
 func TestCLI_GoldenValues(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	tests := []struct {
@@ -47,6 +48,7 @@ func TestCLI_GoldenValues(t *testing.T) {
 
 // TestCLI_ErrorCases verifies that invalid inputs produce appropriate error codes.
 func TestCLI_ErrorCases(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	tests := []struct {
@@ -97,6 +99,7 @@ func TestCLI_ErrorCases(t *testing.T) {
 
 // TestCLI_ModesCombination verifies combined use of flags.
 func TestCLI_ModesCombination(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 	t.Parallel()
 
@@ -130,6 +133,7 @@ func TestCLI_ModesCombination(t *testing.T) {
 
 // TestCLI_Formatting verifies that the output has thousands separators.
 func TestCLI_Formatting(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 	t.Parallel()
 

@@ -24,6 +24,11 @@ coverage.*
 profile.cov
 test_results.txt
 
+# A-13: the `coverage.*` glob above is unanchored and also matched
+# .github/workflows/coverage.yml, leaving the coverage workflow untracked
+# (it never ran on GitHub). Keep the workflow under version control.
+!.github/workflows/coverage.yml
+
 # Go profile-guided optimization files
 *.pgo
 # P1-22: keep the canonical PGO profile checked in — `go build -pgo=auto`
