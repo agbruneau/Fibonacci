@@ -81,6 +81,161 @@ func TestExecuteDoublingStepFFT_ConcurrentCalls(t *testing.T) {
 	wg.Wait()
 }
 
+// A-17 — race-regression guard: arena aliasing on the parallel FFT path.
+//
+// The parallel FFT doubling step runs three big.Int operations concurrently
+// (T3 = FK·FK1, T1 = FK1², T2 = FK²) writing into slots that may be backed by
+// the state-bound CalculationArena. When the products outgrow the arena, the
+// big.Int implementation reallocates the destination OUTSIDE the arena while a
+// sibling goroutine may still be touching arena memory — exactly the aliasing
+// hazard P1-04 documents. This test deliberately undersizes the arena (arena
+// pre-sized for tiny n, operands forced far larger) so every step reallocates
+// off-arena mid parallel-step, and asserts the numeric result against an
+// INDEPENDENT big.Int computation (not the golden corpus, not the library
+// calculator). It is meant to run under `-race` in CI; locally `-race` is
+// unavailable so we at least assert it passes functionally.
+//
+// Run in CI with: go test -race -run FFTRace ./internal/fibonacci/
+
+// independentFastDoubling computes F(n) with a self-contained big.Int Fast
+// Doubling implementation. It shares no code with the package under test and
+// is not derived from the golden JSON, so it is a valid independent oracle for
+// the FFT-parallel result.
+func independentFastDoubling(n uint64) *big.Int {
+	if n == 0 {
+		return big.NewInt(0)
+	}
+	a := big.NewInt(0) // F(0)
+	b := big.NewInt(1) // F(1)
+	t1 := new(big.Int)
+	t2 := new(big.Int)
+	t3 := new(big.Int)
+	for bit := 63; bit >= 0; bit-- {
+		// t1 = a*(2*b - a)  ; t2 = a*a ; t3 = b*b
+		t1.Lsh(b, 1)
+		t1.Sub(t1, a)
+		t1.Mul(t1, a) // F(2k)
+		t2.Mul(a, a)
+		t3.Mul(b, b)
+		t2.Add(t2, t3) // F(2k+1)
+		a.Set(t1)
+		b.Set(t2)
+		if (n>>uint(bit))&1 == 1 {
+			t3.Add(a, b)
+			a.Set(b)
+			b.Set(t3)
+		}
+	}
+	return a
+}
+
+// TestFFTRaceArenaAliasing_ParallelStep forces a single parallel FFT doubling
+// step with a deliberately undersized arena and checks the three doubling
+// products against an independent computation. A torn write from the
+// arena-realloc race would corrupt one of the products and fail the Cmp.
+func TestFFTRaceArenaAliasing_ParallelStep(t *testing.T) {
+	t.Parallel()
+
+	// Arena pre-sized for a tiny n; operands forced far beyond that capacity so
+	// FFT engages and big.Int must reallocate the products off-arena mid-step.
+	s := AcquireStateForN(1100) // smallest n that triggers arena pre-sizing
+	defer ReleaseState(s)
+
+	// ~120k-bit operands: comfortably above any reasonable FFT threshold and
+	// far larger than the arena pre-sized for n=1100.
+	fk := new(big.Int).Lsh(big.NewInt(1), 120_000)
+	fk.Sub(fk, big.NewInt(1)) // dense bits to exercise the transform fully
+	fk1 := new(big.Int).Lsh(big.NewInt(1), 120_001)
+	fk1.Sub(fk1, big.NewInt(3))
+
+	s.FK.Set(fk)
+	s.FK1.Set(fk1)
+	s.T1 = new(big.Int)
+	s.T2 = new(big.Int)
+	s.T3 = new(big.Int)
+
+	opts := Options{ParallelThreshold: 4096, FFTThreshold: 4096}
+
+	const iters = 8
+	for it := 0; it < iters; it++ {
+		s.FK.Set(fk)
+		s.FK1.Set(fk1)
+		s.T1 = new(big.Int)
+		s.T2 = new(big.Int)
+		s.T3 = new(big.Int)
+
+		if err := executeDoublingStepFFT(context.Background(), s, opts, true); err != nil {
+			t.Fatalf("iter %d: executeDoublingStepFFT(parallel) error: %v", it, err)
+		}
+
+		// Independent expectations for the three step products.
+		wantT3 := new(big.Int).Mul(fk, fk1) // T3 = FK · FK1
+		wantT1 := new(big.Int).Mul(fk1, fk1) // T1 = FK1²
+		wantT2 := new(big.Int).Mul(fk, fk)   // T2 = FK²
+
+		if s.T3.Cmp(wantT3) != 0 {
+			t.Fatalf("iter %d: T3 (FK·FK1) mismatch — arena aliasing corruption", it)
+		}
+		if s.T1.Cmp(wantT1) != 0 {
+			t.Fatalf("iter %d: T1 (FK1²) mismatch — arena aliasing corruption", it)
+		}
+		if s.T2.Cmp(wantT2) != 0 {
+			t.Fatalf("iter %d: T2 (FK²) mismatch — arena aliasing corruption", it)
+		}
+	}
+}
+
+// TestFFTRaceArenaAliasing_ConcurrentCalculateCore stresses the full
+// FFT-parallel CalculateCore path concurrently with an arena that is reused
+// and grown across sizes, comparing every result to an independent Fast
+// Doubling oracle. Under -race this surfaces aliasing between the pooled arena
+// and the parallel FFT step; without -race the value assertion still catches
+// torn writes.
+func TestFFTRaceArenaAliasing_ConcurrentCalculateCore(t *testing.T) {
+	t.Parallel()
+
+	fd := &FastDoublingCalculator{}
+	ctx := context.Background()
+
+	// FFTThreshold low enough that these sizes route through FFT.
+	opts := Options{ParallelThreshold: 4096, FFTThreshold: 8192}
+
+	sizes := []uint64{20_000, 60_000, 20_000, 90_000}
+	refs := make(map[uint64]*big.Int, len(sizes))
+	for _, n := range sizes {
+		if _, ok := refs[n]; !ok {
+			refs[n] = independentFastDoubling(n)
+		}
+	}
+
+	const goroutines = 8
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	errs := make(chan error, goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func(seed int) {
+			defer wg.Done()
+			for i, n := range sizes {
+				got, err := fd.CalculateCore(ctx, noopReporter, n, opts)
+				if err != nil {
+					errs <- err
+					return
+				}
+				if got.Cmp(refs[n]) != 0 {
+					errs <- &mismatchErr{N: n}
+					return
+				}
+				_ = i
+			}
+		}(g)
+	}
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		t.Fatal(e)
+	}
+}
+
 // TestPolValuesClone verifies that PolValues.Clone creates an independent copy.
 func TestPolValuesClone(t *testing.T) {
 	t.Parallel()
