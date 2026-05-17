@@ -73,6 +73,11 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Ruflo/MCP tooling memory graph — local tooling artifact, not project source.
+# Was accidentally committed by an external tooling auto-commit (e74e2ec);
+# untracked via `git rm --cached` (file kept on disk + in history, reversible).
+ruvector.db
+
 # Documentation artifacts
 doc/
 godoc.log
