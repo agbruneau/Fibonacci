@@ -43,40 +43,21 @@ func buildBinary(t *testing.T) string {
 	return sharedBinPath
 }
 
+// skipShortE2E skips heavy end-to-end tests under `go test -short`.
+// A-15: these tests compile the binary and spawn subprocesses; running them
+// in -short (used by fast CI smoke and `make test-short`) is wasteful and
+// makes the short suite sensitive to build/disk latency.
+func skipShortE2E(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("e2e: heavy build+subprocess test skipped in -short mode (A-15)")
+	}
+}
+
 // TestCLI_E2E verifies the built binary functions correctly
 func TestCLI_E2E(t *testing.T) {
-	// Build the binary
-	tmpDir := t.TempDir()
-	binName := "fibcalc"
-	if runtime.GOOS == "windows" {
-		binName = "fibcalc.exe"
-	}
-	binPath := filepath.Join(tmpDir, binName)
-
-	// Adjust build path assuming we are running from repo root
-	// We need to find absolute path to cmd/fibcalc
-	// go test is run from test/e2e usually if we do `go test ./test/e2e`
-	// but user instructions say "Create test/e2e/cli_e2e_test.go"
-	// We will assume "go test ./test/e2e/..." runs from module root in context of paths,
-	// but `go build` needs correct package path.
-
-	// We need to use the absolute path or relative from where go test is run.
-	// When running `go test ./test/e2e/...` from root, CWD is root.
-	// But `go build ./cmd/fibcalc` works from root.
-	// Wait, the error `stat /app/test/e2e/cmd/fibcalc: directory not found` suggests
-	// `go test` changes CWD to the test package directory.
-
-	// Let's find the module root.
-	// We are in test/e2e
-	rootDir := "../.."
-
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/fibcalc")
-	cmd.Dir = rootDir // Execute build from repo root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to build fibcalc: %v", err)
-	}
+	skipShortE2E(t)
+	binPath := buildBinary(t)
 
 	tests := []struct {
 		name     string
@@ -151,10 +132,12 @@ func TestCLI_E2E(t *testing.T) {
 				if err == nil {
 					t.Errorf("Expected non-zero exit code, but command succeeded.\nOutput: %s", outStr)
 				} else if exitErr, ok := err.(*exec.ExitError); ok {
+					// A-15: exit codes are a stable contract (internal/errors:
+					// ExitErrorTimeout=2). Assert exactly instead of accepting
+					// any non-zero, so a mapping regression is caught.
 					if exitErr.ExitCode() != tt.wantCode {
-						t.Logf("Exit code mismatch: got %d, want %d (accepting any non-zero)",
-							exitErr.ExitCode(), tt.wantCode)
-						// We still pass as long as it's non-zero, which it is since err != nil
+						t.Errorf("Exit code mismatch: got %d, want %d\nOutput: %s",
+							exitErr.ExitCode(), tt.wantCode, outStr)
 					}
 				}
 				// err != nil but not ExitError is also acceptable (e.g., signal kill)
@@ -172,6 +155,7 @@ func TestCLI_E2E(t *testing.T) {
 
 // TestCLI_InvalidFlags verifies that invalid flags produce non-zero exit codes.
 func TestCLI_InvalidFlags(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	tests := []struct {
@@ -215,6 +199,7 @@ func TestCLI_InvalidFlags(t *testing.T) {
 
 // TestCLI_OutputFile verifies that --output creates a file containing the result.
 func TestCLI_OutputFile(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	tmpDir := t.TempDir()
@@ -254,6 +239,7 @@ func TestCLI_OutputFile(t *testing.T) {
 
 // TestCLI_TimeoutLargeN verifies that a very short timeout with a huge N triggers timeout behavior.
 func TestCLI_TimeoutLargeN(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	// Use an extremely large N with a very short timeout to guarantee timeout
@@ -267,15 +253,16 @@ func TestCLI_TimeoutLargeN(t *testing.T) {
 	}
 
 	if exitErr, ok := err.(*exec.ExitError); ok {
-		// Exit code 2 is the timeout exit code
+		// A-15: timeout maps to ExitErrorTimeout=2 (internal/errors). Assert it.
 		if exitErr.ExitCode() != 2 {
-			t.Logf("Exit code: got %d, want 2 (accepting any non-zero for timeout)", exitErr.ExitCode())
+			t.Errorf("Timeout exit code: got %d, want 2 (ExitErrorTimeout)", exitErr.ExitCode())
 		}
 	}
 }
 
 // TestCLI_Completion verifies that shell completion scripts are generated for all supported shells.
 func TestCLI_Completion(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	shells := []struct {
@@ -331,6 +318,7 @@ func TestCLI_Completion(t *testing.T) {
 
 // TestCLI_LastDigits verifies the --last-digits flag computes partial results.
 func TestCLI_LastDigits(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	tests := []struct {
@@ -378,6 +366,7 @@ func TestCLI_LastDigits(t *testing.T) {
 
 // TestCLI_CompareMode verifies running specific algorithms with --algo flag.
 func TestCLI_CompareMode(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	tests := []struct {
@@ -431,6 +420,7 @@ func TestCLI_CompareMode(t *testing.T) {
 
 // TestCLI_VersionDetails verifies the version output contains expected fields.
 func TestCLI_VersionDetails(t *testing.T) {
+	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	cmd := exec.Command(binPath, "--version")
