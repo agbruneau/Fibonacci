@@ -192,6 +192,14 @@ type PolValues struct {
 	pooledBacking []big.Word
 	// pooledValues indicates Values was obtained from the []fermat pool.
 	pooledValues bool
+
+	// cacheRef, if non-nil, is the TransformCache entry whose `backing` this
+	// PolValues aliases (set only on a cache hit by TransformCache.getByKey).
+	// Release() decrements its refcount so the cache may safely recycle the
+	// backing once no consumer is reading it (audit A-01). It is mutually
+	// exclusive with pooledBacking: a cache-hit PolValues never owns pooled
+	// storage.
+	cacheRef *cacheEntry
 }
 
 // Release returns any pooled backing buffers of v to their sync.Pool shards.
@@ -203,6 +211,15 @@ type PolValues struct {
 // previously leaked pool buffers because there was no release API.
 func (v *PolValues) Release() {
 	if v == nil {
+		return
+	}
+	if v.cacheRef != nil {
+		// Cache-shared PolValues: drop the read pin so the cache may
+		// recycle this entry's backing once no consumer remains (A-01).
+		// Such a value never owns pooled storage, so we stop here.
+		v.cacheRef.refs.Add(-1)
+		v.cacheRef = nil
+		v.Values = nil
 		return
 	}
 	if v.pooledBacking != nil {

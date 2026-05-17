@@ -47,6 +47,15 @@ type cacheEntry struct {
 	backing []big.Word // contiguous storage for values; recycled on eviction
 	k       uint       // FFT size parameter
 	n       int        // coefficient length
+
+	// refs counts live consumers that obtained a PolValues aliasing this
+	// entry's backing via getByKey but have not yet Release()d it. Eviction
+	// (putByKey) MUST NOT salvage/zero `backing` while refs > 0, otherwise a
+	// concurrent reader observes silent corruption (audit A-01). When refs
+	// is non-zero on eviction the backing is dropped to GC instead of being
+	// recycled; this is rare (only under simultaneous churn + in-flight FFT)
+	// and trades a transient allocation for memory safety.
+	refs atomic.Int32
 }
 
 // cacheLogInterval is the number of accesses between periodic cache stats logging.
@@ -219,15 +228,21 @@ func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
 // PolValues.Sqr() are safe as they produce new result values.
 //
 // Hot-path optimization (R3.9): under a single RLock we both look up the
-// entry and snapshot its (immutable) fields. We then check whether the
-// element is already at the LRU front; if so, no exclusive lock is taken
-// (a MoveToFront on the front is a documented no-op, so LRU order is
-// strictly preserved). Otherwise we acquire a brief Lock for MoveToFront.
-// On a very hot cache (entries that stay near the front), this eliminates
-// most exclusive Lock acquisitions, removing the contention measured at
-// 10k+ accesses/s. Cache entries are immutable after insertion, so reading
-// k/n/values via the snapshot under RLock is safe even if the element is
-// later evicted concurrently.
+// entry and snapshot its fields. We then check whether the element is
+// already at the LRU front; if so, no exclusive lock is taken (a
+// MoveToFront on the front is a documented no-op, so LRU order is strictly
+// preserved). Otherwise we acquire a brief Lock for MoveToFront. On a very
+// hot cache (entries that stay near the front), this eliminates most
+// exclusive Lock acquisitions, removing the contention measured at 10k+
+// accesses/s.
+//
+// Lifetime safety (audit A-01): the entry's k/n are immutable, but its
+// `backing` (and thus the `values` sub-slices we hand back) is NOT — under
+// eviction putByKey may salvage and zero it. We therefore pin the entry by
+// incrementing its atomic refcount while still holding the RLock, before
+// any concurrent putByKey can observe the entry as evictable. The returned
+// PolValues carries cacheRef so its Release() drops the pin; putByKey only
+// recycles a backing whose refs == 0.
 func (tc *TransformCache) getByKey(key uint64) (PolValues, bool) {
 	tc.mu.RLock()
 	elem, found := tc.entries[key]
@@ -238,13 +253,15 @@ func (tc *TransformCache) getByKey(key uint64) (PolValues, bool) {
 		return PolValues{}, false
 	}
 
-	// Snapshot immutable entry fields under RLock so the returned value
-	// is consistent regardless of any concurrent eviction after RUnlock.
+	// Pin the entry under RLock so a concurrent putByKey eviction cannot
+	// salvage/zero this backing while the caller reads the returned values.
 	entry := elem.Value.(*cacheEntry)
+	entry.refs.Add(1)
 	pv := PolValues{
-		K:      entry.k,
-		N:      entry.n,
-		Values: entry.values,
+		K:        entry.k,
+		N:        entry.n,
+		Values:   entry.values,
+		cacheRef: entry,
 	}
 	// Fast path: if the element is already at the front, MoveToFront would
 	// be a no-op. Skip the exclusive Lock entirely. Reading lru.Front() is
@@ -311,8 +328,10 @@ func (tc *TransformCache) Put(data nat, pv PolValues) {
 //
 // When the cache is at capacity, the oldest entry is evicted and its
 // contiguous backing buffer is recycled to back the new entry whenever its
-// capacity is sufficient. This avoids an O(K·n) allocation on the hot path
-// of cache turnover. Eviction order (LRU) and thread-safety are preserved.
+// capacity is sufficient AND no getByKey consumer still pins it (audit
+// A-01: a pinned backing is dropped to GC instead, never zeroed in place).
+// This avoids an O(K·n) allocation on the hot path of cache turnover.
+// Eviction order (LRU) and thread-safety are preserved.
 func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
@@ -342,7 +361,12 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		// Salvage the largest suitable evicted backing. We keep the first
 		// fit (LRU order); subsequent evictions in the same loop drop their
 		// buffers to GC, matching the prior semantics for them.
-		if backing == nil && cap(entry.backing) >= wordCount {
+		//
+		// A-01: never recycle a backing that a getByKey consumer is still
+		// reading (refs > 0). Doing so would zero/overwrite live data under
+		// an in-flight FFT. Such a backing is dropped to GC; the in-flight
+		// reader keeps a valid (now private) view until it Release()s.
+		if backing == nil && entry.refs.Load() == 0 && cap(entry.backing) >= wordCount {
 			backing = entry.backing[:wordCount]
 			// Zero recycled storage to avoid leaking stale words into the
 			// new entry's fermat sub-slices (copy below only writes len(v)
