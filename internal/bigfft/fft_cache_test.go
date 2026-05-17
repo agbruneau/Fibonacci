@@ -83,9 +83,10 @@ func TestSetTransformCacheConfig(t *testing.T) {
 		// Need enough words to exceed MinBitLen (1000 bits = ~16 words on 64-bit)
 		testData := make(nat, 2000) // 2000 words = 128000 bits on 64-bit
 		testData[0] = big.Word(123)
+		// Coefficient length (101) must equal N+1 (A-05 shape invariant).
 		mockValues := PolValues{
 			K:      4,
-			N:      10,
+			N:      100,
 			Values: make([]fermat, 16),
 		}
 		for i := range mockValues.Values {
@@ -135,10 +136,11 @@ func TestTransformCachePutAndGet(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	// Create mock PolValues
+	// Create mock PolValues. Coefficients must be exactly N+1 words
+	// (cache shape invariant, audit A-05): N=2 => len 3.
 	mockValues := PolValues{
 		K:      4,
-		N:      100,
+		N:      2,
 		Values: []fermat{{1, 2, 3}, {4, 5, 6}},
 	}
 
@@ -146,7 +148,7 @@ func TestTransformCachePutAndGet(t *testing.T) {
 	cache.Put(testData, mockValues)
 
 	// Get from cache
-	result, found := cache.Get(testData, 4, 100)
+	result, found := cache.Get(testData, 4, 2)
 	if !found {
 		t.Fatal("expected to find cached value")
 	}
@@ -197,9 +199,10 @@ func TestTransformCacheEviction(t *testing.T) {
 		testData := make(nat, 10)
 		testData[0] = big.Word(i) // Different data for each entry
 
+		// Single-word coefficient => N+1 == 1 => N == 0 (A-05 shape).
 		mockValues := PolValues{
 			K:      4,
-			N:      100,
+			N:      0,
 			Values: []fermat{{big.Word(i)}},
 		}
 		cache.Put(testData, mockValues)
@@ -439,9 +442,10 @@ func TestTransformCacheStats(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
+	// Coefficient length must equal N+1 (cache shape invariant, A-05).
 	mockValues := PolValues{
 		K:      4,
-		N:      100,
+		N:      2,
 		Values: []fermat{{1, 2, 3}},
 	}
 
@@ -452,7 +456,7 @@ func TestTransformCacheStats(t *testing.T) {
 	}
 
 	// Miss
-	cache.Get(testData, 4, 100)
+	cache.Get(testData, 4, 2)
 	stats = cache.Stats()
 	if stats.Misses != 1 {
 		t.Errorf("expected 1 miss, got %d", stats.Misses)
@@ -460,7 +464,7 @@ func TestTransformCacheStats(t *testing.T) {
 
 	// Put and hit
 	cache.Put(testData, mockValues)
-	cache.Get(testData, 4, 100)
+	cache.Get(testData, 4, 2)
 	stats = cache.Stats()
 	if stats.Hits != 1 {
 		t.Errorf("expected 1 hit, got %d", stats.Hits)

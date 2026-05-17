@@ -345,6 +345,14 @@ func (tc *TransformCache) logPeriodicStats() {
 }
 
 // Put stores a transform result in the cache.
+//
+// Invariant (audit A-05): every coefficient of pv must have exactly
+// pv.N+1 words. A PolValues produced by the FFT transform pipeline always
+// satisfies this. If any coefficient violates it, the whole pv is dropped
+// (not cached) rather than copied: a short coefficient would be silently
+// truncated by the internal copy and a later cache hit would return a
+// corrupt transform. Dropping turns a malformed Put into a clean future
+// miss (recompute), never into data corruption.
 func (tc *TransformCache) Put(data nat, pv PolValues) {
 	if !tc.cfgEnabled.Load() || int64(len(data)*_W) < tc.cfgMinBitLen.Load() {
 		return
@@ -364,6 +372,17 @@ func (tc *TransformCache) Put(data nat, pv PolValues) {
 // This avoids an O(K·n) allocation on the hot path of cache turnover.
 // Eviction order (LRU) and thread-safety are preserved.
 func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
+	n := pv.N
+	// A-05: reject malformed shapes BEFORE taking the lock or touching the
+	// LRU. Caching a pv whose coefficients are not all exactly n+1 words
+	// would let the internal copy truncate them, corrupting future hits.
+	// Drop instead — a clean miss is always recoverable, corruption is not.
+	for i := range pv.Values {
+		if len(pv.Values[i]) != n+1 {
+			return
+		}
+	}
+
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 
@@ -373,7 +392,6 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	}
 
 	K := len(pv.Values)
-	n := pv.N
 	wordCount := K * (n + 1)
 
 	// Evict oldest entries if at capacity, salvaging a backing buffer
