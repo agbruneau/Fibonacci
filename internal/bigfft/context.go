@@ -296,7 +296,7 @@ func fftsqrToCtx(ctx *FFTContext, dst, x nat) (nat, error) {
 func transformCachedWithBumpCtx(ctx *FFTContext, p *Poly, n int, ba *BumpAllocator) (PolValues, error) {
 	cache := ctx.Cache
 
-	if cache == nil || !cache.config.Enabled || polyBitLen(p) < cache.config.MinBitLen {
+	if cache == nil || !cache.cfgEnabled.Load() || int64(polyBitLen(p)) < cache.cfgMinBitLen.Load() {
 		return transformWithBumpCtx(ctx, p, n, ba)
 	}
 

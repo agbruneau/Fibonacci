@@ -18,13 +18,14 @@ func TestNewTransformCache(t *testing.T) {
 	if cache == nil {
 		t.Fatal("NewTransformCache returned nil")
 	}
-	if cache.config.MaxEntries != 256 {
-		t.Errorf("expected MaxEntries=256, got %d", cache.config.MaxEntries)
+	got := cache.Config()
+	if got.MaxEntries != 256 {
+		t.Errorf("expected MaxEntries=256, got %d", got.MaxEntries)
 	}
-	if cache.config.MinBitLen != 100000 {
-		t.Errorf("expected MinBitLen=100000, got %d", cache.config.MinBitLen)
+	if got.MinBitLen != 100000 {
+		t.Errorf("expected MinBitLen=100000, got %d", got.MinBitLen)
 	}
-	if !cache.config.Enabled {
+	if !got.Enabled {
 		t.Error("expected Enabled=true")
 	}
 }
@@ -52,17 +53,16 @@ func TestSetTransformCacheConfig(t *testing.T) {
 		SetTransformCacheConfig(config)
 
 		cache := GetTransformCache()
-		cache.mu.Lock()
-		defer cache.mu.Unlock()
+		got := cache.Config()
 
-		if cache.config.MaxEntries != config.MaxEntries {
-			t.Errorf("Expected MaxEntries=%d, got %d", config.MaxEntries, cache.config.MaxEntries)
+		if got.MaxEntries != config.MaxEntries {
+			t.Errorf("Expected MaxEntries=%d, got %d", config.MaxEntries, got.MaxEntries)
 		}
-		if cache.config.MinBitLen != config.MinBitLen {
-			t.Errorf("Expected MinBitLen=%d, got %d", config.MinBitLen, cache.config.MinBitLen)
+		if got.MinBitLen != config.MinBitLen {
+			t.Errorf("Expected MinBitLen=%d, got %d", config.MinBitLen, got.MinBitLen)
 		}
-		if cache.config.Enabled != config.Enabled {
-			t.Errorf("Expected Enabled=%v, got %v", config.Enabled, cache.config.Enabled)
+		if got.Enabled != config.Enabled {
+			t.Errorf("Expected Enabled=%v, got %v", config.Enabled, got.Enabled)
 		}
 	})
 

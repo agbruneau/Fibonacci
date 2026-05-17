@@ -65,32 +65,70 @@ const cacheLogInterval = 100
 // It caches the forward FFT transform results to avoid recomputation
 // when the same values are multiplied repeatedly.
 type TransformCache struct {
-	mu        sync.RWMutex
-	config    TransformCacheConfig
-	entries   map[uint64]*list.Element
-	lru       *list.List
-	hits      atomic.Uint64
-	misses    atomic.Uint64
-	evictions atomic.Uint64
-	accesses  atomic.Uint64
-	logger    zerolog.Logger
+	mu sync.RWMutex
+	// Config is stored as atomics rather than a plain struct because Get/Put
+	// read it on the lock-free fast path while SetConfig mutates it under
+	// mu.Lock() — a plain field is a data race (audit A-02). The public
+	// TransformCacheConfig type keeps value fields; conversion happens at the
+	// loadConfig/storeConfig boundary. These are existing-state replacements,
+	// not new package globals.
+	cfgEnabled    atomic.Bool
+	cfgMinBitLen  atomic.Int64
+	cfgMaxEntries atomic.Int64
+	entries       map[uint64]*list.Element
+	lru           *list.List
+	hits          atomic.Uint64
+	misses        atomic.Uint64
+	evictions     atomic.Uint64
+	accesses      atomic.Uint64
+	logger        zerolog.Logger
+}
+
+// loadConfig reconstructs the public config value from the atomic fields.
+// Lock-free: safe to call on the Get/Put hot path.
+func (tc *TransformCache) loadConfig() TransformCacheConfig {
+	return TransformCacheConfig{
+		MaxEntries: int(tc.cfgMaxEntries.Load()),
+		MinBitLen:  int(tc.cfgMinBitLen.Load()),
+		Enabled:    tc.cfgEnabled.Load(),
+	}
+}
+
+// storeConfig writes the public config value into the atomic fields.
+func (tc *TransformCache) storeConfig(c TransformCacheConfig) {
+	tc.cfgMaxEntries.Store(int64(c.MaxEntries))
+	tc.cfgMinBitLen.Store(int64(c.MinBitLen))
+	tc.cfgEnabled.Store(c.Enabled)
 }
 
 // Config returns the current configuration of the transform cache.
 func (tc *TransformCache) Config() TransformCacheConfig {
-	tc.mu.RLock()
-	defer tc.mu.RUnlock()
-	return tc.config
+	return tc.loadConfig()
+}
+
+// SetConfig atomically updates this cache's configuration. When the new
+// config disables the cache, existing entries are cleared under mu.Lock()
+// (the map/list mutation still requires the exclusive lock); the config
+// atomics themselves are lock-free for readers.
+func (tc *TransformCache) SetConfig(config TransformCacheConfig) {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	tc.storeConfig(config)
+	if !config.Enabled {
+		tc.entries = make(map[uint64]*list.Element)
+		tc.lru.Init()
+	}
 }
 
 // NewTransformCache creates a new FFT transform cache with the given config.
 func NewTransformCache(config TransformCacheConfig) *TransformCache {
-	return &TransformCache{
-		config:  config,
+	tc := &TransformCache{
 		entries: make(map[uint64]*list.Element),
 		lru:     list.New(),
 		logger:  zerolog.Nop(),
 	}
+	tc.storeConfig(config)
+	return tc
 }
 
 // SetCacheLogger configures the logger for the global FFT transform cache.
@@ -119,17 +157,10 @@ const (
 
 // SetTransformCacheConfig updates the global cache configuration.
 // This should be called before any FFT operations for consistent behavior.
+// It delegates to the per-instance SetConfig so the atomic write/clear
+// semantics are shared with non-global caches (audit A-02).
 func SetTransformCacheConfig(config TransformCacheConfig) {
-	cache := GetTransformCache()
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	cache.config = config
-
-	// Optionally clear cache if disabled
-	if !config.Enabled {
-		cache.entries = make(map[uint64]*list.Element)
-		cache.lru.Init()
-	}
+	GetTransformCache().SetConfig(config)
 }
 
 // cacheKeyBuilder accumulates an FNV-1a 64-bit hash. It is the single
@@ -213,7 +244,7 @@ func computeKey(data nat, k uint, n int) uint64 {
 // be modified. PolValues.Mul() and PolValues.Sqr() are safe as they create new
 // result values without mutating the receiver.
 func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
-	if !tc.config.Enabled || len(data)*_W < tc.config.MinBitLen {
+	if !tc.cfgEnabled.Load() || int64(len(data)*_W) < tc.cfgMinBitLen.Load() {
 		return PolValues{}, false
 	}
 
@@ -315,7 +346,7 @@ func (tc *TransformCache) logPeriodicStats() {
 
 // Put stores a transform result in the cache.
 func (tc *TransformCache) Put(data nat, pv PolValues) {
-	if !tc.config.Enabled || len(data)*_W < tc.config.MinBitLen {
+	if !tc.cfgEnabled.Load() || int64(len(data)*_W) < tc.cfgMinBitLen.Load() {
 		return
 	}
 
@@ -348,7 +379,8 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	// Evict oldest entries if at capacity, salvaging a backing buffer
 	// large enough to host the new entry when possible.
 	var backing []big.Word
-	for tc.lru.Len() >= tc.config.MaxEntries {
+	maxEntries := int(tc.cfgMaxEntries.Load())
+	for tc.lru.Len() >= maxEntries {
 		oldest := tc.lru.Back()
 		if oldest == nil {
 			break
@@ -465,7 +497,7 @@ func (p *Poly) TransformCached(n int) (PolValues, error) {
 	cache := GetTransformCache()
 
 	// Check if caching is applicable
-	if !cache.config.Enabled || polyBitLen(p) < cache.config.MinBitLen {
+	if !cache.cfgEnabled.Load() || int64(polyBitLen(p)) < cache.cfgMinBitLen.Load() {
 		return p.Transform(n)
 	}
 
@@ -494,7 +526,7 @@ func (p *Poly) TransformCachedWithBump(n int, ba *BumpAllocator) (PolValues, err
 	cache := GetTransformCache()
 
 	// Check if caching is applicable
-	if !cache.config.Enabled || polyBitLen(p) < cache.config.MinBitLen {
+	if !cache.cfgEnabled.Load() || int64(polyBitLen(p)) < cache.cfgMinBitLen.Load() {
 		return p.TransformWithBump(n, ba)
 	}
 

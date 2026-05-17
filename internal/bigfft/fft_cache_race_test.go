@@ -8,6 +8,93 @@ import (
 	"time"
 )
 
+// TestConfigConcurrentAccess is the [A-02] regression test.
+//
+// Get/Put (and putByKey) read tc.config.{Enabled,MinBitLen,MaxEntries}
+// with no synchronization while SetTransformCacheConfig mutates the same
+// fields under tc.mu.Lock(). That is a textbook data race.
+//
+// Unlike A-01 this corruption is not observable as a value flip in normal
+// mode (a torn read of an int/bool on amd64 is unlikely to be visible),
+// so this test is primarily a -race CI tripwire: under `go test -race`
+// it deterministically reports the concurrent read/write on the config
+// fields. In normal mode it only asserts the cache stays functional and
+// does not panic under the concurrent reconfiguration storm.
+func TestConfigConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
+	cache := NewTransformCache(TransformCacheConfig{
+		MaxEntries: 32,
+		MinBitLen:  64,
+		Enabled:    true,
+	})
+
+	data := make(nat, 64)
+	for i := range data {
+		data[i] = big.Word(i + 1)
+	}
+	vals := PolValues{K: 4, N: 4, Values: []fermat{make(fermat, 5), make(fermat, 5)}}
+
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	// Readers: Get/Put hammer the unsynchronized config reads.
+	for r := 0; r < 4; r++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			d := make(nat, 64)
+			d[0] = big.Word(0xC000 + id)
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				cache.Put(d, vals)
+				cache.Get(data, 4, 4)
+			}
+		}(r)
+	}
+
+	// Writer: continuously reconfigures under Lock (the racing mutator).
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		toggle := false
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			toggle = !toggle
+			cache.SetConfig(TransformCacheConfig{
+				MaxEntries: 16 + boolToInt(toggle)*16,
+				MinBitLen:  64,
+				Enabled:    true,
+			})
+		}
+	}()
+
+	time.Sleep(120 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Functional sanity: cache still answers and config is coherent.
+	got := cache.Config()
+	if got.MinBitLen != 64 {
+		t.Fatalf("[A-02] config corrupted under concurrency: MinBitLen=%d", got.MinBitLen)
+	}
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // TestGetByKeyBackingNotMutatedWhilePinned is the [A-01] regression test.
 //
 // getByKey returns a PolValues whose Values sub-slices alias the cache
