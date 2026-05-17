@@ -1,0 +1,6 @@
+     368	   3150341 ns/op	 1694511 B/op	      97 allocs/op
+     382	   3137339 ns/op	 1642037 B/op	      96 allocs/op
+     378	   3164669 ns/op	 1683901 B/op	      97 allocs/op
+      26	  43776850 ns/op	25297425 B/op	    1075 allocs/op
+      27	  42661489 ns/op	23903347 B/op	    1076 allocs/op
+      26	  43705065 ns/op	24666508 B/op	    1080 allocs/op
