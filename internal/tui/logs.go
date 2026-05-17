@@ -30,6 +30,7 @@ type LogsModel struct {
 	buffer     *Ring[string]
 	entries    []string
 	autoScroll bool
+	dirty      bool // entries changed since the last viewport flush
 	width      int
 	height     int
 	algoNames  []string // algorithm names for mapping index -> name
@@ -164,8 +165,13 @@ func (l *LogsModel) AddError(msg ErrorMsg) {
 	l.updateContent()
 }
 
-// Update handles viewport keyboard events.
+// Update handles viewport keyboard events. It flushes any pending content
+// first so the viewport's measured line count (and therefore AtBottom) is
+// accurate before a scroll key is applied — the eager path got this for free
+// because every push re-set the content synchronously.
 func (l *LogsModel) Update(msg tea.Msg) {
+	l.flushContent()
+
 	var cmd tea.Cmd
 	l.viewport, cmd = l.viewport.Update(msg)
 	_ = cmd
@@ -184,18 +190,46 @@ func (l LogsModel) View() string {
 }
 
 // renderToHeight renders the logs panel to the specified total height.
+//
+// The receiver is a value copy (the bubbletea View contract). flushContent
+// materialises the deferred join + SetContent on that copy, so the rendered
+// frame always reflects the latest entries without the per-push O(N) cost.
+// Mutating the copy is intentional: the persisted viewport scroll state is
+// committed separately in Update (which also flushes), so View stays pure.
 func (l LogsModel) renderToHeight(h int) string {
+	l.flushContent()
 	return panelStyle.
 		Width(l.width - 2).
 		Height(max(h-2, 0)).
 		Render(l.viewport.View())
 }
 
-// updateContent refreshes the chronological snapshot from the ring buffer
-// and pushes it into the viewport. The snapshot doubles as the value
-// observed by the white-box tests via LogsModel.entries.
+// updateContent refreshes the chronological snapshot from the ring buffer and
+// marks the rendered viewport content stale. It is the cheap half of the
+// former eager updateContent: the white-box tests and the orchestration layer
+// rely on LogsModel.entries being current immediately after every push, but
+// the expensive strings.Join + viewport.SetContent (O(N) over up to
+// maxLogEntries lines) is deferred to flushContent at render time.
+//
+// Before A-22 this method also joined and re-set the viewport on every push,
+// so a long session paid O(N) per progress message — O(N²) overall. Now each
+// push only pays the chronological slice; the join happens once per rendered
+// frame regardless of how many entries were pushed in between.
 func (l *LogsModel) updateContent() {
 	l.entries = l.buffer.Slice()
+	l.dirty = true
+}
+
+// flushContent materialises the deferred viewport content. It is idempotent:
+// when nothing has been pushed since the last flush (dirty == false) it is a
+// no-op, so calling it on every render frame is cheap. autoScroll is honoured
+// here exactly as the eager path did, preserving the observable scroll
+// behaviour (GotoBottom after each content change while pinned to bottom).
+func (l *LogsModel) flushContent() {
+	if !l.dirty {
+		return
+	}
+	l.dirty = false
 	content := strings.Join(l.entries, "\n")
 	l.viewport.SetContent(content)
 	if l.autoScroll {
