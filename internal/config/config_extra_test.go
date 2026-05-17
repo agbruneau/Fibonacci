@@ -77,26 +77,18 @@ func TestParseConfigEnvironmentVariables(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid environment values ignored", func(t *testing.T) {
+	t.Run("invalid environment values rejected", func(t *testing.T) {
+		// A-09: an explicitly-set but unparsable override is a hard config
+		// error rather than a silent fallback to the default (which could
+		// trigger an O(memory) calculation / OOM).
 		os.Setenv(EnvPrefix+"N", "notanumber")
 		os.Setenv(EnvPrefix+"THRESHOLD", "invalid")
 		os.Setenv(EnvPrefix+"TIMEOUT", "notaduration")
 
 		var buf bytes.Buffer
-		cfg, err := ParseConfig("test", []string{}, &buf, []string{"fast", "matrix", "fft"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Should use defaults for invalid values
-		if cfg.N != DefaultN {
-			t.Errorf("expected default N=%d, got %d", DefaultN, cfg.N)
-		}
-		if cfg.Threshold != 0 {
-			t.Errorf("expected default Threshold=0, got %d", cfg.Threshold)
-		}
-		if cfg.Timeout != DefaultTimeout {
-			t.Errorf("expected default Timeout=%v, got %v", DefaultTimeout, cfg.Timeout)
+		_, err := ParseConfig("test", []string{}, &buf, []string{"fast", "matrix", "fft"})
+		if err == nil {
+			t.Fatal("expected error for malformed env override, got nil")
 		}
 	})
 }

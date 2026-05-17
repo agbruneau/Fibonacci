@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	apperrors "github.com/agbru/fibcalc/internal/errors"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,80 +106,119 @@ func isFlagSetAny(fs *flag.FlagSet, names ...string) bool {
 type envOverride struct {
 	envKey string
 	flags  []string
-	apply  func(*AppConfig, string)
+	// apply mutates the config from the raw env value. It returns a structured
+	// ConfigError when the value is explicitly set but unparsable, so a
+	// malformed override is surfaced instead of being silently dropped back to
+	// the default (which could trigger an O(memory) calculation / OOM).
+	apply func(*AppConfig, string) error
 }
 
 // envOverrides is the declarative table of all environment variable overrides.
 // Order matches the original procedural grouping (numeric, duration, string, bool).
 var envOverrides = []envOverride{
 	// Numeric overrides
-	{"N", []string{"n"}, func(c *AppConfig, v string) {
-		if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
-			c.N = parsed
+	{"N", []string{"n"}, func(c *AppConfig, v string) error {
+		parsed, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return malformedEnvError("N", v, err)
 		}
+		c.N = parsed
+		return nil
 	}},
-	{"THRESHOLD", []string{"threshold"}, func(c *AppConfig, v string) {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			c.Threshold = parsed
+	{"THRESHOLD", []string{"threshold"}, func(c *AppConfig, v string) error {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			return malformedEnvError("THRESHOLD", v, err)
 		}
+		c.Threshold = parsed
+		return nil
 	}},
-	{"FFT_THRESHOLD", []string{"fft-threshold"}, func(c *AppConfig, v string) {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			c.FFTThreshold = parsed
+	{"FFT_THRESHOLD", []string{"fft-threshold"}, func(c *AppConfig, v string) error {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			return malformedEnvError("FFT_THRESHOLD", v, err)
 		}
+		c.FFTThreshold = parsed
+		return nil
 	}},
-	{"STRASSEN_THRESHOLD", []string{"strassen-threshold"}, func(c *AppConfig, v string) {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			c.StrassenThreshold = parsed
+	{"STRASSEN_THRESHOLD", []string{"strassen-threshold"}, func(c *AppConfig, v string) error {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			return malformedEnvError("STRASSEN_THRESHOLD", v, err)
 		}
+		c.StrassenThreshold = parsed
+		return nil
 	}},
 
 	// Duration overrides
-	{"TIMEOUT", []string{"timeout"}, func(c *AppConfig, v string) {
-		if parsed, err := time.ParseDuration(v); err == nil {
-			c.Timeout = parsed
+	{"TIMEOUT", []string{"timeout"}, func(c *AppConfig, v string) error {
+		parsed, err := time.ParseDuration(v)
+		if err != nil {
+			return malformedEnvError("TIMEOUT", v, err)
 		}
+		c.Timeout = parsed
+		return nil
 	}},
 
 	// String overrides
-	{"ALGO", []string{"algo"}, func(c *AppConfig, v string) {
+	{"ALGO", []string{"algo"}, func(c *AppConfig, v string) error {
 		c.Algo = v
+		return nil
 	}},
-	{"OUTPUT", []string{"output", "o"}, func(c *AppConfig, v string) {
+	{"OUTPUT", []string{"output", "o"}, func(c *AppConfig, v string) error {
 		c.OutputFile = v
+		return nil
 	}},
-	{"CALIBRATION_PROFILE", []string{"calibration-profile"}, func(c *AppConfig, v string) {
+	{"CALIBRATION_PROFILE", []string{"calibration-profile"}, func(c *AppConfig, v string) error {
 		c.CalibrationProfile = v
+		return nil
 	}},
-	{"MEMORY_LIMIT", []string{"memory-limit"}, func(c *AppConfig, v string) {
+	{"MEMORY_LIMIT", []string{"memory-limit"}, func(c *AppConfig, v string) error {
 		c.MemoryLimit = v
+		return nil
 	}},
 
 	// Boolean overrides
-	{"VERBOSE", []string{"v", "verbose"}, func(c *AppConfig, v string) {
+	{"VERBOSE", []string{"v", "verbose"}, func(c *AppConfig, v string) error {
 		c.Verbose = parseBoolEnv(v, c.Verbose)
+		return nil
 	}},
-	{"DETAILS", []string{"d", "details"}, func(c *AppConfig, v string) {
+	{"DETAILS", []string{"d", "details"}, func(c *AppConfig, v string) error {
 		c.Details = parseBoolEnv(v, c.Details)
+		return nil
 	}},
-	{"QUIET", []string{"quiet", "q"}, func(c *AppConfig, v string) {
+	{"QUIET", []string{"quiet", "q"}, func(c *AppConfig, v string) error {
 		c.Quiet = parseBoolEnv(v, c.Quiet)
+		return nil
 	}},
-	{"MACHINE_OUTPUT", []string{"machine"}, func(c *AppConfig, v string) {
+	{"MACHINE_OUTPUT", []string{"machine"}, func(c *AppConfig, v string) error {
 		c.MachineOutput = parseBoolEnv(v, c.MachineOutput)
+		return nil
 	}},
-	{"CALIBRATE", []string{"calibrate"}, func(c *AppConfig, v string) {
+	{"CALIBRATE", []string{"calibrate"}, func(c *AppConfig, v string) error {
 		c.Calibrate = parseBoolEnv(v, c.Calibrate)
+		return nil
 	}},
-	{"AUTO_CALIBRATE", []string{"auto-calibrate"}, func(c *AppConfig, v string) {
+	{"AUTO_CALIBRATE", []string{"auto-calibrate"}, func(c *AppConfig, v string) error {
 		c.AutoCalibrate = parseBoolEnv(v, c.AutoCalibrate)
+		return nil
 	}},
-	{"CALCULATE", []string{"calculate", "c"}, func(c *AppConfig, v string) {
+	{"CALCULATE", []string{"calculate", "c"}, func(c *AppConfig, v string) error {
 		c.ShowValue = parseBoolEnv(v, c.ShowValue)
+		return nil
 	}},
-	{"TUI", []string{"tui"}, func(c *AppConfig, v string) {
+	{"TUI", []string{"tui"}, func(c *AppConfig, v string) error {
 		c.TUI = parseBoolEnv(v, c.TUI)
+		return nil
 	}},
+}
+
+// malformedEnvError builds a structured ConfigError for an environment
+// variable that was explicitly set but could not be parsed.
+func malformedEnvError(envKey, value string, cause error) error {
+	return apperrors.NewConfigError(
+		"invalid value %q for environment variable %s%s: %v",
+		value, EnvPrefix, envKey, cause)
 }
 
 // parseBoolEnv parses a boolean environment variable value.
@@ -248,13 +289,21 @@ func validateEnvOverrides(fs *flag.FlagSet) error {
 //     VERBOSE, DETAILS, QUIET, MACHINE_OUTPUT, CALIBRATE, AUTO_CALIBRATE, CALCULATE,
 //     OUTPUT, CALIBRATION_PROFILE, MEMORY_LIMIT, TUI
 //   - FIBCALC_TUI_THEME: TUI palette (read by ui.GetCurrentTUITheme), e.g. high-contrast
-func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) {
+//
+// It returns a structured ConfigError (without mutating further) the first
+// time an explicitly-set environment variable holds an unparsable value, so
+// that a malformed override is rejected loudly instead of silently falling
+// back to the default.
+func applyEnvOverrides(config *AppConfig, fs *flag.FlagSet) error {
 	for _, o := range envOverrides {
 		if isFlagSetAny(fs, o.flags...) {
 			continue
 		}
 		if val := os.Getenv(EnvPrefix + o.envKey); val != "" {
-			o.apply(config, val)
+			if err := o.apply(config, val); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }

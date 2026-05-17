@@ -9,6 +9,7 @@ import (
 	"time"
 
 	apperrors "github.com/agbru/fibcalc/internal/errors"
+	"github.com/agbru/fibcalc/internal/fibonacci/memory"
 )
 
 const (
@@ -106,6 +107,24 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.FFTThreshold < 0 {
 		return apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold)
 	}
+	if c.StrassenThreshold < 0 {
+		return apperrors.NewConfigError("Strassen threshold cannot be negative: %d", c.StrassenThreshold)
+	}
+	if c.LastDigits < 0 {
+		return apperrors.NewConfigError("last-digits cannot be negative: %d (0 disables, >0 computes the last K digits)", c.LastDigits)
+	}
+	switch c.GCControl {
+	case "", string(memory.GCModeAuto), string(memory.GCModeAggressive), string(memory.GCModeDisabled):
+		// valid
+	default:
+		return apperrors.NewConfigError("unrecognized gc-control mode: '%s'. Valid modes are: auto, aggressive, disabled", c.GCControl)
+	}
+	switch c.Completion {
+	case "", "bash", "zsh", "fish", "powershell":
+		// valid
+	default:
+		return apperrors.NewConfigError("unrecognized completion shell: '%s'. Valid shells are: bash, zsh, fish, powershell", c.Completion)
+	}
 	isAlgoAvailable := false
 	for _, a := range availableAlgos {
 		if a == c.Algo {
@@ -185,8 +204,14 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 		return AppConfig{}, err
 	}
 
-	// Apply environment variable overrides for flags not explicitly set
-	applyEnvOverrides(&config, fs)
+	// Apply environment variable overrides for flags not explicitly set.
+	// A malformed, explicitly-set override is a hard configuration error
+	// rather than a silent fallback to the default.
+	if err := applyEnvOverrides(&config, fs); err != nil {
+		fmt.Fprintln(errorWriter, "Configuration error:", err)
+		fs.Usage()
+		return AppConfig{}, err
+	}
 
 	config.Algo = strings.ToLower(config.Algo)
 	if err := config.Validate(availableAlgos); err != nil {

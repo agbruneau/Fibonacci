@@ -1,9 +1,13 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"io"
+	"os"
 	"testing"
+
+	apperrors "github.com/agbru/fibcalc/internal/errors"
 )
 
 // TestEnvOverridesIntegrity guards against silent drift between the
@@ -19,6 +23,49 @@ func TestEnvOverridesIntegrity(t *testing.T) {
 
 	if err := validateEnvOverrides(fs); err != nil {
 		t.Fatalf("envOverrides table is inconsistent with the CLI FlagSet: %v", err)
+	}
+}
+
+// TestEnvOverride_MalformedReturnsError verifies that an explicitly-set but
+// unparsable environment override surfaces a structured config error instead
+// of being silently swallowed (which previously left a default value that
+// could trigger an O(memory) calculation / OOM).
+func TestEnvOverride_MalformedReturnsError(t *testing.T) {
+	algos := []string{"fast", "matrix", "fft"}
+
+	tests := []struct {
+		name   string
+		envKey string
+		envVal string
+	}{
+		{"malformed N", EnvPrefix + "N", "abc"},
+		{"malformed TIMEOUT", EnvPrefix + "TIMEOUT", "xyz"},
+		{"malformed THRESHOLD", EnvPrefix + "THRESHOLD", "notanint"},
+		{"malformed FFT_THRESHOLD", EnvPrefix + "FFT_THRESHOLD", "1.5"},
+		{"malformed STRASSEN_THRESHOLD", EnvPrefix + "STRASSEN_THRESHOLD", "??"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			old, had := os.LookupEnv(tt.envKey)
+			os.Setenv(tt.envKey, tt.envVal)
+			defer func() {
+				if had {
+					os.Setenv(tt.envKey, old)
+				} else {
+					os.Unsetenv(tt.envKey)
+				}
+			}()
+
+			_, err := ParseConfig("test", []string{}, io.Discard, algos)
+			if err == nil {
+				t.Fatalf("expected error for %s=%q, got nil", tt.envKey, tt.envVal)
+			}
+			var cfgErr apperrors.ConfigError
+			if !errors.As(err, &cfgErr) {
+				t.Errorf("expected error chain to contain apperrors.ConfigError, got %T: %v", err, err)
+			}
+		})
 	}
 }
 
