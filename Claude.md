@@ -15,7 +15,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
 - **Taille (mesurée)** : ~35 500 LOC `.go` (source + tests), 24 packages (22 internes + 2 sous `cmd/`)
-- **CI/CD** : ✅ GitHub Actions — `.github/workflows/ci.yml` (vet + golangci-lint + build, `go test -race -short` sur Linux/macOS, matrice 3 OS) et `.github/workflows/coverage.yml`. Lacunes connues : `golangci-lint version: latest` non épinglé (A-12), pas de `-race` Windows (A-14), pas de garde benchmark/seuil couverture (A-13) — cf. `AuditPlanning.md` Vague D.
+- **CI/CD** : ✅ GitHub Actions — `ci.yml` (vet + golangci-lint épinglé `v1.64.8` + build, `go test -race -short` sur matrice **3 OS dont Windows** via `CGO_ENABLED=1`, + job `bench` informatif) et `coverage.yml` (sur push+PR, seuil `MIN_COVERAGE=80%`). A-12/A-13/A-14 résolus ; `coverage.yml` désormais versionné (était masqué par un glob `.gitignore`).
 
 ---
 
