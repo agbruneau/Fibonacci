@@ -52,11 +52,16 @@ func getTaskSemaphore() chan struct{} {
 	return globalSem
 }
 
-// MaxPooledBitLen is the maximum size (in bits) of a big.Int
-// accepted into the pool. Larger objects are left for GC collection.
-// Increased to 100M bits (~12.5 MB) to allow pooling of intermediate results
-// for large Fibonacci calculations (e.g., F(10^8)), avoiding repeated
-// allocation of multi-megabyte big.Int values.
+// MaxPooledBitLen is the maximum size, in BITS, of a big.Int accepted into
+// the sync.Pool. Larger objects are left for GC. The value allows pooling of
+// intermediate results for large Fibonacci calculations (e.g. F(10^8)),
+// avoiding repeated allocation of multi-megabyte big.Int values.
+//
+// A-16: this is a *bit*-length cap and is distinct from
+// fastdoubling.maxArenaPoolWords, which is a *word*-count cap on the retained
+// arena. The two are numerically equal (50_000_000) but expressed in different
+// units (bits here, machine words there); they are independent knobs and must
+// not be assumed interchangeable when tuning. 50_000_000 bits ≈ 6.25 MB.
 const MaxPooledBitLen = 50_000_000
 
 // checkLimit checks if a big.Int exceeds the maximum pooled bit length.
