@@ -116,8 +116,8 @@ Key packages:
 | `internal/calibration` | Hardware-adaptive tuning, micro-benchmarks, profile persistence. |
 | `internal/cli` / `internal/tui` | Presentation layers sharing `ProgressReporter` / `ResultPresenter`. |
 | `internal/config` | Flag parsing, env vars, threshold estimation. |
-| `internal/progress` | Observer pattern, progress observers. |
-| `internal/{errors,format,metrics,parallel,sysmon,ui,testutil}` | Support packages (leaves). |
+| `internal/progress` | Observer pattern; production path is `Freeze` (snapshot + recover). |
+| `internal/{errors,format,metrics,metrics/system,parallel,ui,testutil}` | Support packages (leaves). `parallel.ErrorCollector` is used by `fibonacci/common.go`. |
 
 Full package list and dependency graph: [`docs/architecture/README.md`](docs/architecture/README.md), [`docs/architecture/dependency-graph.mermaid`](docs/architecture/dependency-graph.mermaid).
 
@@ -217,6 +217,7 @@ Environment variables override defaults (CLI flags still win). Priority: **CLI f
 | `FIBCALC_TUI_THEME` | `high-contrast` or empty (dark) | |
 | `FIBCALC_CALIBRATE` / `FIBCALC_AUTO_CALIBRATE` | Calibration mode | `false` |
 | `FIBCALC_CALIBRATION_PROFILE` | Profile path | |
+| `FIBCALC_PROFILE_MAX_AGE` | Calibration profile freshness window before re-calibration | `168h` (7 d) |
 | `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling | |
 | `NO_COLOR` | Disable ANSI colors ([no-color.org](https://no-color.org/)) | |
 
@@ -236,7 +237,7 @@ Most common commands:
 make all          # clean + build + test
 make test         # go test -v -race -cover ./...
 make test-short   # skip slow tests
-make lint         # golangci-lint (22 linters)
+make lint         # golangci-lint (24 linters)
 make coverage     # coverage.html report
 make benchmark    # performance benchmarks
 make build-pgo    # build with PGO
@@ -258,16 +259,18 @@ internal/
   config/             # flag + env parsing, threshold estimation
   errors/             # ConfigError, CalculationError, exit codes
   fibonacci/          # algorithms, frameworks, strategies
+    fibonaccitest/    # test doubles for CoreCalculator
     memory/           # arena, GC controller, memory budget
     threshold/        # dynamic threshold manager
   format/             # duration/number formatting
   metrics/            # performance & memory indicators
+    system/           # OS CPU/memory probes (formerly sysmon)
   orchestration/      # concurrent execution, aggregation
-  parallel/           # ErrorCollector
-  progress/           # observer pattern
-  sysmon/             # OS CPU/memory probes
+  parallel/           # ErrorCollector (used by fibonacci/common.go)
+  progress/           # observer pattern (production path: Freeze)
   testutil/           # test-only helpers
   tui/                # Bubble Tea dashboard
+    component/        # reusable TUI component
   ui/                 # color themes, NO_COLOR
 docs/
   architecture/       # C4 diagrams, dependency graph, patterns
