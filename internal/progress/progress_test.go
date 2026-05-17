@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"math"
 	"testing"
 )
 
@@ -53,6 +54,77 @@ func TestCalcTotalWorkMonotonic(t *testing.T) {
 				bits, prev, current)
 		}
 		prev = current
+	}
+}
+
+// TestCalcTotalWork_LargeNumBits is the A-10 regression guard. The previous
+// implementation materialized math.Pow(4, numBits), which overflows float64
+// to +Inf for numBits >= 512 (4^512 == 2^1024 ~= MaxFloat64). A +Inf total
+// makes every currentProgress = done/total collapse to 0 or NaN, freezing
+// the progress bar exactly on the large calculations that are the project's
+// core. numBits=2000 is well past the overflow boundary.
+func TestCalcTotalWork_LargeNumBits(t *testing.T) {
+	t.Parallel()
+
+	for _, numBits := range []int{64, 512, 2000, 100000} {
+		got := CalcTotalWork(numBits)
+		if math.IsInf(got, 0) {
+			t.Fatalf("CalcTotalWork(%d) = +Inf; must remain finite", numBits)
+		}
+		if math.IsNaN(got) {
+			t.Fatalf("CalcTotalWork(%d) = NaN; must be a real number", numBits)
+		}
+		if got <= 0 {
+			t.Fatalf("CalcTotalWork(%d) = %v; want > 0", numBits, got)
+		}
+	}
+}
+
+// TestProgress_MonotonicLargeN drives the full step loop for large numBits
+// values and asserts the reported progress is a monotonically increasing
+// sequence contained in [0, 1] that reaches ~1.0 at the final step. This is
+// the observable contract the UI depends on; before A-10 it produced a frozen
+// (0 or NaN) sequence for numBits >= 512.
+func TestProgress_MonotonicLargeN(t *testing.T) {
+	t.Parallel()
+
+	for _, numBits := range []int{64, 512, 2000, 100000} {
+		numBits := numBits
+		t.Run("", func(t *testing.T) {
+			t.Parallel()
+
+			totalWork := CalcTotalWork(numBits)
+			powers := PrecomputePowers4(numBits)
+
+			var lastReported float64
+			var last float64 = -1
+			var sawAny bool
+			reporter := func(p float64) {
+				sawAny = true
+				if math.IsNaN(p) || math.IsInf(p, 0) {
+					t.Fatalf("numBits=%d: non-finite progress %v", numBits, p)
+				}
+				if p < 0 || p > 1 {
+					t.Fatalf("numBits=%d: progress %v outside [0,1]", numBits, p)
+				}
+				if p < last {
+					t.Fatalf("numBits=%d: non-monotonic progress %v -> %v", numBits, last, p)
+				}
+				last = p
+			}
+
+			workDone := 0.0
+			for i := numBits - 1; i >= 0; i-- {
+				workDone = ReportStepProgress(reporter, &lastReported, totalWork, workDone, i, numBits, powers)
+			}
+
+			if !sawAny {
+				t.Fatalf("numBits=%d: no progress reported", numBits)
+			}
+			if last < 0.99 {
+				t.Fatalf("numBits=%d: final progress %v; want >= 0.99", numBits, last)
+			}
+		})
 	}
 }
 
