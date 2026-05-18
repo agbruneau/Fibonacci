@@ -291,9 +291,9 @@ make coverage
 ## Mock Generation
 
 The test suite currently uses hand-written mocks; `mockgen` is not wired in
-(no `//go:generate` directives, no `mocks/` directories). The Makefile
-targets `make generate-mocks` / `make install-mockgen` are provided for
-future adoption. See [docs/TESTING.md — Mock Generation](docs/TESTING.md#mock-generation)
+(no `//go:generate` directives, no `mocks/` directories, and no `mockgen`
+Makefile targets). A future migration to generated mocks is documented but
+not yet implemented. See [docs/TESTING.md — Mock Generation](docs/TESTING.md#mock-generation)
 for the authoritative reference and migration plan.
 
 ## Documentation
