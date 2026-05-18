@@ -370,4 +370,4 @@ const (
 
 ## Reference Implementation
 
-See `internal/fibonacci/progress.go` and `internal/fibonacci/doubling_framework.go` for the complete reference implementation.
+See `internal/progress/progress.go` and `internal/fibonacci/doubling_framework.go` for the complete reference implementation.

@@ -9,7 +9,7 @@
 - **Go module path:** `github.com/agbru/fibcalc`
 - **Go version:** 1.25.0
 - **Primary binary:** `cmd/fibcalc`
-- **Codebase stats:** 22 Go packages (`go list ./...`) | 108 source (non-`*_test.go`) files | 95 test files | 19 Markdown files at repo root and under `docs/`
+- **Codebase stats:** 24 Go packages (`go list ./...`; 22 internal + `cmd/fibcalc`, `cmd/generate-golden`, plus the `test/e2e` package) | 100+ test files | Markdown documentation at repo root and under `docs/`
 - **Purpose:** compute very large Fibonacci values efficiently, compare multiple algorithms, and expose both CLI and TUI execution modes.
 - **Core strengths:**
   - Multiple `O(log n)` Fibonacci algorithms (Fast Doubling, Matrix Exponentiation, FFT-Based Doubling)
@@ -65,7 +65,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                          Infrastructure Helpers                       |
 |                                                                       |
-| internal/metrics  internal/sysmon  internal/format  test/e2e, docs    |
+| internal/metrics  metrics/system  internal/format  test/e2e, docs     |
 +-----------------------------------------------------------------------+
 ```
 
@@ -133,10 +133,10 @@ internal/
 │   └── threshold/               # Dynamic threshold manager
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
+│   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
 ├── orchestration/               # Concurrent execution and result analysis
 ├── parallel/                    # Thread-safe first-error collector
 ├── progress/                    # Observer pattern (subject/observers/update model)
-├── sysmon/                      # System monitoring hooks (CPU/memory)
 ├── testutil/                    # Shared test helpers
 ├── tui/                         # Bubble Tea interactive dashboard (12 files)
 └── ui/                          # Themes/colors/NO_COLOR behavior
@@ -239,8 +239,8 @@ internal/
 - **Responsibility:** concurrency utility for safe first-error capture.
 - **Key type:** `ErrorCollector` — atomic-style first-error retention via `SetError`/`Err`.
 
-## `internal/metrics`, `internal/format`, `internal/ui`, `internal/sysmon`, `internal/testutil`
-- **Responsibility:** telemetry formatting, memory/performance indicators (`MemoryCollector`, `MemorySnapshot`), theming/color controls (`NO_COLOR` support), host metrics access, test helpers.
+## `internal/metrics`, `internal/metrics/system`, `internal/format`, `internal/ui`, `internal/testutil`
+- **Responsibility:** telemetry formatting, memory/performance indicators (`MemoryCollector`, `MemorySnapshot`), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
 
 ---
 
@@ -414,7 +414,7 @@ Core Algorithm
   - `F(2k+1) = F(k+1)² + F(k)²`
 - Uses `DoublingFramework` + `AdaptiveStrategy`.
 - Employs pooled `CalculationState` (5 big.Int + bound `CalculationArena`), memory arena pre-sizing, and optional dynamic threshold updates.
-- **Result detachment (P1-04):** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
+- **Result detachment:** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
 
 ### B. Matrix Exponentiation (`MatrixExponentiation`)
 - Uses binary exponentiation of Fibonacci Q-matrix: `[[1,1],[1,0]]^(n-1)`.
@@ -475,7 +475,7 @@ NewDefaultFactory()
    └─ Register("fft", → FFTBasedCalculator)
 
 init() [in calculator_gmp.go, build tag: gmp]
-   └─ RegisterCalculator("gmp", → GmpCalculator)
+   └─ RegisterGMPCalculator(globalFactory) → Register("gmp", → GMPCalculator)
 
 Get(name) → lazy creation + double-check locking cache
 GetAll() → lazily initializes all, returns copy
@@ -626,7 +626,7 @@ Additional helpers: `WrapError` (contextual wrapping with `%w`), `IsContextError
 
 ## 11) Testing Strategy
 
-FibCalc uses a layered testing approach with 93 `*_test.go` files:
+FibCalc uses a layered testing approach with 100+ `*_test.go` files:
 
 - **Unit tests:** extensive table-driven tests across internal packages.
 - **Golden file tests:** canonical expected Fibonacci outputs (`internal/fibonacci/testdata/fibonacci_golden.json`), plus CLI output goldens.
@@ -757,12 +757,12 @@ From `go.mod`, direct dependencies are:
 - **Decision:** Extract `DoublingFramework` and `MatrixFramework` to own bit-iteration, progress reporting, and context checks, delegating operations to pluggable strategies.
 - **Results:** Eliminated significant code duplication; new strategies can be added without modifying loop logic.
 
-### ADR-009: Heuristique matérielle pour les seuils par défaut (P3)
+### ADR-009: Heuristique matérielle pour les seuils par défaut
 - **Context:** Les seuils à 0 (auto) ne devaient pas dépendre uniquement de `runtime.NumCPU()` alors que les chemins FFT et multiplications larges bénéficient fortement des jeux d’instructions x86 (AVX2 / AVX-512).
 - **Decision:** `internal/config/hardware.go` classifie l’hôte (`DetectHardwareHeuristic`) ; `thresholds.go` ajuste les estimations FFT / Strassen / parallélisme en conséquence. Le profil de calibration inclut `cpu_heuristic_key` (format v3) pour invalider un cache si la classe SIMD change.
 - **Results:** Comportement documenté et testable via `Estimate*ForHeuristic` ; profils v2 obsolètes (version incrémentée).
 
-### ADR-010: Backends arithmétiques hors GMP (P4 — décision recherche)
+### ADR-010: Backends arithmétiques hors GMP (décision recherche)
 - **Context:** des bibliothèques externes (FLINT et autres) pourraient être évaluées pour comparaison recherche ; charge de build, licences et CI hétérogène.
 - **Decision:** Pas d’intégration C/C++ supplémentaire dans la branche `main` tant qu’une matrice de build reproductible, une revue de licence et des tests d’équivalence sur un sous-ensemble de `N` ne sont pas bouclés. Point d’extension supporté : `fibonacci.RegisterCalculator` (même modèle que le tag `gmp`).
 - **Results:** Décision **no-go** pour un second backend obligatoire ; expérimentations possibles sur branche dédiée ou fork en suivant [docs/algorithms/GMP.md](algorithms/GMP.md) (section recherche).

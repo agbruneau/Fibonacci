@@ -21,16 +21,16 @@ Le projet suit rigoureusement les principes de la **Clean Architecture**. Le gra
 Les répertoires suivants contiennent des diagrammes de séquence illustrant les processus critiques :
 
 - **[Flows/](./flows/) :**
-  - Initialisation et injection de dépendances.
-  - Boucle de calcul principale (Doubling Loop).
-  - Processus de calibration adaptatif.
+  - Exécution CLI (`cli-flow.mermaid`) et TUI (`tui-flow.mermaid`).
+  - Résolution de configuration (`config-flow.mermaid`).
+  - Pipelines algorithmiques : Fast Doubling (`fastdoubling.mermaid`), FFT (`fft-pipeline.mermaid`), Matrix (`matrix.mermaid`).
 
 ## 4) Design Patterns et ADR
 
-L'architecture repose sur 14 design patterns documentés ici :
+L'architecture repose sur les design patterns documentés ici :
 
 - **[Patterns/](./patterns/) :**
-  - **[Design Patterns inventory](./patterns/design-patterns.md)** — table des patterns concrets utilisés (Strategy, Observer, Object Pool, Bump Allocator, Decorator, Factory/Registry, Template Method, LRU Cache, etc.) avec liens vers les sites d'implémentation.
+  - **[Design Patterns inventory](./patterns/design-patterns.md)** — table des patterns concrets utilisés (Strategy, Factory/Registry, Observer, Object Pool, Bump Allocator, Decorator, Facade, Template Method, LRU Cache, Circuit Breaker, Adapter) avec liens vers les sites d'implémentation.
   - **[interface-hierarchy.mermaid](./patterns/interface-hierarchy.mermaid)** — hiérarchie des interfaces clés.
 
 Pour les décisions historiques majeures, consultez les ADR indexés dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)** (y compris les ADR récents sur l’heuristique CPU et les backends de recherche).

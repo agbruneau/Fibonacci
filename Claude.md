@@ -2,10 +2,7 @@
 
 Calculateur Fibonacci haute performance en Go. Prototype académique démontrant Clean Architecture, pooling mémoire, parallélisme adaptatif et optimisation PGO.
 
-> **🔎 ÉTAT POST-AUDIT** — Les vagues de refactoring (R1–R4) sont mergées. Les 5 bugs latents historiques (R1.1–R1.5) sont **corrigés ou infirmés**.
-> - Audit de référence : [`audit.md`](audit.md) — 23 constats (A-01…A-23), vérifiés `fichier:ligne`.
-> - Plan de remédiation : [`AuditPlanning.md`](AuditPlanning.md) — tableau de suivi à jour (statut + SHA).
-> - **Avant tout changement non trivial dans `internal/fibonacci/` ou `internal/bigfft/`, consulter `audit.md` §4–§5 et `AuditPlanning.md`.**
+> **État** — Base de code stabilisée. Les modules listés en « Modules sensibles » concentrent la complexité et les couplages cachés : toute modification non triviale dans `internal/fibonacci/` ou `internal/bigfft/` doit d'abord lire l'invariant documenté du fichier concerné ci-dessous.
 
 ---
 
@@ -14,8 +11,8 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Module** : `github.com/agbru/fibcalc`
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
-- **Taille (mesurée)** : ~35 500 LOC `.go` (source + tests), 24 packages (22 internes + 2 sous `cmd/`)
-- **CI/CD** : ✅ GitHub Actions — `ci.yml` (vet + golangci-lint épinglé `v1.64.8` + build, `go test -race -short` sur matrice **3 OS dont Windows** via `CGO_ENABLED=1`, + job `bench` informatif) et `coverage.yml` (sur push+PR, seuil `MIN_COVERAGE=80%`). A-12/A-13/A-14 résolus ; `coverage.yml` désormais versionné (était masqué par un glob `.gitignore`).
+- **Taille (mesurée)** : ~35 500 LOC `.go` (source + tests), 23 packages (21 internes + 2 sous `cmd/`)
+- **CI/CD** : GitHub Actions — `ci.yml` (vet + golangci-lint épinglé `v1.64.8` + build, `go test -race -short` sur matrice **3 OS dont Windows** via `CGO_ENABLED=1`, + job `bench` informatif) et `coverage.yml` (sur push+PR, seuil `MIN_COVERAGE=80%`).
 
 ---
 
@@ -31,6 +28,7 @@ internal/
   calibration/       # Auto-calibration adaptative, micro-benchmarks
   cli/               # Interface CLI, formatage
     completion/      # Complétion shell (bash/zsh/fish/powershell, registry unique)
+                     #   échappement des identifiants à valider sur tout ajout
   config/            # Parsing config, flags, variables d'environnement
   errors/            # Types d'erreurs structurées (ConfigError, CalcError)
   fibonacci/         # CŒUR : Fast Doubling, Matrix Exp., FFT, Strassen, GMP
@@ -39,9 +37,9 @@ internal/
     threshold/       # Gestionnaire dynamique de seuils (FFT/parallèle/Strassen)
   format/            # Formatage durées, nombres, ETA
   metrics/           # Indicateurs de performance, monitoring mémoire
-    system/          # Échantillonnage CPU/mém (ex-`sysmon`, fusionné R4.5)
+    system/          # Échantillonnage CPU/mém
   orchestration/     # Exécution concurrente (errgroup), agrégation
-  parallel/          # ErrorCollector — VIVANT : utilisé par fibonacci/common.go
+  parallel/          # ErrorCollector — utilisé par fibonacci/common.go
   progress/          # Pattern observer + DTO progression (chemin prod : Freeze)
   testutil/          # Helpers de test partagés
   tui/               # Dashboard TUI interactif (Bubble Tea)
@@ -50,7 +48,7 @@ internal/
 docs/
   architecture/      # Diagrammes C4 (Mermaid), validation
   algorithms/        # Documentation mathématique par algorithme
-  audits/            # Baselines benchmark (créé en Vague A)
+  audits/            # Baselines benchmark (référence de non-régression perf)
 ```
 
 ---
@@ -71,43 +69,43 @@ docs/
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
 - **GC désactivé** pendant calculs N ≥ 1M — **panic-safe** via `gcCtrl.WithGC(fn)` (`defer End()`). `Begin`/`End` directs `Deprecated`.
 - **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
-- **Cache FFT** LRU thread-safe — 15-30 % speedup. ⚠ Risque résiduel A-01 (recyclage `backing` en éviction vs `pv` aliasé) — voir `audit.md`.
+- **Cache FFT** LRU thread-safe — 15-30 % speedup. ⚠ Risque résiduel : en éviction, le `backing` recyclé peut encore être aliasé par un `pv` vivant — ne pas recycler un backing sans preuve qu'aucune valeur polynomiale ne le référence.
 - **PGO** supporté via `make build-pgo`
 
 ---
 
-## ⚠ Bugs historiques — RÉSOLUS (référence : `audit.md` §4)
+## ⚠ Invariants à préserver (corrections subtiles déjà en place)
 
-Les 5 bugs latents R1.1–R1.5 ont été corrigés ou infirmés avant cet audit. **Ne pas les « re-corriger ».** Détail et preuves `fichier:ligne` dans `audit.md` §4.
+Les correctifs ci-dessous sont **en place et testés**. Ils encodent des invariants non évidents : une régression naïve les casserait sans faire échouer un test trivial. **Ne pas les réécrire sans comprendre l'invariant.**
 
-| ID | Statut | Preuve (cf. `audit.md` §4) |
-|----|--------|-----------------------------|
-| R1.1 | CORRIGÉ | `fastdoubling.go` `finalizeStateRelease` — `clearStateAliases` inconditionnel + test de régression |
-| R1.2 | CORRIGÉ | `memory/gc_control.go` `WithGC` + `defer End()` panic-safe |
-| R1.3 | CORRIGÉ | `calibration.go` `IsStale` invoqué + branche stale → `CompleteStrategy` |
-| R1.4 | CORRIGÉ | `bigfft/pool.go` `releaseWordSlice` route sur `cap` + miss counter |
-| R1.5 | INFIRMÉ | `bigfft/fft_cache.go` `putByKey` n'alloue que si aucun backing salvageable |
+| Fichier | Invariant à préserver |
+|---------|-----------------------|
+| `fibonacci/fastdoubling.go` | `finalizeStateRelease` appelle `clearStateAliases` **inconditionnellement** avant tout retour ; gardé par `TestReleaseState_OverLimit_AliasesCleared`. |
+| `fibonacci/memory/gc_control.go` | `WithGC(fn)` est panic-safe (`defer End()`). `Begin`/`End` directs sont `Deprecated` — ne pas les réintroduire. |
+| `calibration/calibration.go` | `IsStale` doit rester invoqué ; la branche stale doit router vers `CompleteStrategy`. |
+| `bigfft/pool.go` | `releaseWordSlice` route sur `cap` (pas `len`) et incrémente un compteur de miss. |
+| `bigfft/fft_cache.go` | `putByKey` n'alloue un backing que si aucun backing récupérable n'existe. |
 
-**Risque résiduel actif** : voir `audit.md` Matrice de risques. Critique unique = A-01 (cache FFT). Hautes = A-02/A-03 (globaux FFT non synchronisés), A-04 (dérive doc — ce fichier).
+**Risque résiduel actif** : cache FFT (`bigfft/fft_cache.go`, cf. « Patterns de performance ») ; globaux FFT mutables non synchronisés sur hot path (`bigfft/fft.go`, `fft_recursion.go`).
 
 ---
 
 ## ⚠ Modules sensibles (changements à risque)
 
-Ces fichiers concentrent la complexité ou des couplages cachés. **Toute modification doit citer le constat `A-NN` correspondant de `audit.md`** dans le message de commit.
+Ces fichiers concentrent la complexité ou des couplages cachés. Avant toute modification, lire l'invariant ci-dessous et la section « Invariants à préserver ».
 
-| Fichier | Risque |
-|---------|--------|
-| `internal/fibonacci/fastdoubling.go` | Hot path + pooling state+arena (R1.1 résolu, A-16/A-17). |
-| `internal/fibonacci/doubling_framework.go` | Boucle critique couplée à `bigfft` (R3.2). |
-| `internal/fibonacci/threshold/manager.go` | ~277 L ; invariant single-writer non documenté (A-18). |
-| `internal/bigfft/fft_cache.go` | Globals + cache LRU (A-01 Critique, A-02, A-05). |
-| `internal/bigfft/pool.go` | 13 pools globaux (R1.4 résolu). |
-| `internal/bigfft/fermat.go` | Panics d'invariants ; `recover()` global masque les post-conditions (A-06). |
-| `internal/bigfft/fft.go`, `fft_recursion.go` | Globaux mutables non synchronisés sur hot path (A-03). |
-| `internal/tui/model.go` | ~184 L, routeur Update pur (déjà refactoré R3.4). |
-| `internal/cli/completion/` | Registry unique, 4 générateurs shell ; échappement latent (A-19/sécurité). |
-| `internal/fibonacci/testdata/fibonacci_golden.json` | **Immuable** sans accord explicite. |
+| Fichier | Pourquoi sensible |
+|---------|-------------------|
+| `internal/fibonacci/fastdoubling.go` | Hot path ; pooling state+arena partagé. Tout chemin de release doit détacher les aliases avant `statePool.Put`. |
+| `internal/fibonacci/doubling_framework.go` | Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est amplifiée. |
+| `internal/fibonacci/threshold/manager.go` | ~283 L ; invariant single-writer non explicité dans le code — ne pas introduire d'écrivain concurrent. |
+| `internal/bigfft/fft_cache.go` | Globaux + cache LRU ; aliasing backing/`pv` en éviction (risque résiduel actif). |
+| `internal/bigfft/pool.go` | Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool` ; routage par capacité critique. |
+| `internal/bigfft/fermat.go` | Panics d'invariants ; un `recover()` global peut masquer la violation d'une post-condition — préserver la propagation. |
+| `internal/bigfft/fft.go`, `fft_recursion.go` | Globaux mutables non synchronisés sur hot path — ne pas en ajouter (cf. directive 4). |
+| `internal/tui/model.go` | ~188 L, routeur `Update` pur ; garder la pureté (pas d'effets de bord dans le routage). |
+| `internal/cli/completion/` | Registry unique, 4 générateurs shell ; échappement des identifiants vers le shell — risque de sécurité latent. |
+| `internal/fibonacci/testdata/fibonacci_golden.json` | **Immuable** sans accord explicite (oracle de non-régression algorithmique). |
 
 ---
 
@@ -132,9 +130,9 @@ make build-all       # cross-compilation (linux, windows, macOS)
 
 - Packages par responsabilité (pas par feature).
 - Interfaces étroites (ISP) : `Multiplier`, `DoublingStepExecutor`, `Calculator`, `ProgressReporter`.
-- Erreurs structurées : `fmt.Errorf("%w", err)`. **Pas de panic** sauf pour invariants internes (cf. A-06 pour bigfft/fermat).
+- Erreurs structurées : `fmt.Errorf("%w", err)`. **Pas de panic** sauf pour invariants internes (cas assumé : `bigfft/fermat.go`).
 - Tests parallèles (`t.Parallel()`) systématiques (adoption élevée ; cible 100 %).
-- Race detector en CI (Linux/macOS ; Windows à activer cf. A-14).
+- Race detector en CI sur les 3 OS (`CGO_ENABLED=1`).
 - Complexité cyclomatique max 15, cognitive max 30 (cf. `.golangci.yml`).
 - Longueur fonction max 100 lignes / 50 statements.
 - `doc.go` pour chaque package public.
@@ -143,56 +141,47 @@ make build-all       # cross-compilation (linux, windows, macOS)
 
 ---
 
-## Directives projet (période de remédiation post-audit)
+## Directives projet
 
 > Les lignes directrices comportementales générales (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) sont dans `~/.claude/CLAUDE.md` et s'appliquent ici.
 
-1. **Performance critique** — Toute modification dans `internal/fibonacci/` ou `internal/bigfft/` doit être vérifiée avec `make benchmark` (ou `go test -bench=BenchmarkFibonacci -benchmem -run=^$ ./internal/fibonacci/`) avant + après. Régression > 5 % = blocage.
+1. **Performance critique** — Toute modification dans `internal/fibonacci/` ou `internal/bigfft/` doit être vérifiée avec `make benchmark` (ou `go test -bench=BenchmarkFibonacci -benchmem -run=^$ ./internal/fibonacci/`) avant + après. Régression > 5 % = blocage. Comparer aux baselines `docs/audits/`.
 
 2. **Golden tests obligatoires** — Tout changement algorithmique doit passer `internal/fibonacci/testdata/fibonacci_golden.json`. Le fichier golden est **immuable** sans approbation explicite (aucun `-update`).
 
-3. **Étanchéité des couches** — `internal/` ne doit pas fuiter vers `cmd/`. Hiérarchie : `cmd → app → orchestration → fibonacci/bigfft → config/errors`. (Vérifiée conforme en audit.)
+3. **Étanchéité des couches** — `internal/` ne doit pas fuiter vers `cmd/`. Hiérarchie : `cmd → app → orchestration → fibonacci/bigfft → config/errors`.
 
-4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutines sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** — A-03 va dans le sens inverse (convertir les globaux existants en atomiques en place, zéro ajout).
+4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutines sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** : la trajectoire est l'injection (`FFTContext`), pas l'ajout d'état mutable partagé.
 
-5. **Modifications chirurgicales** — Tout refactoring d'envergure (> 50 LOC sur > 2 fichiers) doit être tracé dans `AuditPlanning.md` (entrée `A-NN` ou nouvelle entrée).
+5. **Modifications chirurgicales** — Préférer le diff minimal. Un refactoring d'envergure (> 50 LOC sur > 2 fichiers) se justifie dans le message de commit (raison technique, compromis, alternative écartée).
 
-6. **Tableau de suivi à maintenir** — À chaque transition de statut, mettre à jour le tableau de [`AuditPlanning.md`](AuditPlanning.md) avec le SHA du commit.
+6. **Pas de nouveaux fichiers `progress*` sans consultation** — Couche progression : le chemin de production est `Freeze`. Étendre un point existant après lecture du package `internal/progress`.
 
-7. **Pas de nouveaux fichiers `progress*` sans consultation** — Couche progression : le chemin de production est `Freeze` (cf. A-19). Ajouter à un endroit existant après lecture.
+7. **Bug fix avant refactor** — Si un défaut actif est touché par hasard pendant un refactor, le corriger en priorité dans un commit isolé (`fix(scope):`) avant de poursuivre le refactor.
 
-8. **Pas de nouveaux globals dans `bigfft/`** — Direction inverse (trajectoire `FFTContext` injectable, R3.7 / A-03).
-
-9. **Bug fix avant refactor** — Si un défaut actif de `audit.md` est touché par hasard, le corriger en priorité (commit isolé `fix(A-NN):`) avant le refactor planifié.
-
-10. **CI active** — `make test -race && make lint` (ou équivalents `go`) en local avant chaque PR reste recommandé ; la CI (`ci.yml`) le rejoue sur 3 OS. Ne PAS recréer de workflow concurrent.
+8. **CI active** — `make test` (race) `&& make lint` (ou équivalents `go`) en local avant chaque PR reste recommandé ; la CI (`ci.yml`) le rejoue sur 3 OS. Ne PAS recréer de workflow concurrent.
 
 ---
 
 ## Workflow recommandé pour une nouvelle modification
 
 ```
-1. Identifier le constat dans AuditPlanning.md (ID A-NN ; sinon ajouter une entrée).
-2. Marquer 🟡 InProgress dans le tableau de suivi.
-3. Branche dédiée : git checkout -b fix/A-NN-description-courte
-4. Test rouge → fix minimal → vert + golden + (benchmark si perf-sensitive).
-5. go test ./<pkg>/... -count=1 && go vet ./... && golangci-lint run ./<pkg>/...
-6. Comparer aux baselines docs/audits/.
-7. Commit « fix(A-NN): description » (ou docs/ci/test/perf).
-8. PR, review, merge (Vague A : gel pour revue humaine).
-9. AuditPlanning.md : ✅ Done + SHA.
-10. Commit doc : « docs(plan): A-NN marked Done <sha> ».
+1. Branche dédiée : git checkout -b <type>/<description-courte>
+2. Test rouge → fix minimal → vert + golden + (benchmark si perf-sensitive).
+3. go test ./<pkg>/... -count=1 && go vet ./... && golangci-lint run ./<pkg>/...
+4. Si perf-sensitive : comparer aux baselines docs/audits/.
+5. Commit conventionnel « <type>(scope): description » (feat/fix/docs/perf/test/refactor).
+6. PR, review, merge.
 ```
 
 ---
 
 ## Références
 
-- [`audit.md`](audit.md) — audit exhaustif (23 constats, 10 sections).
-- [`AuditPlanning.md`](AuditPlanning.md) — plan de remédiation + tableau de suivi.
-- [`audit-prompt.md`](audit-prompt.md) — prompt d'audit réutilisable.
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph.
 - [`docs/algorithms/`](docs/algorithms/) — Fast Doubling, Matrix, FFT, GMP, comparaison.
+- [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — tuning et méthodologie de benchmark.
+- [`docs/TESTING.md`](docs/TESTING.md) — stratégie de test, génération de mocks.
 - [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog format, SemVer.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow contribution.
 - `.golangci.yml` — 24 linters configurés, exceptions documentées.
