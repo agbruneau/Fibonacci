@@ -12,15 +12,14 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
 | **Strategy**     | Pluggable Fibonacci algorithms behind a uniform `Calculator` interface | `internal/fibonacci/calculator.go`, `fastdoubling.go`, `matrix.go`, `fft.go`        |
 | **Factory / Registry** | Centralized calculator construction, decoupled from callers     | `internal/fibonacci/registry.go`                                                    |
 | **Observer**     | Streaming progress updates to CLI / TUI / metrics sinks | `internal/progress/` — `progress.ProgressUpdate` channel                            |
-| **Object Pool**  | `big.Int` recycling to eliminate GC pressure on large N. State-bound: `CalculationState` owns its arena, both share one lifecycle (audit P1-04). | `sync.Pool` in `internal/fibonacci/state_pool.go`, `AcquireStateForN`/`ReleaseStateWithResult` in `internal/fibonacci/fastdoubling.go` |
+| **Object Pool**  | `big.Int` recycling to eliminate GC pressure on large N. State-bound: `CalculationState` owns its arena, both share one lifecycle. | `sync.Pool`, `AcquireStateForN`/`ReleaseStateWithResult` in `internal/fibonacci/fastdoubling.go` |
 | **Bump Allocator** | O(1) linear arena for FFT intermediate buffers and Fast Doubling state. | `internal/bigfft/bump.go`, `internal/fibonacci/memory/arena.go`                     |
-| **Decorator**    | Optional capabilities (cache, metrics) layered on a base calculator | `WithOptimizedCache`, `WithMetrics` option helpers in `internal/fibonacci/options.go` |
-| **Builder / Options** | Functional options for calculator configuration           | `Options` struct + `WithXxx` setters in `internal/fibonacci/options.go`             |
+| **Decorator**    | Cross-cutting capabilities layered on a base calculator | `FibCalculator` wrapping `CoreCalculator` in `internal/fibonacci/calculator.go` |
 | **Facade**       | `app.Application` hides CLI parsing, dispatch, and error-to-exit-code mapping | `internal/app/app.go`                                                               |
 | **Template Method** | `DoublingStepExecutor` fixes the Fast Doubling skeleton while subclasses choose the multiplication backend | `internal/fibonacci/doubling_framework.go`                                          |
 | **Cache (LRU)**  | Thread-safe plan cache for FFT twiddle tables | `internal/bigfft/fft_cache.go`                                                      |
 | **Circuit Breaker** (light) | Memory-budget pre-flight exits before OOM | `internal/fibonacci/memory/budget.go`                                               |
-| **Adapter**      | `sysmon` exposes OS-specific memory probes behind a stable interface | `internal/sysmon/`                                                                  |
+| **Adapter**      | OS-specific memory probes exposed behind a stable interface | `internal/metrics/system/`                                                          |
 
 ## Cross-cutting concerns
 
@@ -33,7 +32,7 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
   a pooled state owns an arena, every `*big.Int` slot must be detached
   (`s.FK = new(big.Int)` and friends) before the state is returned to the
   pool — otherwise the arena would alias data the next tenant overwrites
-  (audit P1-04 `clearStateAliases`).
+  (`clearStateAliases` in `internal/fibonacci/fastdoubling.go`).
 
 ## Notes
 
