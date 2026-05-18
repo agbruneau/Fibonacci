@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Fibonacci Calculator project uses a layered testing strategy that combines unit tests, golden file validation, fuzz testing, property-based testing, benchmark testing, and end-to-end testing. The test suite contains 80+ test files distributed across all packages, with a coverage target of >75%.
+The Fibonacci Calculator project uses a layered testing strategy that combines unit tests, golden file validation, fuzz testing, property-based testing, benchmark testing, and end-to-end testing. The test suite contains 100+ test files distributed across all packages, with a coverage floor of 80% enforced in CI.
 
 All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag enabled in CI.
 
@@ -14,7 +14,6 @@ go test -v -short ./...                                # Skip slow tests
 go test -v -run TestFastDoubling ./internal/fibonacci/  # Single test
 go test -bench=. -benchmem ./internal/fibonacci/        # Benchmarks
 go test -fuzz=FuzzFastDoubling ./internal/fibonacci/    # Fuzz tests
-go generate ./...                                       # Regenerate mocks
 ```
 
 Makefile targets (require `make`):
@@ -23,7 +22,6 @@ Makefile targets (require `make`):
 make test              # go test -v -race -cover ./...
 make coverage          # Generate coverage.html
 make check             # format + lint + test
-make generate-mocks    # Regenerate all mock implementations
 ```
 
 ## Table-Driven Unit Tests
@@ -209,7 +207,7 @@ The project currently uses hand-written mocks and spies. There is no `mockgen`
 wiring in the codebase: no `//go:generate mockgen ...` directives, no
 `mocks/` directories, and no dependency on `go.uber.org/mock`. The previous
 `make generate-mocks` / `make install-mockgen` Makefile targets were removed
-(audit P2-07) because they produced no output.
+because they produced no output.
 
 If mockgen is later required, re-introduce the Makefile targets together
 with the first `//go:generate mockgen` directive.
@@ -235,7 +233,7 @@ This pattern in `orchestration_spy_test.go` verifies that configuration values (
 
 ## Coverage
 
-Target: >75% across all packages.
+CI enforces a minimum total coverage of 80% (`coverage.yml`); the suite currently sits well above that floor.
 
 ```bash
 go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html

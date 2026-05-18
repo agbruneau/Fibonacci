@@ -29,10 +29,16 @@ The GMP build tag enables the GNU Multiple Precision Arithmetic Library backend,
 go build -tags=gmp -o fibcalc ./cmd/fibcalc
 ```
 
-The GMP calculator auto-registers via `init()`:
+The GMP calculator auto-registers via `init()` in `calculator_gmp.go`:
 
 ```go
-RegisterCalculator("gmp", func() coreCalculator { return &GMPCalculator{} })
+func init() {
+    RegisterGMPCalculator(globalFactory)
+}
+
+func RegisterGMPCalculator(f *DefaultFactory) {
+    f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })
+}
 ```
 
 #### Platform Requirements
@@ -191,8 +197,6 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 | `tidy` | `go mod tidy` + verify |
 | `deps` | `go mod download` |
 | `upgrade` | `go get -u` + tidy |
-| `generate-mocks` | `go generate ./...` |
-| `install-mockgen` | Install mockgen tool |
 | `install-tools` | Install golangci-lint and gosec |
 
 ### Utility Targets
@@ -204,7 +208,7 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 
 ## Linting
 
-The project uses `golangci-lint` with 22 linters configured in `.golangci.yml`.
+The project uses `golangci-lint` with 24 linters configured in `.golangci.yml`.
 
 ```bash
 # Run linter
@@ -242,7 +246,7 @@ fibcalc -completion fish > ~/.config/fish/completions/fibcalc.fish
 fibcalc -completion powershell >> $PROFILE
 ```
 
-The implementation is in `internal/cli/completion.go`.
+The implementation lives in the `internal/cli/completion/` package (shared `registry.go` plus one generator per shell: `bash.go`, `zsh.go`, `fish.go`, `powershell.go`), dispatched via `internal/cli/completion_dispatch.go`.
 
 ## Environment Variables
 

@@ -71,7 +71,7 @@ To compare performance across Git revisions on the **same machine**, use a fixed
 
 The reference table in [Reference Benchmarks](#reference-benchmarks) above is tied to a specific hardware and Go 1.25.0 configuration; your snapshots document *your* runner.
 
-## Hardware heuristic defaults (P3)
+## Hardware heuristic defaults
 
 When CLI thresholds are left at **0** (auto) and no valid calibration profile is loaded, FibCalc applies `internal/config.ApplyAdaptiveThresholds`, which calls `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, and `EstimateOptimalStrassenThreshold`. These functions use:
 
@@ -109,7 +109,7 @@ var statePool = sync.Pool{
 - 20-30% performance improvement
 - Reduced GC pause times
 
-**Calculation Arena (state-bound)**: For N > 1,000 a contiguous `CalculationArena` pre-allocates all 5 `big.Int` backing arrays from a single `[]big.Word` block, reducing GC tracking overhead and memory fragmentation. As of audit P1-04 the arena is owned by `CalculationState` and travels through the same `sync.Pool`: `AcquireStateForN(n)` reuses the existing arena (`Reset()` only) when the previous tenancy was large enough, otherwise it reallocates. `ReleaseStateWithResult(s, src)` deep-copies the result out of the arena before resetting it and detaches every state slot before pool return, so a subsequent acquisition cannot alias another caller's result. The arena falls back to heap allocation when exhausted, and is dropped (not pooled) past `maxArenaPoolWords` (~50M words ≈ 400 MB) to bound resident memory.
+**Calculation Arena (state-bound)**: For N > 1,000 a contiguous `CalculationArena` pre-allocates all 5 `big.Int` backing arrays from a single `[]big.Word` block, reducing GC tracking overhead and memory fragmentation. The arena is owned by `CalculationState` and travels through the same `sync.Pool`: `AcquireStateForN(n)` reuses the existing arena (`Reset()` only) when the previous tenancy was large enough, otherwise it reallocates. `ReleaseStateWithResult(s, src)` deep-copies the result out of the arena before resetting it and detaches every state slot before pool return, so a subsequent acquisition cannot alias another caller's result. The arena falls back to heap allocation when exhausted, and is dropped (not pooled) past `maxArenaPoolWords` (~50M words ≈ 400 MB) to bound resident memory.
 
 ### 2. 2-Tier Adaptive Multiplication
 
@@ -197,16 +197,17 @@ fibcalc -n 10000000000 --last-digits 100
 
 ### Automatic Calibration
 
-The calibration system (`internal/calibration`) tests different thresholds and determines optimal values for your hardware. It can be invoked programmatically:
+The calibration system (`internal/calibration`) tests different thresholds and determines optimal values for your hardware:
 
-```go
-import "github.com/agbru/fibcalc/internal/calibration"
+```bash
+# Full threshold sweep (saves ~/.fibcalc_calibration.json)
+fibcalc --calibrate
 
-// Run calibration to find optimal thresholds
-profile, err := calibration.RunCalibration(ctx)
+# Quick startup calibration with cached-profile fallback
+fibcalc --auto-calibrate
 ```
 
-> **Tip**: Use `fibcalc --calibrate` to run calibration, or `--auto-calibrate` for a quick startup calibration.
+> The programmatic entry point is `calibration.RunCalibration(ctx, out, calculatorRegistry, progressDisplay, colorProvider) int`; see [CALIBRATION.md](CALIBRATION.md) for the full API and the 3-tier fallback.
 
 ### Configuration Parameters
 

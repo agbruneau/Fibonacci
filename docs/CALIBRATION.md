@@ -100,7 +100,7 @@ If micro-benchmarks produce low confidence, `newCalibrationRunner()` executes ta
 
 Each method iterates over a reduced candidate set (`GenerateQuickParallelThresholds()`, `GenerateQuickFFTThresholds()`, `GenerateQuickStrassenThresholds()`). The profile is saved after successful calibration.
 
-> **Architecture note (post-refactor R3.3):** the calibration flow is structured around the **Strategy pattern** — `CalibrationStrategy` (`strategy.go`) with concrete `FastStrategy` (`strategy_fast.go`, micro-benchmark tier) and `CompleteStrategy` (`strategy_complete.go`, full runner tier). `calibration.go` selects/escalates strategies (including the stale-profile branch: `IsStale` → `CompleteStrategy`, ex-R1.3). The `calibrationRunner` described under "Calibration Runner" is the execution helper invoked by `CompleteStrategy`, not a directly-called entry point.
+> **Architecture note:** the calibration flow is structured around the **Strategy pattern** — `CalibrationStrategy` (`strategy.go`) with concrete `FastStrategy` (`strategy_fast.go`, micro-benchmark tier) and `CompleteStrategy` (`strategy_complete.go`, full runner tier). `calibration.go` selects/escalates strategies, including the stale-profile branch (`IsStale` → `CompleteStrategy`). The `calibrationRunner` described under "Calibration Runner" is the execution helper invoked by `CompleteStrategy`, not a directly-called entry point.
 
 ### Cached Profile Loading
 
@@ -120,8 +120,8 @@ The micro-benchmarking engine provides rapid threshold estimation by testing raw
 const MicroBenchIterations = 3
 
 // MicroBenchTimeout / MicroBenchPerTestTimeout are vars (not consts) sourced
-// from config.DefaultThresholdTuning since audit R4.2 — the canonical values
-// live alongside the other dynamic-tuning knobs and can be re-pointed in tests.
+// from config.DefaultThresholdTuning — the canonical values live alongside the
+// other dynamic-tuning knobs and can be re-pointed in tests.
 var (
     MicroBenchTimeout        = config.DefaultThresholdTuning.MicroBenchTimeout        // ~150ms default
     MicroBenchPerTestTimeout = config.DefaultThresholdTuning.MicroBenchPerTestTimeout // ~30ms default
@@ -251,7 +251,7 @@ Example profile on disk:
 
 File: `internal/calibration/adaptive.go`
 
-Les **estimations sans benchmark** (`EstimateOptimal*`, utilisées quand les seuils restent à 0 et qu’aucun profil valide n’est chargé) sont définies dans `internal/config/thresholds.go` et tiennent compte du nombre de cœurs et, sur **amd64/386**, des capacités **AVX2 / AVX-512** détectées via `golang.org/x/sys/cpu` (`internal/config/hardware.go`). Voir aussi [PERFORMANCE.md](PERFORMANCE.md#hardware-heuristic-defaults-p3).
+Les **estimations sans benchmark** (`EstimateOptimal*`, utilisées quand les seuils restent à 0 et qu’aucun profil valide n’est chargé) sont définies dans `internal/config/thresholds.go` et tiennent compte du nombre de cœurs et, sur **amd64/386**, des capacités **AVX2 / AVX-512** détectées via `golang.org/x/sys/cpu` (`internal/config/hardware.go`). Voir aussi [PERFORMANCE.md](PERFORMANCE.md#hardware-heuristic-defaults).
 
 ### Parallel Threshold Candidates
 
