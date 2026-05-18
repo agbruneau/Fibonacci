@@ -37,7 +37,7 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      # A-14: race detector on every OS (Windows included). The race detector
+      # Race detector on every OS (Windows included). The race detector
       # requires CGO; GitHub-hosted windows-latest ships a MinGW gcc, so a
       # unified step keeps coverage symmetric across platforms.
       - name: Test (race)
@@ -61,7 +61,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          # A-12: pin an exact version for reproducible verdicts (was "latest").
+          # Pin an exact version for reproducible verdicts (was "latest").
           version: v1.64.8
           args: --timeout=5m
 
@@ -84,7 +84,7 @@ jobs:
   bench:
     name: Benchmark (informational)
     runs-on: ubuntu-latest
-    # A-13: non-blocking benchmark snapshot. A real >5% regression gate needs a
+    # Non-blocking benchmark snapshot. A real >5% regression gate needs a
     # versioned baseline (tracked in docs/audits/); this job uploads an artifact
     # for manual comparison until that baseline lands.
     continue-on-error: true

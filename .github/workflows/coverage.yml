@@ -17,7 +17,7 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     env:
-      # A-13: minimum total coverage gate. Set below the current ~87.5% to act
+      # Minimum total coverage gate. Set below the current ~87.5% to act
       # as a regression floor without being flaky. Raise deliberately over time.
       MIN_COVERAGE: '80.0'
     steps:
