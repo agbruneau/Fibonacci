@@ -64,7 +64,7 @@ See [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING.md](docs/algorithm
 
 - **Zero-allocation**: `sync.Pool` recycles `big.Int`, reducing GC pressure 95%+.
 - **Bump allocator** (O(1), no fragmentation) for FFT temporaries.
-- **State-bound calculation arena** (`internal/fibonacci/memory/`): pooled `CalculationState` owns its arena; same `[]big.Word` block is reused across calls when wide enough (`Reset()` only on the hot path). Aliases are severed before pool return — see audit P1-04.
+- **State-bound calculation arena** (`internal/fibonacci/memory/`): pooled `CalculationState` owns its arena; same `[]big.Word` block is reused across calls when wide enough (`Reset()` only on the hot path). Aliases are severed before pool return.
 - **GC controller** disables GC during large calculations (N ≥ 1M) with a soft memory-limit safety net.
 - **Result detachment**: `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the caller never aliases pooled memory.
 - **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Post-audit remediation period closed.** The audit-driven remediation workflow (A-NN finding tracking, "Vague A" review freeze, post-audit branch gating) is wound down. Project documentation is purged of audit scaffolding: contributor-facing docs no longer route through `audit.md` / `AuditPlanning.md` / `audit-prompt.md`, and the standard `CONTRIBUTING.md` workflow is the single source of process truth going forward. Historical CHANGELOG entries below are retained verbatim as the accurate record of what was done during remediation.
+
 ### Added
 
 - **Interactive TUI mode**: btop-style dashboard built with Bubble Tea (Elm architecture), featuring real-time progress charts, algorithm comparison, and keyboard navigation
@@ -57,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **calibration (A-11)**: `SaveProfile` is now atomic (temp file + `os.Rename`) — no truncated/corrupt profile under concurrent writers or crash
 - **progress (A-10)**: `CalcTotalWork` no longer overflows to `+Inf` (`math.Pow(4,numBits)` past ~512 bits) which froze the progress bar on exactly the large-N calculations; reworked in log-space / closed form
 - **build (A-13)**: `.gitignore` `coverage.*` glob was unanchored and also hid `.github/workflows/coverage.yml` — the coverage workflow was never tracked and never ran on GitHub; now kept under version control
-- Audit reference: [`audit.md`](audit.md) (23 findings), remediation plan [`AuditPlanning.md`](AuditPlanning.md). Concurrency hardening of `internal/bigfft` (A-01 Critical use-after-free, A-02/A-03 data races, A-05/A-06/A-07) is implemented on the frozen branch `review/vague-A-bigfft-concurrency`, **pending human review before merge** (hot-path concurrency; `-race` validated only in CI)
+- Audit reference: `audit.md` (23 findings), remediation plan `AuditPlanning.md`. Concurrency hardening of `internal/bigfft` (A-01 Critical use-after-free, A-02/A-03 data races, A-05/A-06/A-07) is implemented on the frozen branch `review/vague-A-bigfft-concurrency`, **pending human review before merge** (hot-path concurrency; `-race` validated only in CI)
 
 ### Security
 
@@ -74,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Audit scaffolding documents**: deleted `audit.md`, `AuditPlanning.md`, and `audit-prompt.md` from the repository. These tracked the now-closed post-audit remediation effort and are intentionally not restored; outstanding follow-ups are carried as normal issues, not audit findings.
 - Phantom `FIBCALC_GC_CONTROL` environment variable reference from `docs/PERFORMANCE.md` (never implemented)
 - Tracked development log artifacts and stale files (audit P1-20)
 
