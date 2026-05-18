@@ -347,7 +347,7 @@ operations:
 | Single release | All allocations freed by resetting offset |
 | NOT thread-safe | One per goroutine, no synchronization overhead |
 
-> **Note**: The `CalculationArena` (`internal/fibonacci/arena.go`) complements this bump allocator. The bump allocator covers FFT temporaries, while the arena covers the `big.Int` backing arrays of the calculation state (`CalculationState`). The two systems coexist without interference.
+> **Note**: The `CalculationArena` (`internal/fibonacci/memory/arena.go`) complements this bump allocator. The bump allocator covers FFT temporaries, while the arena covers the `big.Int` backing arrays of the calculation state (`CalculationState`). The two systems coexist without interference.
 
 **Lifecycle**: Managed via `sync.Pool`:
 
