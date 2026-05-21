@@ -50,17 +50,9 @@ func GeneratePowerShell(out io.Writer, algorithms []string) error {
 		switchEntries = append(switchEntries, psSwitchEntry(psValueFlags[i]))
 	}
 
-	// Format algorithm list for PowerShell
-	var sb strings.Builder
-	for i, algo := range algorithms {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteByte('\'')
-		sb.WriteString(algo)
-		sb.WriteByte('\'')
-	}
-	psAlgoList := sb.String()
+	// Format algorithm list for PowerShell with escape-aware single-quote
+	// doubling so metacharacters in algorithm names cannot break the array.
+	psAlgoList := formatAlgoListPowerShell(algorithms)
 
 	script := fmt.Sprintf(`# PowerShell completion script for fibcalc
 # Add this to your $PROFILE

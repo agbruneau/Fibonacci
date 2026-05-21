@@ -32,7 +32,8 @@ func GenerateFish(out io.Writer, algorithms []string) error {
 		{comment: "# Completion", flags: filterFlags("completion")},
 	}
 
-	algoList := formatAlgoList(algorithms)
+	// Use escape-aware joiner: fish single-quoted strings need \\ and \' escaping.
+	algoList := formatAlgoListFish(algorithms)
 
 	for _, sec := range sections {
 		lines = append(lines, sec.comment)

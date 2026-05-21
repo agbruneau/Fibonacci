@@ -20,10 +20,11 @@ Mais aucun consommateur de production n'utilise les wrappers `*Safe`.
 
 **Restreindre le `recover()` global à un set d'erreurs sentinelles** plutôt que de capturer toute panic.
 
-1. Définir un type `bigfftPanic` interne pour les pré-conditions explicitement attendues (ex. tailles incohérentes).
-2. Le `recover()` global ne capture que les `bigfftPanic`; les autres panics propagent.
-3. Les `panic` internes de `fermat.go` (post-conditions) sont conservés et propagent normalement.
-4. Les wrappers `*Safe` orphelins (`MulSafe`, `SqrSafe`, `ShiftSafe`, `AddSafe`, `SubSafe`) sont **supprimés** (48 LOC inutilisés).
+1. Introduire la *map* sentinelle `fermatPostConditionPanics` listant les panics post-condition (`"len(z) > 2n+1"`, `"fermat.Mul: unexpected carry after normalization"`, `"fermat.Sqr: unexpected carry after normalization"`).
+2. Le helper `isFermatPostConditionPanic(r any) bool` classifie la valeur récupérée.
+3. Le `recover()` global des quatre entry-points (`Mul`, `MulTo`, `Sqr`, `SqrTo`) **re-propage** par `panic(r)` lorsque la sentinelle correspond ; sinon il convertit en `error` comme avant (préserve l'API publique sur les pré-conditions d'arité).
+4. Les `panic` internes de `fermat.go` (post-conditions) sont conservés tels quels.
+5. Les wrappers `*Safe` (`MulSafe`, `SqrSafe`, `ShiftSafe`, `AddSafe`, `SubSafe`) sont **conservés** : contrairement à la lecture initiale de l'audit, ils sont **testés** par `fermat_test.go` (la suite documente le contrat de pré-condition) ; les supprimer perdrait cette couverture explicite. Marquer ADR à reviser si une décision ultérieure de publication d'API est prise.
 
 ## Consequences
 

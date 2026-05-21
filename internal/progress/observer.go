@@ -4,7 +4,18 @@ package progress
 
 import (
 	"sync"
+	"sync/atomic"
 )
+
+// recoveredObservers counts the number of observer panics swallowed by the
+// frozen ProgressCallback returned from Freeze. Exposed via
+// RecoveredObserverCount() for diagnostic and metrics use. Audit-PRD E2-R3.
+var recoveredObservers atomic.Uint64
+
+// RecoveredObserverCount returns the cumulative number of observer panics
+// that have been swallowed by Freeze-frozen progress callbacks since process
+// start. A growing value indicates a broken observer somewhere in the chain.
+func RecoveredObserverCount() uint64 { return recoveredObservers.Load() }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Observer Pattern Interfaces
@@ -142,7 +153,13 @@ func (s *ProgressSubject) Freeze(calcIndex int) ProgressCallback {
 		for _, observer := range snapshot {
 			func() {
 				defer func() {
-					recover() // prevent panicking observer from crashing calculation
+					if r := recover(); r != nil {
+						// Increment the counter so a broken observer is
+						// observable via RecoveredObserverCount() rather than
+						// silently masked. The calculation continues so a
+						// faulty UI observer cannot crash the hot path.
+						recoveredObservers.Add(1)
+					}
 				}()
 				observer.Update(calcIndex, progress)
 			}()

@@ -53,9 +53,19 @@ func SetFFTThreshold(v int) { fftThreshold.Store(int64(v)) }
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of
 // *big.Int from math/big package.
+//
+// Panic policy (ADR-0002): pre-condition panics (operand-size mismatches)
+// are converted to error so callers retain the API contract. Post-condition
+// panics (internal algorithmic invariants such as "unexpected carry" or
+// "len(z) > 2n+1") are RE-PROPAGATED so genuine bugs in the modular
+// reduction surface as panics in tests/CI rather than masquerading as
+// opaque errors. See isFermatPostConditionPanic for the sentinel list.
 func Mul(x, y *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if isFermatPostConditionPanic(r) {
+				panic(r) // post-condition violation: do not mask
+			}
 			err = fmt.Errorf("panic in bigfft.Mul: %v\nStack: %s", r, debug.Stack())
 		}
 	}()
@@ -69,9 +79,14 @@ func Mul(x, y *big.Int) (res *big.Int, err error) {
 
 // MulTo computes the product x*y and stores the result in z.
 // It can be used instead of the Mul method of *big.Int from math/big package.
+//
+// Panic policy: see Mul.
 func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if isFermatPostConditionPanic(r) {
+				panic(r)
+			}
 			err = fmt.Errorf("panic in bigfft.MulTo: %v\nStack: %s", r, debug.Stack())
 		}
 	}()
@@ -96,9 +111,14 @@ func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 // Sqr computes x*x and returns the result as a new *big.Int.
 // Squaring is optimized because we only need to transform x once,
 // which saves approximately 33% of the FFT computation compared to Mul.
+//
+// Panic policy: see Mul.
 func Sqr(x *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if isFermatPostConditionPanic(r) {
+				panic(r)
+			}
 			err = fmt.Errorf("panic in bigfft.Sqr: %v\nStack: %s", r, debug.Stack())
 		}
 	}()
@@ -109,9 +129,15 @@ func Sqr(x *big.Int) (res *big.Int, err error) {
 	return new(big.Int).Mul(x, x), nil
 }
 
+// SqrTo computes x*x and stores the result in z.
+//
+// Panic policy: see Mul.
 func SqrTo(z, x *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if isFermatPostConditionPanic(r) {
+				panic(r)
+			}
 			err = fmt.Errorf("panic in bigfft.SqrTo: %v\nStack: %s", r, debug.Stack())
 		}
 	}()
@@ -239,4 +265,28 @@ func valueSize(k uint, m int, extra uint) int {
 	}
 	n = ((n / K) + 1) * K // round to a multiple of K
 	return n / _W
+}
+
+// fermatPostConditionPanics enumerates the panic messages emitted from
+// internal Fermat-arithmetic post-conditions. They are NOT caller errors;
+// they signal a bug in the modular reduction routine. The four entry
+// points (Mul/MulTo/Sqr/SqrTo) re-propagate these panics so they cannot
+// be silently transformed into an opaque error value. Pre-condition
+// panics (operand-size mismatches) remain converted to errors, preserving
+// the existing public contract.
+var fermatPostConditionPanics = map[string]struct{}{
+	"len(z) > 2n+1": {},
+	"fermat.Mul: unexpected carry after normalization": {},
+	"fermat.Sqr: unexpected carry after normalization": {},
+}
+
+// isFermatPostConditionPanic reports whether r is a recover()'d value that
+// originated from one of the internal Fermat post-condition panics.
+func isFermatPostConditionPanic(r any) bool {
+	msg, ok := r.(string)
+	if !ok {
+		return false
+	}
+	_, found := fermatPostConditionPanics[msg]
+	return found
 }

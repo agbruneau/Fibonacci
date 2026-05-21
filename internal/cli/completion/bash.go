@@ -133,7 +133,9 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 		caseBody.WriteString("\n            return 0\n            ;;\n")
 	}
 
-	algoList := formatAlgoList(algorithms)
+	// Use escape-aware joiner: algorithms are interpolated into a
+	// bash double-quoted string, so special chars must be neutralised.
+	algoList := formatAlgoListBash(algorithms)
 
 	script := fmt.Sprintf(`# Bash completion script for fibcalc
 # Add this to your ~/.bashrc or ~/.bash_completion

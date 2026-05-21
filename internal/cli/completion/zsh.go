@@ -21,7 +21,9 @@ func GenerateZsh(out io.Writer, algorithms []string) error {
 		args = append(args, zshArgEntry(f))
 	}
 
-	algoList := formatAlgoList(algorithms)
+	// Use escape-aware joiner: zsh array elements must each be single-quoted
+	// to survive metacharacters in the algorithm name.
+	algoList := formatAlgoListZsh(algorithms)
 
 	script := fmt.Sprintf(`#compdef fibcalc
 
@@ -30,7 +32,7 @@ func GenerateZsh(out io.Writer, algorithms []string) error {
 
 _fibcalc() {
     local -a algorithms
-    algorithms=(%s all)
+    algorithms=(%s 'all')
 
     _arguments -s \
 %s
