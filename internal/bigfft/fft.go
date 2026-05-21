@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"runtime/debug"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -31,8 +32,23 @@ func (n nat) String() string {
 const defaultFFTThresholdWords = 1800
 
 // fftThreshold is the size (in words) above which FFT is used over
-// standard math/big multiplication. This can be modified for tuning purposes.
-var fftThreshold = defaultFFTThresholdWords
+// standard math/big multiplication. It is held in an atomic.Int64 so
+// concurrent readers on the hot path observe a coherent value without
+// taking a lock; writers go through SetFFTThreshold.
+var fftThreshold atomic.Int64
+
+func init() {
+	fftThreshold.Store(int64(defaultFFTThresholdWords))
+}
+
+// getFFTThreshold returns the current FFT activation threshold (in words).
+// Hot-path readers must use this accessor, not direct loads.
+func getFFTThreshold() int { return int(fftThreshold.Load()) }
+
+// SetFFTThreshold updates the FFT activation threshold (in words) atomically.
+// Intended for calibration and tests; production code should prefer
+// FFTContext-based configuration.
+func SetFFTThreshold(v int) { fftThreshold.Store(int64(v)) }
 
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of
@@ -45,7 +61,7 @@ func Mul(x, y *big.Int) (res *big.Int, err error) {
 	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
-	if xwords > fftThreshold && ywords > fftThreshold {
+	if t := getFFTThreshold(); xwords > t && ywords > t {
 		return mulFFT(x, y)
 	}
 	return new(big.Int).Mul(x, y), nil
@@ -61,7 +77,7 @@ func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 	}()
 	xwords := len(x.Bits())
 	ywords := len(y.Bits())
-	if xwords > fftThreshold && ywords > fftThreshold {
+	if t := getFFTThreshold(); xwords > t && ywords > t {
 		var xb, yb nat = x.Bits(), y.Bits()
 		// Reuse z's existing buffer if available
 		zb, err := fftmulTo(z.Bits(), xb, yb)
@@ -87,7 +103,7 @@ func Sqr(x *big.Int) (res *big.Int, err error) {
 		}
 	}()
 	xwords := len(x.Bits())
-	if xwords > fftThreshold {
+	if xwords > getFFTThreshold() {
 		return sqrFFT(x)
 	}
 	return new(big.Int).Mul(x, x), nil
@@ -100,7 +116,7 @@ func SqrTo(z, x *big.Int) (res *big.Int, err error) {
 		}
 	}()
 	xwords := len(x.Bits())
-	if xwords > fftThreshold {
+	if xwords > getFFTThreshold() {
 		var xb nat = x.Bits()
 		zb, err := fftsqrTo(z.Bits(), xb)
 		if err != nil {

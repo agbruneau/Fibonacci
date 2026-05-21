@@ -1,0 +1,42 @@
+{"level":"trace","algo":"Fast Doubling (O(log n), Parallel, Zero-Alloc)","n":1000000,"duration":0.0041378,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+goos: windows
+goarch: amd64
+pkg: github.com/agbru/fibcalc/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FastDoubling/1M-24         	       1	  10668200 ns/op	11058968 B/op	     832 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24         	{"level":"trace","algo":"Fast Doubling (O(log n), Parallel, Zero-Alloc)","n":1000000,"duration":0.00309,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	   4360400 ns/op	 2652552 B/op	     142 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24         	{"level":"trace","algo":"Fast Doubling (O(log n), Parallel, Zero-Alloc)","n":1000000,"duration":0.0030163,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	   3051500 ns/op	 2646032 B/op	     132 allocs/op
+{"level":"trace","algo":"Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)","n":1000000,"duration":0.0050472,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+BenchmarkFibonacci/MatrixExp/1M-24            	       1	   5280700 ns/op	 6465712 B/op	     751 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	{"level":"trace","algo":"Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)","n":1000000,"duration":0.0046735,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	   4719800 ns/op	 6465536 B/op	     753 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	{"level":"trace","algo":"Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)","n":1000000,"duration":0.0051182,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	   4862700 ns/op	 6463488 B/op	     747 allocs/op
+{"level":"trace","algo":"FFT-Based Doubling","n":1000000,"duration":0.0048561,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+BenchmarkFibonacci/FFTBased/1M-24             	       1	   4491700 ns/op	 5971904 B/op	    2950 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	{"level":"trace","algo":"FFT-Based Doubling","n":1000000,"duration":0.0046959,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	   4538500 ns/op	 5966024 B/op	    2931 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	{"level":"trace","algo":"FFT-Based Doubling","n":1000000,"duration":0.0051017,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	   4905500 ns/op	 5965560 B/op	    2915 allocs/op
+{"level":"trace","algo":"Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)","n":10000000,"duration":0.0696535,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+BenchmarkFibonacci/MatrixExp/10M-24           	       1	  69654200 ns/op	186440600 B/op	    4507 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	{"level":"trace","algo":"Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)","n":10000000,"duration":0.0378132,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	  39269300 ns/op	88649776 B/op	    2167 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	{"level":"trace","algo":"Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)","n":10000000,"duration":0.0371988,"status":"success","time":"2026-05-21T08:59:01-04:00","message":"calculation completed"}
+       1	  34575800 ns/op	90380360 B/op	    2167 allocs/op
+{"level":"trace","algo":"FFT-Based Doubling","n":10000000,"duration":0.0457954,"status":"success","time":"2026-05-21T08:59:02-04:00","message":"calculation completed"}
+BenchmarkFibonacci/FFTBased/10M-24            	       1	  46127000 ns/op	37750440 B/op	    3955 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	{"level":"trace","algo":"FFT-Based Doubling","n":10000000,"duration":0.0418151,"status":"success","time":"2026-05-21T08:59:02-04:00","message":"calculation completed"}
+       1	  41485400 ns/op	37599856 B/op	    3937 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	{"level":"trace","algo":"FFT-Based Doubling","n":10000000,"duration":0.0416284,"status":"success","time":"2026-05-21T08:59:02-04:00","message":"calculation completed"}
+       1	  42184900 ns/op	37678944 B/op	    3952 allocs/op
+{"level":"trace","algo":"Fast Doubling (O(log n), Parallel, Zero-Alloc)","n":10000000,"duration":0.0414258,"status":"success","time":"2026-05-21T08:59:02-04:00","message":"calculation completed"}
+BenchmarkFibonacci/FastDoubling/10M-24        	       1	  41295200 ns/op	35915568 B/op	    1163 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	{"level":"trace","algo":"Fast Doubling (O(log n), Parallel, Zero-Alloc)","n":10000000,"duration":0.0421772,"status":"success","time":"2026-05-21T08:59:02-04:00","message":"calculation completed"}
+       1	  42503900 ns/op	35922592 B/op	    1166 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	{"level":"trace","algo":"Fast Doubling (O(log n), Parallel, Zero-Alloc)","n":10000000,"duration":0.04612,"status":"success","time":"2026-05-21T08:59:02-04:00","message":"calculation completed"}
+       1	  43707300 ns/op	35990320 B/op	    1167 allocs/op
+PASS
+ok  	github.com/agbru/fibcalc/internal/fibonacci	0.809s

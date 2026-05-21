@@ -74,6 +74,16 @@ func (tc *TransformCache) Config() TransformCacheConfig {
 	return tc.config
 }
 
+// cacheGate snapshots the (Enabled, MinBitLen) tuple under RLock. Hot-path
+// readers (Get, Put, TransformCached*) must call this rather than reading
+// tc.config fields directly, otherwise they race with
+// SetTransformCacheConfig.
+func (tc *TransformCache) cacheGate() (enabled bool, minBitLen int) {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	return tc.config.Enabled, tc.config.MinBitLen
+}
+
 // NewTransformCache creates a new FFT transform cache with the given config.
 func NewTransformCache(config TransformCacheConfig) *TransformCache {
 	return &TransformCache{
@@ -204,7 +214,8 @@ func computeKey(data nat, k uint, n int) uint64 {
 // be modified. PolValues.Mul() and PolValues.Sqr() are safe as they create new
 // result values without mutating the receiver.
 func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
-	if !tc.config.Enabled || len(data)*_W < tc.config.MinBitLen {
+	enabled, minBitLen := tc.cacheGate()
+	if !enabled || len(data)*_W < minBitLen {
 		return PolValues{}, false
 	}
 
@@ -298,7 +309,8 @@ func (tc *TransformCache) logPeriodicStats() {
 
 // Put stores a transform result in the cache.
 func (tc *TransformCache) Put(data nat, pv PolValues) {
-	if !tc.config.Enabled || len(data)*_W < tc.config.MinBitLen {
+	enabled, minBitLen := tc.cacheGate()
+	if !enabled || len(data)*_W < minBitLen {
 		return
 	}
 
@@ -441,7 +453,8 @@ func (p *Poly) TransformCached(n int) (PolValues, error) {
 	cache := GetTransformCache()
 
 	// Check if caching is applicable
-	if !cache.config.Enabled || polyBitLen(p) < cache.config.MinBitLen {
+	enabled, minBitLen := cache.cacheGate()
+	if !enabled || polyBitLen(p) < minBitLen {
 		return p.Transform(n)
 	}
 
@@ -470,7 +483,8 @@ func (p *Poly) TransformCachedWithBump(n int, ba *BumpAllocator) (PolValues, err
 	cache := GetTransformCache()
 
 	// Check if caching is applicable
-	if !cache.config.Enabled || polyBitLen(p) < cache.config.MinBitLen {
+	enabled, minBitLen := cache.cacheGate()
+	if !enabled || polyBitLen(p) < minBitLen {
 		return p.TransformWithBump(n, ba)
 	}
 

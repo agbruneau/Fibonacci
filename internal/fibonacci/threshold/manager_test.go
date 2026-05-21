@@ -185,9 +185,7 @@ func TestShouldAdjust(t *testing.T) {
 				mgr.RecordIteration(1000, time.Millisecond, false, false)
 			} else {
 				// Trigger iteration count to reach interval
-				mgr.mu.Lock()
-				mgr.iterationCount++
-				mgr.mu.Unlock()
+				mgr.iterationCount.Add(1)
 			}
 		}
 
@@ -212,9 +210,7 @@ func TestShouldAdjust(t *testing.T) {
 		}
 
 		// Force iteration count to be at interval
-		mgr.mu.Lock()
-		mgr.iterationCount = DynamicAdjustmentInterval
-		mgr.mu.Unlock()
+		mgr.iterationCount.Store(int64(DynamicAdjustmentInterval))
 
 		fft, _, adjusted := mgr.ShouldAdjust()
 		if !adjusted {
@@ -240,9 +236,7 @@ func TestShouldAdjust(t *testing.T) {
 		}
 
 		// Force iteration count to be at interval
-		mgr.mu.Lock()
-		mgr.iterationCount = DynamicAdjustmentInterval
-		mgr.mu.Unlock()
+		mgr.iterationCount.Store(int64(DynamicAdjustmentInterval))
 
 		_, par, adjusted := mgr.ShouldAdjust()
 		if !adjusted {
