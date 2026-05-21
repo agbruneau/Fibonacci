@@ -1,0 +1,63 @@
+# .understandignore -- patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions -- uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# *.exe
+# *.exe~
+# *.dll
+# *.so
+# *.dylib
+# /fibcalc
+# *.test
+# *.out
+# *.prof
+# coverage.*
+# *.coverprofile
+# profile.cov
+# test_results.txt
+# !.github/workflows/coverage.yml
+# *.pgo
+# !cmd/fibcalc/default.pgo
+# go.work
+# go.work.sum
+# .env
+# .cursor/
+# .jules/
+# cover
+# coverage_new
+# .worktrees/
+# .DS_Store
+# Thumbs.db
+# *.bak
+# *.swp
+# *.tmp
+# *.pyc
+# ruvector.db
+# doc/
+# godoc.log
+# lru_benchmark.png
+# *_err.txt
+# *_out.txt
+# *.test.exe
+# fibonacci.test.exe
+# build_err.txt
+# test_err.txt
+# test_out.txt
+# e2e_rich_out.txt
+
+# --- Detected directories (uncomment to exclude) ---
+
+# test/
+# docs/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap
