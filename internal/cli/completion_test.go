@@ -40,8 +40,13 @@ func TestGenerateCompletion(t *testing.T) {
 				if !strings.Contains(output, "Zsh completion script") {
 					t.Error("Zsh script should contain 'Zsh completion script'")
 				}
-				if !strings.Contains(output, "fast matrix fft all") {
-					t.Error("Zsh script should contain algorithm list")
+				// Algorithm names are now individually single-quoted in the
+				// zsh array literal (Audit-PRD E5 hardening). Each name must
+				// appear quoted.
+				for _, name := range []string{"'fast'", "'matrix'", "'fft'", "'all'"} {
+					if !strings.Contains(output, name) {
+						t.Errorf("Zsh script should contain quoted algorithm %s", name)
+					}
 				}
 				if !strings.Contains(output, "#compdef fibcalc") {
 					t.Error("Zsh script should contain compdef directive")
@@ -56,6 +61,8 @@ func TestGenerateCompletion(t *testing.T) {
 				if !strings.Contains(output, "Fish completion script") {
 					t.Error("Fish script should contain 'Fish completion script'")
 				}
+				// Algorithm names still appear as a space-separated list
+				// inside the -xa '...' fish completion argument.
 				if !strings.Contains(output, "fast matrix fft all") {
 					t.Error("Fish script should contain algorithm list")
 				}

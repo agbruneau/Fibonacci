@@ -31,7 +31,7 @@ flowchart LR
         metrics["internal/metrics"]
         parallel["internal/parallel"]
         progress["internal/progress"]
-        sysmon["internal/sysmon"]
+        sysmon["internal/metrics/system"]
         ui["internal/ui"]
         testutil["internal/testutil"]
     end
@@ -82,7 +82,6 @@ flowchart LR
     tui --> ui
     tui --> errors
     tui --> config
-    tui --> fib
     tui --> orch
     tui --> progress
 

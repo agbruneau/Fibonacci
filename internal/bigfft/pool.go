@@ -239,10 +239,10 @@ func releaseFermat(f fermat) {
 	if f == nil {
 		return
 	}
-	cap := cap(f)
-	idx := getFermatPoolIndex(cap)
-	if idx >= 0 && fermatSizes[idx] == cap {
-		fermatPools[idx].Put(f[:cap])
+	c := cap(f)
+	idx := getFermatPoolIndex(c)
+	if idx >= 0 && fermatSizes[idx] == c {
+		fermatPools[idx].Put(f[:c])
 	}
 }
 
@@ -327,10 +327,10 @@ func releaseNatSlice(slice []nat) {
 	if slice == nil {
 		return
 	}
-	cap := cap(slice)
-	idx := getNatSlicePoolIndex(cap)
-	if idx >= 0 && natSliceSizes[idx] == cap {
-		natSlicePools[idx].Put(slice[:cap])
+	c := cap(slice)
+	idx := getNatSlicePoolIndex(c)
+	if idx >= 0 && natSliceSizes[idx] == c {
+		natSlicePools[idx].Put(slice[:c])
 	}
 }
 
@@ -415,10 +415,10 @@ func releaseFermatSlice(slice []fermat) {
 	if slice == nil {
 		return
 	}
-	cap := cap(slice)
-	idx := getFermatSlicePoolIndex(cap)
-	if idx >= 0 && fermatSliceSizes[idx] == cap {
-		fermatSlicePools[idx].Put(slice[:cap])
+	c := cap(slice)
+	idx := getFermatSlicePoolIndex(c)
+	if idx >= 0 && fermatSliceSizes[idx] == c {
+		fermatSlicePools[idx].Put(slice[:c])
 	}
 }
 

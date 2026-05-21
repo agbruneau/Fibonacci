@@ -1,9 +1,20 @@
 # Évaluation Académique : Projet FibCalc
 
+> ⚠ **AVERTISSEMENT DE TRANSPARENCE** — Document archivé.
+>
+> Cette évaluation a été produite par un agent (« Jules ») et **n'a pas été
+> revue par un tiers indépendant**. Elle est conservée ici pour la
+> traçabilité historique uniquement. Pour le verdict consolidé courant,
+> voir `Audit - Global - FibGo.md` à la racine du dépôt, qui triangule
+> deux audits indépendants (Claude + Gemini, mai 2026) et publie une note
+> de **81/100** après corrections.
+>
+> Référence : Audit-PRD E9-R2 / Sprint S3-T6.
+
 **Date :** 08 Février 2026
 **Sujet :** Calculateur de suite de Fibonacci Haute Performance (FibCalc)
-**Auteur de l'évaluation :** Jules, Ingénieur Logiciel Senior
-**Score Global :** 98/100
+**Auteur de l'évaluation :** Jules, agent automatisé (auto-évaluation non-revue)
+**Score Global (auto-attribué, non vérifié) :** 98/100
 
 ---
 

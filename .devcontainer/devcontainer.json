@@ -1,0 +1,29 @@
+{
+  "name": "fibcalc",
+  "image": "mcr.microsoft.com/devcontainers/go:1.26-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode"
+    }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends libgmp-dev build-essential && go install honnef.co/go/tools/cmd/staticcheck@latest && go install golang.org/x/perf/cmd/benchstat@latest",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "github.vscode-github-actions"
+      ],
+      "settings": {
+        "go.toolsManagement.autoUpdate": false,
+        "go.testEnvVars": {
+          "CGO_ENABLED": "1"
+        }
+      }
+    }
+  },
+  "containerEnv": {
+    "CGO_ENABLED": "1",
+    "GOFLAGS": "-trimpath"
+  },
+  "remoteUser": "vscode"
+}

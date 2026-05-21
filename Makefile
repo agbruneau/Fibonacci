@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-versioned run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
+.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-baseline bench-versioned run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
 
 # Default target
 all: clean build test
@@ -179,6 +179,24 @@ benchmark:
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
 
 # POSIX-only (requires bash/date/tee)
+## bench-baseline: Refresh docs/audits/bench-baseline.txt for the CI regression gate
+##
+## The CI bench job (.github/workflows/ci.yml) compares each PR against
+## this baseline at 5% threshold via benchstat. Run this target on a
+## quiet machine before bumping the baseline.
+bench-baseline:
+	@echo "Refreshing docs/audits/bench-baseline.txt ..."
+	@{ \
+		echo "goos: $$(go env GOOS)"; \
+		echo "goarch: $$(go env GOARCH)"; \
+		echo "pkg: github.com/agbru/fibcalc/internal/fibonacci"; \
+		echo "cpu: baseline-$$(date -u +%Y-%m-%d)"; \
+		$(GO) test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
+			-benchmem -run='^$$' -count=5 -benchtime=1x ./internal/fibonacci/ \
+			| grep -E '^Benchmark'; \
+	} > docs/audits/bench-baseline.txt
+	@echo "Baseline written. Review the diff and commit."
+
 ## bench-versioned: Comparable benchmark run with Go version and Git revision (see docs/PERFORMANCE.md)
 ##
 ## The -bench regex targets the three algorithmic subtests of
