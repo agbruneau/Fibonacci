@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf /c/Users/agbru/OneDrive/Documents/GitHub/FibGo/docs/dashboard/*)",
+      "Bash(cp -r C:/Users/agbru/.claude/plugins/cache/understand-anything/understand-anything/2.7.3/packages/dashboard/dist/* /c/Users/agbru/OneDrive/Documents/GitHub/FibGo/docs/dashboard/)",
+      "Bash(cp /c/Users/agbru/OneDrive/Documents/GitHub/FibGo/.understand-anything/knowledge-graph.json /c/Users/agbru/OneDrive/Documents/GitHub/FibGo/docs/dashboard/)",
+      "Bash(cp /c/Users/agbru/OneDrive/Documents/GitHub/FibGo/.understand-anything/meta.json /c/Users/agbru/OneDrive/Documents/GitHub/FibGo/docs/dashboard/)"
+    ]
+  }
+}
