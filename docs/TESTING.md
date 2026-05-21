@@ -1,5 +1,7 @@
 # Testing Strategy
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 ## Overview
 
 The Fibonacci Calculator project uses a layered testing strategy that combines unit tests, golden file validation, fuzz testing, property-based testing, benchmark testing, and end-to-end testing. The test suite contains 100+ test files distributed across all packages, with a coverage floor of 80% enforced in CI.

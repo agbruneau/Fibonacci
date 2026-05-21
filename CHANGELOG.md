@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/FibGo/dashboard/>. 906 nodes / 3 809 edges / 8 architectural layers / 11-step guided tour, generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages).
 - **Interactive TUI mode**: btop-style dashboard built with Bubble Tea (Elm architecture), featuring real-time progress charts, algorithm comparison, and keyboard navigation
 - Portable arithmetic fallback for non-amd64 architectures (`arith_generic.go`)
 - Godoc example functions for `Calculator`, `DefaultFactory`, and `CalculateWithObservers`

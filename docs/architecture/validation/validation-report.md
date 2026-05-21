@@ -1,5 +1,7 @@
 # Architecture Validation
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 **Project**: FibCalc (github.com/agbru/fibcalc)
 
 This document records the architectural invariants that the documentation

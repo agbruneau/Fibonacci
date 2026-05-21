@@ -1,5 +1,7 @@
 # Calibration System
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 ## Overview
 
 The calibration system (`internal/calibration/`) determines optimal performance thresholds for the current hardware. Rather than relying on hard-coded constants, it benchmarks the system at runtime and selects the threshold values that yield the fastest execution for the active CPU, architecture, and core count.

@@ -1,5 +1,7 @@
 # FFT Multiplication for Large Integers
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 > **Complexity**: O(n log n) for multiplying two numbers of n bits
 > **Used by**: Fast Doubling and Matrix Exp. for very large numbers
 

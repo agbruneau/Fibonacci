@@ -1,5 +1,7 @@
 # Progress Bar Algorithm for O(log n) Algorithms
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 ## Description
 
 This algorithm implements a precise progress tracking system for O(log n) time complexity algorithms, specifically designed for algorithms that iterate over the bits of a number (such as Fast Doubling, Matrix Exponentiation). It models the work performed as a geometric series where each step requires approximately 4 times more work than the previous one.

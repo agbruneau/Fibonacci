@@ -1,5 +1,7 @@
 # BigFFT Subsystem: Implementation Internals
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 > **Scope**: Implementation architecture of `internal/bigfft`
 > **Complexity**: O(n log n) integer multiplication via Schonhage-Strassen FFT
 > **See also**: [FFT.md](FFT.md) for mathematical theory and 3-tier multiplication selection

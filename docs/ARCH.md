@@ -2,6 +2,8 @@
 
 > **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
 
+> **Vue interactive** — Un dashboard navigable du graphe de connaissances (906 nœuds, 3 809 arêtes, 8 couches, tour guidé 11 étapes) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`.understand-anything/knowledge-graph.json`](../.understand-anything/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
+
 ## 1) Project Overview
 
 **FibGo** (module/library name: **FibCalc**) is a high-performance Fibonacci computation system implemented in Go.

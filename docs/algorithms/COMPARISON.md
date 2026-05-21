@@ -1,5 +1,7 @@
 # Algorithm Comparison
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 ## Overview
 
 This document compares the three Fibonacci calculation algorithms implemented in FibCalc.

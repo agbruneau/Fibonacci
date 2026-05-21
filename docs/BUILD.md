@@ -1,5 +1,7 @@
 # Build Configuration
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
+
 ## Overview
 
 This document covers the build system, compilation options, cross-compilation, and environment configuration for the Fibonacci Calculator. The project uses standard Go tooling with a Makefile for common workflows.
@@ -294,6 +296,70 @@ When set to `0` (the default), thresholds are resolved via: calibration profile 
 | `FIBCALC_CALIBRATION_PROFILE` | Path to calibration profile file | (none) |
 
 See `.env.example` for a complete reference.
+
+## Dashboard statique (GitHub Pages)
+
+The interactive knowledge-graph dashboard at <https://agbruneau.github.io/FibGo/dashboard/> is a static build of the `@understand-anything/dashboard` package, pre-bundled with the project's knowledge graph and served from [`docs/dashboard/`](dashboard/).
+
+### Regenerate the graph
+
+```bash
+# Inside Claude Code (or any Anthropic agent with the plugin installed):
+/understand
+```
+
+This runs the `understand-anything` plugin and rewrites:
+- `.understand-anything/knowledge-graph.json` (graph itself)
+- `.understand-anything/meta.json` (commit hash + timestamp)
+- `.understand-anything/fingerprints.json` (incremental-update baseline)
+
+### Rebuild the dashboard bundle
+
+Requires the `understand-anything` plugin checkout (Node 22+, pnpm 10+):
+
+```bash
+PLUGIN=~/.claude/plugins/cache/understand-anything/understand-anything/2.7.3
+cd "$PLUGIN" && pnpm install --ignore-scripts && pnpm --filter @understand-anything/core build
+
+# Bake env vars into the bundle pointing at the colocated JSON files
+cd "$PLUGIN/packages/dashboard"
+MSYS_NO_PATHCONV=1 \
+VITE_GRAPH_URL="./knowledge-graph.json" \
+VITE_META_URL="./meta.json" \
+VITE_CONFIG_URL="./config.json" \
+npx vite build --config vite.config.demo.ts --base=/FibGo/dashboard/
+
+# Copy the build + graph files into docs/dashboard/
+TARGET=<FibGo>/docs/dashboard
+rm -rf "$TARGET"/*
+cp -r dist/* "$TARGET/"
+cp <FibGo>/.understand-anything/knowledge-graph.json "$TARGET/"
+cp <FibGo>/.understand-anything/meta.json "$TARGET/"
+touch "$TARGET/.nojekyll"
+```
+
+### Why `MSYS_NO_PATHCONV=1`?
+
+Git Bash on Windows otherwise rewrites `/FibGo/dashboard/` into `C:\Program Files\Git\FibGo\dashboard\`, which Vite bakes into `index.html` and breaks asset loading.
+
+### Demo mode flags
+
+The dashboard ships with `vite.config.demo.ts` which sets `VITE_DEMO_MODE=true`. In that mode:
+
+- The access-token gate is bypassed (`__demo__` placeholder)
+- `/knowledge-graph.json`, `/meta.json`, `/config.json` URLs come from the `VITE_*_URL` env vars baked at build time
+- The `/file-content.json` source-preview endpoint is unavailable (it's a dev-server middleware, not portable to static hosting)
+- Search, layers, tour, graph layouts, all interactive views remain fully functional
+
+### GitHub Pages activation
+
+Repository **Settings → Pages**:
+
+- **Source:** *Deploy from a branch*
+- **Branch:** `main` · **Folder:** `/docs`
+- Save
+
+GitHub Pages picks up `docs/dashboard/.nojekyll` and skips Jekyll processing for the bundle. URL becomes available after ~1-2 minutes.
 
 ## Related Documentation
 

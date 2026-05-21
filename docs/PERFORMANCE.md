@@ -1,5 +1,7 @@
 # Performance Guide
 
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+
 ## Overview
 
 This document describes the optimization techniques used in the Fibonacci Calculator and provides advice on achieving the best performance on your hardware.

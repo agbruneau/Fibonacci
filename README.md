@@ -5,6 +5,7 @@
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)
 ![Coverage](https://img.shields.io/badge/Coverage-87.5%25-green?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=for-the-badge)
+[![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
 
 **FibCalc** is an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It demonstrates Clean Architecture, zero-allocation strategies, adaptive parallelism, and algorithmic optimization (Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication). Written in Go; handles indices in the hundreds of millions.
 
@@ -88,6 +89,8 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 ## Architecture
 
 Clean Architecture with four layers. Source of truth: [`docs/architecture/`](docs/architecture/).
+
+> **Interactive view** — Browse the full knowledge graph (906 nodes, 3 809 edges, 8 architectural layers, 11-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
 
 ```mermaid
 graph TD
@@ -275,7 +278,10 @@ internal/
 docs/
   architecture/       # C4 diagrams, dependency graph, patterns
   algorithms/         # math deep dives per algorithm
+  audits/             # benchmark baselines (non-regression reference)
+  dashboard/          # static GitHub Pages build of the interactive knowledge graph
   {BUILD,PERFORMANCE,TESTING,CALIBRATION,TUI_GUIDE}.md
+.understand-anything/ # generated knowledge graph (source for docs/dashboard/)
 test/
   e2e/                # end-to-end CLI integration tests
 ```
