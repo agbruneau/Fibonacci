@@ -90,7 +90,7 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 Clean Architecture with four layers. Source of truth: [`docs/architecture/`](docs/architecture/).
 
-> **Interactive view** — Browse the full knowledge graph (906 nodes, 3 809 edges, 8 architectural layers, 11-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
+> **Interactive view** — Browse the full knowledge graph (971 nodes, 3 781 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
 
 ```mermaid
 graph TD

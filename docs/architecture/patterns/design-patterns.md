@@ -1,6 +1,6 @@
 # Design Patterns — FibGo
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 971 nodes / 8 layers / 13-step tour)
 
 This document enumerates the concrete design patterns in use across the
 FibGo codebase and points to the implementation sites. It is a companion

@@ -1,6 +1,6 @@
 # Progress Bar Algorithm for O(log n) Algorithms
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 906 nodes / 8 layers / 11-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 971 nodes / 8 layers / 13-step tour)
 
 ## Description
 

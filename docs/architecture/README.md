@@ -8,9 +8,9 @@ Pour une exploration interactive complémentaire aux diagrammes statiques :
 
 **[https://agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**
 
-- **906 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 809 arêtes** (imports, calls, contains, tested_by, documents…)
+- **971 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 781 arêtes** (imports, calls, contains, tested_by, documents…)
 - **8 couches** architecturales (entry-point, application, presentation, domain, math-kernel, cross-cutting, e2e-tests, project-support)
-- **Tour guidé 11 étapes** depuis `cmd/fibcalc/main.go` jusqu'aux tests/CI
+- **Tour guidé 13 étapes** depuis `cmd/fibcalc/main.go` jusqu'aux tests/CI
 - Recherche, filtres par couche/type, layout dynamique (force, ELK, dagre)
 
 Source : [`.understand-anything/knowledge-graph.json`](../../.understand-anything/knowledge-graph.json). Build statique dans [`../dashboard/`](../dashboard/). Régénération : voir [`../BUILD.md#dashboard-statique-github-pages`](../BUILD.md#dashboard-statique-github-pages).
