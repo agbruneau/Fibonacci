@@ -3,7 +3,7 @@
 - **Status**: Proposed | Accepted | Deprecated | Superseded by ADR-XXXX
 - **Date**: YYYY-MM-DD
 - **Deciders**: <names>
-- **Audit source**: link to `Audit - Global - FibGo.md` section, if applicable
+- **Context source**: commit range or issue link, if applicable
 
 ## Context
 
@@ -34,5 +34,6 @@ What is the chosen approach? Be specific — file paths, type names, contract ch
 
 ## References
 
-- PRD: `Audit - PRD - FibGo.md` Epic E?-R?
-- Plan: `Audit - PRDPLan - FibGo.md` Sprint S?-T?
+- Implementation file(s) :
+- Test(s) :
+- Related ADR(s) :

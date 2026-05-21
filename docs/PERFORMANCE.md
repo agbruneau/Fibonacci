@@ -54,6 +54,24 @@ go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
 go test -bench=BenchmarkFastDoubling -benchtime=5x ./internal/fibonacci/
 ```
 
+### Regression gate (>= 5 %, CI-enforced)
+
+The `bench` job in `.github/workflows/ci.yml` is **blocking** — a PR
+introducing any sub-benchmark regression > 5 % in
+`BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)` fails the build.
+
+The gate compares each PR against `docs/audits/bench-baseline.txt` using
+`benchstat` ; the percentage threshold is enforced by
+`.github/scripts/bench_gate.py`. Refresh the baseline on a quiet machine :
+
+```bash
+make bench-baseline                            # writes docs/audits/bench-baseline.txt
+git add docs/audits/bench-baseline.txt && git commit -m 'perf(bench): refresh baseline'
+```
+
+For a one-shot DTM (Dynamic Threshold Manager) comparison, see
+`docs/audits/bench-dtm-{on,off}.txt` and ADR-0001.
+
 ### Versioned benchmark snapshots (regression tracking)
 
 To compare performance across Git revisions on the **same machine**, use a fixed command and record the environment:
@@ -68,7 +86,7 @@ To compare performance across Git revisions on the **same machine**, use a fixed
 
 2. **Annotate the result**: note the Git tag or commit (`git rev-parse HEAD`) in your changelog or ticket when you archive a snapshot. Single-run numbers are noisy; compare trends only on an idle machine, same flags, same `GOMAXPROCS` if you tune it.
 
-3. **CHANGELOG** (optional): add a one-line entry such as  
+3. **CHANGELOG** (optional): add a one-line entry such as
    `Perf: benchmark snapshot @ <SHA> — FastDoubling ns/op ±X% vs previous main` when you publish a measured change.
 
 The reference table in [Reference Benchmarks](#reference-benchmarks) above is tied to a specific hardware and Go 1.25.0 configuration; your snapshots document *your* runner.

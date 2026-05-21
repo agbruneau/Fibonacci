@@ -130,7 +130,38 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 | `build-windows` | windows | amd64 | Full SIMD support |
 | `build-darwin` | darwin | amd64 + arm64 | SIMD on amd64 only |
 
-Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically.
+Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically. The CI workflow `cross-compile` job exercises `linux/arm64`, `darwin/arm64`, and `darwin/amd64` on every PR so a latent amd64-only import surfaces immediately. Full matrix and fallback contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
+
+## Reproducible Build (Docker / devcontainer)
+
+Two artifacts ship for environment isolation :
+
+### Multi-stage `Dockerfile`
+
+```bash
+docker build -t fibcalc:local .
+docker run --rm fibcalc:local --help
+```
+
+- Stage 1 (`golang:1.26-bookworm` builder) — installs `libgmp-dev` and the
+  full CGO toolchain. Consumes `cmd/fibcalc/default.pgo` if present.
+- Stage 2 (`gcr.io/distroless/base-debian12` runtime) — ships only the
+  linked binary as `nonroot`. Image size < 50 MB.
+
+To build with the GMP backend enabled : edit the Dockerfile's build line
+to add `-tags=gmp`.
+
+### `.devcontainer/devcontainer.json` (VS Code)
+
+Opening the repo in a VS Code Dev Container loads
+`mcr.microsoft.com/devcontainers/go:1.26-bookworm` with `libgmp-dev`,
+`build-essential`, `staticcheck`, and `benchstat` pre-installed via
+`postCreateCommand`. `CGO_ENABLED=1` is set in the container env so
+`go test -race` works out of the box.
+
+See also [`docs/PORTABILITY.md`](PORTABILITY.md) §4 for per-target build
+commands and [`docs/PERFORMANCE.md`](PERFORMANCE.md) for the CI benchmark
+gate that protects these binaries from > 5 % regressions.
 
 ## Version Injection
 

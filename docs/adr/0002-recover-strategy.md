@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-21
-- **Audit source**: `Audit - Global - FibGo.md` §4.2
+- **Context source**: hardening sprint mai 2026 (commit `202a02c`).
 
 ## Context
 
@@ -49,5 +49,5 @@ Mais aucun consommateur de production n'utilise les wrappers `*Safe`.
 
 ## References
 
-- PRD : `Audit - PRD - FibGo.md` Epic E2
-- Plan : `Audit - PRDPLan - FibGo.md` S2-T1, S2-T2
+- Implementation : `internal/bigfft/fft.go` (sentinel `isFermatPostConditionPanic`)
+- Tests : `internal/bigfft/fft_recover_policy_test.go`, `internal/bigfft/fermat_panic_test.go`

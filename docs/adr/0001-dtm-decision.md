@@ -2,7 +2,7 @@
 
 - **Status**: Accepted (decision: KEEP, with reduced maintenance cost via atomic conversion).
 - **Date**: 2026-05-21 (mesures complétées)
-- **Audit source**: `Audit - Global - FibGo.md` §2.1 C5, §5.2 P1-01
+- **Context source**: hardening sprint mai 2026 (commits `c0cc530` → `3d8b977`).
 
 ## Context
 
@@ -17,8 +17,8 @@ L'audit a relevé que cette redondance n'est appuyée par aucun benchmark publi�
 
 Deux étapes :
 
-1. **Court terme (S1-T1)** ✅ : convertir les trois champs mutés hors verrou (`currentFFTThreshold`, `currentParallelThreshold`, `lastAdjustment`) en `atomic.Int64`/`atomic.Pointer[time.Time]`. L'invariant A-18 devient inutile. Réalisé dans le commit `c0cc530`.
-2. **Moyen terme (S3-T1)** ✅ : `docs/audits/bench-dtm-{on,off}.txt` produits via `BenchmarkFibonacciDTM` (`internal/fibonacci/dtm_bench_test.go`).
+1. **Court terme** ✅ : convertir les trois champs mutés hors verrou (`currentFFTThreshold`, `currentParallelThreshold`, `lastAdjustment`) en `atomic.Int64`/`atomic.Pointer[time.Time]`. L'invariant A-18 devient inutile. Réalisé dans le commit `c0cc530`.
+2. **Moyen terme** ✅ : `docs/audits/bench-dtm-{on,off}.txt` produits via `BenchmarkFibonacciDTM` (`internal/fibonacci/dtm_bench_test.go`).
 
 ### Résultats benchmark (single-sample, `-count=5 -benchtime=1x`, Windows amd64)
 
@@ -60,5 +60,5 @@ Trois raisons :
 
 ## References
 
-- PRD : `Audit - PRD - FibGo.md` Epic E7
-- Plan : `Audit - PRDPLan - FibGo.md` S3-T1, S3-T2
+- Benchmark artifacts : `docs/audits/bench-dtm-{on,off}.txt`
+- Implementation : `internal/fibonacci/dtm_bench_test.go`, `internal/fibonacci/threshold/manager.go`

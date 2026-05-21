@@ -2,13 +2,13 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-21
-- **Audit source**: `Audit - Global - FibGo - v2.md` §5
+- **Context source**: clôture du hardening sprint (commits `c0cc530` → `3d8b977`).
 
 ## Context
 
-Le ré-audit v2 a constaté que la cible PRD (≥ 92/100) est atteinte avec
-93/100 ; cinq items demeurent. Cet ADR statue formellement sur leur
-sort plutôt que de les laisser flotter en *backlog* implicite.
+À la clôture du hardening sprint, cinq items du plan d'exécution
+demeuraient en discussion. Cet ADR statue formellement sur leur sort
+plutôt que de les laisser flotter en *backlog* implicite.
 
 ## Decision
 
@@ -100,7 +100,6 @@ F(100k), F(500k), F(1M) ajoutées via `cmd/generate-golden`.
 
 ## References
 
-- `Audit - Global - FibGo - v2.md` §5
 - ADR-0001 (DTM KEEP)
 - ADR-0002 (recover sentinel)
 - ADR-0003 (globaux atomic)

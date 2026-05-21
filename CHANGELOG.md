@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Hardening sprint (May 2026)
+
+Architecture / concurrency / security hardening sweep documented in
+`docs/adr/0001`..`0004`. Net effect : closed every data race the dual-
+audit (Claude + Gemini) had flagged, broke three upward import arrows
+gated by `internal/arch_test.go`, restored panic propagation for FFT
+post-condition violations, lifted `internal/cli/completion/` coverage
+from 0 % to 95.7 %, and added the multi-stage `Dockerfile` /
+`.devcontainer/` for reproducible builds. Working audit documents have
+been purged ; the ADR series is the surviving source of truth.
+
+### Added (hardening)
+
+- **Concurrence safe** : `DynamicThresholdManager` fields converted to
+  `atomic.Int64` / `atomic.Pointer[time.Time]` ; `bigfft` globals
+  (`fftThreshold`, `parallelFFTRecursionThreshold`,
+  `maxParallelFFTDepth`) routed through atomic accessors (ADR-0003) ;
+  `TransformCache.cacheGate()` snapshot under RLock at 5 hot-path sites.
+- **Cache FFT** : `putByKey` allocates fresh backing on eviction — no
+  recycle — eliminating the use-after-free aliasing window for
+  concurrent `Get()` holders.
+- **FFT panic policy** : sentinel `isFermatPostConditionPanic` re-
+  propagates internal invariant violations instead of masking them as
+  opaque errors (ADR-0002).
+- **CLI completion security** : per-shell escape helpers
+  (`escapeBashDoubleQuoted`, `escapeFishSingleQuoted`,
+  `escapeZshSingleQuoted`, `escapePowerShellSingleQuoted`) plus
+  9 adversarial tests per shell covering `$(...)`, backticks, `;`,
+  spaces, quotes, backslashes, newlines.
+- **Reproducible build** : multi-stage `Dockerfile`
+  (`golang:1.26-bookworm` builder + distroless runtime) and
+  `.devcontainer/devcontainer.json` (VS Code, CGO + libgmp +
+  benchstat pre-installed).
+- **Architecture gate** : `internal/arch_test.go` blocks PRs that
+  reintroduce `threshold → config`, `errors → format`, or
+  `tui → fibonacci`.
+- **Perf regression gate** : `.github/workflows/ci.yml` `bench` job is
+  blocking ; `benchstat` + `.github/scripts/bench_gate.py` compare each
+  PR to `docs/audits/bench-baseline.txt` at a 5 % threshold.
+  `make bench-baseline` refreshes the file.
+- **Cross-compile job** : CI builds `linux/arm64`, `darwin/arm64`,
+  `darwin/amd64` on every PR.
+- **Fuzz coverage extended** : new `bigfft.FuzzMul` / `FuzzSqr` targets
+  validate against `math/big` ; Fibonacci fuzz bounds raised
+  50 000 → 200 000 to exercise the FFT regime.
+- **Golden corpus extended** : `internal/fibonacci/testdata/fibonacci_golden.json`
+  gained F(50 000), F(100 000), F(200 000) under ADR-0004 §B5.
+- **Observer counter** : `progress.RecoveredObserverCount()` exposes
+  swallowed panics from frozen `ProgressCallback`s.
+- **Documentation** : `docs/PORTABILITY.md` (matrix + fallbacks),
+  `docs/adr/0001..0004`, enriched `doc.go` for `cli`, `config`,
+  `orchestration`, `fibonaccitest`, and a `make stats` target as the
+  canonical source for package & LOC counts.
+
+### Removed (hardening)
+
+- Working audit drafts at repo root (`Audit - Claude - FibGo.md`,
+  `Audit - Gemini - FibGo.md`, `Audit - Global - FibGo.md`,
+  `Audit - Global - FibGo - v2.md`, `Audit - PRD - FibGo.md`,
+  `Audit - PRDPLan - FibGo.md`) ; the durable record now lives in
+  `docs/adr/` and this CHANGELOG.
+- Pre-hardening bench baseline `docs/audits/bench-baseline-pre-hardening.txt`
+  (superseded by `docs/audits/bench-baseline.txt`) and the legacy
+  `bench-A10-*.txt` artifacts from the previous audit cycle.
+
 ### Changed
 
 - **Post-audit remediation period closed.** The audit-driven remediation workflow (A-NN finding tracking, "Vague A" review freeze, post-audit branch gating) is wound down. Project documentation is purged of audit scaffolding: contributor-facing docs no longer route through `audit.md` / `AuditPlanning.md` / `audit-prompt.md`, and the standard `CONTRIBUTING.md` workflow is the single source of process truth going forward. Historical CHANGELOG entries below are retained verbatim as the accurate record of what was done during remediation.

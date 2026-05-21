@@ -1,6 +1,0 @@
-     379	   3191001 ns/op	 1677336 B/op	      98 allocs/op
-     351	   3179790 ns/op	 1731399 B/op	      99 allocs/op
-     376	   3347182 ns/op	 1744339 B/op	      99 allocs/op
-      24	  44320096 ns/op	24852839 B/op	    1078 allocs/op
-      27	  43595196 ns/op	24533586 B/op	    1075 allocs/op
-      26	  43358919 ns/op	24487018 B/op	    1083 allocs/op

@@ -6,6 +6,15 @@
 
 The calibration system (`internal/calibration/`) determines optimal performance thresholds for the current hardware. Rather than relying on hard-coded constants, it benchmarks the system at runtime and selects the threshold values that yield the fastest execution for the active CPU, architecture, and core count.
 
+It complements (does not replace) the **Dynamic Threshold Manager**
+(`internal/fibonacci/threshold/`), which adjusts the FFT/parallel
+thresholds *in-flight* during a calculation based on observed
+per-iteration metrics. The two layers are kept separate because they
+solve different problems : calibration produces a startup snapshot,
+the manager reacts to per-run variance. Their relative value is
+benchmarked in [`docs/audits/bench-dtm-{on,off}.txt`](audits/) and
+analysed in [`docs/adr/0001-dtm-decision.md`](adr/0001-dtm-decision.md).
+
 Three operational modes are supported:
 
 | Mode | Flag | Latency | Description |

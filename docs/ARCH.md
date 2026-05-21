@@ -11,7 +11,7 @@
 - **Go module path:** `github.com/agbru/fibcalc`
 - **Go version:** 1.25.0
 - **Primary binary:** `cmd/fibcalc`
-- **Codebase stats:** 24 Go packages (`go list ./...`; 22 internal + `cmd/fibcalc`, `cmd/generate-golden`, plus the `test/e2e` package) | 100+ test files | Markdown documentation at repo root and under `docs/`
+- **Codebase stats:** run `make stats` for the canonical Go-package and LOC counts (the totals drift on every refactor; encoding them statically here has historically caused divergence between this document, `CLAUDE.md` and reality).
 - **Purpose:** compute very large Fibonacci values efficiently, compare multiple algorithms, and expose both CLI and TUI execution modes.
 - **Core strengths:**
   - Multiple `O(log n)` Fibonacci algorithms (Fast Doubling, Matrix Exponentiation, FFT-Based Doubling)
@@ -73,11 +73,21 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 
 ### Dependency Rules
 
-- **Interfaces layer** → imports Application + Use-Case layers
-- **Application layer** → imports Use-Case + Domain layers
-- **Use-Case layer** → imports Domain layer only
-- **Domain layer** → no imports from outer layers (self-contained)
-- **Infrastructure** → utility packages with no upward dependencies
+- **Interfaces layer** → imports Application + Use-Case layers. `internal/tui`
+  consumes domain types through `orchestration.Calculator`/`Options` aliases
+  (no direct `internal/fibonacci` import) — enforced by `internal/arch_test.go`.
+- **Application layer** → imports Use-Case + Domain layers.
+- **Use-Case layer** → imports Domain layer only.
+- **Domain layer** → no imports from outer layers (self-contained).
+  `internal/fibonacci/threshold` does **not** import `internal/config` ; the
+  application layer wires `threshold.Tuning` via `threshold.SetTuning`.
+- **Infrastructure** → utility packages with no upward dependencies.
+  `internal/errors` ships its own byte-formatter (`formatBytesLocal`) instead
+  of depending on `internal/format`.
+
+These three arrows (`threshold → config`, `errors → format`, `tui →
+fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
+`internal/arch_test.go` fails the build if any of them is reintroduced.
 
 ---
 

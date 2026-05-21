@@ -104,10 +104,10 @@ Ces fichiers concentrent la complexité ou des couplages cachés. Avant toute mo
 | `internal/fibonacci/fastdoubling.go` | Hot path ; pooling state+arena partagé. Tout chemin de release doit détacher les aliases avant `statePool.Put`. |
 | `internal/fibonacci/doubling_framework.go` | Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est amplifiée. |
 | `internal/fibonacci/threshold/manager.go` | ~283 L ; invariant single-writer non explicité dans le code — ne pas introduire d'écrivain concurrent. |
-| `internal/bigfft/fft_cache.go` | Globaux + cache LRU ; aliasing backing/`pv` en éviction (risque résiduel actif). |
+| `internal/bigfft/fft_cache.go` | Globaux + cache LRU. Le risque d'aliasing backing/`pv` en éviction est **fermé** : `putByKey` alloue toujours un buffer frais (cf. invariants ci-dessus + ADR-0004 §B1). |
 | `internal/bigfft/pool.go` | Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool` ; routage par capacité critique. |
-| `internal/bigfft/fermat.go` | Panics d'invariants ; un `recover()` global peut masquer la violation d'une post-condition — préserver la propagation. |
-| `internal/bigfft/fft.go`, `fft_recursion.go` | Globaux mutables non synchronisés sur hot path — ne pas en ajouter (cf. directive 4). |
+| `internal/bigfft/fermat.go` | Panics d'invariants. Les panics post-condition de `Mul`/`Sqr` doivent propager ; le `recover()` global de `fft.go` re-route via le classifier sentinel — cf. ADR-0002. |
+| `internal/bigfft/fft.go`, `fft_recursion.go` | Globaux ramenés à `atomic.Int64`/`atomic.Uint64` privés (ADR-0003). Lectures hot path via les accesseurs. Ne pas réintroduire de globaux non synchronisés. |
 | `internal/tui/model.go` | ~188 L, routeur `Update` pur ; garder la pureté (pas d'effets de bord dans le routage). |
 | `internal/cli/completion/` | Registry unique, 4 générateurs shell ; échappement des identifiants vers le shell — risque de sécurité latent. |
 | `internal/fibonacci/testdata/fibonacci_golden.json` | **Immuable** sans accord explicite ADR (oracle de non-régression algorithmique). Étendu à F(50k/100k/200k) en mai 2026 sous accord ADR-0004 §B5 ; toute extension future requiert le même protocole. |
@@ -152,11 +152,11 @@ make build-all       # cross-compilation (linux, windows, macOS)
 
 1. **Performance critique** — Toute modification dans `internal/fibonacci/` ou `internal/bigfft/` doit être vérifiée avec `make benchmark` (ou `go test -bench=BenchmarkFibonacci -benchmem -run=^$ ./internal/fibonacci/`) avant + après. Régression > 5 % = blocage. Comparer aux baselines `docs/audits/`.
 
-2. **Golden tests obligatoires** — Tout changement algorithmique doit passer `internal/fibonacci/testdata/fibonacci_golden.json`. Le fichier golden est **immuable** sans approbation explicite (aucun `-update`).
+2. **Golden tests obligatoires** — Tout changement algorithmique doit passer `internal/fibonacci/testdata/fibonacci_golden.json`. Le fichier golden est **immuable** sans approbation ADR explicite (aucun `-update`). Le corpus a été étendu à F(50k/100k/200k) sous ADR-0004 §B5.
 
-3. **Étanchéité des couches** — `internal/` ne doit pas fuiter vers `cmd/`. Hiérarchie : `cmd → app → orchestration → fibonacci/bigfft → config/errors`.
+3. **Étanchéité des couches** — `internal/` ne doit pas fuiter vers `cmd/`. Hiérarchie : `cmd → app → orchestration → fibonacci/bigfft → config/errors`. Trois arrows remontants spécifiquement gardés par `internal/arch_test.go` : `threshold → config`, `errors → format`, `tui → fibonacci`.
 
-4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutines sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** : la trajectoire est l'injection (`FFTContext`), pas l'ajout d'état mutable partagé.
+4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutines sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** : les trois existants (`fftThreshold`, `parallelFFTRecursionThreshold`, `maxParallelFFTDepth`) sont en `atomic.*` privés avec accesseurs (ADR-0003). Une migration future vers `FFTContext` exclusif est tracée en backlog (ADR-0004 §B1, won't-fix pour la release courante).
 
 5. **Modifications chirurgicales** — Préférer le diff minimal. Un refactoring d'envergure (> 50 LOC sur > 2 fichiers) se justifie dans le message de commit (raison technique, compromis, alternative écartée).
 
@@ -199,10 +199,13 @@ Cycle typique : modifier le code → `/understand` (régénère le graphe) → r
 ## Références
 
 - **[Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/)** — knowledge-graph navigable (GitHub Pages, built from `docs/dashboard/`).
+- [`docs/adr/`](docs/adr/) — décisions architecturales (0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog).
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph.
 - [`docs/algorithms/`](docs/algorithms/) — Fast Doubling, Matrix, FFT, GMP, comparaison.
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — tuning et méthodologie de benchmark.
 - [`docs/TESTING.md`](docs/TESTING.md) — stratégie de test, génération de mocks.
+- [`docs/PORTABILITY.md`](docs/PORTABILITY.md) — matrice OS/arch, fallbacks, race detector.
+- [`docs/BUILD.md`](docs/BUILD.md) — cross-compilation, PGO, signing, Docker/devcontainer.
 - [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog format, SemVer.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow contribution.
-- `.golangci.yml` — 24 linters configurés, exceptions documentées.
+- `.golangci.yml` — 24 linters configurés (incl. `govet shadow`), exceptions documentées.

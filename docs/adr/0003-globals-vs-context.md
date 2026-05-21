@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-21
-- **Audit source**: `Audit - Global - FibGo.md` §4.1 item (c), §5.1 P0-01
+- **Context source**: hardening sprint mai 2026 (commit `c0cc530`).
 
 ## Context
 
@@ -47,5 +47,5 @@ Une trajectoire alternative existe via `FFTContext` (`internal/bigfft/context.go
 
 ## References
 
-- PRD : `Audit - PRD - FibGo.md` Epic E1-R3
-- Plan : `Audit - PRDPLan - FibGo.md` S1-T3
+- Implementation : `internal/bigfft/fft.go` (`fftThreshold` atomic), `internal/bigfft/fft_recursion.go` (`parallelFFTRecursionThreshold`, `maxParallelFFTDepth`)
+- Accessors : `getFFTThreshold()`, `GetParallelFFTRecursionThreshold()`, `GetMaxParallelFFTDepth()`

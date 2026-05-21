@@ -46,7 +46,27 @@ L'architecture repose sur les design patterns documentés ici :
   - **[Design Patterns inventory](./patterns/design-patterns.md)** — table des patterns concrets utilisés (Strategy, Factory/Registry, Observer, Object Pool, Bump Allocator, Decorator, Facade, Template Method, LRU Cache, Circuit Breaker, Adapter) avec liens vers les sites d'implémentation.
   - **[interface-hierarchy.mermaid](./patterns/interface-hierarchy.mermaid)** — hiérarchie des interfaces clés.
 
-Pour les décisions historiques majeures, consultez les ADR indexés dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)** (y compris les ADR récents sur l’heuristique CPU et les backends de recherche).
+### ADR — Décisions architecturales courantes
+
+Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
+
+| ADR | Titre | Statut |
+|---|---|---|
+| [0000](../adr/0000-template.md) | Template | — |
+| [0001](../adr/0001-dtm-decision.md) | Sort de `DynamicThresholdManager` vs `internal/calibration/` | Accepted (KEEP) |
+| [0002](../adr/0002-recover-strategy.md) | Stratégie `recover()` dans `bigfft` (sentinel post-condition) | Accepted |
+| [0003](../adr/0003-globals-vs-context.md) | Globaux `bigfft` mutables → `atomic.Int64` | Accepted |
+| [0004](../adr/0004-backlog-decisions.md) | Décisions de backlog formelles post-hardening | Accepted |
+
+L'historique granulaire des décisions héritées (heuristique CPU, backends
+de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
+
+### Gate d'architecture
+
+`internal/arch_test.go` enforce trois invariants Clean Architecture :
+`threshold → config`, `errors → format`, `tui → fibonacci` sont
+interdits. Tout PR réintroduisant un de ces imports remontants fait
+échouer la CI. Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 
 ---
 [← Retour à la vue d'ensemble (ARCH.md)](../ARCH.md)

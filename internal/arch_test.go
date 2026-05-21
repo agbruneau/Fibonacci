@@ -4,8 +4,11 @@
 //	cmd → app → orchestration → fibonacci/bigfft → config/errors
 //
 // The test inspects the go list -deps graph at runtime and fails if a
-// forbidden upward import is introduced. It is the runtime sentinel
-// for Audit-PRD Epic E3-R4 (S3-T5).
+// forbidden upward import is introduced. It guards the three upward
+// arrows broken by the May-2026 hardening:
+//   - internal/fibonacci/threshold → internal/config
+//   - internal/errors → internal/format
+//   - internal/tui → internal/fibonacci (production code only)
 package internal_test
 
 import (
@@ -40,7 +43,8 @@ var architectureRules = []forbiddenImport{
 	},
 	{
 		// internal/errors is a leaf utility package and must not depend
-		// on internal/format (presentation concern). See Audit-PRD E3-R2.
+		// on internal/format (presentation concern). A local
+		// formatBytesLocal helper covers the byte-count need.
 		importer: "github.com/agbru/fibcalc/internal/errors",
 		forbid: []string{
 			"github.com/agbru/fibcalc/internal/format",
@@ -70,7 +74,7 @@ func TestArchitectureLayering(t *testing.T) {
 					t.Errorf(
 						"architecture violation: %s directly imports %s; "+
 							"this upward arrow is forbidden by the Clean Architecture "+
-							"hierarchy documented in CLAUDE.md and Audit - Global - FibGo.md §3.3.",
+							"hierarchy documented in CLAUDE.md.",
 						rule.importer, forbidden,
 					)
 				}

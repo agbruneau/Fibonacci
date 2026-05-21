@@ -4,7 +4,13 @@
 
 ## Overview
 
-The Fibonacci Calculator project uses a layered testing strategy that combines unit tests, golden file validation, fuzz testing, property-based testing, benchmark testing, and end-to-end testing. The test suite contains 100+ test files distributed across all packages, with a coverage floor of 80% enforced in CI.
+The Fibonacci Calculator project uses a layered testing strategy that
+combines unit tests, golden file validation, fuzz testing, property-based
+testing, panic-contract testing, an architecture-layering gate, benchmark
+testing, and end-to-end testing. The test suite contains 100+ test files
+distributed across all packages, with a coverage floor of 80% enforced in
+CI ; `internal/cli/completion/` is at 95.7 % after the May-2026 security
+hardening sprint.
 
 All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag enabled in CI.
 
@@ -108,17 +114,21 @@ The CLI package has separate golden tests (`goldens_test.go`) that validate exac
 
 ## Fuzz Testing
 
-Five fuzz tests use Go's built-in fuzzing framework (`testing.F`) to explore the input space beyond manual test cases.
+Seven fuzz targets use Go's built-in fuzzing framework (`testing.F`) to
+explore the input space beyond manual test cases.
 
-| Fuzz Test | Strategy | Input Limit |
-|-----------|----------|-------------|
-| `FuzzFastDoublingConsistency` | Cross-validates Fast Doubling vs Matrix | n up to 50,000 |
-| `FuzzFFTBasedConsistency` | Cross-validates FFT vs Fast Doubling | n up to 20,000 |
-| `FuzzFibonacciIdentities` | Verifies mathematical identities | n up to 10,000 |
-| `FuzzProgressMonotonicity` | Ensures progress is monotonically increasing | n 10 to 20,000 |
-| `FuzzFastDoublingMod` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B |
+| Fuzz Test | Package | Strategy | Input Limit |
+|-----------|---------|----------|-------------|
+| `FuzzFastDoublingConsistency` | `internal/fibonacci` | Cross-validates Fast Doubling vs Matrix | n up to **200 000** (raised from 50 000 to exercise the FFT regime) |
+| `FuzzFFTBasedConsistency` | `internal/fibonacci` | Cross-validates FFT vs Fast Doubling | n up to **200 000** (raised from 20 000) |
+| `FuzzFibonacciIdentities` | `internal/fibonacci` | Verifies mathematical identities | n up to 10,000 |
+| `FuzzProgressMonotonicity` | `internal/fibonacci` | Ensures progress is monotonically increasing | n 10 to 20,000 |
+| `FuzzFastDoublingMod` | `internal/fibonacci` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B |
+| `FuzzMul` | `internal/bigfft` | Cross-validates `bigfft.Mul` against `math/big.Int.Mul` (seed corpus pushes past the FFT threshold) | operand size up to 32 000 bytes |
+| `FuzzSqr` | `internal/bigfft` | Cross-validates `bigfft.Sqr` against `math/big` squaring | operand size up to 32 000 bytes |
 
-All fuzz tests live in `internal/fibonacci/fibonacci_fuzz_test.go`.
+Fibonacci targets live in `internal/fibonacci/fibonacci_fuzz_test.go`;
+`bigfft` targets in `internal/bigfft/fft_fuzz_test.go`.
 
 ### Running Fuzz Tests
 
@@ -137,6 +147,35 @@ go test -fuzz=FuzzFFTBasedConsistency -fuzztime=1m ./internal/fibonacci/
 These provide independent verification without comparing two calculator implementations.
 
 Each fuzz test is seeded with known interesting values (0, 1, 92, 93, 1000, 5000) to guide the fuzzer toward productive exploration.
+
+## Architecture-Layering Gate
+
+`internal/arch_test.go` is a runtime sentinel that fails the build if a
+forbidden upward import is reintroduced. It inspects each importer
+package via `go list -f '{{.Imports}}'` (production code only — `_test.go`
+files are excluded). Currently three rules :
+
+| Importer | Forbidden direct import | Rationale |
+|---|---|---|
+| `internal/fibonacci/threshold` | `internal/config` | Would close a cycle through `config → fibonacci/memory`. The threshold package consumes `Tuning` via `SetTuning`. |
+| `internal/errors` | `internal/format` | Leaf utility ; uses local `formatBytesLocal` instead. |
+| `internal/tui` (production) | `internal/fibonacci` | UI must reach domain types through `orchestration.Calculator`/`Options` aliases. |
+
+Adding a new rule is a one-line append to `architectureRules`.
+
+## Panic-Contract Tests
+
+`internal/bigfft` distinguishes two panic classes :
+
+- **Pre-conditions** (operand-size mismatches): documented and exercised
+  by `TestFermatPanicSites` (`fermat_panic_test.go`). The four entry
+  points convert these to errors via the `recover()` handlers.
+- **Post-conditions** (algorithmic invariants like
+  `"unexpected carry after normalization"`): re-propagated via
+  `panic(r)` so genuine bugs are not silently coerced into opaque
+  errors. `TestFermatPostConditionPanicClassifier` and
+  `TestMulRepanicsOnPostCondition` guard the sentinel list and the
+  classifier behaviour. See [`docs/adr/0002-recover-strategy.md`](adr/0002-recover-strategy.md).
 
 ## Property-Based Testing (gopter)
 
