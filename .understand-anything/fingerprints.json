@@ -1,8 +1,28 @@
 {
   "version": "1.0.0",
-  "gitCommitHash": "8a03b2729c6d04e948245a4d0779776c38076a70",
-  "generatedAt": "2026-05-21T12:02:38.291Z",
+  "gitCommitHash": "b864b3a0df3888c0f2c1fe2626df9ee87983bb2d",
+  "generatedAt": "2026-05-21T15:17:36.746Z",
   "files": {
+    ".claude/settings.local.json": {
+      "filePath": ".claude/settings.local.json",
+      "contentHash": "0c4d7b971a62e411ef0886ae9a57e43d09cf02ace1163877e38ffd8bb356f389",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 11,
+      "hasStructuralAnalysis": true
+    },
+    ".devcontainer/devcontainer.json": {
+      "filePath": ".devcontainer/devcontainer.json",
+      "contentHash": "798a3834e6f51ca65d10a71ecbf8004f4887b6bec21735c8314825f3090f5184",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
     ".env.example": {
       "filePath": ".env.example",
       "contentHash": "e78033194c032318fc21400b4e1ec56cfbb9c3ae2e7082c1e0ce727c64e42d28",
@@ -13,14 +33,57 @@
       "totalLines": 162,
       "hasStructuralAnalysis": true
     },
+    ".github/scripts/bench_gate.py": {
+      "filePath": ".github/scripts/bench_gate.py",
+      "contentHash": "633d7022d290b71608200278837cc0d576eedb41b8be0894203a1f988e6ebbdb",
+      "functions": [
+        {
+          "name": "parse_threshold",
+          "params": [
+            "arg"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "main",
+          "params": [],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 41
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        }
+      ],
+      "exports": [
+        "parse_threshold",
+        "main"
+      ],
+      "totalLines": 80,
+      "hasStructuralAnalysis": true
+    },
     ".github/workflows/ci.yml": {
       "filePath": ".github/workflows/ci.yml",
-      "contentHash": "85d24bbf52c5f3a59723dd860098f7e82e734f40fcac15495514e311583eea8d",
+      "contentHash": "fc13feddfb7f56ea75776189cd94db830ca063712364ec8c8f29ab2c03c5c945",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 113,
+      "totalLines": 169,
       "hasStructuralAnalysis": true
     },
     ".github/workflows/coverage.yml": {
@@ -35,92 +98,72 @@
     },
     ".golangci.yml": {
       "filePath": ".golangci.yml",
-      "contentHash": "0c6220a26a17c763cda50fc4689d3e4e5254d81e66210394efa38a80ca3c0d74",
+      "contentHash": "53776c15bb9e985f1a1d24a0f4ae90fe879db1f556f068acfd09761ad93cd3da",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 154,
-      "hasStructuralAnalysis": true
-    },
-    "Audit - Claude - FibGo.md": {
-      "filePath": "Audit - Claude - FibGo.md",
-      "contentHash": "31372c9dc3b5dfd28e11f08bf00dc64e028e0ceb1cdd37c58b5ffd219112f8b5",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 185,
-      "hasStructuralAnalysis": true
-    },
-    "Audit - Gemini - FibGo.md": {
-      "filePath": "Audit - Gemini - FibGo.md",
-      "contentHash": "ec7ef209d45ecd49b7e1b39c07d8ca6032560b3d7000a7c416f0bf26a45d2fb4",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 57,
+      "totalLines": 156,
       "hasStructuralAnalysis": true
     },
     "CHANGELOG.md": {
       "filePath": "CHANGELOG.md",
-      "contentHash": "88ac9c02a86555ca605eabff51e731c39f9f8cce9e6d2f5e4b16707f6aa1e8ae",
+      "contentHash": "783fd8e9e6e82759793833f2d94238776043456f8cf0dc4878540f4b63fbbec2",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 151,
+      "totalLines": 217,
       "hasStructuralAnalysis": true
     },
     "CONTRIBUTING.md": {
       "filePath": "CONTRIBUTING.md",
-      "contentHash": "275d000f652faf9c6157333c5c4993d1f14e0fae41a7301dc386574aebafd45e",
+      "contentHash": "204d92f24d2986d18d0be44d8de1deb8c0d01d2db59575bd2bf7254ad99c569a",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 355,
+      "totalLines": 369,
       "hasStructuralAnalysis": true
     },
     "Claude.md": {
       "filePath": "Claude.md",
-      "contentHash": "b81d3a54ce557d090b92e25a047821a66d1421002f38866c5d355d0049b6e57e",
+      "contentHash": "3ac5bd097115821a636d1bdb54540adad51af7cfae2cc4cbbdf6b47470e31165",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 188,
+      "totalLines": 212,
       "hasStructuralAnalysis": true
     },
-    "EVALUATION.md": {
-      "filePath": "EVALUATION.md",
-      "contentHash": "714187179967f65eed9c7802f36cffd6c2283f144b02d0b6e24c0f2a615edf64",
+    "Dockerfile": {
+      "filePath": "Dockerfile",
+      "contentHash": "a2fcbd5557fb14bd628254ff5b6c18ca71d66288c7ee17b9363df0f7f3ff48d1",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 129,
+      "totalLines": 48,
       "hasStructuralAnalysis": true
     },
     "Makefile": {
       "filePath": "Makefile",
-      "contentHash": "0f123ab31271dd3b4c8fee8751ff0aaabc17e25c85fa2a006bd25e17b094cab6",
+      "contentHash": "f28f0c3576a45389d0e7d95ab30c6d605b0d646de02a31c675548ac6702663cf",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 264,
+      "totalLines": 304,
       "hasStructuralAnalysis": true
     },
     "README.md": {
       "filePath": "README.md",
-      "contentHash": "ba9bbeb2e18f2257ea0fe57be41a9354acc422e8bafa3ca4306fd49a253c2956",
+      "contentHash": "1f244ba2d62c5fe2df789f9d3b0fae1f92d8404bf3f0b3d505f29e79e01518f3",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 331,
+      "totalLines": 375,
       "hasStructuralAnalysis": true
     },
     "cmd/fibcalc/default.pgo": {
@@ -320,13 +363,13 @@
     },
     "cmd/generate-golden/main.go": {
       "filePath": "cmd/generate-golden/main.go",
-      "contentHash": "4ebe32778bd75f17dc2fe763118039f4c1b4826c1ca04f8118fa1df7f953ba42",
+      "contentHash": "5f928e25a0426affbbc372e27767349c126fe7e5030c3082206661e03b77b043",
       "functions": [
         {
           "name": "main",
           "params": [],
           "exported": false,
-          "lineCount": 52
+          "lineCount": 59
         },
         {
           "name": "fibBig",
@@ -391,7 +434,7 @@
       "exports": [
         "GoldenData"
       ],
-      "totalLines": 103,
+      "totalLines": 110,
       "hasStructuralAnalysis": true
     },
     "cmd/generate-golden/main_test.go": {
@@ -472,27 +515,37 @@
     },
     "docs/ARCH.md": {
       "filePath": "docs/ARCH.md",
-      "contentHash": "42da15981f19da22b124842f816bf8d23871d9ea9f7618bb67beb7c1370b2c18",
+      "contentHash": "236aa134fac0aa72750d2451ffca48aa8015c9a0003006389162dfbdd6b21c1c",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 785,
+      "totalLines": 797,
       "hasStructuralAnalysis": true
     },
     "docs/BUILD.md": {
       "filePath": "docs/BUILD.md",
-      "contentHash": "0331d1412d6d6a81cffc6e753230183777ddd51a483f88fdaeaa8526f1a7b35f",
+      "contentHash": "5b77a82ca92572ca9d6aa1868e32873b19e561b445b6abc43bab3ff79c425c0b",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 302,
+      "totalLines": 399,
       "hasStructuralAnalysis": true
     },
     "docs/CALIBRATION.md": {
       "filePath": "docs/CALIBRATION.md",
-      "contentHash": "116bde994ce2d1a4ec1672a60f29ff1771b27bd130b760bbbe662d0615a10f80",
+      "contentHash": "ea69e733f2f526c766cdb397ad02eaab97c027cc19e07e25b5146a286600efa9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 378,
+      "hasStructuralAnalysis": true
+    },
+    "docs/PERFORMANCE.md": {
+      "filePath": "docs/PERFORMANCE.md",
+      "contentHash": "f53533f758d521a8b791f0bfea675a8ca320f3f730b3d01069774020e99135ed",
       "functions": [],
       "classes": [],
       "imports": [],
@@ -500,79 +553,79 @@
       "totalLines": 367,
       "hasStructuralAnalysis": true
     },
-    "docs/PERFORMANCE.md": {
-      "filePath": "docs/PERFORMANCE.md",
-      "contentHash": "ee8f3929b108ba66242b87ceb320dc225401dd74d54094148d5a44b1dbc3dd86",
+    "docs/PORTABILITY.md": {
+      "filePath": "docs/PORTABILITY.md",
+      "contentHash": "1b17d3d9016d55de732286bdbf66161aa25333fa6212d54bea0c23c8b84ef3d1",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 347,
+      "totalLines": 126,
       "hasStructuralAnalysis": true
     },
     "docs/TESTING.md": {
       "filePath": "docs/TESTING.md",
-      "contentHash": "a4b78c2618818b420f361698f762d6cfdb7c50479ac558c57d4b95e7fefd4b79",
+      "contentHash": "f3a4c8dd213c77b432f3f4df765106992f7e9ddd10ae64e8835473e3793b4a2e",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 385,
+      "totalLines": 426,
       "hasStructuralAnalysis": true
     },
     "docs/TUI_GUIDE.md": {
       "filePath": "docs/TUI_GUIDE.md",
-      "contentHash": "94f4293bec73c7f95e31e42d90b6aa908ed65a33e67056f6633481f38266831b",
+      "contentHash": "5d9a8ab7963ffa80bfa7c1ae8861a46416a5f0792017355087225ddb5db524f5",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 393,
+      "totalLines": 395,
       "hasStructuralAnalysis": true
     },
-    "docs/algorithms/BIGFFT.md": {
-      "filePath": "docs/algorithms/BIGFFT.md",
-      "contentHash": "6c80235209bb0214d3f4d9e850771ba00b61b39ee736c9eed613102ae4d0df0a",
+    "docs/adr/0000-template.md": {
+      "filePath": "docs/adr/0000-template.md",
+      "contentHash": "9b4ead81caeb87e609845303e568cfeec699d9157ae88c25dc80e71979f1350c",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 702,
+      "totalLines": 40,
       "hasStructuralAnalysis": true
     },
-    "docs/algorithms/COMPARISON.md": {
-      "filePath": "docs/algorithms/COMPARISON.md",
-      "contentHash": "4ef22e16afe81362dd9a0bf254504344441b8ddff8aff0cda099e79caa75fcdb",
+    "docs/adr/0001-dtm-decision.md": {
+      "filePath": "docs/adr/0001-dtm-decision.md",
+      "contentHash": "03333eff554eecb442f35b70298c03cb7ce3a1614fa6fcb50b56dbeb762d60b9",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 236,
+      "totalLines": 65,
       "hasStructuralAnalysis": true
     },
-    "docs/algorithms/FAST_DOUBLING.md": {
-      "filePath": "docs/algorithms/FAST_DOUBLING.md",
-      "contentHash": "f7a3ae458ee8a5a16e65482c55195ba97605a4c6cad140d255f59da6f897fd8e",
+    "docs/adr/0002-recover-strategy.md": {
+      "filePath": "docs/adr/0002-recover-strategy.md",
+      "contentHash": "0b8ca815eee53f2b6d23804fd883b8ebf560bc504c6830a8fffef4bba9f5155d",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 306,
+      "totalLines": 54,
       "hasStructuralAnalysis": true
     },
-    "docs/algorithms/FFT.md": {
-      "filePath": "docs/algorithms/FFT.md",
-      "contentHash": "fae9a63d1f377d938cb57c6e94812c1851a61ea9a3cabdb6567929d7b953fb92",
+    "docs/adr/0003-globals-vs-context.md": {
+      "filePath": "docs/adr/0003-globals-vs-context.md",
+      "contentHash": "8adc588376df5644bb5087fd78d5e61a4318c15fe161327ca0d542d1595130b2",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 222,
+      "totalLines": 52,
       "hasStructuralAnalysis": true
     },
-    "docs/algorithms/GMP.md": {
-      "filePath": "docs/algorithms/GMP.md",
-      "contentHash": "c46739fc03543c07bc53d6c71cca62d50cd0c0c942b33aff9fadf58da51573df",
+    "docs/adr/0004-backlog-decisions.md": {
+      "filePath": "docs/adr/0004-backlog-decisions.md",
+      "contentHash": "081f0809ba18299a1ad356c52a58161d6e20543dfa6eea6ab13a9c54102696c4",
       "functions": [],
       "classes": [],
       "imports": [],
@@ -580,34 +633,84 @@
       "totalLines": 107,
       "hasStructuralAnalysis": true
     },
-    "docs/algorithms/MATRIX.md": {
-      "filePath": "docs/algorithms/MATRIX.md",
-      "contentHash": "43264a701713d9026fd33ca18bbb3ca2ccc2e2f9fa0729213c77470c1d4d5eef",
+    "docs/algorithms/BIGFFT.md": {
+      "filePath": "docs/algorithms/BIGFFT.md",
+      "contentHash": "63253dc93aecc73a7268d82d2ef9947d9dc9144f990b727b4cfd88b69d8f16d4",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 344,
+      "totalLines": 704,
+      "hasStructuralAnalysis": true
+    },
+    "docs/algorithms/COMPARISON.md": {
+      "filePath": "docs/algorithms/COMPARISON.md",
+      "contentHash": "075339313ef5d3661d7c78885dede206b67ee75bb47de21323e2db7ee7376a8c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 238,
+      "hasStructuralAnalysis": true
+    },
+    "docs/algorithms/FAST_DOUBLING.md": {
+      "filePath": "docs/algorithms/FAST_DOUBLING.md",
+      "contentHash": "e7fabf791bf7abc2301da84ad006d946c232c3419e2cbf251ef03e63b43a00c6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 308,
+      "hasStructuralAnalysis": true
+    },
+    "docs/algorithms/FFT.md": {
+      "filePath": "docs/algorithms/FFT.md",
+      "contentHash": "237ffdcc2d7098c2a745e72a8a71d9a15f616f2dac23eadc603c2a284ceabdb8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 224,
+      "hasStructuralAnalysis": true
+    },
+    "docs/algorithms/GMP.md": {
+      "filePath": "docs/algorithms/GMP.md",
+      "contentHash": "19945c289e25006b32bedd78ca54b5570de1f84c1433c77442cbdc05e4e82620",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 109,
+      "hasStructuralAnalysis": true
+    },
+    "docs/algorithms/MATRIX.md": {
+      "filePath": "docs/algorithms/MATRIX.md",
+      "contentHash": "bcef919b055c68a1891fabc3113a624d4c6400a5ee7df306a0f3aacbcbfcd9c9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 346,
       "hasStructuralAnalysis": true
     },
     "docs/algorithms/PROGRESS_BAR_ALGORITHM.md": {
       "filePath": "docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
-      "contentHash": "6dabf84afe086f5748967ea78f48be92abcc0064a86027f58428579c9f12b1d9",
+      "contentHash": "9afc2c2ee0224eeba7f5fbd8f96ca72e16ebc6c16da5ca500a9b0515c22afdf8",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 374,
+      "totalLines": 376,
       "hasStructuralAnalysis": true
     },
     "docs/architecture/README.md": {
       "filePath": "docs/architecture/README.md",
-      "contentHash": "9ebf66af38119ff9810f518d39c9d732c8b477d275e04a470c44fcfcd8da4d59",
+      "contentHash": "a8d961530aaeb35dcfaa955a7149267b927406060b493e24416a0b66dc7f5e98",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 40,
+      "totalLines": 73,
       "hasStructuralAnalysis": true
     },
     "docs/architecture/component-diagram.mermaid": {
@@ -622,7 +725,7 @@
     },
     "docs/architecture/container-diagram.mermaid": {
       "filePath": "docs/architecture/container-diagram.mermaid",
-      "contentHash": "604ce4a5753769addf9a735533fc4188bf712ed5d43a29e9a7284216d06edbe6",
+      "contentHash": "9b7262d50466908e3328b2b8098b822af52852f5af7d871e879c0bf65314b10c",
       "functions": [],
       "classes": [],
       "imports": [],
@@ -632,12 +735,12 @@
     },
     "docs/architecture/dependency-graph.mermaid": {
       "filePath": "docs/architecture/dependency-graph.mermaid",
-      "contentHash": "c7fded979f2b60d2c32b6f95a06cd44f9e73750419c9bfd43e69e4c6a79593c8",
+      "contentHash": "d2d30d8f0fce35a8d6a383f16e3fd540d9f10754317fbc001b9836391e5fc18d",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 97,
+      "totalLines": 96,
       "hasStructuralAnalysis": false
     },
     "docs/architecture/flows/cli-flow.mermaid": {
@@ -702,12 +805,12 @@
     },
     "docs/architecture/patterns/design-patterns.md": {
       "filePath": "docs/architecture/patterns/design-patterns.md",
-      "contentHash": "583eaa4a5135b6f34b1b87d4d8e529ec73422a9088fb04c046afda82453455f2",
+      "contentHash": "1352b6c3265a4d6fa57a74ea7702a30b1b7af91513405e7c95d363a772a20b85",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 43,
+      "totalLines": 45,
       "hasStructuralAnalysis": true
     },
     "docs/architecture/patterns/interface-hierarchy.mermaid": {
@@ -732,43 +835,53 @@
     },
     "docs/architecture/validation/validation-report.md": {
       "filePath": "docs/architecture/validation/validation-report.md",
-      "contentHash": "229369620adcfccb595f82b2c3d33b1a686d440a97ac967596f62904a8e1839e",
+      "contentHash": "e7da358c041da0e7af12af723bb1d6e8d244403eef23750860814fd05b17e94c",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 68,
+      "totalLines": 70,
       "hasStructuralAnalysis": true
     },
-    "docs/audits/bench-A10-after.txt": {
-      "filePath": "docs/audits/bench-A10-after.txt",
-      "contentHash": "ddad31a996c2ee663e32b1e52c4989150a8762ae90089459f2cc9cfdc7ccd041",
+    "docs/audits/bench-baseline.txt": {
+      "filePath": "docs/audits/bench-baseline.txt",
+      "contentHash": "cfb14919c16ad6f8cdde351aca56739c193a9a2c1dc933e3ef75d8d09a85fcba",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 7,
+      "totalLines": 20,
       "hasStructuralAnalysis": false
     },
-    "docs/audits/bench-A10-before.txt": {
-      "filePath": "docs/audits/bench-A10-before.txt",
-      "contentHash": "30f1245d0aec83f72fb750c7ba745662c05a432d93d9f358f376404413e19572",
+    "docs/audits/bench-dtm-off.txt": {
+      "filePath": "docs/audits/bench-dtm-off.txt",
+      "contentHash": "8916838a73090373ba1492c5bdb8b9cb8a4e632083f7d51f427c316cb6d1a0fa",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 7,
+      "totalLines": 27,
       "hasStructuralAnalysis": false
     },
-    "docs/audits/bench-A10-gate.txt": {
-      "filePath": "docs/audits/bench-A10-gate.txt",
-      "contentHash": "314de8eafc5ea0225518fcc5dbf3e4a36b406dccc90ba0972598a440486f36c6",
+    "docs/audits/bench-dtm-on.txt": {
+      "filePath": "docs/audits/bench-dtm-on.txt",
+      "contentHash": "84e5b6aefa4123387513367445d4dfc1b5c397f49a1744b6f5fa92ae232eb917",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 4,
+      "totalLines": 27,
       "hasStructuralAnalysis": false
+    },
+    "docs/external-reviews/2026-02-08-jules-self-evaluation.md": {
+      "filePath": "docs/external-reviews/2026-02-08-jules-self-evaluation.md",
+      "contentHash": "a4184a9568dc1717ae4dfa7ee84f7550d77221e83222a4fdb1bbaaf214809392",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 137,
+      "hasStructuralAnalysis": true
     },
     "go.mod": {
       "filePath": "go.mod",
@@ -1746,6 +1859,67 @@
       "totalLines": 95,
       "hasStructuralAnalysis": true
     },
+    "internal/arch_test.go": {
+      "filePath": "internal/arch_test.go",
+      "contentHash": "1151725a8f6632f013f0a71f19a1f6805e81d9b2af26b81f842bbb6f624ac5f8",
+      "functions": [
+        {
+          "name": "TestArchitectureLayering",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "directImports",
+          "params": [
+            "t",
+            "pkg"
+          ],
+          "returnType": "map[string]struct{}",
+          "exported": false,
+          "lineCount": 17
+        }
+      ],
+      "classes": [
+        {
+          "name": "forbiddenImport",
+          "methods": [],
+          "properties": [
+            "importer",
+            "forbid"
+          ],
+          "exported": false,
+          "lineCount": 4
+        }
+      ],
+      "imports": [
+        {
+          "source": "os/exec",
+          "specifiers": [
+            "exec"
+          ]
+        },
+        {
+          "source": "strings",
+          "specifiers": [
+            "strings"
+          ]
+        },
+        {
+          "source": "testing",
+          "specifiers": [
+            "testing"
+          ]
+        }
+      ],
+      "exports": [
+        "TestArchitectureLayering"
+      ],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
     "internal/bigfft/allocator.go": {
       "filePath": "internal/bigfft/allocator.go",
       "contentHash": "2c3da9403a18ecd948289bbd30c2704e6ec9ae6387bc5f885c704653b6f36a32",
@@ -2486,7 +2660,7 @@
     },
     "internal/bigfft/context.go": {
       "filePath": "internal/bigfft/context.go",
-      "contentHash": "2a86a5a9ae7764a61f3e3d0b4bf0047c71bbce7b223c7d5278218ed438415812",
+      "contentHash": "3c23327bd811571103ac8874e20125e99f936d8adca131449101a7774deb6fa8",
       "functions": [
         {
           "name": "NewFFTContext",
@@ -2602,7 +2776,7 @@
           ],
           "returnType": "(PolValues, error)",
           "exported": false,
-          "lineCount": 20
+          "lineCount": 24
         },
         {
           "name": "transformWithBumpCtx",
@@ -2713,7 +2887,7 @@
         "SqrWithContext",
         "SqrToWithContext"
       ],
-      "totalLines": 440,
+      "totalLines": 444,
       "hasStructuralAnalysis": true
     },
     "internal/bigfft/context_test.go": {
@@ -3184,6 +3358,40 @@
       "totalLines": 387,
       "hasStructuralAnalysis": true
     },
+    "internal/bigfft/fermat_panic_test.go": {
+      "filePath": "internal/bigfft/fermat_panic_test.go",
+      "contentHash": "81812223e59d07d95f3e23f79c205465ff0dcd6fa59d78253b5f272199255814",
+      "functions": [
+        {
+          "name": "TestFermatPanicSites",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 70
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "strings",
+          "specifiers": [
+            "strings"
+          ]
+        },
+        {
+          "source": "testing",
+          "specifiers": [
+            "testing"
+          ]
+        }
+      ],
+      "exports": [
+        "TestFermatPanicSites"
+      ],
+      "totalLines": 87,
+      "hasStructuralAnalysis": true
+    },
     "internal/bigfft/fermat_test.go": {
       "filePath": "internal/bigfft/fermat_test.go",
       "contentHash": "ac297fabf2c600a7caae0a9438ba4fb520b77fcf97e2f17a53841de035fdbd35",
@@ -3292,7 +3500,7 @@
     },
     "internal/bigfft/fft.go": {
       "filePath": "internal/bigfft/fft.go",
-      "contentHash": "0399a34dc44969a5713ecedd04d4f902126fde35d522d7b0b3849bf09b71f2f2",
+      "contentHash": "5b036d07868050e755e96c35e39e1b369175a97717151da6e45e55d331737f76",
       "functions": [
         {
           "name": "String",
@@ -3302,6 +3510,27 @@
           "lineCount": 5
         },
         {
+          "name": "init",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "getFFTThreshold",
+          "params": [],
+          "returnType": "int",
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "SetFFTThreshold",
+          "params": [
+            "v"
+          ],
+          "exported": true,
+          "lineCount": 1
+        },
+        {
           "name": "Mul",
           "params": [
             "x",
@@ -3309,7 +3538,7 @@
           ],
           "returnType": "(res *big.Int, err error)",
           "exported": true,
-          "lineCount": 13
+          "lineCount": 16
         },
         {
           "name": "MulTo",
@@ -3320,7 +3549,7 @@
           ],
           "returnType": "(res *big.Int, err error)",
           "exported": true,
-          "lineCount": 23
+          "lineCount": 26
         },
         {
           "name": "Sqr",
@@ -3329,7 +3558,7 @@
           ],
           "returnType": "(res *big.Int, err error)",
           "exported": true,
-          "lineCount": 12
+          "lineCount": 15
         },
         {
           "name": "SqrTo",
@@ -3339,7 +3568,7 @@
           ],
           "returnType": "(res *big.Int, err error)",
           "exported": true,
-          "lineCount": 19
+          "lineCount": 22
         },
         {
           "name": "sqrFFT",
@@ -3420,6 +3649,15 @@
           "returnType": "int",
           "exported": false,
           "lineCount": 12
+        },
+        {
+          "name": "isFermatPostConditionPanic",
+          "params": [
+            "r"
+          ],
+          "returnType": "bool",
+          "exported": false,
+          "lineCount": 8
         }
       ],
       "classes": [],
@@ -3443,6 +3681,12 @@
           ]
         },
         {
+          "source": "sync/atomic",
+          "specifiers": [
+            "atomic"
+          ]
+        },
+        {
           "source": "unsafe",
           "specifiers": [
             "unsafe"
@@ -3451,6 +3695,7 @@
       ],
       "exports": [
         "String",
+        "SetFFTThreshold",
         "Mul",
         "MulTo",
         "Sqr",
@@ -3459,12 +3704,12 @@
         "GetFFTParams",
         "ValueSize"
       ],
-      "totalLines": 227,
+      "totalLines": 293,
       "hasStructuralAnalysis": true
     },
     "internal/bigfft/fft_cache.go": {
       "filePath": "internal/bigfft/fft_cache.go",
-      "contentHash": "fc5fac3f0d359c2fa80c3efd2e0e7a8985ba077e8a3ff3994de200608d1f54cf",
+      "contentHash": "cbb363e37a134bbba633c6eecac1f5f6cdd0bf3b444ac74fcb5f07c930f5a2a4",
       "functions": [
         {
           "name": "DefaultTransformCacheConfig",
@@ -3478,6 +3723,13 @@
           "params": [],
           "returnType": "TransformCacheConfig",
           "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "cacheGate",
+          "params": [],
+          "returnType": "(enabled bool, minBitLen int)",
+          "exported": false,
           "lineCount": 5
         },
         {
@@ -3584,7 +3836,7 @@
           ],
           "returnType": "(PolValues, bool)",
           "exported": true,
-          "lineCount": 9
+          "lineCount": 10
         },
         {
           "name": "getByKey",
@@ -3608,7 +3860,7 @@
             "pv"
           ],
           "exported": true,
-          "lineCount": 9
+          "lineCount": 10
         },
         {
           "name": "putByKey",
@@ -3617,7 +3869,7 @@
             "pv"
           ],
           "exported": false,
-          "lineCount": 62
+          "lineCount": 50
         },
         {
           "name": "Stats",
@@ -3648,7 +3900,7 @@
           ],
           "returnType": "(PolValues, error)",
           "exported": true,
-          "lineCount": 27
+          "lineCount": 28
         },
         {
           "name": "TransformCachedWithBump",
@@ -3658,7 +3910,7 @@
           ],
           "returnType": "(PolValues, error)",
           "exported": true,
-          "lineCount": 27
+          "lineCount": 28
         },
         {
           "name": "MulCached",
@@ -3725,6 +3977,7 @@
           "name": "TransformCache",
           "methods": [
             "Config",
+            "cacheGate",
             "Get",
             "getByKey",
             "logPeriodicStats",
@@ -3827,12 +4080,12 @@
         "SqrCached",
         "SqrCachedWithBump"
       ],
-      "totalLines": 609,
+      "totalLines": 618,
       "hasStructuralAnalysis": true
     },
     "internal/bigfft/fft_cache_test.go": {
       "filePath": "internal/bigfft/fft_cache_test.go",
-      "contentHash": "264ec5ab5c014d5b8de7a8b26fc6d2e3b133140ac784b42d2a4adf7b926d70f8",
+      "contentHash": "ab4d70ad86dbfde9e9722b6ba548a4754c36b1a259e81a327b3e2b04ad2783b8",
       "functions": [
         {
           "name": "TestNewTransformCache",
@@ -4106,7 +4359,7 @@
         "TestComputeCacheKeyInvariantR2_10",
         "TestComputePolyKeyInvariantR2_10"
       ],
-      "totalLines": 910,
+      "totalLines": 911,
       "hasStructuralAnalysis": true
     },
     "internal/bigfft/fft_core.go": {
@@ -4350,6 +4603,59 @@
         "TestPoly_IntToBigInt"
       ],
       "totalLines": 524,
+      "hasStructuralAnalysis": true
+    },
+    "internal/bigfft/fft_fuzz_test.go": {
+      "filePath": "internal/bigfft/fft_fuzz_test.go",
+      "contentHash": "3ddd5507529c4ef0f1325436709be30dd32e648458f061d5793ba4eba51ba5e2",
+      "functions": [
+        {
+          "name": "FuzzMul",
+          "params": [
+            "f"
+          ],
+          "exported": true,
+          "lineCount": 41
+        },
+        {
+          "name": "FuzzSqr",
+          "params": [
+            "f"
+          ],
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "makeRepeated",
+          "params": [
+            "v",
+            "n"
+          ],
+          "returnType": "[]byte",
+          "exported": false,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "math/big",
+          "specifiers": [
+            "big"
+          ]
+        },
+        {
+          "source": "testing",
+          "specifiers": [
+            "testing"
+          ]
+        }
+      ],
+      "exports": [
+        "FuzzMul",
+        "FuzzSqr"
+      ],
+      "totalLines": 95,
       "hasStructuralAnalysis": true
     },
     "internal/bigfft/fft_parallel_test.go": {
@@ -4945,9 +5251,46 @@
       "totalLines": 530,
       "hasStructuralAnalysis": true
     },
+    "internal/bigfft/fft_recover_policy_test.go": {
+      "filePath": "internal/bigfft/fft_recover_policy_test.go",
+      "contentHash": "9406189ddb6ab5d1a6f52321d8a24cb32691d4b73fad1ad3697f676710b7c186",
+      "functions": [
+        {
+          "name": "TestFermatPostConditionPanicClassifier",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 27
+        },
+        {
+          "name": "TestMulRepanicsOnPostCondition",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "testing",
+          "specifiers": [
+            "testing"
+          ]
+        }
+      ],
+      "exports": [
+        "TestFermatPostConditionPanicClassifier",
+        "TestMulRepanicsOnPostCondition"
+      ],
+      "totalLines": 64,
+      "hasStructuralAnalysis": true
+    },
     "internal/bigfft/fft_recursion.go": {
       "filePath": "internal/bigfft/fft_recursion.go",
-      "contentHash": "4bea099983b7a1d4eb5ab9152674118f084724d31d3b9caf2e1d7c457034db8f",
+      "contentHash": "b0a5aa8b00fd3bb7abdc82050e70cb6123e2c9a8b2b7d8ff175c084bdcfca041",
       "functions": [
         {
           "name": "getSemaphore",
@@ -4955,6 +5298,26 @@
           "returnType": "chan struct{}",
           "exported": false,
           "lineCount": 6
+        },
+        {
+          "name": "init",
+          "params": [],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "GetParallelFFTRecursionThreshold",
+          "params": [],
+          "returnType": "uint",
+          "exported": true,
+          "lineCount": 1
+        },
+        {
+          "name": "GetMaxParallelFFTDepth",
+          "params": [],
+          "returnType": "uint",
+          "exported": true,
+          "lineCount": 1
         },
         {
           "name": "SetFFTParallelismConfig",
@@ -5050,19 +5413,27 @@
           "specifiers": [
             "sync"
           ]
+        },
+        {
+          "source": "sync/atomic",
+          "specifiers": [
+            "atomic"
+          ]
         }
       ],
       "exports": [
+        "GetParallelFFTRecursionThreshold",
+        "GetMaxParallelFFTDepth",
         "FFTParallelismConfig",
         "SetFFTParallelismConfig",
         "GetFFTParallelismConfig"
       ],
-      "totalLines": 170,
+      "totalLines": 187,
       "hasStructuralAnalysis": true
     },
     "internal/bigfft/fft_recursion_ctx.go": {
       "filePath": "internal/bigfft/fft_recursion_ctx.go",
-      "contentHash": "067f78058631a860a69b856a1df169dc4a0a726c1b82df8019418f47b18f9c82",
+      "contentHash": "ddc6a215476306a5a39b5cdf6bf9d1d1236e9a4b29888bb68d4e8e7513bc4bbd",
       "functions": [
         {
           "name": "fourierWithBumpCtx",
@@ -5191,7 +5562,7 @@
     },
     "internal/bigfft/pool.go": {
       "filePath": "internal/bigfft/pool.go",
-      "contentHash": "13da116ba1b7347268d5ab8718b9b21c298c5451d73fb87417d41f5c36daef3f",
+      "contentHash": "cd5e7d133de666832e6fed7a8c54175c3225cb1fe00955156b99a327dccc4030",
       "functions": [
         {
           "name": "getWordSlicePoolIndex",
@@ -8589,7 +8960,7 @@
     },
     "internal/cli/completion/bash.go": {
       "filePath": "internal/cli/completion/bash.go",
-      "contentHash": "326436e0c394c9cefe8e54355f901e703093be9b411a32d80f90cf628a2bf302",
+      "contentHash": "3064c5782b2a51f2cd6a0d788f56780dbf7d9f78ced6fb4e12a63c0f5c4d364a",
       "functions": [
         {
           "name": "bashStaticValueCase",
@@ -8643,7 +9014,7 @@
           ],
           "returnType": "error",
           "exported": true,
-          "lineCount": 64
+          "lineCount": 66
         }
       ],
       "classes": [
@@ -8681,7 +9052,7 @@
       "exports": [
         "GenerateBash"
       ],
-      "totalLines": 171,
+      "totalLines": 173,
       "hasStructuralAnalysis": true
     },
     "internal/cli/completion/completion.go": {
@@ -8721,9 +9092,211 @@
       "totalLines": 31,
       "hasStructuralAnalysis": true
     },
+    "internal/cli/completion/escape.go": {
+      "filePath": "internal/cli/completion/escape.go",
+      "contentHash": "7609cd58c5fdd6eeb2e46b37701ecc0e969af086a6def345c4323b8eede9eb82",
+      "functions": [
+        {
+          "name": "escapeBashDoubleQuoted",
+          "params": [
+            "s"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 19
+        },
+        {
+          "name": "escapeFishSingleQuoted",
+          "params": [
+            "s"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "escapeZshSingleQuoted",
+          "params": [
+            "s"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "escapePowerShellSingleQuoted",
+          "params": [
+            "s"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "formatAlgoListBash",
+          "params": [
+            "algorithms"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "formatAlgoListZsh",
+          "params": [
+            "algorithms"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "formatAlgoListFish",
+          "params": [
+            "algorithms"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "formatAlgoListPowerShell",
+          "params": [
+            "algorithms"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "strings",
+          "specifiers": [
+            "strings"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 108,
+      "hasStructuralAnalysis": true
+    },
+    "internal/cli/completion/escape_test.go": {
+      "filePath": "internal/cli/completion/escape_test.go",
+      "contentHash": "e6cd99de6637721a3c051f0fafa0d011efa92d1a15dc2302c1633ba8f95ad95d",
+      "functions": [
+        {
+          "name": "TestEscapeBashDoubleQuoted_NeutralisesInjection",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "TestEscapeFishSingleQuoted_NeutralisesInjection",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "TestEscapeZshSingleQuoted_NeutralisesInjection",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "TestEscapePowerShellSingleQuoted_NeutralisesInjection",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "TestGenerateBash_AdversarialAlgo",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 41
+        },
+        {
+          "name": "TestGenerateZsh_AdversarialAlgo",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 26
+        },
+        {
+          "name": "TestGenerateFish_AdversarialAlgo",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 18
+        },
+        {
+          "name": "TestGeneratePowerShell_AdversarialAlgo",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "TestGenerate_UnsupportedShellRejected",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "bytes",
+          "specifiers": [
+            "bytes"
+          ]
+        },
+        {
+          "source": "strings",
+          "specifiers": [
+            "strings"
+          ]
+        },
+        {
+          "source": "testing",
+          "specifiers": [
+            "testing"
+          ]
+        }
+      ],
+      "exports": [
+        "TestEscapeBashDoubleQuoted_NeutralisesInjection",
+        "TestEscapeFishSingleQuoted_NeutralisesInjection",
+        "TestEscapeZshSingleQuoted_NeutralisesInjection",
+        "TestEscapePowerShellSingleQuoted_NeutralisesInjection",
+        "TestGenerateBash_AdversarialAlgo",
+        "TestGenerateZsh_AdversarialAlgo",
+        "TestGenerateFish_AdversarialAlgo",
+        "TestGeneratePowerShell_AdversarialAlgo",
+        "TestGenerate_UnsupportedShellRejected"
+      ],
+      "totalLines": 239,
+      "hasStructuralAnalysis": true
+    },
     "internal/cli/completion/fish.go": {
       "filePath": "internal/cli/completion/fish.go",
-      "contentHash": "df5b9ddc22176e1421895eb158c16aa9a366d1c20a599e025f97e53f9a330bc4",
+      "contentHash": "f6cc337680d99f5a30671d640956599e0bbada9eeb23157c441be512b061390c",
       "functions": [
         {
           "name": "GenerateFish",
@@ -8733,7 +9306,7 @@
           ],
           "returnType": "error",
           "exported": true,
-          "lineCount": 43
+          "lineCount": 44
         },
         {
           "name": "filterFlags",
@@ -8777,12 +9350,12 @@
       "exports": [
         "GenerateFish"
       ],
-      "totalLines": 106,
+      "totalLines": 107,
       "hasStructuralAnalysis": true
     },
     "internal/cli/completion/powershell.go": {
       "filePath": "internal/cli/completion/powershell.go",
-      "contentHash": "9d8f276358f219419166ccd841b7ae12c571bdc4581b11b083940d4594c1ac58",
+      "contentHash": "c42b25c39592560dc02b060e7f3441bce7bd9d154e7d66f415d442ae93882d4f",
       "functions": [
         {
           "name": "GeneratePowerShell",
@@ -8792,7 +9365,7 @@
           ],
           "returnType": "error",
           "exported": true,
-          "lineCount": 86
+          "lineCount": 78
         },
         {
           "name": "psSwitchEntry",
@@ -8828,7 +9401,7 @@
       "exports": [
         "GeneratePowerShell"
       ],
-      "totalLines": 110,
+      "totalLines": 102,
       "hasStructuralAnalysis": true
     },
     "internal/cli/completion/registry.go": {
@@ -8888,7 +9461,7 @@
     },
     "internal/cli/completion/zsh.go": {
       "filePath": "internal/cli/completion/zsh.go",
-      "contentHash": "85c7244f326879973ece30092a61975ab90e9a158ecee4fa7940ae657c592ee1",
+      "contentHash": "e11b7cec0e950382b805ee7af2ccf6004de9e64065f17d498e812d034df1de7f",
       "functions": [
         {
           "name": "GenerateZsh",
@@ -8898,7 +9471,7 @@
           ],
           "returnType": "error",
           "exported": true,
-          "lineCount": 31
+          "lineCount": 33
         },
         {
           "name": "zshHelp",
@@ -8943,7 +9516,7 @@
       "exports": [
         "GenerateZsh"
       ],
-      "totalLines": 86,
+      "totalLines": 88,
       "hasStructuralAnalysis": true
     },
     "internal/cli/completion_bench_test.go": {
@@ -9019,7 +9592,7 @@
     },
     "internal/cli/completion_test.go": {
       "filePath": "internal/cli/completion_test.go",
-      "contentHash": "a0e920b545241493181631cd9cbee95557a2399e427b97dceceedf4d2f5bae8d",
+      "contentHash": "b4e09239f4bd271b93db740b6ce3bc2c440ff406b7d548aa91491aa4e1ee8575",
       "functions": [
         {
           "name": "TestGenerateCompletion",
@@ -9027,7 +9600,7 @@
             "t"
           ],
           "exported": true,
-          "lineCount": 122
+          "lineCount": 129
         },
         {
           "name": "TestGenerateCompletion_EmptyAlgorithms",
@@ -9072,7 +9645,7 @@
         "TestGenerateCompletion_EmptyAlgorithms",
         "TestGenerateCompletion_MultipleAlgorithms"
       ],
-      "totalLines": 160,
+      "totalLines": 167,
       "hasStructuralAnalysis": true
     },
     "internal/cli/display.go": {
@@ -9301,12 +9874,12 @@
     },
     "internal/cli/doc.go": {
       "filePath": "internal/cli/doc.go",
-      "contentHash": "af74a39c883efb933ff6be4f783f00f835d661854144bdca800aac99cc13496a",
+      "contentHash": "4e5ecd6410e449b56c507a36db84abdbe13f1e683dccdce8bbfd0b5c4926c17f",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 5,
+      "totalLines": 27,
       "hasStructuralAnalysis": true
     },
     "internal/cli/goldens_test.go": {
@@ -10635,12 +11208,12 @@
     },
     "internal/config/doc.go": {
       "filePath": "internal/config/doc.go",
-      "contentHash": "2d054ababb65f3687976a07d51c1c5daf29e02dcbe2b25c30ebc0789def6cb59",
+      "contentHash": "7ee3bc2047ff93425beb061ca367bfd8700dd5f36fbe064e549c9c8b744265f6",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 6,
+      "totalLines": 29,
       "hasStructuralAnalysis": true
     },
     "internal/config/env.go": {
@@ -11390,7 +11963,7 @@
     },
     "internal/errors/errors.go": {
       "filePath": "internal/errors/errors.go",
-      "contentHash": "91e90f4a62283ac66b3be98e0b0140ea20ac8f34fc3ee4d1dd9c302c4076d1e1",
+      "contentHash": "8fee5ce71cef23abf0aea9d2d6d3676828ca13a5a4191c76670355cafdc3d382",
       "functions": [
         {
           "name": "Error",
@@ -11446,6 +12019,15 @@
           "returnType": "string",
           "exported": false,
           "lineCount": 9
+        },
+        {
+          "name": "formatBytesLocal",
+          "params": [
+            "b"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 12
         },
         {
           "name": "FormatDiagnostic",
@@ -11619,12 +12201,6 @@
           "specifiers": [
             "time"
           ]
-        },
-        {
-          "source": "github.com/agbru/fibcalc/internal/format",
-          "specifiers": [
-            "format"
-          ]
         }
       ],
       "exports": [
@@ -11647,7 +12223,7 @@
         "WrapError",
         "IsContextError"
       ],
-      "totalLines": 242,
+      "totalLines": 256,
       "hasStructuralAnalysis": true
     },
     "internal/errors/errors_test.go": {
@@ -13186,6 +13762,46 @@
       "totalLines": 155,
       "hasStructuralAnalysis": true
     },
+    "internal/fibonacci/dtm_bench_test.go": {
+      "filePath": "internal/fibonacci/dtm_bench_test.go",
+      "contentHash": "fced66cdb1466adc672881d80f876417f0129e5652acff2890f1f83c50f2323d",
+      "functions": [
+        {
+          "name": "BenchmarkFibonacciDTM",
+          "params": [
+            "b"
+          ],
+          "exported": true,
+          "lineCount": 46
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "context",
+          "specifiers": [
+            "context"
+          ]
+        },
+        {
+          "source": "fmt",
+          "specifiers": [
+            "fmt"
+          ]
+        },
+        {
+          "source": "testing",
+          "specifiers": [
+            "testing"
+          ]
+        }
+      ],
+      "exports": [
+        "BenchmarkFibonacciDTM"
+      ],
+      "totalLines": 69,
+      "hasStructuralAnalysis": true
+    },
     "internal/fibonacci/example_test.go": {
       "filePath": "internal/fibonacci/example_test.go",
       "contentHash": "46f1494b239df205bfa535f59ad8f4521560703e2761c2208b92ee80e0424eb8",
@@ -14203,7 +14819,7 @@
     },
     "internal/fibonacci/fibonacci_fuzz_test.go": {
       "filePath": "internal/fibonacci/fibonacci_fuzz_test.go",
-      "contentHash": "3c6bb871f06abedeef4be0f487ea8ab61f596e06ac3c92f304db125dc5877e5d",
+      "contentHash": "d0f63987002b4a4e43f4e99ea534d477ae598e6e82b98a2b1843f7e935e33d9d",
       "functions": [
         {
           "name": "FuzzFastDoublingConsistency",
@@ -14211,7 +14827,7 @@
             "f"
           ],
           "exported": true,
-          "lineCount": 53
+          "lineCount": 59
         },
         {
           "name": "FuzzFFTBasedConsistency",
@@ -14219,7 +14835,7 @@
             "f"
           ],
           "exported": true,
-          "lineCount": 45
+          "lineCount": 46
         },
         {
           "name": "FuzzFibonacciIdentities",
@@ -14274,7 +14890,7 @@
         "FuzzFastDoublingMod",
         "FuzzProgressMonotonicity"
       ],
-      "totalLines": 335,
+      "totalLines": 342,
       "hasStructuralAnalysis": true
     },
     "internal/fibonacci/fibonacci_golden_test.go": {
@@ -14664,12 +15280,12 @@
     },
     "internal/fibonacci/fibonaccitest/doc.go": {
       "filePath": "internal/fibonacci/fibonaccitest/doc.go",
-      "contentHash": "cb63a0e748765a707077684f1c1376ec74faf360e012b511442654c97de0f8b0",
+      "contentHash": "6e6e17f91a880335d0f026400aa5f3f60d0bbc7966a3c66670a9934b9ccdcf44",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 5,
+      "totalLines": 34,
       "hasStructuralAnalysis": true
     },
     "internal/fibonacci/fibonaccitest/stub.go": {
@@ -16798,12 +17414,12 @@
     },
     "internal/fibonacci/testdata/fibonacci_golden.json": {
       "filePath": "internal/fibonacci/testdata/fibonacci_golden.json",
-      "contentHash": "25a81ae7d7ef3fbb96f7948ea1097bc6193ac58ea9d09065da7e01a4dc080c03",
+      "contentHash": "f5f08fca25c4dbe760803a3f1dc3872e0dd9c53cee01c4eb861c022065d36a20",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 95,
+      "totalLines": 107,
       "hasStructuralAnalysis": true
     },
     "internal/fibonacci/testdata/fuzz/FuzzFFTBasedConsistency/seed-medium": {
@@ -17445,8 +18061,16 @@
     },
     "internal/fibonacci/threshold/manager.go": {
       "filePath": "internal/fibonacci/threshold/manager.go",
-      "contentHash": "a323dfbee23d6eed027fc08207c8ee220a47e7c78f20815b55f902a81164aa7c",
+      "contentHash": "be1ba75adc763f23a1fb0266a18aca38ff25b2d7ddfb3185fd102070d83ea903",
       "functions": [
+        {
+          "name": "SetTuning",
+          "params": [
+            "t"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
         {
           "name": "NewDynamicThresholdManager",
           "params": [
@@ -17455,7 +18079,7 @@
           ],
           "returnType": "*DynamicThresholdManager",
           "exported": true,
-          "lineCount": 10
+          "lineCount": 11
         },
         {
           "name": "NewDynamicThresholdManagerFromConfig",
@@ -17464,7 +18088,7 @@
           ],
           "returnType": "*DynamicThresholdManager",
           "exported": true,
-          "lineCount": 19
+          "lineCount": 20
         },
         {
           "name": "SetLogger",
@@ -17490,28 +18114,28 @@
           "params": [],
           "returnType": "(fft, parallel int)",
           "exported": true,
-          "lineCount": 5
+          "lineCount": 3
         },
         {
           "name": "GetFFTThreshold",
           "params": [],
           "returnType": "int",
           "exported": true,
-          "lineCount": 5
+          "lineCount": 3
         },
         {
           "name": "GetParallelThreshold",
           "params": [],
           "returnType": "int",
           "exported": true,
-          "lineCount": 5
+          "lineCount": 3
         },
         {
           "name": "ShouldAdjust",
           "params": [],
           "returnType": "(newFFT, newParallel int, adjusted bool)",
           "exported": true,
-          "lineCount": 39
+          "lineCount": 46
         },
         {
           "name": "analyzeFFTThreshold",
@@ -17551,7 +18175,7 @@
           "params": [],
           "returnType": "ThresholdStats",
           "exported": true,
-          "lineCount": 13
+          "lineCount": 10
         },
         {
           "name": "Reset",
@@ -17561,6 +18185,19 @@
         }
       ],
       "classes": [
+        {
+          "name": "Tuning",
+          "methods": [],
+          "properties": [
+            "FFTSpeedupThreshold",
+            "ParallelSpeedupThreshold",
+            "HysteresisMargin",
+            "MinFFTThreshold",
+            "MinParallelThreshold"
+          ],
+          "exported": true,
+          "lineCount": 7
+        },
         {
           "name": "DynamicThresholdManager",
           "methods": [
@@ -17602,6 +18239,12 @@
           ]
         },
         {
+          "source": "sync/atomic",
+          "specifiers": [
+            "atomic"
+          ]
+        },
+        {
           "source": "time",
           "specifiers": [
             "time"
@@ -17612,15 +18255,11 @@
           "specifiers": [
             "zerolog"
           ]
-        },
-        {
-          "source": "github.com/agbru/fibcalc/internal/config",
-          "specifiers": [
-            "config"
-          ]
         }
       ],
       "exports": [
+        "Tuning",
+        "SetTuning",
         "DynamicThresholdManager",
         "NewDynamicThresholdManager",
         "NewDynamicThresholdManagerFromConfig",
@@ -17633,12 +18272,12 @@
         "GetStats",
         "Reset"
       ],
-      "totalLines": 284,
+      "totalLines": 327,
       "hasStructuralAnalysis": true
     },
     "internal/fibonacci/threshold/manager_test.go": {
       "filePath": "internal/fibonacci/threshold/manager_test.go",
-      "contentHash": "65cc1d3297906a574dd7753097e0843c493a2e757cc70b3056714d4cb6a37f90",
+      "contentHash": "9aefd8c8ade930d20bc6b46254e81a9eecfe31adae812bc2c2336d62a66c1cfd",
       "functions": [
         {
           "name": "TestNewDynamicThresholdManager",
@@ -17694,7 +18333,7 @@
             "t"
           ],
           "exported": true,
-          "lineCount": 94
+          "lineCount": 88
         },
         {
           "name": "TestGetStats",
@@ -17784,7 +18423,7 @@
         "TestSignificantChange",
         "TestConcurrentAccess"
       ],
-      "totalLines": 580,
+      "totalLines": 574,
       "hasStructuralAnalysis": true
     },
     "internal/fibonacci/threshold/metrics_buffer.go": {
@@ -18972,17 +19611,17 @@
     },
     "internal/orchestration/doc.go": {
       "filePath": "internal/orchestration/doc.go",
-      "contentHash": "b1219d3f04363ff5f9a13db90d6a4c33eb5f6982677eb0d8472df3732fbce5b2",
+      "contentHash": "fe04ce4220a33fd217dc60283686cd82ebba760632083b6e98569bcb090e4bfb",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 5,
+      "totalLines": 35,
       "hasStructuralAnalysis": true
     },
     "internal/orchestration/interfaces.go": {
       "filePath": "internal/orchestration/interfaces.go",
-      "contentHash": "2b89075a7411187d91584a83b88f4b7bdf6ceac38f2429d2e60772fc3de2268f",
+      "contentHash": "9d90c3b19199bc8703b8e38d88eef8630bf8d42e6cd1e6f108e27367623d8bd7",
       "functions": [
         {
           "name": "DisplayProgress",
@@ -19132,7 +19771,7 @@
         "ResultPresenter",
         "ErrorHandler"
       ],
-      "totalLines": 107,
+      "totalLines": 129,
       "hasStructuralAnalysis": true
     },
     "internal/orchestration/lastdigits.go": {
@@ -20094,8 +20733,15 @@
     },
     "internal/progress/observer.go": {
       "filePath": "internal/progress/observer.go",
-      "contentHash": "427a1c112ec2459617c26b4aea228fc76d9918b816a36ab466ac07314b534eba",
+      "contentHash": "c4ae9b0c20bfbb0aeaa997648cc834df35eccd625ae5a701692d78872656eb26",
       "functions": [
+        {
+          "name": "RecoveredObserverCount",
+          "params": [],
+          "returnType": "uint64",
+          "exported": true,
+          "lineCount": 1
+        },
         {
           "name": "NewProgressSubject",
           "params": [],
@@ -20151,7 +20797,7 @@
           ],
           "returnType": "ProgressCallback",
           "exported": true,
-          "lineCount": 17
+          "lineCount": 23
         }
       ],
       "classes": [
@@ -20188,9 +20834,16 @@
           "specifiers": [
             "sync"
           ]
+        },
+        {
+          "source": "sync/atomic",
+          "specifiers": [
+            "atomic"
+          ]
         }
       ],
       "exports": [
+        "RecoveredObserverCount",
         "ProgressObserver",
         "ProgressSubject",
         "NewProgressSubject",
@@ -20201,7 +20854,7 @@
         "AsProgressCallback",
         "Freeze"
       ],
-      "totalLines": 152,
+      "totalLines": 169,
       "hasStructuralAnalysis": true
     },
     "internal/progress/observer_test.go": {
@@ -21869,7 +22522,7 @@
     },
     "internal/tui/commands.go": {
       "filePath": "internal/tui/commands.go",
-      "contentHash": "17bbcb27b8943b6ed4df94e7f694b7a523980763184699cda387d386b8a5df87",
+      "contentHash": "ca517e1a5175963b87dc325f843552d6eac9736f2698d4d3341d13ea1d54112a",
       "functions": [
         {
           "name": "Run",
@@ -21982,12 +22635,6 @@
           ]
         },
         {
-          "source": "github.com/agbru/fibcalc/internal/fibonacci",
-          "specifiers": [
-            "fibonacci"
-          ]
-        },
-        {
           "source": "github.com/agbru/fibcalc/internal/metrics",
           "specifiers": [
             "metrics"
@@ -22009,7 +22656,7 @@
       "exports": [
         "Run"
       ],
-      "totalLines": 123,
+      "totalLines": 122,
       "hasStructuralAnalysis": true
     },
     "internal/tui/component/doc.go": {
@@ -23654,7 +24301,7 @@
     },
     "internal/tui/model.go": {
       "filePath": "internal/tui/model.go",
-      "contentHash": "969d13ff12ed893fe0cfd33c4022222fd060c77683c68bf22a3395656f373aef",
+      "contentHash": "192bf34386c2cc86b8b12bd9bd794e1a9dcb8420ea2b2656ad62891b9ee13d24",
       "functions": [
         {
           "name": "NewModel",
@@ -23769,9 +24416,9 @@
           ]
         },
         {
-          "source": "github.com/agbru/fibcalc/internal/fibonacci",
+          "source": "github.com/agbru/fibcalc/internal/orchestration",
           "specifiers": [
-            "fibonacci"
+            "orchestration"
           ]
         }
       ],
