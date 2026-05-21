@@ -10,7 +10,6 @@ import (
 
 	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/metrics"
 	"github.com/agbru/fibcalc/internal/metrics/system"
 	"github.com/agbru/fibcalc/internal/orchestration"
@@ -18,7 +17,7 @@ import (
 
 // Run is the public entry point for the TUI mode.
 // It creates the bubbletea program, runs it, and returns the exit code.
-func Run(ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, version string) int {
+func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string) int {
 	// Rebuild styles from the current ui theme (set by app.Run via InitTheme).
 	initTUIStyles()
 
@@ -42,12 +41,12 @@ func Run(ctx context.Context, calculators []fibonacci.Calculator, cfg config.App
 }
 
 // startCalculationCmd returns a tea.Cmd that launches the orchestration.
-func startCalculationCmd(ref *programRef, ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
+func startCalculationCmd(ref *programRef, ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
 	return func() tea.Msg {
 		progressReporter := &TUIProgressReporter{ref: ref}
 		presenter := &TUIResultPresenter{ref: ref}
 
-		opts := fibonacci.Options{
+		opts := orchestration.Options{
 			ParallelThreshold: cfg.Threshold,
 			FFTThreshold:      cfg.FFTThreshold,
 			StrassenThreshold: cfg.StrassenThreshold,

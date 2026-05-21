@@ -8,14 +8,14 @@ import (
 
 	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbru/fibcalc/internal/orchestration"
 )
 
 // ExecutionState holds the execution-related fields of a TUI session.
 type ExecutionState struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
-	calculators []fibonacci.Calculator
+	calculators []orchestration.Calculator
 	generation  uint64
 	done        bool
 	exitCode    int
@@ -45,7 +45,7 @@ type Model struct {
 }
 
 // NewModel creates a new TUI model.
-func NewModel(parentCtx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, version string) Model {
+func NewModel(parentCtx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string) Model {
 	algoNames := make([]string, len(calculators))
 	for i, c := range calculators {
 		algoNames[i] = c.Name()

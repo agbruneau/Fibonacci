@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/agbru/fibcalc/internal/format"
 )
 
 // Application exit codes define the standard exit statuses for the application.
@@ -122,6 +120,22 @@ func sanitizeConfigExcerpt(s string) string {
 	return s
 }
 
+// formatBytesLocal renders a byte count in a human-readable form (GB/MB/KB/B).
+// Kept local to avoid an upward import from errors → format, which would
+// violate the Clean Architecture hierarchy (errors is a leaf utility package).
+func formatBytesLocal(b uint64) string {
+	switch {
+	case b >= 1<<30:
+		return fmt.Sprintf("%.1f GB", float64(b)/(1<<30))
+	case b >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(b)/(1<<20))
+	case b >= 1<<10:
+		return fmt.Sprintf("%.1f KB", float64(b)/(1<<10))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
+}
+
 // FormatDiagnostic returns a single-line, machine-readable diagnostic summary
 // (no ANSI). Empty if [CalculationError.HasDiagnostic] is false.
 func (e CalculationError) FormatDiagnostic() string {
@@ -140,7 +154,7 @@ func (e CalculationError) FormatDiagnostic() string {
 		formatThresholdBits(e.FFTThresholdBits),
 		formatThresholdBits(e.StrassenThresholdBits))
 	if e.MemoryEstimateBytes != 0 {
-		fmt.Fprintf(&b, "; mem_est=%s", format.FormatBytes(e.MemoryEstimateBytes))
+		fmt.Fprintf(&b, "; mem_est=%s", formatBytesLocal(e.MemoryEstimateBytes))
 	}
 	if ex := sanitizeConfigExcerpt(e.ConfigExcerpt); ex != "" {
 		fmt.Fprintf(&b, "; config=%s", ex)

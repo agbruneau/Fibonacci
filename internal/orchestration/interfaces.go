@@ -10,6 +10,28 @@ import (
 	"github.com/agbru/fibcalc/internal/progress"
 )
 
+// Re-exported aliases of fibonacci package types. UI/presentation packages
+// (e.g. internal/tui) should consume these aliases via the orchestration
+// import rather than reaching into internal/fibonacci directly — this keeps
+// the dependency arrow ui → orchestration → fibonacci, matching the
+// hierarchy revendiquée dans CLAUDE.md.
+type (
+	// Calculator aliases fibonacci.Calculator for downstream packages.
+	Calculator = fibonacci.Calculator
+
+	// Options aliases fibonacci.Options for downstream packages.
+	Options = fibonacci.Options
+)
+
+// Re-exported default thresholds. Mirrored from fibonacci so consumers
+// of orchestration do not need to import fibonacci directly for these
+// constants.
+var (
+	DefaultParallelThreshold = fibonacci.DefaultParallelThreshold
+	DefaultFFTThreshold      = fibonacci.DefaultFFTThreshold
+	DefaultStrassenThreshold = fibonacci.DefaultStrassenThreshold
+)
+
 // ExecutionConfig groups the parameters required to execute Fibonacci calculations.
 type ExecutionConfig struct {
 	// Calculators is a slice of calculators to execute.

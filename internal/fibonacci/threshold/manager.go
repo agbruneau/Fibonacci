@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-
-	"github.com/agbru/fibcalc/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,27 +25,67 @@ const (
 	MaxMetricsHistory = 20
 )
 
-// Tuning knobs sourced from config.DefaultThresholdTuning. These were
-// constants prior to audit R4.2; they are now declared as vars so the
-// canonical value lives in one place (internal/config/threshold_tuning.go)
-// without breaking the existing `threshold.FFTSpeedupThreshold` etc.
-// callers in tests and docs.
+// Tuning knobs owned by the threshold package. Mirrors
+// internal/config.DefaultThresholdTuning, but kept here so this leaf
+// package does not import config (which would close a cycle via
+// config → fibonacci/memory). The config layer reads these defaults
+// and may override them via SetTuning before any manager is constructed.
 var (
 	// FFTSpeedupThreshold is the minimum speedup ratio (baseline / FFT)
 	// at which the dynamic-threshold manager will lower the FFT
-	// activation threshold. See config.ThresholdTuningProfile for the
-	// rationale behind the default value.
-	FFTSpeedupThreshold = config.DefaultThresholdTuning.FFTSpeedupThreshold
+	// activation threshold.
+	FFTSpeedupThreshold = 1.2
 
 	// ParallelSpeedupThreshold is the analogous ratio for the parallel
-	// multiplication path. See config.ThresholdTuningProfile.
-	ParallelSpeedupThreshold = config.DefaultThresholdTuning.ParallelSpeedupThreshold
+	// multiplication path.
+	ParallelSpeedupThreshold = 1.1
 
 	// HysteresisMargin is the minimum relative change required before a
-	// new threshold is committed; damps oscillation. See
-	// config.ThresholdTuningProfile.
-	HysteresisMargin = config.DefaultThresholdTuning.HysteresisMargin
+	// new threshold is committed; damps oscillation.
+	HysteresisMargin = 0.15
 )
+
+// Floor values used by the analyzer to bound downward adjustments.
+// Mirrored from internal/config.DefaultThresholdTuning; see the SetTuning
+// note for override semantics.
+var (
+	minFFTThresholdFloor      = 100_000
+	minParallelThresholdFloor = 1024
+)
+
+// Tuning is a value object carrying tuning knobs that the config layer
+// can inject without creating an upward import from this package to
+// internal/config.
+type Tuning struct {
+	FFTSpeedupThreshold      float64
+	ParallelSpeedupThreshold float64
+	HysteresisMargin         float64
+	MinFFTThreshold          int
+	MinParallelThreshold     int
+}
+
+// SetTuning installs new defaults for the package-level tuning knobs.
+// Intended to be called once at startup from the wiring layer (e.g. by
+// internal/app) so production code can stay on
+// internal/config.DefaultThresholdTuning as its single source of truth
+// while the threshold package itself stays free of upward imports.
+func SetTuning(t Tuning) {
+	if t.FFTSpeedupThreshold > 0 {
+		FFTSpeedupThreshold = t.FFTSpeedupThreshold
+	}
+	if t.ParallelSpeedupThreshold > 0 {
+		ParallelSpeedupThreshold = t.ParallelSpeedupThreshold
+	}
+	if t.HysteresisMargin > 0 {
+		HysteresisMargin = t.HysteresisMargin
+	}
+	if t.MinFFTThreshold > 0 {
+		minFFTThresholdFloor = t.MinFFTThreshold
+	}
+	if t.MinParallelThreshold > 0 {
+		minParallelThresholdFloor = t.MinParallelThreshold
+	}
+}
 
 // DynamicThresholdManager adjusts FFT and parallel thresholds during calculation
 // based on observed performance metrics.
@@ -227,7 +265,7 @@ func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
 		SpeedupThreshold:  FFTSpeedupThreshold,
 		LowerNumerator:    9,
 		RaiseNumerator:    11,
-		MinThreshold:      config.DefaultThresholdTuning.MinFFTThreshold,
+		MinThreshold:      minFFTThresholdFloor,
 		MaxCapMultiplier:  2,
 		CurrentThreshold:  int(m.currentFFTThreshold.Load()),
 		OriginalThreshold: m.originalFFTThreshold,
@@ -241,7 +279,7 @@ func (m *DynamicThresholdManager) analyzeParallelThreshold() int {
 		SpeedupThreshold:  ParallelSpeedupThreshold,
 		LowerNumerator:    8,
 		RaiseNumerator:    12,
-		MinThreshold:      config.DefaultThresholdTuning.MinParallelThreshold,
+		MinThreshold:      minParallelThresholdFloor,
 		MaxCapMultiplier:  4,
 		CurrentThreshold:  int(m.currentParallelThreshold.Load()),
 		OriginalThreshold: m.originalParallelThreshold,
