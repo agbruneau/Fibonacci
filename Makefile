@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-baseline bench-versioned run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
+.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-baseline bench-versioned stats run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
 
 # Default target
 all: clean build test
@@ -177,6 +177,28 @@ coverage:
 benchmark:
 	@echo "Running benchmarks..."
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
+
+## stats: Print package and LOC counts (canonical source for CLAUDE.md / ARCH.md)
+##
+## Audit-PRD P2-05 / Sprint S4 — replaces the hardcoded "23 packages" /
+## "35 500 LOC" numbers that drift each refactor. Run this before
+## refreshing the documentation if the counts look stale.
+stats:
+	@echo "── Package count ──"
+	@printf "Total Go packages:   "; $(GO) list ./... | wc -l
+	@printf "Under internal/:     "; $(GO) list ./internal/... | wc -l
+	@printf "Under cmd/:          "; $(GO) list ./cmd/... | wc -l
+	@echo ""
+	@echo "── Lines of code (excluding _test.go) ──"
+	@find . -name '*.go' -not -name '*_test.go' -not -path './.understand-anything/*' -not -path './docs/dashboard/*' -print0 \
+		| xargs -0 wc -l 2>/dev/null \
+		| tail -1 \
+		| awk '{print "Production LOC: "$$1}'
+	@echo "── Lines of code (test files only) ──"
+	@find . -name '*_test.go' -print0 \
+		| xargs -0 wc -l 2>/dev/null \
+		| tail -1 \
+		| awk '{print "Test LOC:       "$$1}'
 
 # POSIX-only (requires bash/date/tee)
 ## bench-baseline: Refresh docs/audits/bench-baseline.txt for the CI regression gate

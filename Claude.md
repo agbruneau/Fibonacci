@@ -11,7 +11,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Module** : `github.com/agbru/fibcalc`
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
-- **Taille (mesurée)** : ~35 500 LOC `.go` (source + tests), 23 packages (21 internes + 2 sous `cmd/`)
+- **Taille** : exécuter `make stats` pour le décompte de packages et LOC à jour. Référence historique : ~35 500 LOC `.go` au commit de l'audit v1.
 - **CI/CD** : GitHub Actions — `ci.yml` (vet + golangci-lint épinglé `v1.64.8` + build, `go test -race -short` sur matrice **3 OS dont Windows** via `CGO_ENABLED=1`, + job `bench` informatif) et `coverage.yml` (sur push+PR, seuil `MIN_COVERAGE=80%`).
 
 ---
@@ -110,7 +110,7 @@ Ces fichiers concentrent la complexité ou des couplages cachés. Avant toute mo
 | `internal/bigfft/fft.go`, `fft_recursion.go` | Globaux mutables non synchronisés sur hot path — ne pas en ajouter (cf. directive 4). |
 | `internal/tui/model.go` | ~188 L, routeur `Update` pur ; garder la pureté (pas d'effets de bord dans le routage). |
 | `internal/cli/completion/` | Registry unique, 4 générateurs shell ; échappement des identifiants vers le shell — risque de sécurité latent. |
-| `internal/fibonacci/testdata/fibonacci_golden.json` | **Immuable** sans accord explicite (oracle de non-régression algorithmique). |
+| `internal/fibonacci/testdata/fibonacci_golden.json` | **Immuable** sans accord explicite ADR (oracle de non-régression algorithmique). Étendu à F(50k/100k/200k) en mai 2026 sous accord ADR-0004 §B5 ; toute extension future requiert le même protocole. |
 
 ---
 

@@ -43,10 +43,17 @@ func main() {
 	// - Powers of 10
 	// - Random samples up to 10,000 (limit for reasonable file size/test time)
 
+	// Targets cover three regimes:
+	//   - Small: edge cases + early indices.
+	//   - Medium: 1k..10k, schoolbook + Karatsuba.
+	//   - Large (Audit-PRD E8-R1 / ADR-0004 §B5): exercise the FFT
+	//     activation regime (default fftThreshold ≈ 115 kbits ≈ 35k
+	//     decimal digits, so F(100k) and above sit in the FFT regime).
 	targets := []uint64{
 		0, 1, 2, 3, 4, 5, 10, 20, 50, 92, 93, 94, 100,
 		128, 256, 512, 1000, 1024,
 		2000, 2048, 5000, 8192, 10000,
+		50_000, 100_000, 200_000,
 	}
 
 	var data []GoldenData
