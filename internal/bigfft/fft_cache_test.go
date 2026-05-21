@@ -214,11 +214,12 @@ func TestTransformCacheEviction(t *testing.T) {
 	}
 }
 
-// TestTransformCacheEvictionRecyclesBacking verifies the [R1.5] optimization:
-// when the cache is at capacity and a new entry of the same shape is inserted,
-// the contiguous backing buffer of the evicted entry is reused rather than
-// reallocated. We measure allocations with testing.AllocsPerRun and assert
-// they remain bounded (not 1 large alloc per insertion at steady state).
+// TestTransformCacheEvictionRecyclesBacking historically verified the
+// [R1.5] backing-recycle optimisation. Per Audit-PRD E1-R4, the recycle
+// was removed because it opened a use-after-free window for callers still
+// holding a PolValues returned by a previous Get(). The test is retained
+// as a *steady-state allocation upper bound*: at cache capacity the put
+// path should still keep allocations bounded, just not recycle.
 //
 // Not marked t.Parallel(): testing.AllocsPerRun panics in parallel tests.
 func TestTransformCacheEvictionRecyclesBacking(t *testing.T) {

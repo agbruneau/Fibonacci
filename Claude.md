@@ -71,7 +71,7 @@ docs/
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
 - **GC désactivé** pendant calculs N ≥ 1M — **panic-safe** via `gcCtrl.WithGC(fn)` (`defer End()`). `Begin`/`End` directs `Deprecated`.
 - **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
-- **Cache FFT** LRU thread-safe — 15-30 % speedup. ⚠ Risque résiduel : en éviction, le `backing` recyclé peut encore être aliasé par un `pv` vivant — ne pas recycler un backing sans preuve qu'aucune valeur polynomiale ne le référence.
+- **Cache FFT** LRU thread-safe — 15-30 % speedup. Le recyclage de `backing` à l'éviction a été **retiré** (Audit-PRD E1-R4) : `putByKey` alloue toujours un buffer frais pour éliminer l'aliasing avec un `PolValues` issu d'un `Get()` concurrent. Net cost négligeable sur le hot path.
 - **PGO** supporté via `make build-pgo`
 
 ---
@@ -86,9 +86,12 @@ Les correctifs ci-dessous sont **en place et testés**. Ils encodent des invaria
 | `fibonacci/memory/gc_control.go` | `WithGC(fn)` est panic-safe (`defer End()`). `Begin`/`End` directs sont `Deprecated` — ne pas les réintroduire. |
 | `calibration/calibration.go` | `IsStale` doit rester invoqué ; la branche stale doit router vers `CompleteStrategy`. |
 | `bigfft/pool.go` | `releaseWordSlice` route sur `cap` (pas `len`) et incrémente un compteur de miss. |
-| `bigfft/fft_cache.go` | `putByKey` n'alloue un backing que si aucun backing récupérable n'existe. |
-
-**Risque résiduel actif** : cache FFT (`bigfft/fft_cache.go`, cf. « Patterns de performance ») ; globaux FFT mutables non synchronisés sur hot path (`bigfft/fft.go`, `fft_recursion.go`).
+| `bigfft/fft_cache.go` | `putByKey` alloue **toujours** un backing frais ; ne pas réintroduire de recyclage à l'éviction — cf. Audit-PRD E1-R4 (aliasing avec un `PolValues` vivant). |
+| `bigfft/fft.go`, `fft_recursion.go` | `fftThreshold`/`parallelFFTRecursionThreshold`/`maxParallelFFTDepth` sont **`atomic.Int64/Uint64` privés** ; lectures via `getFFTThreshold()`/`GetParallelFFTRecursionThreshold()`/`GetMaxParallelFFTDepth()`. Ne pas réintroduire de globaux mutables non synchronisés. |
+| `bigfft/fft.go` (`Mul`/`MulTo`/`Sqr`/`SqrTo`) | Le `recover()` re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent pas être masquées en `error`. Gardé par `TestFermatPostConditionPanicClassifier`. |
+| `fibonacci/threshold/manager.go` | Champs `currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]`. L'invariant A-18 single-writer est **obsolète**. Le package n'importe **pas** `internal/config` ; passer par `threshold.SetTuning` depuis la couche supérieure. |
+| `errors/errors.go` | N'importe **pas** `internal/format` ; un helper local `formatBytesLocal` couvre le besoin. Gardé par `TestArchitectureLayering`. |
+| `tui/` (production) | N'importe **pas** `internal/fibonacci` directement ; passer par les aliases `orchestration.Calculator`/`Options`/`Default*Threshold`. Gardé par `TestArchitectureLayering`. |
 
 ---
 

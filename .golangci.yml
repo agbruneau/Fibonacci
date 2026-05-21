@@ -49,7 +49,9 @@ linters-settings:
     enable-all: true
     disable:
       - fieldalignment # Too strict for general use, can hurt readability. Enable manually if memory is critical.
-      - shadow # Often false positives, but useful to check occasionally.
+    # shadow is now ENABLED per Audit-PRD E10-R3 (Sprint S4-T3).
+    # The known-shadowing sites (bigfft/pool.go cap := cap(...)) have
+    # been renamed; new occurrences will surface as warnings on PRs.
 
   gocyclo:
     min-complexity: 15 # Allow slightly complex functions (algorithms)

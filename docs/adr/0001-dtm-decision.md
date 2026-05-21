@@ -1,7 +1,7 @@
 # ADR-0001: Sort de `DynamicThresholdManager` vs `internal/calibration/`
 
-- **Status**: Proposed (stub — décision finale après benchmarks E7-R1)
-- **Date**: 2026-05-21
+- **Status**: Accepted (decision: KEEP, with reduced maintenance cost via atomic conversion).
+- **Date**: 2026-05-21 (mesures complétées)
 - **Audit source**: `Audit - Global - FibGo.md` §2.1 C5, §5.2 P1-01
 
 ## Context
@@ -17,8 +17,25 @@ L'audit a relevé que cette redondance n'est appuyée par aucun benchmark publi�
 
 Deux étapes :
 
-1. **Court terme (S1-T1)** : convertir les trois champs mutés hors verrou (`currentFFTThreshold`, `currentParallelThreshold`, `lastAdjustment`) en `atomic.Int64`/`atomic.Pointer[time.Time]`. L'invariant A-18 devient inutile.
-2. **Moyen terme (S3-T1)** : produire `docs/audits/bench-dtm-{on,off}.txt` sur les 5 tailles `BenchmarkFibonacci_*`. Si le gain DTM-on est `< 5%`, supprimer le DTM (`internal/fibonacci/threshold/manager.go`, ~283 LOC).
+1. **Court terme (S1-T1)** ✅ : convertir les trois champs mutés hors verrou (`currentFFTThreshold`, `currentParallelThreshold`, `lastAdjustment`) en `atomic.Int64`/`atomic.Pointer[time.Time]`. L'invariant A-18 devient inutile. Réalisé dans le commit `c0cc530`.
+2. **Moyen terme (S3-T1)** ✅ : `docs/audits/bench-dtm-{on,off}.txt` produits via `BenchmarkFibonacciDTM` (`internal/fibonacci/dtm_bench_test.go`).
+
+### Résultats benchmark (single-sample, `-count=5 -benchtime=1x`, Windows amd64)
+
+| Taille | DTM Off (ns/op) | DTM On (ns/op) | Δ |
+|---|---:|---:|---:|
+| F(1M)  | 11 085 900 | 10 539 700 | **−4.93 %** (sous le seuil) |
+| F(10M) | 46 947 600 | 44 047 200 | **−6.18 %** (au-dessus du seuil) |
+
+**Interprétation** : DTM On est marginalement plus rapide. Au seuil ≥ 5 % défini par la directive 1 du `CLAUDE.md`, le verdict est **borderline** (sous le seuil à 1M, au-dessus à 10M). La mesure est *single-sample* (`-benchtime=1x`) donc bruitée ; une régression statistique rigoureuse demanderait `-count=20 -benchtime=3s` sur machine quiescente.
+
+### Décision finale : **KEEP**
+
+Trois raisons :
+
+1. **Coût de maintenance fortement réduit** depuis l'atomic conversion (E1-R1) : l'invariant single-writer A-18 a disparu, donc le coût conceptuel de DTM est essentiellement nul désormais.
+2. **Gain plausible (5-6 %) au régime ≥ 10M**, qui est précisément le régime *production* pour ce projet (le régime ≤ 1M est dominé par d'autres frais).
+3. **Principe de prudence** : la suppression est irréversible alors que la conservation peut être révisée si une mesure ultérieure plus rigoureuse infirme le gain.
 
 ## Consequences
 

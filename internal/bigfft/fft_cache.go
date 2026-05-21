@@ -321,10 +321,17 @@ func (tc *TransformCache) Put(data nat, pv PolValues) {
 
 // putByKey stores a transform result in the cache by precomputed key.
 //
-// When the cache is at capacity, the oldest entry is evicted and its
-// contiguous backing buffer is recycled to back the new entry whenever its
-// capacity is sufficient. This avoids an O(K·n) allocation on the hot path
-// of cache turnover. Eviction order (LRU) and thread-safety are preserved.
+// Concurrency contract (Audit-PRD E1-R4 / ADR-0002 follow-up): evicted
+// entries' backing buffers are NEVER recycled into the new entry. A prior
+// optimisation salvaged the LRU-tail buffer, but this opened a use-after-
+// free aliasing window — a caller still iterating over a PolValues
+// previously returned by Get() would observe its backing words being
+// overwritten by the new entry. The audit flagged this as a residual
+// risk to close before any library-style multi-tenant exposure. The
+// salvage was removed; each putByKey at capacity therefore allocates a
+// fresh wordCount-sized backing and lets GC reclaim the evicted ones.
+// Net cost: at most one extra allocation per put-on-full-cache; this is
+// negligible on the FFT cache hot path (puts are rare relative to hits).
 func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
@@ -338,9 +345,9 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	n := pv.N
 	wordCount := K * (n + 1)
 
-	// Evict oldest entries if at capacity, salvaging a backing buffer
-	// large enough to host the new entry when possible.
-	var backing []big.Word
+	// Evict oldest entries if at capacity. We deliberately do NOT salvage
+	// the evicted backing buffers — see the function-level concurrency
+	// contract above.
 	for tc.lru.Len() >= tc.config.MaxEntries {
 		oldest := tc.lru.Back()
 		if oldest == nil {
@@ -350,25 +357,13 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		entry := oldest.Value.(*cacheEntry)
 		delete(tc.entries, entry.key)
 		tc.evictions.Add(1)
-
-		// Salvage the largest suitable evicted backing. We keep the first
-		// fit (LRU order); subsequent evictions in the same loop drop their
-		// buffers to GC, matching the prior semantics for them.
-		if backing == nil && cap(entry.backing) >= wordCount {
-			backing = entry.backing[:wordCount]
-			// Zero recycled storage to avoid leaking stale words into the
-			// new entry's fermat sub-slices (copy below only writes len(v)
-			// words per coefficient, which may be < n+1).
-			for i := range backing {
-				backing[i] = 0
-			}
-		}
+		// entry.backing is intentionally left to the garbage collector;
+		// any concurrent caller still iterating over a PolValues whose
+		// Values slice aliases entry.backing remains safe because nothing
+		// will write to that buffer after this point.
 	}
 
-	// Allocate fresh storage if no suitable buffer was salvaged.
-	if backing == nil {
-		backing = make([]big.Word, wordCount)
-	}
+	backing := make([]big.Word, wordCount)
 
 	valuesCopy := make([]fermat, K)
 	for i, v := range pv.Values {

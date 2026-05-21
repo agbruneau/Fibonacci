@@ -11,7 +11,9 @@ import (
 // This fuzz test helps catch edge cases and numerical errors that might
 // not be covered by unit tests.
 func FuzzFastDoublingConsistency(f *testing.F) {
-	// Seed corpus with known interesting values
+	// Seed corpus with known interesting values, including indices that
+	// straddle the FFT activation threshold (Audit-PRD E8-R3 — exercise
+	// the FFT regime past F(50000)).
 	f.Add(uint64(0))
 	f.Add(uint64(1))
 	f.Add(uint64(2))
@@ -23,11 +25,15 @@ func FuzzFastDoublingConsistency(f *testing.F) {
 	f.Add(uint64(500))
 	f.Add(uint64(1000))
 	f.Add(uint64(5000))
+	f.Add(uint64(50_000))  // boundary of the historical cap
+	f.Add(uint64(100_000)) // FFT regime entry
+	f.Add(uint64(150_000)) // mid FFT regime
 
 	f.Fuzz(func(t *testing.T, n uint64) {
-		// Limit to avoid excessive test duration
-		// For fuzzing, we want quick iterations
-		if n > 50000 {
+		// Cap raised from 50_000 to 200_000 to exercise the FFT regime.
+		// A single calc at F(200_000) takes ~tens of ms on commodity hw —
+		// acceptable for the fuzz harness's seconds-long budget per iter.
+		if n > 200_000 {
 			return
 		}
 
@@ -76,8 +82,9 @@ func FuzzFFTBasedConsistency(f *testing.F) {
 	f.Add(uint64(10000))
 
 	f.Fuzz(func(t *testing.T, n uint64) {
-		// Limit for performance
-		if n > 20000 {
+		// Cap raised from 20_000 to 200_000 to exercise the FFT regime
+		// at non-trivial sizes (Audit-PRD E8-R3).
+		if n > 200_000 {
 			return
 		}
 
