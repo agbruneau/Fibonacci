@@ -1,11 +1,13 @@
 # FibCalc: High-Performance Fibonacci Calculator
 
-![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)
-[![CI](https://github.com/agbru/fibcalc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbru/fibcalc/actions/workflows/ci.yml)
-[![Coverage](https://github.com/agbru/fibcalc/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/agbru/fibcalc/actions/workflows/coverage.yml)
-![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
+[![CI](https://github.com/agbruneau/FibGo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbruneau/FibGo/actions/workflows/ci.yml)
+[![Coverage](https://github.com/agbruneau/FibGo/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/agbruneau/FibGo/actions/workflows/coverage.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
+
+> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (971 nodes, 3 781 edges, 8 layers, 13-step guided tour).
 
 **FibCalc** is an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It demonstrates Clean Architecture, zero-allocation strategies, adaptive parallelism, and algorithmic optimization (Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication). Written in Go; handles indices in the hundreds of millions.
 
