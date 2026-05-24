@@ -33,23 +33,349 @@
       "zerolog"
     ],
     "description": "FibCalc is a high-performance Go calculator for arbitrarily large Fibonacci numbers, built as an academic prototype that demonstrates Clean Architecture, zero-allocation sync.Pool strategies, adaptive parallelism, and PGO. It implements Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication (Schoenhage-Strassen), and an optional GMP backend, with a Bubble Tea TUI dashboard. Note: this project has over 100 source files; consider scoping analysis to a subdirectory for faster results.",
-    "analyzedAt": "2026-05-21T15:16:29.890362Z",
-    "gitCommitHash": "b864b3a0df3888c0f2c1fe2626df9ee87983bb2d"
+    "analyzedAt": "2026-05-24T22:47:03.004Z",
+    "gitCommitHash": "f3229060e115ec1308718ae2e2ccee0921195858"
   },
   "nodes": [
     {
-      "id": "pipeline:.github/workflows/coverage.yml",
-      "type": "pipeline",
-      "name": "coverage.yml",
-      "filePath": ".github/workflows/coverage.yml",
-      "summary": "GitHub Actions workflow producing Go test coverage on each push and pull request and enforcing the MIN_COVERAGE=80% gate documented in CLAUDE.md.",
+      "id": "document:CHANGELOG.md",
+      "type": "document",
+      "name": "CHANGELOG.md",
+      "filePath": "CHANGELOG.md",
+      "summary": "Keep-a-Changelog style release history tracking hardening sprint (May 2026), CI/CD retirement, and the 1.0.0 release with core algorithms, performance optimizations, and security work.",
       "tags": [
-        "ci-cd",
-        "coverage",
-        "quality-gate",
-        "infrastructure"
+        "documentation",
+        "changelog",
+        "release-notes",
+        "versioning"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:CONTRIBUTING.md",
+      "type": "document",
+      "name": "CONTRIBUTING.md",
+      "filePath": "CONTRIBUTING.md",
+      "summary": "Contributor handbook covering development setup, branch naming, conventional commit format, PR requirements, coding standards, and the testing strategy including `CoreCalculator` test doubles.",
+      "tags": [
+        "documentation",
+        "contributing",
+        "development",
+        "workflow"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:Claude.md",
+      "type": "document",
+      "name": "Claude.md",
+      "filePath": "Claude.md",
+      "summary": "Project memory for Claude Code documenting the 4-layer Clean Architecture, performance patterns (sync.Pool, bump allocator, atomic threshold globals), preserved invariants, and sensitive modules in `internal/fibonacci/` and `internal/bigfft/`.",
+      "tags": [
+        "documentation",
+        "ai-context",
+        "architecture",
+        "invariants"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Encodes non-obvious invariants (panic-safe GC, recover sentinel re-propagation, atomic threshold globals) that naive refactors would silently break."
+    },
+    {
+      "id": "service:Makefile",
+      "type": "service",
+      "name": "Makefile",
+      "filePath": "Makefile",
+      "summary": "Sole local validation entry point (no CI/CD): drives build, test (race detector), benchmark, lint, PGO profile/build, cross-compilation for linux/windows/darwin amd64+arm64, and dependency hygiene targets.",
+      "tags": [
+        "build-system",
+        "infrastructure",
+        "automation",
+        "pgo",
+        "cross-compilation"
+      ],
+      "complexity": "complex",
+      "languageNotes": "39 targets organized into build/PGO/test/bench/run/lint/deps groups; PGO workflow chains pgo-profile → build-pgo using `default.pgo`."
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Project entry-point documentation describing the high-performance Fibonacci calculator: algorithms (Fast Doubling, Matrix, FFT, GMP), Clean Architecture, performance engineering features, CLI usage, configuration, and development workflow.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview",
+        "readme"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/ARCH.md",
+      "type": "document",
+      "name": "ARCH.md",
+      "filePath": "docs/ARCH.md",
+      "summary": "Comprehensive architecture reference (797 lines, 68 sections) covering Clean Architecture layers, internal package map, algorithm layer, data flow, concurrency model, 14 design patterns, and 10 ADRs (sync.Pool, dynamic multiplication selection, arena, GC control, observer progress).",
+      "tags": [
+        "documentation",
+        "architecture",
+        "adr",
+        "design-patterns",
+        "data-flow"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/BUILD.md",
+      "type": "document",
+      "name": "BUILD.md",
+      "filePath": "docs/BUILD.md",
+      "summary": "Build configuration manual covering build tags (GMP), PGO workflow, vector arithmetic, cross-compilation matrix, reproducible Docker/devcontainer builds, version injection via ldflags, and dashboard regeneration commands.",
+      "tags": [
+        "documentation",
+        "build-system",
+        "pgo",
+        "cross-compilation",
+        "docker"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/CALIBRATION.md",
+      "type": "document",
+      "name": "CALIBRATION.md",
+      "filePath": "docs/CALIBRATION.md",
+      "summary": "Specification for the adaptive calibration subsystem (`internal/calibration`): full/auto/cached modes, micro-benchmark matrix, confidence scoring, profile persistence, and adaptive threshold generation for parallel/FFT/Strassen crossover points.",
+      "tags": [
+        "documentation",
+        "calibration",
+        "performance-tuning",
+        "thresholds",
+        "benchmarking"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/PERFORMANCE.md",
+      "type": "document",
+      "name": "PERFORMANCE.md",
+      "filePath": "docs/PERFORMANCE.md",
+      "summary": "Performance guide with reference benchmarks (Intel Core Ultra 9 275HX 24-core), regression baseline methodology (>=5% block), and the 8 implemented optimizations: zero-allocation strategy, 2-tier multiplication, parallelism, Strassen, symmetric squaring, GC controller, memory budget, partial computation.",
+      "tags": [
+        "documentation",
+        "performance",
+        "benchmarking",
+        "optimization",
+        "tuning"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/PORTABILITY.md",
+      "type": "document",
+      "name": "PORTABILITY.md",
+      "filePath": "docs/PORTABILITY.md",
+      "summary": "Portability matrix listing OS/architecture support (linux/amd64 primary, linux/arm64, darwin/arm64, windows/amd64), platform-specific fallbacks in `internal/bigfft/arith_*.go` and `cpu_amd64.go`, GMP build tag requirements, and race detector availability per platform.",
+      "tags": [
+        "documentation",
+        "portability",
+        "cross-platform",
+        "build-tags",
+        "race-detector"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/TESTING.md",
+      "type": "document",
+      "name": "TESTING.md",
+      "filePath": "docs/TESTING.md",
+      "summary": "Testing strategy covering table-driven unit tests, immutable golden files (`fibonacci_golden.json`), fuzz testing of mathematical identities, architecture-layering gate (`arch_test.go`), panic-contract tests, property-based testing with gopter (Cassini's identity), benchmarks, and mock generation.",
+      "tags": [
+        "documentation",
+        "testing",
+        "golden-tests",
+        "fuzz",
+        "property-based"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/TUI_GUIDE.md",
+      "type": "document",
+      "name": "TUI_GUIDE.md",
+      "filePath": "docs/TUI_GUIDE.md",
+      "summary": "Developer guide for the Bubble Tea TUI: Elm Architecture (Model-Update-View), layout, sub-models, message system, bridge pattern between orchestration and presentation (`TUIProgressReporter`, `TUIResultPresenter`), keyboard navigation, calculation lifecycle, and styling.",
+      "tags": [
+        "documentation",
+        "tui",
+        "bubble-tea",
+        "elm-architecture",
+        "ui-guide"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/algorithms/BIGFFT.md",
+      "type": "document",
+      "name": "BIGFFT.md",
+      "filePath": "docs/algorithms/BIGFFT.md",
+      "summary": "Deep-dive into the `internal/bigfft` subsystem: public API, multiplication pipeline, FFT size selection, polynomial representation (PolValues), Fermat ring arithmetic, parallel FFT recursion, pool/bump allocator architecture, LRU FFT cache, and CPU feature detection (amd64).",
+      "tags": [
+        "documentation",
+        "bigfft",
+        "fft",
+        "fermat-rings",
+        "memory-management"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/algorithms/COMPARISON.md",
+      "type": "document",
+      "name": "COMPARISON.md",
+      "filePath": "docs/algorithms/COMPARISON.md",
+      "summary": "Side-by-side algorithm comparison: theoretical complexity, asymptotic constants, per-iteration operation counts, memory usage, and benchmark results bucketed by N (small/medium/large/very large) with recommendations for when to use each.",
+      "tags": [
+        "documentation",
+        "algorithm-comparison",
+        "complexity-analysis",
+        "benchmarks"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/algorithms/FAST_DOUBLING.md",
+      "type": "document",
+      "name": "FAST_DOUBLING.md",
+      "filePath": "docs/algorithms/FAST_DOUBLING.md",
+      "summary": "Mathematical and implementation reference for the Fast Doubling algorithm (default, O(log n)): matrix-form derivation, induction proof, pseudocode, Go implementation, and FibCalc-specific optimizations (DoublingFramework strategy pattern, sync.Pool, calculation arena, 3-tier adaptive multiplication).",
+      "tags": [
+        "documentation",
+        "algorithm",
+        "fast-doubling",
+        "fibonacci",
+        "mathematical-proof"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/algorithms/FFT.md",
+      "type": "document",
+      "name": "FFT.md",
+      "filePath": "docs/algorithms/FFT.md",
+      "summary": "FFT multiplication primer for large integers: convolution theorem, FFT multiplication algorithm, the 2-tier multiplication selection logic, threshold activation (~500k bits), interaction with parallelism, and the `FFTBasedCalculator` integration.",
+      "tags": [
+        "documentation",
+        "algorithm",
+        "fft",
+        "convolution",
+        "schonhage-strassen"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/algorithms/GMP.md",
+      "type": "document",
+      "name": "GMP.md",
+      "filePath": "docs/algorithms/GMP.md",
+      "summary": "GMP-based calculator backend (build tag `gmp`): requirements, installation, compilation, auto-registration mechanism, Go API, CGO overhead caveat, and pointers to research backends beyond GMP.",
+      "tags": [
+        "documentation",
+        "algorithm",
+        "gmp",
+        "cgo",
+        "build-tags"
       ],
       "complexity": "simple"
+    },
+    {
+      "id": "document:docs/algorithms/MATRIX.md",
+      "type": "document",
+      "name": "MATRIX.md",
+      "filePath": "docs/algorithms/MATRIX.md",
+      "summary": "Matrix exponentiation algorithm reference: Fibonacci Q matrix, formal Q-power proof, binary exponentiation, Go implementation, optimizations (Strassen threshold, symmetric squaring, sync.Pool, parallelism), and complexity comparison with Fast Doubling.",
+      "tags": [
+        "documentation",
+        "algorithm",
+        "matrix-exponentiation",
+        "strassen",
+        "fibonacci"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
+      "type": "document",
+      "name": "PROGRESS_BAR_ALGORITHM.md",
+      "filePath": "docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
+      "summary": "Geometric-series progress model for O(log n) algorithms: total-work formula, precomputed powers of 4, step reporting via callback, integration with the Fast Doubling loop, edge cases, and adaptation guidance for other algorithms.",
+      "tags": [
+        "documentation",
+        "algorithm",
+        "progress-reporting",
+        "geometric-series",
+        "observer-pattern"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/architecture/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "docs/architecture/README.md",
+      "summary": "Architecture reference hub linking the interactive knowledge-graph dashboard, C4 model diagrams, dependency graph, data-flow sequences, design patterns inventory, and ADR index plus the `arch_test.go` layering gate.",
+      "tags": [
+        "documentation",
+        "architecture",
+        "index",
+        "c4-model",
+        "navigation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/architecture/patterns/design-patterns.md",
+      "type": "document",
+      "name": "design-patterns.md",
+      "filePath": "docs/architecture/patterns/design-patterns.md",
+      "summary": "Concise inventory of the 14 design patterns used in FibGo (Strategy, Factory, Observer, Bridge, Framework, etc.) with cross-cutting concerns and pointers to the source code where each pattern lives.",
+      "tags": [
+        "documentation",
+        "design-patterns",
+        "architecture",
+        "reference"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/architecture/validation/validation-report.md",
+      "type": "document",
+      "name": "validation-report.md",
+      "filePath": "docs/architecture/validation/validation-report.md",
+      "summary": "Architecture validation snapshot: layer tightness and dependency-direction checks, interface and pattern claims verification, execution-flow audits, and the maintenance protocol gated by `arch_test.go`.",
+      "tags": [
+        "documentation",
+        "architecture-validation",
+        "audit",
+        "layering"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:go.mod",
+      "type": "config",
+      "name": "go.mod",
+      "filePath": "go.mod",
+      "summary": "Go module manifest declaring `github.com/agbru/fibcalc` at Go 1.26.0; pins direct dependencies (Bubble Tea, lipgloss, errgroup, gopter, bigfft) and transitive requires.",
+      "tags": [
+        "configuration",
+        "go-module",
+        "dependencies",
+        "manifest"
+      ],
+      "complexity": "simple",
+      "languageNotes": "go directive bumped to 1.26.0 in the hardening sprint; toolchain switch dropped per the May 2026 changelog."
     },
     {
       "id": "file:cmd/fibcalc/main.go",
@@ -11520,20 +11846,6 @@
       "complexity": "moderate"
     },
     {
-      "id": "config:go.mod",
-      "type": "config",
-      "name": "go.mod",
-      "filePath": "go.mod",
-      "summary": "Go module manifest declaring github.com/agbru/fibcalc with toolchain 1.26.2 and the project's direct dependencies (Bubble Tea, lipgloss, errgroup, etc.).",
-      "tags": [
-        "configuration",
-        "go-module",
-        "dependencies",
-        "build-system"
-      ],
-      "complexity": "simple"
-    },
-    {
       "id": "config:go.sum",
       "type": "config",
       "name": "go.sum",
@@ -14125,55 +14437,6 @@
       "complexity": "moderate"
     },
     {
-      "id": "file:.github/scripts/bench_gate.py",
-      "type": "file",
-      "name": "bench_gate.py",
-      "filePath": ".github/scripts/bench_gate.py",
-      "summary": "Python helper enforcing the CI benchstat regression gate: parses benchstat output, extracts delta percentages, and fails the build when any benchmark regresses beyond the configured threshold (default 5%).",
-      "tags": [
-        "ci-cd",
-        "script",
-        "regression-gate",
-        "benchmark",
-        "python"
-      ],
-      "complexity": "moderate",
-      "languageNotes": "Standalone CLI script — uses regex parsing on benchstat textual output rather than a structured format."
-    },
-    {
-      "id": "function:.github/scripts/bench_gate.py:main",
-      "type": "function",
-      "name": "main",
-      "filePath": ".github/scripts/bench_gate.py",
-      "lineRange": [
-        35,
-        75
-      ],
-      "summary": "Entry point: reads a benchstat report file, scans each line for delta markers, collects regressions above the threshold, and exits non-zero when violations are detected.",
-      "tags": [
-        "entry-point",
-        "script",
-        "regression-detection"
-      ],
-      "complexity": "moderate"
-    },
-    {
-      "id": "pipeline:.github/workflows/ci.yml",
-      "type": "pipeline",
-      "name": "ci.yml",
-      "filePath": ".github/workflows/ci.yml",
-      "summary": "GitHub Actions workflow running vet, golangci-lint (pinned v1.64.8), and race-enabled tests across a Linux/macOS/Windows matrix, plus an informational benchmark job feeding the bench_gate.py regression check.",
-      "tags": [
-        "ci-cd",
-        "github-actions",
-        "test-automation",
-        "cross-platform",
-        "infrastructure"
-      ],
-      "complexity": "moderate",
-      "languageNotes": "Uses CGO_ENABLED=1 on Windows for the race detector — requires gcc availability on the runner."
-    },
-    {
       "id": "file:cmd/generate-golden/main.go",
       "type": "file",
       "name": "main.go",
@@ -15082,110 +15345,6 @@
       "complexity": "moderate"
     },
     {
-      "id": "document:docs/ARCH.md",
-      "type": "document",
-      "name": "ARCH.md",
-      "filePath": "docs/ARCH.md",
-      "summary": "Master architectural reference covering Clean Architecture layering, package responsibilities, data flow, design patterns, configuration, error handling, and an inline ADR catalogue (ADR-001 through ADR-010).",
-      "tags": [
-        "documentation",
-        "architecture",
-        "clean-architecture",
-        "overview",
-        "reference"
-      ],
-      "complexity": "complex",
-      "languageNotes": "Single-file architectural compendium of 68 sections; effectively serves as a project encyclopedia."
-    },
-    {
-      "id": "document:docs/BUILD.md",
-      "type": "document",
-      "name": "BUILD.md",
-      "filePath": "docs/BUILD.md",
-      "summary": "Build configuration guide covering build tags (GMP), PGO workflow, cross-compilation targets, reproducible Docker/devcontainer builds, Makefile reference, and shell completion.",
-      "tags": [
-        "documentation",
-        "build-system",
-        "configuration",
-        "pgo",
-        "cross-compilation"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/CALIBRATION.md",
-      "type": "document",
-      "name": "CALIBRATION.md",
-      "filePath": "docs/CALIBRATION.md",
-      "summary": "Describes the auto-calibration system: micro-benchmark engine, confidence scoring, profile structure, and adaptive threshold generation for FFT/parallel/Strassen crossover points.",
-      "tags": [
-        "documentation",
-        "calibration",
-        "performance",
-        "threshold-tuning"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/PERFORMANCE.md",
-      "type": "document",
-      "name": "PERFORMANCE.md",
-      "filePath": "docs/PERFORMANCE.md",
-      "summary": "Performance tuning manual: reference benchmarks, CI-enforced 5% regression gate, implemented optimizations (zero-alloc, parallelism, Strassen, GC controller), and per-algorithm guidance.",
-      "tags": [
-        "documentation",
-        "performance",
-        "benchmarking",
-        "optimization",
-        "tuning"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/PORTABILITY.md",
-      "type": "document",
-      "name": "PORTABILITY.md",
-      "filePath": "docs/PORTABILITY.md",
-      "summary": "OS/arch support matrix with platform fallbacks (arith_generic.go, cpu_amd64.go), CGO/race coverage, build procedures per target, and known limitations for the May-2026 hardening sprint.",
-      "tags": [
-        "documentation",
-        "portability",
-        "cross-platform",
-        "build-tags"
-      ],
-      "complexity": "moderate"
-    },
-    {
-      "id": "document:docs/TESTING.md",
-      "type": "document",
-      "name": "TESTING.md",
-      "filePath": "docs/TESTING.md",
-      "summary": "Testing strategy: table-driven units, golden files, fuzz testing, architecture-layering gate, panic-contract tests, property-based testing with gopter, mock generation, and coverage targets.",
-      "tags": [
-        "documentation",
-        "testing",
-        "golden-tests",
-        "fuzz-testing",
-        "property-based"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/TUI_GUIDE.md",
-      "type": "document",
-      "name": "TUI_GUIDE.md",
-      "filePath": "docs/TUI_GUIDE.md",
-      "summary": "TUI developer guide for the Bubble Tea dashboard: Elm Architecture (Model-Update-View), layout, sub-models, message system, bridge pattern to orchestration, styling, and extension points.",
-      "tags": [
-        "documentation",
-        "tui",
-        "bubble-tea",
-        "elm-architecture",
-        "developer-guide"
-      ],
-      "complexity": "complex"
-    },
-    {
       "id": "document:docs/adr/0000-template.md",
       "type": "document",
       "name": "0000-template.md",
@@ -15259,120 +15418,6 @@
       "complexity": "moderate"
     },
     {
-      "id": "document:docs/algorithms/BIGFFT.md",
-      "type": "document",
-      "name": "BIGFFT.md",
-      "filePath": "docs/algorithms/BIGFFT.md",
-      "summary": "Deep dive into the bigfft subsystem: pipeline stages, Fermat ring arithmetic, FFT transform, bump allocator, pool system, transform caching, CPU feature detection (amd64), and go:linkname declarations.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "fft",
-        "bigfft",
-        "internals"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/algorithms/COMPARISON.md",
-      "type": "document",
-      "name": "COMPARISON.md",
-      "filePath": "docs/algorithms/COMPARISON.md",
-      "summary": "Side-by-side complexity, memory and benchmark comparison of Fast Doubling, Matrix Exponentiation, FFT-Based, and Modular Fast Doubling across small, medium, large, and very large N regimes.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "comparison",
-        "benchmarking"
-      ],
-      "complexity": "moderate"
-    },
-    {
-      "id": "document:docs/algorithms/FAST_DOUBLING.md",
-      "type": "document",
-      "name": "FAST_DOUBLING.md",
-      "filePath": "docs/algorithms/FAST_DOUBLING.md",
-      "summary": "Mathematical foundation and Go implementation of the Fast Doubling identity F(2k)=F(k)(2F(k+1)-F(k)), including formal induction proof, DoublingFramework strategy, and 3-tier adaptive multiplication.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "fast-doubling",
-        "mathematical-proof"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/algorithms/FFT.md",
-      "type": "document",
-      "name": "FFT.md",
-      "filePath": "docs/algorithms/FFT.md",
-      "summary": "FFT multiplication theory for large integers: convolution theorem, Schönhage-Strassen activation thresholds, interaction with parallelism, and the FFTBasedCalculator API.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "fft",
-        "schonhage-strassen"
-      ],
-      "complexity": "moderate"
-    },
-    {
-      "id": "document:docs/algorithms/GMP.md",
-      "type": "document",
-      "name": "GMP.md",
-      "filePath": "docs/algorithms/GMP.md",
-      "summary": "Documents the optional GMP backend gated by the `gmp` build tag, including CGO requirements, auto-registration, compilation steps, and CGO overhead considerations.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "gmp",
-        "cgo",
-        "build-tags"
-      ],
-      "complexity": "moderate"
-    },
-    {
-      "id": "document:docs/algorithms/MATRIX.md",
-      "type": "document",
-      "name": "MATRIX.md",
-      "filePath": "docs/algorithms/MATRIX.md",
-      "summary": "Matrix Exponentiation algorithm reference: Fibonacci Q-matrix proof, binary exponentiation, Strassen threshold mechanism, symmetric matrix squaring, and complexity comparison with Fast Doubling.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "matrix-exponentiation",
-        "strassen"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
-      "type": "document",
-      "name": "PROGRESS_BAR_ALGORITHM.md",
-      "filePath": "docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
-      "summary": "Mathematical derivation of the progress bar for O(log n) algorithms using a geometric series of work and precomputed powers of 4, with callback interface and edge case handling.",
-      "tags": [
-        "documentation",
-        "algorithms",
-        "progress-reporting",
-        "mathematical-model"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:docs/architecture/README.md",
-      "type": "document",
-      "name": "README.md",
-      "filePath": "docs/architecture/README.md",
-      "summary": "Entry point for the architecture documentation directory, linking to C4 diagrams, dependency graph, design patterns, and ADR index.",
-      "tags": [
-        "documentation",
-        "architecture",
-        "entry-point",
-        "index"
-      ],
-      "complexity": "simple"
-    },
-    {
       "id": "document:docs/architecture/container-diagram.mermaid",
       "type": "document",
       "name": "container-diagram.mermaid",
@@ -15401,34 +15446,6 @@
       ],
       "complexity": "moderate",
       "languageNotes": "Mermaid diagram source — drives the architecture validation gate."
-    },
-    {
-      "id": "document:docs/architecture/patterns/design-patterns.md",
-      "type": "document",
-      "name": "design-patterns.md",
-      "filePath": "docs/architecture/patterns/design-patterns.md",
-      "summary": "Inventory of the 14 design patterns used across FibGo (Strategy, Factory, Observer, Bridge, etc.) with cross-cutting concerns and references back to ARCH.md.",
-      "tags": [
-        "documentation",
-        "architecture",
-        "design-patterns",
-        "inventory"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "document:docs/architecture/validation/validation-report.md",
-      "type": "document",
-      "name": "validation-report.md",
-      "filePath": "docs/architecture/validation/validation-report.md",
-      "summary": "Architecture validation report verifying layer tightness, dependency direction, interface/pattern claims, and execution flow correctness — feeds the architecture-layering gate.",
-      "tags": [
-        "documentation",
-        "architecture",
-        "validation",
-        "layering-gate"
-      ],
-      "complexity": "simple"
     },
     {
       "id": "document:docs/audits/bench-baseline.txt",
@@ -15506,49 +15523,6 @@
       "languageNotes": "Pin uses the canonical four-section structure (run/linters/linters-settings/issues); govet shadow was recently moved from disabled to enabled list."
     },
     {
-      "id": "document:CHANGELOG.md",
-      "type": "document",
-      "name": "CHANGELOG.md",
-      "filePath": "CHANGELOG.md",
-      "summary": "Keep-a-Changelog formatted release history covering the May 2026 hardening sprint, v1.0.0 (Dec 2025) initial release, and v0.1.0 prototype — documenting added/changed/fixed/security/performance entries per SemVer.",
-      "tags": [
-        "documentation",
-        "changelog",
-        "release-notes",
-        "versioning"
-      ],
-      "complexity": "moderate"
-    },
-    {
-      "id": "document:CONTRIBUTING.md",
-      "type": "document",
-      "name": "CONTRIBUTING.md",
-      "filePath": "CONTRIBUTING.md",
-      "summary": "Contributor handbook describing the development setup, branch/commit conventions, PR process, coding standards, testing guidelines (including CoreCalculator isolation testing and mock generation), and reporting procedures.",
-      "tags": [
-        "documentation",
-        "contributing",
-        "development",
-        "workflow"
-      ],
-      "complexity": "complex"
-    },
-    {
-      "id": "document:Claude.md",
-      "type": "document",
-      "name": "Claude.md",
-      "filePath": "Claude.md",
-      "summary": "Project-specific instructions for Claude Code agents — documents the Clean Architecture layers, four-algorithm catalogue (Fast Doubling, Matrix, FFT, GMP), critical performance patterns, and the invariants that must be preserved in sensitive modules (fibonacci/, bigfft/).",
-      "tags": [
-        "documentation",
-        "ai-instructions",
-        "architecture",
-        "invariants"
-      ],
-      "complexity": "complex",
-      "languageNotes": "Written in French; encodes non-obvious invariants (panic-safe WithGC, alias clearing order, FFT cache backing aliasing) that naive regressions would silently break."
-    },
-    {
       "id": "service:Dockerfile",
       "type": "service",
       "name": "Dockerfile",
@@ -15598,211 +15572,303 @@
         "nonroot"
       ],
       "complexity": "simple"
-    },
-    {
-      "id": "service:Makefile",
-      "type": "service",
-      "name": "Makefile",
-      "filePath": "Makefile",
-      "summary": "Build orchestration script exposing 39 targets covering clean/build/test/lint/coverage/benchmark, PGO profile-generate-rebuild cycle, cross-compilation (linux/windows/darwin including arm64), and the new bench-baseline + stats targets for the regression gate.",
-      "tags": [
-        "build-system",
-        "infrastructure",
-        "automation",
-        "cross-compilation"
-      ],
-      "complexity": "complex",
-      "languageNotes": "Uses .PHONY targets exclusively; cross-compile targets toggle CGO_ENABLED per OS/arch to handle the libgmp dependency gracefully."
-    },
-    {
-      "id": "step:Makefile:build",
-      "type": "service",
-      "name": "build",
-      "filePath": "Makefile",
-      "lineRange": [
-        34,
-        43
-      ],
-      "summary": "Default build target that compiles cmd/fibcalc into the bin/ directory with version metadata injected via -ldflags.",
-      "tags": [
-        "build",
-        "make-target",
-        "compilation"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:test",
-      "type": "service",
-      "name": "test",
-      "filePath": "Makefile",
-      "lineRange": [
-        160,
-        162
-      ],
-      "summary": "Runs the full test suite with -race -cover (requires CGO/gcc).",
-      "tags": [
-        "test",
-        "make-target",
-        "race-detector"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:coverage",
-      "type": "service",
-      "name": "coverage",
-      "filePath": "Makefile",
-      "lineRange": [
-        170,
-        174
-      ],
-      "summary": "Generates a coverage report and renders HTML output for inspection.",
-      "tags": [
-        "coverage",
-        "make-target",
-        "reporting"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:benchmark",
-      "type": "service",
-      "name": "benchmark",
-      "filePath": "Makefile",
-      "lineRange": [
-        177,
-        179
-      ],
-      "summary": "Runs go test -bench -benchmem across internal/fibonacci/ for performance measurement.",
-      "tags": [
-        "benchmark",
-        "make-target",
-        "performance"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:bench-baseline",
-      "type": "service",
-      "name": "bench-baseline",
-      "filePath": "Makefile",
-      "lineRange": [
-        209,
-        220
-      ],
-      "summary": "Captures a benchmark baseline file used by the CI 5% regression gate via benchstat.",
-      "tags": [
-        "benchmark",
-        "make-target",
-        "baseline",
-        "regression-gate"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:stats",
-      "type": "service",
-      "name": "stats",
-      "filePath": "Makefile",
-      "lineRange": [
-        186,
-        201
-      ],
-      "summary": "Computes benchstat statistical comparison between baseline and current benchmark runs.",
-      "tags": [
-        "benchmark",
-        "make-target",
-        "benchstat",
-        "statistics"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:build-pgo",
-      "type": "service",
-      "name": "build-pgo",
-      "filePath": "Makefile",
-      "lineRange": [
-        69,
-        73
-      ],
-      "summary": "Builds the fibcalc binary with profile-guided optimization using default.pgo.",
-      "tags": [
-        "build",
-        "make-target",
-        "pgo",
-        "optimization"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:build-all",
-      "type": "service",
-      "name": "build-all",
-      "filePath": "Makefile",
-      "lineRange": [
-        112,
-        112
-      ],
-      "summary": "Aggregate target that triggers cross-compilation for linux, windows, and darwin (amd64 + arm64).",
-      "tags": [
-        "build",
-        "make-target",
-        "cross-compilation"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:lint",
-      "type": "service",
-      "name": "lint",
-      "filePath": "Makefile",
-      "lineRange": [
-        256,
-        258
-      ],
-      "summary": "Runs golangci-lint with the project's 24-linter configuration.",
-      "tags": [
-        "lint",
-        "make-target",
-        "code-quality"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "step:Makefile:pgo-profile",
-      "type": "service",
-      "name": "pgo-profile",
-      "filePath": "Makefile",
-      "lineRange": [
-        47,
-        57
-      ],
-      "summary": "Generates a fresh PGO profile by running representative workloads to produce default.pgo.",
-      "tags": [
-        "pgo",
-        "make-target",
-        "profiling"
-      ],
-      "complexity": "simple"
-    },
-    {
-      "id": "document:README.md",
-      "type": "document",
-      "name": "README.md",
-      "filePath": "README.md",
-      "summary": "Project entry-point documentation covering quick start, key features (algorithms, performance engineering, interfaces), architecture overview, benchmark numbers, usage flags, configuration, development workflow with Docker/devcontainer support, testing (7 fuzz targets), and ADR references.",
-      "tags": [
-        "documentation",
-        "entry-point",
-        "overview",
-        "user-guide"
-      ],
-      "complexity": "complex"
     }
   ],
   "edges": [
+    {
+      "source": "document:README.md",
+      "target": "document:CHANGELOG.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:CONTRIBUTING.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/ARCH.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/BUILD.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/PERFORMANCE.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/TESTING.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:Claude.md",
+      "target": "document:docs/ARCH.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:Claude.md",
+      "target": "service:Makefile",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/algorithms/FAST_DOUBLING.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/algorithms/MATRIX.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/algorithms/FFT.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/algorithms/GMP.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/algorithms/BIGFFT.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/algorithms/COMPARISON.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/ARCH.md",
+      "target": "document:docs/architecture/patterns/design-patterns.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture/README.md",
+      "target": "document:docs/ARCH.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture/README.md",
+      "target": "document:docs/architecture/patterns/design-patterns.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture/README.md",
+      "target": "document:docs/architecture/validation/validation-report.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/BUILD.md",
+      "target": "service:Makefile",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/BUILD.md",
+      "target": "document:docs/PORTABILITY.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/PERFORMANCE.md",
+      "target": "document:docs/CALIBRATION.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/PERFORMANCE.md",
+      "target": "document:docs/algorithms/COMPARISON.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/TESTING.md",
+      "target": "document:CONTRIBUTING.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/COMPARISON.md",
+      "target": "document:docs/algorithms/FAST_DOUBLING.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/COMPARISON.md",
+      "target": "document:docs/algorithms/MATRIX.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/COMPARISON.md",
+      "target": "document:docs/algorithms/FFT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/COMPARISON.md",
+      "target": "document:docs/algorithms/GMP.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/FFT.md",
+      "target": "document:docs/algorithms/BIGFFT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "service:Makefile",
+      "target": "config:go.mod",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:docs/algorithms/FAST_DOUBLING.md",
+      "target": "file:internal/fibonacci/fastdoubling.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/MATRIX.md",
+      "target": "file:internal/fibonacci/matrix.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/FFT.md",
+      "target": "file:internal/fibonacci/fft.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/BIGFFT.md",
+      "target": "file:internal/bigfft/fft.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/BIGFFT.md",
+      "target": "file:internal/bigfft/fft_cache.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/BIGFFT.md",
+      "target": "file:internal/bigfft/pool.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/BIGFFT.md",
+      "target": "file:internal/bigfft/fermat.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
+      "target": "file:internal/progress/progress.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/CALIBRATION.md",
+      "target": "file:internal/calibration/calibration.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/TUI_GUIDE.md",
+      "target": "file:internal/tui/model.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:go.mod",
+      "target": "file:cmd/fibcalc/main.go",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "service:Makefile",
+      "target": "file:cmd/fibcalc/main.go",
+      "type": "deploys",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "service:Makefile",
+      "target": "file:cmd/generate-golden/main.go",
+      "type": "deploys",
+      "direction": "forward",
+      "weight": 0.7
+    },
     {
       "source": "file:cmd/fibcalc/main.go",
       "target": "function:cmd/fibcalc/main.go:main",
@@ -15970,20 +16036,6 @@
       "type": "contains",
       "direction": "forward",
       "weight": 1
-    },
-    {
-      "source": "pipeline:.github/workflows/coverage.yml",
-      "target": "file:cmd/fibcalc/main_test.go",
-      "type": "triggers",
-      "direction": "forward",
-      "weight": 0.6
-    },
-    {
-      "source": "pipeline:.github/workflows/coverage.yml",
-      "target": "file:cmd/generate-golden/main_test.go",
-      "type": "triggers",
-      "direction": "forward",
-      "weight": 0.6
     },
     {
       "source": "file:internal/app/app.go",
@@ -23276,20 +23328,6 @@
       "source": "config:.env.example",
       "target": "file:internal/ui/themes.go",
       "type": "configures",
-      "direction": "forward",
-      "weight": 0.6
-    },
-    {
-      "source": "config:go.mod",
-      "target": "file:cmd/fibcalc/main.go",
-      "type": "configures",
-      "direction": "forward",
-      "weight": 0.6
-    },
-    {
-      "source": "config:go.sum",
-      "target": "config:go.mod",
-      "type": "depends_on",
       "direction": "forward",
       "weight": 0.6
     },
@@ -39343,98 +39381,98 @@
       "target": "class:internal/bigfft/context.go:FFTContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "class:internal/bigfft/context.go:FFTContextOptions",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:NewFFTContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:MulWithContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:MulToWithContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:SqrWithContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:SqrToWithContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:fftmulToCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:fftsqrToCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:transformCachedWithBumpCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:transformWithBumpCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:invTransformWithBumpCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:mulCachedWithBumpCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
       "target": "function:internal/bigfft/context.go:sqrCachedWithBumpCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/context.go",
@@ -39490,7 +39528,7 @@
       "target": "function:internal/bigfft/fermat_panic_test.go:TestFermatPanicSites",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fermat_panic_test.go",
@@ -39504,56 +39542,56 @@
       "target": "function:internal/bigfft/fft.go:Mul",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:MulTo",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:Sqr",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:SqrTo",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:GetFFTParams",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:fftSize",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:valueSize",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
       "target": "function:internal/bigfft/fft.go:isFermatPostConditionPanic",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft.go",
@@ -39595,119 +39633,119 @@
       "target": "class:internal/bigfft/fft_cache.go:TransformCache",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "class:internal/bigfft/fft_cache.go:TransformCacheConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "class:internal/bigfft/fft_cache.go:CacheStats",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:NewTransformCache",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:GetTransformCache",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:SetTransformCacheConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:writeUint64",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:getByKey",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:putByKey",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:Stats",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:Clear",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:TransformCached",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:TransformCachedWithBump",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:MulCached",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:MulCachedWithBump",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:SqrCached",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
       "target": "function:internal/bigfft/fft_cache.go:SqrCachedWithBump",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
@@ -39812,168 +39850,168 @@
       "target": "function:internal/bigfft/fft_cache_test.go:TestSetTransformCacheConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCachePutAndGet",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheMiss",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheEviction",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheEvictionRecyclesBacking",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheDisabled",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheBelowThreshold",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheStats",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheClear",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestTransformCacheConcurrency",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestComputeKeyConsistency",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestComputeKeyDifferentParams",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestCachedTransformIntegration",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestCachedSquareIntegration",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:BenchmarkCacheHit",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:BenchmarkCacheHitParallel",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:BenchmarkCacheMiss",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:BenchmarkCachePut",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:referenceFnvWriteUint64",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:referenceComputeCacheKey",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:referenceComputePolyKey",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestComputeCacheKeyInvariantR2_10",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache_test.go",
       "target": "function:internal/bigfft/fft_cache_test.go:TestComputePolyKeyInvariantR2_10",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_cache.go",
@@ -40015,14 +40053,14 @@
       "target": "function:internal/bigfft/fft_fuzz_test.go:FuzzMul",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_fuzz_test.go",
       "target": "function:internal/bigfft/fft_fuzz_test.go:FuzzSqr",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_fuzz_test.go",
@@ -40043,14 +40081,14 @@
       "target": "function:internal/bigfft/fft_recover_policy_test.go:TestFermatPostConditionPanicClassifier",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_recover_policy_test.go",
       "target": "function:internal/bigfft/fft_recover_policy_test.go:TestMulRepanicsOnPostCondition",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_recover_policy_test.go",
@@ -40071,28 +40109,28 @@
       "target": "class:internal/bigfft/fft_recursion.go:FFTParallelismConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_recursion.go",
       "target": "function:internal/bigfft/fft_recursion.go:SetFFTParallelismConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_recursion.go",
       "target": "function:internal/bigfft/fft_recursion.go:GetFFTParallelismConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_recursion.go",
       "target": "function:internal/bigfft/fft_recursion.go:fourierRecursiveUnified",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/fft_recursion.go",
@@ -40120,105 +40158,105 @@
       "target": "function:internal/bigfft/fft_recursion_ctx.go:fourierRecursiveCtx",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "class:internal/bigfft/pool.go:fftState",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:getWordSlicePoolIndex",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:acquireWordSlice",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:acquireWordSliceUnsafe",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:releaseWordSlice",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:acquireFermat",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:releaseFermat",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:acquireNatSlice",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:releaseNatSlice",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:acquireFermatSlice",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:releaseFermatSlice",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:acquireFFTState",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/bigfft/pool.go",
       "target": "function:internal/bigfft/pool.go:releaseFFTState",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/dtm_bench_test.go",
       "target": "function:internal/fibonacci/dtm_bench_test.go:BenchmarkFibonacciDTM",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/dtm_bench_test.go",
@@ -40232,35 +40270,35 @@
       "target": "function:internal/fibonacci/fibonacci_fuzz_test.go:FuzzFastDoublingConsistency",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/fibonacci_fuzz_test.go",
       "target": "function:internal/fibonacci/fibonacci_fuzz_test.go:FuzzFFTBasedConsistency",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/fibonacci_fuzz_test.go",
       "target": "function:internal/fibonacci/fibonacci_fuzz_test.go:FuzzFibonacciIdentities",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/fibonacci_fuzz_test.go",
       "target": "function:internal/fibonacci/fibonacci_fuzz_test.go:FuzzFastDoublingMod",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/fibonacci_fuzz_test.go",
       "target": "function:internal/fibonacci/fibonacci_fuzz_test.go:FuzzProgressMonotonicity",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/fibonacci_fuzz_test.go",
@@ -40302,56 +40340,56 @@
       "target": "class:internal/fibonacci/threshold/manager.go:DynamicThresholdManager",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "class:internal/fibonacci/threshold/manager.go:Tuning",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "function:internal/fibonacci/threshold/manager.go:SetTuning",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "function:internal/fibonacci/threshold/manager.go:NewDynamicThresholdManager",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "function:internal/fibonacci/threshold/manager.go:NewDynamicThresholdManagerFromConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "function:internal/fibonacci/threshold/manager.go:ShouldAdjust",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "function:internal/fibonacci/threshold/manager.go:GetStats",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
       "target": "function:internal/fibonacci/threshold/manager.go:Reset",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager.go",
@@ -40414,140 +40452,119 @@
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestNewDynamicThresholdManager",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestNewDynamicThresholdManagerFromConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestRecordIteration",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestRecordIterationHistoryLimit",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestGetFFTThreshold",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestGetParallelThreshold",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestShouldAdjust",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestGetStats",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestReset",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestAnalyzeFFTThreshold",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestAnalyzeParallelThreshold",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestAvgTimePerBit",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestSignificantChange",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/fibonacci/threshold/manager_test.go",
       "target": "function:internal/fibonacci/threshold/manager_test.go:TestConcurrentAccess",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
-    },
-    {
-      "source": "file:.github/scripts/bench_gate.py",
-      "target": "function:.github/scripts/bench_gate.py:main",
-      "type": "contains",
-      "direction": "forward",
-      "weight": 1.0
-    },
-    {
-      "source": "file:.github/scripts/bench_gate.py",
-      "target": "function:.github/scripts/bench_gate.py:main",
-      "type": "exports",
-      "direction": "forward",
-      "weight": 0.8
-    },
-    {
-      "source": "pipeline:.github/workflows/ci.yml",
-      "target": "file:.github/scripts/bench_gate.py",
-      "type": "triggers",
-      "direction": "forward",
-      "weight": 0.6
+      "weight": 1
     },
     {
       "source": "file:cmd/generate-golden/main.go",
       "target": "function:cmd/generate-golden/main.go:main",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:cmd/generate-golden/main.go",
       "target": "function:cmd/generate-golden/main.go:fibBig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:cmd/generate-golden/main.go",
       "target": "class:cmd/generate-golden/main.go:GoldenData",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:cmd/generate-golden/main.go",
@@ -40568,7 +40585,7 @@
       "target": "function:internal/arch_test.go:TestArchitectureLayering",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/arch_test.go",
@@ -40582,7 +40599,7 @@
       "target": "function:internal/cli/completion/bash.go:GenerateBash",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/bash.go",
@@ -40596,7 +40613,7 @@
       "target": "function:internal/cli/completion/bash.go:collectBashGroupedCases",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "function:internal/cli/completion/bash.go:GenerateBash",
@@ -40610,14 +40627,14 @@
       "target": "function:internal/cli/completion/escape.go:escapeBashDoubleQuoted",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/escape_test.go",
       "target": "function:internal/cli/completion/escape_test.go:TestGenerateBash_AdversarialAlgo",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/escape_test.go",
@@ -40631,7 +40648,7 @@
       "target": "function:internal/cli/completion/escape_test.go:TestEscapeFishSingleQuoted_NeutralisesInjection",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/escape_test.go",
@@ -40659,7 +40676,7 @@
       "target": "function:internal/cli/completion/fish.go:GenerateFish",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/fish.go",
@@ -40673,14 +40690,14 @@
       "target": "function:internal/cli/completion/fish.go:fishCompleteLine",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/powershell.go",
       "target": "function:internal/cli/completion/powershell.go:GeneratePowerShell",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/powershell.go",
@@ -40694,7 +40711,7 @@
       "target": "function:internal/cli/completion/zsh.go:GenerateZsh",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion/zsh.go",
@@ -40708,14 +40725,14 @@
       "target": "function:internal/cli/completion/zsh.go:zshArgEntry",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion_test.go",
       "target": "function:internal/cli/completion_test.go:TestGenerateCompletion",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/cli/completion_test.go",
@@ -40729,7 +40746,7 @@
       "target": "class:internal/errors/errors.go:CalculationError",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40743,7 +40760,7 @@
       "target": "class:internal/errors/errors.go:CalculationContext",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40757,7 +40774,7 @@
       "target": "class:internal/errors/errors.go:MemoryError",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40771,7 +40788,7 @@
       "target": "class:internal/errors/errors.go:TimeoutError",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40785,7 +40802,7 @@
       "target": "class:internal/errors/errors.go:ValidationError",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40799,7 +40816,7 @@
       "target": "class:internal/errors/errors.go:ConfigError",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40813,7 +40830,7 @@
       "target": "function:internal/errors/errors.go:FormatDiagnostic",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/errors/errors.go",
@@ -40827,7 +40844,7 @@
       "target": "function:internal/errors/errors.go:formatBytesLocal",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "function:internal/errors/errors.go:FormatDiagnostic",
@@ -40841,7 +40858,7 @@
       "target": "class:internal/orchestration/interfaces.go:ExecutionConfig",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/orchestration/interfaces.go",
@@ -40855,7 +40872,7 @@
       "target": "class:internal/orchestration/interfaces.go:CalculationResult",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/orchestration/interfaces.go",
@@ -40869,7 +40886,7 @@
       "target": "class:internal/orchestration/interfaces.go:ProgressReporter",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/orchestration/interfaces.go",
@@ -40883,7 +40900,7 @@
       "target": "class:internal/orchestration/interfaces.go:PresentationOptions",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/orchestration/interfaces.go",
@@ -41268,7 +41285,7 @@
       "target": "class:internal/progress/observer.go:ProgressSubject",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/progress/observer.go",
@@ -41282,7 +41299,7 @@
       "target": "class:internal/progress/observer.go:ProgressObserver",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/progress/observer.go",
@@ -41296,7 +41313,7 @@
       "target": "function:internal/progress/observer.go:Freeze",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/progress/observer.go",
@@ -41310,7 +41327,7 @@
       "target": "function:internal/progress/observer.go:RecoveredObserverCount",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/progress/observer.go",
@@ -41324,7 +41341,7 @@
       "target": "function:internal/progress/observer.go:Unregister",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/progress/observer.go",
@@ -41338,7 +41355,7 @@
       "target": "function:internal/tui/commands.go:Run",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/commands.go",
@@ -41352,7 +41369,7 @@
       "target": "function:internal/tui/commands.go:startCalculationCmd",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/commands.go",
@@ -41632,7 +41649,7 @@
       "target": "class:internal/tui/model.go:Model",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/model.go",
@@ -41646,7 +41663,7 @@
       "target": "class:internal/tui/model.go:ExecutionState",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/model.go",
@@ -41660,7 +41677,7 @@
       "target": "function:internal/tui/model.go:NewModel",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/model.go",
@@ -41674,7 +41691,7 @@
       "target": "function:internal/tui/model.go:Update",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/model.go",
@@ -41688,7 +41705,7 @@
       "target": "function:internal/tui/model.go:View",
       "type": "contains",
       "direction": "forward",
-      "weight": 1.0
+      "weight": 1
     },
     {
       "source": "file:internal/tui/model.go",
@@ -41915,104 +41932,6 @@
       "weight": 0.7
     },
     {
-      "source": "document:docs/ARCH.md",
-      "target": "file:internal/app/app.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/ARCH.md",
-      "target": "file:internal/orchestration/orchestrator.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/ARCH.md",
-      "target": "file:internal/fibonacci/fastdoubling.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/ARCH.md",
-      "target": "file:internal/bigfft/fft.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/ARCH.md",
-      "target": "file:cmd/fibcalc/main.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/BUILD.md",
-      "target": "config:go.mod",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/CALIBRATION.md",
-      "target": "file:internal/calibration/calibration.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/CALIBRATION.md",
-      "target": "file:internal/fibonacci/threshold/manager.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/PERFORMANCE.md",
-      "target": "file:internal/fibonacci/fastdoubling.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/PERFORMANCE.md",
-      "target": "file:internal/bigfft/fft.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/PERFORMANCE.md",
-      "target": "file:internal/fibonacci/memory/gc_control.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/PORTABILITY.md",
-      "target": "file:internal/bigfft/arith_generic.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/PORTABILITY.md",
-      "target": "file:internal/bigfft/cpu_amd64.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/TUI_GUIDE.md",
-      "target": "file:internal/tui/model.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
       "source": "document:docs/adr/0001-dtm-decision.md",
       "target": "file:internal/fibonacci/threshold/manager.go",
       "type": "documents",
@@ -42146,118 +42065,6 @@
       "weight": 0.5
     },
     {
-      "source": "document:docs/algorithms/BIGFFT.md",
-      "target": "file:internal/bigfft/fft.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/BIGFFT.md",
-      "target": "file:internal/bigfft/fermat.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/BIGFFT.md",
-      "target": "file:internal/bigfft/pool.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/BIGFFT.md",
-      "target": "file:internal/bigfft/fft_cache.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/COMPARISON.md",
-      "target": "file:internal/fibonacci/fastdoubling.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/FAST_DOUBLING.md",
-      "target": "file:internal/fibonacci/fastdoubling.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/FAST_DOUBLING.md",
-      "target": "file:internal/fibonacci/doubling_framework.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/FFT.md",
-      "target": "file:internal/fibonacci/fft.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/FFT.md",
-      "target": "file:internal/bigfft/fft.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/MATRIX.md",
-      "target": "file:internal/fibonacci/matrix.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
-      "target": "file:internal/progress/progress.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/architecture/README.md",
-      "target": "document:docs/architecture/container-diagram.mermaid",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/architecture/README.md",
-      "target": "document:docs/architecture/dependency-graph.mermaid",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/architecture/README.md",
-      "target": "document:docs/architecture/patterns/design-patterns.md",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/architecture/README.md",
-      "target": "document:docs/architecture/validation/validation-report.md",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/architecture/validation/validation-report.md",
-      "target": "document:docs/architecture/dependency-graph.mermaid",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
       "source": "document:docs/audits/bench-baseline.txt",
       "target": "file:internal/orchestration/orchestrator.go",
       "type": "documents",
@@ -42267,13 +42074,6 @@
     {
       "source": "document:docs/audits/bench-baseline.txt",
       "target": "file:internal/calibration/calibration.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:docs/audits/bench-baseline.txt",
-      "target": "pipeline:.github/workflows/ci.yml",
       "type": "documents",
       "direction": "forward",
       "weight": 0.5
@@ -42300,158 +42100,11 @@
       "weight": 0.6
     },
     {
-      "source": "service:Makefile",
-      "target": "step:Makefile:build",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:test",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:coverage",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:benchmark",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:bench-baseline",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:stats",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:build-pgo",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:build-all",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:lint",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "service:Makefile",
-      "target": "step:Makefile:pgo-profile",
-      "type": "deploys",
-      "direction": "forward",
-      "weight": 0.7
-    },
-    {
-      "source": "config:.golangci.yml",
-      "target": "step:Makefile:lint",
-      "type": "configures",
-      "direction": "forward",
-      "weight": 0.6
-    },
-    {
       "source": "config:.devcontainer/devcontainer.json",
       "target": "service:Dockerfile",
       "type": "depends_on",
       "direction": "forward",
       "weight": 0.6
-    },
-    {
-      "source": "step:Makefile:bench-baseline",
-      "target": "step:Makefile:stats",
-      "type": "depends_on",
-      "direction": "forward",
-      "weight": 0.6
-    },
-    {
-      "source": "step:Makefile:pgo-profile",
-      "target": "step:Makefile:build-pgo",
-      "type": "depends_on",
-      "direction": "forward",
-      "weight": 0.6
-    },
-    {
-      "source": "document:README.md",
-      "target": "service:Makefile",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:README.md",
-      "target": "service:Dockerfile",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:README.md",
-      "target": "config:.devcontainer/devcontainer.json",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:CONTRIBUTING.md",
-      "target": "service:Makefile",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:CONTRIBUTING.md",
-      "target": "document:README.md",
-      "type": "related",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:Claude.md",
-      "target": "service:Makefile",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:Claude.md",
-      "target": "config:.golangci.yml",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5
-    },
-    {
-      "source": "document:CHANGELOG.md",
-      "target": "document:README.md",
-      "type": "related",
-      "direction": "forward",
-      "weight": 0.5
     },
     {
       "source": "file:cmd/generate-golden/main.go",
@@ -44502,38 +44155,6 @@
       "recoveredFromImportMap": true
     },
     {
-      "source": "document:docs/BUILD.md",
-      "target": "service:Makefile",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5,
-      "reviewerNote": "rerouted from config:Makefile (target was a service node)"
-    },
-    {
-      "source": "document:docs/TESTING.md",
-      "target": "config:internal/fibonacci/testdata/fibonacci_golden.json",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5,
-      "reviewerNote": "rerouted from file: to config: prefix"
-    },
-    {
-      "source": "document:docs/TESTING.md",
-      "target": "file:internal/testutil/ansi.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5,
-      "reviewerNote": "rerouted from non-existent testutil.go to ansi.go (actual testutil source)"
-    },
-    {
-      "source": "document:docs/algorithms/GMP.md",
-      "target": "file:internal/fibonacci/calculator_gmp.go",
-      "type": "documents",
-      "direction": "forward",
-      "weight": 0.5,
-      "reviewerNote": "rerouted from outdated gmp.go path"
-    },
-    {
       "source": "document:docs/architecture/dependency-graph.mermaid",
       "target": "file:internal/metrics/system/system.go",
       "type": "documents",
@@ -44556,6 +44177,14 @@
       "direction": "forward",
       "weight": 0.5,
       "reviewerNote": "added by reviewer: sibling _test.go on disk"
+    },
+    {
+      "source": "document:docs/algorithms/GMP.md",
+      "target": "file:internal/fibonacci/calculator_gmp.go",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5,
+      "reviewerNote": "recovered from dropped edge: original target 'file:internal/fibonacci/gmp.go' did not exist; actual filename on disk is calculator_gmp.go"
     }
   ],
   "layers": [
@@ -44583,6 +44212,32 @@
         "file:internal/app/exit_action.go",
         "file:internal/app/version.go",
         "file:internal/app/version_test.go",
+        "file:internal/config/config.go",
+        "file:internal/config/config_exhaustive_test.go",
+        "file:internal/config/config_extra_test.go",
+        "file:internal/config/config_test.go",
+        "file:internal/config/env.go",
+        "file:internal/config/env_test.go",
+        "file:internal/config/hardware.go",
+        "file:internal/config/hardware_test.go",
+        "file:internal/config/threshold_tuning.go",
+        "file:internal/config/thresholds.go",
+        "file:internal/config/thresholds_test.go",
+        "file:internal/config/usage.go",
+        "file:internal/config/validator.go",
+        "file:internal/config/doc.go",
+        "file:internal/orchestration/calculator_selection.go",
+        "file:internal/orchestration/calculator_selection_test.go",
+        "file:internal/orchestration/contract_test.go",
+        "file:internal/orchestration/lastdigits.go",
+        "file:internal/orchestration/lastdigits_test.go",
+        "file:internal/orchestration/orchestration_spy_test.go",
+        "file:internal/orchestration/orchestrator.go",
+        "file:internal/orchestration/orchestrator_test.go",
+        "file:internal/orchestration/progress.go",
+        "file:internal/orchestration/progress_test.go",
+        "file:internal/orchestration/doc.go",
+        "file:internal/orchestration/interfaces.go",
         "file:internal/calibration/adaptive.go",
         "file:internal/calibration/adaptive_test.go",
         "file:internal/calibration/calibration.go",
@@ -44600,49 +44255,13 @@
         "file:internal/calibration/strategy_complete.go",
         "file:internal/calibration/strategy_fast.go",
         "file:internal/calibration/strategy_test.go",
-        "file:internal/config/config.go",
-        "file:internal/config/config_exhaustive_test.go",
-        "file:internal/config/config_extra_test.go",
-        "file:internal/config/config_test.go",
-        "file:internal/config/env.go",
-        "file:internal/config/env_test.go",
-        "file:internal/config/hardware.go",
-        "file:internal/config/hardware_test.go",
-        "file:internal/config/threshold_tuning.go",
-        "file:internal/config/thresholds.go",
-        "file:internal/config/thresholds_test.go",
-        "file:internal/config/usage.go",
-        "file:internal/config/validator.go",
-        "file:internal/orchestration/calculator_selection.go",
-        "file:internal/orchestration/calculator_selection_test.go",
-        "file:internal/orchestration/contract_test.go",
-        "file:internal/orchestration/lastdigits.go",
-        "file:internal/orchestration/lastdigits_test.go",
-        "file:internal/orchestration/orchestration_spy_test.go",
-        "file:internal/orchestration/orchestrator.go",
-        "file:internal/orchestration/orchestrator_test.go",
-        "file:internal/orchestration/progress.go",
-        "file:internal/orchestration/progress_test.go",
-        "config:.env.example",
+        "file:internal/arch_test.go",
+        "service:Makefile",
         "config:go.mod",
         "config:go.sum",
-        "file:internal/arch_test.go",
-        "file:internal/config/doc.go",
-        "file:internal/orchestration/doc.go",
-        "file:internal/orchestration/interfaces.go",
-        "config:.devcontainer/devcontainer.json",
         "config:.golangci.yml",
-        "service:Makefile",
-        "step:Makefile:build",
-        "step:Makefile:test",
-        "step:Makefile:coverage",
-        "step:Makefile:benchmark",
-        "step:Makefile:bench-baseline",
-        "step:Makefile:stats",
-        "step:Makefile:build-pgo",
-        "step:Makefile:build-all",
-        "step:Makefile:lint",
-        "step:Makefile:pgo-profile"
+        "config:.env.example",
+        "config:.devcontainer/devcontainer.json"
       ]
     },
     {
@@ -44666,6 +44285,14 @@
         "file:internal/cli/ui.go",
         "file:internal/cli/ui_advanced_test.go",
         "file:internal/cli/ui_test.go",
+        "file:internal/cli/completion/bash.go",
+        "file:internal/cli/completion/escape.go",
+        "file:internal/cli/completion/escape_test.go",
+        "file:internal/cli/completion/fish.go",
+        "file:internal/cli/completion/powershell.go",
+        "file:internal/cli/completion/zsh.go",
+        "file:internal/cli/completion_test.go",
+        "file:internal/cli/doc.go",
         "file:internal/tui/bridge.go",
         "file:internal/tui/bridge_test.go",
         "file:internal/tui/chart.go",
@@ -44692,19 +44319,11 @@
         "file:internal/tui/sparkline.go",
         "file:internal/tui/sparkline_test.go",
         "file:internal/tui/styles.go",
+        "file:internal/tui/commands.go",
+        "file:internal/tui/model.go",
         "file:internal/ui/doc.go",
         "file:internal/ui/themes.go",
-        "file:internal/ui/themes_test.go",
-        "file:internal/cli/completion/bash.go",
-        "file:internal/cli/completion/escape.go",
-        "file:internal/cli/completion/escape_test.go",
-        "file:internal/cli/completion/fish.go",
-        "file:internal/cli/completion/powershell.go",
-        "file:internal/cli/completion/zsh.go",
-        "file:internal/cli/completion_test.go",
-        "file:internal/cli/doc.go",
-        "file:internal/tui/commands.go",
-        "file:internal/tui/model.go"
+        "file:internal/ui/themes_test.go"
       ]
     },
     {
@@ -44850,6 +44469,7 @@
         "file:internal/errors/errors_test.go",
         "file:internal/errors/handler.go",
         "file:internal/errors/handler_test.go",
+        "file:internal/errors/errors.go",
         "file:internal/format/doc.go",
         "file:internal/format/duration.go",
         "file:internal/format/eta.go",
@@ -44872,11 +44492,10 @@
         "file:internal/progress/observers.go",
         "file:internal/progress/progress.go",
         "file:internal/progress/progress_test.go",
+        "file:internal/progress/observer.go",
         "file:internal/testutil/ansi.go",
         "file:internal/testutil/ansi_test.go",
-        "file:internal/testutil/doc.go",
-        "file:internal/errors/errors.go",
-        "file:internal/progress/observer.go"
+        "file:internal/testutil/doc.go"
       ]
     },
     {
@@ -44891,9 +44510,23 @@
     {
       "id": "layer:project-support",
       "name": "Project Support",
-      "description": "Repository-level documentation (README, CHANGELOG, CONTRIBUTING, ADRs, algorithm and architecture guides, audit baselines, Mermaid diagrams) plus Docker image and GitHub Actions CI/CD workflows.",
+      "description": "Repository-level documentation (README, CHANGELOG, CONTRIBUTING, Claude.md, EVALUATION, ADRs, algorithm and architecture guides, audit baselines, Mermaid diagrams) plus the multi-stage Dockerfile build (CI/CD workflows have been removed; local Makefile is the sole validation entry point).",
       "nodeIds": [
-        "pipeline:.github/workflows/coverage.yml",
+        "document:README.md",
+        "document:CHANGELOG.md",
+        "document:CONTRIBUTING.md",
+        "document:Claude.md",
+        "document:EVALUATION.md",
+        "document:docs/ARCH.md",
+        "document:docs/BUILD.md",
+        "document:docs/CALIBRATION.md",
+        "document:docs/PERFORMANCE.md",
+        "document:docs/PORTABILITY.md",
+        "document:docs/TESTING.md",
+        "document:docs/TUI_GUIDE.md",
+        "document:docs/architecture/README.md",
+        "document:docs/architecture/patterns/design-patterns.md",
+        "document:docs/architecture/validation/validation-report.md",
         "file:docs/architecture/component-diagram.mermaid",
         "file:docs/architecture/flows/cli-flow.mermaid",
         "file:docs/architecture/flows/config-flow.mermaid",
@@ -44903,21 +44536,8 @@
         "file:docs/architecture/flows/tui-flow.mermaid",
         "file:docs/architecture/patterns/interface-hierarchy.mermaid",
         "file:docs/architecture/system-context.mermaid",
-        "document:EVALUATION.md",
-        "file:.github/scripts/bench_gate.py",
-        "pipeline:.github/workflows/ci.yml",
-        "document:docs/ARCH.md",
-        "document:docs/BUILD.md",
-        "document:docs/CALIBRATION.md",
-        "document:docs/PERFORMANCE.md",
-        "document:docs/PORTABILITY.md",
-        "document:docs/TESTING.md",
-        "document:docs/TUI_GUIDE.md",
-        "document:docs/adr/0000-template.md",
-        "document:docs/adr/0001-dtm-decision.md",
-        "document:docs/adr/0002-recover-strategy.md",
-        "document:docs/adr/0003-globals-vs-context.md",
-        "document:docs/adr/0004-backlog-decisions.md",
+        "document:docs/architecture/container-diagram.mermaid",
+        "document:docs/architecture/dependency-graph.mermaid",
         "document:docs/algorithms/BIGFFT.md",
         "document:docs/algorithms/COMPARISON.md",
         "document:docs/algorithms/FAST_DOUBLING.md",
@@ -44925,21 +44545,17 @@
         "document:docs/algorithms/GMP.md",
         "document:docs/algorithms/MATRIX.md",
         "document:docs/algorithms/PROGRESS_BAR_ALGORITHM.md",
-        "document:docs/architecture/README.md",
-        "document:docs/architecture/container-diagram.mermaid",
-        "document:docs/architecture/dependency-graph.mermaid",
-        "document:docs/architecture/patterns/design-patterns.md",
-        "document:docs/architecture/validation/validation-report.md",
+        "document:docs/adr/0000-template.md",
+        "document:docs/adr/0001-dtm-decision.md",
+        "document:docs/adr/0002-recover-strategy.md",
+        "document:docs/adr/0003-globals-vs-context.md",
+        "document:docs/adr/0004-backlog-decisions.md",
         "document:docs/audits/bench-baseline.txt",
         "document:docs/audits/bench-dtm-off.txt",
         "document:docs/audits/bench-dtm-on.txt",
-        "document:CHANGELOG.md",
-        "document:CONTRIBUTING.md",
-        "document:Claude.md",
         "service:Dockerfile",
         "service:Dockerfile:builder",
-        "service:Dockerfile:runtime",
-        "document:README.md"
+        "service:Dockerfile:runtime"
       ]
     }
   ],
@@ -44947,7 +44563,7 @@
     {
       "order": 1,
       "title": "Project Overview",
-      "description": "Open with README.md to anchor the mental model: FibCalc is an academic Go prototype that computes arbitrarily large Fibonacci numbers via Fast Doubling, Matrix Exponentiation with Strassen, and FFT-based Schonhage-Strassen multiplication, on top of a Clean Architecture skeleton. The README walks through quick-start, key features, the algorithm catalogue, the May 2026 hardening sprint and the ADR set, giving you the same narrative the rest of the tour will follow through actual code. Read it first so every later step lands in a context the project itself documents.",
+      "description": "Start with the README to see the story FibCalc tells about itself: an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It introduces the four algorithms you will meet in this tour (Fast Doubling, Matrix Exponentiation, Schönhage-Strassen FFT, and an optional GMP backend) and the engineering pillars that make them fast (sync.Pool recycling, bump allocator, adaptive parallelism, PGO). The rest of the tour walks the same path through the actual code, so keep this document open as a map.",
       "nodeIds": [
         "document:README.md"
       ]
@@ -44955,135 +44571,137 @@
     {
       "order": 2,
       "title": "CLI Entry Point",
-      "description": "cmd/fibcalc/main.go is the thinnest possible binary: it parses no flags, holds no business logic, just delegates to internal/app and translates the returned ExitAction into a process exit code. This Step 1 -> Step 2 transition shows the project's first architectural commitment: keep cmd/ free of behaviour so internal/ stays testable. Note how exit_action.go (next step) replaces the legacy exitVersion=-1 sentinel with a typed enum, which is what main reads here.",
+      "description": "The fibcalc binary's main() is intentionally trivial: it constructs an Application, calls Run, and translates an ExitAction into the process exit code. All real wiring lives one layer in, in internal/app — keeping cmd/ as a thin shim is a deliberate Clean Architecture choice that lets internal packages stay un-importable from outside the module.",
       "nodeIds": [
         "file:cmd/fibcalc/main.go"
       ],
-      "languageLesson": "Idiomatic Go entry points: main() returns no value, so projects use a small run()/Run() helper that returns an error or a typed exit code. The main binary then maps that to os.Exit, which keeps run() testable end-to-end without forking a process."
+      "languageLesson": "Go's 'internal' directory is a compiler-enforced boundary: anything under internal/ can only be imported by code rooted at the parent of that internal/ directory. Putting cmd/fibcalc/main.go at the top and pushing logic into internal/app makes the public surface of the module a single binary."
     },
     {
       "order": 3,
-      "title": "Application Layer & Lifecycle",
-      "description": "internal/app holds the top-level Application struct, the dispatch loop that routes between completion, calibration, version and the calculate sub-command, and the typed ExitAction enum returned to main. calculate.go is the conductor: it validates the memory budget, wires timeout/signal contexts, and hands control off to the orchestration layer once configuration is resolved. This layer is the seam between the OS (cmd/) and the domain (orchestration + fibonacci).",
+      "title": "Application Lifecycle & Dispatch",
+      "description": "internal/app/app.go is the wiring hub: it parses config, then routes to one of four modes (completion, calibration, TUI, or calculate). calculate.go is the production hot path — it validates the memory budget, installs timeout and signal contexts, then hands off to orchestration. This is where the four layers of Clean Architecture meet: config below, orchestration sideways, fibonacci/bigfft deeper, and presentation (cli/tui) above.",
       "nodeIds": [
         "file:internal/app/app.go",
-        "file:internal/app/calculate.go",
-        "file:internal/app/exit_action.go"
-      ]
+        "file:internal/app/calculate.go"
+      ],
+      "languageLesson": "Go's context.Context is the idiomatic way to propagate cancellation, timeouts, and signal handling down a call stack. Pairing context.WithTimeout with signal.NotifyContext gives you Ctrl-C and deadline cancellation through the same channel, which is how a long Fibonacci computation gets cleanly interrupted."
     },
     {
       "order": 4,
-      "title": "Configuration & Threshold Tuning",
-      "description": "Configuration is split deliberately: config.go owns the AppConfig data structure and flag parsing, thresholds.go fills any unset threshold via the adaptive-default engine, and threshold_tuning.go is the single audit point gathering every magic number that drives FFT, parallel and Strassen cut-overs. Pulling these tunables into one ThresholdTuningProfile keeps the calibration system (Step 5) honest and makes the DTM decision (ADR-0001, Step 10) reviewable in one place.",
+      "title": "Configuration: Flags, Env, Hardware",
+      "description": "AppConfig is the single struct that flows through the entire application. config.go registers CLI flags and orchestrates validation; env.go layers in environment overrides; hardware.go probes runtime.NumCPU and system memory to produce sensible defaults; thresholds.go picks initial FFT/parallel/Strassen cutoffs that calibration will later refine. The .env.example file documents every knob a user can turn.",
       "nodeIds": [
         "file:internal/config/config.go",
-        "file:internal/config/thresholds.go",
-        "file:internal/config/threshold_tuning.go"
+        "file:internal/config/env.go",
+        "file:internal/config/hardware.go",
+        "config:.env.example"
       ]
     },
     {
       "order": 5,
-      "title": "Orchestration & Calculator Selection",
-      "description": "orchestration/orchestrator.go drives concurrent algorithm runs via errgroup, while calculator_selection.go resolves which fibonacci.Calculator implementations participate based on user flags (single algo vs all-algorithms comparison). interfaces.go is the public contract surface of the layer: ExecutionConfig, CalculationResult and the re-exported aliases that downstream packages (cli, tui) consume so they never need to import internal/fibonacci directly. This re-export pattern is what arch_test.go (Step 11) later enforces at the package level.",
+      "title": "Orchestration: Concurrent Algorithm Runs",
+      "description": "When the user asks for a comparison run, the orchestrator selects calculators (one or many), launches them concurrently under an errgroup with a bounded semaphore, and aggregates progress through a single ProgressAggregator. AnalyzeComparisonResults then summarizes the multi-algorithm output. This layer is where bounded parallelism enters the picture before the math layers see it.",
       "nodeIds": [
         "file:internal/orchestration/orchestrator.go",
         "file:internal/orchestration/calculator_selection.go",
-        "file:internal/orchestration/interfaces.go"
+        "file:internal/orchestration/progress.go"
       ],
-      "languageLesson": "errgroup.WithContext gives you a derived context that is cancelled the moment any worker returns a non-nil error. Combined with a bounded semaphore, it is Go's standard recipe for capped concurrency that fails fast without leaking goroutines."
+      "languageLesson": "golang.org/x/sync/errgroup combines a sync.WaitGroup with first-error capture and a shared context.Context — when one goroutine fails, the context cancels and the rest unwind cleanly. It is the standard Go idiom for 'run N concurrent tasks, surface the first error, cancel the rest'."
     },
     {
       "order": 6,
-      "title": "Domain Core: Fast Doubling",
-      "description": "internal/fibonacci/fastdoubling.go is the project's hot path: it implements the F(2k) = F(k)(2F(k+1) - F(k)) identity using the pooled CalculationState/Arena lifecycle, while doubling_framework.go is the generic MSB-to-LSB driver that delegates squarings and multiplications to the active Multiplier (math/big or bigfft). common.go provides the shared scaffolding: bounded task semaphore, big.Int pre-sizing, bit-limit checks. These three files concentrate the project's most-tested, most-benchmarked code.",
+      "title": "The Calculator Façade & Strategy Family",
+      "description": "calculator.go defines FibCalculator, the public façade that wraps any CoreCalculator with shared concerns: memory budgeting, GC suspension, FFT cache wiring, and progress observation. strategy.go declares the narrow Multiplier and DoublingStepExecutor interfaces, and ships two implementations: AdaptiveStrategy (routes between schoolbook, Karatsuba, and FFT based on operand size) and FFTOnlyStrategy (forces FFT, useful for benchmarks). registry.go provides name-based factory lookup so flags like --algo fast resolve to the right implementation.",
       "nodeIds": [
-        "file:internal/fibonacci/fastdoubling.go",
-        "file:internal/fibonacci/doubling_framework.go",
-        "file:internal/fibonacci/common.go"
+        "file:internal/fibonacci/calculator.go",
+        "file:internal/fibonacci/strategy.go",
+        "file:internal/fibonacci/registry.go"
       ],
-      "languageLesson": "Go's sync.Pool is goroutine-safe object recycling that the runtime may purge between GC cycles. Used carefully it eliminates 95%+ of big.Int allocations, but the project's invariant is that every release path MUST detach aliases before calling Put — otherwise a recycled buffer can leak the previous calculation's data."
+      "languageLesson": "Go interfaces are structural and intentionally small (ISP: 'many small interfaces beat one big one'). Multiplier has one method — Mul. DoublingStepExecutor has one method too. Composition of these narrow contracts is what lets AdaptiveStrategy and FFTOnlyStrategy be swappable without a single type assertion in the hot path."
     },
     {
       "order": 7,
-      "title": "Memory Management: Arena & GC Controller",
-      "description": "internal/fibonacci/memory turns the domain's pooling story into infrastructure. arena.go provides slab-style word allocations reused across one Fibonacci computation, gc_control.go's GCController disables the garbage collector during N >= 1M calculations and restores it via the panic-safe WithGC(fn) wrapper, and budget.go estimates and enforces the memory ceiling derived from N. Together they explain how the calculator hits zero-allocation steady state without giving up safety on panic.",
+      "title": "Fast Doubling: The Hot Path",
+      "description": "fastdoubling.go is the most sensitive file in the codebase. It implements the default O(log n) algorithm using the identity F(2k) = F(k)·(2·F(k+1) − F(k)) and concentrates the package's hardest invariants: a pooled CalculationState that owns its arena, an alias-detachment step that must run unconditionally before returning the state to the pool, and a panic-safe GC suspension via WithGC. doubling_framework.go is the generic driver — it walks N's bits MSB-down, delegating squarings and multiplications to a Multiplier and asking a DynamicThresholdManager whether each step should run sequentially or in parallel.",
       "nodeIds": [
-        "file:internal/fibonacci/memory/arena.go",
-        "file:internal/fibonacci/memory/gc_control.go",
-        "file:internal/fibonacci/memory/budget.go"
+        "file:internal/fibonacci/fastdoubling.go",
+        "file:internal/fibonacci/doubling_framework.go",
+        "document:docs/algorithms/FAST_DOUBLING.md"
       ],
-      "languageLesson": "An arena (or bump) allocator hands out memory sequentially from a pre-allocated slab and frees the whole slab at once. In Go this lets you batch-allocate []big.Word once per calculation instead of paying the allocator+GC cost on every Mul/Sqr."
+      "languageLesson": "sync.Pool is Go's standard answer to GC pressure for short-lived allocations. The catch: when a pooled object owns slices that alias into a shared arena, you must zero those aliases before Put — otherwise the next consumer sees stale data. The TestReleaseState_OverLimit_AliasesCleared test exists precisely to guard that invariant."
     },
     {
       "order": 8,
-      "title": "Math Kernel: FFT, Fermat & Atomic Globals",
-      "description": "internal/bigfft is the most algorithmically dense package. fft.go and fft_recursion.go implement Schonhage-Strassen multiplication and now tune their thresholds via atomic.Int64 (the ADR-0003 outcome) instead of plain ints. fermat.go performs ring arithmetic mod 2^n+1 and intentionally panics on post-condition violations, which fft_recover_policy_test (Step 12) verifies are routed through the sentinel introduced by ADR-0002. fft_cache.go is a thread-safe LRU of polynomial transforms (15-30% speedup) with a known aliasing risk between recycled backing buffers and live pv values. pool.go is the size-classed sync.Pool family that all FFT scratch comes from.",
+      "title": "Alternative Algorithms: Matrix, FFT-Only, GMP",
+      "description": "The same DoublingFramework backs three additional CoreCalculators. matrix.go computes Fibonacci via 2x2 matrix exponentiation (with Strassen kicking in past a Strassen threshold). fft_based.go forces FFT-domain multiplication for every step — slower for small N but invaluable for benchmarking and correctness checks against Fast Doubling. calculator_gmp.go is gated by the gmp build tag and binds to GNU MP via CGO for a different speed/portability trade. Together they form the algorithmic family the README promises.",
+      "nodeIds": [
+        "file:internal/fibonacci/matrix.go",
+        "file:internal/fibonacci/fft_based.go",
+        "file:internal/fibonacci/calculator_gmp.go",
+        "document:docs/algorithms/MATRIX.md"
+      ],
+      "languageLesson": "Go build tags (e.g. //go:build gmp) gate files at compile time. calculator_gmp.go only enters the build when you pass -tags=gmp, which lets the project ship a pure-Go default and a CGO-linked fast path from the same source tree without a single runtime branch."
+    },
+    {
+      "order": 9,
+      "title": "Schönhage-Strassen FFT Kernel",
+      "description": "internal/bigfft is the math kernel beneath every algorithm that ends up multiplying very large big.Ints. fft.go exposes Mul/MulTo/Sqr/SqrTo with an atomic FFT-threshold and a recover policy that re-panics fermat invariant violations instead of masking them as errors. fft_recursion.go runs the recursive FFT with adaptive parallelism (atomic-tuned recursion threshold, max-depth cap, bounded semaphore). fermat.go implements arithmetic in the Fermat ring Z/(2^n+1), where every panic is an intentional invariant check — not error handling, but a contract violation alarm.",
       "nodeIds": [
         "file:internal/bigfft/fft.go",
         "file:internal/bigfft/fft_recursion.go",
         "file:internal/bigfft/fermat.go",
-        "file:internal/bigfft/fft_cache.go",
-        "file:internal/bigfft/pool.go"
+        "document:docs/algorithms/BIGFFT.md"
       ],
-      "languageLesson": "sync/atomic.Int64 (Go 1.19+) gives you lock-free reads and writes for a single integer. The project uses it to replace plain int globals that were mutated on the FFT hot path: the cost is one atomic load per read, the benefit is that the race detector stops complaining and torn writes become impossible."
-    },
-    {
-      "order": 9,
-      "title": "Presentation: CLI Completion & TUI",
-      "description": "Two presentation surfaces share the orchestration contract from Step 5. internal/cli/calculate.go renders the colorized run summary, while internal/cli/completion/registry.go is the single source of truth that the four shell generators (bash/zsh/fish/powershell) consume — the registry centralises identifier escaping, which is the latent security boundary called out in CLAUDE.md. internal/tui/model.go is the Bubble Tea pure-router Update loop that drives the interactive dashboard; commands.go bootstraps the program and pumps tick/sample/indicator messages through the same orchestration.ExecuteCalculations call the CLI uses.",
-      "nodeIds": [
-        "file:internal/cli/calculate.go",
-        "file:internal/cli/completion/registry.go",
-        "file:internal/tui/model.go",
-        "file:internal/tui/commands.go"
-      ],
-      "languageLesson": "Bubble Tea follows the Elm Architecture: a pure Model, a pure Update function that returns (Model, Cmd) and never blocks, and a View that is a function of Model. Side effects only happen inside tea.Cmd closures, which makes the Update loop trivially testable."
+      "languageLesson": "atomic.Int64 and atomic.Pointer[T] give you lock-free reads and writes on shared scalars. They replaced plain globals in bigfft to remove a data race in tuning paths — the hot path can now read fftThreshold thousands of times per second without contending with a mutex."
     },
     {
       "order": 10,
-      "title": "Architectural Decision Records",
-      "description": "The four ADRs are the written contract behind the May 2026 hardening sprint. ADR-0001 records the decision to KEEP DynamicThresholdManager rather than replace it with internal/calibration, justifying the dual-system seen in Steps 4-5. ADR-0002 restricts the bigfft recover() to a post-condition sentinel, the policy the Step 12 tests verify. ADR-0003 converts the three mutable bigfft globals to atomic.Int64 as an interim measure on the way to full context injection, which is the Step 8 implementation. ADR-0004 statuses the remaining backlog. Read them after seeing the code: they explain why the trade-offs landed the way they did.",
+      "title": "Memory Engineering: Pools, Bump, Arena, GC Control",
+      "description": "This is the engineering that turns asymptotic complexity into wall-clock speed. bump.go gives O(1) linear allocation for FFT temporaries with no fragmentation. pool.go runs size-classed sync.Pool families per buffer kind, with capacity-based routing and a miss counter that surfaces pool churn. fft_cache.go is a thread-safe LRU of polynomial Fourier transforms — a 15-30% speedup on repeated squarings, with a putByKey policy that always allocates a fresh backing buffer to prevent aliasing on eviction. arena.go and gc_control.go close the loop on the Fibonacci side: per-calculation slab allocation and a panic-safe wrapper that disables the GC for N ≥ 1M and guarantees restoration.",
       "nodeIds": [
-        "document:docs/adr/0001-dtm-decision.md",
-        "document:docs/adr/0002-recover-strategy.md",
-        "document:docs/adr/0003-globals-vs-context.md",
-        "document:docs/adr/0004-backlog-decisions.md"
-      ]
+        "file:internal/bigfft/bump.go",
+        "file:internal/bigfft/pool.go",
+        "file:internal/bigfft/fft_cache.go",
+        "file:internal/fibonacci/memory/arena.go",
+        "file:internal/fibonacci/memory/gc_control.go"
+      ],
+      "languageLesson": "Go's runtime.GC()/debug.SetGCPercent(-1) lets you turn the garbage collector off entirely. That's an extreme optimization only worth it for short, allocation-heavy bursts — and it must be wrapped in a panic-safe defer so a crash never leaves the GC permanently off. WithGC(fn) encodes exactly that contract."
     },
     {
       "order": 11,
-      "title": "Architecture Gate (arch_test.go)",
-      "description": "internal/arch_test.go is the runtime enforcement of every layer rule the tour has implied. It uses `go list` to inspect actual import edges and asserts three invariants: internal/fibonacci/threshold must not depend on internal/calibration, cmd/* must not reach into deep internals, and the Clean Architecture hierarchy from Step 3 onward stays intact. This turns the architecture diagrams in docs/architecture/ into a CI-failing test — the same role pre-commit hooks play for formatting, but for the dependency graph.",
+      "title": "Adaptive Thresholds & Calibration",
+      "description": "Static thresholds would be wrong on most hardware. threshold/manager.go (the DTM) tracks per-iteration timings via atomic.Int64 fields and an atomic.Pointer[time.Time], then nudges the FFT and parallel thresholds at runtime — all lock-free for the hot path. The calibration subsystem runs micro-benchmarks once (or on demand), persists a versioned CalibrationProfile to disk with a hardware fingerprint, and rejects stale profiles routed through CompleteStrategy. Together they make the same binary fast on a laptop and on a 24-core workstation.",
       "nodeIds": [
-        "file:internal/arch_test.go"
+        "file:internal/fibonacci/threshold/manager.go",
+        "file:internal/calibration/calibration.go",
+        "file:internal/calibration/profile.go",
+        "document:docs/CALIBRATION.md"
       ],
-      "languageLesson": "Architecture tests in Go shell out to `go list -deps` (or use golang.org/x/tools/go/packages) to enumerate the real import graph, then assert forbidden edges are absent. They run on every `go test ./...`, so a refactor that violates a layer rule fails CI on the same line as a unit test would."
+      "languageLesson": "Go's sync/atomic package, used through the typed atomic.Int64/atomic.Pointer[T] wrappers introduced in Go 1.19, replaces the older pattern of unsafe pointer arithmetic. The DTM stores the entire hot-path tuning state in atomics, so reads cost a single MOV instruction and writes never block."
     },
     {
       "order": 12,
-      "title": "Testing: Fuzz, Panic Contracts & Golden",
-      "description": "The test surface backs every previous step. fft_fuzz_test.go runs Go fuzz targets that compare bigfft.Mul/Sqr against math/big, while fibonacci_fuzz_test.go fuzzes the Fast Doubling path and classical Cassini-type identities. fft_recover_policy_test.go encodes the ADR-0002 contract: the four documented fermat post-condition panics must be classified as the sentinel and propagated, anything else must be re-thrown. fibonacci_golden_test.go loads the immutable testdata oracle (produced by Step 13's cmd/generate-golden) and checks every algorithm against it. Together they are the safety net that lets the project keep changing the kernel.",
+      "title": "Interactive TUI Dashboard",
+      "description": "The --tui flag launches a btop-style live dashboard built with Bubble Tea. model.go is the Elm Architecture root: a pure Update router that dispatches messages to header/logs/metrics/chart/footer sub-models. bridge.go is the load-bearing adapter between the production progress/result interfaces and Bubble Tea's message bus — note that the TUI never imports internal/fibonacci directly, only the orchestration.Calculator aliases, a layering boundary enforced by TestArchitectureLayering.",
       "nodeIds": [
-        "file:internal/bigfft/fft_fuzz_test.go",
-        "file:internal/bigfft/fft_recover_policy_test.go",
-        "file:internal/fibonacci/fibonacci_fuzz_test.go",
-        "file:internal/fibonacci/fibonacci_golden_test.go",
-        "config:internal/fibonacci/testdata/fibonacci_golden.json"
+        "file:internal/tui/model.go",
+        "file:internal/tui/bridge.go",
+        "document:docs/TUI_GUIDE.md"
       ],
-      "languageLesson": "Go's native fuzzing (Go 1.18+) feeds randomly mutated inputs into FuzzXxx(*testing.F) functions and minimises any failing case into a seed file. Combined with a reference implementation (math/big here), fuzzing turns a 'is this algorithm correct?' question into a continuously-running differential test."
+      "languageLesson": "The Elm Architecture (Model-View-Update) imported into Go by Bubble Tea forces state changes to flow through a single pure Update(msg) function. No goroutine ever touches the Model directly — they send messages over a channel — which is why the entire TUI works correctly under -race without a single mutex inside the model."
     },
     {
       "order": 13,
-      "title": "CI, Build & Containerisation",
-      "description": "The capstone: how this code ships and stays correct in CI. .github/workflows/ci.yml runs vet, golangci-lint pinned at v1.64.8, and `go test -race -short` across a 3-OS matrix including Windows with CGO_ENABLED=1, plus an informative bench job that compares against docs/PERFORMANCE.md's baselines via the 5% regression gate. The Dockerfile is a multi-stage build (golang:1.26-bookworm + libgmp-dev builder, distroless non-root runtime) producing the production image. devcontainer.json reproduces the same toolchain locally. cmd/generate-golden is the standalone oracle binary deliberately kept outside internal/ so it can never accidentally validate itself.",
+      "title": "Validation Surface: Makefile, Golden Corpus, Container",
+      "description": "FibCalc has no CI/CD — local discipline is the only safety net, so the Makefile is the sole validation entry point: make test runs the race detector, make benchmark runs the perf suite, make lint runs 24 golangci-lint linters, make build-pgo produces a PGO-optimized binary. fibonacci_golden.json is the immutable oracle (now including F(50000), F(100000), F(200000)) that every algorithmic test consults for non-regression — extending it requires explicit ADR approval. The Dockerfile demonstrates the production packaging path: a CGO-enabled builder stage on golang:1.26-bookworm with libgmp-dev, and a distroless runtime stage that consumes default.pgo when present.",
       "nodeIds": [
-        "pipeline:.github/workflows/ci.yml",
+        "service:Makefile",
+        "config:internal/fibonacci/testdata/fibonacci_golden.json",
         "service:Dockerfile",
-        "config:.devcontainer/devcontainer.json",
-        "document:docs/PERFORMANCE.md",
-        "file:cmd/generate-golden/main.go"
+        "document:CONTRIBUTING.md"
       ],
-      "languageLesson": "Multi-stage Docker builds let you compile in a fat image (with CGO, libgmp-dev, the Go toolchain) and copy only the static binary into a distroless final stage. The result here ships without a shell or libc, which removes most attack surface — at the cost of making `docker exec` for debugging impossible, which is the deliberate trade-off."
+      "languageLesson": "Multi-stage Docker builds use multiple FROM statements: a heavy builder image with the compiler and CGO dependencies (libgmp-dev), and a minimal runtime image (distroless/base-debian12, nonroot user) that only copies the final binary. The result is a small, attack-surface-reduced image even though the build needed gigabytes of toolchain."
     }
   ]
 }

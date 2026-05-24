@@ -1,6 +1,6 @@
 # BigFFT Subsystem: Implementation Internals
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 971 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 957 nodes / 8 layers / 13-step tour)
 
 > **Scope**: Implementation architecture of `internal/bigfft`
 > **Complexity**: O(n log n) integer multiplication via Schonhage-Strassen FFT
