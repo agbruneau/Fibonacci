@@ -37,8 +37,8 @@
 Requires **Go 1.25** or later.
 
 ```bash
-git clone https://github.com/agbru/fibcalc.git
-cd fibcalc
+git clone https://github.com/agbruneau/FibGo.git
+cd FibGo
 go build -o fibcalc ./cmd/fibcalc
 ./fibcalc -n 1000000 -algo fast
 ```
