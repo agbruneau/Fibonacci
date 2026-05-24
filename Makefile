@@ -201,10 +201,10 @@ stats:
 		| awk '{print "Test LOC:       "$$1}'
 
 # POSIX-only (requires bash/date/tee)
-## bench-baseline: Refresh docs/audits/bench-baseline.txt for the CI regression gate
+## bench-baseline: Refresh docs/audits/bench-baseline.txt regression baseline
 ##
-## The CI bench job (.github/workflows/ci.yml) compares each PR against
-## this baseline at 5% threshold via benchstat. Run this target on a
+## Use benchstat locally to compare new runs against this baseline at the
+## documented 5% threshold (see docs/PERFORMANCE.md). Run this target on a
 ## quiet machine before bumping the baseline.
 bench-baseline:
 	@echo "Refreshing docs/audits/bench-baseline.txt ..."

@@ -10,7 +10,7 @@ Pour une exploration interactive complémentaire aux diagrammes statiques :
 
 - **971 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 781 arêtes** (imports, calls, contains, tested_by, documents…)
 - **8 couches** architecturales (entry-point, application, presentation, domain, math-kernel, cross-cutting, e2e-tests, project-support)
-- **Tour guidé 13 étapes** depuis `cmd/fibcalc/main.go` jusqu'aux tests/CI
+- **Tour guidé 13 étapes** depuis `cmd/fibcalc/main.go` jusqu'aux tests
 - Recherche, filtres par couche/type, layout dynamique (force, ELK, dagre)
 
 Source : [`.understand-anything/knowledge-graph.json`](../../.understand-anything/knowledge-graph.json). Build statique dans [`../dashboard/`](../dashboard/). Régénération : voir [`../BUILD.md#dashboard-statique-github-pages`](../BUILD.md#dashboard-statique-github-pages).
@@ -66,7 +66,7 @@ de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-d
 `internal/arch_test.go` enforce trois invariants Clean Architecture :
 `threshold → config`, `errors → format`, `tui → fibonacci` sont
 interdits. Tout PR réintroduisant un de ces imports remontants fait
-échouer la CI. Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
+échouer `make test` (ou `go test ./internal/`). Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 
 ---
 [← Retour à la vue d'ensemble (ARCH.md)](../ARCH.md)

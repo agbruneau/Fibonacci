@@ -104,5 +104,5 @@ Each call to a GMP function incurs CGO overhead (typically 50-100ns per call). F
 FibCalc may cite **FLINT**, other LGPL/GPL C libraries, or experimental arbitrary-precision stacks as *research comparisons*. The current design constraints:
 
 - **No additional mandatory C/C++ backend:** only `math/big` and optional GMP are integrated. Adding another requires a reproducible build matrix, license review, and golden-style equivalence tests on a bounded set of indices — see **ADR-010** in [ARCH.md](../ARCH.md).
-- **Extension point:** new calculators register through `fibonacci.RegisterCalculator` (same pattern as the `gmp` build tag). Prototypes should live on a dedicated branch or fork until CI and legal criteria are met.
+- **Extension point:** new calculators register through `fibonacci.RegisterCalculator` (same pattern as the `gmp` build tag). Prototypes should live on a dedicated branch or fork until quality and legal criteria are met.
 - **Equivalence:** when evaluating a candidate backend, compare against `"fast"` / `"gmp"` on shared `N` values and existing `testdata` where applicable.

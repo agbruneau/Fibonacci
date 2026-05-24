@@ -64,6 +64,7 @@ the diagrams under [`../flows/`](../flows/):
 ## Maintenance
 
 When refactoring package boundaries, re-check the dependency-direction
-table above and the Mermaid diagrams. A future CI step that parses
-documented interface signatures and compares them against source (via
-reflection or AST) would let this drift be detected automatically.
+table above and the Mermaid diagrams. A future tooling step (Makefile or
+pre-commit) that parses documented interface signatures and compares
+them against source (via reflection or AST) would let this drift be
+detected automatically.

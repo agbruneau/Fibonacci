@@ -12,7 +12,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
 - **Taille** : exécuter `make stats` pour le décompte de packages et LOC à jour. Référence historique : ~35 500 LOC `.go` au commit de l'audit v1.
-- **CI/CD** : GitHub Actions — `ci.yml` (vet + golangci-lint épinglé `v1.64.8` + build, `go test -race -short` sur matrice **3 OS dont Windows** via `CGO_ENABLED=1`, + job `bench` informatif) et `coverage.yml` (sur push+PR, seuil `MIN_COVERAGE=80%`).
+- **CI/CD** : aucun (workflows GitHub Actions retirés). Validation locale uniquement — `make test` (race, requiert CGO/gcc), `make lint`, `make benchmark` avant chaque commit perf-sensitive.
 
 ---
 
@@ -127,7 +127,7 @@ make build-pgo       # build avec PGO
 make build-all       # cross-compilation (linux, windows, macOS)
 ```
 
-> Sans `make` (ex. Windows sans GNU make) : utiliser les équivalents `go` ci-dessus. Le race detector exige un compilateur C (CGO) — indisponible sous Windows sans gcc ; la validation `-race` est assurée par la CI Linux/macOS.
+> Sans `make` (ex. Windows sans GNU make) : utiliser les équivalents `go` ci-dessus. Le race detector exige un compilateur C (CGO) — indisponible sous Windows sans gcc ; sous Windows la validation `-race` se fait via WSL ou un autre poste Linux/macOS.
 
 ---
 
@@ -137,7 +137,7 @@ make build-all       # cross-compilation (linux, windows, macOS)
 - Interfaces étroites (ISP) : `Multiplier`, `DoublingStepExecutor`, `Calculator`, `ProgressReporter`.
 - Erreurs structurées : `fmt.Errorf("%w", err)`. **Pas de panic** sauf pour invariants internes (cas assumé : `bigfft/fermat.go`).
 - Tests parallèles (`t.Parallel()`) systématiques (adoption élevée ; cible 100 %).
-- Race detector en CI sur les 3 OS (`CGO_ENABLED=1`).
+- Race detector recommandé en local (`CGO_ENABLED=1`, requiert gcc/clang).
 - Complexité cyclomatique max 15, cognitive max 30 (cf. `.golangci.yml`).
 - Longueur fonction max 100 lignes / 50 statements.
 - `doc.go` pour chaque package public.
@@ -164,7 +164,7 @@ make build-all       # cross-compilation (linux, windows, macOS)
 
 7. **Bug fix avant refactor** — Si un défaut actif est touché par hasard pendant un refactor, le corriger en priorité dans un commit isolé (`fix(scope):`) avant de poursuivre le refactor.
 
-8. **CI active** — `make test` (race) `&& make lint` (ou équivalents `go`) en local avant chaque PR reste recommandé ; la CI (`ci.yml`) le rejoue sur 3 OS. Ne PAS recréer de workflow concurrent.
+8. **Validation locale** — `make test` (race) `&& make lint` (ou équivalents `go`) avant chaque commit/PR. Aucun garde-fou CI distant : la rigueur tient à la discipline locale du contributeur.
 
 ---
 

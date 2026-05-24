@@ -130,7 +130,7 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 | `build-windows` | windows | amd64 | Full SIMD support |
 | `build-darwin` | darwin | amd64 + arm64 | SIMD on amd64 only |
 
-Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically. The CI workflow `cross-compile` job exercises `linux/arm64`, `darwin/arm64`, and `darwin/amd64` on every PR so a latent amd64-only import surfaces immediately. Full matrix and fallback contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
+Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent amd64-only import surfaces immediately. Full matrix and fallback contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
 
 ## Reproducible Build (Docker / devcontainer)
 
@@ -160,8 +160,8 @@ Opening the repo in a VS Code Dev Container loads
 `go test -race` works out of the box.
 
 See also [`docs/PORTABILITY.md`](PORTABILITY.md) §4 for per-target build
-commands and [`docs/PERFORMANCE.md`](PERFORMANCE.md) for the CI benchmark
-gate that protects these binaries from > 5 % regressions.
+commands and [`docs/PERFORMANCE.md`](PERFORMANCE.md) for the benchmark
+baseline that documents the > 5 % regression budget.
 
 ## Version Injection
 

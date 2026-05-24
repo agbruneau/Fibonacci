@@ -1,8 +1,6 @@
 # FibCalc: High-Performance Fibonacci Calculator
 
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
-[![CI](https://github.com/agbruneau/FibGo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbruneau/FibGo/actions/workflows/ci.yml)
-[![Coverage](https://github.com/agbruneau/FibGo/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/agbruneau/FibGo/actions/workflows/coverage.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
@@ -233,16 +231,21 @@ Build and deployment details (cross-compilation, PGO, signing): [`docs/BUILD.md`
 ## Development
 
 - Go 1.25+, optional `golangci-lint` and `gosec`.
+- **No remote CI/CD** — GitHub Actions workflows have been removed. All
+  verification (tests, race detector, lint, benchmarks, cross-compile,
+  coverage floor) is **the contributor's responsibility, run locally**
+  before each commit/PR. See [Testing](#testing) for the expected
+  checklist and [`CLAUDE.md`](CLAUDE.md) directive #8.
 - **Reproducible environment** — open the repo in VS Code with the
   [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO +
   libgmp + benchstat pre-installed) or build the
   [multi-stage `Dockerfile`](Dockerfile) for a distroless runtime image.
-- **Cross-compilation** — CI builds `linux/arm64`, `darwin/arm64`,
-  `darwin/amd64` on every PR ; see [`docs/PORTABILITY.md`](docs/PORTABILITY.md)
+- **Cross-compilation** — `make build-all` builds `linux/arm64`,
+  `darwin/arm64`, `darwin/amd64` locally ; see [`docs/PORTABILITY.md`](docs/PORTABILITY.md)
   for the matrix and the assembler/generic fallback contract.
 - Architectural decisions (concurrence, panic policy, globals, backlog):
   [`docs/adr/`](docs/adr/).
-- Guidance for AI assistants: [`Claude.md`](Claude.md).
+- Guidance for AI assistants: [`CLAUDE.md`](CLAUDE.md).
 - Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Most common commands:
@@ -254,7 +257,7 @@ make test-short      # skip slow tests
 make lint            # golangci-lint (24 linters, govet shadow enabled)
 make coverage        # coverage.html report
 make benchmark       # performance benchmarks
-make bench-baseline  # refresh docs/audits/bench-baseline.txt for the CI gate
+make bench-baseline  # refresh docs/audits/bench-baseline.txt regression baseline
 make build-pgo       # build with PGO
 make build-all       # cross-compile linux/windows/darwin (amd64 + arm64)
 make stats           # canonical package & LOC counts
@@ -307,7 +310,7 @@ test/
 
 ## Testing
 
-Coverage gate at 80 % project-wide (`coverage.yml`). The hardening sprint
+Coverage target ≥ 80 % project-wide (`make coverage`). The hardening sprint
 lifted `internal/cli/completion/` from 0 % to 95.7 %. Test layers:
 
 - **Unit & integration** — every package under `internal/`.
@@ -327,9 +330,10 @@ lifted `internal/cli/completion/` from 0 % to 95.7 %. Test layers:
   `TestFermatPostConditionPanicClassifier` guards the sentinel
   re-propagation (see [`docs/adr/0002-recover-strategy.md`](docs/adr/0002-recover-strategy.md)).
 - **End-to-end** — `test/e2e/` exercises the CLI binary.
-- **Performance gate** — `.github/workflows/ci.yml` runs `benchstat`
-  against `docs/audits/bench-baseline.txt` and fails any PR introducing
-  a regression > 5 % on the algorithmic hot paths.
+- **Performance baseline** — `docs/audits/bench-baseline.txt` is the
+  reference for `benchstat`. Run `make benchmark` then `benchstat` against
+  the baseline before merging perf-sensitive changes (target: no regression
+  > 5 % on the algorithmic hot paths).
 
 ```bash
 go test -v -race -cover ./...                        # all tests
@@ -338,7 +342,7 @@ go test -bench=. -benchmem ./internal/fibonacci/     # benchmarks
 go test -fuzz=FuzzFastDoublingConsistency -fuzztime=30s ./internal/fibonacci/
 go test -fuzz=FuzzMul -fuzztime=30s ./internal/bigfft/
 make stats                                           # package / LOC counts
-make bench-baseline                                  # refresh the CI baseline
+make bench-baseline                                  # refresh the regression baseline
 ```
 
 Strategy, golden files, E2E, mocking policy: [`docs/TESTING.md`](docs/TESTING.md).

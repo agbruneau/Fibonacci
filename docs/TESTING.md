@@ -8,11 +8,11 @@ The Fibonacci Calculator project uses a layered testing strategy that
 combines unit tests, golden file validation, fuzz testing, property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite contains 100+ test files
-distributed across all packages, with a coverage floor of 80% enforced in
-CI ; `internal/cli/completion/` is at 95.7 % after the May-2026 security
-hardening sprint.
+distributed across all packages, with a coverage target of 80 % verified
+locally via `make coverage` ; `internal/cli/completion/` is at 95.7 %
+after the May-2026 security hardening sprint.
 
-All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag enabled in CI.
+All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag run locally (requires CGO).
 
 ## Quick Reference Commands
 
@@ -274,7 +274,7 @@ This pattern in `orchestration_spy_test.go` verifies that configuration values (
 
 ## Coverage
 
-CI enforces a minimum total coverage of 80% (`coverage.yml`); the suite currently sits well above that floor.
+The project targets a minimum total coverage of 80 % verified locally via `make coverage`; the suite currently sits well above that floor.
 
 ```bash
 go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
@@ -373,7 +373,7 @@ go test -v -run TestFermat ./internal/bigfft/
 
 Several tests specifically target concurrent behavior:
 
-- **Race detector**: All CI runs use `-race` to detect data races
+- **Race detector**: Local `make test` runs `-race` to detect data races (requires CGO)
 - **Context cancellation**: `TestContextCancellation` verifies algorithms respond to `context.WithTimeout` within 50ms for N=100M
 - **Progress monotonicity**: `TestProgressReporter` validates that progress updates across goroutine boundaries never decrease
 - **Parallel FFT tests**: `fft_parallel_test.go` validates thread safety of the FFT subsystem under concurrent load

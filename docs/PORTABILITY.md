@@ -6,13 +6,13 @@ E10-R5 / Sprint S4-T5.
 
 ## 1. Matrice supportée
 
-| OS | Architecture | CGO | Race detector | Vérification CI |
+| OS | Architecture | CGO | Race detector | Vérification locale |
 |---|---|---|---|---|
-| Linux | amd64 | ✅ requis pour `-race` et `gmp` | ✅ via gcc | `ci.yml#test` (ubuntu-latest, race) |
-| Linux | arm64 | ❌ désactivé | ❌ (cross-compile only) | `ci.yml#cross-compile` (build only) |
-| Windows | amd64 | ✅ requis pour `-race` | ✅ via MinGW gcc | `ci.yml#test` (windows-latest, race) |
-| macOS | amd64 | ✅ pour `-race` | ✅ via clang | `ci.yml#test` (macos-latest, race) |
-| macOS | arm64 (Apple Silicon) | ❌ désactivé | ❌ (cross-compile only) | `ci.yml#cross-compile` (build only) |
+| Linux | amd64 | ✅ requis pour `-race` et `gmp` | ✅ via gcc | `make test` (race natif) |
+| Linux | arm64 | ❌ désactivé | ❌ (cross-compile only) | `make build-all` (build only) |
+| Windows | amd64 | ✅ requis pour `-race` (via MinGW) | ✅ via MinGW gcc si installé | `make test` ou `go test -race` |
+| macOS | amd64 | ✅ pour `-race` | ✅ via clang | `make test` (race natif) |
+| macOS | arm64 (Apple Silicon) | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-all` (build only) |
 | WASI / js | — | — | — | non supporté (`unsafe.Pointer`, `runtime/debug`) |
 
 ## 2. Fallbacks plate-forme
@@ -47,20 +47,16 @@ non profilé formellement à ce jour).
 
 ## 3. Race detector
 
-Le race detector Go nécessite CGO. La matrice CI active CGO sur les trois
-OS hôtes :
+Le race detector Go nécessite CGO :
 
-- **Linux + macOS** : CGO via gcc/clang natif (préinstallé).
-- **Windows** : CGO via MinGW (préinstallé sur `windows-latest`). La
-  contradiction historique entre `CLAUDE.md` (« race indisponible sous
-  Windows sans gcc ») et `CHANGELOG.md` (« `-race` runs on Windows »)
-  est résolue ainsi : *en CI*, Windows a une toolchain MinGW gratuite et
-  utilise `CGO_ENABLED=1` ; *en local sur Windows sans gcc*, le race
-  detector n'est pas disponible.
+- **Linux + macOS** : CGO via gcc/clang natif. Disponible nativement.
+- **Windows** : CGO via MinGW si le contributeur l'installe localement.
+  Sinon, le race detector n'est pas disponible — utiliser WSL ou un poste
+  Linux/macOS pour la validation `-race`.
 
 Pour les builds cross-compile (`linux/arm64`, `darwin/arm64`), le race
-detector n'est pas exécuté — la CI vérifie seulement la **compilabilité**
-sans CGO.
+detector n'est pas exécuté — seule la **compilabilité** sans CGO est
+vérifiée par `make build-all`.
 
 ## 4. Procédure de build par cible
 
@@ -100,26 +96,26 @@ L'image distroless ne ship que le binaire linké statiquement (pas de
 runtime libc, pas de shell). Pour debug : remplacer la stage finale par
 `gcr.io/distroless/base-debian12:debug`.
 
-## 5. Vérification CI
+## 5. Vérification locale
 
-Le job `cross-compile` de `.github/workflows/ci.yml` valide à chaque PR
-que `go build ./...` passe pour :
+`make build-all` exécute `go build` pour les cibles suivantes et doit
+passer sans erreur avant tout commit touchant `internal/bigfft/` ou
+`internal/fibonacci/` :
 
 - `linux/arm64`
 - `darwin/arm64`
 - `darwin/amd64`
 
 Une régression introduisant une dépendance amd64-exclusive non gardée par
-`//go:build` fait échouer la CI immédiatement.
+`//go:build` fera échouer immédiatement l'une des cibles ci-dessus.
 
 ## 6. Limitations connues
 
-- **Pas de bench cross-arch automatisé** : les chiffres dans
+- **Pas de bench cross-arch** : les chiffres dans
   `docs/audits/bench-baseline.txt` proviennent d'un host amd64. Un
-  benchmark arm64 demanderait un runner self-hosted ou GitHub Actions
-  Larger Runners (payants).
+  benchmark arm64 demande un poste Apple Silicon ou ARM Linux.
 - **GMP non testé en cross-compile** : `gmp` build tag requiert CGO,
-  donc seul `linux/amd64` en CI exerce cette branche.
+  donc seul `linux/amd64` exerce cette branche.
 - **WebAssembly** : non supporté. La codebase utilise `unsafe.Pointer`,
   `runtime/debug.Stack`, et des assertions de panic post-condition qui
   rendent un portage non trivial.

@@ -54,15 +54,20 @@ go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
 go test -bench=BenchmarkFastDoubling -benchtime=5x ./internal/fibonacci/
 ```
 
-### Regression gate (>= 5 %, CI-enforced)
+### Regression baseline (>= 5 %, local discipline)
 
-The `bench` job in `.github/workflows/ci.yml` is **blocking** — a PR
-introducing any sub-benchmark regression > 5 % in
-`BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)` fails the build.
+Any commit touching `internal/fibonacci/` or `internal/bigfft/` should be
+verified locally against `docs/audits/bench-baseline.txt` using
+`benchstat`. The convention is: **no sub-benchmark regression > 5 %** in
+`BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)`.
 
-The gate compares each PR against `docs/audits/bench-baseline.txt` using
-`benchstat` ; the percentage threshold is enforced by
-`.github/scripts/bench_gate.py`. Refresh the baseline on a quiet machine :
+```bash
+make benchmark > /tmp/new.txt
+benchstat docs/audits/bench-baseline.txt /tmp/new.txt
+```
+
+Refresh the baseline on a quiet machine when an intentional perf change
+lands :
 
 ```bash
 make bench-baseline                            # writes docs/audits/bench-baseline.txt
