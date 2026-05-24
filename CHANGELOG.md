@@ -75,6 +75,13 @@ been purged ; the ADR series is the surviving source of truth.
 ### Changed
 
 - **Post-audit remediation period closed.** The audit-driven remediation workflow (A-NN finding tracking, "Vague A" review freeze, post-audit branch gating) is wound down. Project documentation is purged of audit scaffolding: contributor-facing docs no longer route through `audit.md` / `AuditPlanning.md` / `audit-prompt.md`, and the standard `CONTRIBUTING.md` workflow is the single source of process truth going forward. Historical CHANGELOG entries below are retained verbatim as the accurate record of what was done during remediation.
+- **Project status repositioned** from `Production-Ready` to `Academic Prototype` (README status badge). Aligns the marketing claim with the actual self-description in the README intro and removes the implicit promise of automated quality gates that the CI removal (below) makes untenable.
+
+### Removed (CI/CD retirement)
+
+- **GitHub Actions workflows deleted** : `.github/workflows/ci.yml` (vet + golangci-lint + 3-OS race matrix + cross-compile + bench gate) and `.github/workflows/coverage.yml` (PR/push coverage with `MIN_COVERAGE=80%` floor). The accompanying regression-gate engine `.github/scripts/bench_gate.py` and the now-empty `.github/` tree are gone as well.
+- **Consequence for contributors** : every gate that used to run on push/PR is now the contributor's local responsibility — `make test` (race, requires CGO/gcc), `make lint`, `make coverage`, `make build-all` for cross-compile, and `benchstat` against `docs/audits/bench-baseline.txt` for perf-sensitive changes. CLAUDE.md directive #8 is the canonical checklist.
+- **Documentation refresh** : README/CLAUDE/PORTABILITY/PERFORMANCE/TESTING/BUILD/architecture docs reworded to drop references to `ci.yml`/`coverage.yml` and to reframe gates as local-discipline conventions (no behavioural change to the Go code).
 
 ### Added
 
