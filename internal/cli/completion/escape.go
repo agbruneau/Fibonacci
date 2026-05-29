@@ -52,7 +52,7 @@ func escapeFishSingleQuoted(s string) string {
 
 // escapeZshSingleQuoted escapes s so it is safe to splice inside a zsh
 // single-quoted string. zsh closes the literal on the first '. The
-// canonical workaround is to close-escape-reopen: ' → '\''.
+// canonical workaround is to close-escape-reopen: ' → '\”.
 func escapeZshSingleQuoted(s string) string {
 	r := strings.NewReplacer(`'`, `'\''`, "\n", ` `)
 	return r.Replace(s)
@@ -60,7 +60,7 @@ func escapeZshSingleQuoted(s string) string {
 
 // escapePowerShellSingleQuoted escapes s for a PowerShell '...' literal.
 // PowerShell single quotes are literal except that ' is escaped by
-// doubling: ''.
+// doubling: ”.
 func escapePowerShellSingleQuoted(s string) string {
 	r := strings.NewReplacer(`'`, `''`, "\n", ` `)
 	return r.Replace(s)

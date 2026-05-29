@@ -479,15 +479,6 @@ func acquireFFTState(n int, k uint) *fftState {
 	return state
 }
 
-// releaseFFTState returns an fftState to the pool.
-// This should be called with defer immediately after acquireFFTState to ensure
-// proper resource cleanup even in case of errors or panics:
-//
-//	state := acquireFFTState(n, k)
-//	defer releaseFFTState(state)
-//
-// Parameters:
-//   - state: The fftState to return to the pool. Safe to call with nil.
 // maxPooledFFTTmpCap bounds the capacity (in words) of the tmp/tmp2 buffers a
 // pooled fftState may retain. After a very large FFT, the per-goroutine
 // fftState would otherwise hold multi-MB fermat buffers indefinitely (peak
@@ -498,6 +489,15 @@ func acquireFFTState(n int, k uint) *fftState {
 // (common.go). 524288 words (~4 MB) keeps the common sizes pooled. A2-05.
 const maxPooledFFTTmpCap = 524288
 
+// releaseFFTState returns an fftState to the pool.
+// This should be called with defer immediately after acquireFFTState to ensure
+// proper resource cleanup even in case of errors or panics:
+//
+//	state := acquireFFTState(n, k)
+//	defer releaseFFTState(state)
+//
+// Parameters:
+//   - state: The fftState to return to the pool. Safe to call with nil.
 func releaseFFTState(state *fftState) {
 	if state == nil {
 		return
