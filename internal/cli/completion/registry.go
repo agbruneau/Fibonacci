@@ -4,8 +4,6 @@
 // flagRegistry. Adding a new flag only requires appending to that registry.
 package completion
 
-import "strings"
-
 // FlagCompletion describes a CLI flag for shell completion generation.
 // All shell completion functions generate from this registry, so adding
 // a new flag only requires appending to flagRegistry.
@@ -40,11 +38,6 @@ var flagRegistry = []FlagCompletion{
 	{Long: "quiet", Short: "q", Help: "Quiet mode for scripts"},
 	{Long: "machine", Help: "Machine-readable output (no ANSI colors)"},
 	{Long: "completion", Help: "Generate completion script", Values: []string{"bash", "zsh", "fish", "powershell"}, ValueName: "shell"},
-}
-
-// formatAlgoList joins algorithm names with space separators.
-func formatAlgoList(algorithms []string) string {
-	return strings.Join(algorithms, " ")
 }
 
 // flagKey returns the identifier used for lookups: Long name if present, else Short.

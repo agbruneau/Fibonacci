@@ -101,6 +101,8 @@ func NewFFTContext(opts FFTContextOptions) *FFTContext {
 // own lazy init (transformCacheOnce, concurrencyOnce); defaultContext just
 // captures references to those existing singletons. Construction is cheap,
 // idempotent, and free of side effects on the hot path.
+//
+//nolint:unused // reserve migration FFTContext exclusif (ADR-0004 B1, backlog won't-fix)
 var defaultContext = &FFTContext{
 	// Cache and Semaphore are lazily resolved on first use to avoid
 	// triggering the package-level sync.Once initializers at import time.
