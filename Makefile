@@ -25,7 +25,7 @@ LDFLAGS=-ldflags="-s -w \
 	-X github.com/agbruneau/FibGo/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
-.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-baseline bench-versioned stats run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
+.PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-win test-short coverage coverage-check benchmark bench-baseline bench-versioned stats run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
 
 # Default target
 all: clean build test
@@ -161,6 +161,11 @@ test:
 	@echo "Running tests..."
 	$(GO) test -v -race -cover ./...
 
+## test-win: Run all tests WITHOUT the race detector (Windows / no-CGO hosts)
+test-win:
+	@echo "Running tests (no -race; Windows/no-CGO)..."
+	$(GO) test -v -cover ./...
+
 ## test-short: Run tests without slow ones
 test-short:
 	@echo "Running short tests..."
@@ -172,6 +177,14 @@ coverage:
 	$(GO) test -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+## coverage-check: Fail if total coverage drops below 80%
+coverage-check:
+	@echo "Checking coverage floor (>= 80%)..."
+	@$(GO) test -coverprofile=coverage.out ./... >/dev/null
+	@total=$$($(GO) tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
+	  echo "Total coverage: $$total%"; \
+	  awk -v t="$$total" 'BEGIN { exit (t+0 < 80.0) }' || { echo "FAIL: coverage $$total% < 80%"; exit 1; }
 
 ## benchmark: Run benchmarks
 benchmark:
