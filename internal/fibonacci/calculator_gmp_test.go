@@ -72,6 +72,47 @@ func TestGMPCalculator_Name(t *testing.T) {
 	}
 }
 
+// TestGMPCalculator_CrossValidateFastDoubling cross-validates the GMP backend
+// against the native Fast Doubling calculator across the small, large, and
+// FFT-regime size classes. n=1_000_000 (~694k bits) exceeds DefaultFFTThreshold
+// (500_000 bits), so the native path exercises FFT multiplication.
+func TestGMPCalculator_CrossValidateFastDoubling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping GMP cross-validation in -short mode")
+	}
+	t.Parallel()
+
+	ctx := context.Background()
+	noop := func(float64) {}
+	opts := Options{
+		ParallelThreshold: DefaultParallelThreshold,
+		FFTThreshold:      DefaultFFTThreshold,
+	}
+
+	gmp := &GMPCalculator{}
+	fd := &FastDoublingCalculator{}
+
+	for _, n := range []uint64{1000, 100_000, 1_000_000} {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			t.Parallel()
+
+			gotGMP, err := gmp.CalculateCore(ctx, noop, n, opts)
+			if err != nil {
+				t.Fatalf("GMP F(%d) failed: %v", n, err)
+			}
+
+			gotFD, err := fd.CalculateCore(ctx, noop, n, opts)
+			if err != nil {
+				t.Fatalf("FastDoubling F(%d) failed: %v", n, err)
+			}
+
+			if gotGMP.Cmp(gotFD) != 0 {
+				t.Errorf("GMP and FastDoubling disagree at F(%d)", n)
+			}
+		})
+	}
+}
+
 // BenchmarkGMPCalculator benchmarks the GMP calculator for various input sizes.
 // This allows comparison with other calculator implementations.
 func BenchmarkGMPCalculator(b *testing.B) {
