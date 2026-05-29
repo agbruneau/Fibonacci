@@ -179,7 +179,9 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 		// Doubling Step — cache bit lengths once (BitLen() walks the rep).
 		fkBitLen := s.FK.BitLen()
 		fk1BitLen := s.FK1.BitLen()
-		bitLen := fkBitLen
+		// Align the usedFFT metric with the operand the routing decision actually
+		// tests: strategy.go routes to FFT on FK1.BitLen(), not FK. A1-06.
+		bitLen := fk1BitLen
 		usedFFT := bitLen > currentOpts.FFTThreshold
 
 		// Execute the three multiplications: T3 = FK·FK1, T2 = FK², T1 = FK1².
