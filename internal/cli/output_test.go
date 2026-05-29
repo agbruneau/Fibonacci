@@ -187,5 +187,4 @@ func TestDisplayResultWithConfig(t *testing.T) {
 			t.Error("Quiet mode should not show file save message")
 		}
 	})
-
 }

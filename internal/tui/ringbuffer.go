@@ -3,7 +3,7 @@ package tui
 // Ring is a fixed-capacity circular buffer that overwrites the oldest
 // element when full. It is generic over the element type T and is safe for
 // single-goroutine use only (the TUI runs everything on the bubbletea
-// goroutine, so no synchronisation is needed here).
+// goroutine, so no synchronization is needed here).
 //
 // The buffer is intentionally minimal: Push, Len, Cap, Last, Slice, Resize,
 // and Reset cover every call site in the tui package (sparkline samples and

@@ -259,4 +259,3 @@ func GlobalFactory() *DefaultFactory {
 func RegisterCalculator(name string, creator func() CoreCalculator) error {
 	return globalFactory.Register(name, creator)
 }
-

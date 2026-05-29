@@ -84,7 +84,7 @@ func ExampleFibCalculator_CalculateWithObservers() {
 }
 
 // Example_smallValues shows that small Fibonacci values (n <= 93)
-// are computed via the optimised iterative path.
+// are computed via the optimized iterative path.
 func Example_smallValues() {
 	calc := MustNewCalculator(&FastDoublingCalculator{})
 

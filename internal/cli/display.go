@@ -247,7 +247,7 @@ func displayIndicators(out io.Writer, ind *metrics.Indicators) {
 		ui.ColorMagenta(), parity, ui.ColorReset())
 }
 
-// === Persistance fichier ===
+// === Persistence fichier ===
 
 // OutputConfig holds configuration for result output.
 type OutputConfig struct {

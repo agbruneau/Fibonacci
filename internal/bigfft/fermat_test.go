@@ -18,7 +18,7 @@ func TestFermatSqrVsMul(t *testing.T) {
 	sizes := []int{1, 2, 3, 5, 10, 15, 20, 25, 29, 30, 31, 35, 40, 50}
 
 	for _, n := range sizes {
-		n := n
+
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
 			// Create random fermat number of size n+1 words
@@ -53,7 +53,7 @@ func TestFermatSqrVsMul(t *testing.T) {
 func TestFermatSqrZero(t *testing.T) {
 	t.Parallel()
 	for _, n := range []int{1, 5, 10, 30, 50} {
-		n := n
+
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
 			x := make(fermat, n+1) // all zeros
@@ -72,7 +72,7 @@ func TestFermatSqrZero(t *testing.T) {
 func TestFermatSqrOne(t *testing.T) {
 	t.Parallel()
 	for _, n := range []int{1, 5, 10, 30, 50} {
-		n := n
+
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
 			x := make(fermat, n+1)
@@ -97,7 +97,7 @@ func TestFermatSqrOne(t *testing.T) {
 func TestFermatSqrMaxWord(t *testing.T) {
 	t.Parallel()
 	for _, n := range []int{1, 5, 10, 29, 30, 31} {
-		n := n
+
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
 			x := make(fermat, n+1)
@@ -127,7 +127,7 @@ func TestBasicSqrVsBasicMul(t *testing.T) {
 	rng := rand.New(rand.NewSource(123))
 
 	for n := 1; n < smallMulThreshold; n++ {
-		n := n
+
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
 			x := make(fermat, n)

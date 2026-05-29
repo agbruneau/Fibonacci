@@ -22,7 +22,7 @@ import (
 // loop to let an adapter tune an underlying transform cache (e.g. the bigfft
 // global cache). When nil, no cache adjustment is performed. The DTM-driven
 // constructors install the default bigfft-backed strategy automatically so
-// the historical behaviour is preserved.
+// the historical behavior is preserved.
 type DoublingFramework struct {
 	strategy         DoublingStepExecutor
 	dynamicThreshold *threshold.DynamicThresholdManager

@@ -146,9 +146,9 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 	start := time.Now()
 	res, err := orchestration.ComputeLastDigits(ctx, n, k)
 	if err != nil {
-		// Centralised error handling: maps timeout/cancel/generic to the
+		// Centralized error handling: maps timeout/cancel/generic to the
 		// correct exit code and writes a uniform "Status: …" message to
-		// the user-facing stream (matches the comparison-mode behaviour).
+		// the user-facing stream (matches the comparison-mode behavior).
 		colors := apperrors.ColorProvider(cli.CLIColorProvider{})
 		if a.Config.MachineOutput {
 			colors = apperrors.DefaultColorProvider{}

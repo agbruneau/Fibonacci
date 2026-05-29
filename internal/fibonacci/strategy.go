@@ -146,4 +146,3 @@ func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) 
 func (s *FFTOnlyStrategy) ExecuteStep(ctx context.Context, state *CalculationState, opts Options, inParallel bool) error {
 	return executeDoublingStepFFT(ctx, state, opts, inParallel)
 }
-

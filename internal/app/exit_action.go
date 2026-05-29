@@ -41,7 +41,7 @@ const (
 //
 // ActionVersionHandled returns 0, which is the natural process exit
 // status when main returns without calling os.Exit; this matches the
-// observed pre-refactor behaviour.
+// observed pre-refactor behavior.
 func (a ExitAction) Code() int {
 	switch a {
 	case ActionSuccess, ActionVersionHandled:
@@ -63,7 +63,7 @@ func (a ExitAction) Code() int {
 
 // ShouldExit reports whether main should invoke os.Exit with Code.
 // It returns false only for ActionVersionHandled, preserving the original
-// sentinel behaviour where the version path simply returned from main.
+// sentinel behavior where the version path simply returned from main.
 func (a ExitAction) ShouldExit() bool {
 	return a != ActionVersionHandled
 }

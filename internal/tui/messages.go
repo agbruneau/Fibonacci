@@ -67,7 +67,7 @@ type IndicatorsMsg struct {
 	Indicators *metrics.Indicators
 }
 
-// ContextCancelledMsg signals that the context was cancelled.
+// ContextCancelledMsg signals that the context was canceled.
 type ContextCancelledMsg struct {
 	Err        error
 	Generation uint64

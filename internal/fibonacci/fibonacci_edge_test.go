@@ -306,7 +306,7 @@ func TestConcurrentDifferentN(t *testing.T) {
 	resultChan := make(chan calcResult, len(nValues))
 
 	for _, n := range nValues {
-		n := n // capture loop var
+		// capture loop var
 		g.Go(func() error {
 			result, err := calc.Calculate(ctx, nil, 0, n, opts)
 			if err != nil {

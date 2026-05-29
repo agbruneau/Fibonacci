@@ -65,7 +65,7 @@ var architectureRules = []forbiddenImport{
 func TestArchitectureLayering(t *testing.T) {
 	t.Parallel()
 	for _, rule := range architectureRules {
-		rule := rule
+
 		t.Run(rule.importer, func(t *testing.T) {
 			t.Parallel()
 			imports := directImports(t, rule.importer)

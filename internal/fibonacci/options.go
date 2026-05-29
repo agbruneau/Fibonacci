@@ -53,7 +53,7 @@ type Options struct {
 	// apperrors.MemoryError before any heavy work is done. A zero value
 	// disables the check.
 	//
-	// This is a defence-in-depth complement to config.ValidateMemoryBudget
+	// This is a defense-in-depth complement to config.ValidateMemoryBudget
 	// (R3.6): the validator runs at config-parsing time, while this check
 	// runs at the calculator boundary so the protection survives any path
 	// that bypasses the validator (programmatic embedding, tests, …).

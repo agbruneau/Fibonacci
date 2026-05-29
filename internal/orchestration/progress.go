@@ -71,7 +71,7 @@ func (a *ProgressAggregator) Update(update progress.ProgressUpdate) AggregatedPr
 }
 
 // recomputeETA refreshes the smoothed progress rate and returns the resulting
-// ETA. It mirrors the previous behaviour of format.ProgressWithETA: requires
+// ETA. It mirrors the previous behavior of format.ProgressWithETA: requires
 // some elapsed time and progress before producing a meaningful estimate, uses
 // 70/30 exponential smoothing, and caps the ETA at 24h.
 func (a *ProgressAggregator) recomputeETA(progress float64) time.Duration {

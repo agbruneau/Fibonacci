@@ -19,9 +19,9 @@ import (
 
 // TestDisplayProgress_LoopCoverage ensures every update sent on the
 // progress channel is consumed and that the spinner lifecycle
-// (Start / Stop) is honoured by DisplayProgress.
+// (Start / Stop) is honored by DisplayProgress.
 //
-// Synchronisation is deterministic: the channel is unbuffered, so each
+// Synchronization is deterministic: the channel is unbuffered, so each
 // send blocks until DisplayProgress receives it — no time.Sleep needed.
 // Closing the channel drives DisplayProgress out of its select loop.
 func TestDisplayProgress_LoopCoverage(t *testing.T) {

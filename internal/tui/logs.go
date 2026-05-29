@@ -192,7 +192,7 @@ func (l LogsModel) View() string {
 // renderToHeight renders the logs panel to the specified total height.
 //
 // The receiver is a value copy (the bubbletea View contract). flushContent
-// materialises the deferred join + SetContent on that copy, so the rendered
+// materializes the deferred join + SetContent on that copy, so the rendered
 // frame always reflects the latest entries without the per-push O(N) cost.
 // Mutating the copy is intentional: the persisted viewport scroll state is
 // committed separately in Update (which also flushes), so View stays pure.
@@ -220,11 +220,11 @@ func (l *LogsModel) updateContent() {
 	l.dirty = true
 }
 
-// flushContent materialises the deferred viewport content. It is idempotent:
+// flushContent materializes the deferred viewport content. It is idempotent:
 // when nothing has been pushed since the last flush (dirty == false) it is a
-// no-op, so calling it on every render frame is cheap. autoScroll is honoured
+// no-op, so calling it on every render frame is cheap. autoScroll is honored
 // here exactly as the eager path did, preserving the observable scroll
-// behaviour (GotoBottom after each content change while pinned to bottom).
+// behavior (GotoBottom after each content change while pinned to bottom).
 func (l *LogsModel) flushContent() {
 	if !l.dirty {
 		return

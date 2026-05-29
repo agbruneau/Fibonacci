@@ -200,7 +200,7 @@ func TestTestFactory_List(t *testing.T) {
 	}
 }
 
-// TestTestFactory_Register_IsNoOp verifies the documented no-op behaviour.
+// TestTestFactory_Register_IsNoOp verifies the documented no-op behavior.
 func TestTestFactory_Register_IsNoOp(t *testing.T) {
 	t.Parallel()
 

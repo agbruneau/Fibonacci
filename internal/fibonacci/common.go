@@ -34,7 +34,7 @@ import (
 // them across packages would require internal/bigfft to import
 // internal/fibonacci — a layering inversion.
 //
-// globalSem is lazily initialised on first use so tests that mutate
+// globalSem is lazily initialized on first use so tests that mutate
 // runtime.NumCPU (via GOMAXPROCS) before importing this package still
 // get the correct sizing.
 var (
@@ -42,7 +42,7 @@ var (
 	globalSemOnce sync.Once
 )
 
-// getTaskSemaphore returns globalSem, initialising it on first call.
+// getTaskSemaphore returns globalSem, initializing it on first call.
 // Kept as a function (rather than a package-level var) so we pick up the
 // runtime.NumCPU() value after test harnesses adjust GOMAXPROCS.
 func getTaskSemaphore() chan struct{} {

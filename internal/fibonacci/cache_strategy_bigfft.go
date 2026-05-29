@@ -23,12 +23,12 @@ type CacheStrategy interface {
 }
 
 // bigfftCacheStrategy is the default CacheStrategy: it preserves the historical
-// behaviour previously inlined in ExecuteDoublingLoop — sample the global FFT
+// behavior previously inlined in ExecuteDoublingLoop — sample the global FFT
 // transform cache every 8 iterations (and on the final iteration) and tune
 // MaxEntries / MinBitLen heuristically based on hit rate and evictions.
 //
 // The constants below mirror the original P1-02 implementation exactly so the
-// observable behaviour is preserved.
+// observable behavior is preserved.
 type bigfftCacheStrategy struct{}
 
 const (

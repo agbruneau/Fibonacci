@@ -42,7 +42,7 @@ func TestFibBig(t *testing.T) {
 	}
 
 	for _, n := range ns {
-		n := n
+
 		expected := knownFibValues[n]
 		name := fmt.Sprintf("F(%d)", n)
 		t.Run(name, func(t *testing.T) {
@@ -104,7 +104,7 @@ func TestFibBig_LargeValues(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			result := fibBig(tt.n)
 			if result.String() != tt.expected {
@@ -155,7 +155,7 @@ func TestFibBig_FFTBound_IdentityMatchesSmall(t *testing.T) {
 	t.Parallel()
 	// A quick correlate test: grows through the powers-of-10 boundary.
 	for _, n := range []uint64{100, 1_000, 10_000} {
-		n := n
+
 		t.Run(fmt.Sprintf("F(%d)_identity", n), func(t *testing.T) {
 			fn := fibBig(n)
 			fn1 := fibBig(n - 1)

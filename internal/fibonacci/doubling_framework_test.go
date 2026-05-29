@@ -46,7 +46,6 @@ func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {
 			t.Error("Dynamic threshold manager should be nil")
 		}
 	})
-
 }
 
 // mockCacheStrategy is a CacheStrategy double used by the unit tests below to

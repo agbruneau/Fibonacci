@@ -384,7 +384,7 @@ func TestProfileMaxAgeFromEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("Valid override is honoured", func(t *testing.T) {
+	t.Run("Valid override is honored", func(t *testing.T) {
 		t.Setenv(ProfileMaxAgeEnv, "30m")
 		if got := profileMaxAgeFromEnv(); got != 30*time.Minute {
 			t.Errorf("profileMaxAgeFromEnv() = %v, want 30m", got)

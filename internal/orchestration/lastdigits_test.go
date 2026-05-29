@@ -58,7 +58,7 @@ func TestComputeLastDigits(t *testing.T) {
 		}
 	})
 
-	t.Run("cancelled context is reported", func(t *testing.T) {
+	t.Run("canceled context is reported", func(t *testing.T) {
 		t.Parallel()
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()

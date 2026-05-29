@@ -42,7 +42,7 @@ func (CompleteStrategy) Name() string { return "complete" }
 
 // Calibrate implements CalibrationStrategy.
 //
-// The behaviour matches the legacy runFullCalibration helper exactly:
+// The behavior matches the legacy runFullCalibration helper exactly:
 //   - require a "fast" calculator in opts.CalculatorRegistry;
 //   - sweep parallel, then FFT (using the discovered parallel value),
 //     then optionally Strassen if "matrix" is registered;

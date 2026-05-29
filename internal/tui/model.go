@@ -177,7 +177,7 @@ func (m Model) View() string {
 }
 
 // layoutPanels propagates the current terminal dimensions to every component
-// using the LayoutManager's percentage/clamp rules. Adaptive behaviour
+// using the LayoutManager's percentage/clamp rules. Adaptive behavior
 // (single-column / compact metrics) is encapsulated in LayoutManager.
 func (m *Model) layoutPanels() {
 	m.header.SetWidth(m.width)

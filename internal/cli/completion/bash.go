@@ -134,7 +134,7 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 	}
 
 	// Use escape-aware joiner: algorithms are interpolated into a
-	// bash double-quoted string, so special chars must be neutralised.
+	// bash double-quoted string, so special chars must be neutralized.
 	algoList := formatAlgoListBash(algorithms)
 
 	script := fmt.Sprintf(`# Bash completion script for fibcalc

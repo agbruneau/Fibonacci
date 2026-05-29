@@ -135,7 +135,7 @@ func TestCalculateWithObservers_MemoryLimitExceeded(t *testing.T) {
 
 // TestCalculateWithObservers_MemoryLimitAllowed verifies that a generous
 // memory limit does NOT block a small calculation, and that the zero value
-// preserves backwards-compatible (no-check) behaviour.
+// preserves backwards-compatible (no-check) behavior.
 func TestCalculateWithObservers_MemoryLimitAllowed(t *testing.T) {
 	t.Parallel()
 

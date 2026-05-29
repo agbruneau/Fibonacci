@@ -31,7 +31,7 @@ type Confidence float64
 // the orchestrator accepts before deciding the fast pass is good
 // enough. Below this value AutoCalibrateWithProfile falls through to
 // CompleteStrategy. The value mirrors the historical inline check
-// (microResults.Confidence >= 0.5) so behaviour is preserved bit-for-bit.
+// (microResults.Confidence >= 0.5) so behavior is preserved bit-for-bit.
 const EscalationConfidenceThreshold Confidence = 0.5
 
 // StrategyOptions bundles everything a CalibrationStrategy needs to
@@ -74,7 +74,7 @@ type CalibrationStrategy interface {
 	// output ("fast", "complete"). Stable across runs.
 	Name() string
 
-	// Calibrate runs the strategy. It must honour ctx cancellation.
+	// Calibrate runs the strategy. It must honor ctx cancellation.
 	// On success it returns a populated *CalibrationProfile, the
 	// associated Confidence score, and a nil error. On failure it
 	// returns (nil, 0, err) so the orchestrator can escalate.

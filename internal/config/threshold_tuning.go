@@ -6,7 +6,7 @@ import (
 	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 )
 
-// ThresholdTuningProfile centralises the magic numbers that govern the
+// ThresholdTuningProfile centralizes the magic numbers that govern the
 // dynamic-threshold and micro-benchmark subsystems. Concentrating them here
 // gives a single audit point when tuning the heuristics; previously the
 // constants were scattered across the threshold/, memory/ and calibration/
@@ -21,7 +21,7 @@ type ThresholdTuningProfile struct {
 	// reciprocal raise it instead.
 	//
 	// Source: internal/fibonacci/threshold/manager.go (pre-R4.2 const).
-	// Rationale: 1.2 = 20 % minimum win to amortise FFT setup overhead.
+	// Rationale: 1.2 = 20 % minimum win to amortize FFT setup overhead.
 	FFTSpeedupThreshold float64
 
 	// ParallelSpeedupThreshold mirrors FFTSpeedupThreshold for the
@@ -91,7 +91,7 @@ type ThresholdTuningProfile struct {
 // DefaultThresholdTuning is the production tuning profile. Its values
 // reproduce the constants that lived in internal/fibonacci/threshold/,
 // internal/fibonacci/memory/ and internal/calibration/ before audit R4.2.
-// Behaviour is therefore byte-identical to the pre-centralisation code.
+// Behavior is therefore byte-identical to the pre-centralisation code.
 var DefaultThresholdTuning = ThresholdTuningProfile{
 	FFTSpeedupThreshold:      1.2,
 	ParallelSpeedupThreshold: 1.1,

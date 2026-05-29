@@ -195,7 +195,7 @@ func CanCalculate(n uint64, memLimitBytes uint64) (bool, memory.MemoryEstimate) 
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
 func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *progress.ProgressSubject, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
-	// Defence-in-depth memory budget check. Runs before any heavy allocation
+	// Defense-in-depth memory budget check. Runs before any heavy allocation
 	// or pool warm-up so an over-budget request fails fast. Mirrors the
 	// contract of config.ValidateMemoryBudget but at the calculator boundary,
 	// so the guard holds even when the config-level validator is bypassed

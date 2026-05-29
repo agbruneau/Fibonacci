@@ -59,7 +59,7 @@ func BenchmarkLogsPushThenView(b *testing.B) {
 	}
 }
 
-// TestLogsModel_ViewContentStableAfterPushes is a behavioural guard: the
+// TestLogsModel_ViewContentStableAfterPushes is a behavioral guard: the
 // rendered viewport content and the entries snapshot after N pushes must be
 // identical to a fresh snapshot computed directly from the ring buffer. This
 // pins the observable contract so the lazy-invalidation refactor cannot drift
@@ -91,7 +91,7 @@ func TestLogsModel_ViewContentStableAfterPushes(t *testing.T) {
 		}
 	}
 
-	// View() must materialise without panicking and produce non-empty output.
+	// View() must materialize without panicking and produce non-empty output.
 	if got := logs.View(); len(got) == 0 {
 		t.Fatal("View() produced empty output after pushes")
 	}
