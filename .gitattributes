@@ -1,0 +1,5 @@
+# Normalise les fins de ligne des sources Go en LF dans le depot (index),
+# quelle que soit la config core.autocrlf locale. Elimine les faux positifs
+# gofmt (86 fichiers signales en 1:1) cotes contributeurs Windows ou le
+# working tree est en CRLF mais l'index en LF gofmt-propre (A4-10).
+*.go text eol=lf

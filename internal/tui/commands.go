@@ -8,11 +8,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/metrics"
-	"github.com/agbru/fibcalc/internal/metrics/system"
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/metrics"
+	"github.com/agbruneau/FibGo/internal/metrics/system"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // Run is the public entry point for the TUI mode.

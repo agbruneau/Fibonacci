@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/metrics"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/metrics"
 )
 
 // EMA smoothing constants for speed calculation.

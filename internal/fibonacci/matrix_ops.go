@@ -51,7 +51,7 @@ func GetDefaultStrassenThreshold() int {
 //
 // Returns:
 //   - error: An error if the calculation failed.
-func multiplyMatrices(ctx context.Context, dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold int, strassenThreshold int) error {
+func multiplyMatrices(ctx context.Context, dest, m1, m2 *matrix, state *matrixState, inParallel bool, fftThreshold, strassenThreshold int) error {
 	strassenThresholdBits := strassenThreshold
 	if strassenThresholdBits == 0 {
 		strassenThresholdBits = GetDefaultStrassenThreshold()

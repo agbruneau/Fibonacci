@@ -7,6 +7,30 @@ import "math/big"
 // importing the parent fibonacci package.
 const fibonacciGrowthFactor = 0.69424
 
+// maxReasonableWords caps the arena sizing well above any computable F(n)
+// (≈1.15e18 words ≈ 9 EB). It exists only to keep the float->int conversion
+// and the ×15 multiplication below from invoking impl-defined behavior /
+// integer overflow on a physically impossible n — defense-in-depth.
+const maxReasonableWords = 1 << 60
+
+// arenaTotalWords computes the arena size (in big.Word) for F(n): one int of
+// ~n*fibonacciGrowthFactor bits, times 15 temporaries. The clamp only changes
+// the result for n far beyond the computable range; for realistic n it is
+// bit-identical to the naive estimatedBits/64+1 then ×15 computation.
+func arenaTotalWords(n uint64) int {
+	estimatedBits := float64(n) * fibonacciGrowthFactor
+	// A float64 outside the int range yields an impl-defined value on
+	// conversion; clamp before converting.
+	if estimatedBits/64 >= float64(maxReasonableWords) {
+		return maxReasonableWords
+	}
+	wordsPerInt := int(estimatedBits/64) + 1
+	if wordsPerInt > maxReasonableWords/15 {
+		return maxReasonableWords
+	}
+	return wordsPerInt * 15
+}
+
 // CalculationArena pre-allocates a contiguous block of big.Word memory
 // for all big.Int temporaries in a Fibonacci calculation. This eliminates
 // per-buffer GC tracking and enables O(1) bulk release via Reset().
@@ -26,10 +50,8 @@ func NewCalculationArena(n uint64) *CalculationArena {
 	if n < 1000 {
 		return &CalculationArena{}
 	}
-	estimatedBits := float64(n) * fibonacciGrowthFactor
-	wordsPerInt := int(estimatedBits/64) + 1
-	// 15 temporaries: sufficient for FFT doubling steps which use up to 12 temporaries
-	totalWords := wordsPerInt * 15
+	// 15 temporaries: sufficient for FFT doubling steps which use up to 12.
+	totalWords := arenaTotalWords(n)
 	return &CalculationArena{
 		buf: make([]big.Word, totalWords),
 	}

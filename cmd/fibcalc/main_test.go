@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/app"
+	"github.com/agbruneau/FibGo/internal/app"
 )
 
 // --- Unit tests calling run() directly (instrumented for coverage) ---

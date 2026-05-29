@@ -1,5 +1,11 @@
 # Configuration explicitly defined for high code quality and performance
 # adhering to the request for explicit rules.
+#
+# SCHEMA: golangci-lint v1 (legacy), verrouille sur v1.64.8 (recompile go1.26).
+# Cles v1 utilisees: linters.disable-all (v2: default:none) et gosimple (v2:
+# fusionne dans staticcheck). La migration v2 est tracee en backlog et non
+# realisee pour la release courante (A5-07): un changement de schema = risque
+# de derive lint non maitrisee, hors perimetre d'un correctif d'audit.
 
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
@@ -112,7 +118,11 @@ linters-settings:
     for-loops: true
 
   misspell:
-    locale: US # Standardize on US English (or UK/Canadian if preferred, but usually US for code)
+    # A4-09: verification a infirme la premisse de l'audit ("orthographe
+    # britannique coherente"). Mesure reelle: ~339 graphies US vs ~50 UK ->
+    # le code est majoritairement US. On garde locale:US (meilleur signal) et
+    # on normalise les ~50 graphies britanniques residuelles vers US.
+    locale: US
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -131,6 +141,17 @@ issues:
         - staticcheck
       text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
 
+    # revive "exported stutter" (format.FormatBytes, progress.ProgressUpdate,
+    # calibration.CalibrationOptions, threshold.ThresholdAnalyzer, ...):
+    # convention preservee pour la stabilite des call-sites de l'API internal/
+    # (code stabilise). Arbitrage de convention, pas un defaut (A4-07). Le helper
+    # formatBytesLocal dans errors.go atteste que format.Format* est un couplage
+    # connu et tolere. Renommer reste possible plus tard (API internal/, sans
+    # impact public) mais hors scope sur code stabilise.
+    - linters:
+        - revive
+      text: "and that is repetitive; consider calling this"
+
     # G304: file path from variable. FibGo is a mono-user CLI; every path
     # opened this way originates from a flag/env var explicitly provided by
     # the invoking user, not from untrusted input (network, other users).
@@ -143,6 +164,18 @@ issues:
       linters:
         - gosec
       text: "G304"
+
+    # SA6002: sync.Pool.Put of a slice VALUE boxes the 3-word header (one alloc).
+    # In pool.go / pool_warming.go this value-Put is RETAINED deliberately.
+    # Measured (ADR-0007, micro-benchmark): the signature-preserving Put(&s) is
+    # allocation-NEUTRAL (&s escapes -> 24 B / 1 alloc, identical to value-Put);
+    # only Get/Put of a reused *[]T box is zero-alloc, which requires threading
+    # *[]T through the FFT acquire/release API + fftState (the FFTContext
+    # migration deferred under ADR-0004 B1). Excluded until that refactor lands.
+    - path: internal/bigfft/(pool|pool_warming)\.go
+      linters:
+        - staticcheck
+      text: "SA6002"
 
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0

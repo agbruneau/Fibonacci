@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 func TestFibCalculator_Name(t *testing.T) {
@@ -135,7 +135,7 @@ func TestCalculateWithObservers_MemoryLimitExceeded(t *testing.T) {
 
 // TestCalculateWithObservers_MemoryLimitAllowed verifies that a generous
 // memory limit does NOT block a small calculation, and that the zero value
-// preserves backwards-compatible (no-check) behaviour.
+// preserves backwards-compatible (no-check) behavior.
 func TestCalculateWithObservers_MemoryLimitAllowed(t *testing.T) {
 	t.Parallel()
 

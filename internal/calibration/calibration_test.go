@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // noopProgressDisplay drains the progress channel without output (for tests).
@@ -384,7 +384,7 @@ func TestProfileMaxAgeFromEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("Valid override is honoured", func(t *testing.T) {
+	t.Run("Valid override is honored", func(t *testing.T) {
 		t.Setenv(ProfileMaxAgeEnv, "30m")
 		if got := profileMaxAgeFromEnv(); got != 30*time.Minute {
 			t.Errorf("profileMaxAgeFromEnv() = %v, want 30m", got)

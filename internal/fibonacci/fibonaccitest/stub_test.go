@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 func TestCoreStub_Name_default(t *testing.T) {

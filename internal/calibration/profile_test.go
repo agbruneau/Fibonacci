@@ -3,6 +3,7 @@ package calibration
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -214,8 +215,10 @@ func assertReloadableMatches(t *testing.T, path string, want *CalibrationProfile
 // Portability note: on Windows os.Rename over a target that another handle has
 // open can transiently fail with a sharing/access error on EITHER side. That
 // is NOT a content-truncation symptom (the bytes on disk are always a complete
-// document); the reader treats such transient OS access errors as retryable.
-// Only a parse failure on successfully-read bytes counts as the A-11 defect.
+// document). Both sides treat such transient OS access errors as retryable: the
+// reader retries the read, and the writer retries the same SaveProfile instead
+// of failing the test. Only a parse failure on successfully-read bytes counts
+// as the A-11 defect.
 func TestSaveProfile_NeverObservablyTruncated(t *testing.T) {
 	t.Parallel()
 	tmpDir, err := os.MkdirTemp("", "fibcalc_atomic_obs_test")
@@ -268,11 +271,21 @@ func TestSaveProfile_NeverObservablyTruncated(t *testing.T) {
 	for i := 0; i < rewrites; i++ {
 		p := NewProfile()
 		p.OptimalParallelThreshold = 1000 + i
-		if err := p.SaveProfile(profilePath); err != nil {
-			close(done)
-			rwg.Wait()
-			t.Fatalf("rewrite SaveProfile(%d) failed: %v", i, err)
+		err := p.SaveProfile(profilePath)
+		if err == nil {
+			continue
 		}
+		// Symmetric to the reader: on Windows the atomic rename can transiently
+		// fail with a sharing/access error while the concurrent reader holds the
+		// target open. That is not a content-truncation symptom, so retry the
+		// same rewrite instead of failing.
+		if runtime.GOOS == "windows" && errors.Is(err, fs.ErrPermission) {
+			i--
+			continue
+		}
+		close(done)
+		rwg.Wait()
+		t.Fatalf("rewrite SaveProfile(%d) failed: %v", i, err)
 	}
 	close(done)
 	rwg.Wait()

@@ -11,9 +11,9 @@ const (
 	// Adaptive thresholds (R4.10): below these dimensions the layout switches
 	// to a compact / single-column mode so panels remain readable on small
 	// terminals (e.g. tmux splits, narrow consoles).
-	minNormalWidth      = 80 // below: switch to single-column (logs full width, panels stacked).
-	minNormalHeight     = 20 // below: shrink metrics panel to keep room for logs + chart.
-	compactMetricsHeight = 3 // metrics panel height when height < minNormalHeight.
+	minNormalWidth       = 80 // below: switch to single-column (logs full width, panels stacked).
+	minNormalHeight      = 20 // below: shrink metrics panel to keep room for logs + chart.
+	compactMetricsHeight = 3  // metrics panel height when height < minNormalHeight.
 )
 
 // LayoutManager holds terminal dimensions and provides layout calculations.

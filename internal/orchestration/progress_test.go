@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 func TestNewProgressAggregator_Positive(t *testing.T) {
@@ -182,7 +182,7 @@ func TestProgressAggregator_EdgeCases(t *testing.T) {
 func TestProgressAggregator_ETACapping(t *testing.T) {
 	t.Parallel()
 	agg := NewProgressAggregator(1)
-	agg.state.Update(0, 0.001)  // Very small progress
+	agg.state.Update(0, 0.001)   // Very small progress
 	agg.progressRate = 0.0000001 // Very slow rate
 
 	eta := agg.GetETA()

@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // setOrReturn sets z to result if z is non-nil, otherwise returns result directly.
@@ -124,26 +126,44 @@ func (s *FFTOnlyStrategy) Name() string {
 	return "FFT-Only"
 }
 
-// Multiply performs FFT-based multiplication using mulFFT.
+// Multiply performs FFT-based multiplication. When z != nil it writes directly
+// into z via bigfft.MulTo (reusing z's buffer), avoiding the fresh allocation +
+// O(n) copy that mulFFT()+setOrReturn would incur. bigfft.MulTo applies the same
+// getFFTThreshold gate (and math/big fallback + sign handling) as mulFFT, so the
+// result is identical. A3-03.
 func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
-	res, err := mulFFT(x, y)
+	if z == nil {
+		res, err := mulFFT(x, y)
+		if err != nil {
+			return nil, fmt.Errorf("FFT multiplication failed: %w", err)
+		}
+		return res, nil
+	}
+	res, err := bigfft.MulTo(z, x, y)
 	if err != nil {
 		return nil, fmt.Errorf("FFT multiplication failed: %w", err)
 	}
-	return setOrReturn(z, res), nil
+	return res, nil
 }
 
-// Square performs FFT-based squaring using sqrFFT.
+// Square performs FFT-based squaring. When z != nil it writes directly into z
+// via bigfft.SqrTo, avoiding the fresh allocation + O(n) copy. A3-03.
 func (s *FFTOnlyStrategy) Square(z, x *big.Int, opts Options) (*big.Int, error) {
-	res, err := sqrFFT(x)
+	if z == nil {
+		res, err := sqrFFT(x)
+		if err != nil {
+			return nil, fmt.Errorf("FFT squaring failed: %w", err)
+		}
+		return res, nil
+	}
+	res, err := bigfft.SqrTo(z, x)
 	if err != nil {
 		return nil, fmt.Errorf("FFT squaring failed: %w", err)
 	}
-	return setOrReturn(z, res), nil
+	return res, nil
 }
 
 // ExecuteStep performs a doubling step using FFT transform reuse.
 func (s *FFTOnlyStrategy) ExecuteStep(ctx context.Context, state *CalculationState, opts Options, inParallel bool) error {
 	return executeDoublingStepFFT(ctx, state, opts, inParallel)
 }
-

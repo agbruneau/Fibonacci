@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/progress"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/progress"
+	"github.com/agbruneau/FibGo/internal/ui"
 	"github.com/briandowns/spinner"
 )
 

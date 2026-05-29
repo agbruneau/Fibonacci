@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // TestStrategyNames pins the human-facing names so log output stays

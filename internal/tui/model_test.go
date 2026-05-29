@@ -9,11 +9,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // mockCalculator implements fibonacci.Calculator for testing.
@@ -341,10 +341,10 @@ func TestModel_Update_ContextCancelledMsg(t *testing.T) {
 	result := updated.(Model)
 
 	if !result.done {
-		t.Error("expected model to be done after context cancelled")
+		t.Error("expected model to be done after context canceled")
 	}
 	if cmd == nil {
-		t.Error("expected tea.Quit command from context cancelled")
+		t.Error("expected tea.Quit command from context canceled")
 	}
 }
 
@@ -358,10 +358,10 @@ func TestModel_Update_ContextCancelledMsg_StaleGeneration(t *testing.T) {
 	result := updated.(Model)
 
 	if result.done {
-		t.Error("expected stale context cancelled to be ignored")
+		t.Error("expected stale context canceled to be ignored")
 	}
 	if cmd != nil {
-		t.Error("expected no command from stale context cancelled")
+		t.Error("expected no command from stale context canceled")
 	}
 }
 
@@ -787,12 +787,12 @@ func TestModel_HandleKey_Quit_CancelsContext(t *testing.T) {
 	calcCtx := m.ctx
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 
-	// Child context should be cancelled after quit
+	// Child context should be canceled after quit
 	select {
 	case <-calcCtx.Done():
-		// Good — context was cancelled
+		// Good — context was canceled
 	default:
-		t.Error("expected context to be cancelled after quit")
+		t.Error("expected context to be canceled after quit")
 	}
 }
 

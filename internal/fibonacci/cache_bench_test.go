@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // BenchmarkCacheImpact measures the performance impact of FFT cache configuration

@@ -3,8 +3,8 @@ package config
 import (
 	"fmt"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 )
 
 // MemoryBudgetReport summarizes the result of a memory budget validation.
@@ -20,7 +20,7 @@ type MemoryBudgetReport struct {
 }
 
 // MemoryLimitParseError indicates that the user-supplied --memory-limit value
-// could not be parsed (e.g. unrecognised suffix or non-numeric).
+// could not be parsed (e.g. unrecognized suffix or non-numeric).
 type MemoryLimitParseError struct {
 	// Raw is the offending value as supplied by the user.
 	Raw string

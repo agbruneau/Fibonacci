@@ -89,7 +89,7 @@ func TestProgress_MonotonicLargeN(t *testing.T) {
 	t.Parallel()
 
 	for _, numBits := range []int{64, 512, 2000, 100000} {
-		numBits := numBits
+
 		t.Run("", func(t *testing.T) {
 			t.Parallel()
 

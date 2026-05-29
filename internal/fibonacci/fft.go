@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // FFTSafetyMarginWords is the safety margin added to FFT word count to avoid overflow.
@@ -53,7 +53,11 @@ func smartMultiply(z, x, y *big.Int, fftThreshold int) (*big.Int, error) {
 	bx := x.BitLen()
 	by := y.BitLen()
 
-	// Tier 1: FFT Multiplication for very large operands
+	// Tier 1: FFT Multiplication for very large operands.
+	// The && (BOTH operands must exceed the threshold) is intentional on the
+	// correctness axis: math/big.Mul stays exact for asymmetric operands. A
+	// max(bx,by) criterion would be a performance tweak (A1-07), to evaluate
+	// separately under the perf gate, not a correctness fix.
 	if fftThreshold > 0 && bx > fftThreshold && by > fftThreshold {
 		return bigfft.MulTo(z, x, y)
 	}

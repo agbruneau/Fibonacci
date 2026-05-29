@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
+	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 )
 
 func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {
@@ -46,7 +46,6 @@ func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {
 			t.Error("Dynamic threshold manager should be nil")
 		}
 	})
-
 }
 
 // mockCacheStrategy is a CacheStrategy double used by the unit tests below to

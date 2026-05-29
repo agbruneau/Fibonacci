@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/progress"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // DefaultProfileMaxAge is the default freshness window for a cached
@@ -30,7 +30,7 @@ const DefaultProfileMaxAge = 7 * 24 * time.Hour
 const ProfileMaxAgeEnv = "FIBCALC_PROFILE_MAX_AGE"
 
 // profileMaxAgeFromEnv returns the configured maximum age for a cached
-// calibration profile. It honours the FIBCALC_PROFILE_MAX_AGE environment
+// calibration profile. It honors the FIBCALC_PROFILE_MAX_AGE environment
 // variable when set to a valid, positive time.Duration string; otherwise
 // it returns DefaultProfileMaxAge.
 func profileMaxAgeFromEnv() time.Duration {
@@ -226,7 +226,7 @@ func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Ca
 	return bestThreshold, results, apperrors.ExitSuccess
 }
 
-// persistCalibrationProfile materialises a full-confidence profile for
+// persistCalibrationProfile materializes a full-confidence profile for
 // the winning parallel threshold and writes it to profilePath. Warnings
 // are printed to out but save errors are non-fatal (the caller's exit
 // code reflects calibration success, not persistence success).

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // PR#27 / P1-25:
@@ -79,7 +79,7 @@ func TestCLIResultPresenter_HandleError(t *testing.T) {
 		{"machine", true},
 	}
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
@@ -125,7 +125,7 @@ func TestDisplayMemoryStats(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer

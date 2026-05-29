@@ -303,6 +303,20 @@ func FuzzFastDoublingMod(f *testing.F) {
 		if result.Sign() < 0 || result.Cmp(m) >= 0 {
 			t.Errorf("result %s out of range [0, %s)", result, m)
 		}
+
+		// Independent oracle cross-check for tractable n: compute the full
+		// F(n) and reduce it mod m, then compare against the modular result.
+		if n <= 10000 {
+			calc := MustNewCalculator(&FastDoublingCalculator{})
+			full, err := calc.Calculate(context.Background(), nil, 0, n, Options{ParallelThreshold: DefaultParallelThreshold})
+			if err != nil {
+				t.Fatalf("full F(%d) failed: %v", n, err)
+			}
+			want := new(big.Int).Mod(full, m)
+			if result.Cmp(want) != 0 {
+				t.Errorf("FastDoublingMod(%d, %s) = %s, want F(n) mod m = %s", n, m, result, want)
+			}
+		}
 	})
 }
 

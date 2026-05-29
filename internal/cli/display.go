@@ -32,11 +32,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/metrics"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/metrics"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
+	"github.com/agbruneau/FibGo/internal/ui"
 	"github.com/briandowns/spinner"
 )
 
@@ -247,7 +247,7 @@ func displayIndicators(out io.Writer, ind *metrics.Indicators) {
 		ui.ColorMagenta(), parity, ui.ColorReset())
 }
 
-// === Persistance fichier ===
+// === Persistence fichier ===
 
 // OutputConfig holds configuration for result output.
 type OutputConfig struct {
@@ -280,12 +280,12 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 	// Ensure directory exists
 	dir := filepath.Dir(config.OutputFile)
 	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0700); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 	}
 
-	file, err := os.OpenFile(config.OutputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(config.OutputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}

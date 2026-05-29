@@ -95,12 +95,14 @@ func NewFFTContext(opts FFTContextOptions) *FFTContext {
 
 // defaultContext is the lazily-initialized package-level context that backs
 // the historical Mul/Sqr/MulTo/SqrTo entry points. It mirrors the global
-// transform cache and global concurrency semaphore so behaviour is unchanged.
+// transform cache and global concurrency semaphore so behavior is unchanged.
 //
 // We don't use sync.Once here: the underlying cache and semaphore have their
 // own lazy init (transformCacheOnce, concurrencyOnce); defaultContext just
 // captures references to those existing singletons. Construction is cheap,
 // idempotent, and free of side effects on the hot path.
+//
+//nolint:unused // reserve migration FFTContext exclusif (ADR-0004 B1, backlog won't-fix)
 var defaultContext = &FFTContext{
 	// Cache and Semaphore are lazily resolved on first use to avoid
 	// triggering the package-level sync.Once initializers at import time.
@@ -127,7 +129,7 @@ func (ctx *FFTContext) resolved() *FFTContext {
 // MulWithContext is a context-scoped variant of Mul. It uses ctx's transform
 // cache and concurrency semaphore. The result is allocated as a new *big.Int.
 //
-// If ctx is nil, the package default context is used (i.e. behaviour
+// If ctx is nil, the package default context is used (i.e. behavior
 // equivalent to Mul).
 func MulWithContext(ctx *FFTContext, x, y *big.Int) (res *big.Int, err error) {
 	if ctx == nil {

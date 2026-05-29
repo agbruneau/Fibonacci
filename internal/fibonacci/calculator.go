@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/bigfft"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
+	"github.com/agbruneau/FibGo/internal/progress"
 	"github.com/rs/zerolog/log"
 )
 
@@ -195,7 +195,7 @@ func CanCalculate(n uint64, memLimitBytes uint64) (bool, memory.MemoryEstimate) 
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred.
 func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *progress.ProgressSubject, calcIndex int, n uint64, opts Options) (result *big.Int, err error) {
-	// Defence-in-depth memory budget check. Runs before any heavy allocation
+	// Defense-in-depth memory budget check. Runs before any heavy allocation
 	// or pool warm-up so an over-budget request fails fast. Mirrors the
 	// contract of config.ValidateMemoryBudget but at the calculator boundary,
 	// so the guard holds even when the config-level validator is bypassed

@@ -9,7 +9,7 @@
 //     tui/logs_test.go, tui/metrics_test.go, tui/footer_test.go,
 //     tui/model_test.go) reach into unexported component fields
 //     (m.chart.averageProgress, m.logs.entries, m.metrics.alloc, etc.) to
-//     verify behaviour. Relocating the component types to a sub-package
+//     verify behavior. Relocating the component types to a sub-package
 //     would require either re-exporting every internal field or rewriting
 //     dozens of tests — both forbidden by the surgical-change directive
 //     (CLAUDE.md, FibGo §5).

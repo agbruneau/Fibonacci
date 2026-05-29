@@ -5,8 +5,8 @@ import (
 	"io"
 	"runtime"
 
-	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // PrintExecutionConfig displays the current execution configuration to the user.

@@ -138,6 +138,46 @@ func TestGCController_WithGC_ReturnsError(t *testing.T) {
 	}
 }
 
+// TestGCController_ConcurrentBeginEnd_RestoresOriginal verifies the
+// package-level refcount (A2-01 / ADR-0005). With two active controllers — the
+// --algo all comparison-mode shape — GC must stay disabled until the LAST End,
+// and the original GOGC must be restored exactly once. Before the fix, the
+// second Begin captured -1 as its "original" and GC could leak disabled, while
+// the first End dropped the OOM memory limit under a still-running sibling.
+//
+// Not parallel: it mutates and probes process-global GC state.
+func TestGCController_ConcurrentBeginEnd_RestoresOriginal(t *testing.T) {
+	const sentinel = 150
+	original := debug.SetGCPercent(sentinel) // install a known GOGC, capture prior
+	defer debug.SetGCPercent(original)       // best-effort restore for other tests
+
+	c1 := NewGCController("aggressive", 2_000_000)
+	c2 := NewGCController("aggressive", 2_000_000)
+	if !c1.active || !c2.active {
+		t.Fatal("test prerequisite: both controllers must be active")
+	}
+
+	c1.Begin()
+	c2.Begin()
+	// Both active -> GC must be disabled. Probe non-destructively: SetGCPercent
+	// returns the current value; we re-assert -1 so the probe is a no-op.
+	if cur := debug.SetGCPercent(-1); cur != -1 {
+		t.Fatalf("GC must be disabled while controllers are active: got %d, want -1", cur)
+	}
+
+	c1.End()
+	// c2 still active -> GC must remain disabled (the bug would restore here).
+	if cur := debug.SetGCPercent(-1); cur != -1 {
+		t.Fatalf("GC must stay disabled until the last End: got %d, want -1", cur)
+	}
+
+	c2.End()
+	// Last End -> original GOGC restored exactly once.
+	if cur := debug.SetGCPercent(sentinel); cur != sentinel {
+		t.Fatalf("GC not restored after last End: got %d, want %d", cur, sentinel)
+	}
+}
+
 // TestGCController_WithGC_InactiveNoOp verifies that WithGC on an inactive
 // controller still calls fn and propagates its result without touching GC.
 func TestGCController_WithGC_InactiveNoOp(t *testing.T) {

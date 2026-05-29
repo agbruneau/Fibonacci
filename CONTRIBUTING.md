@@ -35,14 +35,14 @@ This project adheres to a code of conduct. By participating, you are expected to
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/agbru/fibcalc.git
+   git remote add upstream https://github.com/agbruneau/FibGo.git
    ```
 
 ## Development Setup
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.26.0 or later
 - Make (optional but recommended)
 ### Setup
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // FFTBasedCalculator is a specialized Fibonacci calculator that uses the Fast

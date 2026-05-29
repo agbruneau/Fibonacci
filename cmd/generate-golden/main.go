@@ -20,19 +20,26 @@ type GoldenData struct {
 // main writes precomputed Fibonacci values for selected indices to the output
 // directory.
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+// run holds the program body so that deferred cleanup (notably file.Close)
+// executes on every error path, which os.Exit in main would otherwise skip.
+func run() error {
 	outputDir := flag.String("out", "internal/fibonacci/testdata", "Output directory for the golden file")
 	flag.Parse()
 
-	if err := os.MkdirAll(*outputDir, 0700); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
-		os.Exit(1)
+	if err := os.MkdirAll(*outputDir, 0o700); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
 	}
 
 	filename := filepath.Join(*outputDir, "fibonacci_golden.json")
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- chemin issu du flag -out (outil de build mono-utilisateur)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("creating output file: %w", err)
 	}
 	defer file.Close()
 
@@ -72,11 +79,11 @@ func main() {
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(data); err != nil {
-		fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("encoding JSON: %w", err)
 	}
 
 	fmt.Printf("Successfully generated golden file at %s\n", filename)
+	return nil
 }
 
 // fibBig calculates the nth Fibonacci number using math/big (iterative

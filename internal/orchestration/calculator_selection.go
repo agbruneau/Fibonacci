@@ -1,7 +1,7 @@
 package orchestration
 
 import (
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // GetCalculatorsToRun determines which calculators should be executed based on

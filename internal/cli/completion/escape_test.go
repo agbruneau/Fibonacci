@@ -9,17 +9,17 @@ import (
 // adversarialAlgoNames is the canonical set of metacharacter-laden inputs
 // used to exercise the shell escape contracts (Audit-PRD E5-R1).
 var adversarialAlgoNames = []string{
-	`Fast Doubling`,                         // space — splits zsh/bash arrays if unquoted
-	`evil$(rm -rf /)`,                       // command substitution
-	"evil`rm -rf /`",                        // backticks command substitution
-	`evil; echo pwn`,                        // semicolon command chaining
-	`evil"break"`,                           // double quote breaks bash "..."
-	`evil'break`,                            // single quote breaks fish/zsh/pwsh '...'
-	`evil\nnewline`,                         // literal "\n" sequence (no actual newline)
-	`evil\backslash`,                        // backslash
-	"evil\nactual_newline",                  // actual newline character
-	`Schönhage-Strassen "Fancy"`,            // unicode + double quote
-	`Fibonacci & friends`,                   // ampersand (bash background)
+	`Fast Doubling`,              // space — splits zsh/bash arrays if unquoted
+	`evil$(rm -rf /)`,            // command substitution
+	"evil`rm -rf /`",             // backticks command substitution
+	`evil; echo pwn`,             // semicolon command chaining
+	`evil"break"`,                // double quote breaks bash "..."
+	`evil'break`,                 // single quote breaks fish/zsh/pwsh '...'
+	`evil\nnewline`,              // literal "\n" sequence (no actual newline)
+	`evil\backslash`,             // backslash
+	"evil\nactual_newline",       // actual newline character
+	`Schönhage-Strassen "Fancy"`, // unicode + double quote
+	`Fibonacci & friends`,        // ampersand (bash background)
 }
 
 func TestEscapeBashDoubleQuoted_NeutralisesInjection(t *testing.T) {

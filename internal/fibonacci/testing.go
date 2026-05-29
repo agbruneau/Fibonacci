@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // MockCalculator is a mock implementation of the Calculator interface.

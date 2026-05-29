@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // TestExecuteDoublingStepFFT_NoDataRace verifies that the parallel FFT execution
@@ -169,7 +169,7 @@ func TestFFTRaceArenaAliasing_ParallelStep(t *testing.T) {
 		}
 
 		// Independent expectations for the three step products.
-		wantT3 := new(big.Int).Mul(fk, fk1) // T3 = FK · FK1
+		wantT3 := new(big.Int).Mul(fk, fk1)  // T3 = FK · FK1
 		wantT1 := new(big.Int).Mul(fk1, fk1) // T1 = FK1²
 		wantT2 := new(big.Int).Mul(fk, fk)   // T2 = FK²
 

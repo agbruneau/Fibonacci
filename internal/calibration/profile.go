@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // CalibrationProfile stores the results of a calibration run.
@@ -148,7 +148,7 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 
 	// Match the historical 0600 permission (CreateTemp creates 0600 already,
 	// but be explicit so the contract holds regardless of umask/platform).
-	if err := tmp.Chmod(0600); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("failed to chmod temp profile: %w", err)
 	}
@@ -169,18 +169,27 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 // volume on both POSIX and Windows. On Windows, however, the replace fails
 // with a sharing/access error if another process currently holds the target
 // open (e.g. a concurrent reader), even though no truncation ever occurs.
-// A short bounded retry absorbs that transient window so concurrent
-// save/load across processes does not spuriously fail; on POSIX the first
-// attempt succeeds and the loop is a no-op.
+// A bounded exponential backoff retry (delay = min(5ms << attempt, 50ms))
+// absorbs that transient window so concurrent save/load across processes does
+// not spuriously fail; on POSIX the first attempt succeeds and the loop is a
+// no-op.
 func renameAtomic(src, dst string) error {
-	const maxAttempts = 10
+	const (
+		maxAttempts = 40
+		baseDelay   = 5 * time.Millisecond
+		maxDelay    = 50 * time.Millisecond
+	)
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if err = os.Rename(src, dst); err == nil {
 			return nil
 		}
 		if attempt < maxAttempts-1 {
-			time.Sleep(time.Duration(attempt+1) * 5 * time.Millisecond)
+			delay := baseDelay << attempt
+			if delay > maxDelay || delay <= 0 {
+				delay = maxDelay
+			}
+			time.Sleep(delay)
 		}
 	}
 	return err

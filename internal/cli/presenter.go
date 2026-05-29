@@ -5,17 +5,17 @@ import (
 	"io"
 	"time"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/ui"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // CLIResultPresenter implements orchestration.ResultPresenter for CLI output.
 // It provides formatted, colorized output for calculation results in the
 // command-line interface.
 type CLIResultPresenter struct {
-	// MachineOutput disables ANSI in error messages (use with [github.com/agbru/fibcalc/internal/ui.InitTheme]).
+	// MachineOutput disables ANSI in error messages (use with [github.com/agbruneau/FibGo/internal/ui.InitTheme]).
 	MachineOutput bool
 }
 

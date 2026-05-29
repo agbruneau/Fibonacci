@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // mockCoreCalculator is a simple implementation of CoreCalculator for testing.

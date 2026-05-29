@@ -26,10 +26,15 @@ func TestExecuteDoublingStepFFT(t *testing.T) {
 			FFTThreshold:      10000, // Low threshold to trigger FFT
 		}
 
+		// Capture operands before the step mutates state.
+		fk := new(big.Int).Set(state.FK)
+		fk1 := new(big.Int).Set(state.FK1)
+
 		err := executeDoublingStepFFT(context.Background(), state, opts, false)
 		if err != nil {
 			t.Errorf("executeDoublingStepFFT returned unexpected error: %v", err)
 		}
+		assertDoublingProducts(t, state, fk, fk1)
 	})
 
 	t.Run("Execute doubling step with FFT in parallel", func(t *testing.T) {
@@ -48,10 +53,14 @@ func TestExecuteDoublingStepFFT(t *testing.T) {
 			FFTThreshold:      10000,
 		}
 
+		fk := new(big.Int).Set(state.FK)
+		fk1 := new(big.Int).Set(state.FK1)
+
 		err := executeDoublingStepFFT(context.Background(), state, opts, true)
 		if err != nil {
 			t.Errorf("executeDoublingStepFFT returned unexpected error: %v", err)
 		}
+		assertDoublingProducts(t, state, fk, fk1)
 	})
 
 	t.Run("Execute doubling step with smaller numbers", func(t *testing.T) {
@@ -70,11 +79,34 @@ func TestExecuteDoublingStepFFT(t *testing.T) {
 			FFTThreshold:      10000,
 		}
 
+		fk := new(big.Int).Set(state.FK)
+		fk1 := new(big.Int).Set(state.FK1)
+
 		err := executeDoublingStepFFT(context.Background(), state, opts, false)
 		if err != nil {
 			t.Errorf("executeDoublingStepFFT returned unexpected error: %v", err)
 		}
+		assertDoublingProducts(t, state, fk, fk1)
 	})
+}
+
+// assertDoublingProducts verifies the three pointwise products computed by a
+// doubling step against fk/fk1 captured before the call:
+//
+//	T3 = FK * FK1
+//	T1 = FK1²
+//	T2 = FK²
+func assertDoublingProducts(t *testing.T, state *CalculationState, fk, fk1 *big.Int) {
+	t.Helper()
+	if want := new(big.Int).Mul(fk, fk1); state.T3.Cmp(want) != 0 {
+		t.Errorf("T3 = %s, want FK*FK1 = %s", state.T3.String(), want.String())
+	}
+	if want := new(big.Int).Mul(fk1, fk1); state.T1.Cmp(want) != 0 {
+		t.Errorf("T1 = %s, want FK1² = %s", state.T1.String(), want.String())
+	}
+	if want := new(big.Int).Mul(fk, fk); state.T2.Cmp(want) != 0 {
+		t.Errorf("T2 = %s, want FK² = %s", state.T2.String(), want.String())
+	}
 }
 
 // TestSmartMultiply_InPlace_BufferReuse verifies that smartMultiply reuses

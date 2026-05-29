@@ -6,9 +6,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // ExecutionState holds the execution-related fields of a TUI session.
@@ -177,7 +177,7 @@ func (m Model) View() string {
 }
 
 // layoutPanels propagates the current terminal dimensions to every component
-// using the LayoutManager's percentage/clamp rules. Adaptive behaviour
+// using the LayoutManager's percentage/clamp rules. Adaptive behavior
 // (single-column / compact metrics) is encapsulated in LayoutManager.
 func (m *Model) layoutPanels() {
 	m.header.SetWidth(m.width)

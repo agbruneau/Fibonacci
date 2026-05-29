@@ -91,13 +91,14 @@ func fishCompleteLine(f FlagCompletion, algoList string) string {
 
 	parts = append(parts, fmt.Sprintf("-d '%s'", f.Help))
 
-	if f.IsFile {
+	switch {
+	case f.IsFile:
 		parts = append(parts, "-rF")
-	} else if f.IsAlgo {
+	case f.IsAlgo:
 		parts = append(parts, fmt.Sprintf("-xa '%s all'", algoList))
-	} else if len(f.Values) > 0 {
+	case len(f.Values) > 0:
 		parts = append(parts, fmt.Sprintf("-xa '%s'", strings.Join(f.Values, " ")))
-	} else if f.ValueName != "" {
+	case f.ValueName != "":
 		// Takes a value but no suggestions (e.g., -n)
 		parts = append(parts, "-x")
 	}

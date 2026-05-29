@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // MatrixExponentiationCalculator offers a classic and efficient approach to calculating

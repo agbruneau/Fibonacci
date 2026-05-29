@@ -43,7 +43,7 @@ func TestCalculatorsAgainstGoldenFile(t *testing.T) {
 			t.Parallel()
 			for _, tc := range cases {
 				// Capture range variable
-				tc := tc
+
 				t.Run(fmt.Sprintf("N=%d", tc.N), func(t *testing.T) {
 					t.Parallel()
 

@@ -13,7 +13,7 @@ import "strings"
 // (env vars, config files) into the registry would inadvertently open a
 // shell-injection vector if the interpolation lacked escaping.
 //
-// The functions below centralise per-shell escaping so each generator
+// The functions below centralize per-shell escaping so each generator
 // can apply the rule appropriate to its own quoting context. Each helper
 // is paired with an adversarial test in escape_test.go covering the
 // dangerous metacharacters: $(...), backticks, semicolons, spaces, quotes,
@@ -52,7 +52,7 @@ func escapeFishSingleQuoted(s string) string {
 
 // escapeZshSingleQuoted escapes s so it is safe to splice inside a zsh
 // single-quoted string. zsh closes the literal on the first '. The
-// canonical workaround is to close-escape-reopen: ' → '\''.
+// canonical workaround is to close-escape-reopen: ' → '\”.
 func escapeZshSingleQuoted(s string) string {
 	r := strings.NewReplacer(`'`, `'\''`, "\n", ` `)
 	return r.Replace(s)
@@ -60,7 +60,7 @@ func escapeZshSingleQuoted(s string) string {
 
 // escapePowerShellSingleQuoted escapes s for a PowerShell '...' literal.
 // PowerShell single quotes are literal except that ' is escaped by
-// doubling: ''.
+// doubling: ”.
 func escapePowerShellSingleQuoted(s string) string {
 	r := strings.NewReplacer(`'`, `''`, "\n", ` `)
 	return r.Replace(s)

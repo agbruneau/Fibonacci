@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/format"
+	"github.com/agbruneau/FibGo/internal/format"
 )
 
 func TestMetricsModel_UpdateMemStats(t *testing.T) {
@@ -137,7 +137,7 @@ func TestFormatBytes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := format.FormatBytes(tt.input)
@@ -164,7 +164,7 @@ func TestFormatBytes_Boundaries(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := format.FormatBytes(tt.input)

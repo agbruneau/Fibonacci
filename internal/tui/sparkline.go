@@ -70,32 +70,7 @@ func RenderBrailleChart(values []float64, width, rows int) []string {
 
 	for i := startIdx; i < len(values); i++ {
 		dotCol := (i - startIdx) + (dotCols - min(len(values), dotCols))
-		v := values[i]
-		if v < 0 {
-			v = 0
-		}
-		if v > 100 {
-			v = 100
-		}
-
-		// Map value to dot row (0 = top, dotRows-1 = bottom)
-		dotRow := dotRows - 1 - int(v/100.0*float64(dotRows-1))
-		if dotRow < 0 {
-			dotRow = 0
-		}
-		if dotRow >= dotRows {
-			dotRow = dotRows - 1
-		}
-
-		// Convert dot coordinates to character cell + offset within cell
-		charCol := dotCol / 2
-		charRow := dotRow / 4
-		subCol := dotCol % 2
-		subRow := dotRow % 4
-
-		if charCol >= 0 && charCol < width && charRow >= 0 && charRow < rows {
-			grid[charRow][charCol] |= brailleDots[subCol][subRow]
-		}
+		plotBrailleValue(grid, width, rows, dotCol, values[i], dotRows)
 	}
 
 	// Convert grid to strings
@@ -104,4 +79,35 @@ func RenderBrailleChart(values []float64, width, rows int) []string {
 		result[r] = string(grid[r])
 	}
 	return result
+}
+
+// plotBrailleValue clamps v into [0,100], maps it to a dot row, and activates
+// the corresponding braille dot in grid at the given dot column. grid is mutated
+// in place; out-of-range cells are ignored.
+func plotBrailleValue(grid [][]rune, width, rows, dotCol int, v float64, dotRows int) {
+	if v < 0 {
+		v = 0
+	}
+	if v > 100 {
+		v = 100
+	}
+
+	// Map value to dot row (0 = top, dotRows-1 = bottom)
+	dotRow := dotRows - 1 - int(v/100.0*float64(dotRows-1))
+	if dotRow < 0 {
+		dotRow = 0
+	}
+	if dotRow >= dotRows {
+		dotRow = dotRows - 1
+	}
+
+	// Convert dot coordinates to character cell + offset within cell
+	charCol := dotCol / 2
+	charRow := dotRow / 4
+	subCol := dotCol % 2
+	subRow := dotRow % 4
+
+	if charCol >= 0 && charCol < width && charRow >= 0 && charRow < rows {
+		grid[charRow][charCol] |= brailleDots[subCol][subRow]
+	}
 }

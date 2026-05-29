@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // setCustomUsage configures the flag set with a colored usage function.

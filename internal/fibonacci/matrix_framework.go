@@ -10,7 +10,7 @@ import (
 	"math/bits"
 	"runtime"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // SquareSymmetricMatrixFunc is the function signature for symmetric matrix squaring.

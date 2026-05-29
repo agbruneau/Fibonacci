@@ -3,6 +3,7 @@ package fibonacci
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 )
@@ -100,6 +101,39 @@ func TestShouldParallelizeMultiplication(t *testing.T) {
 	})
 }
 
+// TestAcquireStateForN_HugeN_NoPanic verifies that the size computation behind
+// AcquireStateForN tolerates a physically uncomputable n without invoking
+// float->int impl-defined behavior or integer overflow. The clamp is exercised
+// via acquireSizingForN directly so the test never allocates exabytes; a real
+// AcquireStateForN/ReleaseState round-trip on a modest n confirms the release
+// path is intact.
+func TestAcquireStateForN_HugeN_NoPanic(t *testing.T) {
+	t.Parallel()
+
+	naive := func(n uint64) (int, int) {
+		w := int(float64(n)*FibonacciGrowthFactor)/64 + 1
+		return w, w * 15
+	}
+	for _, n := range []uint64{1001, 100_000, 1_000_000, 1_000_000_000, 1_000_000_000_000} {
+		wGot, tGot := acquireSizingForN(n)
+		wWant, tWant := naive(n)
+		if wGot != wWant || tGot != tWant {
+			t.Errorf("acquireSizingForN(%d) = (%d,%d), want (%d,%d)", n, wGot, tGot, wWant, tWant)
+		}
+	}
+
+	// MaxUint64: must clamp, not produce a garbage/overflowed value.
+	w, total := acquireSizingForN(math.MaxUint64)
+	if total != maxReasonableWords || w != maxReasonableWords/15 {
+		t.Errorf("acquireSizingForN(MaxUint64) = (%d,%d), want (%d,%d)",
+			w, total, maxReasonableWords/15, maxReasonableWords)
+	}
+
+	// Release path stays intact for a normal acquisition.
+	s := AcquireStateForN(100_000)
+	ReleaseState(s)
+}
+
 // TestPreSizing_ReducesAllocations verifies pre-sizing doesn't break correctness
 // and produces correct results for medium-sized calculations.
 func TestPreSizing_ReducesAllocations(t *testing.T) {
@@ -142,7 +176,7 @@ func TestFastDoubling_ReducedState_Correctness(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(fmt.Sprintf("N=%d", tc.n), func(t *testing.T) {
 			t.Parallel()
 			result, err := calc.Calculate(ctx, nil, 0, tc.n, Options{})
@@ -175,7 +209,7 @@ func TestFFTBased_ReducedState_Correctness(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(fmt.Sprintf("N=%d", tc.n), func(t *testing.T) {
 			t.Parallel()
 			result, err := calc.Calculate(ctx, nil, 0, tc.n, Options{})

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // TestPrintExecutionConfig tests the PrintExecutionConfig function.

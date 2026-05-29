@@ -20,7 +20,8 @@ type bashCase struct {
 func bashStaticValueCase(f FlagCompletion) bashCase {
 	return bashCase{
 		patterns: []string{"--" + f.Long},
-		body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(f.Values, " ")),
+		//nolint:gocritic // %s intentionnel: litteral bash -W, %q=quoting Go non-shell; echappement via escape.go
+		body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(f.Values, " ")),
 	}
 }
 
@@ -97,7 +98,8 @@ func collectBashGroupedCases() []bashCase {
 		vals := bashGroupValues[f.BashGroup]
 		cases = append(cases, bashCase{
 			patterns: patterns,
-			body:     fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(vals, " ")),
+			//nolint:gocritic // %s intentionnel: litteral bash -W, %q=quoting Go non-shell; echappement via escape.go
+			body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(vals, " ")),
 		})
 	}
 	return cases
@@ -134,7 +136,7 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 	}
 
 	// Use escape-aware joiner: algorithms are interpolated into a
-	// bash double-quoted string, so special chars must be neutralised.
+	// bash double-quoted string, so special chars must be neutralized.
 	algoList := formatAlgoListBash(algorithms)
 
 	script := fmt.Sprintf(`# Bash completion script for fibcalc

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -21,14 +22,17 @@ func EstimateMemoryUsage(n uint64) MemoryEstimate {
 	wordsPerFib := int(bitsPerFib/64) + 1
 	// wordsPerFib is derived from a positive uint64 (n) scaled down by 64,
 	// so it is always non-negative and fits comfortably in uint64. #nosec G115
-	bytesPerFib := uint64(wordsPerFib) * 8
+	bytesPerFib := satMul(uint64(wordsPerFib), 8)
 
-	stateBytes := bytesPerFib * 5 // 5 big.Int in CalculationState
-	fftBytes := bytesPerFib * 3   // bump allocator estimate
-	cacheBytes := bytesPerFib * 2 // transform cache estimate
-	overheadBytes := stateBytes   // GC + runtime ~1x
+	// Saturating arithmetic: a silent uint64 wrap of total toward a small
+	// value would let CanCalculate pass for a physically uncomputable n.
+	// Defense-in-depth — for realistic n the result is bit-identical.
+	stateBytes := satMul(bytesPerFib, 5) // 5 big.Int in CalculationState
+	fftBytes := satMul(bytesPerFib, 3)   // bump allocator estimate
+	cacheBytes := satMul(bytesPerFib, 2) // transform cache estimate
+	overheadBytes := stateBytes          // GC + runtime ~1x
 
-	total := stateBytes + fftBytes + cacheBytes + overheadBytes
+	total := satAdd(satAdd(satAdd(stateBytes, fftBytes), cacheBytes), overheadBytes)
 	return MemoryEstimate{
 		StateBytes:     stateBytes,
 		FFTBufferBytes: fftBytes,
@@ -88,4 +92,25 @@ func formatBytesInternal(b uint64) string {
 	default:
 		return fmt.Sprintf("%d B", b)
 	}
+}
+
+// satMul multiplies a and b, saturating to math.MaxUint64 on overflow instead
+// of wrapping. The wrap would otherwise turn a huge estimate into a small one.
+func satMul(a, b uint64) uint64 {
+	if a == 0 || b == 0 {
+		return 0
+	}
+	if a > math.MaxUint64/b {
+		return math.MaxUint64
+	}
+	return a * b
+}
+
+// satAdd adds a and b, saturating to math.MaxUint64 on overflow instead of
+// wrapping.
+func satAdd(a, b uint64) uint64 {
+	if a > math.MaxUint64-b {
+		return math.MaxUint64
+	}
+	return a + b
 }

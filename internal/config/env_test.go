@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 // TestEnvOverridesIntegrity guards against silent drift between the

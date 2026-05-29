@@ -10,8 +10,8 @@ import (
 	"math/bits"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // DoublingFramework encapsulates the common Fast Doubling algorithm logic.
@@ -22,7 +22,7 @@ import (
 // loop to let an adapter tune an underlying transform cache (e.g. the bigfft
 // global cache). When nil, no cache adjustment is performed. The DTM-driven
 // constructors install the default bigfft-backed strategy automatically so
-// the historical behaviour is preserved.
+// the historical behavior is preserved.
 type DoublingFramework struct {
 	strategy         DoublingStepExecutor
 	dynamicThreshold *threshold.DynamicThresholdManager
@@ -179,7 +179,9 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 		// Doubling Step — cache bit lengths once (BitLen() walks the rep).
 		fkBitLen := s.FK.BitLen()
 		fk1BitLen := s.FK1.BitLen()
-		bitLen := fkBitLen
+		// Align the usedFFT metric with the operand the routing decision actually
+		// tests: strategy.go routes to FFT on FK1.BitLen(), not FK. A1-06.
+		bitLen := fk1BitLen
 		usedFFT := bitLen > currentOpts.FFTThreshold
 
 		// Execute the three multiplications: T3 = FK·FK1, T2 = FK², T1 = FK1².

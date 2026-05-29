@@ -9,11 +9,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // capturingCalculator captures the parameters passed to Calculate
@@ -141,7 +141,7 @@ func TestNewModel_ConfigPropagation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			m := NewModel(context.Background(), nil, tt.cfg, "v1.0.0")
@@ -312,7 +312,7 @@ func TestModel_CalculatorSelection(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			m := NewModel(context.Background(), tt.calcs, cfg, "v1.0.0")
@@ -398,7 +398,7 @@ func TestStartCalculationCmd_ConfigPassthrough(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			capture := &capturingCalculator{result: big.NewInt(55)}
@@ -494,7 +494,7 @@ func TestStartCalculationCmd_Generation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := &programRef{}
@@ -550,7 +550,7 @@ func TestStartCalculationCmd_DisplayFlagsInConfig(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := &programRef{}
@@ -592,7 +592,7 @@ func TestFinalResultMsg_DisplayFlags(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			cfg := config.AppConfig{N: 10, Timeout: time.Minute}
@@ -709,7 +709,7 @@ func TestStartCalculationCmd_SmallN(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			capture := &capturingCalculator{result: tt.result}
@@ -779,7 +779,7 @@ func TestNewModel_AlgoConfigStored(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
+
 		t.Run(tt.algo, func(t *testing.T) {
 			t.Parallel()
 			cfg := config.AppConfig{

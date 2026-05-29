@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // knownFibResults is a test oracle containing reference values

@@ -41,7 +41,7 @@ const smallMulThreshold = 30
 // satisfying the 0-1 last word constraint.
 type fermat nat
 
-func (n fermat) String() string { return nat(n).String() }
+func (z fermat) String() string { return nat(z).String() }
 
 func (z fermat) norm() {
 	n := len(z) - 1
@@ -58,7 +58,6 @@ func (z fermat) norm() {
 	subVW(z, z, c) // Subtract c
 	if c > 1 {
 		z[n] -= c - 1
-		c = 1
 	}
 	// Add back c.
 	if z[n] == 1 {
@@ -112,11 +111,12 @@ func (z fermat) Shift(x fermat, k int) {
 		z[n] -= b
 	}
 	// Add back 1.
-	if z[n] > 0 {
+	switch {
+	case z[n] > 0:
 		z[n]--
-	} else if z[0] < ^big.Word(0) {
+	case z[0] < ^big.Word(0):
 		z[0]++
-	} else {
+	default:
 		addVW(z, z, 1)
 	}
 	// Shift left by kb bits. kb = k%_W is in [0, _W-1] by construction

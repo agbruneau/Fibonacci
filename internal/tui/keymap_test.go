@@ -24,7 +24,7 @@ func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
 	}
 
 	for _, b := range bindings {
-		b := b
+
 		t.Run(b.name, func(t *testing.T) {
 			t.Parallel()
 			if !b.binding.Enabled() {

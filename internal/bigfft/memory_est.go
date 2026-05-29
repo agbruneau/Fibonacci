@@ -36,11 +36,12 @@ func EstimateMemoryNeeds(n uint64) MemoryEstimate {
 	// We'll use a conservative estimate based on word length.
 	// Extended to support new larger pool sizes.
 	maxFermat := 2048 // Default reasonable max for pool warming
-	if wordLen > 1000000 {
+	switch {
+	case wordLen > 1000000:
 		maxFermat = 2097152 // Use largest fermat pool
-	} else if wordLen > 100000 {
+	case wordLen > 100000:
 		maxFermat = 524288
-	} else if wordLen > 10000 {
+	case wordLen > 10000:
 		maxFermat = 131072
 	}
 

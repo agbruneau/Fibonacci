@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // calibrationRunner encapsulates the trial run logic for calibration.

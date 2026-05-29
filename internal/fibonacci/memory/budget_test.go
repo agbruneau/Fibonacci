@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func TestEstimateMemoryUsage(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(fmt.Sprintf("N=%d", tc.n), func(t *testing.T) {
 			t.Parallel()
 			est := EstimateMemoryUsage(tc.n)
@@ -30,6 +31,18 @@ func TestEstimateMemoryUsage(t *testing.T) {
 				t.Errorf("estimate %d too high, want <= %d", est.TotalBytes, tc.maxBytes)
 			}
 		})
+	}
+}
+
+// TestEstimateMemoryUsage_SaturatesNoWrap verifies that an extreme (physically
+// uncomputable) n does not wrap TotalBytes toward a small value, which would
+// silently defeat the CanCalculate memory guard.
+func TestEstimateMemoryUsage_SaturatesNoWrap(t *testing.T) {
+	t.Parallel()
+
+	est := EstimateMemoryUsage(math.MaxUint64)
+	if est.TotalBytes < uint64(1)<<62 {
+		t.Errorf("TotalBytes wrapped: got %d, want >= %d", est.TotalBytes, uint64(1)<<62)
 	}
 }
 
@@ -47,7 +60,7 @@ func TestParseMemoryLimit(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 			got, err := ParseMemoryLimit(tc.input)
@@ -66,7 +79,7 @@ func TestParseMemoryLimit_Errors(t *testing.T) {
 
 	cases := []string{"", "abc", "-5G", "0x10M"}
 	for _, input := range cases {
-		input := input
+
 		t.Run(input, func(t *testing.T) {
 			t.Parallel()
 			_, err := ParseMemoryLimit(input)

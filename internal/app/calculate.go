@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/cli"
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/cli"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // runCalculate is a thin orchestrator: it dispatches to the partial-digits
@@ -146,9 +146,9 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 	start := time.Now()
 	res, err := orchestration.ComputeLastDigits(ctx, n, k)
 	if err != nil {
-		// Centralised error handling: maps timeout/cancel/generic to the
+		// Centralized error handling: maps timeout/cancel/generic to the
 		// correct exit code and writes a uniform "Status: …" message to
-		// the user-facing stream (matches the comparison-mode behaviour).
+		// the user-facing stream (matches the comparison-mode behavior).
 		colors := apperrors.ColorProvider(cli.CLIColorProvider{})
 		if a.Config.MachineOutput {
 			colors = apperrors.DefaultColorProvider{}

@@ -3,8 +3,8 @@
 package cli
 
 import (
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/ui"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // Ensure CLIColorProvider implements apperrors.ColorProvider at compile time.
