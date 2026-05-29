@@ -4,6 +4,7 @@ import (
 	"math"
 	"runtime"
 	"runtime/debug"
+	"sync"
 
 	"github.com/rs/zerolog"
 )
@@ -35,16 +36,33 @@ const GCAutoThreshold uint64 = 1_000_000
 // cycle.
 const DefaultMemoryLimitMultiplier = 3.0
 
+// Concurrency-safe process-wide GC control (A2-01 / ADR-0005).
+//
+// GOGC and the soft memory limit are process-global, but in comparison mode
+// (--algo all, N >= GCAutoThreshold) several GCControllers run concurrently via
+// errgroup. A naive per-controller save/restore is unsafe: the second Begin
+// captures -1 as its "original", and the first End restores GOGC (or drops the
+// OOM memory limit) while a sibling is still computing a huge number.
+//
+// We serialize through a package-level refcount: only the first active Begin
+// disables GC and records the TRUE original GOGC; only the last active End
+// restores it and removes the soft memory limit. This preserves the panic-safe
+// WithGC contract while making concurrent activation correct.
+var (
+	gcGlobalMu     sync.Mutex
+	gcActiveDepth  int
+	gcSavedPercent int
+)
+
 // GCController manages Go's garbage collector during intensive calculations.
 // It disables GC during computation and restores it afterward, reducing
 // pause times and memory overhead for large calculations.
 type GCController struct {
-	mode              GCMode
-	originalGCPercent int
-	active            bool
-	logger            zerolog.Logger
-	startStats        runtime.MemStats
-	endStats          runtime.MemStats
+	mode       GCMode
+	active     bool
+	logger     zerolog.Logger
+	startStats runtime.MemStats
+	endStats   runtime.MemStats
 }
 
 // GCStats holds GC statistics for a calculation.
@@ -96,14 +114,21 @@ func (gc *GCController) Begin() {
 		return
 	}
 	runtime.ReadMemStats(&gc.startStats)
-	gc.originalGCPercent = debug.SetGCPercent(-1)
-	// Set soft memory limit as OOM safety net.
-	if gc.startStats.Sys > 0 {
-		limit := int64(float64(gc.startStats.Sys) * DefaultMemoryLimitMultiplier)
-		if limit > 0 {
-			debug.SetMemoryLimit(limit)
+
+	gcGlobalMu.Lock()
+	if gcActiveDepth == 0 {
+		// First active controller: capture the TRUE original GOGC and disable
+		// GC process-wide, then install the soft memory limit as an OOM net.
+		gcSavedPercent = debug.SetGCPercent(-1)
+		if gc.startStats.Sys > 0 {
+			if limit := int64(float64(gc.startStats.Sys) * DefaultMemoryLimitMultiplier); limit > 0 {
+				debug.SetMemoryLimit(limit)
+			}
 		}
 	}
+	gcActiveDepth++
+	gcGlobalMu.Unlock()
+
 	gc.logger.Debug().
 		Str("mode", string(gc.mode)).
 		Uint64("heap_alloc_bytes", gc.startStats.HeapAlloc).
@@ -116,9 +141,24 @@ func (gc *GCController) End() {
 		return
 	}
 	runtime.ReadMemStats(&gc.endStats)
-	debug.SetGCPercent(gc.originalGCPercent)
-	debug.SetMemoryLimit(math.MaxInt64)
-	runtime.GC()
+
+	gcGlobalMu.Lock()
+	if gcActiveDepth > 0 {
+		gcActiveDepth--
+	}
+	last := gcActiveDepth == 0
+	if last {
+		// Last active controller: no sibling is still computing, so it is safe
+		// to restore the original GOGC and drop the soft memory limit.
+		debug.SetGCPercent(gcSavedPercent)
+		debug.SetMemoryLimit(math.MaxInt64)
+	}
+	gcGlobalMu.Unlock()
+
+	if last {
+		runtime.GC()
+	}
+
 	gc.logger.Debug().
 		Str("mode", string(gc.mode)).
 		Uint64("heap_alloc_bytes", gc.endStats.HeapAlloc).
