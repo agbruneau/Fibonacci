@@ -8,7 +8,7 @@
 
 **FibGo** (module/library name: **FibCalc**) is a high-performance Fibonacci computation system implemented in Go.
 
-- **Go module path:** `github.com/agbru/fibcalc`
+- **Go module path:** `github.com/agbruneau/FibGo`
 - **Go version:** 1.25.0
 - **Primary binary:** `cmd/fibcalc`
 - **Codebase stats:** run `make stats` for the canonical Go-package and LOC counts (the totals drift on every refactor; encoding them statically here has historically caused divergence between this document, `CLAUDE.md` and reality).
@@ -675,9 +675,9 @@ The project uses standard Go tooling + Makefile workflows.
 
 Build-time version injection via linker flags:
 ```bash
--X github.com/agbru/fibcalc/internal/app.Version=$(VERSION)
--X github.com/agbru/fibcalc/internal/app.Commit=$(COMMIT)
--X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)
+-X github.com/agbruneau/FibGo/internal/app.Version=$(VERSION)
+-X github.com/agbruneau/FibGo/internal/app.Commit=$(COMMIT)
+-X github.com/agbruneau/FibGo/internal/app.BuildDate=$(BUILD_DATE)
 ```
 
 ### PGO support

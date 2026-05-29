@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/metrics"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/metrics"
 )
 
 // handleProgress applies a progress update to the chart, metrics and logs.

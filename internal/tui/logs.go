@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 const maxLogEntries = 10000

@@ -32,11 +32,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/metrics"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/metrics"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
+	"github.com/agbruneau/FibGo/internal/ui"
 	"github.com/briandowns/spinner"
 )
 

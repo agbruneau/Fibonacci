@@ -9,10 +9,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // ErrProgramNotInitialized is returned by programRef.Send when the underlying

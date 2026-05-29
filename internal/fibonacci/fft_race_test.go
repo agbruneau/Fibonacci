@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // TestExecuteDoublingStepFFT_NoDataRace verifies that the parallel FFT execution

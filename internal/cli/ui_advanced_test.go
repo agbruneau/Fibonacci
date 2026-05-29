@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 	"github.com/briandowns/spinner"
 )
 

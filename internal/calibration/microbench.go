@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
-	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbruneau/FibGo/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

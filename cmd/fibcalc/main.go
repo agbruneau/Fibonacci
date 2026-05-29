@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/agbru/fibcalc/internal/app"
+	"github.com/agbruneau/FibGo/internal/app"
 )
 
 // main parses arguments, builds the application, and runs it; the exit

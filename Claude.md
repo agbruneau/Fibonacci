@@ -8,7 +8,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 
 ## Projet
 
-- **Module** : `github.com/agbru/fibcalc`
+- **Module** : `github.com/agbruneau/FibGo`
 - **Go** : 1.25.0+ (toolchain 1.26.2)
 - **Licence** : Apache 2.0
 - **Taille** : exécuter `make stats` pour le décompte de packages et LOC à jour. Référence historique : ~35 500 LOC `.go` au commit de l'audit v1.

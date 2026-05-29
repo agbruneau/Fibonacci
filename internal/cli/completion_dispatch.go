@@ -3,7 +3,7 @@ package cli
 import (
 	"io"
 
-	"github.com/agbru/fibcalc/internal/cli/completion"
+	"github.com/agbruneau/FibGo/internal/cli/completion"
 )
 
 // GenerateCompletion generates a shell completion script for the specified shell.

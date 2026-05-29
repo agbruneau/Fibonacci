@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/testutil"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/testutil"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // Golden file tests for CLI output

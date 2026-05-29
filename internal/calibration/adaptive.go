@@ -5,7 +5,7 @@ package calibration
 import (
 	"runtime"
 
-	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

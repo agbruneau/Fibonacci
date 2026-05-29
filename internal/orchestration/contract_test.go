@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/fibonacci/fibonaccitest"
-	"github.com/agbru/fibcalc/internal/progress"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci/fibonaccitest"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // Contract tests: invariants that should hold for orchestration + Calculator implementations

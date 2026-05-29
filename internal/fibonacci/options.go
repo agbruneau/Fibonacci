@@ -5,7 +5,7 @@ package fibonacci
 import (
 	"math/bits"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // Options configures the Fibonacci calculation.

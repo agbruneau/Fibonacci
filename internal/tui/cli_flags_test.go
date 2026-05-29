@@ -9,11 +9,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // capturingCalculator captures the parameters passed to Calculate

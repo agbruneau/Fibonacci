@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // ErrMissingFastCalculator is returned by CompleteStrategy.Calibrate

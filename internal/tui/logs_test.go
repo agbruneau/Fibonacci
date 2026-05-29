@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 func TestLogsModel_AddProgressEntry(t *testing.T) {

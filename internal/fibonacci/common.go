@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/agbru/fibcalc/internal/parallel"
+	"github.com/agbruneau/FibGo/internal/parallel"
 	"github.com/rs/zerolog"
 )
 

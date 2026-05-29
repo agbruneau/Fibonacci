@@ -10,8 +10,8 @@ import (
 	"math/bits"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // DoublingFramework encapsulates the common Fast Doubling algorithm logic.

@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
+	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 )
 
 func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {

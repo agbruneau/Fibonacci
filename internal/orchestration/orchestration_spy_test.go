@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // TestExecuteCalculationsRespectsStrassenConfig verifies that the orchestration layer

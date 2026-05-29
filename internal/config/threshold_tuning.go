@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 )
 
 // ThresholdTuningProfile centralises the magic numbers that govern the

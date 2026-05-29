@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/bigfft"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
+	"github.com/agbruneau/FibGo/internal/progress"
 	"github.com/rs/zerolog/log"
 )
 

@@ -1,6 +1,6 @@
 package app
 
-import apperrors "github.com/agbru/fibcalc/internal/errors"
+import apperrors "github.com/agbruneau/FibGo/internal/errors"
 
 // ExitAction enumerates the high-level outcomes of running the application.
 //

@@ -3,8 +3,8 @@ package orchestration
 import (
 	"time"
 
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // ProgressAggregator manages multi-calculator progress aggregation with ETA

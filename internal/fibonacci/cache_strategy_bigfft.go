@@ -1,7 +1,7 @@
 package fibonacci
 
 import (
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // CacheStrategy abstracts the per-iteration FFT cache adjustment logic so the

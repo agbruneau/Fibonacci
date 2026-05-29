@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // PR#27 / P1-25:

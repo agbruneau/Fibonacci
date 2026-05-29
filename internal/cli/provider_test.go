@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 func TestCLIColorProvider(t *testing.T) {

@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/calibration"
-	"github.com/agbru/fibcalc/internal/cli"
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/testutil"
+	"github.com/agbruneau/FibGo/internal/calibration"
+	"github.com/agbruneau/FibGo/internal/cli"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/testutil"
 )
 
 // Helper to create a test factory with mocked calculator

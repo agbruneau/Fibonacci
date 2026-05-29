@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 func TestMockCalculator_Name(t *testing.T) {

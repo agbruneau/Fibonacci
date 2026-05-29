@@ -20,9 +20,9 @@ BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Linker flags for version injection
 LDFLAGS=-ldflags="-s -w \
-	-X github.com/agbru/fibcalc/internal/app.Version=$(VERSION) \
-	-X github.com/agbru/fibcalc/internal/app.Commit=$(COMMIT) \
-	-X github.com/agbru/fibcalc/internal/app.BuildDate=$(BUILD_DATE)"
+	-X github.com/agbruneau/FibGo/internal/app.Version=$(VERSION) \
+	-X github.com/agbruneau/FibGo/internal/app.Commit=$(COMMIT) \
+	-X github.com/agbruneau/FibGo/internal/app.BuildDate=$(BUILD_DATE)"
 GOFLAGS=$(LDFLAGS)
 
 .PHONY: all build build-pgo build-all build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin clean test test-short coverage benchmark bench-baseline bench-versioned stats run run-fast run-calibrate help version install install-tools lint security format check tidy deps upgrade pgo-profile pgo-check pgo-clean pgo-rebuild build-pgo-linux build-pgo-windows build-pgo-darwin build-pgo-all
@@ -211,7 +211,7 @@ bench-baseline:
 	@{ \
 		echo "goos: $$(go env GOOS)"; \
 		echo "goarch: $$(go env GOARCH)"; \
-		echo "pkg: github.com/agbru/fibcalc/internal/fibonacci"; \
+		echo "pkg: github.com/agbruneau/FibGo/internal/fibonacci"; \
 		echo "cpu: baseline-$$(date -u +%Y-%m-%d)"; \
 		$(GO) test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
 			-benchmem -run='^$$' -count=5 -benchtime=1x ./internal/fibonacci/ \

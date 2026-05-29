@@ -36,18 +36,18 @@ var architectureRules = []forbiddenImport{
 		// internal/fibonacci/threshold is a leaf inside fibonacci ; it
 		// must not reach upward to internal/config (which would close
 		// a cycle via config → fibonacci/memory).
-		importer: "github.com/agbru/fibcalc/internal/fibonacci/threshold",
+		importer: "github.com/agbruneau/FibGo/internal/fibonacci/threshold",
 		forbid: []string{
-			"github.com/agbru/fibcalc/internal/config",
+			"github.com/agbruneau/FibGo/internal/config",
 		},
 	},
 	{
 		// internal/errors is a leaf utility package and must not depend
 		// on internal/format (presentation concern). A local
 		// formatBytesLocal helper covers the byte-count need.
-		importer: "github.com/agbru/fibcalc/internal/errors",
+		importer: "github.com/agbruneau/FibGo/internal/errors",
 		forbid: []string{
-			"github.com/agbru/fibcalc/internal/format",
+			"github.com/agbruneau/FibGo/internal/format",
 		},
 	},
 	{
@@ -55,9 +55,9 @@ var architectureRules = []forbiddenImport{
 		// internal/orchestration ; the direct import is forbidden. Tests
 		// inside internal/tui are tolerated (the production .Imports
 		// query excludes _test.go files).
-		importer: "github.com/agbru/fibcalc/internal/tui",
+		importer: "github.com/agbruneau/FibGo/internal/tui",
 		forbid: []string{
-			"github.com/agbru/fibcalc/internal/fibonacci",
+			"github.com/agbruneau/FibGo/internal/fibonacci",
 		},
 	},
 }

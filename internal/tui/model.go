@@ -6,9 +6,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // ExecutionState holds the execution-related fields of a TUI session.

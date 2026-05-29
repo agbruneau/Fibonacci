@@ -3,7 +3,7 @@ package fibonacci
 import (
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // TestConfigureFFTCacheDefault verifies that configureFFTCache uses default

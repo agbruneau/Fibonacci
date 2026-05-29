@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/agbru/fibcalc/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // FFTSafetyMarginWords is the safety margin added to FFT word count to avoid overflow.

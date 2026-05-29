@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // CalibrationProfile stores the results of a calibration run.

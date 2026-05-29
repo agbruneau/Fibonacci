@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/format"
+	"github.com/agbruneau/FibGo/internal/format"
 )
 
 func TestMetricsModel_UpdateMemStats(t *testing.T) {

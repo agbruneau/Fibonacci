@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
-	"github.com/agbru/fibcalc/internal/fibonacci/threshold"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
+	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // maxArenaPoolWords caps the size of a CalculationArena retained in the pool

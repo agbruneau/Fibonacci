@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // FastStrategy estimates thresholds via the in-process micro-benchmarks

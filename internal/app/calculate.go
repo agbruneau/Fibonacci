@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/cli"
-	"github.com/agbru/fibcalc/internal/config"
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/fibonacci/memory"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/cli"
+	"github.com/agbruneau/FibGo/internal/config"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // runCalculate is a thin orchestrator: it dispatches to the partial-digits

@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/agbru/fibcalc/internal/format"
+	"github.com/agbruneau/FibGo/internal/format"
 )
 
 // HeaderModel renders the top bar: title, version, elapsed time.

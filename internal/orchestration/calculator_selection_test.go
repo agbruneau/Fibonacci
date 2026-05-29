@@ -3,7 +3,7 @@ package orchestration
 import (
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // TestGetCalculatorsToRun tests the GetCalculatorsToRun function.

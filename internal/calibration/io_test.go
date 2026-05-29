@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agbru/fibcalc/internal/config"
+	"github.com/agbruneau/FibGo/internal/config"
 )
 
 func TestPrintCalibrationOutput(t *testing.T) {

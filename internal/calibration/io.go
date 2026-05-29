@@ -6,9 +6,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/format"
-	"github.com/agbru/fibcalc/internal/ui"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/ui"
 )
 
 // printCalibrationResults formats and prints the calibration results table.

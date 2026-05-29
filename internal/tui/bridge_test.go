@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
-	"github.com/agbru/fibcalc/internal/orchestration"
-	"github.com/agbru/fibcalc/internal/progress"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 func TestTUIProgressReporter_DrainsChannel(t *testing.T) {

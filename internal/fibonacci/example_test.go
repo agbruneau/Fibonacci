@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // ExampleNewCalculator demonstrates creating a Calculator with

@@ -4,8 +4,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // CoreStub is a configurable [fibonacci.CoreCalculator] for tests.

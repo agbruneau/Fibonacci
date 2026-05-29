@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	apperrors "github.com/agbru/fibcalc/internal/errors"
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 func TestFibCalculator_Name(t *testing.T) {

@@ -169,9 +169,9 @@ Version metadata is injected at build time via `-ldflags`:
 
 ```bash
 go build -ldflags "\
-  -X github.com/agbru/fibcalc/internal/app.Version=$(git describe --tags --always --dirty) \
-  -X github.com/agbru/fibcalc/internal/app.Commit=$(git rev-parse --short HEAD) \
-  -X github.com/agbru/fibcalc/internal/app.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -X github.com/agbruneau/FibGo/internal/app.Version=$(git describe --tags --always --dirty) \
+  -X github.com/agbruneau/FibGo/internal/app.Commit=$(git rev-parse --short HEAD) \
+  -X github.com/agbruneau/FibGo/internal/app.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   ./cmd/fibcalc
 ```
 

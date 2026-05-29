@@ -3,8 +3,8 @@ package tui
 import (
 	"time"
 
-	"github.com/agbru/fibcalc/internal/metrics"
-	"github.com/agbru/fibcalc/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/metrics"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // ProgressMsg carries a progress update from a calculator to the TUI.

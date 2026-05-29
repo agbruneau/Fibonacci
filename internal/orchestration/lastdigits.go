@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // LastDigitsResult holds the outcome of a partial Fibonacci computation

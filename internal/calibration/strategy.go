@@ -15,8 +15,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/agbru/fibcalc/internal/config"
-	"github.com/agbru/fibcalc/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // Confidence is a calibration-quality score in the closed range [0, 1].

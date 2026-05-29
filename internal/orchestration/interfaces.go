@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/progress"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // Re-exported aliases of fibonacci package types. UI/presentation packages

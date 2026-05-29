@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/agbru/fibcalc/internal/format"
+	"github.com/agbruneau/FibGo/internal/format"
 )
 
 // ChartModel renders a progress bar, ETA, and system metrics sparklines.
