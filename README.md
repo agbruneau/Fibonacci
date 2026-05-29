@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-Academic_Prototype-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
 
-> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (957 nodes, 3 761 edges, 8 layers, 13-step guided tour).
+> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (744 nodes, 3 526 edges, 8 layers, 13-step guided tour).
 
 **FibCalc** is an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It demonstrates Clean Architecture, zero-allocation strategies, adaptive parallelism, and algorithmic optimization (Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication). Written in Go; handles indices in the hundreds of millions.
 
@@ -90,7 +90,7 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 Clean Architecture with four layers. Source of truth: [`docs/architecture/`](docs/architecture/).
 
-> **Interactive view** — Browse the full knowledge graph (957 nodes, 3 761 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
+> **Interactive view** — Browse the full knowledge graph (744 nodes, 3 526 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
 
 ```mermaid
 graph TD
