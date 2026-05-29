@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-28
-- **Context source**: audit mai 2026, constat `A2-03` (MAJEUR) — `audit/02_concurrence.md`.
+- **Context source**: audit mai 2026, constat `A2-03` (MAJEUR), axe 2 Concurrence (rapport archivé en historique git).
 
 ## Context
 
@@ -51,4 +51,4 @@ Changer la signature de `fourierRecursive*` pour y passer un `context.Context` c
 
 - Code concerné : `internal/bigfft/fft_recursion.go`, `internal/fibonacci/fft.go` (vérifs `ctx.Err()` existantes).
 - Related ADR(s) : ADR-0003 (signatures hot path), ADR-0004 §B1 (migration `FFTContext`).
-- Audit : `audit/02_concurrence.md` (A2-03).
+- Audit : axe 2 Concurrence, constat `A2-03` (rapport archivé en historique git).

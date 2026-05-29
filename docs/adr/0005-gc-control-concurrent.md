@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-28
-- **Context source**: audit mai 2026, constat `A2-01` (CRITIQUE) — `audit/02_concurrence.md`.
+- **Context source**: audit mai 2026, constat `A2-01` (CRITIQUE), axe 2 Concurrence (rapport archivé en historique git).
 
 ## Context
 
@@ -56,4 +56,4 @@ L'invariant `WithGC` panic-safe (`defer End()`) est **préservé** : un panic en
 - Implementation : `internal/fibonacci/memory/gc_control.go` (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`, `Begin`/`End`).
 - Test : `internal/fibonacci/memory/gc_control_test.go` (`TestGCController_ConcurrentBeginEnd_RestoresOriginal`).
 - Related ADR(s) : ADR-0003 (atomics privés `bigfft`).
-- Audit : `audit/02_concurrence.md` (A2-01).
+- Audit : axe 2 Concurrence, constat `A2-01` (rapport archivé en historique git).
