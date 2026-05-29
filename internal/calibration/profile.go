@@ -148,7 +148,7 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 
 	// Match the historical 0600 permission (CreateTemp creates 0600 already,
 	// but be explicit so the contract holds regardless of umask/platform).
-	if err := tmp.Chmod(0600); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("failed to chmod temp profile: %w", err)
 	}

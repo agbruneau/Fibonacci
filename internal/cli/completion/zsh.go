@@ -63,13 +63,14 @@ func zshArgEntry(f FlagCompletion) string {
 
 	// Build the value suffix
 	valueSuffix := ""
-	if f.IsFile {
+	switch {
+	case f.IsFile:
 		valueSuffix = fmt.Sprintf(":%s:_files", f.ValueName)
-	} else if f.IsAlgo {
+	case f.IsAlgo:
 		valueSuffix = fmt.Sprintf(":%s:($algorithms)", f.ValueName)
-	} else if len(f.Values) > 0 {
+	case len(f.Values) > 0:
 		valueSuffix = fmt.Sprintf(":%s:(%s)", f.ValueName, strings.Join(f.Values, " "))
-	} else if f.ValueName != "" {
+	case f.ValueName != "":
 		// Value-taking flag with no suggestions (e.g., -n)
 		valueSuffix = fmt.Sprintf(":%s:", f.ValueName)
 	}
