@@ -187,7 +187,7 @@ Ces fichiers sont produits par des outils ; les modifier directement sera écras
 
 | Chemin | Outil de régénération | Description |
 |---|---|---|
-| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 957 nœuds, 3 761 arêtes, 8 couches, tour guidé 13 étapes. |
+| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 744 nœuds, 3 526 arêtes, 8 couches, tour guidé 13 étapes. |
 | `.understand-anything/fingerprints.json` | Idem (Phase 7 de `/understand`) | Baseline structurelle pour mises à jour incrémentales. |
 | `.understand-anything/meta.json` | Idem | Commit hash + horodatage de la dernière analyse. |
 | `docs/dashboard/` | `pnpm --filter @understand-anything/dashboard build:demo` puis recopie (voir [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages)) | Build React/Vite statique, déployé sur <https://agbruneau.github.io/FibGo/dashboard/>. |
