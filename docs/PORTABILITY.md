@@ -47,12 +47,21 @@ non profilé formellement à ce jour).
 
 ## 3. Race detector
 
-Le race detector Go nécessite CGO :
+Le race detector Go nécessite CGO. La cible canonique `make test` lance
+`go test -race`, qui exige donc un compilateur C :
 
-- **Linux + macOS** : CGO via gcc/clang natif. Disponible nativement.
+- **Linux + macOS** : CGO via gcc/clang natif. `make test` (avec `-race`)
+  fonctionne directement.
 - **Windows** : CGO via MinGW si le contributeur l'installe localement.
-  Sinon, le race detector n'est pas disponible — utiliser WSL ou un poste
-  Linux/macOS pour la validation `-race`.
+  Sinon, `make test` échoue faute de gcc. Sur un poste Windows pur sans
+  gcc, utiliser la cible sans `-race` **`make test-win`** (équivalent
+  `go test -v -cover ./...`) ou le script de garde-fou local
+  **`scripts/check.ps1`**. Le `-race` reste **recommandé** : l'exécuter via
+  WSL ou un poste Linux/macOS.
+
+> Résumé : `make test` = suite complète avec `-race` (CGO requis, donc
+> Linux/macOS ou WSL sous Windows) ; `make test-win` / `scripts/check.ps1`
+> = repli Windows sans `-race`.
 
 Pour les builds cross-compile (`linux/arm64`, `darwin/arm64`), le race
 detector n'est pas exécuté — seule la **compilabilité** sans CGO est

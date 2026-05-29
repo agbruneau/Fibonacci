@@ -1,6 +1,6 @@
 # FibCalc: High-Performance Fibonacci Calculator
 
-[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Academic_Prototype-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
@@ -32,7 +32,7 @@
 
 ## Quick Start
 
-Requires **Go 1.25** or later.
+Requires **Go 1.26.0** or later.
 
 ```bash
 git clone https://github.com/agbruneau/FibGo.git
@@ -230,12 +230,22 @@ Build and deployment details (cross-compilation, PGO, signing): [`docs/BUILD.md`
 
 ## Development
 
-- Go 1.25+, optional `golangci-lint` and `gosec`.
-- **No remote CI/CD** — GitHub Actions workflows have been removed. All
-  verification (tests, race detector, lint, benchmarks, cross-compile,
-  coverage floor) is **the contributor's responsibility, run locally**
-  before each commit/PR. See [Testing](#testing) for the expected
-  checklist and [`CLAUDE.md`](CLAUDE.md) directive #8.
+- Go 1.26.0+, optional `golangci-lint` and `gosec`.
+- **No remote CI/CD — a deliberate, owned decision.** GitHub Actions
+  workflows have been removed on purpose: for an academic prototype the
+  rigor lives in **tooled local discipline**, not a remote gate. Every
+  check (tests, race detector, lint, benchmarks, cross-compile, coverage
+  floor) is the contributor's responsibility, run locally before each
+  commit/PR, backed by these guard-rails:
+  - `scripts/check.ps1` (Windows) / `scripts/check.sh` (POSIX) — one-shot
+    local gate replacing the missing CI pipeline.
+  - `make coverage-check` — enforces the 80 % coverage floor.
+  - `make test` — full suite with `-race` (needs a CGO toolchain: Linux,
+    macOS, or WSL on Windows).
+  - `make test-win` — Windows-without-gcc fallback (no `-race`).
+
+  See [Testing](#testing) for the expected checklist and
+  [`CLAUDE.md`](CLAUDE.md) directive #8.
 - **Reproducible environment** — open the repo in VS Code with the
   [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO +
   libgmp + benchstat pre-installed) or build the
@@ -252,7 +262,8 @@ Most common commands:
 
 ```bash
 make all             # clean + build + test
-make test            # go test -v -race -cover ./...
+make test            # go test -v -race -cover ./...  (needs CGO/gcc; Linux/macOS/WSL)
+make test-win        # go test -v -cover ./...  (Windows without gcc; no -race)
 make test-short      # skip slow tests
 make lint            # golangci-lint (24 linters, govet shadow enabled)
 make coverage        # coverage.html report
@@ -310,8 +321,12 @@ test/
 
 ## Testing
 
-Coverage target ≥ 80 % project-wide (`make coverage`). The hardening sprint
-lifted `internal/cli/completion/` from 0 % to 95.7 %. Test layers:
+Coverage floor is **80 % project-wide**, enforced locally by
+`make coverage-check` (the authoritative source — no figure is hard-coded
+in this README; run `make coverage` for the HTML report or
+`make coverage-check` to verify the floor). The hardening sprint
+lifted `internal/cli/completion/` from 0 % coverage to full coverage of
+the shell generators. Test layers:
 
 - **Unit & integration** — every package under `internal/`.
 - **Architecture gate** — `internal/arch_test.go` fails the build if a
@@ -335,8 +350,14 @@ lifted `internal/cli/completion/` from 0 % to 95.7 %. Test layers:
   the baseline before merging perf-sensitive changes (target: no regression
   > 5 % on the algorithmic hot paths).
 
+> `-race` requires a CGO toolchain (gcc/clang) — available natively on
+> Linux/macOS, and on Windows only via WSL or a locally installed MinGW.
+> On a plain Windows host without gcc, use `make test-win` (no `-race`) or
+> `scripts/check.ps1`; the race detector stays recommended via WSL/Linux.
+
 ```bash
-go test -v -race -cover ./...                        # all tests
+go test -v -race -cover ./...                        # all tests (needs CGO/gcc)
+make test-win                                        # Windows without gcc (no -race)
 go test -v -short ./...                              # skip slow
 go test -bench=. -benchmem ./internal/fibonacci/     # benchmarks
 go test -fuzz=FuzzFastDoublingConsistency -fuzztime=30s ./internal/fibonacci/

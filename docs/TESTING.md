@@ -285,6 +285,19 @@ make coverage                       # Via Makefile
 
 The HTML report (`coverage.html`) highlights tested and untested code paths. Focus areas: algorithm implementations, output formatting, error handling paths, and configuration parsing.
 
+> **Single source of the metric (A5-04)** — The coverage figure is *not* hard-coded in this document. The canonical sources are `make coverage` (HTML report) and `make coverage-check` (floor assertion). Do not quote a frozen percentage here; run the commands to obtain the current value.
+
+### Coverage blind spots (A5-08)
+
+Two categories of code are intentionally not reflected in the standard `coverage.out` totals:
+
+1. **E2E subprocess paths** — The e2e tests (`test/e2e/`) build and execute the `fibcalc` binary as a subprocess (black-box). The `go test` coverage instrumentation does not see code run in a separate process, so these packages are reported as `[no statements]` and the CLI paths the e2e suite exercises are **not** counted in the module total. Measuring them would require building the binary with `go build -cover` (Go 1.20+) and aggregating the per-run profiles emitted to `GOCOVERDIR`. This is **not** wired up today — it is a known, documented limitation.
+2. **GMP backend** — `internal/fibonacci/calculator_gmp.go` is guarded by `//go:build gmp` and requires CGO plus `libgmp`. It is **not** built by default, so it reports **0 %** on hosts without GMP. Validate it on a Linux runner with `libgmp-dev` installed and the `gmp` build tag enabled.
+
+### generate-golden is sparsely covered (A5-09)
+
+`cmd/generate-golden` is the **dev-time** oracle that regenerates the golden corpus; it is outside the production execution path. Its `main` is deliberately left uncovered (~29 %). **Exclude it from any per-package coverage floor** — the floor applies to the **module total** only (see `make coverage-check`, A5-10).
+
 ## End-to-End Testing
 
 File: `test/e2e/cli_e2e_test.go`
@@ -317,6 +330,19 @@ func TestCLI_E2E(t *testing.T) {
 ```bash
 go test -v ./test/e2e/
 ```
+
+## Local Validation Guardrails (A5-02 + A5-10)
+
+There is **no remote CI** for this project (an assumed decision). Pre-commit validation rests entirely on **local guardrails** that the contributor is expected to run before each commit:
+
+| Guardrail | Role |
+|---|---|
+| `scripts/check.ps1` / `scripts/check.sh` | One-shot pre-commit aggregator (lint + tests + coverage floor), Windows (PowerShell) and POSIX (sh) variants |
+| `make coverage-check` | Fails the run if **total** module coverage drops below 80 % (A5-10) |
+| `make test-win` | Full test run **without** `-race` (Windows / no-CGO hosts) |
+| `make test` | Full test run **with** `-race`, requires CGO/gcc (run via WSL or a Linux/macOS host on Windows) |
+
+Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
 
 ## Test Organization
 

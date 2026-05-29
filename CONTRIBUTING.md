@@ -42,7 +42,7 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.26.0 or later
 - Make (optional but recommended)
 ### Setup
 
