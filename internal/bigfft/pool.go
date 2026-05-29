@@ -488,12 +488,30 @@ func acquireFFTState(n int, k uint) *fftState {
 //
 // Parameters:
 //   - state: The fftState to return to the pool. Safe to call with nil.
+// maxPooledFFTTmpCap bounds the capacity (in words) of the tmp/tmp2 buffers a
+// pooled fftState may retain. After a very large FFT, the per-goroutine
+// fftState would otherwise hold multi-MB fermat buffers indefinitely (peak
+// retention) even once the workload shrinks back to small n. Buffers above this
+// cap are returned to the fermat pool (re-pooled if their capacity matches a
+// bucket, else dropped to GC) and detached, mirroring the anti-bloat discipline
+// already applied for the arena (fastdoubling.go) and MaxPooledBitLen
+// (common.go). 524288 words (~4 MB) keeps the common sizes pooled. A2-05.
+const maxPooledFFTTmpCap = 524288
+
 func releaseFFTState(state *fftState) {
 	if state == nil {
 		return
 	}
-	// Keep the allocations for reuse
-	// Note: The internal tmp and tmp2 buffers are kept with the state
-	// and will be reused on the next acquisition, reducing allocations.
+	// Anti-bloat: retain tmp/tmp2 up to maxPooledFFTTmpCap for reuse, but
+	// release oversized buffers so a single huge FFT does not pin peak memory
+	// in the pool for the rest of the process.
+	if cap(state.tmp) > maxPooledFFTTmpCap {
+		releaseFermat(state.tmp)
+		state.tmp = nil
+	}
+	if cap(state.tmp2) > maxPooledFFTTmpCap {
+		releaseFermat(state.tmp2)
+		state.tmp2 = nil
+	}
 	fftStatePool.Put(state)
 }
