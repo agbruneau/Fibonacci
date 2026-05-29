@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit remediation (May 2026)
+
+Remédiation des 45 constats de l'audit multi-agents (`audit/RAPPORT_FINAL.md`,
+plan dans `audit/PLAN_IMPLEMENTATION.md`). Chaque constat est soit corrigé, soit
+acté comme décision documentée. Nouveaux ADR : 0005 (GC concurrent), 0006
+(annulation FFT), 0007 (SA6002 pool).
+
+#### Fixed
+
+- **A2-01 (CRITIQUE)** — Contrôle GC *concurrency-safe* : refcount package-level
+  (`gc_control.go`). En mode `--algo all`, seul le 1ᵉʳ `Begin` actif désactive le
+  GC / mémorise le vrai `GOGC`, seul le dernier `End` restaure et lève la limite
+  mémoire. Invariant `WithGC` panic-safe préservé (ADR-0005).
+- **A2-02 (MAJEUR)** — `TransformCache.logger` → `atomic.Pointer[zerolog.Logger]`
+  (écriture `SetCacheLogger` / lecture hot path `logPeriodicStats`).
+- **A5-01 (MAJEUR)** — Flaky `TestSaveProfile` sous Windows : `renameAtomic`
+  backoff exponentiel borné (10→40 tentatives) + tolérance de l'erreur de partage
+  côté écrivain dans le test.
+- **A1-04 / A1-05 (MINEUR)** — Arithmétique saturante (`EstimateMemoryUsage`) et
+  clamp float→int + ×15 (`AcquireStateForN` / `NewCalculationArena`) contre les
+  débordements à `n` non borné.
+- **A2-05 (MINEUR)** — `releaseFFTState` relâche les buffers `tmp/tmp2` au-delà de
+  `maxPooledFFTTmpCap` (anti-rétention de pic).
+- **A3-03 (MINEUR)** — `FFTOnlyStrategy.Multiply/Square` écrivent dans `z` via
+  `bigfft.MulTo/SqrTo` (suppression alloc neuve + copie O(n)).
+- **Correctness/tests** — A1-01 (cross-val régime FFT F(1M) + oracle
+  `FastDoublingMod`), A1-02 (cross-val GMP, build tag `gmp`), A1-03 (oracle dans
+  `FuzzFastDoublingMod`), A1-08 (assertions T1/T2/T3), A1-06 (métrique `usedFFT`
+  alignée sur FK1).
+- **Idiomatique** — A4-02 (dead code `formatAlgoList`), A4-03 (`RenderBrailleChart`
+  cyclo 17→9), A4-04 (dead store `fermat.norm`), A4-05 (récepteur `fermat`),
+  A4-06 (`run() error` generate-golden), A4-08 (octal `0o`, `if`→`switch`,
+  `paramTypeCombine` ; `bash.go` `%q` *non* appliqué — annotation), A4-13
+  (`#nosec G304`).
+- **Structure/doc** — A5-03 (versions Go 1.26.0/toolchain 1.26.3), A5-06 (path
+  module `github.com/agbruneau/FibGo`), A5-08/A5-09 (angles morts de couverture
+  documentés).
+
+#### Changed
+
+- **A5-02 (MAJEUR) — décision assumée** : pas de CI distante réintroduite.
+  Garde-fous **locaux** ajoutés à la place : cibles `make test-win` /
+  `make coverage-check` (plancher 80 %) et `scripts/check.ps1` / `scripts/check.sh`.
+- **A5-05 / A5-10** — `-race` documenté comme requérant CGO/WSL ; plancher de
+  couverture ré-outillé localement.
+- **A4-07 / A4-09 / A4-10 / A5-07** — `.golangci.yml` : exclusion *stutter* revive
+  ciblée ; `misspell.locale` maintenu **US** (la mesure a infirmé la prémisse
+  « britannique cohérent » : ~339 US vs ~50 UK) avec normalisation des ~50
+  graphies UK résiduelles ; `.gitattributes` `*.go text eol=lf` (faux positifs
+  gofmt CRLF) ; verrou schéma golangci-lint v1 documenté.
+- **A3-01 / A3-04 / A3-06** — Documentation perf corrigée : le cache de
+  transformées FFT ne bénéficie qu'aux chemins `bigfft.Mul/Sqr` / `FFTOnly` (pas
+  au calculateur Fast Doubling par défaut) ; prudence sur l'ordre des algos à
+  très grand N ; domination Karatsuba sous le seuil FFT.
+
+#### Decisions (no-fix documenté)
+
+- **A2-03 (MAJEUR)** — Annulation fine *intra*-multiplication FFT **reportée** au
+  token par-appel (`FFTContext`, ADR-0004 §B1) ; le drapeau atomic global est
+  **rejeté** (clear-race sous FFT concurrentes, ADR-0006). L'annulation grossière
+  existante (entre pas + entre les 3 produits) reste fonctionnelle.
+- **A4-01 (MAJEUR)** — SA6002 : micro-benchmark (ADR-0007) prouve que le fix
+  préservant la signature est **alloc-neutre** ; le vrai zéro-alloc exige le
+  refactor `FFTContext`. Exclusion SA6002 ciblée + ADR.
+- **A2-04** (knobs `threshold` single-writer-before-use), **A2-06** (LRU correct
+  par construction), **A2-07** (deux sémaphores `NumCPU`), **A3-02** (clé cache
+  O(n) gatée par `MinBitLen`), **A3-05** (sous-goroutines FFT sur pool — compromis
+  sécurité concurrence), **A3-07** (baseline conservatrice), **A4-11**
+  (annotations mathématiques conservées), **A4-12** (shadow `err` hot path vérifié
+  bénin) — commentés ou documentés sans changement fonctionnel.
+
+#### Deferred verification (indisponible sur l'hôte Windows `CGO_ENABLED=0`)
+
+- `-race` : A2-01/A2-02/A2-06/A4-04/A4-12 — rejouer `CGO_ENABLED=1 go test -race`
+  sous Linux/WSL.
+- `-tags gmp` : A1-02 — `CGO_ENABLED=1 go test -tags gmp ./internal/fibonacci/`
+  avec `libgmp-dev`.
+- `ns/op` fiables : A3-04/A3-07 — machine de référence Ryzen/Linux idle.
+
 ### Hardening sprint (May 2026)
 
 Architecture / concurrency / security hardening sweep documented in

@@ -30,6 +30,13 @@ const (
 // package does not import config (which would close a cycle via
 // config → fibonacci/memory). The config layer reads these defaults
 // and may override them via SetTuning before any manager is constructed.
+// INVARIANT (A2-04): these package-level tuning knobs are NOT synchronized.
+// They are written ONLY by SetTuning, itself called once at wiring time (by
+// internal/app) BEFORE any DynamicThresholdManager is constructed and before
+// any calculation reads them — single-writer-before-use. Calling SetTuning
+// concurrently with an active calculation would be a data race. The manager's
+// per-instance fields use atomic.Int64/atomic.Pointer; these package defaults
+// stay in clear by this deliberate protocol (no atomic migration this pass).
 var (
 	// FFTSpeedupThreshold is the minimum speedup ratio (baseline / FFT)
 	// at which the dynamic-threshold manager will lower the FFT

@@ -200,6 +200,11 @@ func computeCacheKey(data nat, k uint, n int) uint64 {
 
 // computePolyKey generates a cache key directly from polynomial coefficients,
 // avoiding the intermediate allocation of flattenPolyData.
+//
+// Cost is O(total words): it hashes every coefficient word (A3-02). This only
+// runs above MinBitLen — callers (TransformCached*) gate on cacheGate() BEFORE
+// calling this, so small operands never pay the hash. A sampled (partial) key
+// was rejected: it would break the documented bit-identical-hash contract.
 func computePolyKey(p *Poly, k uint, n int) uint64 {
 	b := newCacheKeyBuilder()
 	b.writeUint64(uint64(k))
