@@ -201,6 +201,8 @@ For large calculations (N ≥ 1M), the `GCController` disables Go's garbage coll
 
 GC control is handled automatically; no user-facing flag or environment variable is exposed. The mode is selected internally based on the calculation size.
 
+> **Note — concurrent comparison (`--algo all`).** When several calculators run in parallel (each with its own `GCController`), GC disable/restore is serialized by a package-level refcount (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`): GC stays off while *any* sibling runs and the real `GOGC` is restored exactly once when the *last* one finishes. See [`docs/adr/0005-gc-control-concurrent.md`](adr/0005-gc-control-concurrent.md).
+
 ### 7. Memory Budget Estimation
 
 Pre-calculate estimated memory usage before starting with `--memory-limit`:

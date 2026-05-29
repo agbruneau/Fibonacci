@@ -69,7 +69,7 @@ docs/
 - **sync.Pool** pour `big.Int` — réduction GC >95 %
 - **State + arena unifiés** — `CalculationState` owne sa `CalculationArena` ; mêmes `[]big.Word` réutilisés entre appels via `AcquireStateForN`/`ReleaseStateWithResult`. Aliases détachés via `finalizeStateRelease` (chemin unique, ordre `checkLimit → clearStateAliases → Put`, gardé par `TestReleaseState_OverLimit_AliasesCleared`).
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
-- **GC désactivé** pendant calculs N ≥ 1M — **panic-safe** via `gcCtrl.WithGC(fn)` (`defer End()`). `Begin`/`End` directs `Deprecated`.
+- **GC désactivé** pendant calculs N ≥ 1M — **panic-safe** via `gcCtrl.WithGC(fn)` (`defer End()`). `Begin`/`End` directs `Deprecated`. Contrôle GC concurrency-safe via refcount package-level (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`) : en mode comparaison (plusieurs `GCController` concurrents), seul le premier `Begin` actif capture le vrai GOGC d'origine et seul le dernier `End` le restaure (A2-01, ADR-0005).
 - **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
 - **Cache FFT** LRU thread-safe — 15-30 % speedup **uniquement sur les chemins qui consultent le cache** : appels directs `bigfft.Mul/Sqr` et `FFTOnlyStrategy` (via `TransformCached*`/`MulCachedWithBump`/`SqrCachedWithBump`). Le calculateur **Fast Doubling par défaut** (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforme FK/FK1 via `TransformWithBump` et **ne consulte pas** le cache : le gain inter-itérations ne s'applique donc pas au mode par défaut (zéro hit/miss). Le recyclage de `backing` à l'éviction a été **retiré** (Audit-PRD E1-R4) : `putByKey` alloue toujours un buffer frais pour éliminer l'aliasing avec un `PolValues` issu d'un `Get()` concurrent. Net cost négligeable sur le hot path.
 - **PGO** supporté via `make build-pgo`
@@ -83,10 +83,10 @@ Les correctifs ci-dessous sont **en place et testés**. Ils encodent des invaria
 | Fichier | Invariant à préserver |
 |---------|-----------------------|
 | `fibonacci/fastdoubling.go` | `finalizeStateRelease` appelle `clearStateAliases` **inconditionnellement** avant tout retour ; gardé par `TestReleaseState_OverLimit_AliasesCleared`. |
-| `fibonacci/memory/gc_control.go` | `WithGC(fn)` est panic-safe (`defer End()`). `Begin`/`End` directs sont `Deprecated` — ne pas les réintroduire. |
+| `fibonacci/memory/gc_control.go` | `WithGC(fn)` est panic-safe (`defer End()`). `Begin`/`End` directs sont `Deprecated` — ne pas les réintroduire. Le save/restore GOGC est concurrency-safe via refcount package-level (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`) ; le champ `originalGCPercent` par contrôleur a été **supprimé** (un save/restore par contrôleur corromprait le GOGC d'origine en mode comparaison) — A2-01, ADR-0005. |
 | `calibration/calibration.go` | `IsStale` doit rester invoqué ; la branche stale doit router vers `CompleteStrategy`. |
-| `bigfft/pool.go` | `releaseWordSlice` route sur `cap` (pas `len`) et incrémente un compteur de miss. |
-| `bigfft/fft_cache.go` | `putByKey` alloue **toujours** un backing frais ; ne pas réintroduire de recyclage à l'éviction — cf. Audit-PRD E1-R4 (aliasing avec un `PolValues` vivant). |
+| `bigfft/pool.go` | `releaseWordSlice` route sur `cap` (pas `len`) et incrémente un compteur de miss. `releaseFFTState` relâche les buffers `tmp`/`tmp2` dont `cap` dépasse `maxPooledFFTTmpCap` (anti-bloat, A2-05). SA6002 (Put de slice valeur) est une **décision documentée alloc-neutre** (mesurée) avec exclusion golangci ciblée `pool.go`/`pool_warming.go` ; le vrai fix = migration `FFTContext` — ADR-0007 (cf. ADR-0004 §B1). |
+| `bigfft/fft_cache.go` | `putByKey` alloue **toujours** un backing frais ; ne pas réintroduire de recyclage à l'éviction — cf. Audit-PRD E1-R4 (aliasing avec un `PolValues` vivant). `TransformCache.logger` est un `atomic.Pointer[zerolog.Logger]` : `SetCacheLogger` ne doit pas racer avec la lecture hot-path de `logPeriodicStats` (A2-02). |
 | `bigfft/fft.go`, `fft_recursion.go` | `fftThreshold`/`parallelFFTRecursionThreshold`/`maxParallelFFTDepth` sont **`atomic.Int64/Uint64` privés** ; lectures via `getFFTThreshold()`/`GetParallelFFTRecursionThreshold()`/`GetMaxParallelFFTDepth()`. Ne pas réintroduire de globaux mutables non synchronisés. |
 | `bigfft/fft.go` (`Mul`/`MulTo`/`Sqr`/`SqrTo`) | Le `recover()` re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent pas être masquées en `error`. Gardé par `TestFermatPostConditionPanicClassifier`. |
 | `fibonacci/threshold/manager.go` | Champs `currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]`. L'invariant A-18 single-writer est **obsolète**. Le package n'importe **pas** `internal/config` ; passer par `threshold.SetTuning` depuis la couche supérieure. |
@@ -104,9 +104,9 @@ Ces fichiers concentrent la complexité ou des couplages cachés. Avant toute mo
 | `internal/fibonacci/fastdoubling.go` | Hot path ; pooling state+arena partagé. Tout chemin de release doit détacher les aliases avant `statePool.Put`. |
 | `internal/fibonacci/doubling_framework.go` | Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est amplifiée. |
 | `internal/fibonacci/threshold/manager.go` | ~283 L ; invariant single-writer non explicité dans le code — ne pas introduire d'écrivain concurrent. |
-| `internal/bigfft/fft_cache.go` | Globaux + cache LRU. Le risque d'aliasing backing/`pv` en éviction est **fermé** : `putByKey` alloue toujours un buffer frais (cf. invariants ci-dessus + ADR-0004 §B1). |
-| `internal/bigfft/pool.go` | Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool` ; routage par capacité critique. |
-| `internal/bigfft/fermat.go` | Panics d'invariants. Les panics post-condition de `Mul`/`Sqr` doivent propager ; le `recover()` global de `fft.go` re-route via le classifier sentinel — cf. ADR-0002. |
+| `internal/bigfft/fft_cache.go` | Globaux + cache LRU. Le risque d'aliasing backing/`pv` en éviction est **fermé** : `putByKey` alloue toujours un buffer frais (cf. invariants ci-dessus + ADR-0004 §B1). `logger` est en `atomic.Pointer[zerolog.Logger]` (A2-02) — ne pas le remettre en champ nu. |
+| `internal/bigfft/pool.go` | Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool` ; routage par capacité critique. `releaseFFTState` borne les buffers réutilisés à `maxPooledFFTTmpCap` (A2-05). SA6002 = décision assumée alloc-neutre, exclusion golangci ciblée (ADR-0007). |
+| `internal/bigfft/fermat.go` | Panics d'invariants. Récepteur uniformisé sur `z`. Les panics post-condition de `Mul`/`Sqr` doivent propager ; le `recover()` global de `fft.go` re-route via le classifier sentinel — cf. ADR-0002. |
 | `internal/bigfft/fft.go`, `fft_recursion.go` | Globaux ramenés à `atomic.Int64`/`atomic.Uint64` privés (ADR-0003). Lectures hot path via les accesseurs. Ne pas réintroduire de globaux non synchronisés. |
 | `internal/tui/model.go` | ~188 L, routeur `Update` pur ; garder la pureté (pas d'effets de bord dans le routage). |
 | `internal/cli/completion/` | Registry unique, 4 générateurs shell ; échappement des identifiants vers le shell — risque de sécurité latent. |
@@ -199,7 +199,7 @@ Cycle typique : modifier le code → `/understand` (régénère le graphe) → r
 ## Références
 
 - **[Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/)** — knowledge-graph navigable (GitHub Pages, built from `docs/dashboard/`).
-- [`docs/adr/`](docs/adr/) — décisions architecturales (0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog).
+- [`docs/adr/`](docs/adr/) — décisions architecturales (0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT reportée au token par-appel/FFTContext, 0007 pool SA6002 pointeur vs valeur).
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph.
 - [`docs/algorithms/`](docs/algorithms/) — Fast Doubling, Matrix, FFT, GMP, comparaison.
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — tuning et méthodologie de benchmark.

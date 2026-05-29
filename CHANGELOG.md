@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Audit remediation (May 2026)
 
-Remédiation des 45 constats de l'audit multi-agents (`audit/RAPPORT_FINAL.md`,
-plan dans `audit/PLAN_IMPLEMENTATION.md`). Chaque constat est soit corrigé, soit
+Remédiation des 45 constats de l'audit multi-agents (rapports d'audit archivés
+en historique git ; plan et décisions consolidés dans les ADR 0005-0007 + ce
+changelog). Chaque constat est soit corrigé, soit
 acté comme décision documentée. Nouveaux ADR : 0005 (GC concurrent), 0006
 (annulation FFT), 0007 (SA6002 pool).
 

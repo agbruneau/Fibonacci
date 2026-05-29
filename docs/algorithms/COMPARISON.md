@@ -12,7 +12,7 @@ This document compares the three Fibonacci calculation algorithms implemented in
 |-----------|--------------|---------------|
 | Fast Doubling | `"fast"` | "Fast Doubling (O(log n), Parallel, Zero-Alloc)" |
 | Matrix Exponentiation | `"matrix"` | "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)" |
-| FFT-Based | `"fft"` | "FFT-Based Doubling (O(log n), FFT Mul)" |
+| FFT-Based | `"fft"` | "FFT-Based Doubling" |
 | Modular Fast Doubling | `--last-digits` mode | "Modular Fast Doubling (O(log n), O(K) memory)" |
 
 An optional GMP-based calculator (`"gmp"`) is available when built with `-tags=gmp`.

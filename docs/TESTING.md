@@ -400,7 +400,8 @@ go test -v -run TestFermat ./internal/bigfft/
 Several tests specifically target concurrent behavior:
 
 - **Race detector**: Local `make test` runs `-race` to detect data races (requires CGO)
-- **Context cancellation**: `TestContextCancellation` verifies algorithms respond to `context.WithTimeout` within 50ms for N=100M
+- **Context cancellation**: `TestContextCancellation` verifies algorithms respond to `context.WithTimeout` within 50ms for N=100M. Cancellation is **coarse-grained** (checked between doubling steps and between the 3 FFT products); fine-grained cancellation *inside* a single giant FFT multiplication is deferred to the `FFTContext` migration — see [`docs/adr/0006-fft-recursion-cancellation.md`](adr/0006-fft-recursion-cancellation.md).
+- **Concurrent GC control**: `TestGCController_ConcurrentBeginEnd_RestoresOriginal` (`internal/fibonacci/memory/gc_control_test.go`) verifies the package-level refcount (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`) keeps GC disabled while any sibling calculator runs and restores the real `GOGC` exactly once — see [`docs/adr/0005-gc-control-concurrent.md`](adr/0005-gc-control-concurrent.md).
 - **Progress monotonicity**: `TestProgressReporter` validates that progress updates across goroutine boundaries never decrease
 - **Parallel FFT tests**: `fft_parallel_test.go` validates thread safety of the FFT subsystem under concurrent load
 

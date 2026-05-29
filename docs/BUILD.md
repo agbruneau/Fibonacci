@@ -206,9 +206,11 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 
 | Target | Description |
 |--------|-------------|
-| `test` | `go test -v -race -cover ./...` |
+| `test` | `go test -v -race -cover ./...` (race requires CGO) |
+| `test-win` | `go test -v -cover ./...` (no `-race`; Windows / no-CGO hosts) |
 | `test-short` | `go test -v -short ./...` |
 | `coverage` | Generate `coverage.html` |
+| `coverage-check` | Fail if module total coverage drops below 80% |
 | `benchmark` | Run benchmarks |
 | `lint` | `golangci-lint run ./...` |
 | `security` | `gosec ./...` |
@@ -260,6 +262,24 @@ golangci-lint run ./...
 | Function statements | 50 |
 
 These limits are relaxed in `_test.go` files to accommodate table-driven test patterns.
+
+## Local Pre-Commit Checks
+
+There is no remote CI; validation is a deliberately local-only responsibility. Two
+equivalent gate scripts run the same sequence (build, vet, test, lint, 80% coverage
+floor):
+
+```bash
+# CGO / Linux / macOS hosts (tests run WITH the race detector)
+./scripts/check.sh
+
+# Windows / no-CGO hosts (tests run WITHOUT -race; the race detector needs a C toolchain)
+pwsh ./scripts/check.ps1
+```
+
+The hard gate is build/vet/test/coverage; `golangci-lint` is run as an advisory step
+(reported but non-blocking). The Makefile exposes the same building blocks via
+`make test` / `make test-win` and `make coverage-check`.
 
 ## Shell Completion
 

@@ -245,7 +245,7 @@ Example profile on disk:
   "num_cpu": 12,
   "goarch": "amd64",
   "goos": "linux",
-  "go_version": "go1.25.0",
+  "go_version": "go1.26.0",
   "word_size": 64,
   "optimal_parallel_threshold": 2048,
   "optimal_fft_threshold": 500000,

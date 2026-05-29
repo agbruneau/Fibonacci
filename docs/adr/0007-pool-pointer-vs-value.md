@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-28
-- **Context source**: audit mai 2026, constat `A4-01` (MAJEUR) — `audit/04_idiomatique.md`.
+- **Context source**: audit mai 2026, constat `A4-01` (MAJEUR), axe 4 Idiomatique (rapport archivé en historique git).
 
 ## Context
 
@@ -53,4 +53,4 @@ Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait «
 - Code concerné : `internal/bigfft/pool.go`, `internal/bigfft/pool_warming.go`.
 - Config : `.golangci.yml` (exclude-rule SA6002 ciblée).
 - Related ADR(s) : ADR-0004 §B1 (migration `FFTContext`, backlog).
-- Audit : `audit/04_idiomatique.md` (A4-01).
+- Audit : axe 4 Idiomatique, constat `A4-01` (rapport archivé en historique git).
