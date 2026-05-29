@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"math"
 	"math/big"
 	"testing"
 	"unsafe"
@@ -109,6 +110,28 @@ func TestCalculationArena_PreSizeFromArena(t *testing.T) {
 
 	// Should be a no-op if already large enough
 	arena.PreSizeFromArena(z, 100)
+}
+
+// TestArenaTotalWords_ClampNoUB checks the sizing helper: bit-identical to the
+// naive formula for realistic n, and clamped (no float->int UB, no int
+// overflow) for a physically uncomputable n. It does NOT allocate the clamped
+// size — only the integer sizing is exercised.
+func TestArenaTotalWords_ClampNoUB(t *testing.T) {
+	t.Parallel()
+
+	naive := func(n uint64) int {
+		return (int(float64(n)*fibonacciGrowthFactor/64) + 1) * 15
+	}
+
+	for _, n := range []uint64{1001, 100_000, 1_000_000, 1_000_000_000, 1_000_000_000_000} {
+		if got, want := arenaTotalWords(n), naive(n); got != want {
+			t.Errorf("arenaTotalWords(%d) = %d, want %d (must match naive formula)", n, got, want)
+		}
+	}
+
+	if got := arenaTotalWords(math.MaxUint64); got != maxReasonableWords {
+		t.Errorf("arenaTotalWords(MaxUint64) = %d, want clamp %d", got, maxReasonableWords)
+	}
 }
 
 func TestCalculationArena_CapacityWords(t *testing.T) {

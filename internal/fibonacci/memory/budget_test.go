@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -30,6 +31,18 @@ func TestEstimateMemoryUsage(t *testing.T) {
 				t.Errorf("estimate %d too high, want <= %d", est.TotalBytes, tc.maxBytes)
 			}
 		})
+	}
+}
+
+// TestEstimateMemoryUsage_SaturatesNoWrap verifies that an extreme (physically
+// uncomputable) n does not wrap TotalBytes toward a small value, which would
+// silently defeat the CanCalculate memory guard.
+func TestEstimateMemoryUsage_SaturatesNoWrap(t *testing.T) {
+	t.Parallel()
+
+	est := EstimateMemoryUsage(math.MaxUint64)
+	if est.TotalBytes < uint64(1)<<62 {
+		t.Errorf("TotalBytes wrapped: got %d, want >= %d", est.TotalBytes, uint64(1)<<62)
 	}
 }
 

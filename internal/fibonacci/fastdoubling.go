@@ -2,6 +2,7 @@ package fibonacci
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"runtime"
 	"sync"
@@ -272,6 +273,31 @@ func AcquireState() *CalculationState {
 	return s
 }
 
+// maxReasonableWords caps arena sizing well above any computable F(n)
+// (≈1.15e18 words ≈ 9 EB). It exists only to keep the float->int conversion
+// and the ×15 multiplication in acquireSizingForN from invoking impl-defined
+// behavior / integer overflow on a physically impossible n — defense-in-depth.
+const maxReasonableWords = 1 << 60
+
+// acquireSizingForN computes (wordsNeeded, totalWords) for F(n): one big.Int of
+// ~n*FibonacciGrowthFactor bits, with totalWords sized for 15 temporaries to
+// match NewCalculationArena. The clamp only changes the result for n far beyond
+// the computable range; for realistic n it is bit-identical to the naive
+// estimatedBits/64+1 then ×15 computation.
+func acquireSizingForN(n uint64) (wordsNeeded, totalWords int) {
+	estimatedFloat := float64(n) * FibonacciGrowthFactor
+	// A float64 outside the int range yields an impl-defined value on
+	// conversion; clamp before converting.
+	if estimatedFloat >= float64(math.MaxInt64) {
+		return maxReasonableWords / 15, maxReasonableWords
+	}
+	wordsNeeded = int(estimatedFloat)/64 + 1
+	if wordsNeeded > maxReasonableWords/15 {
+		return wordsNeeded, maxReasonableWords
+	}
+	return wordsNeeded, wordsNeeded * 15
+}
+
 // AcquireStateForN gets a state from the pool, resets it, and pre-sizes its
 // big.Int slots from the state's bound CalculationArena. For n > 1000 the
 // arena is reused if it is large enough; otherwise a fresh arena is allocated.
@@ -285,10 +311,7 @@ func AcquireStateForN(n uint64) *CalculationState {
 	s.Reset()
 
 	if n > 1000 {
-		estimatedBits := int(float64(n) * FibonacciGrowthFactor)
-		wordsNeeded := estimatedBits/64 + 1
-		// 15 temporaries: matches NewCalculationArena's sizing for FFT doubling.
-		totalWords := wordsNeeded * 15
+		wordsNeeded, totalWords := acquireSizingForN(n)
 
 		if s.arena == nil || s.arenaCapWords < totalWords {
 			s.arena = memory.NewCalculationArena(n)
