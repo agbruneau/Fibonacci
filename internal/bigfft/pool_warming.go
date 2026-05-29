@@ -54,11 +54,12 @@ func PreWarmPools(n uint64) {
 
 	// Determine the number of buffers based on calculation size
 	numBuffers := 2 // Default for small calculations
-	if n >= 10_000_000 {
+	switch {
+	case n >= 10_000_000:
 		numBuffers = 6
-	} else if n >= 1_000_000 {
+	case n >= 1_000_000:
 		numBuffers = 5
-	} else if n >= 100_000 {
+	case n >= 100_000:
 		numBuffers = 4
 	}
 
