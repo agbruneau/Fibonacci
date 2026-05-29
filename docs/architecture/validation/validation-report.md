@@ -2,7 +2,7 @@
 
 > Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 957 nodes / 8 layers / 13-step tour)
 
-**Project**: FibCalc (github.com/agbru/fibcalc)
+**Project**: FibCalc (github.com/agbruneau/FibGo)
 
 This document records the architectural invariants that the documentation
 suite asserts and that have been checked against the source code. It is a

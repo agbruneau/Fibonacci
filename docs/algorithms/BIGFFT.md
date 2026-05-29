@@ -12,7 +12,7 @@ The `internal/bigfft` package implements **Schonhage-Strassen FFT multiplication
 Fermat rings for arbitrarily large integers. It is the computational backbone of all
 Fibonacci algorithms in this project once operand sizes exceed ~500,000 bits.
 
-The subsystem comprises ~30 source files totalling approximately 8,000 lines of Go,
+The subsystem comprises ~19 non-test source files totalling approximately 4,100 lines of Go,
 organized around four concerns:
 
 1. **Public API** -- panic-safe entry points for multiplication and squaring
@@ -463,7 +463,10 @@ type fftState struct {
 Bundles the two temporary fermat buffers needed by a single FFT pass. Managed via
 `sync.Pool` with `acquireFFTState(n, k)` / `releaseFFTState(state)`. Internal
 buffers are retained across acquisitions to avoid re-allocation when the size
-parameters match.
+parameters match. **Anti-bloat (A2-05)**: `releaseFFTState` releases `tmp`/`tmp2`
+buffers whose capacity exceeds `maxPooledFFTTmpCap` (524,288 words, ~4 MB) so a
+single very large FFT does not pin multi-MB buffers in the pool for the rest of
+the process; common sizes stay pooled.
 
 ---
 
@@ -475,9 +478,12 @@ parameters match.
 type TransformCache struct {
     mu        sync.RWMutex
     config    TransformCacheConfig
-    entries   map[[32]byte]*list.Element
+    entries   map[uint64]*list.Element
     lru       *list.List
-    hits, misses, evictions atomic.Uint64
+    hits, misses, evictions, accesses atomic.Uint64
+    // atomic.Pointer so SetCacheLogger does not race with the hot-path read
+    // in logPeriodicStats (A2-02).
+    logger    atomic.Pointer[zerolog.Logger]
 }
 ```
 
@@ -486,16 +492,24 @@ type TransformCache struct {
 | Property | Value |
 |----------|-------|
 | Thread safety | `sync.RWMutex` for concurrent reads, exclusive writes |
-| Key generation | SHA-256 of input data + FFT parameters (k, n) |
+| Key generation | FNV-1a 64-bit hash of input data + FFT parameters (k, n) |
 | Eviction policy | LRU (least recently used) |
-| Default max entries | 128 |
+| Default max entries | 256 |
 | Minimum operand size | 100,000 bits (~12 KB) |
 
 ### Why Cache?
 
-Iterative algorithms like Fibonacci fast doubling repeatedly multiply values that
-evolve slowly. When the same big integer appears in consecutive iterations, the
-cached forward FFT transform avoids redundant computation, yielding **15--30% speedup**.
+When the same big integer is transformed more than once, the cached forward FFT
+transform avoids redundant computation, yielding **15--30% speedup** on the paths
+that consult it.
+
+> **Scope (A3-01)**: The cache is only consulted by the `bigfft.Mul`/`MulTo`/`Sqr`/`SqrTo`
+> entry points (via `fftmulTo`/`fftsqrTo` → `MulCachedWithBump`/`SqrCachedWithBump`).
+> The default Fast Doubling calculator's per-step FFT path (`executeDoublingStepFFT`
+> in `internal/fibonacci/fft.go`, used by both `AdaptiveStrategy` and `FFTOnlyStrategy`)
+> calls the **non-cached** `TransformWithBump` and therefore does **not** benefit from
+> this cache. It applies to operations routed through `smartMultiply`/`smartSquare`
+> (which call `bigfft.MulTo`/`SqrTo`) and to Strassen matrix multiplication.
 
 ### Cached Variants
 
@@ -522,7 +536,7 @@ Available via `GetTransformCache().Stats()`.
 
 ```mermaid
 flowchart TD
-    Input["Input nat + (k, n)"] --> Hash["SHA-256 Key"]
+    Input["Input nat + (k, n)"] --> Hash["FNV-1a 64-bit Key"]
     Hash --> Lookup{"Cache Hit?"}
     Lookup -->|Yes| Clone["Deep-copy cached PolValues"]
     Lookup -->|No| Compute["Compute FFT Transform"]
@@ -604,22 +618,24 @@ of 10 using the FFT multiplier.
 
 | File | Lines | Responsibility |
 |------|-------|---------------|
-| `fft.go` | ~224 | Public API: `Mul`, `MulTo`, `Sqr`, `SqrTo`; FFT size selection |
-| `fft_core.go` | ~105 | Core FFT: `fftmulTo`, `fftsqrTo`, `fourier`, `fourierWithBump` |
-| `fft_recursion.go` | ~138 | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
-| `fft_poly.go` | ~417 | `Poly` and `PolValues` types; transform, multiply, inverse |
-| `fft_cache.go` | ~412 | `TransformCache`: thread-safe LRU for FFT transforms |
-| `fermat.go` | ~219 | Fermat ring arithmetic: Z/(2^k+1) |
-| `pool.go` | ~370 | `sync.Pool` hierarchies (4 types, 33 size classes), `fftState` |
-| `pool_warming.go` | ~99 | `PreWarmPools`, `EnsurePoolsWarmed` |
-| `bump.go` | ~242 | `BumpAllocator`: O(1) bump allocation with capacity estimation |
-| `allocator.go` | ~110 | `TempAllocator` interface, `PoolAllocator`, `BumpAllocatorAdapter` |
-| `memory_est.go` | ~77 | `EstimateMemoryNeeds` for pool pre-warming |
-| `scan.go` | ~87 | `FromDecimalString`: subquadratic decimal parsing |
-| `arith_amd64.go` | ~35 | amd64 vector arithmetic wrappers delegating to `math/big` internals |
-| `arith_generic.go` | ~37 | Non-amd64 vector arithmetic wrappers delegating to `math/big` internals |
-| `arith_decl.go` | ~52 | Architecture-independent `go:linkname` declarations to `math/big` |
-| `cpu_amd64.go` | ~170 | Runtime CPU feature detection (amd64 only) |
+| `fft.go` | ~292 | Public API: `Mul`, `MulTo`, `Sqr`, `SqrTo`; FFT size selection |
+| `fft_core.go` | ~108 | Core FFT: `fftmulTo`, `fftsqrTo`, `fourier`, `fourierWithBump` |
+| `fft_recursion.go` | ~186 | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
+| `fft_recursion_ctx.go` | ~91 | Context-aware FFT recursion variant routing goroutine admission through an `FFTContext`-owned semaphore |
+| `context.go` | ~445 | `FFTContext`: opt-in isolation of cache/semaphore/allocator + context-aware `Mul`/`Sqr` variants (ADR-0004 §B1, ADR-0006) |
+| `fft_poly.go` | ~523 | `Poly` and `PolValues` types; transform, multiply, inverse |
+| `fft_cache.go` | ~629 | `TransformCache`: thread-safe LRU for FFT transforms |
+| `fermat.go` | ~386 | Fermat ring arithmetic: Z/(2^k+1) |
+| `pool.go` | ~517 | `sync.Pool` hierarchies (4 types, 33 size classes), `fftState` |
+| `pool_warming.go` | ~121 | `PreWarmPools`, `EnsurePoolsWarmed` |
+| `bump.go` | ~260 | `BumpAllocator`: O(1) bump allocation with capacity estimation |
+| `allocator.go` | ~90 | `TempAllocator` interface, `PoolAllocator`, `BumpAllocatorAdapter` |
+| `memory_est.go` | ~79 | `EstimateMemoryNeeds` for pool pre-warming |
+| `scan.go` | ~88 | `FromDecimalString`: subquadratic decimal parsing |
+| `arith_amd64.go` | ~32 | amd64 vector arithmetic wrappers delegating to `math/big` internals |
+| `arith_generic.go` | ~36 | Non-amd64 vector arithmetic wrappers delegating to `math/big` internals |
+| `arith_decl.go` | ~65 | Architecture-independent `go:linkname` declarations to `math/big` |
+| `cpu_amd64.go` | ~168 | Runtime CPU feature detection (amd64 only) |
 
 ---
 
@@ -647,7 +663,7 @@ flowchart TD
             Poly["Poly / PolValues"]
             Fermat["Fermat Ring\nZ/(2^k+1)"]
             FFTRec["FFT Recursion\nCooley-Tukey"]
-            Cache["TransformCache\nLRU, SHA-256 keyed"]
+            Cache["TransformCache\nLRU, FNV-1a keyed"]
         end
 
     end

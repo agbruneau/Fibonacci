@@ -68,7 +68,7 @@ See [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING.md](docs/algorithm
 - **State-bound calculation arena** (`internal/fibonacci/memory/`): pooled `CalculationState` owns its arena; same `[]big.Word` block is reused across calls when wide enough (`Reset()` only on the hot path). Aliases are severed before pool return.
 - **GC controller** disables GC during large calculations (N ≥ 1M) with a soft memory-limit safety net.
 - **Result detachment**: `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the caller never aliases pooled memory.
-- **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup. Eviction allocates fresh backing (no recycle) so concurrent `Get()` callers cannot observe a use-after-free.
+- **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup on the paths that consult it (direct `bigfft.Mul`/`Sqr` and the `fft`-only strategy). The default Fast Doubling calculator transforms via `TransformWithBump` and does **not** read the cache, so the inter-iteration gain does not apply to the default mode (A3-01). Eviction allocates fresh backing (no recycle) so concurrent `Get()` callers cannot observe a use-after-free.
 - **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()`.
 - **Dynamic thresholds** with hysteresis (parallel, FFT, Strassen) adjusted from observed metrics. Atomic-backed (`sync/atomic.Int64`) — safe under concurrent reads (see [`docs/adr/0001-dtm-decision.md`](docs/adr/0001-dtm-decision.md)).
 - **Auto-calibration** (`-calibrate`), versioned profile persistence, CPU-heuristic key to invalidate stale cache.
@@ -303,7 +303,7 @@ internal/
     component/        # reusable TUI component
   ui/                 # color themes, NO_COLOR
 docs/
-  adr/                # Architectural Decision Records (0000-template, 0001..0004)
+  adr/                # Architectural Decision Records (0000-template, 0001..0007)
   architecture/       # C4 diagrams, dependency graph, patterns
   algorithms/         # math deep dives per algorithm
   audits/             # benchmark baseline + DTM on/off measurements
