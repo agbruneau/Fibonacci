@@ -64,7 +64,10 @@ type TransformCache struct {
 	misses    atomic.Uint64
 	evictions atomic.Uint64
 	accesses  atomic.Uint64
-	logger    zerolog.Logger
+	// logger is an atomic.Pointer so SetCacheLogger (called from the wiring
+	// layer, possibly after FFT work has started) does not race with the
+	// hot-path read in logPeriodicStats. A2-02.
+	logger atomic.Pointer[zerolog.Logger]
 }
 
 // Config returns the current configuration of the transform cache.
@@ -86,18 +89,22 @@ func (tc *TransformCache) cacheGate() (enabled bool, minBitLen int) {
 
 // NewTransformCache creates a new FFT transform cache with the given config.
 func NewTransformCache(config TransformCacheConfig) *TransformCache {
-	return &TransformCache{
+	tc := &TransformCache{
 		config:  config,
 		entries: make(map[uint64]*list.Element),
 		lru:     list.New(),
-		logger:  zerolog.Nop(),
 	}
+	nop := zerolog.Nop()
+	tc.logger.Store(&nop)
+	return tc
 }
 
 // SetCacheLogger configures the logger for the global FFT transform cache.
+// Safe to call concurrently with FFT operations: the logger is stored in an
+// atomic.Pointer (A2-02).
 func SetCacheLogger(l zerolog.Logger) {
 	cache := GetTransformCache()
-	cache.logger = l
+	cache.logger.Store(&l)
 }
 
 // globalTransformCache is the package-level transform cache.
@@ -298,7 +305,7 @@ func (tc *TransformCache) logPeriodicStats() {
 	tc.mu.RLock()
 	size := tc.lru.Len()
 	tc.mu.RUnlock()
-	tc.logger.Debug().
+	tc.logger.Load().Debug().
 		Uint64("hits", hits).
 		Uint64("misses", misses).
 		Float64("hit_rate", hitRate).
