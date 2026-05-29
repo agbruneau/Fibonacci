@@ -169,18 +169,27 @@ func (p *CalibrationProfile) SaveProfile(path string) error {
 // volume on both POSIX and Windows. On Windows, however, the replace fails
 // with a sharing/access error if another process currently holds the target
 // open (e.g. a concurrent reader), even though no truncation ever occurs.
-// A short bounded retry absorbs that transient window so concurrent
-// save/load across processes does not spuriously fail; on POSIX the first
-// attempt succeeds and the loop is a no-op.
+// A bounded exponential backoff retry (delay = min(5ms << attempt, 50ms))
+// absorbs that transient window so concurrent save/load across processes does
+// not spuriously fail; on POSIX the first attempt succeeds and the loop is a
+// no-op.
 func renameAtomic(src, dst string) error {
-	const maxAttempts = 10
+	const (
+		maxAttempts = 40
+		baseDelay   = 5 * time.Millisecond
+		maxDelay    = 50 * time.Millisecond
+	)
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if err = os.Rename(src, dst); err == nil {
 			return nil
 		}
 		if attempt < maxAttempts-1 {
-			time.Sleep(time.Duration(attempt+1) * 5 * time.Millisecond)
+			delay := baseDelay << attempt
+			if delay > maxDelay || delay <= 0 {
+				delay = maxDelay
+			}
+			time.Sleep(delay)
 		}
 	}
 	return err
