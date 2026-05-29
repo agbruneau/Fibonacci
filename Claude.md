@@ -9,7 +9,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 ## Projet
 
 - **Module** : `github.com/agbruneau/FibGo`
-- **Go** : 1.25.0+ (toolchain 1.26.2)
+- **Go** : 1.26.0+ (toolchain 1.26.3)
 - **Licence** : Apache 2.0
 - **Taille** : exécuter `make stats` pour le décompte de packages et LOC à jour. Référence historique : ~35 500 LOC `.go` au commit de l'audit v1.
 - **CI/CD** : aucun (workflows GitHub Actions retirés). Validation locale uniquement — `make test` (race, requiert CGO/gcc), `make lint`, `make benchmark` avant chaque commit perf-sensitive.
@@ -71,7 +71,7 @@ docs/
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
 - **GC désactivé** pendant calculs N ≥ 1M — **panic-safe** via `gcCtrl.WithGC(fn)` (`defer End()`). `Begin`/`End` directs `Deprecated`.
 - **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
-- **Cache FFT** LRU thread-safe — 15-30 % speedup. Le recyclage de `backing` à l'éviction a été **retiré** (Audit-PRD E1-R4) : `putByKey` alloue toujours un buffer frais pour éliminer l'aliasing avec un `PolValues` issu d'un `Get()` concurrent. Net cost négligeable sur le hot path.
+- **Cache FFT** LRU thread-safe — 15-30 % speedup **uniquement sur les chemins qui consultent le cache** : appels directs `bigfft.Mul/Sqr` et `FFTOnlyStrategy` (via `TransformCached*`/`MulCachedWithBump`/`SqrCachedWithBump`). Le calculateur **Fast Doubling par défaut** (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforme FK/FK1 via `TransformWithBump` et **ne consulte pas** le cache : le gain inter-itérations ne s'applique donc pas au mode par défaut (zéro hit/miss). Le recyclage de `backing` à l'éviction a été **retiré** (Audit-PRD E1-R4) : `putByKey` alloue toujours un buffer frais pour éliminer l'aliasing avec un `PolValues` issu d'un `Get()` concurrent. Net cost négligeable sur le hot path.
 - **PGO** supporté via `make build-pgo`
 
 ---

@@ -27,6 +27,8 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
 | 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,909 |
 
+> **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless (~2x lower peak than Matrix). Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
+
 ### Comparison snapshot — Intel Core Ultra 9 275HX (24 cores)
 
 Informative only; kept for cross-architecture comparison. Ryzen remains the canonical reference.
@@ -160,6 +162,8 @@ func smartMultiply(z, x, y *big.Int, fftThreshold int) (*big.Int, error) {
 | 1 | FFT (Schonhage-Strassen) | O(n log n) | > 500,000 bits |
 | 2 | Standard `math/big` | O(n^2) / O(n^1.585) | Below FFT threshold |
 
+> **Note — sub-threshold cost is library-bound.** For 500K < bits < a few M (below `DefaultFFTThreshold` = 500,000), wall time is dominated by `math/big`'s Karatsuba multiplication and `sync.Pool` P-pinning, not by project code. This is the expected behavior under the FFT threshold and is not a regression of the calculator itself.
+
 ### 3. Multi-core Parallelism
 
 The three main multiplications in the Fast Doubling algorithm can be parallelized via the `DoublingStepExecutor.ExecuteStep` method. The strategy dispatches multiplication work across goroutines when the operand size exceeds the parallel threshold.
@@ -251,6 +255,8 @@ fibcalc --auto-calibrate
 | `FFTCacheMinBitLen` | 100,000 bits | Minimum operand bit length to cache FFT transforms |
 | `FFTCacheMaxEntries` | 128 entries | Maximum number of cached FFT transforms |
 | `FFTCacheEnabled` | `true` | Enable/disable FFT transform caching |
+
+> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr` calls and `FFTOnlyStrategy`. The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; see ADR-0004 §B1. Reworking the default step to use the cache is a won't-fix without a supporting benchmark.
 
 #### Dynamic Threshold Adjustment
 
