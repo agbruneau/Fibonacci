@@ -59,7 +59,7 @@ func zshHelp(f FlagCompletion) string {
 
 // zshArgEntry formats a single FlagCompletion as a zsh _arguments entry.
 func zshArgEntry(f FlagCompletion) string {
-	help := zshHelp(f)
+	help := escapeZshSingleQuoted(zshHelp(f))
 
 	// Build the value suffix
 	valueSuffix := ""
@@ -69,7 +69,7 @@ func zshArgEntry(f FlagCompletion) string {
 	case f.IsAlgo:
 		valueSuffix = fmt.Sprintf(":%s:($algorithms)", f.ValueName)
 	case len(f.Values) > 0:
-		valueSuffix = fmt.Sprintf(":%s:(%s)", f.ValueName, strings.Join(f.Values, " "))
+		valueSuffix = fmt.Sprintf(":%s:(%s)", f.ValueName, formatZshValueList(f.Values))
 	case f.ValueName != "":
 		// Value-taking flag with no suggestions (e.g., -n)
 		valueSuffix = fmt.Sprintf(":%s:", f.ValueName)

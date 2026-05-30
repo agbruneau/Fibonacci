@@ -86,6 +86,17 @@ func formatAlgoListZsh(algorithms []string) string {
 	return strings.Join(parts, " ")
 }
 
+// formatZshValueList escapes and space-joins static completion values for a
+// zsh ':name:(...)' value group, which is itself spliced inside the
+// single-quoted _arguments entry (so each value follows the '...' escape rule).
+func formatZshValueList(values []string) string {
+	escaped := make([]string, len(values))
+	for i, v := range values {
+		escaped[i] = escapeZshSingleQuoted(v)
+	}
+	return strings.Join(escaped, " ")
+}
+
 // formatAlgoListFish joins algorithm names for the fish completion
 // argument, escaping each entry for splicing inside '...'.
 func formatAlgoListFish(algorithms []string) string {

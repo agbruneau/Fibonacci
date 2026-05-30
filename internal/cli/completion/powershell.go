@@ -13,11 +13,11 @@ func GeneratePowerShell(out io.Writer, algorithms []string) error {
 	for _, f := range flagRegistry {
 		if f.Short != "" {
 			optionEntries = append(optionEntries, fmt.Sprintf(
-				"        @{Name = '-%s'; Description = '%s' }", f.Short, f.Help))
+				"        @{Name = '-%s'; Description = '%s' }", f.Short, escapePowerShellSingleQuoted(f.Help)))
 		}
 		if f.Long != "" {
 			optionEntries = append(optionEntries, fmt.Sprintf(
-				"        @{Name = '--%s'; Description = '%s' }", f.Long, f.Help))
+				"        @{Name = '--%s'; Description = '%s' }", f.Long, escapePowerShellSingleQuoted(f.Help)))
 		}
 	}
 
@@ -90,7 +90,7 @@ Register-ArgumentCompleter -CommandName 'fibcalc' -Native -ScriptBlock {
 func psSwitchEntry(f FlagCompletion) string {
 	var quotedVals []string
 	for _, v := range f.Values {
-		quotedVals = append(quotedVals, fmt.Sprintf("'%s'", v))
+		quotedVals = append(quotedVals, fmt.Sprintf("'%s'", escapePowerShellSingleQuoted(v)))
 	}
 	return fmt.Sprintf(`        '--%s' {
             @(%s) | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {

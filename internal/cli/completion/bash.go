@@ -21,7 +21,7 @@ func bashStaticValueCase(f FlagCompletion) bashCase {
 	return bashCase{
 		patterns: []string{"--" + f.Long},
 		//nolint:gocritic // %s intentionnel: litteral bash -W, %q=quoting Go non-shell; echappement via escape.go
-		body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(f.Values, " ")),
+		body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, formatAlgoListBash(f.Values)),
 	}
 }
 
@@ -99,7 +99,7 @@ func collectBashGroupedCases() []bashCase {
 		cases = append(cases, bashCase{
 			patterns: patterns,
 			//nolint:gocritic // %s intentionnel: litteral bash -W, %q=quoting Go non-shell; echappement via escape.go
-			body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, strings.Join(vals, " ")),
+			body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, formatAlgoListBash(vals)),
 		})
 	}
 	return cases
