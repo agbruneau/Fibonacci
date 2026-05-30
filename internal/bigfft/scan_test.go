@@ -165,3 +165,28 @@ func TestFromDecimalString_Performance(t *testing.T) {
 		t.Error("Large input conversion failed")
 	}
 }
+
+// TestFromDecimalString_Malformed verifies that malformed (non-empty) base-10
+// input is rejected with an error rather than silently truncated by SetString
+// (audit F-016). The empty-string edge case is covered separately and still
+// maps to zero.
+func TestFromDecimalString_Malformed(t *testing.T) {
+	t.Parallel()
+	cases := []string{
+		"12x45",
+		"abc",
+		"1.5",
+		"9z9",
+		// Longer than quadraticScanThreshold so the recursive scan path is
+		// exercised: the trailing non-digit must propagate an error out.
+		"1" + strings.Repeat("0", 1300) + "x",
+	}
+	for _, in := range cases {
+		t.Run(in[:min(12, len(in))], func(t *testing.T) {
+			t.Parallel()
+			if _, err := FromDecimalString(in); err == nil {
+				t.Errorf("FromDecimalString(%q) = nil error; want an error for malformed input", in)
+			}
+		})
+	}
+}

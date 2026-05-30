@@ -60,7 +60,17 @@ func (s *scanner) scan(z *big.Int, str string) error {
 // to reduce allocations during the divide-and-conquer parsing.
 func (s *scanner) scanWithTemp(z *big.Int, str string, temp *big.Int) error {
 	if len(str) <= quadraticScanThreshold {
-		z.SetString(str, 10)
+		// Empty input is treated as zero (documented edge case, see
+		// TestFromDecimalString_EdgeCases). Any other base-10 string must be
+		// validated: SetString silently truncates on malformed input, so we
+		// reject it instead of returning a wrong result (audit F-016).
+		if str == "" {
+			z.SetInt64(0)
+			return nil
+		}
+		if _, ok := z.SetString(str, 10); !ok {
+			return fmt.Errorf("bigfft: invalid decimal input %q", str)
+		}
 		return nil
 	}
 	sz, pow := s.chunkSize(len(str))
