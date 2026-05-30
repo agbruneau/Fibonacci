@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit exactness pass (2026-05-29)
+
+Audit de suivi (23 constats `F-NN`, rapport archivé
+`docs/audits/audit-2026-05-29.md`) ciblant correctness fine, durcissement
+sécurité et angles morts de couverture. 12 constats corrigés ; le reste différé
+ou report-only.
+
+#### Security
+
+- **F-014** — Les 4 générateurs de complétion shell (bash/zsh/fish/powershell)
+  échappent désormais `f.Help` et `f.Values` vers le shell (durcissement
+  injection ; helpers `escape*` dans `internal/cli/completion/escape.go`).
+
+#### Fixed
+
+- **F-016** — `bigfft.FromDecimalString` rejette désormais une entrée décimale
+  malformée (`SetString` tronquait silencieusement) ; le contrat `""` → 0 est
+  préservé.
+- **F-022** — `internal/errors` : la constante locale `max` (shadowing du builtin)
+  renommée `maxLen`.
+
+#### Added
+
+- **Couverture** — Nouveaux tests de garde : F-001 (correction DTM-on de
+  `FastDoubling`), F-006 (branche oversize de `releaseMatrixState`), F-007
+  (seam `threshold.SetTuning`), F-008 (fallback d'épuisement d'arène
+  `preSizeBigInt`).
+
+#### Docs
+
+- **F-015** — Commentaire d'identité erroné corrigé dans `executeDoublingStepFFT`.
+- Corrections d'exactitude `CLAUDE.md` / baseline (versions, comptes, renvois)
+  alignées sur le code réel.
+
 ### Audit remediation (May 2026)
 
 Remédiation des 45 constats de l'audit multi-agents (rapports d'audit archivés

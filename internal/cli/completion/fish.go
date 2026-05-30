@@ -89,7 +89,7 @@ func fishCompleteLine(f FlagCompletion, algoList string) string {
 		parts = append(parts, fmt.Sprintf("-l %s", f.Long))
 	}
 
-	parts = append(parts, fmt.Sprintf("-d '%s'", f.Help))
+	parts = append(parts, fmt.Sprintf("-d '%s'", escapeFishSingleQuoted(f.Help)))
 
 	switch {
 	case f.IsFile:
@@ -97,7 +97,7 @@ func fishCompleteLine(f FlagCompletion, algoList string) string {
 	case f.IsAlgo:
 		parts = append(parts, fmt.Sprintf("-xa '%s all'", algoList))
 	case len(f.Values) > 0:
-		parts = append(parts, fmt.Sprintf("-xa '%s'", strings.Join(f.Values, " ")))
+		parts = append(parts, fmt.Sprintf("-xa '%s'", formatAlgoListFish(f.Values)))
 	case f.ValueName != "":
 		// Takes a value but no suggestions (e.g., -n)
 		parts = append(parts, "-x")

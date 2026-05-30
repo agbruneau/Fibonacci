@@ -1,6 +1,6 @@
 # GMP-Based Calculator
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 ## Overview
 
@@ -48,8 +48,12 @@ When built with `-tags=gmp`, the GMP calculator auto-registers itself via an `in
 ```go
 //go:build gmp
 
+func RegisterGMPCalculator(f *DefaultFactory) {
+    f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })
+}
+
 func init() {
-    RegisterCalculator("gmp", func() coreCalculator { return &GMPCalculator{} })
+    RegisterGMPCalculator(globalFactory)
 }
 ```
 

@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-Academic_Prototype-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
 
-> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (744 nodes, 3 526 edges, 8 layers, 13-step guided tour).
+> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (747 nodes, 3 540 edges, 8 layers, 13-step guided tour).
 
 **FibCalc** is an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It demonstrates Clean Architecture, zero-allocation strategies, adaptive parallelism, and algorithmic optimization (Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication). Written in Go; handles indices in the hundreds of millions.
 
@@ -82,7 +82,7 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 - **Modern CLI**: spinners, ETA, color themes, `NO_COLOR` support.
 - **Interactive TUI** (`--tui`): btop-style dashboard (Bubble Tea) — progress chart, sparklines, memory metrics, keyboard navigation. See [`docs/TUI_GUIDE.md`](docs/TUI_GUIDE.md).
 - **Machine-readable output** (`--machine`) for scripting.
-- **Shell completion**: bash, zsh, fish, PowerShell (`fibcalc -completion <shell>`).
+- **Shell completion**: bash, zsh, fish, PowerShell (`fibcalc -completion <shell>`). All four generators shell-escape interpolated flag help text and static values (per-shell quoting rules in `internal/cli/completion/escape.go`), closing the script-injection vector (audit F-014).
 
 ---
 
@@ -90,7 +90,7 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 Clean Architecture with four layers. Source of truth: [`docs/architecture/`](docs/architecture/).
 
-> **Interactive view** — Browse the full knowledge graph (744 nodes, 3 526 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
+> **Interactive view** — Browse the full knowledge graph (747 nodes, 3 540 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
 
 ```mermaid
 graph TD
@@ -129,6 +129,8 @@ Full package list and dependency graph: [`docs/architecture/README.md`](docs/arc
 ## Performance Benchmarks
 
 Reference platform: **AMD Ryzen 9 5900X** (12 C / 24 T), 32 GB DDR4-3600, Linux 6.1, Go 1.25.0.
+
+> **Provenance** — These are historical measurements (env. Go 1.25.0); the project now targets Go 1.26.0. The figures and platform above are kept as a snapshot, not re-measured per toolchain bump. For up-to-date numbers on your host, run `make benchmark`.
 
 | N            | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
 |--------------|---------------|-------------|-----------|-----------------|

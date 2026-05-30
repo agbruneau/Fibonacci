@@ -1,6 +1,6 @@
 # Calibration System
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 ## Overview
 
@@ -109,7 +109,7 @@ If micro-benchmarks produce low confidence, `newCalibrationRunner()` executes ta
 - `findBestFFTThreshold()` with the "fast" calculator
 - `findBestStrassenThreshold()` with the "matrix" calculator (if available)
 
-Each method iterates over a reduced candidate set (`GenerateQuickParallelThresholds()`, `GenerateQuickFFTThresholds()`, `GenerateQuickStrassenThresholds()`). The profile is saved after successful calibration.
+Each method iterates over its candidate set (`GenerateQuickParallelThresholds()`, `GenerateFFTThresholds()`, `GenerateQuickStrassenThresholds()`). The profile is saved after successful calibration.
 
 > **Architecture note:** the calibration flow is structured around the **Strategy pattern** — `CalibrationStrategy` (`strategy.go`) with concrete `FastStrategy` (`strategy_fast.go`, micro-benchmark tier) and `CompleteStrategy` (`strategy_complete.go`, full runner tier). `calibration.go` selects/escalates strategies, including the stale-profile branch (`IsStale` → `CompleteStrategy`). The `calibrationRunner` described under "Calibration Runner" is the execution helper invoked by `CompleteStrategy`, not a directly-called entry point.
 
@@ -128,15 +128,15 @@ The micro-benchmarking engine provides rapid threshold estimation by testing raw
 ### Configuration
 
 ```go
-const MicroBenchIterations = 3
-
-// MicroBenchTimeout / MicroBenchPerTestTimeout are vars (not consts) sourced
-// from config.DefaultThresholdTuning — the canonical values live alongside the
-// other dynamic-tuning knobs and can be re-pointed in tests.
-var (
-    MicroBenchTimeout        = config.DefaultThresholdTuning.MicroBenchTimeout        // ~150ms default
-    MicroBenchPerTestTimeout = config.DefaultThresholdTuning.MicroBenchPerTestTimeout // ~30ms default
+const (
+    MicroBenchIterations     = 3
+    MicroBenchPerTestTimeout = 30 * time.Millisecond // per individual test
 )
+
+// MicroBenchTimeout is a var (not a const) sourced from
+// config.DefaultThresholdTuning — the canonical value lives alongside the
+// other dynamic-tuning knobs and can be re-pointed in tests.
+var MicroBenchTimeout = config.DefaultThresholdTuning.MicroBenchTimeout // ~150ms default
 
 var MicroBenchTestSizes = []int{500, 2000, 8000, 16000} // word counts
 ```
@@ -329,7 +329,7 @@ Three search methods iterate over their respective candidate lists:
 | Method | Calculator | Options Varied | Candidates Source |
 |--------|-----------|----------------|-------------------|
 | `findBestParallelThreshold()` | "fast" | `ParallelThreshold` | `GenerateQuickParallelThresholds()` |
-| `findBestFFTThreshold()` | "fast" | `FFTThreshold` (with best parallel) | `GenerateQuickFFTThresholds()` |
+| `findBestFFTThreshold()` | "fast" | `FFTThreshold` (with best parallel) | `GenerateFFTThresholds()` |
 | `findBestStrassenThreshold()` | "matrix" | `StrassenThreshold` (with best parallel) | `GenerateQuickStrassenThresholds()` |
 
 Each method returns the best threshold and its duration. If all trials fail (timeout or error), the default threshold is preserved.

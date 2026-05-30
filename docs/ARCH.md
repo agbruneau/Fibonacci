@@ -2,14 +2,14 @@
 
 > **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
 
-> **Vue interactive** — Un dashboard navigable du graphe de connaissances (744 nœuds, 3 526 arêtes, 8 couches, tour guidé 13 étapes) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`.understand-anything/knowledge-graph.json`](../.understand-anything/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
+> **Vue interactive** — Un dashboard navigable du graphe de connaissances (747 nœuds, 3 540 arêtes, 8 couches, tour guidé 13 étapes) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`.understand-anything/knowledge-graph.json`](../.understand-anything/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
 
 ## 1) Project Overview
 
 **FibGo** (module/library name: **FibCalc**) is a high-performance Fibonacci computation system implemented in Go.
 
 - **Go module path:** `github.com/agbruneau/FibGo`
-- **Go version:** 1.26.0+ (toolchain 1.26.3)
+- **Go version:** 1.26.0+ (`go.mod` declares `go 1.26.0`, no `toolchain` directive)
 - **Primary binary:** `cmd/fibcalc`
 - **Codebase stats:** run `make stats` for the canonical Go-package and LOC counts (the totals drift on every refactor; encoding them statically here has historically caused divergence between this document, `CLAUDE.md` and reality).
 - **Purpose:** compute very large Fibonacci values efficiently, compare multiple algorithms, and expose both CLI and TUI execution modes.
@@ -100,7 +100,7 @@ fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
 ├── cmd/
 │   ├── fibcalc/                 # Main application entrypoint
 │   └── generate-golden/         # Golden-data generator for tests
-├── internal/                    # 16 top-level packages (+ fibonacci/memory, fibonacci/threshold)
+├── internal/                    # 15 top-level packages (+ fibonacci/memory, fibonacci/threshold)
 ├── test/
 │   └── e2e/                     # End-to-end CLI tests
 ├── docs/                        # Architecture, algorithm, build, test, perf docs
@@ -121,7 +121,7 @@ fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
 ```text
 internal/
 ├── app/                         # Lifecycle, mode dispatch, version, DI via WithFactory()
-├── bigfft/                      # FFT multiplication engine for big.Int (~17 non-test .go files)
+├── bigfft/                      # FFT multiplication engine for big.Int
 │   ├── fft.go                   # Public API: Mul, MulTo, Sqr, SqrTo
 │   ├── fft_core.go              # Core FFT algorithm
 │   ├── fft_recursion.go         # Recursive FFT decomposition, parallelism config
@@ -150,7 +150,7 @@ internal/
 ├── parallel/                    # Thread-safe first-error collector
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
-├── tui/                         # Bubble Tea interactive dashboard (12 files)
+├── tui/                         # Bubble Tea interactive dashboard
 └── ui/                          # Themes/colors/NO_COLOR behavior
 ```
 
@@ -727,6 +727,8 @@ From `go.mod`, direct dependencies are:
 ---
 
 ## 14) Architectural Decision Records (ADR)
+
+> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0007`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.

@@ -1,6 +1,6 @@
 # TUI Developer Guide
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 Interactive terminal dashboard inspired by btop, built on Bubble Tea (Elm architecture).
 Activated via the `--tui` flag or the `FIBCALC_TUI=true` environment variable.
@@ -55,23 +55,45 @@ type Model struct {
     metrics MetricsModel
     chart   ChartModel
     footer  FooterModel
-    keymap  KeyMap
-    parentCtx, ctx context.Context
-    cancel         context.CancelFunc
-    config         config.AppConfig
-    calculators    []fibonacci.Calculator
-    generation     uint64
-    ref            *programRef
-    width, height  int
-    paused, done   bool
-    exitCode       int
+
+    keymap KeyMap
+
+    ExecutionState // embedded: ctx, cancel, calculators, generation, done, exitCode
+    LayoutManager  // embedded: width, height
+
+    parentCtx context.Context
+    config    config.AppConfig
+    ref       *programRef
+    paused    bool
+}
+
+// ExecutionState (model.go) groups the per-run execution fields so they can be
+// reset together on the `r` key without touching layout/config.
+type ExecutionState struct {
+    ctx         context.Context
+    cancel      context.CancelFunc
+    calculators []orchestration.Calculator
+    generation  uint64
+    done        bool
+    exitCode    int
+}
+
+// LayoutManager (layout.go) holds terminal dimensions and the layout math.
+type LayoutManager struct {
+    width  int
+    height int
 }
 ```
 
+`Model` composes two embedded structs rather than holding every field flat:
+`ExecutionState` owns the lifecycle fields, `LayoutManager` owns the dimensions
+and exposes the percentage/clamp helpers used by `layoutPanels()`.
+
 | Field | Purpose |
 |-------|---------|
-| `parentCtx` / `ctx` / `cancel` | Parent context survives restarts; child context is recreated on reset |
-| `generation` | Monotonic counter that invalidates stale messages from previous calculations |
+| `parentCtx` / `ExecutionState.ctx` / `ExecutionState.cancel` | Parent context survives restarts; child context is recreated on reset |
+| `ExecutionState.calculators` | The `[]orchestration.Calculator` batch run for this session (TUI consumes the `orchestration` aliases, not `internal/fibonacci` directly) |
+| `ExecutionState.generation` | Monotonic counter that invalidates stale messages from previous calculations |
 | `ref` | Heap-allocated pointer to `tea.Program` that survives model copies |
 
 ### Init
@@ -123,7 +145,7 @@ func (m Model) View() string {
 +-----------------------------------------------------------------------------+
 ```
 
-Constants: `headerHeight=1`, `footerHeight=1`, `minBodyHeight=4`, `metricsFixedH=7`.
+Constants: `headerHeight=1`, `footerHeight=1`, `minBodyHeight=4`, `MetricsPanelHeight=7`.
 
 `layoutPanels()` is called on every `WindowSizeMsg`: logsWidth = 60%, rightWidth = 40%,
 metricsH = fixed 7 (capped at half body height), chartH = remaining body height.
@@ -173,8 +195,10 @@ the panel width. When done, displays total elapsed time instead of ETA.
 | `ComparisonResultsMsg` | `Results []CalculationResult` | `TUIResultPresenter` | logs |
 | `FinalResultMsg` | `Result`, `N`, `Verbose`, `Details`, `ShowValue` | `TUIResultPresenter` | logs |
 | `ErrorMsg` | `Err`, `Duration` | `TUIResultPresenter` | logs, footer |
-| `TickMsg` | `time.Time` | `tickCmd()` (500ms) | triggers `sampleMemStatsCmd()` |
-| `MemStatsMsg` | `Alloc`, `NumGC`, `NumGoroutine` | `sampleMemStatsCmd()` | metrics |
+| `TickMsg` | `time.Time` (`type TickMsg time.Time`) | `tickCmd()` (500ms) | `handleTick()`: when running, batches `sampleMemStatsCmd()` + `sampleSysStatsCmd()` + `tickCmd()`; when paused, re-arms only `tickCmd()` |
+| `MemStatsMsg` | `Alloc`, `HeapSys`, `NumGC`, `PauseTotalNs`, `NumGoroutine` | `sampleMemStatsCmd()` | metrics |
+| `SysStatsMsg` | `CPUPercent`, `MemPercent` | `sampleSysStatsCmd()` | chart (`UpdateSysStats`) |
+| `IndicatorsMsg` | `Indicators *metrics.Indicators` | `computeIndicatorsCmd()` | metrics (`UpdateIndicators`) |
 | `CalculationCompleteMsg` | `ExitCode`, `Generation` | `startCalculationCmd()` | header, chart, footer |
 | `ContextCancelledMsg` | `Err`, `Generation` | `watchContextCmd()` | triggers `tea.Quit` |
 
@@ -211,22 +235,43 @@ The bridge goroutine drains the progress channel, computes ETA via
 ### programRef
 
 ```go
+// ErrProgramNotInitialized is returned by Send before SetProgram has wired
+// the underlying tea.Program (race window between bridge goroutines starting
+// and the model's Init/Run injecting the program).
+var ErrProgramNotInitialized = errors.New("tui: program not initialized")
+
 type programRef struct {
+    mu      sync.RWMutex
     program *tea.Program
 }
 
-func (r *programRef) Send(msg tea.Msg) {
-    if r.program != nil {
-        r.program.Send(msg)
+func (r *programRef) SetProgram(p *tea.Program) {
+    r.mu.Lock()
+    r.program = p
+    r.mu.Unlock()
+}
+
+func (r *programRef) Send(msg tea.Msg) error {
+    r.mu.RLock()
+    p := r.program
+    r.mu.RUnlock()
+    if p == nil {
+        return ErrProgramNotInitialized
     }
+    p.Send(msg)
+    return nil
 }
 ```
 
 **Problem**: Bubble Tea copies the Model on every `Update()`, so goroutines cannot hold a
 stable reference to the model.
 
-**Solution**: `programRef` is heap-allocated with a pointer to `tea.Program`. The model
-stores `*programRef`, which survives copies. `tea.Program.Send()` is thread-safe.
+**Solution**: `programRef` is heap-allocated with a pointer to `tea.Program`, guarded by a
+`sync.RWMutex`. The model stores `*programRef`, which survives copies. `SetProgram` wires
+the program once (from `Run()`), and `Send` returns `ErrProgramNotInitialized` rather than
+silently dropping a message if it fires before wiring. Bridge call sites that cannot
+propagate the error use the internal `sendOrLog` helper, which logs the dropped message to
+the discreet `bridgeLogger` (discarded by default so the active render is not corrupted).
 
 ### TUIProgressReporter
 
@@ -307,20 +352,27 @@ case CalculationCompleteMsg:
 
 **File**: `internal/tui/styles.go`
 
-### Color Palette (Orange Theme)
+### Theme-Driven Colors
 
-| Variable | Hex | Role |
-|----------|-----|------|
-| `colorBg` | `#000000` | Background |
-| `colorText` | `#E0E0E0` | Default text (light gray) |
-| `colorBorder` | `#FF6600` | Panel borders (orange) |
-| `colorAccent` | `#FF8C00` | Titles, progress bars, shortcut keys (dark orange) |
-| `colorSuccess` | `#9ece6a` | Success indicators, Running status |
-| `colorWarning` | `#FFB347` | Paused status (light orange) |
-| `colorError` | `#FF4444` | Error indicators, Error status |
-| `colorDim` | `#666666` | Timestamps, labels, empty progress bar (neutral gray) |
-| `colorCyan` | `#FF8C00` | Elapsed time, metric values (orange) |
-| `colorMagenta` | `#4488FF` | Algorithm names (blue) |
+The TUI no longer holds standalone `color*` variables. `initTUIStyles()` (called at package
+load and again from `Run()` once the active theme is resolved) reads the current palette via
+`ui.GetCurrentTUITheme()`, which returns a [`ui.TUITheme`](../internal/ui/themes.go) struct and
+populates every `lipgloss.Style` from its fields. The concrete hex values therefore **vary by
+theme** — `DarkTUITheme` (default, orange-dominant), `HighContrastTUITheme`
+(black/white/yellow, via `FIBCALC_TUI_THEME=high-contrast`), and `NoColorTUITheme` (terminal
+defaults, via `NO_COLOR` / `--no-color`).
+
+| `TUITheme` field | Role | Dark default |
+|------------------|------|--------------|
+| `Bg` | Panel / header background | `#000000` |
+| `Text` | Default panel text | `#E0E0E0` |
+| `Border` | Panel borders | `#FF6600` |
+| `Accent` | Titles, progress bars, metric values, status "Done", shortcut keys, CPU sparkline | `#FF8C00` |
+| `Success` | Success log entries, "Running" status | `#9ece6a` |
+| `Warning` | "Paused" status, MEM sparkline | `#FFB347` |
+| `Error` | Error log entries, "Error" status | `#FF4444` |
+| `Dim` | Timestamps, labels, version, empty progress bar | `#666666` |
+| `Info` | Algorithm names in logs | `#4488FF` |
 
 ### Key Styles
 
@@ -345,19 +397,19 @@ case CalculationCompleteMsg:
 ## 11. Run() Entry Point
 
 ```go
-func Run(ctx context.Context, calculators []fibonacci.Calculator,
+func Run(ctx context.Context, calculators []orchestration.Calculator,
     cfg config.AppConfig, version string) int {
     model := NewModel(ctx, calculators, cfg, version)
     defer model.cancel()
     p := tea.NewProgram(model, tea.WithAltScreen())
-    model.ref.program = p  // Inject program reference before Run
+    model.ref.SetProgram(p)  // Inject program reference before Run
     finalModel, err := p.Run()
     // ...
 }
 ```
 
 - `tea.WithAltScreen()` enters the alternate terminal buffer.
-- `model.ref.program = p` injects the reference before `p.Run()` so bridge goroutines
+- `model.ref.SetProgram(p)` injects the reference before `p.Run()` so bridge goroutines
   spawned by `Init()` have a valid `Send()` target.
 - The final model is type-asserted to extract the exit code for the process.
 

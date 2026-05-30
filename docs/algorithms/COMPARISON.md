@@ -1,6 +1,6 @@
 # Algorithm Comparison
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 ## Overview
 
@@ -13,9 +13,11 @@ This document compares the three Fibonacci calculation algorithms implemented in
 | Fast Doubling | `"fast"` | "Fast Doubling (O(log n), Parallel, Zero-Alloc)" |
 | Matrix Exponentiation | `"matrix"` | "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)" |
 | FFT-Based | `"fft"` | "FFT-Based Doubling" |
-| Modular Fast Doubling | `--last-digits` mode | "Modular Fast Doubling (O(log n), O(K) memory)" |
+| Modular Fast Doubling | `--last-digits` mode | n/a — free function, not a registered calculator |
 
 An optional GMP-based calculator (`"gmp"`) is available when built with `-tags=gmp`.
+
+> **Note on Modular Fast Doubling**: unlike the three rows above, this is **not** a registered `CoreCalculator` and has no `Name()` method. It is the free function `FastDoublingMod(n uint64, m *big.Int) (*big.Int, error)` in `internal/fibonacci/modular.go`, reached only through the `--last-digits` CLI mode (which computes F(n) mod 10^K).
 
 ## Theoretical Comparison
 
@@ -82,6 +84,8 @@ RAM: 32 GB DDR4-3600
 Go: 1.25.0
 OS: Linux 6.1
 ```
+
+> **Provenance**: the timings below are historical measurements (env. Go 1.25.0, Ryzen reference machine) and are kept unchanged as a relative-ordering reference. The project now targets Go 1.26.0+; for up-to-date numbers on your hardware, run `make benchmark`.
 
 ### Results (average times over 10 runs)
 

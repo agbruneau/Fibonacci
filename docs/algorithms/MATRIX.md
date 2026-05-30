@@ -1,6 +1,6 @@
 # Matrix Exponentiation
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 > **Complexity**: O(log n) matrix operations
 > **Actual Complexity**: O(log n * M(n)) where M(n) is the multiplication cost

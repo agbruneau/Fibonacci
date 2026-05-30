@@ -5,8 +5,9 @@
 //
 // Layered responsibilities:
 //
-//   - Parsing: BindFlags wires the standard flag.FlagSet to the
-//     AppConfig fields. Env-var overrides go through internal/config/env.go.
+//   - Parsing: ParseConfig builds a standard flag.FlagSet and wires it to
+//     the AppConfig fields (via registerFlags). Env-var overrides go
+//     through internal/config/env.go.
 //   - Validation: Validate() rejects nonsensical combinations early
 //     (e.g. memory cap below the estimated working set for the requested N).
 //   - Adaptive defaults: ApplyAdaptiveThresholds() combines hardware

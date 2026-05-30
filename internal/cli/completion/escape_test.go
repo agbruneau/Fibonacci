@@ -223,6 +223,57 @@ func TestGeneratePowerShell_AdversarialAlgo(t *testing.T) {
 	}
 }
 
+// TestFlagFormatters_NeutraliseHelpAndValues extends the shell-escape contract
+// to flag Help text and static Values (audit F-014): both are interpolated into
+// the same quoting contexts as algorithm names, so they must be escaped too.
+// These exercise the per-flag formatters directly with adversarial input, so no
+// global flagRegistry mutation is needed.
+func TestFlagFormatters_NeutraliseHelpAndValues(t *testing.T) {
+	t.Parallel()
+	evil := FlagCompletion{
+		Long:      "evil",
+		ValueName: "x",
+		Help:      "pwn' \"$(rm -rf /)`boom`",
+		Values:    []string{"v'\"$(rm)", "a b"},
+	}
+
+	t.Run("bash_values_escaped", func(t *testing.T) {
+		t.Parallel()
+		body := bashStaticValueCase(evil).body
+		if !strings.Contains(body, `\"`) || !strings.Contains(body, `\$`) {
+			t.Errorf("bash value list not escaped via escape.go: %q", body)
+		}
+	})
+
+	t.Run("zsh_help_and_values_escaped", func(t *testing.T) {
+		t.Parallel()
+		entry := zshArgEntry(evil)
+		// Every literal ' from help+values must be emitted as '\''.
+		wantQuotes := strings.Count(evil.Help, "'") + strings.Count(strings.Join(evil.Values, ""), "'")
+		if got := strings.Count(entry, `'\''`); got < wantQuotes {
+			t.Errorf("zsh entry under-escaped single quotes: got %d, want >= %d: %q", got, wantQuotes, entry)
+		}
+	})
+
+	t.Run("fish_help_and_values_balanced", func(t *testing.T) {
+		t.Parallel()
+		line := fishCompleteLine(evil, "safe all")
+		stripped := strings.ReplaceAll(line, `\\`, "")
+		stripped = strings.ReplaceAll(stripped, `\'`, "")
+		if strings.Count(stripped, "'")%2 != 0 {
+			t.Errorf("fish line has unbalanced literal quotes after stripping escapes: %q", line)
+		}
+	})
+
+	t.Run("powershell_values_balanced", func(t *testing.T) {
+		t.Parallel()
+		entry := psSwitchEntry(evil)
+		if strings.Count(entry, "'")%2 != 0 {
+			t.Errorf("powershell switch entry has odd single-quote count: %q", entry)
+		}
+	})
+}
+
 // TestGenerate_UnsupportedShellRejected verifies the dispatcher rejects
 // unknown shells rather than silently producing garbage. Sanity check.
 func TestGenerate_UnsupportedShellRejected(t *testing.T) {

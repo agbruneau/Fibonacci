@@ -1,6 +1,6 @@
 # Build Configuration
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
 
 ## Overview
 
@@ -53,7 +53,7 @@ func RegisterGMPCalculator(f *DefaultFactory) {
 
 ### Profile-Guided Optimization (PGO)
 
-PGO uses a CPU profile from a representative workload to guide the compiler toward better optimization decisions. Expected improvement is approximately 5-10% for compute-heavy paths.
+PGO uses a CPU profile from a representative workload to guide the compiler toward better optimization decisions. Expected improvement is approximately 5-10% for compute-heavy paths (indicative — measure on your own workload).
 
 - **Profile location**: `cmd/fibcalc/default.pgo`
 
@@ -104,7 +104,7 @@ Go's `math/big` package already includes platform-optimized assembly for these o
 make build-all
 ```
 
-This runs `build-linux`, `build-windows`, and `build-darwin` in sequence.
+This runs `build-linux`, `build-linux-arm64`, `build-windows`, `build-windows-arm64`, and `build-darwin` in sequence.
 
 ### Platform-Specific Builds
 
@@ -127,7 +127,9 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 | Target | GOOS | GOARCH | Notes |
 |--------|------|--------|-------|
 | `build-linux` | linux | amd64 | Full SIMD support |
+| `build-linux-arm64` | linux | arm64 | `arith_generic.go` fallback |
 | `build-windows` | windows | amd64 | Full SIMD support |
+| `build-windows-arm64` | windows | arm64 | `arith_generic.go` fallback |
 | `build-darwin` | darwin | amd64 + arm64 | SIMD on amd64 only |
 
 Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent amd64-only import surfaces immediately. Full matrix and fallback contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
@@ -146,7 +148,8 @@ docker run --rm fibcalc:local --help
 - Stage 1 (`golang:1.26-bookworm` builder) — installs `libgmp-dev` and the
   full CGO toolchain. Consumes `cmd/fibcalc/default.pgo` if present.
 - Stage 2 (`gcr.io/distroless/base-debian12` runtime) — ships only the
-  linked binary as `nonroot`. Image size < 50 MB.
+  linked binary as `nonroot`. Image size < 50 MB (indicative — measure on
+  your own image, e.g. `docker images fibcalc:local`).
 
 To build with the GMP backend enabled : edit the Dockerfile's build line
 to add `-tags=gmp`.
@@ -193,9 +196,11 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 |--------|-------------|
 | `all` | Clean, build, and test |
 | `build` | Build for current platform (auto-PGO if profile exists) |
-| `build-all` | Build for Linux, Windows, and macOS |
+| `build-all` | Build for Linux, Windows, and macOS (amd64 + arm64) |
 | `build-linux` | Build for Linux amd64 |
+| `build-linux-arm64` | Build for Linux arm64 |
 | `build-windows` | Build for Windows amd64 |
+| `build-windows-arm64` | Build for Windows arm64 |
 | `build-darwin` | Build for macOS amd64 and arm64 |
 | `build-pgo` | Build with profile-guided optimization |
 | `build-pgo-all` | Build all platforms with PGO |

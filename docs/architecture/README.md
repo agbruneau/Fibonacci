@@ -8,7 +8,7 @@ Pour une exploration interactive complémentaire aux diagrammes statiques :
 
 **[https://agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**
 
-- **744 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 526 arêtes** (imports, calls, contains, tested_by, documents…)
+- **747 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 540 arêtes** (imports, calls, contains, tested_by, documents…)
 - **8 couches** architecturales (entry-point, application, presentation, domain, math-kernel, cross-cutting, e2e-tests, project-support)
 - **Tour guidé 13 étapes** depuis `cmd/fibcalc/main.go` jusqu'aux tests
 - Recherche, filtres par couche/type, layout dynamique (force, ELK, dagre)

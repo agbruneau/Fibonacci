@@ -1,6 +1,6 @@
 # Progress Bar Algorithm for O(log n) Algorithms
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 ## Description
 
@@ -24,6 +24,14 @@ TotalWork = 4^0 + 4^1 + 4^2 + ... + 4^(n-1) = (4^n - 1) / 3
 
 Where `n` is the number of bits of the input number.
 
+> **Note (A-10)** — This geometric series is the conceptual model only. The
+> reported progress ratio is **not** computed as `done / TotalWork`: for
+> `numBits >= 512` the quantity `4^numBits` overflows `float64` to `+Inf`,
+> collapsing the ratio to `0`/`NaN` and freezing the bar. The implementation
+> therefore evaluates progress in **closed form** from the bit index (never
+> materializing `4^numBits`) and clamps `CalcTotalWork` above the overflow
+> boundary — see [Step Progress Reporting](#3-step-progress-reporting) below.
+
 ### Justification
 
 O(log n) algorithms for computing F(n):
@@ -42,13 +50,26 @@ O(log n) algorithms for computing F(n):
 
 **Function**: `CalcTotalWork(numBits int) float64`
 
+The raw geometric sum overflows `float64` for large inputs: `4^512 == 2^1024`
+already exceeds `math.MaxFloat64`, so `math.Pow(4, numBits)` returns `+Inf` for
+`numBits >= 512`. To stay finite, `CalcTotalWork` is an overflow-safe function
+with three branches — below the boundary it returns the exact geometric sum;
+above it (`numBits > 511`) it clamps to the largest representable sum:
+
 ```go
 func CalcTotalWork(numBits int) float64 {
-    if numBits == 0 {
+    if numBits <= 0 {
         return 0
     }
-    // Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
-    return (math.Pow(4, float64(numBits)) - 1) / 3
+    // Below the float64 overflow boundary the exact geometric sum is safe.
+    const safeNumBits = 511 // 4^511 < MaxFloat64 < 4^512
+    if numBits <= safeNumBits {
+        // Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
+        return (math.Pow(4, float64(numBits)) - 1) / 3
+    }
+    // Past the boundary the true sum is unrepresentable. Clamp to the
+    // safe-domain maximum so the result stays finite and strictly positive.
+    return (math.Pow(4, float64(safeNumBits)) - 1) / 3
 }
 ```
 
@@ -56,9 +77,14 @@ func CalcTotalWork(numBits int) float64 {
 - `numBits`: Number of bits in the input number
 
 **Returns**:
-- A value representing the estimated total work in units
+- A finite, positive estimate of the total work in units
 
-**Note**: Returns 0 if `numBits == 0`
+**Notes**:
+- Returns 0 if `numBits <= 0`.
+- The clamp above `safeNumBits` keeps the historical `totalWork > 0` guard (and
+  its callers/tests) working. The reported progress ratio no longer divides by
+  this value (see step progress below, A-10), so clamping it does not affect the
+  progress bar — it only keeps the guard finite.
 
 ### 2. Precomputation of Powers of 4
 
@@ -113,6 +139,12 @@ func ReportStepProgress(
 ) float64
 ```
 
+> `totalWork` and `powers` are retained for signature/back-compat and to thread
+> the cumulative work value across calls (the returned `float64`). Since the
+> A-10 fix the reported progress ratio no longer divides by either — it is
+> derived in closed form from `i`/`numBits` (step 4 below). `totalWork > 0` is
+> still checked as a guard before reporting.
+
 **Logic**:
 
 1. **Step index calculation**:
@@ -127,15 +159,34 @@ func ReportStepProgress(
    workOfStep = powers[stepIndex]  // O(1) lookup
    ```
 
-3. **Cumulative work calculation**:
+3. **Cumulative work calculation** (threaded for back-compat, no longer used as the ratio numerator):
    ```go
    currentTotalDone = workDone + workOfStep
    ```
 
-4. **Progress calculation**:
+4. **Progress calculation (closed form — A-10 fix)**:
+
+   The progress ratio is **not** computed as `currentTotalDone / totalWork`. The
+   geometric quantities overflow `float64` to `+Inf` for `numBits >= 512`
+   (`4^512 == 2^1024 > MaxFloat64`), which drove the ratio to `0`/`NaN` and froze
+   the bar on exactly the large calculations this project targets (A-10).
+   Progress is instead derived in closed form from the bit index via
+   `stepProgress(i, numBits)`, which never materializes `4^numBits`:
+
    ```go
-   currentProgress = currentTotalDone / totalWork
+   // progress(i) = (4^(numBits-i) - 1) / (4^numBits - 1)
+   // Dividing numerator and denominator by 4^numBits gives the
+   // numerically stable, overflow-free equivalent:
+   //   progress(i) = (4^(-i) - 4^(-numBits)) / (1 - 4^(-numBits))
+   currentProgress = stepProgress(i, numBits)
    ```
+
+   Both `4^(-i)` and `4^(-numBits)` lie in `(0, 1]` and underflow gracefully
+   toward `0` for large exponents, so the expression never overflows. It equals
+   `1.0` at `i == 0` and is strictly increasing as `i` decreases — identical to
+   the old `WorkDone / TotalWork` form bit-for-bit on the safe domain
+   (`numBits < 512`), while remaining finite, monotone and bounded to `[0, 1]`
+   for any `numBits`.
 
 5. **Conditional reporting**:
    ```go
@@ -357,9 +408,12 @@ const (
 
 ## Summary of Key Equations
 
-1. **Total work**: `TotalWork = (4^numBits - 1) / 3`
+1. **Total work** (overflow-safe, clamped above `numBits = 511`): `TotalWork = (4^numBits - 1) / 3`
 2. **Work per step**: `WorkOfStep(i) = 4^(numBits - 1 - i)`
-3. **Progress**: `Progress = WorkDone / TotalWork`
+3. **Progress** (closed form, A-10 — not `WorkDone / TotalWork`):
+   `Progress(i) = (4^(-i) - 4^(-numBits)) / (1 - 4^(-numBits))`
+   (algebraically equal to `(4^(numBits-i) - 1) / (4^numBits - 1)`, evaluated
+   without materializing `4^numBits`)
 4. **Report condition**: `currentProgress - lastReported >= 0.01 || i == 0 || i == numBits-1`
 
 ## Implementation Notes

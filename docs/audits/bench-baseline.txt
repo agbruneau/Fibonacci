@@ -1,16 +1,16 @@
 goos: windows
 goarch: amd64
-pkg: github.com/agbru/fibcalc/internal/fibonacci
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
 cpu: Intel(R) Core(TM) Ultra 9 275HX
 # Baseline captured 2026-05-21 by S0-T2 (Audit-PRD E4-R2).
 # Refresh procedure: run `make bench-baseline` on a clean machine and
-# commit the resulting docs/audits/bench-baseline.txt. CI compares
-# benchmarks against this file via benchstat at 5% threshold.
+# commit the resulting docs/audits/bench-baseline.txt. There is no remote
+# CI (see CLAUDE.md « CI/CD : aucun ») — regression checking is local-only:
+# compare new runs against this file with benchstat at a 5% threshold.
 #
-# Note: this baseline is a Windows snapshot. CI runs on ubuntu-latest,
-# so absolute numbers will differ — the gate compares RELATIVE deltas,
-# which are stable across hosts at the order-of-magnitude level used
-# for regression detection.
+# Note: this baseline is a Windows snapshot. Absolute numbers differ across
+# hosts; the relevant signal is the RELATIVE delta, stable at the
+# order-of-magnitude level used for regression detection.
 BenchmarkFibonacci/FastDoubling/1M-24	1	3051500 ns/op	2646032 B/op	132 allocs/op
 BenchmarkFibonacci/MatrixExp/1M-24	1	4719800 ns/op	6465536 B/op	753 allocs/op
 BenchmarkFibonacci/FFTBased/1M-24	1	4538500 ns/op	5966024 B/op	2931 allocs/op

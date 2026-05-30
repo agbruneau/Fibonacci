@@ -96,8 +96,10 @@ func smartSquare(z, x *big.Int, fftThreshold int) (*big.Int, error) {
 // Extra tuning knobs (e.g. an FFT-specific threshold override) will plug
 // in through this parameter without a signature break.
 func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Options, inParallel bool) error { //nolint:unparam // opts kept for dispatcher signature parity, documented above
-	// FK1 = F(k) * (2*F(k+1) - F(k))
-	// F2k1 = F(k+1)^2 + F(k)^2
+	// This function computes only the three raw FFT products of a doubling
+	// step: T3 = F(k)*F(k+1), T1 = F(k+1)^2, T2 = F(k)^2. The identity
+	// combination F(2k) = 2*T3 - T2 and F(2k+1) = T1 + T2 is applied later in
+	// doubling_framework.go, not here.
 
 	// Determine result size bit length (approx 2 * bitlen(F_k))
 	// FK1 is roughly N iterations * 2.

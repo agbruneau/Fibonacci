@@ -9,7 +9,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique démontrant
 ## Projet
 
 - **Module** : `github.com/agbruneau/FibGo`
-- **Go** : 1.26.0+ (toolchain 1.26.3)
+- **Go** : 1.26.0+ (développé sur toolchain 1.26.3, non épinglé dans `go.mod`)
 - **Licence** : Apache 2.0
 - **Taille** : exécuter `make stats` pour le décompte de packages et LOC à jour. Référence historique : ~35 500 LOC `.go` au commit de l'audit v1.
 - **CI/CD** : aucun (workflows GitHub Actions retirés). Validation locale uniquement — `make test` (race, requiert CGO/gcc), `make lint`, `make benchmark` avant chaque commit perf-sensitive.
@@ -89,7 +89,7 @@ Les correctifs ci-dessous sont **en place et testés**. Ils encodent des invaria
 | `bigfft/fft_cache.go` | `putByKey` alloue **toujours** un backing frais ; ne pas réintroduire de recyclage à l'éviction — cf. Audit-PRD E1-R4 (aliasing avec un `PolValues` vivant). `TransformCache.logger` est un `atomic.Pointer[zerolog.Logger]` : `SetCacheLogger` ne doit pas racer avec la lecture hot-path de `logPeriodicStats` (A2-02). |
 | `bigfft/fft.go`, `fft_recursion.go` | `fftThreshold`/`parallelFFTRecursionThreshold`/`maxParallelFFTDepth` sont **`atomic.Int64/Uint64` privés** ; lectures via `getFFTThreshold()`/`GetParallelFFTRecursionThreshold()`/`GetMaxParallelFFTDepth()`. Ne pas réintroduire de globaux mutables non synchronisés. |
 | `bigfft/fft.go` (`Mul`/`MulTo`/`Sqr`/`SqrTo`) | Le `recover()` re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent pas être masquées en `error`. Gardé par `TestFermatPostConditionPanicClassifier`. |
-| `fibonacci/threshold/manager.go` | Champs `currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]`. L'invariant A-18 single-writer est **obsolète**. Le package n'importe **pas** `internal/config` ; passer par `threshold.SetTuning` depuis la couche supérieure. |
+| `fibonacci/threshold/manager.go` | Champs **par-instance** `currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]` : l'invariant A-18 single-writer **sur ces champs par-instance** est donc **obsolète** (migrés en atomic). Distinct de l'invariant A2-04 single-writer-before-use, lui **toujours actif**, qui porte sur les **knobs de tuning package-level** (`FFTSpeedupThreshold`, etc., cf. Modules sensibles + `manager.go:33-39`). Le package n'importe **pas** `internal/config` ; passer par `threshold.SetTuning` depuis la couche supérieure. |
 | `errors/errors.go` | N'importe **pas** `internal/format` ; un helper local `formatBytesLocal` couvre le besoin. Gardé par `TestArchitectureLayering`. |
 | `tui/` (production) | N'importe **pas** `internal/fibonacci` directement ; passer par les aliases `orchestration.Calculator`/`Options`/`Default*Threshold`. Gardé par `TestArchitectureLayering`. |
 
@@ -103,7 +103,7 @@ Ces fichiers concentrent la complexité ou des couplages cachés. Avant toute mo
 |---------|-------------------|
 | `internal/fibonacci/fastdoubling.go` | Hot path ; pooling state+arena partagé. Tout chemin de release doit détacher les aliases avant `statePool.Put`. |
 | `internal/fibonacci/doubling_framework.go` | Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est amplifiée. |
-| `internal/fibonacci/threshold/manager.go` | ~283 L ; invariant single-writer non explicité dans le code — ne pas introduire d'écrivain concurrent. |
+| `internal/fibonacci/threshold/manager.go` | ~333 L ; invariant A2-04 single-writer-before-use des tuning knobs **documenté en tête de fichier** (`manager.go:33-39`) — ne pas introduire d'écrivain concurrent sur `ShouldAdjust`/`Reset`. |
 | `internal/bigfft/fft_cache.go` | Globaux + cache LRU. Le risque d'aliasing backing/`pv` en éviction est **fermé** : `putByKey` alloue toujours un buffer frais (cf. invariants ci-dessus + ADR-0004 §B1). `logger` est en `atomic.Pointer[zerolog.Logger]` (A2-02) — ne pas le remettre en champ nu. |
 | `internal/bigfft/pool.go` | Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool` ; routage par capacité critique. `releaseFFTState` borne les buffers réutilisés à `maxPooledFFTTmpCap` (A2-05). SA6002 = décision assumée alloc-neutre, exclusion golangci ciblée (ADR-0007). |
 | `internal/bigfft/fermat.go` | Panics d'invariants. Récepteur uniformisé sur `z`. Les panics post-condition de `Mul`/`Sqr` doivent propager ; le `recover()` global de `fft.go` re-route via le classifier sentinel — cf. ADR-0002. |
@@ -187,7 +187,7 @@ Ces fichiers sont produits par des outils ; les modifier directement sera écras
 
 | Chemin | Outil de régénération | Description |
 |---|---|---|
-| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 744 nœuds, 3 526 arêtes, 8 couches, tour guidé 13 étapes. |
+| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 747 nœuds, 3 540 arêtes, 8 couches, tour guidé 13 étapes. |
 | `.understand-anything/fingerprints.json` | Idem (Phase 7 de `/understand`) | Baseline structurelle pour mises à jour incrémentales. |
 | `.understand-anything/meta.json` | Idem | Commit hash + horodatage de la dernière analyse. |
 | `docs/dashboard/` | `pnpm --filter @understand-anything/dashboard build:demo` puis recopie (voir [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages)) | Build React/Vite statique, déployé sur <https://agbruneau.github.io/FibGo/dashboard/>. |

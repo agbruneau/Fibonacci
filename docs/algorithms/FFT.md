@@ -1,6 +1,6 @@
 # FFT Multiplication for Large Integers
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 747 nodes / 8 layers / 13-step tour)
 
 > **Complexity**: O(n log n) for multiplying two numbers of n bits
 > **Used by**: Fast Doubling and Matrix Exp. for very large numbers
@@ -114,18 +114,15 @@ The FFT algorithm tends to **saturate CPU resources** as it performs many parall
 
 ### Implemented Solution
 
-The `DoublingFramework` disables external parallelism when FFT is active, except for very large numbers:
+`ShouldParallelizeMultiplication` (in `internal/fibonacci/fastdoubling.go`) disables external parallelism when FFT is active, except for very large numbers. The decision uses `maxBitLen` (the larger of the two operands' bit lengths), because the squaring operations trigger FFT as soon as a single operand exceeds the threshold:
 
 ```go
-// Disable external parallelism when FFT is used
-// except for very very large numbers
-if opts.FFTThreshold > 0 {
-    minBitLen := s.FK.BitLen()
-    if minBitLen > opts.FFTThreshold {
-        // FFT will be used - disable parallelism
-        // except if numbers > ParallelFFTThreshold (5M bits)
-        return minBitLen > ParallelFFTThreshold
-    }
+// shouldParallelizeMultiplicationCached, internal/fibonacci/fastdoubling.go
+// maxBitLen = max(fkBitLen, fk1BitLen)
+if opts.FFTThreshold > 0 && maxBitLen > opts.FFTThreshold {
+    // FFT will be used: parallelism is re-enabled only for
+    // extremely large numbers (> ParallelFFTThreshold = 5M bits).
+    return maxBitLen > ParallelFFTThreshold
 }
 ```
 
