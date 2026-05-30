@@ -48,8 +48,12 @@ When built with `-tags=gmp`, the GMP calculator auto-registers itself via an `in
 ```go
 //go:build gmp
 
+func RegisterGMPCalculator(f *DefaultFactory) {
+    f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })
+}
+
 func init() {
-    RegisterCalculator("gmp", func() coreCalculator { return &GMPCalculator{} })
+    RegisterGMPCalculator(globalFactory)
 }
 ```
 

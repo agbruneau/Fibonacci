@@ -104,7 +104,7 @@ Go's `math/big` package already includes platform-optimized assembly for these o
 make build-all
 ```
 
-This runs `build-linux`, `build-windows`, and `build-darwin` in sequence.
+This runs `build-linux`, `build-linux-arm64`, `build-windows`, `build-windows-arm64`, and `build-darwin` in sequence.
 
 ### Platform-Specific Builds
 
@@ -127,7 +127,9 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 | Target | GOOS | GOARCH | Notes |
 |--------|------|--------|-------|
 | `build-linux` | linux | amd64 | Full SIMD support |
+| `build-linux-arm64` | linux | arm64 | `arith_generic.go` fallback |
 | `build-windows` | windows | amd64 | Full SIMD support |
+| `build-windows-arm64` | windows | arm64 | `arith_generic.go` fallback |
 | `build-darwin` | darwin | amd64 + arm64 | SIMD on amd64 only |
 
 Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent amd64-only import surfaces immediately. Full matrix and fallback contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
@@ -193,9 +195,11 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 |--------|-------------|
 | `all` | Clean, build, and test |
 | `build` | Build for current platform (auto-PGO if profile exists) |
-| `build-all` | Build for Linux, Windows, and macOS |
+| `build-all` | Build for Linux, Windows, and macOS (amd64 + arm64) |
 | `build-linux` | Build for Linux amd64 |
+| `build-linux-arm64` | Build for Linux arm64 |
 | `build-windows` | Build for Windows amd64 |
+| `build-windows-arm64` | Build for Windows arm64 |
 | `build-darwin` | Build for macOS amd64 and arm64 |
 | `build-pgo` | Build with profile-guided optimization |
 | `build-pgo-all` | Build all platforms with PGO |

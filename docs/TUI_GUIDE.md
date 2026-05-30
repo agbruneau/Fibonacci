@@ -123,7 +123,7 @@ func (m Model) View() string {
 +-----------------------------------------------------------------------------+
 ```
 
-Constants: `headerHeight=1`, `footerHeight=1`, `minBodyHeight=4`, `metricsFixedH=7`.
+Constants: `headerHeight=1`, `footerHeight=1`, `minBodyHeight=4`, `MetricsPanelHeight=7`.
 
 `layoutPanels()` is called on every `WindowSizeMsg`: logsWidth = 60%, rightWidth = 40%,
 metricsH = fixed 7 (capped at half body height), chartH = remaining body height.
@@ -174,7 +174,7 @@ the panel width. When done, displays total elapsed time instead of ETA.
 | `FinalResultMsg` | `Result`, `N`, `Verbose`, `Details`, `ShowValue` | `TUIResultPresenter` | logs |
 | `ErrorMsg` | `Err`, `Duration` | `TUIResultPresenter` | logs, footer |
 | `TickMsg` | `time.Time` | `tickCmd()` (500ms) | triggers `sampleMemStatsCmd()` |
-| `MemStatsMsg` | `Alloc`, `NumGC`, `NumGoroutine` | `sampleMemStatsCmd()` | metrics |
+| `MemStatsMsg` | `Alloc`, `HeapSys`, `NumGC`, `PauseTotalNs`, `NumGoroutine` | `sampleMemStatsCmd()` | metrics |
 | `CalculationCompleteMsg` | `ExitCode`, `Generation` | `startCalculationCmd()` | header, chart, footer |
 | `ContextCancelledMsg` | `Err`, `Generation` | `watchContextCmd()` | triggers `tea.Quit` |
 
@@ -345,19 +345,19 @@ case CalculationCompleteMsg:
 ## 11. Run() Entry Point
 
 ```go
-func Run(ctx context.Context, calculators []fibonacci.Calculator,
+func Run(ctx context.Context, calculators []orchestration.Calculator,
     cfg config.AppConfig, version string) int {
     model := NewModel(ctx, calculators, cfg, version)
     defer model.cancel()
     p := tea.NewProgram(model, tea.WithAltScreen())
-    model.ref.program = p  // Inject program reference before Run
+    model.ref.SetProgram(p)  // Inject program reference before Run
     finalModel, err := p.Run()
     // ...
 }
 ```
 
 - `tea.WithAltScreen()` enters the alternate terminal buffer.
-- `model.ref.program = p` injects the reference before `p.Run()` so bridge goroutines
+- `model.ref.SetProgram(p)` injects the reference before `p.Run()` so bridge goroutines
   spawned by `Init()` have a valid `Send()` target.
 - The final model is type-asserted to extract the exit code for the process.
 

@@ -103,7 +103,7 @@ Ces fichiers concentrent la complexité ou des couplages cachés. Avant toute mo
 |---------|-------------------|
 | `internal/fibonacci/fastdoubling.go` | Hot path ; pooling state+arena partagé. Tout chemin de release doit détacher les aliases avant `statePool.Put`. |
 | `internal/fibonacci/doubling_framework.go` | Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est amplifiée. |
-| `internal/fibonacci/threshold/manager.go` | ~287 L ; invariant A2-04 single-writer-before-use des tuning knobs **documenté en tête de fichier** (`manager.go:33-39`) — ne pas introduire d'écrivain concurrent sur `ShouldAdjust`/`Reset`. |
+| `internal/fibonacci/threshold/manager.go` | ~333 L ; invariant A2-04 single-writer-before-use des tuning knobs **documenté en tête de fichier** (`manager.go:33-39`) — ne pas introduire d'écrivain concurrent sur `ShouldAdjust`/`Reset`. |
 | `internal/bigfft/fft_cache.go` | Globaux + cache LRU. Le risque d'aliasing backing/`pv` en éviction est **fermé** : `putByKey` alloue toujours un buffer frais (cf. invariants ci-dessus + ADR-0004 §B1). `logger` est en `atomic.Pointer[zerolog.Logger]` (A2-02) — ne pas le remettre en champ nu. |
 | `internal/bigfft/pool.go` | Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool` ; routage par capacité critique. `releaseFFTState` borne les buffers réutilisés à `maxPooledFFTTmpCap` (A2-05). SA6002 = décision assumée alloc-neutre, exclusion golangci ciblée (ADR-0007). |
 | `internal/bigfft/fermat.go` | Panics d'invariants. Récepteur uniformisé sur `z`. Les panics post-condition de `Mul`/`Sqr` doivent propager ; le `recover()` global de `fft.go` re-route via le classifier sentinel — cf. ADR-0002. |

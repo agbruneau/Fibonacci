@@ -257,7 +257,7 @@ internal/
 
 4. **Fuzzing**: Find edge cases
    ```bash
-   go test -fuzz=FuzzFastDoubling ./internal/fibonacci/
+   go test -fuzz=FuzzFastDoublingConsistency ./internal/fibonacci/
    ```
 
 ### Testing `CoreCalculator` in isolation

@@ -16,7 +16,7 @@
 //   - Instead, R3.4 extracts the *router* concern (per-message handlers,
 //     command builders, layout math) out of tui/model.go into focused
 //     siblings (handlers.go, commands.go, layout.go). This brings model.go
-//     down to a thin router (~140 lines) without breaking any test.
+//     down to a thin router (~188 lines) without breaking any test.
 //   - This sub-package preserves the documented architectural target so a
 //     future tighter refactor (with a coordinated test rewrite) can move
 //     the component types here behind the Component interface declared

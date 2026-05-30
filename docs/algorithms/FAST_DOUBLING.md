@@ -184,7 +184,7 @@ state := AcquireState()
 defer ReleaseState(state)
 ```
 
-Objects exceeding `MaxPooledBitLen` (100M bits) are left for GC rather than returned to the pool.
+Objects exceeding `MaxPooledBitLen` (50M bits) are left for GC rather than returned to the pool.
 
 ### 5. Calculation Arena (state-bound)
 

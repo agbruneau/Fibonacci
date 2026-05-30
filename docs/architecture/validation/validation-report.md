@@ -46,7 +46,7 @@ maintained to match source. Notable narrow/wide interface contracts:
 
 - `Calculator` (public) / `CoreCalculator` (internal) — `internal/fibonacci/calculator.go`
 - `Multiplier` (narrow) extended by `DoublingStepExecutor` (wide)
-- `ProgressObserver` / `ProgressReporter` — `internal/progress/`
+- `ProgressObserver` — `internal/progress/` / `ProgressReporter` — `internal/orchestration/`
 - `CalculatorFactory` — `internal/fibonacci/registry.go`
 
 ## Execution flows

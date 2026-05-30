@@ -4,7 +4,7 @@
 
 > **Scope**: Implementation architecture of `internal/bigfft`
 > **Complexity**: O(n log n) integer multiplication via Schonhage-Strassen FFT
-> **See also**: [FFT.md](FFT.md) for mathematical theory and 3-tier multiplication selection
+> **See also**: [FFT.md](FFT.md) for mathematical theory and 2-tier multiplication selection
 
 ## Overview
 
@@ -706,7 +706,7 @@ strategy-level threshold.
 
 ## Cross-References
 
-- [FFT.md](FFT.md) -- Mathematical theory, convolution theorem, 3-tier multiplication selection
+- [FFT.md](FFT.md) -- Mathematical theory, convolution theorem, 2-tier multiplication selection
 - [FAST_DOUBLING.md](FAST_DOUBLING.md) -- Primary consumer of the BigFFT subsystem
 - [MATRIX.md](MATRIX.md) -- Secondary consumer via Strassen matrix multiplication
 - [../PERFORMANCE.md](../PERFORMANCE.md) -- Benchmark data and threshold tuning results

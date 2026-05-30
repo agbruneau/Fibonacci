@@ -111,9 +111,12 @@ runtime libc, pas de shell). Pour debug : remplacer la stage finale par
 passer sans erreur avant tout commit touchant `internal/bigfft/` ou
 `internal/fibonacci/` :
 
+- `linux/amd64`
 - `linux/arm64`
-- `darwin/arm64`
+- `windows/amd64`
+- `windows/arm64`
 - `darwin/amd64`
+- `darwin/arm64`
 
 Une régression introduisant une dépendance amd64-exclusive non gardée par
 `//go:build` fera échouer immédiatement l'une des cibles ci-dessus.
