@@ -82,7 +82,7 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 - **Modern CLI**: spinners, ETA, color themes, `NO_COLOR` support.
 - **Interactive TUI** (`--tui`): btop-style dashboard (Bubble Tea) — progress chart, sparklines, memory metrics, keyboard navigation. See [`docs/TUI_GUIDE.md`](docs/TUI_GUIDE.md).
 - **Machine-readable output** (`--machine`) for scripting.
-- **Shell completion**: bash, zsh, fish, PowerShell (`fibcalc -completion <shell>`).
+- **Shell completion**: bash, zsh, fish, PowerShell (`fibcalc -completion <shell>`). All four generators shell-escape interpolated flag help text and static values (per-shell quoting rules in `internal/cli/completion/escape.go`), closing the script-injection vector (audit F-014).
 
 ---
 
@@ -129,6 +129,8 @@ Full package list and dependency graph: [`docs/architecture/README.md`](docs/arc
 ## Performance Benchmarks
 
 Reference platform: **AMD Ryzen 9 5900X** (12 C / 24 T), 32 GB DDR4-3600, Linux 6.1, Go 1.25.0.
+
+> **Provenance** — These are historical measurements (env. Go 1.25.0); the project now targets Go 1.26.0. The figures and platform above are kept as a snapshot, not re-measured per toolchain bump. For up-to-date numbers on your host, run `make benchmark`.
 
 | N            | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
 |--------------|---------------|-------------|-----------|-----------------|

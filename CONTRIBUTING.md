@@ -283,11 +283,12 @@ For tests that need a tiny algorithm implementation without registering a global
 
 ### Test Coverage
 
-Aim for at least 75% code coverage:
+Aim for at least 80% code coverage — this is the floor enforced by the
+`make coverage-check` gate (it fails if total coverage drops below 80%):
 
 ```bash
-make coverage
-# Open coverage.html in your browser
+make coverage        # generate the HTML report (open coverage.html in your browser)
+make coverage-check  # verify total coverage is >= 80%
 ```
 
 ## Mock Generation

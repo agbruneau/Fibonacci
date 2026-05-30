@@ -687,7 +687,7 @@ flowchart TD
 
 ### Called From
 
-- `internal/fibonacci/fft.go` -- `smartMultiply()` dispatches to `bigfft.MulTo` / `bigfft.SqrTo` or falls back to `math/big`
+- `internal/fibonacci/fft.go` -- `smartMultiply()` dispatches to `bigfft.MulTo` (and `smartSquare()` to `bigfft.SqrTo`), or both fall back to `math/big`
 - `internal/fibonacci/calculator.go` -- `FibCalculator.CalculateWithObservers()` calls `bigfft.EnsurePoolsWarmed()` before calculation
 
 ### Configuration

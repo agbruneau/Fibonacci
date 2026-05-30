@@ -11,6 +11,7 @@ E10-R5 / Sprint S4-T5.
 | Linux | amd64 | ✅ requis pour `-race` et `gmp` | ✅ via gcc | `make test` (race natif) |
 | Linux | arm64 | ❌ désactivé | ❌ (cross-compile only) | `make build-all` (build only) |
 | Windows | amd64 | ✅ requis pour `-race` (via MinGW) | ✅ via MinGW gcc si installé | `make test` ou `go test -race` |
+| Windows | arm64 | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-windows-arm64` (build only) |
 | macOS | amd64 | ✅ pour `-race` | ✅ via clang | `make test` (race natif) |
 | macOS | arm64 (Apple Silicon) | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-all` (build only) |
 | WASI / js | — | — | — | non supporté (`unsafe.Pointer`, `runtime/debug`) |

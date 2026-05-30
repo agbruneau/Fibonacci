@@ -9,8 +9,8 @@ combines unit tests, golden file validation, fuzz testing, property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite contains 100+ test files
 distributed across all packages, with a coverage target of 80 % verified
-locally via `make coverage` ; `internal/cli/completion/` is at 95.7 %
-after the May-2026 security hardening sprint.
+locally via `make coverage` / `make coverage-check` (do not freeze a
+percentage here — run the commands for the current figure; see A5-04 below).
 
 All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag run locally (requires CGO).
 
@@ -300,7 +300,7 @@ Two categories of code are intentionally not reflected in the standard `coverage
 
 ## End-to-End Testing
 
-File: `test/e2e/cli_e2e_test.go`
+Files: `test/e2e/cli_e2e_test.go`, `test/e2e/extended_e2e_test.go`
 
 E2E tests build the actual binary into a temporary directory and execute it as a subprocess, verifying complete program behavior including flag parsing, output formatting, and exit codes. Tests set `NO_COLOR=1` for deterministic output.
 
@@ -360,7 +360,7 @@ Because no remote gate enforces these, discipline is the only safeguard: run the
 | `internal/errors` | `errors_test.go`, `handler_test.go` | Unit, exit code mapping |
 | `internal/metrics` | `memory_test.go` | Unit (memory snapshot collection) |
 | `internal/app` | `app_test.go`, `version_test.go` | Unit, lifecycle |
-| `test/e2e` | `cli_e2e_test.go` | End-to-end binary testing |
+| `test/e2e` | `cli_e2e_test.go`, `extended_e2e_test.go` | End-to-end binary testing |
 | `cmd/fibcalc` | `main_test.go` | Entry point smoke test |
 | `cmd/generate-golden` | `main_test.go` | Golden generator validation |
 

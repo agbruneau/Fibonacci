@@ -121,7 +121,7 @@ fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
 ```text
 internal/
 ├── app/                         # Lifecycle, mode dispatch, version, DI via WithFactory()
-├── bigfft/                      # FFT multiplication engine for big.Int (~17 non-test .go files)
+├── bigfft/                      # FFT multiplication engine for big.Int
 │   ├── fft.go                   # Public API: Mul, MulTo, Sqr, SqrTo
 │   ├── fft_core.go              # Core FFT algorithm
 │   ├── fft_recursion.go         # Recursive FFT decomposition, parallelism config
@@ -150,7 +150,7 @@ internal/
 ├── parallel/                    # Thread-safe first-error collector
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
-├── tui/                         # Bubble Tea interactive dashboard (12 files)
+├── tui/                         # Bubble Tea interactive dashboard
 └── ui/                          # Themes/colors/NO_COLOR behavior
 ```
 
@@ -727,6 +727,8 @@ From `go.mod`, direct dependencies are:
 ---
 
 ## 14) Architectural Decision Records (ADR)
+
+> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0007`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.

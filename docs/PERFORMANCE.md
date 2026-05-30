@@ -15,6 +15,8 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 - **OS**: Linux 6.1
 - **Go**: 1.25.0
 
+> **Provenance.** The figures in this section are **historical measurements** taken under the environment above (Go 1.25.0). The project now targets Go 1.26.0+ (see `go.mod`); these numbers are intentionally *not* re-stamped to the current toolchain. Re-run `make benchmark` for up-to-date figures on your own runner.
+
 ### Results
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
@@ -96,7 +98,7 @@ To compare performance across Git revisions on the **same machine**, use a fixed
 3. **CHANGELOG** (optional): add a one-line entry such as
    `Perf: benchmark snapshot @ <SHA> — FastDoubling ns/op ±X% vs previous main` when you publish a measured change.
 
-The reference table in [Reference Benchmarks](#reference-benchmarks) above is tied to a specific hardware and Go 1.25.0 configuration; your snapshots document *your* runner.
+The reference table in [Reference Benchmarks](#reference-benchmarks) above is tied to a specific hardware and Go 1.25.0 configuration (historical measurement environment; the project now targets Go 1.26.0+ — run `make benchmark` for current figures); your snapshots document *your* runner.
 
 ## Hardware heuristic defaults
 

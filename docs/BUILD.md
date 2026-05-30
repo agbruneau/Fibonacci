@@ -53,7 +53,7 @@ func RegisterGMPCalculator(f *DefaultFactory) {
 
 ### Profile-Guided Optimization (PGO)
 
-PGO uses a CPU profile from a representative workload to guide the compiler toward better optimization decisions. Expected improvement is approximately 5-10% for compute-heavy paths.
+PGO uses a CPU profile from a representative workload to guide the compiler toward better optimization decisions. Expected improvement is approximately 5-10% for compute-heavy paths (indicative — measure on your own workload).
 
 - **Profile location**: `cmd/fibcalc/default.pgo`
 
@@ -148,7 +148,8 @@ docker run --rm fibcalc:local --help
 - Stage 1 (`golang:1.26-bookworm` builder) — installs `libgmp-dev` and the
   full CGO toolchain. Consumes `cmd/fibcalc/default.pgo` if present.
 - Stage 2 (`gcr.io/distroless/base-debian12` runtime) — ships only the
-  linked binary as `nonroot`. Image size < 50 MB.
+  linked binary as `nonroot`. Image size < 50 MB (indicative — measure on
+  your own image, e.g. `docker images fibcalc:local`).
 
 To build with the GMP backend enabled : edit the Dockerfile's build line
 to add `-tags=gmp`.
