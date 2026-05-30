@@ -113,9 +113,9 @@ func formatThresholdBits(v int) string {
 func sanitizeConfigExcerpt(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.TrimSpace(s)
-	const max = 200
-	if len(s) > max {
-		return s[:max] + "…"
+	const maxLen = 200
+	if len(s) > maxLen {
+		return s[:maxLen] + "…"
 	}
 	return s
 }
