@@ -70,7 +70,7 @@ docs/
 - **State + arena unifiés** — `CalculationState` owne sa `CalculationArena` ; mêmes `[]big.Word` réutilisés entre appels via `AcquireStateForN`/`ReleaseStateWithResult`. Aliases détachés via `finalizeStateRelease` (chemin unique, ordre `checkLimit → clearStateAliases → Put`, gardé par `TestReleaseState_OverLimit_AliasesCleared`).
 - **Allocateur bump** pour FFT — O(1), zéro fragmentation
 - **GC désactivé** pendant calculs N ≥ 1M — **panic-safe** via `gcCtrl.WithGC(fn)` (`defer End()`). `Begin`/`End` directs `Deprecated`. Contrôle GC concurrency-safe via refcount package-level (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`) : en mode comparaison (plusieurs `GCController` concurrents), seul le premier `Begin` actif capture le vrai GOGC d'origine et seul le dernier `End` le restaure (A2-01, ADR-0005).
-- **Parallélisme adaptatif** via sémaphore (`NumCPU()`)
+- **Parallélisme adaptatif** via sémaphore (`NumCPU()`). Les produits de coefficients pointwise (`PolValues.Mul`/`Sqr` → `runPointwise`) et les butterflies (`executeReconstruction`) sont parallélisés pour les grandes transformées (gate `1<<16` mots), bornés par le **sémaphore FFT global** avec **acquisition non bloquante** (pas de jeton ⇒ exécution sur la goroutine appelante : aucun interblocage possible avec la récursion FFT), scratch **pool par worker** (le bump allocator reste mono-goroutine). Les panics de worker sont **re-propagées** dans la goroutine appelante (politique recover ADR-0002 préservée) — gardé par `TestPointwiseWorkerPanicPropagates`/`TestPointwiseParallelMatchesSequential`. Mesuré 2026-06 : −23 % à −35 % sur F(10M), −46 % sur le calcul de F(100M) (`docs/audits/bench-parallel-pointwise-2026-06.md`).
 - **Cache FFT** LRU thread-safe — 15-30 % speedup **uniquement sur les chemins qui consultent le cache** : appels directs `bigfft.Mul/Sqr` et `FFTOnlyStrategy` (via `TransformCached*`/`MulCachedWithBump`/`SqrCachedWithBump`). Le calculateur **Fast Doubling par défaut** (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforme FK/FK1 via `TransformWithBump` et **ne consulte pas** le cache : le gain inter-itérations ne s'applique donc pas au mode par défaut (zéro hit/miss). Le recyclage de `backing` à l'éviction a été **retiré** (Audit-PRD E1-R4) : `putByKey` alloue toujours un buffer frais pour éliminer l'aliasing avec un `PolValues` issu d'un `Get()` concurrent. Net cost négligeable sur le hot path.
 - **PGO** supporté via `make build-pgo`
 
@@ -187,7 +187,7 @@ Ces fichiers sont produits par des outils ; les modifier directement sera écras
 
 | Chemin | Outil de régénération | Description |
 |---|---|---|
-| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 747 nœuds, 3 540 arêtes, 8 couches, tour guidé 13 étapes. |
+| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 797 nœuds, 3 533 arêtes, 8 couches, tour guidé 13 étapes (régénéré 2026-06 après l'audit de refactorisation + perf). |
 | `.understand-anything/fingerprints.json` | Idem (Phase 7 de `/understand`) | Baseline structurelle pour mises à jour incrémentales. |
 | `.understand-anything/meta.json` | Idem | Commit hash + horodatage de la dernière analyse. |
 | `docs/dashboard/` | `pnpm --filter @understand-anything/dashboard build:demo` puis recopie (voir [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages)) | Build React/Vite statique, déployé sur <https://agbruneau.github.io/FibGo/dashboard/>. |

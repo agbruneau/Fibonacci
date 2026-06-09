@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-Academic_Prototype-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
 
-> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (747 nodes, 3 540 edges, 8 layers, 13-step guided tour).
+> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (797 nodes, 3 533 edges, 8 layers, 13-step guided tour).
 
 **FibCalc** is an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It demonstrates Clean Architecture, zero-allocation strategies, adaptive parallelism, and algorithmic optimization (Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication). Written in Go; handles indices in the hundreds of millions.
 
@@ -69,7 +69,7 @@ See [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING.md](docs/algorithm
 - **GC controller** disables GC during large calculations (N ≥ 1M) with a soft memory-limit safety net.
 - **Result detachment**: `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the caller never aliases pooled memory.
 - **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup on the paths that consult it (direct `bigfft.Mul`/`Sqr` and the `fft`-only strategy). The default Fast Doubling calculator transforms via `TransformWithBump` and does **not** read the cache, so the inter-iteration gain does not apply to the default mode (A3-01). Eviction allocates fresh backing (no recycle) so concurrent `Get()` callers cannot observe a use-after-free.
-- **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()`.
+- **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()`. The FFT pointwise coefficient products (`PolValues.Mul`/`Sqr`) and the butterfly reconstruction loops are parallelized across cores for large transforms (gate 64k words; non-blocking semaphore acquire, per-worker pool scratch) — measured −23 % to −35 % on F(10M) and −46 % on the F(100M) calculation (2026-06 audit, [`docs/audits/bench-parallel-pointwise-2026-06.md`](docs/audits/bench-parallel-pointwise-2026-06.md)).
 - **Dynamic thresholds** with hysteresis (parallel, FFT, Strassen) adjusted from observed metrics. Atomic-backed (`sync/atomic.Int64`) — safe under concurrent reads (see [`docs/adr/0001-dtm-decision.md`](docs/adr/0001-dtm-decision.md)).
 - **Auto-calibration** (`-calibrate`), versioned profile persistence, CPU-heuristic key to invalidate stale cache.
 - **PGO** (Profile-Guided Optimization) supported via `make build-pgo`.
@@ -90,7 +90,7 @@ Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 Clean Architecture with four layers. Source of truth: [`docs/architecture/`](docs/architecture/).
 
-> **Interactive view** — Browse the full knowledge graph (747 nodes, 3 540 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
+> **Interactive view** — Browse the full knowledge graph (797 nodes, 3 533 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
 
 ```mermaid
 graph TD
