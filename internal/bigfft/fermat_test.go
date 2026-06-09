@@ -12,7 +12,6 @@ import (
 // as fermat.Mul(x, x) for various sizes, crossing the smallMulThreshold boundary.
 func TestFermatSqrVsMul(t *testing.T) {
 	t.Parallel()
-	rng := rand.New(rand.NewSource(42))
 
 	// Test sizes spanning below and above smallMulThreshold (30)
 	sizes := []int{1, 2, 3, 5, 10, 15, 20, 25, 29, 30, 31, 35, 40, 50}
@@ -21,6 +20,10 @@ func TestFermatSqrVsMul(t *testing.T) {
 
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
+			// Per-subtest source: *rand.Rand is not safe for concurrent
+			// use, and the subtests run in parallel (data race flagged by
+			// -race on the previously shared parent rng).
+			rng := rand.New(rand.NewSource(42 + int64(n)))
 			// Create random fermat number of size n+1 words
 			x := make(fermat, n+1)
 			for j := 0; j < n; j++ {
@@ -124,12 +127,14 @@ func TestFermatSqrMaxWord(t *testing.T) {
 // TestBasicSqrVsBasicMul verifies basicSqr directly against basicMul for small sizes.
 func TestBasicSqrVsBasicMul(t *testing.T) {
 	t.Parallel()
-	rng := rand.New(rand.NewSource(123))
 
 	for n := 1; n < smallMulThreshold; n++ {
 
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
+			// Per-subtest source: *rand.Rand is not safe for concurrent
+			// use across the parallel subtests (-race).
+			rng := rand.New(rand.NewSource(123 + int64(n)))
 			x := make(fermat, n)
 			for j := 0; j < n; j++ {
 				x[j] = big.Word(rng.Uint64())
