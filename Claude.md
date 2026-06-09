@@ -50,7 +50,6 @@ docs/
   algorithms/        # Documentation mathématique par algorithme
   audits/            # Baselines benchmark (référence de non-régression perf)
   dashboard/         # Build statique du knowledge-graph (GitHub Pages, généré)
-.understand-anything/ # Knowledge-graph + fingerprints (généré, source du dashboard)
 ```
 
 ---
@@ -187,12 +186,7 @@ Ces fichiers sont produits par des outils ; les modifier directement sera écras
 
 | Chemin | Outil de régénération | Description |
 |---|---|---|
-| `.understand-anything/knowledge-graph.json` | `/understand` (plugin `understand-anything`) | Graphe : 797 nœuds, 3 533 arêtes, 8 couches, tour guidé 13 étapes (régénéré 2026-06 après l'audit de refactorisation + perf). |
-| `.understand-anything/fingerprints.json` | Idem (Phase 7 de `/understand`) | Baseline structurelle pour mises à jour incrémentales. |
-| `.understand-anything/meta.json` | Idem | Commit hash + horodatage de la dernière analyse. |
 | `docs/dashboard/` | `pnpm --filter @understand-anything/dashboard build:demo` puis recopie (voir [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages)) | Build React/Vite statique, déployé sur <https://agbruneau.github.io/FibGo/dashboard/>. |
-
-Cycle typique : modifier le code → `/understand` (régénère le graphe) → rebuild dashboard → commit `docs/dashboard/` + `.understand-anything/`.
 
 ---
 
