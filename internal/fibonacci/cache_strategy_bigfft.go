@@ -64,24 +64,33 @@ func (bigfftCacheStrategy) Sample(iter int, totalIters int) error {
 	}
 
 	cache := bigfft.GetTransformCache()
-	stats := cache.Stats()
+	if cfg, changed := decideCacheTuning(cache.Stats(), cache.Config()); changed {
+		bigfft.SetTransformCacheConfig(cfg)
+	}
+	return nil
+}
 
+// decideCacheTuning applies the P1-02 grow/shrink heuristics to a
+// stats/config snapshot and returns the adjusted config; changed is false
+// when no adjustment is warranted. Pure function so the rules are unit-
+// testable without touching the global bigfft cache (the throttling and the
+// application of the result stay in Sample, whose calling discipline is
+// covered by the mockCacheStrategy tests in doubling_framework_test.go).
+func decideCacheTuning(stats bigfft.CacheStats, cfg bigfft.TransformCacheConfig) (bigfft.TransformCacheConfig, bool) {
 	// If evicting frequently with good hit rate, increase cache size.
 	if stats.Evictions > 0 && stats.HitRate > cacheHitRateGrow {
-		cfg := cache.Config()
 		if cfg.MaxEntries < cacheMaxEntriesUpperBound {
 			cfg.MaxEntries = int(float64(cfg.MaxEntries) * cacheGrowthFactor)
-			bigfft.SetTransformCacheConfig(cfg)
+			return cfg, true
 		}
-		return nil
+		return cfg, false
 	}
 
 	// If cache is not useful, prune smaller transforms.
 	if stats.HitRate < cacheHitRateShrink && (stats.Misses+stats.Hits) > cacheActivityWindow {
-		cfg := cache.Config()
 		cfg.MinBitLen = int(float64(cfg.MinBitLen) * cacheMinBitLenGrow)
-		bigfft.SetTransformCacheConfig(cfg)
+		return cfg, true
 	}
 
-	return nil
+	return cfg, false
 }
