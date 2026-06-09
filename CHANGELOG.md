@@ -14,6 +14,22 @@ par grep/tests avant chaque modification, branche
 `refactor/audit-deepening-2026-06`). Les candidats rejetés après
 vérification sont matérialisés dans ADR-0008.
 
+#### Performance
+
+- **bigfft** — Les K produits de coefficients fermat des phases pointwise
+  (`PolValues.Mul`/`Sqr`) et les butterflies de `executeReconstruction`
+  sont désormais répartis sur les cœurs pour les grandes transformées
+  (gate 64k mots ; sémaphore FFT global, acquisition non bloquante,
+  scratch pool par worker — le bump allocator reste mono-goroutine).
+  Mesuré (médianes appariées, hôte 24 threads) : **−23 % à −35 %** sur
+  F(10M) selon l'algorithme, **−46 %** sur le calcul seul de F(100M)
+  (0,379 s → 0,204 s). Aucune régression à F(1M) ; chemin séquentiel
+  strictement préservé sous le gate. Détails :
+  `docs/audits/bench-parallel-pointwise-2026-06.md`. Les panics de
+  workers sont re-propagées dans la goroutine appelante (politique
+  ADR-0002 inchangée) — gardé par `TestPointwiseWorkerPanicPropagates`
+  et `TestPointwiseParallelMatchesSequential`.
+
 #### Fixed
 
 - **A-05** — `bigfft.TransformCache.putByKey` rejette désormais les

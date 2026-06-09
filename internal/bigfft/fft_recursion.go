@@ -168,13 +168,93 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 	return executeReconstruction(dst1, dst2, ω2shift, tmp, tmp2)
 }
 
+// reconstructionMinParallelWords gates the parallel butterfly path: below
+// this span (len(dst1) * coefficient words) goroutine dispatch costs more
+// than the linear Shift/Sub/Add work it spreads. The butterflies of the
+// top one or two recursion levels of a large transform sit above it; every
+// level of a small transform stays sequential. Tuned by paired end-to-end
+// benchmarks on a 24-thread host (2026-06).
+const reconstructionMinParallelWords = 1 << 16
+
 // executeReconstruction applies the butterfly reconstruction step, combining
 // the two halves of the FFT transform using the twiddle factor shift.
+//
+// Each index i touches only dst1[i]/dst2[i], so for large spans the loop is
+// chunked across goroutines bounded by the global FFT semaphore with a
+// non-blocking acquire (same contract as fourierRecursiveUnified and
+// runPointwise — no token means the chunk runs on the calling goroutine,
+// so no deadlock against other token holders is possible). Parallel
+// workers draw their tmp/tmp2 scratch from the pool allocator; the caller's
+// tmp/tmp2 stay reserved for the chunks that run on the calling goroutine.
+// Worker panics are re-panicked on the calling goroutine (ADR-0002).
 func executeReconstruction(dst1, dst2 []fermat, ω2shift int, tmp, tmp2 fermat) error {
-	for i := range dst1 {
-		tmp.ShiftHalf(dst2[i], i*ω2shift, tmp2)
-		dst2[i].Sub(dst1[i], tmp)
-		dst1[i].Add(dst1[i], tmp)
+	body := func(lo, hi int, t1, t2 fermat) {
+		for i := lo; i < hi; i++ {
+			t1.ShiftHalf(dst2[i], i*ω2shift, t2)
+			dst2[i].Sub(dst1[i], t1)
+			dst1[i].Add(dst1[i], t1)
+		}
+	}
+
+	if len(dst1)*len(tmp) < reconstructionMinParallelWords || runtime.NumCPU() == 1 {
+		body(0, len(dst1), tmp, tmp2)
+		return nil
+	}
+
+	workers := runtime.NumCPU()
+	if workers > len(dst1) {
+		workers = len(dst1)
+	}
+	chunk := (len(dst1) + workers - 1) / workers
+	n := len(tmp) - 1
+
+	sem := getSemaphore()
+	var wg sync.WaitGroup
+	panicCh := make(chan any, 1)
+
+	// Chunk 0 is reserved for the calling goroutine (run below with the
+	// caller's temps); the rest spawn when a semaphore token is free.
+	for lo := chunk; lo < len(dst1); lo += chunk {
+		hi := lo + chunk
+		if hi > len(dst1) {
+			hi = len(dst1)
+		}
+		select {
+		case sem <- struct{}{}:
+			wg.Add(1)
+			go func(lo, hi int) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				defer func() {
+					if r := recover(); r != nil {
+						select {
+						case panicCh <- r:
+						default:
+						}
+					}
+				}()
+				t1, cleanup1 := GetPoolAllocator().AllocFermatTemp(n)
+				t2, cleanup2 := GetPoolAllocator().AllocFermatTemp(n)
+				defer cleanup1()
+				defer cleanup2()
+				body(lo, hi, t1, t2)
+			}(lo, hi)
+		default:
+			body(lo, hi, tmp, tmp2)
+		}
+	}
+
+	hi := chunk
+	if hi > len(dst1) {
+		hi = len(dst1)
+	}
+	body(0, hi, tmp, tmp2)
+
+	wg.Wait()
+	select {
+	case r := <-panicCh:
+		panic(r)
+	default:
 	}
 	return nil
 }

@@ -3,6 +3,8 @@ package bigfft
 import (
 	"fmt"
 	"math/big"
+	"runtime"
+	"sync"
 )
 
 // Poly represents an integer via a polynomial in Z[x]/(x^K+1)
@@ -420,6 +422,103 @@ func (v *PolValues) InvNTransform() (Poly, error) {
 	return Poly{K: k, M: 0, A: a}, nil
 }
 
+// pointwiseMinParallelWords gates the parallel pointwise path: below this
+// total output size (K*(n+1) words) goroutine dispatch and pool traffic
+// cost more than the coefficient multiplications they spread. Selected by
+// paired end-to-end benchmarks on a 24-thread host (2026-06): F(10M)-class
+// inputs (~245k words) engage it, matrix-path coefficients stay far below.
+const pointwiseMinParallelWords = 1 << 16
+
+// runPointwise executes body(i, buf) for every i in [0, K). Each invocation
+// must write only to destination index i (disjoint writes); buf is an
+// 8*n-word fermat scratch reserved for the invocation's exclusive use.
+//
+// When the total output (K*(n+1) words) reaches pointwiseMinParallelWords,
+// chunks of the index space run on extra goroutines bounded by the global
+// FFT semaphore with a non-blocking acquire — the same contract as
+// fourierRecursiveUnified: when no token is available the chunk simply runs
+// on the calling goroutine, so this can never deadlock against the
+// recursion's token usage. Parallel workers draw their scratch from the
+// pool allocator because bump allocators are not thread-safe (same rule as
+// the parallel recursion). Worker panics are captured and re-panicked in
+// the calling goroutine so the public entry points' recover policy
+// (ADR-0002 sentinel re-propagation) keeps applying unchanged.
+func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
+	if K*(n+1) < pointwiseMinParallelWords || runtime.NumCPU() == 1 {
+		buf, cleanup := alloc.AllocFermatTemp(8 * n)
+		defer cleanup()
+		for i := 0; i < K; i++ {
+			body(i, buf)
+		}
+		return
+	}
+
+	workers := runtime.NumCPU()
+	if workers > K {
+		workers = K
+	}
+	chunk := (K + workers - 1) / workers
+
+	sem := getSemaphore()
+	var wg sync.WaitGroup
+	panicCh := make(chan any, 1)
+
+	runChunk := func(lo, hi int) {
+		buf, cleanup := GetPoolAllocator().AllocFermatTemp(8 * n)
+		defer cleanup()
+		for i := lo; i < hi; i++ {
+			body(i, buf)
+		}
+	}
+
+	// Chunk 0 is reserved for the calling goroutine (processed below with
+	// the caller-provided allocator); the rest spawn when a token is free.
+	for lo := chunk; lo < K; lo += chunk {
+		hi := lo + chunk
+		if hi > K {
+			hi = K
+		}
+		select {
+		case sem <- struct{}{}:
+			wg.Add(1)
+			go func(lo, hi int) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				defer func() {
+					if r := recover(); r != nil {
+						select {
+						case panicCh <- r:
+						default:
+						}
+					}
+				}()
+				runChunk(lo, hi)
+			}(lo, hi)
+		default:
+			runChunk(lo, hi)
+		}
+	}
+
+	func() {
+		buf, cleanup := alloc.AllocFermatTemp(8 * n)
+		defer cleanup()
+		hi := chunk
+		if hi > K {
+			hi = K
+		}
+		for i := 0; i < hi; i++ {
+			body(i, buf)
+		}
+	}()
+
+	wg.Wait()
+	select {
+	case r := <-panicCh:
+		panic(r)
+	default:
+	}
+}
+
 // Mul returns the pointwise product of p and q.
 func (p *PolValues) Mul(q *PolValues) (PolValues, error) {
 	return p.mul(q, GetPoolAllocator())
@@ -441,18 +540,17 @@ func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
 	r.Values = acquireFermatSlice(K)
 	wordCount := K * (n + 1)
 	bits := acquireWordSliceUnsafe(wordCount)
-
-	// Use allocator for temporary multiplication result
-	// The temporary buffer needs to be 8*n (or 8*n - 1 if optimized)
-	// We use 8*n to be safe and consistent with previous code
-	buf, cleanup := alloc.AllocFermatTemp(8 * n)
-	defer cleanup()
-
 	for i := 0; i < K; i++ {
 		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
+	}
+
+	// The K coefficient products are independent (disjoint destinations);
+	// runPointwise spreads them across cores for large transforms. The
+	// scratch buffer needs 8*n words, consistent with the historical code.
+	runPointwise(K, n, alloc, func(i int, buf fermat) {
 		z := buf.Mul(p.Values[i], q.Values[i])
 		copy(r.Values[i], z)
-	}
+	})
 
 	r.pooledBacking = bits
 	r.pooledValues = true
@@ -481,17 +579,15 @@ func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 	r.Values = acquireFermatSlice(K)
 	wordCount := K * (n + 1)
 	bits := acquireWordSliceUnsafe(wordCount)
-
-	// Use allocator for temporary multiplication result
-	buf, cleanup := alloc.AllocFermatTemp(8 * n)
-	defer cleanup()
-
 	for i := 0; i < K; i++ {
 		r.Values[i] = bits[i*(n+1) : (i+1)*(n+1)]
-		// Square: use specialized squaring
+	}
+
+	// Same parallel dispatch as mul; Sqr is the specialized squaring.
+	runPointwise(K, n, alloc, func(i int, buf fermat) {
 		z := buf.Sqr(p.Values[i])
 		copy(r.Values[i], z)
-	}
+	})
 
 	r.pooledBacking = bits
 	r.pooledValues = true
