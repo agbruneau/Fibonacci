@@ -16,10 +16,8 @@
 package bigfft
 
 import (
-	"fmt"
 	"math/big"
 	"runtime"
-	"runtime/debug"
 )
 
 // FFTContextOptions configures a new FFTContext.
@@ -131,13 +129,15 @@ func (ctx *FFTContext) resolved() *FFTContext {
 //
 // If ctx is nil, the package default context is used (i.e. behavior
 // equivalent to Mul).
+//
+// Panic policy: see Mul (ADR-0002).
 func MulWithContext(ctx *FFTContext, x, y *big.Int) (res *big.Int, err error) {
 	if ctx == nil {
 		return Mul(x, y)
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.MulWithContext: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "MulWithContext")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -151,13 +151,15 @@ func MulWithContext(ctx *FFTContext, x, y *big.Int) (res *big.Int, err error) {
 // MulToWithContext is a context-scoped variant of MulTo.
 //
 // If ctx is nil, the package default context is used.
+//
+// Panic policy: see Mul (ADR-0002).
 func MulToWithContext(ctx *FFTContext, z, x, y *big.Int) (res *big.Int, err error) {
 	if ctx == nil {
 		return MulTo(z, x, y)
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.MulToWithContext: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "MulToWithContext")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -180,13 +182,15 @@ func MulToWithContext(ctx *FFTContext, z, x, y *big.Int) (res *big.Int, err erro
 // SqrWithContext is a context-scoped variant of Sqr.
 //
 // If ctx is nil, the package default context is used.
+//
+// Panic policy: see Mul (ADR-0002).
 func SqrWithContext(ctx *FFTContext, x *big.Int) (res *big.Int, err error) {
 	if ctx == nil {
 		return Sqr(x)
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.SqrWithContext: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "SqrWithContext")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -199,13 +203,15 @@ func SqrWithContext(ctx *FFTContext, x *big.Int) (res *big.Int, err error) {
 // SqrToWithContext is a context-scoped variant of SqrTo.
 //
 // If ctx is nil, the package default context is used.
+//
+// Panic policy: see Mul (ADR-0002).
 func SqrToWithContext(ctx *FFTContext, z, x *big.Int) (res *big.Int, err error) {
 	if ctx == nil {
 		return SqrTo(z, x)
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in bigfft.SqrToWithContext: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "SqrToWithContext")
 		}
 	}()
 	xwords := len(x.Bits())
