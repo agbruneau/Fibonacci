@@ -35,7 +35,7 @@ func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.O
 	ctx, cancel := context.WithTimeout(r.ctx, r.perTrial)
 	defer cancel()
 	start := time.Now()
-	_, err = calc.Calculate(ctx, nil, 0, fibonacci.CalibrationN, opts)
+	_, err = calc.Calculate(ctx, nil, 0, CalibrationN, opts)
 	return time.Since(start), err
 }
 

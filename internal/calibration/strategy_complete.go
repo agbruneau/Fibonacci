@@ -8,8 +8,6 @@ import (
 	"context"
 	"errors"
 	"time"
-
-	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // ErrMissingFastCalculator is returned by CompleteStrategy.Calibrate
@@ -83,7 +81,7 @@ func (s CompleteStrategy) Calibrate(ctx context.Context, opts StrategyOptions) (
 	profile.OptimalParallelThreshold = updated.Threshold
 	profile.OptimalFFTThreshold = updated.FFTThreshold
 	profile.OptimalStrassenThreshold = updated.StrassenThreshold
-	profile.CalibrationN = fibonacci.CalibrationN
+	profile.CalibrationN = CalibrationN
 	profile.Confidence = 1.0
 
 	return profile, 1.0, nil

@@ -135,10 +135,11 @@ func TestTransformCachePutAndGet(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	// Create mock PolValues
+	// Create mock PolValues. Shape contract [A-05]: each coefficient must
+	// be exactly N+1 words, otherwise putByKey drops the entry.
 	mockValues := PolValues{
 		K:      4,
-		N:      100,
+		N:      2,
 		Values: []fermat{{1, 2, 3}, {4, 5, 6}},
 	}
 
@@ -146,7 +147,7 @@ func TestTransformCachePutAndGet(t *testing.T) {
 	cache.Put(testData, mockValues)
 
 	// Get from cache
-	result, found := cache.Get(testData, 4, 100)
+	result, found := cache.Get(testData, 4, 2)
 	if !found {
 		t.Fatal("expected to find cached value")
 	}
@@ -199,8 +200,8 @@ func TestTransformCacheEviction(t *testing.T) {
 
 		mockValues := PolValues{
 			K:      4,
-			N:      100,
-			Values: []fermat{{big.Word(i)}},
+			N:      2,
+			Values: []fermat{{big.Word(i), 0, 0}},
 		}
 		cache.Put(testData, mockValues)
 	}
@@ -442,7 +443,7 @@ func TestTransformCacheStats(t *testing.T) {
 
 	mockValues := PolValues{
 		K:      4,
-		N:      100,
+		N:      2,
 		Values: []fermat{{1, 2, 3}},
 	}
 
@@ -453,7 +454,7 @@ func TestTransformCacheStats(t *testing.T) {
 	}
 
 	// Miss
-	cache.Get(testData, 4, 100)
+	cache.Get(testData, 4, 2)
 	stats = cache.Stats()
 	if stats.Misses != 1 {
 		t.Errorf("expected 1 miss, got %d", stats.Misses)
@@ -461,7 +462,7 @@ func TestTransformCacheStats(t *testing.T) {
 
 	// Put and hit
 	cache.Put(testData, mockValues)
-	cache.Get(testData, 4, 100)
+	cache.Get(testData, 4, 2)
 	stats = cache.Stats()
 	if stats.Hits != 1 {
 		t.Errorf("expected 1 hit, got %d", stats.Hits)
@@ -484,12 +485,12 @@ func TestTransformCacheClear(t *testing.T) {
 
 	mockValues := PolValues{
 		K:      4,
-		N:      100,
+		N:      2,
 		Values: []fermat{{1, 2, 3}},
 	}
 
 	cache.Put(testData, mockValues)
-	cache.Get(testData, 4, 100)
+	cache.Get(testData, 4, 2)
 
 	// Clear the cache
 	cache.Clear()
@@ -503,7 +504,7 @@ func TestTransformCacheClear(t *testing.T) {
 	}
 
 	// Verify entry is gone
-	_, found := cache.Get(testData, 4, 100)
+	_, found := cache.Get(testData, 4, 2)
 	if found {
 		t.Error("expected cache miss after Clear")
 	}
@@ -535,7 +536,7 @@ func TestTransformCacheConcurrency(t *testing.T) {
 
 				mockValues := PolValues{
 					K:      4,
-					N:      100,
+					N:      1,
 					Values: []fermat{{big.Word(goroutineID), big.Word(i)}},
 				}
 
@@ -543,7 +544,7 @@ func TestTransformCacheConcurrency(t *testing.T) {
 				if i%2 == 0 {
 					cache.Put(testData, mockValues)
 				} else {
-					cache.Get(testData, 4, 100)
+					cache.Get(testData, 4, 1)
 				}
 			}
 		}(g)

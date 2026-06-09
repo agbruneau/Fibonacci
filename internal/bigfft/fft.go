@@ -63,10 +63,7 @@ func SetFFTThreshold(v int) { fftThreshold.Store(int64(v)) }
 func Mul(x, y *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if isFermatPostConditionPanic(r) {
-				panic(r) // post-condition violation: do not mask
-			}
-			err = fmt.Errorf("panic in bigfft.Mul: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "Mul")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -84,10 +81,7 @@ func Mul(x, y *big.Int) (res *big.Int, err error) {
 func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if isFermatPostConditionPanic(r) {
-				panic(r)
-			}
-			err = fmt.Errorf("panic in bigfft.MulTo: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "MulTo")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -116,10 +110,7 @@ func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 func Sqr(x *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if isFermatPostConditionPanic(r) {
-				panic(r)
-			}
-			err = fmt.Errorf("panic in bigfft.Sqr: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "Sqr")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -135,10 +126,7 @@ func Sqr(x *big.Int) (res *big.Int, err error) {
 func SqrTo(z, x *big.Int) (res *big.Int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if isFermatPostConditionPanic(r) {
-				panic(r)
-			}
-			err = fmt.Errorf("panic in bigfft.SqrTo: %v\nStack: %s", r, debug.Stack())
+			err = fermatPanicToError(r, "SqrTo")
 		}
 	}()
 	xwords := len(x.Bits())
@@ -289,4 +277,17 @@ func isFermatPostConditionPanic(r any) bool {
 	}
 	_, found := fermatPostConditionPanics[msg]
 	return found
+}
+
+// fermatPanicToError is the single implementation of the panic policy
+// (ADR-0002) shared by every public entry point — Mul/MulTo/Sqr/SqrTo and
+// their *WithContext variants. Post-condition sentinels from fermat.go are
+// re-propagated so genuine bugs in the modular reduction surface as panics;
+// every other panic is converted to an error carrying the stack. r must be
+// the non-nil value obtained from recover().
+func fermatPanicToError(r any, funcName string) error {
+	if isFermatPostConditionPanic(r) {
+		panic(r) // post-condition violation: do not mask
+	}
+	return fmt.Errorf("panic in bigfft.%s: %v\nStack: %s", funcName, r, debug.Stack())
 }

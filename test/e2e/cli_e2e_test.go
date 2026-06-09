@@ -364,6 +364,84 @@ func TestCLI_LastDigits(t *testing.T) {
 	}
 }
 
+// TestCLI_LastDigitsBoundaries covers the --last-digits edges that the
+// nominal cases above do not: K larger than the digit count (zero-padded),
+// and negative K (rejected by config validation with a non-zero exit).
+func TestCLI_LastDigitsBoundaries(t *testing.T) {
+	skipShortE2E(t)
+	binPath := buildBinary(t)
+
+	t.Run("K Exceeds Digit Count Is Zero Padded", func(t *testing.T) {
+		// F(10) = 55; asking for the last 10 digits must zero-pad to 0000000055.
+		cmd := exec.Command(binPath, "-n", "10", "--last-digits", "10", "--quiet")
+		cmd.Env = append(os.Environ(), "NO_COLOR=1")
+		output, err := cmd.CombinedOutput()
+		outStr := strings.TrimSpace(string(output))
+		if err != nil {
+			t.Fatalf("Command failed unexpectedly: %v\nOutput: %s", err, outStr)
+		}
+		if !strings.Contains(outStr, "0000000055") {
+			t.Errorf("Expected zero-padded result 0000000055, got: %q", outStr)
+		}
+	})
+
+	t.Run("Negative K Is Rejected", func(t *testing.T) {
+		cmd := exec.Command(binPath, "-n", "10", "--last-digits", "-5")
+		cmd.Env = append(os.Environ(), "NO_COLOR=1")
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Errorf("Expected non-zero exit code for negative --last-digits.\nOutput: %s", string(output))
+		}
+	})
+}
+
+// TestCLI_EnvOverrides verifies the documented configuration priority
+// (CLI flags > FIBCALC_* environment variables > defaults) through the real
+// binary, and that a malformed override is rejected loudly rather than
+// silently falling back to the default.
+func TestCLI_EnvOverrides(t *testing.T) {
+	skipShortE2E(t)
+	binPath := buildBinary(t)
+
+	t.Run("Env N Applies When Flag Absent", func(t *testing.T) {
+		cmd := exec.Command(binPath, "--quiet", "-c")
+		cmd.Env = append(os.Environ(), "NO_COLOR=1", "FIBCALC_N=12")
+		output, err := cmd.CombinedOutput()
+		outStr := strings.TrimSpace(string(output))
+		if err != nil {
+			t.Fatalf("Command failed unexpectedly: %v\nOutput: %s", err, outStr)
+		}
+		if !strings.Contains(outStr, "144") { // F(12) = 144
+			t.Errorf("Expected F(12)=144 from FIBCALC_N override, got: %q", outStr)
+		}
+	})
+
+	t.Run("CLI Flag Wins Over Env", func(t *testing.T) {
+		cmd := exec.Command(binPath, "-n", "10", "--quiet", "-c")
+		cmd.Env = append(os.Environ(), "NO_COLOR=1", "FIBCALC_N=12")
+		output, err := cmd.CombinedOutput()
+		outStr := strings.TrimSpace(string(output))
+		if err != nil {
+			t.Fatalf("Command failed unexpectedly: %v\nOutput: %s", err, outStr)
+		}
+		if !strings.Contains(outStr, "55") { // F(10) = 55: CLI takes priority
+			t.Errorf("Expected F(10)=55 (CLI > env), got: %q", outStr)
+		}
+		if strings.Contains(outStr, "144") {
+			t.Errorf("Env override leaked through despite explicit -n flag, got: %q", outStr)
+		}
+	})
+
+	t.Run("Malformed Env Value Is Rejected", func(t *testing.T) {
+		cmd := exec.Command(binPath, "--quiet")
+		cmd.Env = append(os.Environ(), "NO_COLOR=1", "FIBCALC_N=notanumber")
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Errorf("Expected non-zero exit code for malformed FIBCALC_N.\nOutput: %s", string(output))
+		}
+	})
+}
+
 // TestCLI_CompareMode verifies running specific algorithms with --algo flag.
 func TestCLI_CompareMode(t *testing.T) {
 	skipShortE2E(t)

@@ -166,6 +166,34 @@ func TestFormatNumberString(t *testing.T) {
 	}
 }
 
+// TestFormatBytes verifies human-readable byte formatting across all four
+// magnitude branches. This was the only format helper without a unit test
+// in this package (it was previously exercised only indirectly through TUI
+// rendering).
+func TestFormatBytes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input    uint64
+		expected string
+	}{
+		{0, "0 B"},
+		{512, "512 B"},
+		{1 << 10, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1 << 20, "1.0 MB"},
+		{5 << 20, "5.0 MB"},
+		{1 << 30, "1.0 GB"},
+		{3 << 30, "3.0 GB"},
+	}
+
+	for _, tt := range tests {
+		got := FormatBytes(tt.input)
+		if got != tt.expected {
+			t.Errorf("FormatBytes(%d) = %q; want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
 // TestNewProgressState verifies ProgressState initialization.
 func TestNewProgressState(t *testing.T) {
 	t.Parallel()
@@ -191,6 +219,13 @@ func TestProgressStateUpdate(t *testing.T) {
 	avg := ps.CalculateAverage()
 	if avg != 0.75 {
 		t.Errorf("average = %f, want 0.75", avg)
+	}
+
+	// Out-of-range indexes must be ignored, not panic or skew the average.
+	ps.Update(-1, 0.9)
+	ps.Update(2, 0.9)
+	if got := ps.CalculateAverage(); got != 0.75 {
+		t.Errorf("average after out-of-range updates = %f, want 0.75", got)
 	}
 }
 

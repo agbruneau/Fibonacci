@@ -1,6 +1,9 @@
 package bigfft
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestFermatPostConditionPanicClassifier validates that the sentinel list
 // covers exactly the panic messages emitted from the four Fermat
@@ -31,6 +34,40 @@ func TestFermatPostConditionPanicClassifier(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFermatPanicToError validates the shared panic-policy helper used by
+// all eight public entry points (Mul/MulTo/Sqr/SqrTo and the four
+// *WithContext variants). Sentinels re-propagate; everything else becomes
+// an error naming the entry point. ADR-0002.
+func TestFermatPanicToError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("non-sentinel panic becomes named error", func(t *testing.T) {
+		t.Parallel()
+		err := fermatPanicToError("Mul: len(x) != len(y)", "MulWithContext")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if want := "panic in bigfft.MulWithContext"; !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q does not contain %q", err.Error(), want)
+		}
+	})
+
+	t.Run("post-condition sentinel re-propagates", func(t *testing.T) {
+		t.Parallel()
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("expected sentinel panic to propagate, got none")
+			}
+			if !isFermatPostConditionPanic(r) {
+				t.Fatalf("expected post-condition sentinel, got %v", r)
+			}
+		}()
+		_ = fermatPanicToError("len(z) > 2n+1", "SqrWithContext")
+		t.Fatal("unreachable: helper must panic on sentinel")
+	})
 }
 
 // TestMulRepanicsOnPostCondition forces a synthetic post-condition panic

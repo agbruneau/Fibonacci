@@ -41,7 +41,7 @@ func TestEstimateParallelThresholdForHeuristic(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := EstimateParallelThresholdForHeuristic(tc.h)
+			got := estimateParallelThresholdForHeuristic(tc.h)
 			if got != tc.want {
 				t.Errorf("got %d, want %d", got, tc.want)
 			}
@@ -55,29 +55,29 @@ func TestEstimateFFTThresholdForHeuristic(t *testing.T) {
 		t.Skip("SIMD-tuned FFT defaults are defined for 64-bit words")
 	}
 	h64 := HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDNone}
-	if got := EstimateFFTThresholdForHeuristic(h64); got != 500000 {
+	if got := estimateFFTThresholdForHeuristic(h64); got != 500000 {
 		t.Errorf("generic 64-bit: got %d, want 500000", got)
 	}
-	if got := EstimateFFTThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX2}); got != 480000 {
+	if got := estimateFFTThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX2}); got != 480000 {
 		t.Errorf("avx2: got %d, want 480000", got)
 	}
-	if got := EstimateFFTThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX512}); got != 460000 {
+	if got := estimateFFTThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX512}); got != 460000 {
 		t.Errorf("avx512: got %d, want 460000", got)
 	}
 }
 
 func TestEstimateStrassenThresholdForHeuristic(t *testing.T) {
 	t.Parallel()
-	if got := EstimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 2, GOARCH: "amd64", SIMD: SIMDAVX512}); got != 3072 {
+	if got := estimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 2, GOARCH: "amd64", SIMD: SIMDAVX512}); got != 3072 {
 		t.Errorf("numCPU<4: got %d, want 3072", got)
 	}
-	if got := EstimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDNone}); got != 256 {
+	if got := estimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDNone}); got != 256 {
 		t.Errorf("8cpu generic: got %d, want 256", got)
 	}
-	if got := EstimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX2}); got != 240 {
+	if got := estimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX2}); got != 240 {
 		t.Errorf("avx2: got %d, want 240", got)
 	}
-	if got := EstimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX512}); got != 224 {
+	if got := estimateStrassenThresholdForHeuristic(HardwareHeuristic{NumCPU: 8, GOARCH: "amd64", SIMD: SIMDAVX512}); got != 224 {
 		t.Errorf("avx512: got %d, want 224", got)
 	}
 }

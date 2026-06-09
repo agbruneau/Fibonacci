@@ -48,14 +48,6 @@ const (
 	//
 	// Lowered from 10M to 5M bits based on profiling with modern high-core-count CPUs.
 	ParallelFFTThreshold = 5_000_000
-
-	// CalibrationN is the standard Fibonacci index used for performance
-	// calibration runs. This value provides a good balance between:
-	//   - Being large enough to measure meaningful performance differences
-	//   - Being small enough to complete calibration in reasonable time
-	//
-	// F(10,000,000) has approximately 2,089,877 decimal digits.
-	CalibrationN = 10_000_000
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

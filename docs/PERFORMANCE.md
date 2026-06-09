@@ -107,7 +107,7 @@ When CLI thresholds are left at **0** (auto) and no valid calibration profile is
 - **`runtime.NumCPU()`** for parallelism tiers (unchanged broad behavior).
 - **`HardwareHeuristic`** (`internal/config/hardware.go`): on **amd64** and **386**, **AVX2** and **AVX-512 (AVX512F)** are read from `golang.org/x/sys/cpu` to nudge defaults (e.g. slightly lower FFT crossover on SIMD-rich CPUs, adjusted Strassen threshold when at least four cores are available).
 
-Diagnostics and unit tests use the exported `EstimateParallelThresholdForHeuristic`, `EstimateFFTThresholdForHeuristic`, and `EstimateStrassenThresholdForHeuristic` with a synthetic `HardwareHeuristic`. Cached calibration profiles store `cpu_heuristic_key` (profile format v3) so a change in SIMD class invalidates stale JSON — see [CALIBRATION.md](CALIBRATION.md).
+Diagnostics and the in-package unit tests (`internal/config/hardware_test.go`) exercise the unexported `estimateParallelThresholdForHeuristic`, `estimateFFTThresholdForHeuristic`, and `estimateStrassenThresholdForHeuristic` with a synthetic `HardwareHeuristic`. Cached calibration profiles store `cpu_heuristic_key` (profile format v3) so a change in SIMD class invalidates stale JSON — see [CALIBRATION.md](CALIBRATION.md).
 
 ## Implemented Optimizations
 

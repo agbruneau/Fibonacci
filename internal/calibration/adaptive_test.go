@@ -131,53 +131,6 @@ func TestGenerateQuickStrassenThresholds(t *testing.T) {
 	t.Logf("Generated %d quick Strassen thresholds: %v", len(thresholds), thresholds)
 }
 
-func TestEstimateOptimalParallelThreshold(t *testing.T) {
-	t.Parallel()
-	threshold := EstimateOptimalParallelThreshold()
-
-	// Should be non-negative
-	if threshold < 0 {
-		t.Errorf("Estimated parallel threshold is negative: %d", threshold)
-	}
-
-	// Should be in reasonable range
-	if threshold > 65536 {
-		t.Errorf("Estimated parallel threshold seems too high: %d", threshold)
-	}
-
-	numCPU := runtime.NumCPU()
-	t.Logf("Estimated parallel threshold for %d CPUs: %d", numCPU, threshold)
-}
-
-func TestEstimateOptimalFFTThreshold(t *testing.T) {
-	t.Parallel()
-	threshold := EstimateOptimalFFTThreshold()
-
-	// Should be positive
-	if threshold <= 0 {
-		t.Errorf("Estimated FFT threshold should be positive: %d", threshold)
-	}
-
-	// Should be in reasonable range
-	if threshold > 10000000 {
-		t.Errorf("Estimated FFT threshold seems too high: %d", threshold)
-	}
-
-	t.Logf("Estimated FFT threshold: %d", threshold)
-}
-
-func TestEstimateOptimalStrassenThreshold(t *testing.T) {
-	t.Parallel()
-	threshold := EstimateOptimalStrassenThreshold()
-
-	// Should be positive
-	if threshold <= 0 {
-		t.Errorf("Estimated Strassen threshold should be positive: %d", threshold)
-	}
-
-	t.Logf("Estimated Strassen threshold: %d", threshold)
-}
-
 // Benchmark threshold generation
 func BenchmarkGenerateParallelThresholds(b *testing.B) {
 	b.ReportAllocs()

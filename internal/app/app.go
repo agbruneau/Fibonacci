@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/agbruneau/FibGo/internal/calibration"
@@ -14,6 +15,7 @@ import (
 	"github.com/agbruneau/FibGo/internal/config"
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/tui"
 	"github.com/agbruneau/FibGo/internal/ui"
@@ -35,8 +37,36 @@ func WithFactory(f fibonacci.CalculatorFactory) AppOption {
 	return func(a *Application) { a.Factory = f }
 }
 
+// thresholdTuningOnce guards the process-wide installation of the
+// config-layer tuning profile into the threshold package.
+var thresholdTuningOnce sync.Once
+
+// wireThresholdTuning realizes the A2-04 wiring contract documented in
+// threshold/manager.go and config/doc.go: translate
+// config.DefaultThresholdTuning into a threshold.Tuning and install it
+// exactly once, at startup, before any DynamicThresholdManager is
+// constructed (single-writer-before-use). Before this call existed the
+// contract was documented but never executed, so changes to
+// config.DefaultThresholdTuning silently had no effect on the dynamic
+// threshold manager. sync.Once keeps concurrent New calls (parallel
+// tests) race-free on the unsynchronized package-level knobs.
+func wireThresholdTuning() {
+	thresholdTuningOnce.Do(func() {
+		p := config.DefaultThresholdTuning
+		threshold.SetTuning(threshold.Tuning{
+			FFTSpeedupThreshold:      p.FFTSpeedupThreshold,
+			ParallelSpeedupThreshold: p.ParallelSpeedupThreshold,
+			HysteresisMargin:         p.HysteresisMargin,
+			MinFFTThreshold:          p.MinFFTThreshold,
+			MinParallelThreshold:     p.MinParallelThreshold,
+		})
+	})
+}
+
 // New creates a new Application instance by parsing command-line arguments.
 func New(args []string, errWriter io.Writer, opts ...AppOption) (*Application, error) {
+	wireThresholdTuning()
+
 	app := &Application{ErrWriter: errWriter}
 	for _, opt := range opts {
 		opt(app)

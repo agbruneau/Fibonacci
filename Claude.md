@@ -36,7 +36,7 @@ internal/
     memory/          # Arena, GCController, budget mémoire
     threshold/       # Gestionnaire dynamique de seuils (FFT/parallèle/Strassen)
   format/            # Formatage durées, nombres, ETA
-  metrics/           # Indicateurs de performance, monitoring mémoire
+  metrics/           # Indicateurs de performance (throughput, propriétés O(1))
     system/          # Échantillonnage CPU/mém
   orchestration/     # Exécution concurrente (errgroup), agrégation
   parallel/          # ErrorCollector — utilisé par fibonacci/common.go
@@ -89,7 +89,7 @@ Les correctifs ci-dessous sont **en place et testés**. Ils encodent des invaria
 | `bigfft/fft_cache.go` | `putByKey` alloue **toujours** un backing frais ; ne pas réintroduire de recyclage à l'éviction — cf. Audit-PRD E1-R4 (aliasing avec un `PolValues` vivant). `TransformCache.logger` est un `atomic.Pointer[zerolog.Logger]` : `SetCacheLogger` ne doit pas racer avec la lecture hot-path de `logPeriodicStats` (A2-02). |
 | `bigfft/fft.go`, `fft_recursion.go` | `fftThreshold`/`parallelFFTRecursionThreshold`/`maxParallelFFTDepth` sont **`atomic.Int64/Uint64` privés** ; lectures via `getFFTThreshold()`/`GetParallelFFTRecursionThreshold()`/`GetMaxParallelFFTDepth()`. Ne pas réintroduire de globaux mutables non synchronisés. |
 | `bigfft/fft.go` (`Mul`/`MulTo`/`Sqr`/`SqrTo`) | Le `recover()` re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent pas être masquées en `error`. Gardé par `TestFermatPostConditionPanicClassifier`. |
-| `fibonacci/threshold/manager.go` | Champs **par-instance** `currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]` : l'invariant A-18 single-writer **sur ces champs par-instance** est donc **obsolète** (migrés en atomic). Distinct de l'invariant A2-04 single-writer-before-use, lui **toujours actif**, qui porte sur les **knobs de tuning package-level** (`FFTSpeedupThreshold`, etc., cf. Modules sensibles + `manager.go:33-39`). Le package n'importe **pas** `internal/config` ; passer par `threshold.SetTuning` depuis la couche supérieure. |
+| `fibonacci/threshold/manager.go` | Champs **par-instance** `currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]` : l'invariant A-18 single-writer **sur ces champs par-instance** est donc **obsolète** (migrés en atomic). Distinct de l'invariant A2-04 single-writer-before-use, lui **toujours actif**, qui porte sur les **knobs de tuning package-level** (`FFTSpeedupThreshold`, etc., cf. Modules sensibles + `manager.go:33-39`). Le package n'importe **pas** `internal/config` ; le câblage `config.DefaultThresholdTuning → threshold.SetTuning` est exécuté une fois par `app.New` (`wireThresholdTuning`, `sync.Once`) — gardé par `TestWireThresholdTuning`. |
 | `errors/errors.go` | N'importe **pas** `internal/format` ; un helper local `formatBytesLocal` couvre le besoin. Gardé par `TestArchitectureLayering`. |
 | `tui/` (production) | N'importe **pas** `internal/fibonacci` directement ; passer par les aliases `orchestration.Calculator`/`Options`/`Default*Threshold`. Gardé par `TestArchitectureLayering`. |
 
@@ -199,7 +199,7 @@ Cycle typique : modifier le code → `/understand` (régénère le graphe) → r
 ## Références
 
 - **[Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/)** — knowledge-graph navigable (GitHub Pages, built from `docs/dashboard/`).
-- [`docs/adr/`](docs/adr/) — décisions architecturales (0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT reportée au token par-appel/FFTContext, 0007 pool SA6002 pointeur vs valeur).
+- [`docs/adr/`](docs/adr/) — décisions architecturales (0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT reportée au token par-appel/FFTContext, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés de l'audit 2026-06).
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph.
 - [`docs/algorithms/`](docs/algorithms/) — Fast Doubling, Matrix, FFT, GMP, comparaison.
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — tuning et méthodologie de benchmark.

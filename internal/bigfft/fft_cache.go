@@ -357,6 +357,19 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	n := pv.N
 	wordCount := K * (n + 1)
 
+	// [A-05] Reject malformed PolValues: every coefficient must be exactly
+	// n+1 words, otherwise the copy below silently truncates (len < n+1) or
+	// drops trailing words (len > n+1) and the cache would later serve a
+	// corrupt transform with no error surfaced. Drop the entry — a rejected
+	// Put leaves the cache unchanged, so a subsequent Get is a clean miss
+	// and callers fall back to recompute. Guarded by
+	// TestPutByKeyRejectsMalformedShape.
+	for _, v := range pv.Values {
+		if len(v) != n+1 {
+			return
+		}
+	}
+
 	// Evict oldest entries if at capacity. We deliberately do NOT salvage
 	// the evicted backing buffers — see the function-level concurrency
 	// contract above.

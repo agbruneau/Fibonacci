@@ -81,9 +81,9 @@ func TestEstimateOptimalParallelThreshold_NonNegative(t *testing.T) {
 		t.Errorf("EstimateOptimalParallelThreshold returned negative value: %d", got)
 	}
 	// The wrapper must agree with the inner implementation on the detected host.
-	want := EstimateParallelThresholdForHeuristic(DetectHardwareHeuristic())
+	want := estimateParallelThresholdForHeuristic(DetectHardwareHeuristic())
 	if got != want {
-		t.Errorf("EstimateOptimalParallelThreshold = %d; EstimateParallelThresholdForHeuristic(detected) = %d", got, want)
+		t.Errorf("EstimateOptimalParallelThreshold = %d; estimateParallelThresholdForHeuristic(detected) = %d", got, want)
 	}
 }
 
@@ -96,9 +96,9 @@ func TestEstimateOptimalFFTThreshold_Positive(t *testing.T) {
 	if got <= 0 {
 		t.Errorf("EstimateOptimalFFTThreshold returned non-positive value: %d", got)
 	}
-	want := EstimateFFTThresholdForHeuristic(DetectHardwareHeuristic())
+	want := estimateFFTThresholdForHeuristic(DetectHardwareHeuristic())
 	if got != want {
-		t.Errorf("EstimateOptimalFFTThreshold = %d; EstimateFFTThresholdForHeuristic(detected) = %d", got, want)
+		t.Errorf("EstimateOptimalFFTThreshold = %d; estimateFFTThresholdForHeuristic(detected) = %d", got, want)
 	}
 }
 
@@ -111,8 +111,8 @@ func TestEstimateOptimalStrassenThreshold_Positive(t *testing.T) {
 	if got <= 0 {
 		t.Errorf("EstimateOptimalStrassenThreshold returned non-positive value: %d", got)
 	}
-	want := EstimateStrassenThresholdForHeuristic(DetectHardwareHeuristic())
+	want := estimateStrassenThresholdForHeuristic(DetectHardwareHeuristic())
 	if got != want {
-		t.Errorf("EstimateOptimalStrassenThreshold = %d; EstimateStrassenThresholdForHeuristic(detected) = %d", got, want)
+		t.Errorf("EstimateOptimalStrassenThreshold = %d; estimateStrassenThresholdForHeuristic(detected) = %d", got, want)
 	}
 }
