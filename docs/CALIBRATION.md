@@ -66,7 +66,7 @@ When operand bit sizes exceed a threshold, the corresponding optimization is act
 
 Entry point: `RunCalibration()` in `internal/calibration/calibration.go`.
 
-Full calibration runs a real Fibonacci calculation (N=10,000,000, defined by `fibonacci.CalibrationN`) with the "fast" algorithm for every candidate threshold value. It measures wall-clock time for each run and selects the fastest.
+Full calibration runs a real Fibonacci calculation (N=10,000,000, defined by `calibration.CalibrationN`) with the "fast" algorithm for every candidate threshold value. It measures wall-clock time for each run and selects the fastest.
 
 The process:
 

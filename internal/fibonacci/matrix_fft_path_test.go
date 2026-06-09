@@ -13,17 +13,22 @@ import (
 // identical results, so a regression in the matrix FFT path (or in the
 // Strassen + FFT combination) fails loudly.
 //
-// N is chosen so the top matrix elements (~F(N), about 208k bits for
-// N=300k) comfortably exceed bigfft's internal word threshold (~115k bits),
-// guaranteeing real FFT transforms run — not just the fibonacci-level
-// routing into bigfft's fallback.
+// N must be chosen against bigfft's INPUT operand sizes, not the final
+// result: bigfft.MulTo/SqrTo apply their own 1800-word (~115k-bit) gate on
+// the operands, and the largest F(N)-sized value is only the OUTPUT of the
+// final multiply. Simulating ExecuteMatrixLoop's schedule: at N=600k the
+// largest squaring operands are the elements of Q^262144 (~2844 words),
+// which pass the gate, yielding 3 FFT-eligible squarings and 1 FFT-eligible
+// multiply per run. (At N=300k the max input was 1422 words — every
+// operation silently fell back to math/big and the test asserted nothing
+// about the transforms.)
 func TestMatrixExponentiation_FFTPathIsolation(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping FFT-path isolation (N=300k) in -short mode")
+		t.Skip("skipping FFT-path isolation (N=600k) in -short mode")
 	}
 	t.Parallel()
 
-	const n = 300_000
+	const n = 600_000
 	calc := &MatrixExponentiationCalculator{}
 	ctx := context.Background()
 

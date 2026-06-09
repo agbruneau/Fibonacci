@@ -252,7 +252,7 @@ internal/
 - **Key type:** `ErrorCollector` — atomic-style first-error retention via `SetError`/`Err`.
 
 ## `internal/metrics`, `internal/metrics/system`, `internal/format`, `internal/ui`, `internal/testutil`
-- **Responsibility:** telemetry formatting, memory/performance indicators (`MemoryCollector`, `MemorySnapshot`), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
+- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
 
 ---
 
