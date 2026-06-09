@@ -110,6 +110,15 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter progre
 	// the matrix state. We replace it with a fresh empty big.Int so the state
 	// remains valid for pool return via releaseMatrixState. This eliminates an
 	// O(n) copy of the result, trading it for a single 24-byte allocation.
+	//
+	// Why stealing is safe HERE but forbidden in ExecuteDoublingLoop (P1-04):
+	// matrixState's big.Ints are independent new(big.Int) allocations — there
+	// is no shared arena backing. Once the pointer is detached from the state
+	// (the slot is overwritten with a fresh big.Int before pool return),
+	// nothing the pool does can touch the stolen value. The doubling state,
+	// by contrast, aliases a state-bound arena whose buffer is Reset() and
+	// reused by the next AcquireStateForN, so its result MUST be deep-copied
+	// out (ReleaseStateWithResult).
 	result := state.res.a
 	state.res.a = new(big.Int)
 	return result, nil
