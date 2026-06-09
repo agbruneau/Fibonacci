@@ -17,6 +17,17 @@ import (
 	"github.com/agbruneau/FibGo/internal/ui"
 )
 
+// CalibrationN is the standard Fibonacci index used for performance
+// calibration runs. This value provides a good balance between:
+//   - Being large enough to measure meaningful performance differences
+//   - Being small enough to complete calibration in reasonable time
+//
+// F(10,000,000) has approximately 2,089,877 decimal digits.
+//
+// Moved from internal/fibonacci/constants.go (audit 2026-06): the constant
+// is consumed exclusively by this package.
+const CalibrationN = 10_000_000
+
 // DefaultProfileMaxAge is the default freshness window for a cached
 // calibration profile. Beyond this age, AutoCalibrateWithProfile ignores
 // the cached values and re-runs a full calibration so that the saved
@@ -197,7 +208,7 @@ func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Ca
 		}
 
 		startTime := time.Now()
-		_, err := calculator.Calculate(ctx, progressChan, 0, fibonacci.CalibrationN, fibonacci.Options{ParallelThreshold: threshold})
+		_, err := calculator.Calculate(ctx, progressChan, 0, CalibrationN, fibonacci.Options{ParallelThreshold: threshold})
 		duration := time.Since(startTime)
 
 		if err != nil {
@@ -235,7 +246,7 @@ func persistCalibrationProfile(out io.Writer, profilePath string, bestThreshold 
 	profile.OptimalParallelThreshold = bestThreshold
 	profile.OptimalFFTThreshold = config.EstimateOptimalFFTThreshold()
 	profile.OptimalStrassenThreshold = config.EstimateOptimalStrassenThreshold()
-	profile.CalibrationN = fibonacci.CalibrationN
+	profile.CalibrationN = CalibrationN
 	profile.CalibrationTime = calibrationDuration.String()
 	profile.Confidence = 1.0
 
@@ -450,7 +461,7 @@ func saveCalibrationProfile(cfg config.AppConfig, profilePath string, out io.Wri
 	profile.OptimalParallelThreshold = cfg.Threshold
 	profile.OptimalFFTThreshold = cfg.FFTThreshold
 	profile.OptimalStrassenThreshold = cfg.StrassenThreshold
-	profile.CalibrationN = fibonacci.CalibrationN
+	profile.CalibrationN = CalibrationN
 	profile.Confidence = confidence
 
 	if err := profile.SaveProfile(profilePath); err != nil {

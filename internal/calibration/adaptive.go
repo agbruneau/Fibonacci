@@ -4,8 +4,6 @@ package calibration
 
 import (
 	"runtime"
-
-	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,16 +95,6 @@ func GenerateQuickStrassenThresholds() []int {
 	return []int{192, 256, 384, 512}
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Threshold Estimation (without benchmarking)
-// Delegates to config.EstimateOptimal* — canonical implementations live there.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// EstimateOptimalParallelThreshold delegates to config.EstimateOptimalParallelThreshold.
-func EstimateOptimalParallelThreshold() int { return config.EstimateOptimalParallelThreshold() }
-
-// EstimateOptimalFFTThreshold delegates to config.EstimateOptimalFFTThreshold.
-func EstimateOptimalFFTThreshold() int { return config.EstimateOptimalFFTThreshold() }
-
-// EstimateOptimalStrassenThreshold delegates to config.EstimateOptimalStrassenThreshold.
-func EstimateOptimalStrassenThreshold() int { return config.EstimateOptimalStrassenThreshold() }
+// Threshold estimation without benchmarking lives in internal/config
+// (config.EstimateOptimal*); callers use it directly. The pass-through
+// delegates that used to live here were removed (audit 2026-06).

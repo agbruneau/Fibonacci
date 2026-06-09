@@ -31,12 +31,12 @@ func ApplyAdaptiveThresholds(cfg AppConfig) AppConfig {
 // parallel threshold without running benchmarks.
 // This can be used as a fallback or starting point.
 func EstimateOptimalParallelThreshold() int {
-	return EstimateParallelThresholdForHeuristic(DetectHardwareHeuristic())
+	return estimateParallelThresholdForHeuristic(DetectHardwareHeuristic())
 }
 
-// EstimateParallelThresholdForHeuristic applies the same rules as EstimateOptimalParallelThreshold
+// estimateParallelThresholdForHeuristic applies the same rules as EstimateOptimalParallelThreshold
 // for a simulated host (tests, diagnostics).
-func EstimateParallelThresholdForHeuristic(h HardwareHeuristic) int {
+func estimateParallelThresholdForHeuristic(h HardwareHeuristic) int {
 	base := parallelThresholdFromCPUCount(h.NumCPU)
 	// Slightly more aggressive parallelism when SIMD throughput is high and enough cores exist.
 	switch h.SIMD {
@@ -72,12 +72,12 @@ func parallelThresholdFromCPUCount(numCPU int) int {
 // EstimateOptimalFFTThreshold provides a heuristic estimate of the optimal
 // FFT threshold without running benchmarks.
 func EstimateOptimalFFTThreshold() int {
-	return EstimateFFTThresholdForHeuristic(DetectHardwareHeuristic())
+	return estimateFFTThresholdForHeuristic(DetectHardwareHeuristic())
 }
 
-// EstimateFFTThresholdForHeuristic applies the same rules as EstimateOptimalFFTThreshold
+// estimateFFTThresholdForHeuristic applies the same rules as EstimateOptimalFFTThreshold
 // for a simulated host (tests, diagnostics).
-func EstimateFFTThresholdForHeuristic(h HardwareHeuristic) int {
+func estimateFFTThresholdForHeuristic(h HardwareHeuristic) int {
 	wordSize := 32 << (^uint(0) >> 63)
 
 	if wordSize != 64 {
@@ -97,12 +97,12 @@ func EstimateFFTThresholdForHeuristic(h HardwareHeuristic) int {
 // EstimateOptimalStrassenThreshold provides a heuristic estimate of the optimal
 // Strassen threshold without running benchmarks.
 func EstimateOptimalStrassenThreshold() int {
-	return EstimateStrassenThresholdForHeuristic(DetectHardwareHeuristic())
+	return estimateStrassenThresholdForHeuristic(DetectHardwareHeuristic())
 }
 
-// EstimateStrassenThresholdForHeuristic applies the same rules as EstimateOptimalStrassenThreshold
+// estimateStrassenThresholdForHeuristic applies the same rules as EstimateOptimalStrassenThreshold
 // for a simulated host (tests, diagnostics).
-func EstimateStrassenThresholdForHeuristic(h HardwareHeuristic) int {
+func estimateStrassenThresholdForHeuristic(h HardwareHeuristic) int {
 	if h.NumCPU < 4 {
 		return 3072 // Default from constants when parallelism is limited
 	}

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agbruneau/FibGo/internal/fibonacci"
 	"github.com/agbruneau/FibGo/internal/ui"
 )
 
@@ -55,7 +54,7 @@ func (s FastStrategy) Calibrate(ctx context.Context, opts StrategyOptions) (*Cal
 	profile.OptimalFFTThreshold = results.FFTThreshold
 	// Micro-benchmarks do not test Strassen; preserve the caller's value.
 	profile.OptimalStrassenThreshold = opts.BaseConfig.StrassenThreshold
-	profile.CalibrationN = fibonacci.CalibrationN
+	profile.CalibrationN = CalibrationN
 	profile.CalibrationTime = results.Duration.String()
 	profile.Confidence = float64(results.Confidence)
 
