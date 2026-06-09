@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactoring audit (2026-06-09)
+
+Audit de refactorisation exhaustif (exploration multi-agents, vérification
+par grep/tests avant chaque modification, branche
+`refactor/audit-deepening-2026-06`). Les candidats rejetés après
+vérification sont matérialisés dans ADR-0008.
+
+#### Fixed
+
+- **A-05** — `bigfft.TransformCache.putByKey` rejette désormais les
+  `PolValues` dont les coefficients ne font pas exactement `n+1` mots
+  (une entrée malformée était silencieusement tronquée par `copy`,
+  servant ensuite une transformée corrompue). Fix porté depuis le tag
+  `archive/vague-A-bigfft-concurrency` ; garde
+  `TestPutByKeyRejectsMalformedShape`.
+- **ADR-0002** — Les 4 variantes `*WithContext` de `bigfft` convertissaient
+  TOUTES les panics en erreur, y compris les sentinelles post-condition de
+  `fermat.go` qui doivent se propager. La politique de panic est extraite
+  dans un helper unique (`fermatPanicToError`) partagé par les 8 points
+  d'entrée publics.
+- **A2-04** — Le câblage documenté `config.DefaultThresholdTuning →
+  threshold.SetTuning` n'était exécuté nulle part (zéro appelant de
+  production). Réalisé dans `app.New` derrière un `sync.Once` ;
+  comportement inchangé aujourd'hui (valeurs identiques), canal de dérive
+  fermé.
+
+#### Changed
+
+- **API interne** — Suppression de la surface morte vérifiée :
+  `metrics.MemoryCollector`/`MemorySnapshot` (module entier sans
+  consommateur), stubs pass-through `calibration.EstimateOptimal*`,
+  dé-export de `config.estimate*ThresholdForHeuristic` (×3).
+  `CalibrationN` déménage de `fibonacci/constants.go` vers
+  `internal/calibration` (son seul domaine consommateur).
+- **fibonacci** — Les heuristiques grow/shrink du cache FFT sont extraites
+  en fonction pure `decideCacheTuning`, testée unitairement ; le seam
+  `CacheStrategy` est conservé (deux adapters — cf. ADR-0008 R3).
+
+#### Added
+
+- **Couverture** — `TestMatrixExponentiation_FFTPathIsolation` (le chemin
+  matrix × FFT n'était exercé par aucun test aux seuils par défaut),
+  `TestDecideCacheTuning`, `TestFormatBytes`, bornes e2e `--last-digits`
+  et contrat e2e des overrides d'environnement `FIBCALC_*`,
+  `TestWireThresholdTuning`.
+
+#### Docs
+
+- **ADR-0008** — Sept candidats de refactorisation rejetés après
+  vérification (ColorProvider, executeTasks, seam CacheStrategy,
+  observers progress, exports bigfft, TestFactory, knobs threshold),
+  avec preuves, pour que les audits futurs ne les re-suggèrent pas.
+
 ### Audit exactness pass (2026-05-29)
 
 Audit de suivi (23 constats `F-NN`, rapport archivé
