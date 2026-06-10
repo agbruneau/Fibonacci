@@ -41,8 +41,12 @@ func TestGetTransformCache(t *testing.T) {
 func TestSetTransformCacheConfig(t *testing.T) {
 	t.Parallel()
 
+	// The two subtests below mutate the GLOBAL transform-cache singleton via
+	// SetTransformCacheConfig. They must NOT run in parallel with each other:
+	// a concurrent Set from one subtest lands between the Put and the entry
+	// count of the other, which fails deterministically when the test runs
+	// in isolation (go test -run TestSetTransformCacheConfig).
 	t.Run("Set config with enabled cache", func(t *testing.T) {
-		t.Parallel()
 		config := TransformCacheConfig{
 			MaxEntries: 64,
 			MinBitLen:  50000,
@@ -67,7 +71,6 @@ func TestSetTransformCacheConfig(t *testing.T) {
 	})
 
 	t.Run("Set config with disabled cache clears entries", func(t *testing.T) {
-		t.Parallel()
 		// First enable and add some entries using Put
 		// Note: MinBitLen must be lower than testData size for Put to accept the entry
 		// testData has 2000 words = 2000 * 64 bits = 128000 bits on 64-bit systems
@@ -83,13 +86,18 @@ func TestSetTransformCacheConfig(t *testing.T) {
 		// Need enough words to exceed MinBitLen (1000 bits = ~16 words on 64-bit)
 		testData := make(nat, 2000) // 2000 words = 128000 bits on 64-bit
 		testData[0] = big.Word(123)
+		// N must match the coefficient length minus one: putByKey's A-05
+		// shape guard silently rejects entries whose coefficients are not
+		// exactly N+1 words. With the historical N=10 / 101-word mismatch
+		// the Put was always dropped and this test only passed through
+		// cache pollution from parallel neighbours.
 		mockValues := PolValues{
-			K:      4,
-			N:      10,
+			K:      16,
+			N:      100,
 			Values: make([]fermat, 16),
 		}
 		for i := range mockValues.Values {
-			mockValues.Values[i] = make(fermat, 101)
+			mockValues.Values[i] = make(fermat, 101) // exactly N+1 words
 		}
 		cache.Put(testData, mockValues)
 
