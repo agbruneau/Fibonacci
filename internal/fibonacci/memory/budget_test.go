@@ -89,3 +89,80 @@ func TestParseMemoryLimit_Errors(t *testing.T) {
 		})
 	}
 }
+
+// TestFormatMemoryEstimate pins the exact rendering (field order and units)
+// so a formatting regression cannot slip through unnoticed.
+func TestFormatMemoryEstimate(t *testing.T) {
+	t.Parallel()
+
+	est := MemoryEstimate{
+		StateBytes:     2 * 1024 * 1024 * 1024, // GB branch
+		FFTBufferBytes: 3 * 1024 * 1024,        // MB branch
+		CacheBytes:     512 * 1024,             // KB branch
+		OverheadBytes:  100,                    // B branch
+		TotalBytes:     1536,                   // fractional KB
+	}
+	got := FormatMemoryEstimate(est)
+	want := "State: 2.0 GB, FFT: 3.0 MB, Cache: 512.0 KB, Overhead: 100 B, Total: 1.5 KB"
+	if got != want {
+		t.Errorf("FormatMemoryEstimate() = %q, want %q", got, want)
+	}
+}
+
+func TestFormatBytesInternal(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		b    uint64
+		want string
+	}{
+		{0, "0 B"},
+		{1023, "1023 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1024 * 1024, "1.0 MB"},
+		// Just below the GB threshold must stay in MB (rounds to 1024.0).
+		{1024*1024*1024 - 1, "1024.0 MB"},
+		{1024 * 1024 * 1024, "1.0 GB"},
+		{5 * 1024 * 1024 * 1024, "5.0 GB"},
+	}
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("%d", tc.b), func(t *testing.T) {
+			t.Parallel()
+			if got := formatBytesInternal(tc.b); got != tc.want {
+				t.Errorf("formatBytesInternal(%d) = %q, want %q", tc.b, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestSatMul covers the zero and overflow branches, which EstimateMemoryUsage
+// never reaches (its operands are always non-zero and below the saturation
+// point for the multipliers it uses). An unguarded a*b would wrap 2^32 * 2^32
+// to 0 — exactly the small-value wrap satMul exists to prevent.
+func TestSatMul(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		a, b uint64
+		want uint64
+	}{
+		{"zero_left", 0, 5, 0},
+		{"zero_right", 5, 0, 0},
+		{"normal", 3, 4, 12},
+		{"max_times_one_no_saturation", math.MaxUint64, 1, math.MaxUint64},
+		{"saturates_max_times_two", math.MaxUint64, 2, math.MaxUint64},
+		{"saturates_wrap_to_zero_case", 1 << 32, 1 << 32, math.MaxUint64},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := satMul(tc.a, tc.b); got != tc.want {
+				t.Errorf("satMul(%d, %d) = %d, want %d", tc.a, tc.b, got, tc.want)
+			}
+		})
+	}
+}
