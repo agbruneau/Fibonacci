@@ -90,7 +90,7 @@ func TestSetTransformCacheConfig(t *testing.T) {
 		// shape guard silently rejects entries whose coefficients are not
 		// exactly N+1 words. With the historical N=10 / 101-word mismatch
 		// the Put was always dropped and this test only passed through
-		// cache pollution from parallel neighbours.
+		// cache pollution from parallel neighbors.
 		mockValues := PolValues{
 			K:      16,
 			N:      100,
