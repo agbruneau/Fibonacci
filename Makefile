@@ -47,7 +47,7 @@ build:
 pgo-profile:
 	@echo "Generating CPU profile for PGO..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) test -cpuprofile=$(PGO_RAW_PROFILE) -bench=BenchmarkFastDoubling -benchtime=5s -count=3 ./internal/fibonacci/
+	$(GO) test -cpuprofile=$(PGO_RAW_PROFILE) -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchtime=5s -count=3 -run='^$$' ./internal/fibonacci/
 	@if [ -f $(PGO_RAW_PROFILE) ]; then \
 		mv $(PGO_RAW_PROFILE) $(PGO_PROFILE); \
 		echo "Profile generated: $(PGO_PROFILE)"; \
