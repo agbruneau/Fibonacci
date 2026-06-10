@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -89,6 +91,62 @@ func TestRun_InvalidFlag(t *testing.T) {
 
 	if action.Code() != 1 {
 		t.Errorf("Expected exit code 1, got %d", action.Code())
+	}
+}
+
+func TestRun_ConfigErrors(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		args       []string
+		wantStderr string
+	}{
+		{"unknown flag", []string{"fibcalc", "--invalid-flag-xyz"}, "flag provided but not defined"},
+		{"negative n", []string{"fibcalc", "-n=-5"}, "invalid value"},
+		{"n overflows uint64", []string{"fibcalc", "-n", "18446744073709551616"}, "invalid value"},
+		{"malformed timeout", []string{"fibcalc", "-timeout", "potato"}, "invalid value"},
+		{"zero timeout", []string{"fibcalc", "-timeout", "0s"}, "timeout value must be strictly positive"},
+		{"unknown algorithm", []string{"fibcalc", "--algo", "bogus"}, "unrecognized algorithm"},
+		{"unknown gc-control mode", []string{"fibcalc", "--gc-control", "bogus"}, "unrecognized gc-control mode"},
+		{"negative last-digits", []string{"fibcalc", "--last-digits=-1"}, "last-digits cannot be negative"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var stdout, stderr bytes.Buffer
+			action := run(tt.args, &stdout, &stderr)
+
+			if action != app.ActionError {
+				t.Errorf("Expected ActionError, got %v", action)
+			}
+			if action.Code() != 1 {
+				t.Errorf("Expected exit code 1, got %d", action.Code())
+			}
+			if !action.ShouldExit() {
+				t.Error("Error action should require os.Exit")
+			}
+			if !strings.Contains(stderr.String(), tt.wantStderr) {
+				t.Errorf("stderr should contain %q, got:\n%s", tt.wantStderr, stderr.String())
+			}
+		})
+	}
+}
+
+// TestRun_TimeoutExitAction verifies that a deadline expiring before the
+// calculation completes surfaces as ActionTimeout (POSIX code 2) rather
+// than a generic error.
+func TestRun_TimeoutExitAction(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	action := run([]string{"fibcalc", "-n", "10000000", "--algo", "fast", "-timeout", "1ns", "--quiet"}, &stdout, &stderr)
+
+	if action != app.ActionTimeout {
+		t.Fatalf("Expected ActionTimeout, got %v (code %d). stdout:\n%s\nstderr:\n%s",
+			action, action.Code(), stdout.String(), stderr.String())
+	}
+	if action.Code() != 2 {
+		t.Errorf("Expected exit code 2, got %d", action.Code())
 	}
 }
 
@@ -182,6 +240,48 @@ func TestRun_Completion(t *testing.T) {
 	})
 }
 
+// TestMainFunction_VersionPath exercises main() itself on the --version
+// path, the only path where main returns instead of calling os.Exit
+// (ActionVersionHandled.ShouldExit() == false). If a regression made the
+// version action exit-worthy again, main would call os.Exit(0) here and
+// abort the test binary, which `go test` reports as a failure. The
+// remaining os.Exit branch of main can only be observed via subprocess
+// tests below.
+//
+// Deliberately NOT parallel: it swaps the process-global os.Args and
+// os.Stdout, which must be restored before any other test observes them.
+func TestMainFunction_VersionPath(t *testing.T) {
+	origArgs := os.Args
+	origStdout := os.Stdout
+	t.Cleanup(func() {
+		os.Args = origArgs
+		os.Stdout = origStdout
+	})
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Args = []string{"fibcalc", "--version"}
+	os.Stdout = w
+
+	main()
+
+	os.Stdout = origStdout
+	if cerr := w.Close(); cerr != nil {
+		t.Fatalf("closing pipe writer: %v", cerr)
+	}
+	out, rerr := io.ReadAll(r)
+	if rerr != nil {
+		t.Fatalf("reading captured stdout: %v", rerr)
+	}
+
+	got := string(out)
+	if !strings.Contains(got, "fibcalc") || !strings.Contains(got, "Go version:") {
+		t.Errorf("main() with --version should print version info, got:\n%s", got)
+	}
+}
+
 // --- Subprocess tests for os.Exit behavior in main() ---
 
 // testBinaryPath builds the binary once and returns its path.
@@ -250,6 +350,47 @@ func TestMain_ExitCodes(t *testing.T) {
 		_, code := runBinary(t, bin, "-n", "10", "--quiet")
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d", code)
+		}
+	})
+
+	t.Run("negative n exits 1", func(t *testing.T) {
+		t.Parallel()
+		out, code := runBinary(t, bin, "-n=-5")
+		if code != 1 {
+			t.Errorf("Expected exit code 1, got %d. Output:\n%s", code, out)
+		}
+		if !strings.Contains(out, "invalid value") {
+			t.Errorf("Output should report the invalid value, got:\n%s", out)
+		}
+	})
+
+	t.Run("zero timeout exits 1", func(t *testing.T) {
+		t.Parallel()
+		out, code := runBinary(t, bin, "-timeout", "0s")
+		if code != 1 {
+			t.Errorf("Expected exit code 1, got %d. Output:\n%s", code, out)
+		}
+		if !strings.Contains(out, "timeout value must be strictly positive") {
+			t.Errorf("Output should report the timeout configuration error, got:\n%s", out)
+		}
+	})
+
+	t.Run("unknown algorithm exits 1", func(t *testing.T) {
+		t.Parallel()
+		out, code := runBinary(t, bin, "--algo", "bogus")
+		if code != 1 {
+			t.Errorf("Expected exit code 1, got %d. Output:\n%s", code, out)
+		}
+		if !strings.Contains(out, "unrecognized algorithm") {
+			t.Errorf("Output should report the unknown algorithm, got:\n%s", out)
+		}
+	})
+
+	t.Run("runtime timeout exits 2", func(t *testing.T) {
+		t.Parallel()
+		out, code := runBinary(t, bin, "-n", "10000000", "--algo", "fast", "-timeout", "1ns", "--quiet")
+		if code != 2 {
+			t.Errorf("Expected exit code 2 (timeout), got %d. Output:\n%s", code, out)
 		}
 	})
 }
