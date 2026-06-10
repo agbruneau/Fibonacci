@@ -5,7 +5,7 @@ Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre
 | Phase | Intitulé                          | Statut      | Commit(s) | Preuves / métriques |
 |-------|-----------------------------------|-------------|-----------|---------------------|
 | 1     | Perf cœur Fibonacci               | DONE        | 4e34b82, fa13bfd, 7999c39, doc audits | geomean sec/op −12,0 % ; FastDoubling/10M −15,3 % ; B/op 10M ~−70 % cumulés ; 0 régression ; -race WSL PASS ; lint 0 nouvelle ; baseline `docs/audits/bench-audit-loop-2026-06.md` |
-| 2     | Couverture ≥ 90 %                 | IN_PROGRESS |           | Mesure initiale en cours |
+| 2     | Couverture ≥ 90 %                 | DONE        | 9cad06e, a2e4eee, c306344…d549da4 (9 commits par pkg) | **Total 95,0 %** (88,9 → 95,0) ; -race ./... complet WSL PASS ; data race réelle corrigée (threshold) ; lint 0 nouvelle ; exception unique : generate-golden 88,6 % (main/os.Exit) |
 | 3     | Documentation fidèle              | PENDING     |           |                     |
 | 4     | Claude.md                         | PENDING     |           |                     |
 | 5     | README.md                         | PENDING     |           |                     |
@@ -13,8 +13,27 @@ Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre
 | 7     | Épuration                         | PENDING     |           |                     |
 | 8     | Validation finale + push main     | PENDING     |           |                     |
 
-## Sous-tâches de la phase en cours (Phase 2 — couverture ≥ 90 %)
-- [ ] Mesure initiale `go test ./... -coverprofile=coverage.out -covermode=atomic -count=1` + tableau par package trié croissant (tâche d'arrière-plan lancée it. 8)
+## Sous-tâches de la phase en cours (Phase 3 — documentation fidèle)
+- [ ] Appliquer les 95 corrections préparées par le workflow (`audit_phase3_claims.md` : 77 périmées, 15 douteuses, 2 liens cassés) — fan-out par document
+- [ ] Exécuter réellement les commandes documentées (liste §4 de l'artefact : make targets, équivalents go, scripts check.ps1/sh)
+- [ ] Diagrammes Mermaid C4 vs arborescence réelle (+ registres ADR à étendre à 0008)
+- [ ] CHANGELOG.md : section Unreleased avec les changements Phases 1–2
+- [ ] ADR : aucune réécriture ; notes de statut datées si nécessaire
+- [ ] `doc.go` complets (`Glob internal/*/doc.go`)
+- [ ] Liens relatifs valides ; commits `docs(scope):`
+
+## Phase 2 (DONE — résumé)
+- **Total : 88,9 % → 95,0 %** (preuve : `total: (statements) 95.0%`). Tous packages ≥ 88,6 % ; seuls < 90 : generate-golden 88,6 % (exception : main/os.Exit, justifiée dans le rapport du workflow).
+- 9 commits `test(pkg)` atomiques (c306344…d549da4) + `9cad06e` (réparation test cassé masqué par pollution) + `a2e4eee` (fix **data race réelle** du DynamicThresholdManager découverte par la 1re passe `-race ./...` complète, WSL).
+- Aucune assertion affaiblie (consigne agents + spot-check) ; états globaux systématiquement sérialisés/restaurés ; golden intouché ; `-race ./...` complet PASS post-fix ; lint : zéro nouvelle issue vs baseline (le seul ajout réel — un misspell dans un commentaire — corrigé ; flip-flops `uniq-by-line` revive↔gocritic sur prod intacte documentés comme bruit d'outil).
+
+## Sous-tâches Phase 2 (closes — archive)
+- [x] Mesure initiale : **total 88,9 %** (`go tool cover -func`, preuve : `total: (statements) 88.9%`). Packages < 90 % (croissant) : cmd/generate-golden 28,6 ; cmd/fibcalc 75,0 ; bigfft 85,3 ; tui 87,8 ; fibonacci/memory 87,9 ; orchestration 88,0 ; app 88,6 ; config 88,6 ; errors 89,2. ≥ 90 % : cli 90,1 ; fibonacci 91,2 ; calibration 91,6 ; progress 93,9 ; ui 94,9 ; metrics 95,7 ; completion 96,1 ; threshold 96,9 ; format 98,6 ; parallel/testutil/system/fibonaccitest 100.
+- [x] Fan-out multi-agents terminé (workflow wy9d9ouyx, 9 agents, ~32 min) : rapports — bigfft 85,3→96,0 % (+40 tests, états globaux sérialisés+restaurés, exceptions documentées ligne par ligne) ; tui 87,8→97,3 % (+19, TTY interactif en exception) ; memory 87,9→99,1 % (+8, GOGC sérialisé) ; + orchestration/app/config/errors/fibcalc/generate-golden (rapports complets dans la sortie du workflow).
+- [x] Re-mesure totale : **95,0 %** (preuve log : `total: (statements) 95.0%`) — objectif ≥ 90 % dépassé.
+- [x] **Data race RÉELLE détectée et corrigée (commit a2e4eee, Directive 7)** : première passe `-race` complète du module (WSL) → race `MetricsBuffer.Record` vs `Count` dans le DynamicThresholdManager (commentaire mensonger « internally safe », aucun verrou). Fix : tous les accès buffer sous le `mu` existant ; bench DTM ciblé avant/après : 10M neutres p>0.05, zéro régression.
+- [ ] Validation finale Phase 2 en cours (tâche bhv37xolw) : `wsl go test -race ./...` complet post-fix + lint diff. Ensuite : commits atomiques par package du fan-out.
+- [x] **Bug préexistant corrigé en passant (Directive 7, commit 9cad06e)** : `TestSetTransformCacheConfig` était structurellement cassé — mock non conforme à la garde de forme A-05 (N=10 vs coefficients 101 mots ⇒ Put toujours rejeté silencieusement) + sous-tests `t.Parallel` mutant le singleton global ; il ne passait en suite que par pollution du cache par les tests voisins et échouait en isolation. Révélé par le 1er run de couverture (exit 1).
 - [ ] Traiter les packages du moins couvert au plus couvert (chemins d'erreur d'abord ; table-driven ; t.Parallel ; testutil/fibonaccitest ; pas de tests tautologiques)
 - [ ] Workflow multi-agents pour le fan-out par package (directive U2) une fois le tableau établi
 - [ ] Justifier les exceptions <90 % (plateforme, TUI interactif, tag gmp) et tenir le total ≥ 90 %
