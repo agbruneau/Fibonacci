@@ -54,3 +54,10 @@ Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait «
 - Config : `.golangci.yml` (exclude-rule SA6002 ciblée).
 - Related ADR(s) : ADR-0004 §B1 (migration `FFTContext`, backlog).
 - Audit : axe 4 Idiomatique, constat `A4-01` (rapport archivé en historique git).
+
+## Status note (2026-06-10)
+
+Positions à HEAD (2026-06-10) : les sites SA6002 de `pool.go` sont inchangés
+(lignes 148, 245, 333, 421) ; ceux de `pool_warming.go` ont glissé d'une
+ligne — `.Put(` aux lignes 71, 80, 89, 98 (et non 70, 79, 88, 97). La
+décision et l'exclusion ciblée dans `.golangci.yml` restent inchangées.

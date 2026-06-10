@@ -57,3 +57,16 @@ L'invariant `WithGC` panic-safe (`defer End()`) est **préservé** : un panic en
 - Test : `internal/fibonacci/memory/gc_control_test.go` (`TestGCController_ConcurrentBeginEnd_RestoresOriginal`).
 - Related ADR(s) : ADR-0003 (atomics privés `bigfft`).
 - Audit : axe 2 Concurrence, constat `A2-01` (rapport archivé en historique git).
+
+## Status note (2026-06-10)
+
+L'audit 2026-06 (commit `fa13bfd`) a introduit dans `internal/fibonacci` un
+slot de cache state+arena « GC-immune »
+(`FastDoublingCalculator.cachedState`, borné par `maxCachedArenaWords`). Sa
+raison d'être est précisément l'interaction avec le présent ADR : le
+`runtime.GC()` déclenché par le dernier `End()` vide les `sync.Pool`, si bien
+que chaque appel répété re-allouait l'arena complète ; le slot, lui, survit à
+ce GC forcé et conserve le state entre deux appels. Voir
+`internal/fibonacci/fastdoubling.go` (commentaires
+`cachedState`/`maxCachedArenaWords`) et
+`internal/fibonacci/state_cache_test.go`.

@@ -49,3 +49,19 @@ Une trajectoire alternative existe via `FFTContext` (`internal/bigfft/context.go
 
 - Implementation : `internal/bigfft/fft.go` (`fftThreshold` atomic), `internal/bigfft/fft_recursion.go` (`parallelFFTRecursionThreshold`, `maxParallelFFTDepth`)
 - Accessors : `getFFTThreshold()`, `GetParallelFFTRecursionThreshold()`, `GetMaxParallelFFTDepth()`
+
+## Status note (2026-06-10)
+
+Précisions factuelles (audit documentaire 2026-06) ; la décision reste
+inchangée.
+
+- Positions à HEAD (2026-06-10) : `fftThreshold` → `fft.go:38` ;
+  `parallelFFTRecursionThreshold` → `fft_recursion.go:32` ;
+  `maxParallelFFTDepth` → `fft_recursion.go:37` (décalage de 3-4 lignes par
+  rapport aux positions citées en Context).
+- Types effectifs : `fftThreshold` est bien en `atomic.Int64` ; les deux
+  variables de récursion parallèle sont en `atomic.Uint64`.
+- Accesseurs effectifs : `getFFTThreshold()` est privé ;
+  `GetParallelFFTRecursionThreshold()` et `GetMaxParallelFFTDepth()` sont
+  **exportés** (`fft_recursion.go:46,49`). La section References ci-dessus est
+  correcte ; la section Decision les citait avec une casse privée.

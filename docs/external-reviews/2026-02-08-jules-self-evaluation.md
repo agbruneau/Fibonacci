@@ -7,6 +7,8 @@
 > traçabilité historique uniquement. Pour l'état courant du dépôt, voir
 > les ADRs `docs/adr/` (notamment ADR-0001 à ADR-0004) qui documentent
 > les décisions architecturales et le hardening réalisé en mai 2026.
+> S'y ajoutent depuis les ADR-0005 à ADR-0008 (audit mai 2026, audit de
+> refactorisation juin 2026).
 
 **Date :** 08 Février 2026
 **Sujet :** Calculateur de suite de Fibonacci Haute Performance (FibCalc)
