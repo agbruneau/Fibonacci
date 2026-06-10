@@ -102,11 +102,14 @@ func SetTuning(t Tuning) {
 // analytical work (speedup, hysteresis, multiplicative adjustment) to
 // ThresholdAnalyzer.
 //
-// All mutable state is held in atomics; the legacy mu RWMutex is preserved
-// only as a write-side barrier for Reset (multi-field consistency). Readers
-// access fields via atomic loads and do not take a lock.
+// Threshold and counter state is held in atomics; mu serializes Reset's
+// multi-field update AND every access to the MetricsBuffer, which is
+// deliberately not goroutine-safe (its doc delegates synchronization to
+// this manager). Record/Count/RecentMetrics all go through mu — the buffer
+// write path races with concurrent GetStats readers otherwise (data race
+// found by go test -race on TestConcurrentAccess, 2026-06-10).
 type DynamicThresholdManager struct {
-	mu     sync.Mutex // serializes Reset's multi-field update; readers use atomics
+	mu     sync.Mutex // serializes Reset AND all MetricsBuffer access; other fields use atomics
 	logger zerolog.Logger
 
 	// Current thresholds (can be adjusted during calculation).
@@ -178,11 +181,14 @@ func (m *DynamicThresholdManager) SetLogger(l zerolog.Logger) {
 // RecordIteration records timing data for a completed iteration.
 // This should be called after each doubling step in the algorithm.
 //
-// All mutable state is atomic. The buffer.Record method is internally
-// safe for the single-writer/many-reader access pattern documented in
-// MetricsBuffer.
+// The buffer write must hold mu: MetricsBuffer is not goroutine-safe and a
+// concurrent GetStats/ShouldAdjust reader would race with this writer (the
+// uncontended lock costs ~tens of ns per doubling step — invisible next to
+// a multiplication step).
 func (m *DynamicThresholdManager) RecordIteration(bitLen int, duration time.Duration, usedFFT, usedParallel bool) {
+	m.mu.Lock()
 	m.buffer.Record(bitLen, duration, usedFFT, usedParallel)
+	m.mu.Unlock()
 	m.iterationCount.Add(1)
 }
 
@@ -227,7 +233,10 @@ func (m *DynamicThresholdManager) ShouldAdjust() (newFFT, newParallel int, adjus
 		return currentFFT, currentParallel, false
 	}
 
-	if m.buffer.Count() < MinMetricsForAdjustment {
+	m.mu.Lock()
+	count := m.buffer.Count()
+	m.mu.Unlock()
+	if count < MinMetricsForAdjustment {
 		return currentFFT, currentParallel, false
 	}
 
@@ -265,9 +274,17 @@ func (m *DynamicThresholdManager) ShouldAdjust() (newFFT, newParallel int, adjus
 	return currentFFT, currentParallel, true
 }
 
+// snapshotMetrics copies the buffer's retained samples under mu. The copy
+// (RecentMetrics already allocates one) lets the analyzers run lock-free.
+func (m *DynamicThresholdManager) snapshotMetrics() []IterationMetric {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.buffer.RecentMetrics()
+}
+
 // analyzeFFTThreshold delegates to the analyzer with FFT-specific parameters.
 func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
-	return m.analyzer.Analyze(m.buffer.RecentMetrics(), AnalysisParams{
+	return m.analyzer.Analyze(m.snapshotMetrics(), AnalysisParams{
 		Predicate:         func(metric IterationMetric) bool { return metric.UsedFFT },
 		SpeedupThreshold:  FFTSpeedupThreshold,
 		LowerNumerator:    9,
@@ -281,7 +298,7 @@ func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
 
 // analyzeParallelThreshold delegates to the analyzer with parallel-specific parameters.
 func (m *DynamicThresholdManager) analyzeParallelThreshold() int {
-	return m.analyzer.Analyze(m.buffer.RecentMetrics(), AnalysisParams{
+	return m.analyzer.Analyze(m.snapshotMetrics(), AnalysisParams{
 		Predicate:         func(metric IterationMetric) bool { return metric.UsedParallel },
 		SpeedupThreshold:  ParallelSpeedupThreshold,
 		LowerNumerator:    8,
@@ -311,12 +328,15 @@ func (m *DynamicThresholdManager) significantChange(oldVal, newVal int) bool {
 
 // GetStats returns current statistics about the manager.
 func (m *DynamicThresholdManager) GetStats() ThresholdStats {
+	m.mu.Lock()
+	collected := m.buffer.Count()
+	m.mu.Unlock()
 	return ThresholdStats{
 		CurrentFFT:          int(m.currentFFTThreshold.Load()),
 		CurrentParallel:     int(m.currentParallelThreshold.Load()),
 		OriginalFFT:         m.originalFFTThreshold,
 		OriginalParallel:    m.originalParallelThreshold,
-		MetricsCollected:    m.buffer.Count(),
+		MetricsCollected:    collected,
 		IterationsProcessed: int(m.iterationCount.Load()),
 	}
 }
