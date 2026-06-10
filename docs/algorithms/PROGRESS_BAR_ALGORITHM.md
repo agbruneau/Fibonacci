@@ -267,11 +267,11 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
 
 ### Numerical Example
 
-For `numBits = 10`:
-- TotalWork ~ 1,398,101 units
-- First step (i=9): 4^0 = 1 unit -> ~0.00007% of total
-- Middle step (i=5): 4^4 = 256 units -> ~0.018% of total
-- Last step (i=0): 4^9 = 262,144 units -> ~18.8% of total
+For `numBits = 11` (e.g., n ~ 2,000):
+- TotalWork = (4^11 - 1) / 3 = 1,398,101 units
+- First step (i=10): 4^0 = 1 unit -> ~0.00007% of total
+- Middle step (i=5): 4^5 = 1,024 units -> ~0.073% of total
+- Last step (i=0): 4^10 = 1,048,576 units -> ~75% of total
 
 ## Edge Cases and Validation
 
@@ -293,8 +293,7 @@ For `numBits = 10`:
 ```bash
 # Run progress-related tests
 go test -v -run TestProgress ./internal/fibonacci/
-go test -v -run TestCalcTotalWork ./internal/fibonacci/
-go test -v -run TestReportStepProgress ./internal/fibonacci/
+go test -v -run 'TestCalcTotalWork|TestReportStepProgress' ./internal/progress/
 ```
 
 ```go

@@ -137,14 +137,21 @@ func (c *FFTBasedCalculator) Name() string {
     return "FFT-Based Doubling"
 }
 
-func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter ProgressCallback,
+func (c *FFTBasedCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback,
     n uint64, opts Options) (*big.Int, error) {
-    s := AcquireState()
-    defer ReleaseState(s)
+    // State-bound arena, pre-sized for F(n)
+    s := AcquireStateForN(n)
 
     strategy := &FFTOnlyStrategy{}
     framework := NewDoublingFramework(strategy)
-    return framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, false)
+
+    raw, err := framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, false)
+    if err != nil {
+        ReleaseState(s)
+        return nil, err
+    }
+    // Deep-copies the result out of the arena so it never aliases pooled memory
+    return ReleaseStateWithResult(s, raw), nil
 }
 ```
 
@@ -175,8 +182,10 @@ This calculator is primarily used for:
                     | /          <- FFT O(n log n)
                     |/     _______
                     +------------------
-                          ~1M bits      Size (bits)
+                          ~500k bits    Size (bits)
 ```
+
+The default crossover is `DefaultFFTThreshold = 500_000` bits (`internal/fibonacci/constants.go`).
 
 ### FFT Overhead
 
@@ -199,8 +208,8 @@ result, _ := calc.Calculate(ctx, progressChan, 0, 100_000_000, fibonacci.Options
 ### Benchmarks
 
 ```bash
-# Benchmark FFT-based calculator
-go test -bench=BenchmarkFFT -benchmem ./internal/fibonacci/
+# Benchmark FFT-based calculator (sub-benchmark of BenchmarkFibonacci)
+go test -bench='BenchmarkFibonacci/FFTBased' -benchmem -run='^$' ./internal/fibonacci/
 
 # Benchmark bigfft package directly
 go test -bench=. -benchmem ./internal/bigfft/
