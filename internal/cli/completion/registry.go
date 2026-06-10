@@ -1,7 +1,3 @@
-// Package completion provides shell completion script generation for fibcalc.
-//
-// All shell completion functions are generated from a single source of truth:
-// flagRegistry. Adding a new flag only requires appending to that registry.
 package completion
 
 // FlagCompletion describes a CLI flag for shell completion generation.
