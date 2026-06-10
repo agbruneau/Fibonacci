@@ -7,7 +7,7 @@ Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre
 | 1     | Perf cœur Fibonacci               | DONE        | 4e34b82, fa13bfd, 7999c39, doc audits | geomean sec/op −12,0 % ; FastDoubling/10M −15,3 % ; B/op 10M ~−70 % cumulés ; 0 régression ; -race WSL PASS ; lint 0 nouvelle ; baseline `docs/audits/bench-audit-loop-2026-06.md` |
 | 2     | Couverture ≥ 90 %                 | DONE        | 9cad06e, a2e4eee, c306344…d549da4 (9 commits par pkg) | **Total 95,0 %** (88,9 → 95,0) ; -race ./... complet WSL PASS ; data race réelle corrigée (threshold) ; lint 0 nouvelle ; exception unique : generate-golden 88,6 % (main/os.Exit) |
 | 3     | Documentation fidèle              | DONE        | e790f17, 7675a7f, 3170baf, 7297c8b, 111d085, 648798c, ed6c334, 7b97d48 | 95/95 corrections traitées (68 appliquées + 26 adaptées + 1 obsolète) ; liens OK ; CHANGELOG Unreleased complet ; doc.go 21/21 ; commandes exécutées (check.ps1 Overall PASS, cov 95,1 %) ; bug Makefile PGO corrigé ; GMP marqué non-vérifié (libgmp-dev absent) |
-| 4     | Claude.md                         | IN_PROGRESS |           | 3 dérives cataloguées (lignes 69/84/103) + nouveaux invariants |
+| 4     | Claude.md                         | DONE        | c0a88a5   | 3 dérives corrigées (finalizeStateReleaseTo, sinks, slot GC-immune) + invariant MetricsBuffer/mu + chiffre non sourcé retiré + LOC/baselines actualisés ; gardiens cités vérifiés par grep |
 | 5     | README.md                         | PENDING     |           |                     |
 | 6     | /understand + dashboard           | PENDING     |           |                     |
 | 7     | Épuration                         | PENDING     |           |                     |
