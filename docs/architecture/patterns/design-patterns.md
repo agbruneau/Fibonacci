@@ -1,6 +1,6 @@
 # Design Patterns — FibGo
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 797 nodes / 8 layers / 13-step tour — counts from the graph regenerated 2026-06-09; re-verify at the next regeneration)
 
 This document enumerates the concrete design patterns in use across the
 FibGo codebase and points to the implementation sites. It is a companion
@@ -29,12 +29,19 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
   error propagation uses `parallel.ErrorCollector` (see
   [`internal/parallel/doc.go`](../../../internal/parallel/doc.go)) or
   `errgroup` depending on the call site.
-- **Resource ownership**: every `sync.Pool` Get is paired with a deferred
-  Put in the same scope. Bump arenas must call `Reset` before reuse. When
-  a pooled state owns an arena, every `*big.Int` slot must be detached
-  (`s.FK = new(big.Int)` and friends) before the state is returned to the
-  pool — otherwise the arena would alias data the next tenant overwrites
-  (`clearStateAliases` in `internal/fibonacci/fastdoubling.go`).
+- **Resource ownership**: every state acquisition is paired with a release
+  in the same scope (`AcquireStateForN`/`ReleaseStateWithResult`, or the
+  per-calculator `acquireStateForN`/`releaseStateWithResult`). Since commit
+  fa13bfd the release sink is either the shared `sync.Pool` or a
+  per-calculator GC-immune cache slot
+  (`FastDoublingCalculator.cachedState`, bounded by `maxCachedArenaWords`)
+  that retains the state across calls. Bump arenas must call `Reset`
+  before reuse. When a pooled or cached state owns an arena, every
+  `*big.Int` slot must be detached (`s.FK = new(big.Int)` and friends)
+  before the state reaches either sink — otherwise the arena would alias
+  data the next tenant overwrites (`clearStateAliases`, invoked
+  unconditionally by `finalizeStateReleaseTo` in
+  `internal/fibonacci/fastdoubling.go`).
 
 ## Notes
 

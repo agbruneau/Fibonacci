@@ -2,7 +2,7 @@
 
 > **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
 
-> **Vue interactive** — Un dashboard navigable du graphe de connaissances (797 nœuds, 3 533 arêtes, 8 couches, tour guidé 13 étapes) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`.understand-anything/knowledge-graph.json`](../.understand-anything/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
+> **Vue interactive** — Un dashboard navigable du graphe de connaissances (797 nœuds, 3 533 arêtes, 8 couches, tour guidé 13 étapes — comptages vérifiés le 2026-06-10 sur l'artefact régénéré au commit 2fca040 ; à re-vérifier à chaque régénération du dashboard) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`docs/dashboard/knowledge-graph.json`](dashboard/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
 
 ## 1) Project Overview
 
@@ -166,7 +166,7 @@ internal/
 
 ## `internal/config`
 - **Responsibility:** parse CLI flags, validate configuration, apply `FIBCALC_` env overrides, apply adaptive thresholds.
-- **Key types:** `AppConfig` (23 fields covering all runtime parameters), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
+- **Key types:** `AppConfig` (20 fields covering all runtime parameters), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
 - **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`, and `Estimate*ForHeuristic` for tests/diagnostics.
 - **Precedence chain:** CLI flags > env vars > calibration profile > adaptive estimation (CPU cores + x86 SIMD tier via `golang.org/x/sys/cpu`) > static defaults.
 
@@ -180,7 +180,7 @@ internal/
 - **Responsibility:** execute calculators concurrently, collect durations/errors/results, compare consistency, present summary.
 - **Key types:** `CalculationResult`, `PresentationOptions`, `ProgressAggregator`.
 - **Key interfaces:**
-  - `ProgressReporter` — displays progress (implemented by `CLIProgressReporter`, `TUIProgressReporter`, `NullProgressReporter`)
+  - `ProgressReporter` — displays progress (implemented by `TUIProgressReporter`, `NullProgressReporter`, and the `ProgressReporterFunc` adapter wrapping `cli.DisplayProgress` for the CLI)
   - `ResultPresenter` — formats results (implemented by `CLIResultPresenter`, `TUIResultPresenter`)
   - `ErrorHandler` — maps errors to exit codes
 - **Concurrency model:** single-calculator fast path (no errgroup overhead) vs multi-calculator errgroup fan-out.
@@ -189,14 +189,14 @@ internal/
 - **Responsibility:** domain algorithms, strategy selection, factory/registry, pooled state, framework loops, modular arithmetic.
 - **Key interfaces (layered by scope):**
   - `Calculator` (public) — full calculation with context, progress channel, options
-  - `coreCalculator` (internal) — pure algorithm computation with callback-based progress
+  - `CoreCalculator` (exported extension point) — pure algorithm computation with callback-based progress
   - `CalculatorFactory` — Create/Get/Register/List/GetAll for calculator management
   - `Multiplier` (narrow ISP) — multiply/square only
   - `DoublingStepExecutor` (wide) — extends Multiplier with full doubling-step awareness
 - **Key types:**
-  - `FibCalculator` (decorator) — wraps coreCalculator with GC control, FFT cache config, pool warming, small-N fast path, observer adaptation
-  - `OptimizedFastDoubling` — Fast Doubling O(log n) with parallel multiplication
-  - `MatrixExponentiation` — Matrix exponentiation O(log n) with Strassen dispatch
+  - `FibCalculator` (decorator) — wraps CoreCalculator with GC control, FFT cache config, pool warming, small-N fast path, observer adaptation
+  - `FastDoublingCalculator` — Fast Doubling O(log n) with parallel multiplication; holds a per-instance GC-immune `cachedState` slot (`atomic.Pointer`, arenas ≤ 4M words) consulted before the shared `sync.Pool`
+  - `MatrixExponentiationCalculator` — Matrix exponentiation O(log n) with Strassen dispatch
   - `FFTBasedCalculator` — FFT-only multiplication for benchmark/large-N scenarios
   - `Options` — comprehensive configuration (thresholds, FFT cache, dynamic thresholds, GC mode)
   - `CalculationState` — pooled 5-variable state (FK, FK1, T1-T3) for doubling algorithms
@@ -234,7 +234,7 @@ internal/
 
 ## `internal/cli`
 - **Responsibility:** terminal UX for non-TUI mode (progress, table/result output, shell completion).
-- **Key components:** `CLIProgressReporter`, `CLIResultPresenter`, `CLIColorProvider`, `DisplayProgress`, `DisplayQuietResult`, `WriteResultToFile`, `GenerateCompletion`.
+- **Key components:** `CLIResultPresenter`, `CLIColorProvider`, `DisplayProgress` (wrapped by `orchestration.ProgressReporterFunc`), `DisplayQuietResult`, `WriteResultToFile`, `GenerateCompletion`.
 
 ## `internal/tui`
 - **Responsibility:** Bubble Tea Elm-style dashboard (`Model-Update-View`) for interactive execution.
@@ -260,8 +260,8 @@ internal/
 
 | Pattern | Where | Why it exists |
 |---|---|---|
-| **Decorator** | `fibonacci.FibCalculator` wrapping `coreCalculator` | Adds cross-cutting behavior (small-N fast path, observer adaptation, GC control, FFT cache config, pool warming) without changing algorithm cores |
-| **Strategy** | `Multiplier` / `DoublingStepExecutor` with `AdaptiveStrategy`, `FFTOnlyStrategy`, `KaratsubaStrategy` | Enables swapping multiplication policy by workload/benchmark intent |
+| **Decorator** | `fibonacci.FibCalculator` wrapping `CoreCalculator` | Adds cross-cutting behavior (small-N fast path, observer adaptation, GC control, FFT cache config, pool warming) without changing algorithm cores |
+| **Strategy** | `Multiplier` / `DoublingStepExecutor` with `AdaptiveStrategy`, `FFTOnlyStrategy` | Enables swapping multiplication policy by workload/benchmark intent |
 | **Interface Segregation (ISP)** | `Multiplier` (narrow: Multiply/Square) vs `DoublingStepExecutor` (wide: +ExecuteStep) | Consumers needing only multiply/square depend on the narrow interface; framework-level consumers use the wide one |
 | **Observer** | `progress.ProgressSubject` + `ProgressObserver` implementations | Decouples progress production from UI/log consumers; supports multiple simultaneous observers |
 | **Factory + Registry** | `DefaultFactory` implementing `CalculatorFactory` | Centralized calculator registration/lookup/caching with lazy creation and double-check locking |
@@ -279,7 +279,7 @@ Additional notable engineering patterns include:
 - **Runtime-configurable threshold heuristics** with adaptive estimation based on CPU count
 - **Channel-based progress aggregation** with buffered channels (`ProgressBufferMultiplier = 5`)
 - **Lock-free observer snapshots** via `ProgressSubject.Freeze()` for hot loop performance
-- **Semaphore-based concurrency limiting** (`NumCPU*2` for Fibonacci tasks, `NumCPU` for FFT tasks)
+- **Semaphore-based concurrency limiting** (`NumCPU` for Fibonacci tasks, `NumCPU` for FFT tasks — two separate semaphores)
 - **Functional options** pattern for `Application` construction (`AppOption`, `WithFactory`)
 - **Function adapter** pattern for `ProgressReporterFunc`
 
@@ -339,19 +339,20 @@ Additional notable engineering patterns include:
 │             ├─ Calculator.Calculate(ctx, progressChan, idx, n)   │
 │             ├─ → ProgressSubject + ChannelObserver registration   │
 │             ├─ → CalculateWithObservers                           │
-│             │    ├─ GCController.Begin() (auto: disable for N≥1M)│
 │             │    ├─ Small-N fast path (n ≤ 93 → iterative add)   │
 │             │    ├─ configureFFTCache(opts)                       │
 │             │    ├─ bigfft.EnsurePoolsWarmed(n)                   │
 │             │    ├─ subject.Freeze(calcIndex) → lock-free reporter│
-│             │    ├─ core.CalculateCore(ctx, reporter, n, opts)    │
-│             │    └─ GCController.End() (restore GC, run collect) │
+│             │    └─ gcCtrl.WithGC(fn) — panic-safe GC control     │
+│             │         (auto: GC off for N≥1M, restored after)     │
+│             │         wrapping core.CalculateCore(ctx, ...)       │
 │             └─ CalculationResult{Name, Result, Duration, Err}    │
 ├───────────────────────────────────────────────────────────────────┤
 │ 8. ALGORITHM CORE (inside CalculateCore)                          │
 │    Fast Doubling:                                                 │
-│    ├─ AcquireState() from sync.Pool → CalculationState           │
-│    ├─ memory.NewCalculationArena(n) + PreSizeFromArena           │
+│    ├─ fd.acquireStateForN(n) → CalculationState                   │
+│    │    (GC-immune cachedState slot first, sync.Pool fallback;    │
+│    │     state-bound arena reused/grown + PreSizeFromArena)       │
 │    ├─ Create DoublingFramework(AdaptiveStrategy)                  │
 │    │   (optional: with DynamicThresholdManager)                   │
 │    └─ ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)│
@@ -394,12 +395,12 @@ Level 2: Intra-algorithm operation parallelism
          ├─ Enabled when: operand > ParallelThreshold (default: 4096 bits)
          ├─ Suppressed when: FFT active (FFT saturates CPU cores)
          └─ Re-enabled when: operand > ParallelFFTThreshold (5M bits)
-      └─ Semaphore: NumCPU*2 concurrent goroutines max
+      └─ Semaphore: NumCPU concurrent goroutines max
 
 Level 3: FFT internal parallelism
    └─ bigfft recursive decomposition: configurable goroutine limit
       └─ Semaphore: NumCPU concurrent goroutines max
-      └─ Total system: up to NumCPU*3 simultaneous goroutines
+      └─ Total system: up to NumCPU*2 simultaneous goroutines
          (mitigated by Level 2 suppression during FFT)
 ```
 
@@ -419,7 +420,7 @@ Core Algorithm
 
 ## 7) Algorithm Layer
 
-### A. Fast Doubling (`OptimizedFastDoubling`)
+### A. Fast Doubling (`FastDoublingCalculator`)
 - **Complexity:** O(log n) arithmetic operations; total: O(log n × M(n)) where M(n) is multiplication cost
 - Core identities (derived from Q-matrix squaring):
   - `F(2k)   = F(k) * (2F(k+1) - F(k))`
@@ -428,7 +429,7 @@ Core Algorithm
 - Employs pooled `CalculationState` (5 big.Int + bound `CalculationArena`), memory arena pre-sizing, and optional dynamic threshold updates.
 - **Result detachment:** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
 
-### B. Matrix Exponentiation (`MatrixExponentiation`)
+### B. Matrix Exponentiation (`MatrixExponentiationCalculator`)
 - Uses binary exponentiation of Fibonacci Q-matrix: `[[1,1],[1,0]]^(n-1)`.
 - `MatrixFramework` drives loop (LSB → MSB iteration).
 - Matrix ops switch between naive 2×2 multiply and Strassen based on `StrassenThreshold`.
@@ -460,8 +461,7 @@ Implementations:
    ├─ AdaptiveStrategy:  threshold-driven math/big vs FFT selection
    │     └─ ExecuteStep: if FFT-sized → executeDoublingStepFFT (transform reuse)
    │                     else → executeDoublingStepMultiplications (standard)
-   ├─ FFTOnlyStrategy:   always FFT (mulFFT/sqrFFT)
-   └─ KaratsubaStrategy: always math/big (big.Int.Mul)
+   └─ FFTOnlyStrategy:   always FFT (mulFFT/sqrFFT)
 ```
 
 ### `internal/bigfft` Role
@@ -482,8 +482,8 @@ Implementations:
 
 ```text
 NewDefaultFactory()
-   ├─ Register("fast", → OptimizedFastDoubling)
-   ├─ Register("matrix", → MatrixExponentiation)
+   ├─ Register("fast", → FastDoublingCalculator)
+   ├─ Register("matrix", → MatrixExponentiationCalculator)
    └─ Register("fft", → FFTBasedCalculator)
 
 init() [in calculator_gmp.go, build tag: gmp]
@@ -512,7 +512,7 @@ Static defaults (in constants.go)
 ```text
 internal/orchestration (defines interfaces)
    ├─ ProgressReporter interface
-   │    ├─ internal/cli/presenter.go → CLIProgressReporter
+   │    ├─ internal/cli/display.go → ProgressReporterFunc(DisplayProgress)
    │    ├─ internal/tui/bridge.go → TUIProgressReporter
    │    └─ NullProgressReporter (quiet mode, testing)
    └─ ResultPresenter interface
@@ -669,7 +669,7 @@ The project uses standard Go tooling + Makefile workflows.
 - **Test/quality:** `test`, `test-short`, `coverage`, `benchmark`, `lint`, `security`, `check`
 - **Dev hygiene:** `format`, `tidy`, `deps`, `upgrade`
 - **PGO:** `pgo-profile`, `pgo-check`, `build-pgo`, `build-pgo-all`, `pgo-rebuild`, `pgo-clean`
-- **Tools:** `install-tools` (golangci-lint, gosec), `install-mockgen`, `generate-mocks`
+- **Tools:** `install-tools` (golangci-lint, gosec)
 
 ### Version injection
 
@@ -682,7 +682,7 @@ Build-time version injection via linker flags:
 
 ### PGO support
 - Profile path: `cmd/fibcalc/default.pgo`
-- `make pgo-profile` generates profile from benchmark workload (`BenchmarkFastDoubling -benchtime=5s -count=3`).
+- `make pgo-profile` generates profile from benchmark workload (`BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)` with `-benchtime=5s -count=3`).
 - `make build-pgo` compiles with `-pgo=...`.
 - Build target auto-detects PGO profile and uses it if present.
 
@@ -728,7 +728,7 @@ From `go.mod`, direct dependencies are:
 
 ## 14) Architectural Decision Records (ADR)
 
-> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0007`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
+> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0008`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.
@@ -790,7 +790,7 @@ From `go.mod`, direct dependencies are:
 - For algorithm internals, focus on:
   1. `internal/fibonacci/fastdoubling.go` + `doubling_framework.go`
   2. `internal/fibonacci/matrix.go` + `matrix_framework.go` + `matrix_ops.go`
-  3. `internal/fibonacci/strategy.go` (understand the 3 strategies)
+  3. `internal/fibonacci/strategy.go` (understand the 2 strategies)
   4. `internal/fibonacci/fft.go` + `internal/bigfft`
 - For user interaction, study `internal/cli` and `internal/tui` presenters.
 - For operational tuning, use `docs/CALIBRATION.md`, `docs/PERFORMANCE.md`, and Makefile PGO targets.

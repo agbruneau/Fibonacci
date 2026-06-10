@@ -5,23 +5,26 @@ classDiagram
 
     class Calculator {
         <<interface>>
-        calculator.go:21
-        +Calculate(ctx, n, opts) *big.Int, error
+        calculator.go:25
+        +Calculate(ctx, progressChan, calcIndex, n, opts) *big.Int, error
         +Name() string
     }
 
-    class coreCalculator {
+    class CoreCalculator {
         <<interface>>
-        calculator.go:48
-        +CalculateCore(ctx, n, opts, subject) *big.Int, error
+        calculator.go:64
+        +CalculateCore(ctx, reporter, n, opts) *big.Int, error
         +Name() string
     }
 
     class CalculatorFactory {
         <<interface>>
-        registry.go:15
+        registry.go:14
         +Create(name) Calculator, error
-        +Available() []string
+        +Get(name) Calculator, error
+        +List() []string
+        +Register(name, creator) error
+        +GetAll() map
     }
 
     class Multiplier {
@@ -39,14 +42,6 @@ classDiagram
         +Square(a, alloc) *big.Int
         +ExecuteStep(state, isOne, alloc)
         +Name() string
-    }
-
-    class SequenceGenerator {
-        <<interface>>
-        generator.go:30
-        +Next(ctx) *big.Int, error
-        +Current() *big.Int
-        +Index() int
     }
 
     %% ── Observation Interfaces ──
@@ -101,9 +96,6 @@ classDiagram
     class FFTOnlyStrategy {
         strategy.go:127
     }
-    class KaratsubaStrategy {
-        strategy.go:161
-    }
     class ChannelObserver {
         observers.go:19
     }
@@ -113,8 +105,8 @@ classDiagram
     class NoOpObserver {
         observers.go:126
     }
-    class CLIProgressReporter {
-        presenter.go:18
+    class ProgressReporterFunc {
+        interfaces.go:93
     }
     class TUIProgressReporter {
         bridge.go:32
@@ -133,11 +125,10 @@ classDiagram
     CalculatorFactory <|.. DefaultFactory
     DoublingStepExecutor <|.. AdaptiveStrategy
     DoublingStepExecutor <|.. FFTOnlyStrategy
-    DoublingStepExecutor <|.. KaratsubaStrategy
     ProgressObserver <|.. ChannelObserver
     ProgressObserver <|.. LoggingObserver
     ProgressObserver <|.. NoOpObserver
-    ProgressReporter <|.. CLIProgressReporter
+    ProgressReporter <|.. ProgressReporterFunc : adapts cli.DisplayProgress
     ProgressReporter <|.. TUIProgressReporter
     ProgressReporter <|.. NullProgressReporter
     TempAllocator <|.. BumpAllocator
