@@ -221,6 +221,7 @@ stats:
 ## quiet machine before bumping the baseline.
 bench-baseline:
 	@echo "Refreshing docs/audits/bench-baseline.txt ..."
+	@mkdir -p docs/audits
 	@{ \
 		echo "goos: $$(go env GOOS)"; \
 		echo "goarch: $$(go env GOARCH)"; \

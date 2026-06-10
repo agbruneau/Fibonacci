@@ -9,7 +9,7 @@
 > **[Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)** (Anthropic) en mode effort **Max**.
 > Résultats mesurés : temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M),
 > couverture de tests portée de 88,9 % à **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires
-> vérifiées. Détails : [`docs/audits/bench-audit-loop-2026-06.md`](docs/audits/bench-audit-loop-2026-06.md) et [`CHANGELOG.md`](CHANGELOG.md).
+> vérifiées. Détails : [`CHANGELOG.md`](CHANGELOG.md).
 
 **FibCalc** est un prototype académique qui calcule des nombres de Fibonacci arbitrairement grands à très haute
 vitesse. Il démontre une Clean Architecture, des stratégies zéro-allocation, du parallélisme adaptatif et des
@@ -82,8 +82,7 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Allocateur bump** O(1) sans fragmentation pour les tampons FFT.
 - **GC désactivé** pendant les grands calculs (N ≥ 1M), panic-safe (`WithGC`), refcount concurrent (ADR-0005).
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
-  acquisition non bloquante) — mesuré −23 à −35 % sur F(10M) en 2026-06
-  ([`bench-parallel-pointwise-2026-06.md`](docs/audits/bench-parallel-pointwise-2026-06.md)).
+  acquisition non bloquante) — mesuré −23 à −35 % sur F(10M) en 2026-06.
 - **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées (ADR-0001).
 - **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
   stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
@@ -127,7 +126,7 @@ Clean Architecture en quatre couches — `cmd → app → orchestration → fibo
 ## Performance
 
 Mesures du **2026-06-10** (Intel Core Ultra 9 275HX, 24 threads, Windows 11, Go 1.26.4 ; `benchstat` n=6,
-source : [`docs/audits/bench-audit-loop-2026-06.md`](docs/audits/bench-audit-loop-2026-06.md)) :
+détail dans [`CHANGELOG.md`](CHANGELOG.md)) :
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
 |---|---|---|---|---|
@@ -135,8 +134,7 @@ source : [`docs/audits/bench-audit-loop-2026-06.md`](docs/audits/bench-audit-loo
 | 10 000 000 | **28,2 ms** | 27,9 ms | 30,8 ms | 2 089 877 |
 | 100 000 000 | ~0,2 s (calcul seul, 2026-06-09¹) | — | — | 20 898 764 |
 
-¹ binaire `-algo fast` sans conversion décimale, médiane de 4 runs
-([`bench-parallel-pointwise-2026-06.md`](docs/audits/bench-parallel-pointwise-2026-06.md)).
+¹ binaire `-algo fast` sans conversion décimale, médiane de 4 runs.
 
 **Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
 validation croisée ; `fft` devient compétitif sur les très grands N. Méthodologie, tuning et suivi de

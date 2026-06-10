@@ -12,8 +12,8 @@ thresholds *in-flight* during a calculation based on observed
 per-iteration metrics. The two layers are kept separate because they
 solve different problems : calibration produces a startup snapshot,
 the manager reacts to per-run variance. Their relative value is
-benchmarked in [`docs/audits/bench-dtm-{on,off}.txt`](audits/) and
-analysed in [`docs/adr/0001-dtm-decision.md`](adr/0001-dtm-decision.md).
+benchmarked via `BenchmarkFibonacciDTM` (`internal/fibonacci/dtm_bench_test.go`)
+and analysed in [`docs/adr/0001-dtm-decision.md`](adr/0001-dtm-decision.md).
 
 Three operational modes are supported:
 

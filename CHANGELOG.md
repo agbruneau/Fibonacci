@@ -12,10 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Performance and coverage audit loop (multi-agent workflow, branch
 `refactor/audit-loop-2026-06`). Benchmark figures below: Windows 11,
 Intel Core Ultra 9 275HX (24 threads), Go 1.26.4, `benchstat` n=6 —
-methodology, cumulative results and rejected candidates are archived in
-`docs/audits/bench-audit-loop-2026-06.md` (2026-06-10), now the
-non-regression baseline for `internal/fibonacci/`. Full `-race` run
-validated under WSL (go1.26.0 linux/amd64).
+cumulative results and rejected candidates are summarised below. Full
+`-race` run validated under WSL (go1.26.0 linux/amd64). The non-regression
+baseline is regenerated on demand via `make bench-baseline`.
+
+#### Housekeeping
+
+- **Purge des artefacts d'audit** — suppression de `promptAudit.md`, du
+  répertoire `docs/audits/` (rapports et baselines datées, régénérables via
+  `make bench-baseline` / `BenchmarkFibonacciDTM`) et de
+  `docs/external-reviews/`, ainsi que des snapshots de travail non suivis à la
+  racine (logs, profils, `*.out`, `*.test`, `ruvector.db`). Les références
+  documentaires correspondantes ont été redirigées vers ce CHANGELOG.
 
 #### Performance
 

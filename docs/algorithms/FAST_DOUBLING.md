@@ -210,7 +210,7 @@ Since the 2026-06 audit loop, the default `FastDoublingCalculator` layers two re
 - **GC-immune cache slot** (commit `fa13bfd`) — each calculator instance keeps the last released state in a single slot (`cachedState`, an `atomic.Pointer[CalculationState]`). The GC-disable pattern of large calculations (`memory.GCController`) triggers a collection after every call, and that collection flushes `sync.Pool`: the pool alone never retained the arena across calls (arena recreation was ~46 % of all allocations at F(10M)). The slot survives those collections. It is bounded by `maxCachedArenaWords` (4M words, ~32 MB; larger arenas stay pool-only), and every release still goes through the single teardown path `finalizeStateReleaseTo` (order: `checkLimit` → `clearStateAliases` → sink).
 - **Per-calculation FFT bump allocator** (commit `7999c39`, F-012) — the forward-transform `BumpAllocator` is acquired once per calculation, sized for the final doubling step (`fftBumpCapWords`), carried by the state, and only `Reset()` between steps. Its retention follows the arena's anti-bloat drop policy.
 
-Measured 2026-06-10 for the two changes combined ([bench-audit-loop-2026-06.md](../audits/bench-audit-loop-2026-06.md)): FastDoubling/10M 33.30 ms → 28.20 ms, geomean sec/op −12.0 %, B/op at 10M roughly −70 %.
+Measured 2026-06-10 for the two changes combined (see [`CHANGELOG.md`](../../CHANGELOG.md)): FastDoubling/10M 33.30 ms → 28.20 ms, geomean sec/op −12.0 %, B/op at 10M roughly −70 %.
 
 ### 3. Parallel Multiplication via Strategy
 
