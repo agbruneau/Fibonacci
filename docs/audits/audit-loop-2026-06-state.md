@@ -1,4 +1,4 @@
-# AUDIT_STATE — boucle d'audit FibGo (démarrée 2026-06-10)
+# AUDIT_STATE — boucle d'audit FibGo (démarrée 2026-06-10, close 2026-06-10 — archive)
 Dernière itération : 8 — 2026-06-10 07:25 — dernier commit : 7999c39
 Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre)
 
@@ -11,7 +11,7 @@ Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre
 | 5     | README.md                         | DONE        | d5db1db   | Restructuré en français ; directive U1 appliquée (mention Claude Fable 5 + lien) ; commandes exécutées sur l'hôte ; 24/24 liens valides ; perfs datées/sourcées |
 | 6     | /understand + dashboard           | DONE        | (aucun diff dashboard) | `/understand` indisponible en session (plugin 2.7.3 en cache mais skill non chargé ; génération = analyse LLM, non scriptable). Fallback exécuté : spot-check réel 23/23 packages présents dans `docs/dashboard/knowledge-graph.json` (797 nœuds/3533 arêtes, méta 2026-06-09 f4d3a7f) — l'audit n'a ajouté/renommé AUCUN package ⇒ dashboard structurellement à jour, rien à régénérer ; rebuild du bundle sans nouveau graphe = hashes d'assets seulement (bruit, écarté) ; zéro édition manuelle. Recommandation : relancer `/understand` dans une session avec le plugin actif pour intégrer les nouveaux fichiers de test (cosmétique). Publication : GitHub Pages re-servira `docs/dashboard/` inchangé au push final. |
 | 7     | Épuration                         | DONE        | (commit chore(cleanup) ci-dessous) | Preuves grep : `ruvector.db` gitignoré/non-suivi (décision antérieure documentée dans .gitignore, conservé sur disque) ; scripts/ = 2 gates référencés, zéro orphelin ; test/e2e actif ; external-reviews gardé (ADR-0004 B4 DEFER) ; zéro code mort introduit par l'audit (lint diff). `.gitignore` étendu (bench_/benchstat_/lint_/coverage_by_pkg) ; `audit_phase3_claims.md` archivé → `docs/audits/audit-loop-2026-06-claims.md` ; aucun fichier suivi supprimé (rien d'orphelin prouvé) ; build+tests cœur verts après épuration. Artefacts disque restants supprimés en Phase 8. |
-| 8     | Validation finale + push main     | PENDING     |           |                     |
+| 8     | Validation finale + push main     | DONE        | (commit de clôture + merge) | Gate final 2026-06-10 08:38 : build ✓ vet ✓ test ./... ✓ ; **couverture 95,1 %** (`total: (statements) 95.1%`) ; bench sanité FastDoubling/10M 26,0 ms ✓ ; **wsl go test -race ./... PASS (exécuté, non délégué)** ; lint : 14 lignes = décalages purs de findings préexistants (appariés 1-à-1), zéro nouvelle issue. Artefacts disque purgés ; état archivé ici (docs/audits/). Push main : voir rapport final. |
 
 ## Sous-tâches de la phase en cours (Phase 3 — documentation fidèle)
 - [ ] Appliquer les 95 corrections préparées par le workflow (`audit_phase3_claims.md` : 77 périmées, 15 douteuses, 2 liens cassés) — fan-out par document
