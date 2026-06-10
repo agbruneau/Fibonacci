@@ -1,11 +1,11 @@
 # AUDIT_STATE — boucle d'audit FibGo (démarrée 2026-06-10)
-Dernière itération : 6 — 2026-06-10 06:20 — dernier commit : fa13bfd
+Dernière itération : 8 — 2026-06-10 07:25 — dernier commit : 7999c39
 Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre)
 
 | Phase | Intitulé                          | Statut      | Commit(s) | Preuves / métriques |
 |-------|-----------------------------------|-------------|-----------|---------------------|
-| 1     | Perf cœur Fibonacci               | IN_PROGRESS |           | Gate + baselines lancés en arrière-plan (it. 0) |
-| 2     | Couverture ≥ 90 %                 | PENDING     |           |                     |
+| 1     | Perf cœur Fibonacci               | DONE        | 4e34b82, fa13bfd, 7999c39, doc audits | geomean sec/op −12,0 % ; FastDoubling/10M −15,3 % ; B/op 10M ~−70 % cumulés ; 0 régression ; -race WSL PASS ; lint 0 nouvelle ; baseline `docs/audits/bench-audit-loop-2026-06.md` |
+| 2     | Couverture ≥ 90 %                 | IN_PROGRESS |           | Mesure initiale en cours |
 | 3     | Documentation fidèle              | PENDING     |           |                     |
 | 4     | Claude.md                         | PENDING     |           |                     |
 | 5     | README.md                         | PENDING     |           |                     |
@@ -13,7 +13,18 @@ Branche de travail : `refactor/audit-loop-2026-06` (créée depuis `main` propre
 | 7     | Épuration                         | PENDING     |           |                     |
 | 8     | Validation finale + push main     | PENDING     |           |                     |
 
-## Sous-tâches de la phase en cours (Phase 1)
+## Sous-tâches de la phase en cours (Phase 2 — couverture ≥ 90 %)
+- [ ] Mesure initiale `go test ./... -coverprofile=coverage.out -covermode=atomic -count=1` + tableau par package trié croissant (tâche d'arrière-plan lancée it. 8)
+- [ ] Traiter les packages du moins couvert au plus couvert (chemins d'erreur d'abord ; table-driven ; t.Parallel ; testutil/fibonaccitest ; pas de tests tautologiques)
+- [ ] Workflow multi-agents pour le fan-out par package (directive U2) une fois le tableau établi
+- [ ] Justifier les exceptions <90 % (plateforme, TUI interactif, tag gmp) et tenir le total ≥ 90 %
+- [ ] Preuve : ligne `total:` copiée ici ; commits `test(scope):` atomiques
+
+## Phase 1 (DONE — résumé)
+- Détails et tableaux : `docs/audits/bench-audit-loop-2026-06.md` + messages des commits 4e34b82 / fa13bfd / 7999c39.
+- DoD vérifiée : suites fibonacci+bigfft vertes (-count=1 et -race via WSL) ; 6 tests gardiens historiques + 8 nouveaux verts ; benchstat archivé, aucune régression > 5 % (cumul : tout ~ ou négatif) ; lint 0 nouvelle issue vs baseline D1 ; refactor lisibilité : non retenu (aucun candidat neutre profitable, discipline chirurgicale) ; arrêt des cycles : plus de candidat crédible désigné par le profil (C1 réfuté par lecture, C2/C3 retenus, parallélisation des forward transforms écartée — gain borné, complexité).
+
+## Archive des sous-tâches Phase 1 (closes)
 - [x] Lire ADR-0004 (backlog : B1/B2 WONT-FIX — FFTContext et calibration hors périmètre) et ADR-0008 (R1–R7 rejetés, ne pas re-tenter)
 - [x] Lire baseline de référence `docs/audits/bench-parallel-pointwise-2026-06.md` (FastDoubling/10M ≈ 36,25 ms ; 1M ≈ 5,35 ms ±40 % ; F(100M) ≈ 0,204 s)
 - [x] Gate de validation initial — `go build` ✓, `go vet` ✓, lint = ADVISORY (décision D1, baseline 151 issues), `go test ./... -count=1` ✓ **24/24 packages ok** (golden inclus ; log `audit_iter0_gate_bench.log` 05:07:07)
