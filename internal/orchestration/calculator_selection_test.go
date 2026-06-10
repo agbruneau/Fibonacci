@@ -41,4 +41,11 @@ func TestGetCalculatorsToRun(t *testing.T) {
 			t.Errorf("Expected 1 calculator, got %d", len(calculators))
 		}
 	})
+
+	t.Run("Unknown algorithm returns nil", func(t *testing.T) {
+		t.Parallel()
+		if calculators := GetCalculatorsToRun("no-such-algo", factory); calculators != nil {
+			t.Errorf("Expected nil for unknown algorithm, got %d calculator(s)", len(calculators))
+		}
+	})
 }

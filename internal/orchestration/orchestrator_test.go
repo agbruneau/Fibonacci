@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -265,6 +266,251 @@ func TestExecuteCalculations_PartialFailure(t *testing.T) {
 	if results[1].Name != "Slow" {
 		t.Errorf("results[1].Name = %q, want Slow", results[1].Name)
 	}
+}
+
+// capturingPresenter records what the orchestrator hands to the presentation
+// layer so tests can assert on ordering and winner selection.
+type capturingPresenter struct {
+	table     []CalculationResult
+	presented []CalculationResult
+}
+
+func (c *capturingPresenter) PresentComparisonTable(results []CalculationResult, _ io.Writer) {
+	c.table = append([]CalculationResult(nil), results...)
+}
+
+func (c *capturingPresenter) PresentResult(result CalculationResult, _ uint64, _, _, _ bool, _ io.Writer) {
+	c.presented = append(c.presented, result)
+}
+
+// capturingErrorHandler records the error it receives and returns a fixed code
+// so tests can verify the delegation contract of AnalyzeComparisonResults.
+type capturingErrorHandler struct {
+	got  error
+	code int
+}
+
+func (h *capturingErrorHandler) HandleError(err error, _ time.Duration, _ io.Writer) int {
+	h.got = err
+	return h.code
+}
+
+// TestExecuteCalculations_WrapsErrorWithCalculationContext verifies the error
+// aggregation contract: a calculator failure must surface as a CalculationError
+// carrying the run parameters, without losing the original cause.
+func TestExecuteCalculations_WrapsErrorWithCalculationContext(t *testing.T) {
+	t.Parallel()
+	sentinel := errors.New("backend failure")
+	calc := &MockCalculator{
+		CalculateFunc: func(context.Context, progress.ProgressCallback, int, uint64, fibonacci.Options) (*big.Int, error) {
+			return nil, sentinel
+		},
+	}
+
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      []fibonacci.Calculator{calc},
+		N:                42,
+		Opts:             fibonacci.Options{ParallelThreshold: 7, FFTThreshold: 9, StrassenThreshold: 11},
+		ProgressReporter: NullProgressReporter{},
+		Out:              io.Discard,
+	})
+
+	err := results[0].Err
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("wrapped error chain lost the cause: %v", err)
+	}
+	var calcErr apperrors.CalculationError
+	if !errors.As(err, &calcErr) {
+		t.Fatalf("error is %T, want apperrors.CalculationError in the chain", err)
+	}
+	if calcErr.N != 42 {
+		t.Errorf("CalculationError.N = %d, want 42", calcErr.N)
+	}
+	if calcErr.ParallelThresholdBits != 7 || calcErr.FFTThresholdBits != 9 || calcErr.StrassenThresholdBits != 11 {
+		t.Errorf("threshold context = (%d, %d, %d), want (7, 9, 11)",
+			calcErr.ParallelThresholdBits, calcErr.FFTThresholdBits, calcErr.StrassenThresholdBits)
+	}
+	if calcErr.MemoryEstimateBytes == 0 {
+		t.Error("CalculationError.MemoryEstimateBytes = 0, want a non-zero estimate")
+	}
+}
+
+// TestExecuteCalculations_ErrgroupCancelsSiblings proves cross-calculator
+// cancellation (P0-08) deterministically: the second calculator blocks solely
+// on the errgroup-derived context, so the only way ExecuteCalculations can
+// return is the sibling failure propagating through the shared context.
+func TestExecuteCalculations_ErrgroupCancelsSiblings(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("boom")
+	calcs := []fibonacci.Calculator{
+		&MockCalculator{
+			NameFunc: func() string { return "Failing" },
+			CalculateFunc: func(context.Context, progress.ProgressCallback, int, uint64, fibonacci.Options) (*big.Int, error) {
+				return nil, boom
+			},
+		},
+		&MockCalculator{
+			NameFunc: func() string { return "Blocked" },
+			CalculateFunc: func(ctx context.Context, _ progress.ProgressCallback, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
+				// Parent context is Background: unblocking here can only come
+				// from errgroup cancellation triggered by the sibling error.
+				<-ctx.Done()
+				return nil, ctx.Err()
+			},
+		},
+	}
+
+	var results []CalculationResult
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		results = ExecuteCalculations(context.Background(), ExecutionConfig{
+			Calculators:      calcs,
+			N:                10,
+			Opts:             fibonacci.Options{},
+			ProgressReporter: NullProgressReporter{},
+			Out:              io.Discard,
+		})
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("ExecuteCalculations did not return: sibling cancellation through errgroup is broken")
+	}
+
+	if !errors.Is(results[0].Err, boom) {
+		t.Errorf("results[0].Err = %v, want chain containing %v", results[0].Err, boom)
+	}
+	if !errors.Is(results[1].Err, context.Canceled) {
+		t.Errorf("results[1].Err = %v, want chain containing context.Canceled", results[1].Err)
+	}
+}
+
+// TestExecuteCalculations_ProgressReporterFuncReceivesUpdates exercises the
+// ProgressReporterFunc adapter end to end: the orchestrator must forward the
+// calculator count, the configured writer and every progress update, and must
+// only return once the display goroutine has drained the closed channel.
+func TestExecuteCalculations_ProgressReporterFuncReceivesUpdates(t *testing.T) {
+	t.Parallel()
+	var (
+		got    []progress.ProgressUpdate
+		gotNum int
+		gotOut io.Writer
+	)
+	reporter := ProgressReporterFunc(func(wg *sync.WaitGroup, ch <-chan progress.ProgressUpdate, numCalculators int, out io.Writer) {
+		defer wg.Done()
+		gotNum = numCalculators
+		gotOut = out
+		for u := range ch {
+			got = append(got, u)
+		}
+	})
+
+	calc := &MockCalculator{
+		CalculateFunc: func(_ context.Context, report progress.ProgressCallback, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
+			report(0.5)
+			report(1.0)
+			return big.NewInt(1), nil
+		},
+	}
+
+	ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      []fibonacci.Calculator{calc},
+		N:                1,
+		Opts:             fibonacci.Options{},
+		ProgressReporter: reporter,
+		Out:              io.Discard,
+	})
+
+	// ExecuteCalculations returns only after displayWg.Wait(), so reading the
+	// state captured by the reporter goroutine is race-free by construction.
+	if gotNum != 1 {
+		t.Errorf("reporter numCalculators = %d, want 1", gotNum)
+	}
+	if gotOut != io.Discard {
+		t.Errorf("reporter out = %v, want cfg.Out (io.Discard)", gotOut)
+	}
+	want := []float64{0.5, 1.0}
+	if len(got) != len(want) {
+		t.Fatalf("reporter received %d updates, want %d: %+v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if got[i].Value != w || got[i].CalculatorIndex != 0 {
+			t.Errorf("update[%d] = %+v, want {CalculatorIndex:0 Value:%v}", i, got[i], w)
+		}
+	}
+}
+
+// TestAnalyzeComparisonResults_SortsAndPresentsFastestSuccess pins the sort
+// contract (successes before failures, then ascending duration) and verifies
+// the fastest successful result is the one handed to PresentResult.
+func TestAnalyzeComparisonResults_SortsAndPresentsFastestSuccess(t *testing.T) {
+	t.Parallel()
+	results := []CalculationResult{
+		{Name: "SlowOK", Result: big.NewInt(5), Duration: 30 * time.Millisecond},
+		{Name: "FailedFast", Result: nil, Duration: time.Millisecond, Err: errors.New("x")},
+		{Name: "FastOK", Result: big.NewInt(5), Duration: 10 * time.Millisecond},
+	}
+	pres := &capturingPresenter{}
+
+	status := AnalyzeComparisonResults(results, PresentationOptions{N: 7}, pres, &capturingErrorHandler{}, &DiscardWriter{})
+
+	if status != apperrors.ExitSuccess {
+		t.Fatalf("status = %d, want %d", status, apperrors.ExitSuccess)
+	}
+	// FailedFast has the smallest duration but must still sort last.
+	wantOrder := []string{"FastOK", "SlowOK", "FailedFast"}
+	for i, name := range wantOrder {
+		if results[i].Name != name {
+			t.Errorf("results[%d].Name = %q, want %q (successes first, then by duration)", i, results[i].Name, name)
+		}
+	}
+	if len(pres.table) != 3 || pres.table[0].Name != "FastOK" {
+		t.Errorf("comparison table got %d entries starting with %q, want 3 starting with FastOK", len(pres.table), firstName(pres.table))
+	}
+	if len(pres.presented) != 1 || pres.presented[0].Name != "FastOK" {
+		t.Errorf("PresentResult got %+v, want exactly the fastest success FastOK", pres.presented)
+	}
+}
+
+// TestAnalyzeComparisonResults_AllFailureDelegatesFirstError verifies the
+// global-failure path: the first error in sorted order is delegated to the
+// error handler, whose exit code becomes the return value, and no final
+// result is presented.
+func TestAnalyzeComparisonResults_AllFailureDelegatesFirstError(t *testing.T) {
+	t.Parallel()
+	errA := errors.New("err-A")
+	errB := errors.New("err-B")
+	results := []CalculationResult{
+		{Name: "B", Err: errB, Duration: 20 * time.Millisecond},
+		{Name: "A", Err: errA, Duration: 10 * time.Millisecond},
+	}
+	pres := &capturingPresenter{}
+	handler := &capturingErrorHandler{code: 42}
+
+	status := AnalyzeComparisonResults(results, PresentationOptions{}, pres, handler, &DiscardWriter{})
+
+	if status != 42 {
+		t.Errorf("status = %d, want the error handler's code 42", status)
+	}
+	if !errors.Is(handler.got, errA) {
+		t.Errorf("HandleError received %v, want first error after duration sort (%v)", handler.got, errA)
+	}
+	if len(pres.presented) != 0 {
+		t.Errorf("PresentResult called with %+v, want no call when every algorithm failed", pres.presented)
+	}
+	if len(pres.table) != 2 {
+		t.Errorf("comparison table got %d entries, want 2 even on global failure", len(pres.table))
+	}
+}
+
+// firstName returns the first result name or a placeholder for error messages.
+func firstName(results []CalculationResult) string {
+	if len(results) == 0 {
+		return "<empty>"
+	}
+	return results[0].Name
 }
 
 // TestExecuteCalculations_ContextCancellation verifies that when the caller
