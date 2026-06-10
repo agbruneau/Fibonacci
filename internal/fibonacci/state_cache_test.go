@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+
+	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
 // TestCalculatorStateCache_ReusesArena guards the reason the per-calculator
@@ -16,7 +18,12 @@ func TestCalculatorStateCache_ReusesArena(t *testing.T) {
 	fd := &FastDoublingCalculator{}
 	const n = 2_000_000
 
-	s1 := fd.acquireStateForN(n)
+	// Build the first state manually instead of via the shared statePool:
+	// under t.Parallel a pooled state can arrive carrying an over-cap arena
+	// from another test, which would legitimately bypass the cache slot and
+	// flake this test (workflow review finding).
+	s1 := &CalculationState{FK: new(big.Int), FK1: new(big.Int), T1: new(big.Int), T2: new(big.Int), T3: new(big.Int)}
+	prepareStateForN(s1, n)
 	arena1 := s1.arena
 	if arena1 == nil {
 		t.Fatal("expected an arena for large n")
@@ -91,9 +98,13 @@ func TestCalculatorStateCache_SequentialResultsIndependent(t *testing.T) {
 	}
 	snapshot := new(big.Int).Set(r1)
 
-	_, err = fd.CalculateCore(ctx, noop, 120_000, opts)
+	// The second call uses a SMALLER n so the SAME arena is reused (a larger
+	// n would allocate a fresh arena and the test would not refute a missing
+	// deep-copy — workflow review finding). The reuse overwrites the arena
+	// backing; r1 must survive untouched.
+	_, err = fd.CalculateCore(ctx, noop, 80_000, opts)
 	if err != nil {
-		t.Fatalf("CalculateCore(120k) error: %v", err)
+		t.Fatalf("CalculateCore(80k) error: %v", err)
 	}
 	if r1.Cmp(snapshot) != 0 {
 		t.Error("result of first call mutated by a later call reusing the cached arena")
@@ -105,6 +116,77 @@ func TestCalculatorStateCache_SequentialResultsIndependent(t *testing.T) {
 	}
 	if r3.Cmp(snapshot) != 0 {
 		t.Error("same-n results differ across cached calls")
+	}
+}
+
+// TestStateBump_PinnedAcrossCachedCalls guards F-012: once a calculation has
+// taken the FFT path, the bump scratch allocator must travel with the cached
+// state and be reused (same pointer) by the next call on the same calculator.
+func TestStateBump_PinnedAcrossCachedCalls(t *testing.T) {
+	t.Parallel()
+	fd := &FastDoublingCalculator{}
+	ctx := context.Background()
+	noop := func(float64) {}
+	// F(1.5M) has ~1.04M bits, above the default FFT threshold, so the last
+	// doubling steps run executeDoublingStepFFT and acquire the bump scratch.
+	opts := Options{ParallelThreshold: DefaultParallelThreshold, FFTThreshold: DefaultFFTThreshold}
+
+	if _, err := fd.CalculateCore(ctx, noop, 1_500_000, opts); err != nil {
+		t.Fatalf("CalculateCore #1 error: %v", err)
+	}
+	s := fd.cachedState.Load()
+	if s == nil {
+		t.Fatal("state not cached after first call")
+	}
+	if s.bump == nil {
+		t.Fatal("bump scratch not pinned with the cached state after an FFT calculation")
+	}
+	b1 := s.bump
+
+	if _, err := fd.CalculateCore(ctx, noop, 1_500_000, opts); err != nil {
+		t.Fatalf("CalculateCore #2 error: %v", err)
+	}
+	s2 := fd.cachedState.Load()
+	if s2 == nil || s2.bump != b1 {
+		t.Error("bump scratch was reacquired instead of reused across cached calls")
+	}
+}
+
+// TestStateBump_ReleasedOnOverLimit: an overLimit state is dropped, and its
+// bump scratch must go back to the bigfft pool instead of dying with it.
+func TestStateBump_ReleasedOnOverLimit(t *testing.T) {
+	t.Parallel()
+	fd := &FastDoublingCalculator{}
+
+	s := fd.acquireStateForN(2_000_000)
+	s.bump = bigfft.AcquireBumpAllocator(64)
+	s.FK.SetBit(s.FK, MaxPooledBitLen+1, 1)
+	fd.releaseState(s)
+	if s.bump != nil {
+		t.Error("bump scratch must be released (nil) when the state is dropped overLimit")
+	}
+	if fd.cachedState.Load() != nil {
+		t.Error("overLimit state must not be cached")
+	}
+}
+
+// TestStateBump_FollowsArenaDrop: the anti-bloat drop of a huge arena must
+// also release the companion bump scratch (retention policy coherence).
+func TestStateBump_FollowsArenaDrop(t *testing.T) {
+	t.Parallel()
+	s := &CalculationState{FK: new(big.Int), FK1: new(big.Int), T1: new(big.Int), T2: new(big.Int), T3: new(big.Int)}
+	prepareStateForN(s, 2_000_000)
+	if s.arena == nil {
+		t.Fatal("expected an arena")
+	}
+	s.arenaCapWords = maxArenaPoolWords + 1 // force the anti-bloat drop branch
+	s.bump = bigfft.AcquireBumpAllocator(64)
+	ReleaseState(s)
+	if s.arena != nil {
+		t.Error("oversized arena must be dropped")
+	}
+	if s.bump != nil {
+		t.Error("bump scratch must follow the arena's anti-bloat drop")
 	}
 }
 

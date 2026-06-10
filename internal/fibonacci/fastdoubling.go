@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/agbruneau/FibGo/internal/bigfft"
 	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/progress"
@@ -252,6 +253,20 @@ type CalculationState struct {
 	FK, FK1, T1, T2, T3 *big.Int
 	arena               *memory.CalculationArena
 	arenaCapWords       int // cached len(arena.buf) to avoid a method call on hot paths
+
+	// bump is the FFT forward-transform scratch allocator, acquired once per
+	// calculation at final-operand size (F-012) and only Reset between
+	// doubling steps. Like the arena it is part of the state's pooled
+	// identity: it travels with the state through the pool and the
+	// per-calculator cache slot, follows the arena's anti-bloat drop, and is
+	// released when the state is dropped (overLimit). It must never be
+	// shared with the goroutines of executeParallel3 (mono-goroutine
+	// forward phase only — see executeDoublingStepFFT).
+	bump *bigfft.BumpAllocator
+	// fftBumpCapWords is the bump capacity needed by the calculation's FINAL
+	// doubling step (set by prepareStateForN), so the first FFT step acquires
+	// the allocator once at full size instead of growing it on every step.
+	fftBumpCapWords int
 }
 
 // Reset prepares the state for a new calculation.
@@ -362,10 +377,18 @@ func prepareStateForN(s *CalculationState, n uint64) {
 		s.arena.PreSizeFromArena(s.T1, wordsNeeded)
 		s.arena.PreSizeFromArena(s.T2, wordsNeeded)
 		s.arena.PreSizeFromArena(s.T3, wordsNeeded)
-	} else if s.arena != nil {
-		// Even on the small-N path we reset the arena so any previous
-		// large-N tenancy is cleared before potential reuse.
-		s.arena.Reset()
+		// Target capacity for the FFT bump scratch at the FINAL step (the
+		// operands double each step, so sizing for the last step lets
+		// executeDoublingStepFFT acquire the allocator exactly once). The
+		// allocator itself is acquired lazily, only if the FFT path runs.
+		s.fftBumpCapWords = bigfft.EstimateBumpCapacity(2 * wordsNeeded)
+	} else {
+		if s.arena != nil {
+			// Even on the small-N path we reset the arena so any previous
+			// large-N tenancy is cleared before potential reuse.
+			s.arena.Reset()
+		}
+		s.fftBumpCapWords = 0
 	}
 }
 
@@ -532,13 +555,23 @@ func finalizeStateReleaseTo(s *CalculationState, put func(*CalculationState)) {
 		if s.arenaCapWords > maxArenaPoolWords {
 			s.arena = nil
 			s.arenaCapWords = 0
+			// The FFT bump scratch follows the arena's anti-bloat policy:
+			// dropping a huge arena while pinning its companion allocator
+			// would defeat the retention bound.
+			bigfft.ReleaseBumpAllocator(s.bump) // nil-safe
+			s.bump = nil
+			s.fftBumpCapWords = 0
 		}
 	}
 
 	if overLimit {
 		// Drop the state entirely, but only AFTER clearStateAliases has
 		// run, so the dropped state cannot leak aliased slots through any
-		// remaining reference.
+		// remaining reference. The bump scratch goes back to its pool
+		// instead of dying with the dropped state.
+		bigfft.ReleaseBumpAllocator(s.bump) // nil-safe
+		s.bump = nil
+		s.fftBumpCapWords = 0
 		return
 	}
 	put(s)
