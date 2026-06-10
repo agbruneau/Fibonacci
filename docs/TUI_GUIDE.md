@@ -131,7 +131,7 @@ func (m Model) View() string {
 | FibGo Monitor v1.0.0 | Elapsed: 0m 12s                                     |
 +-------- Logs (60%) --------+----- Right Column (40%) ----------------------+
 |                            |  Metrics (compact fixed height)                |
-| [15:04:05] FFT Based 45%  |   Memory: 1.2 GB | GC Runs: 12               |
+| [15:04:05] FFT Based 45%  |   Heap: 1.2 GB / 4.0 GB | GC: 12 (3.2ms)      |
 | [15:04:06] Matrix..  42%  |   Speed:   4m46s/calc  Goroutines: 18         |
 |                            +---- Chart (expands to fill) ------------------+
 |                            |  Progress Chart                ETA: 45s       |
@@ -215,7 +215,7 @@ sequenceDiagram
     participant Sub as Sub-Models
 
     Orch->>Bridge: progressChan updates
-    Bridge->>Bridge: state.UpdateWithETA()
+    Bridge->>Bridge: agg.Update(update)
     Bridge->>Ref: Send(ProgressMsg)
     Ref->>Model: tea.Program.Send()
     Model->>Sub: logs.AddProgressEntry()
@@ -223,8 +223,9 @@ sequenceDiagram
     Model->>Sub: metrics.UpdateProgress()
 ```
 
-The bridge goroutine drains the progress channel, computes ETA via
-`cli.NewProgressWithETA()`, and forwards updates through `programRef.Send()`.
+The bridge goroutine drains the progress channel, aggregates per-calculator
+progress and computes ETA via `orchestration.NewProgressAggregator()`, and
+forwards updates through `programRef.Send()`.
 
 ---
 
@@ -287,7 +288,7 @@ Implements `orchestration.ResultPresenter`:
 | `PresentComparisonTable()` | `ComparisonResultsMsg` |
 | `PresentResult()` | `FinalResultMsg` |
 | `HandleError()` | `ErrorMsg` |
-| `FormatDuration()` | Delegates to `cli.FormatExecutionDuration()` |
+| `FormatDuration()` | Delegates to `format.FormatExecutionDuration()` (`internal/format`) |
 
 ---
 
@@ -434,13 +435,13 @@ func Run(ctx context.Context, calculators []orchestration.Calculator,
 ### Adding a New Keyboard Shortcut
 
 1. Add a binding in `keymap.go` (`DefaultKeyMap()`).
-2. Add a `case` in `handleKey()` in `model.go`.
+2. Add a `case` in `handleKey()` in `handlers.go` (dispatched from `Model.Update()` in `model.go`).
 3. Update `FooterModel.View()` to display the new shortcut.
 
 ---
 
 ## Cross-References
 
-- [Architecture](architecture/README.md) -- Presentation Layer and ADR-004 (Observer and interface-based decoupling patterns)
+- [Architecture](architecture/README.md) -- Presentation Layer; Observer-based decoupling through the `orchestration.ProgressReporter` / `ResultPresenter` interfaces
 - [algorithms/PROGRESS_BAR_ALGORITHM.md](algorithms/PROGRESS_BAR_ALGORITHM.md) -- Progress calculation math
 - [BUILD.md](BUILD.md) -- `--tui` flag and `FIBCALC_TUI` env var

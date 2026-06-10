@@ -21,7 +21,7 @@ go test -v -race -cover ./...                          # All tests with race det
 go test -v -short ./...                                # Skip slow tests
 go test -v -run TestFastDoubling ./internal/fibonacci/  # Single test
 go test -bench=. -benchmem ./internal/fibonacci/        # Benchmarks
-go test -fuzz=FuzzFastDoubling ./internal/fibonacci/    # Fuzz tests
+go test -fuzz=FuzzFastDoublingConsistency ./internal/fibonacci/  # Fuzz tests (one target per -fuzz run)
 ```
 
 Makefile targets (require `make`):
@@ -53,9 +53,9 @@ var knownFibResults = []struct {
 
 func TestFibonacciCalculators(t *testing.T) {
     calculators := map[string]Calculator{
-        "FastDoubling": NewCalculator(&OptimizedFastDoubling{}),
-        "MatrixExp":    NewCalculator(&MatrixExponentiation{}),
-        "FFTBased":     NewCalculator(&FFTBasedCalculator{}),
+        "FastDoubling": MustNewCalculator(&FastDoublingCalculator{}),
+        "MatrixExp":    MustNewCalculator(&MatrixExponentiationCalculator{}),
+        "FFTBased":     MustNewCalculator(&FFTBasedCalculator{}),
     }
     for name, calc := range calculators {
         t.Run(name, func(t *testing.T) {
@@ -183,6 +183,15 @@ Property-based testing uses `github.com/leanovate/gopter` to verify mathematical
 
 File: `internal/fibonacci/fibonacci_property_test.go`
 
+Four properties are verified:
+
+| Test | Property | Input range | Calculators |
+|------|----------|-------------|-------------|
+| `TestCassinisIdentity_PropertyBased` | `F(n-1)*F(n+1) - F(n)^2 = (-1)^n` | n in [1, 25000] | all 3 |
+| `TestRecurrenceRelation_PropertyBased` | `F(n) = F(n-1) + F(n-2)` | n in [2, 25000] | all 3 |
+| `TestDoublingIdentity_PropertyBased` | `F(2n) = F(n) * (2*F(n+1) - F(n))` | n in [1, 12500] | all 3 |
+| `TestGCDIdentity_PropertyBased` | `GCD(F(m), F(n)) = F(GCD(m, n))` | m, n in [1, 5000] | Fast Doubling only |
+
 ### Cassini's Identity
 
 The primary property tested is Cassini's Identity:
@@ -209,9 +218,9 @@ for _, calculator := range calculators {
 }
 ```
 
-- **MinSuccessfulTests**: 100 per property per calculator (300 total)
+- **MinSuccessfulTests**: 100 per property per calculator (300 per three-calculator property)
 - **Input range**: n from 1 to 25,000
-- **All 3 calculators** verified independently
+- **All 3 calculators** verified independently (the GCD identity runs on Fast Doubling alone — it tests a mathematical property, not cross-implementation consistency)
 
 ## Benchmark Testing
 
@@ -221,24 +230,31 @@ Benchmarks measure algorithm performance across input sizes, reporting wall-cloc
 
 ```bash
 go test -bench=. -benchmem ./internal/fibonacci/
-go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
-go test -bench='Benchmark(FastDoubling|Matrix|FFT)' -benchmem ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/FastDoubling' -benchmem -run='^$' ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -run='^$' ./internal/fibonacci/
 go test -bench=BenchmarkFibonacci -benchtime=5x ./internal/fibonacci/
 go test -bench=BenchmarkCacheImpact -benchmem ./internal/fibonacci/
 ```
+
+Benchmark functions are `BenchmarkFibonacci` (subtests `FastDoubling`,
+`MatrixExp`, `FFTBased`), `BenchmarkFibonacciDTM`, `BenchmarkCacheImpact`,
+and `BenchmarkCacheHitRate` — there is no `BenchmarkFastDoubling` function;
+target subtests via the `BenchmarkFibonacci/...` patterns above. For
+benchstat-comparable runs against `docs/audits/bench-baseline.txt`, use
+`make bench-baseline`.
 
 Benchmarks are organized as nested subtests (`Calculator/Size`), testing F(1M) and F(10M) across all three calculators. Each uses `b.ReportAllocs()` and `b.ResetTimer()` for accurate measurement.
 
 ### Profiling
 
 ```bash
-go test -cpuprofile=cpu.prof -bench=BenchmarkFastDoubling ./internal/fibonacci/
+go test -cpuprofile=cpu.prof -bench='BenchmarkFibonacci/FastDoubling' -run='^$' ./internal/fibonacci/
 go tool pprof cpu.prof
 
-go test -memprofile=mem.prof -bench=BenchmarkFastDoubling ./internal/fibonacci/
+go test -memprofile=mem.prof -bench='BenchmarkFibonacci/FastDoubling' -run='^$' ./internal/fibonacci/
 go tool pprof mem.prof
 
-go test -trace=trace.out -bench=BenchmarkFastDoubling ./internal/fibonacci/
+go test -trace=trace.out -bench='BenchmarkFibonacci/FastDoubling' -run='^$' ./internal/fibonacci/
 go tool trace trace.out
 ```
 
@@ -344,11 +360,15 @@ There is **no remote CI** for this project (an assumed decision). Pre-commit val
 
 Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
 
+On Windows hosts without gcc, the `-race` run is executable via WSL; complete `-race` passes of the suite were last run successfully on 2026-06-10.
+
 ## Test Organization
+
+The table lists key test files per package; it is **not exhaustive** (`internal/fibonacci` alone contains 35 `_test.go` files as of 2026-06-10).
 
 | Package | Key Test Files | Testing Approach |
 |---------|---------------|-----------------|
-| `internal/fibonacci` | `fibonacci_test.go`, `fibonacci_golden_test.go`, `fibonacci_fuzz_test.go`, `fibonacci_property_test.go`, `fibonacci_strassen_test.go`, `fibonacci_edge_test.go`, `modular_test.go`, `fastdoubling_test.go`, `registry_test.go`, `strategy_test.go` | Unit, golden, fuzz, property-based, Strassen correctness, modular arithmetic, Fast Doubling state pooling, calculator registry, strategy selection |
+| `internal/fibonacci` | `fibonacci_test.go`, `fibonacci_golden_test.go`, `fibonacci_fuzz_test.go`, `fibonacci_property_test.go`, `fibonacci_strassen_test.go`, `fibonacci_edge_test.go`, `modular_test.go`, `fastdoubling_test.go`, `state_cache_test.go`, `registry_test.go`, `strategy_test.go`, `testmain_test.go` | Unit, golden, fuzz, property-based, Strassen correctness, modular arithmetic, Fast Doubling state pooling, state/arena/bump cache guardians (8 tests, commits fa13bfd + 7999c39), calculator registry, strategy selection, `TestMain` pinning zerolog to InfoLevel so `-bench` output stays benchstat-parseable (commit 4e34b82) |
 | `internal/fibonacci/memory` | `arena_test.go`, `arena_fallback_test.go`, `budget_test.go`, `gc_control_test.go` | Bump arena allocation, heap-fallback pre-sizing, memory-budget pre-flight estimation, GC controller |
 | `internal/fibonacci/threshold` | `manager_test.go`, `tuning_test.go` | Threshold manager (parallelism / FFT / Strassen decisions), `SetTuning` propagation |
 | `internal/bigfft` | `fft_precision_test.go`, `fft_parallel_test.go`, `pool_test.go`, `fermat_test.go`, `bump_test.go`, `fft_cache_test.go` | Unit, precision, parallel correctness, pool recycling, Fermat arithmetic, bump allocator, FFT cache |
@@ -358,8 +378,8 @@ Because no remote gate enforces these, discipline is the only safeguard: run the
 | `internal/calibration` | `calibration_test.go`, `calibration_advanced_test.go`, `adaptive_test.go`, `microbench_test.go`, `profile_test.go`, `io_test.go` | Unit, advanced calibration, micro-benchmark validation, profile I/O |
 | `internal/config` | `config_test.go`, `config_exhaustive_test.go`, `env_test.go` | Unit, exhaustive flag combinations, env vars |
 | `internal/errors` | `errors_test.go`, `handler_test.go` | Unit, exit code mapping |
-| `internal/metrics` | `memory_test.go` | Unit (memory snapshot collection) |
-| `internal/app` | `app_test.go`, `version_test.go` | Unit, lifecycle |
+| `internal/metrics` | `indicators_test.go`, `system/system_test.go` | Performance indicators (throughput, O(1) properties), CPU/memory sampling |
+| `internal/app` | `app_test.go`, `version_test.go`, `app_tuning_test.go` | Unit, lifecycle, threshold-tuning wiring (A2-04, `TestWireThresholdTuning`) |
 | `test/e2e` | `cli_e2e_test.go`, `extended_e2e_test.go` | End-to-end binary testing |
 | `cmd/fibcalc` | `main_test.go` | Entry point smoke test |
 | `cmd/generate-golden` | `main_test.go` | Golden generator validation |
@@ -402,7 +422,7 @@ Several tests specifically target concurrent behavior:
 - **Race detector**: Local `make test` runs `-race` to detect data races (requires CGO)
 - **Context cancellation**: `TestContextCancellation` verifies algorithms respond to `context.WithTimeout` within 50ms for N=100M. Cancellation is **coarse-grained** (checked between doubling steps and between the 3 FFT products); fine-grained cancellation *inside* a single giant FFT multiplication is deferred to the `FFTContext` migration — see [`docs/adr/0006-fft-recursion-cancellation.md`](adr/0006-fft-recursion-cancellation.md).
 - **Concurrent GC control**: `TestGCController_ConcurrentBeginEnd_RestoresOriginal` (`internal/fibonacci/memory/gc_control_test.go`) verifies the package-level refcount (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`) keeps GC disabled while any sibling calculator runs and restores the real `GOGC` exactly once — see [`docs/adr/0005-gc-control-concurrent.md`](adr/0005-gc-control-concurrent.md).
-- **Progress monotonicity**: `TestProgressReporter` validates that progress updates across goroutine boundaries never decrease
+- **Progress monotonicity**: `FuzzProgressMonotonicity` (`internal/fibonacci/fibonacci_fuzz_test.go`) and `TestProgress_MonotonicLargeN` (`internal/progress/progress_test.go`) validate that reported progress never decreases
 - **Parallel FFT tests**: `fft_parallel_test.go` validates thread safety of the FFT subsystem under concurrent load
 
 ## TUI Testing

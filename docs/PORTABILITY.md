@@ -20,11 +20,15 @@ E10-R5 / Sprint S4-T5.
 
 ### 2.1 `internal/bigfft/arith_*.go`
 
-- `arith_amd64.go` (`//go:build amd64`) : implémentation assembleur optimisée
-  pour les routines arithmétiques de bas niveau (`addVV`, `subVV`, `addVW`,
-  `subVW`, `shlVU`).
-- `arith_generic.go` (`//go:build !amd64`) : implémentation Go pure, prise
-  par défaut sur toute autre architecture (arm64, riscv64, ppc64le, etc.).
+- `arith_amd64.go` (`//go:build amd64`) : wrappers exportés `AddVV`, `SubVV`,
+  `AddMulVVW`, qui délèguent aux routines internes de `math/big` via
+  `go:linkname`. Les déclarations `go:linkname` vivent dans `arith_decl.go`
+  (commun à toutes les architectures), qui couvre aussi `addVW`, `subVW`,
+  `shlVU`. Aucun assembleur original dans ce dépôt : l'assembleur optimisé
+  exploité est celui de `math/big`.
+- `arith_generic.go` (`//go:build !amd64`) : mêmes wrappers exportés pour
+  toute autre architecture (arm64, riscv64, ppc64le, etc.), même délégation
+  `go:linkname` vers `math/big`.
 
 **Conséquence** : le binaire compilé pour `linux/arm64` ou `darwin/arm64`
 est fonctionnellement équivalent ; la performance arithmétique pure est
@@ -33,8 +37,12 @@ non profilé formellement à ce jour).
 
 ### 2.2 `internal/bigfft/cpu_amd64.go`
 
-- `cpu_amd64.go` (`//go:build amd64`) : détection runtime AVX2 pour activer
-  un dispatch optimisé dans les routines FFT.
+- `cpu_amd64.go` (`//go:build amd64`) : détection runtime des capacités SIMD
+  (AVX2, AVX-512, BMI2, ADX) via `golang.org/x/sys/cpu`. Aucun dispatch FFT
+  n'est implémenté à ce jour : les accesseurs (`HasAVX2()`, etc.) ne sont
+  consommés que par les tests. Les heuristiques de seuils adaptatifs
+  (`internal/config/hardware.go`) lisent AVX2/AVX-512 directement depuis
+  `golang.org/x/sys/cpu`, indépendamment de ce fichier.
 - Sur les architectures non-amd64, aucune détection CPU avancée ;
   l'implémentation generic est utilisée systématiquement.
 

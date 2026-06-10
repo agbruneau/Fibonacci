@@ -16,6 +16,8 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 - **Go**: 1.25.0
 
 > **Provenance.** The figures in this section are **historical measurements** taken under the environment above (Go 1.25.0). The project now targets Go 1.26.0+ (see `go.mod`); these numbers are intentionally *not* re-stamped to the current toolchain. Re-run `make benchmark` for up-to-date figures on your own runner.
+>
+> **Current dated references.** Two later optimization rounds make HEAD measurably faster than these historical numbers: the 2026-06-09 parallel pointwise/butterfly work (FastDoubling/10M −27.6 %; [`audits/bench-parallel-pointwise-2026-06.md`](audits/bench-parallel-pointwise-2026-06.md)) and the 2026-06-10 audit loop (commits `4e34b82` TestMain, `fa13bfd` state+arena cache, `7999c39` bump F-012: geomean sec/op −12.0 % vs the same-day baseline, FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %; [`audits/bench-audit-loop-2026-06.md`](audits/bench-audit-loop-2026-06.md)).
 
 ### Results
 
@@ -28,6 +30,8 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 | 10,000,000 | 2.1s | 2.8s | 2.3s | 2,089,877 |
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
 | 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,909 |
+
+> Current dated reference for the N=10M row: `BenchmarkFibonacci/FastDoubling/10M` measures 28.20 ms (calculation only, no decimal conversion; 2026-06-10, Intel Core Ultra 9 275HX — [`audits/bench-audit-loop-2026-06.md`](audits/bench-audit-loop-2026-06.md)).
 
 > **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless (~2x lower peak than Matrix). Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
 
@@ -51,11 +55,11 @@ Intel figures reflect a mobile workstation profile with higher single-thread per
 # Run all benchmarks
 go test -bench=. -benchmem ./internal/fibonacci/
 
-# Benchmark specific algorithm
-go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
+# Benchmark specific algorithm (sub-benchmarks of BenchmarkFibonacci)
+go test -bench='BenchmarkFibonacci/FastDoubling' -benchmem -run='^$' ./internal/fibonacci/
 
 # Benchmark with specific iteration count
-go test -bench=BenchmarkFastDoubling -benchtime=5x ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/FastDoubling' -benchtime=5x -run='^$' ./internal/fibonacci/
 ```
 
 ### Regression baseline (>= 5 %, local discipline)
@@ -66,9 +70,14 @@ verified locally against `docs/audits/bench-baseline.txt` using
 `BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)`.
 
 ```bash
-make benchmark > /tmp/new.txt
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
+    -benchmem -run='^$' -count=5 -benchtime=1x ./internal/fibonacci/ > /tmp/new.txt
 benchstat docs/audits/bench-baseline.txt /tmp/new.txt
 ```
+
+The flags must match the baseline exactly (these are the flags `make
+bench-baseline` uses to write the file); `make benchmark` (`-bench=.`,
+no `-count`) is **not** benchstat-comparable to the baseline.
 
 Refresh the baseline on a quiet machine when an intentional perf change
 lands :
@@ -91,7 +100,7 @@ To compare performance across Git revisions on the **same machine**, use a fixed
    make bench-versioned
    ```
 
-   This runs `go test` with fixed flags: `-bench=BenchmarkFastDoubling -benchmem -count=3 -benchtime=2s ./internal/fibonacci/`.
+   This runs `go test` with fixed flags: `-bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -count=3 -benchtime=2s ./internal/fibonacci/`.
 
 2. **Annotate the result**: note the Git tag or commit (`git rev-parse HEAD`) in your changelog or ticket when you archive a snapshot. Single-run numbers are noisy; compare trends only on an idle machine, same flags, same `GOMAXPROCS` if you tune it.
 
@@ -121,7 +130,7 @@ Using `sync.Pool` to recycle calculation states:
 
 ```go
 var statePool = sync.Pool{
-    New: func() interface{} {
+    New: func() any {
         return &CalculationState{
             FK:  new(big.Int),
             FK1: new(big.Int),
@@ -135,10 +144,12 @@ var statePool = sync.Pool{
 
 #### Impact
 - 95%+ reduction in allocations
-- 20-30% performance improvement
+- 20-30% performance improvement (historical, unsourced figure; for current dated measurements see [`audits/bench-audit-loop-2026-06.md`](audits/bench-audit-loop-2026-06.md))
 - Reduced GC pause times
 
 **Calculation Arena (state-bound)**: For N > 1,000 a contiguous `CalculationArena` pre-allocates all 5 `big.Int` backing arrays from a single `[]big.Word` block, reducing GC tracking overhead and memory fragmentation. The arena is owned by `CalculationState` and travels through the same `sync.Pool`: `AcquireStateForN(n)` reuses the existing arena (`Reset()` only) when the previous tenancy was large enough, otherwise it reallocates. `ReleaseStateWithResult(s, src)` deep-copies the result out of the arena before resetting it and detaches every state slot before pool return, so a subsequent acquisition cannot alias another caller's result. The arena falls back to heap allocation when exhausted, and is dropped (not pooled) past `maxArenaPoolWords` (~50M words ≈ 400 MB) to bound resident memory.
+
+**GC-immune state cache and per-state FFT scratch (2026-06-10)**: `sync.Pool` alone cannot retain the arena across calls — the GC-disable pattern of large calculations (`GCController`) re-enables GC right after every call, and that collection flushes the pool, so each repeated call paid a full arena reallocation (~46 % of all allocations at F(10M)). Since commit `fa13bfd`, each `FastDoublingCalculator` keeps a single-slot, **GC-immune** cache of its last released state (`cachedState`, an `atomic.Pointer[CalculationState]`), capped at `maxCachedArenaWords` (4M words ≈ 32 MB, covering n up to roughly 20M); larger arenas keep the historical pool-only behavior. Since commit `7999c39` (F-012), the FFT forward-transform `BumpAllocator` is also carried by the `CalculationState`: it is acquired once per calculation at final-operand size and only `Reset()` between doubling steps, instead of being re-acquired and re-grown at every step. Cumulative effect measured 2026-06-10: FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %, geomean sec/op −12.0 % ([`audits/bench-audit-loop-2026-06.md`](audits/bench-audit-loop-2026-06.md)).
 
 ### 2. 2-Tier Adaptive Multiplication
 
@@ -257,10 +268,10 @@ fibcalc --auto-calibrate
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `FFTCacheMinBitLen` | 100,000 bits | Minimum operand bit length to cache FFT transforms |
-| `FFTCacheMaxEntries` | 128 entries | Maximum number of cached FFT transforms |
+| `FFTCacheMaxEntries` | 256 entries | Maximum number of cached FFT transforms |
 | `FFTCacheEnabled` | `true` | Enable/disable FFT transform caching |
 
-> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr` calls and `FFTOnlyStrategy`. The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; see ADR-0004 §B1. Reworking the default step to use the cache is a won't-fix without a supporting benchmark.
+> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr` calls and `FFTOnlyStrategy`. The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; see ADR-0004 §B1. Measured 2026-06-10 (`BenchmarkCacheImpact`, F(10M), Intel Core Ultra 9 275HX): `WithDefaultCache` 22.95 ms vs `CacheDisabled` 21.18 ms — the cache provides **no speedup** on the default Fast Doubling path ([`audits/bench-audit-loop-2026-06.md`](audits/bench-audit-loop-2026-06.md)); any cache speedup claim only concerns the `FFTOnlyStrategy` and direct `bigfft.Mul/Sqr` paths. Reworking the default step to use the cache is a won't-fix without a supporting benchmark.
 
 #### Dynamic Threshold Adjustment
 
@@ -286,7 +297,7 @@ opts := fibonacci.Options{
     FFTThreshold:              500_000,
     StrassenThreshold:         3072,
     FFTCacheEnabled:           boolPtr(true),
-    FFTCacheMaxEntries:        128,
+    FFTCacheMaxEntries:        256,
     FFTCacheMinBitLen:         100_000,
     EnableDynamicThresholds:   false,
     DynamicAdjustmentInterval: 5,
@@ -299,15 +310,15 @@ opts := fibonacci.Options{
 
 ```bash
 # CPU profiling
-go test -cpuprofile=cpu.prof -bench=BenchmarkFastDoubling ./internal/fibonacci/
+go test -cpuprofile=cpu.prof -bench='BenchmarkFibonacci/FastDoubling' -run='^$' ./internal/fibonacci/
 go tool pprof cpu.prof
 
 # Memory profiling
-go test -memprofile=mem.prof -bench=BenchmarkFastDoubling ./internal/fibonacci/
+go test -memprofile=mem.prof -bench='BenchmarkFibonacci/FastDoubling' -run='^$' ./internal/fibonacci/
 go tool pprof mem.prof
 
 # Trace
-go test -trace=trace.out -bench=BenchmarkFastDoubling ./internal/fibonacci/
+go test -trace=trace.out -bench='BenchmarkFibonacci/FastDoubling' -run='^$' ./internal/fibonacci/
 go tool trace trace.out
 ```
 
