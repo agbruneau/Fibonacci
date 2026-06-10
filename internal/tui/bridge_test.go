@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/progress"
@@ -106,6 +108,22 @@ func withBridgeLogger(t *testing.T, buf *bytes.Buffer) {
 	orig := bridgeLogger
 	bridgeLogger = log.New(buf, "tui-bridge: ", 0)
 	t.Cleanup(func() { bridgeLogger = orig })
+}
+
+func TestProgramRef_SetProgram_EnablesSend(t *testing.T) {
+	t.Parallel()
+	ref := &programRef{}
+
+	// Wire a real, never-run program. Kill cancels its internal context so
+	// tea.Program.Send returns immediately instead of blocking on the
+	// unbuffered message channel of a program whose event loop never starts.
+	p := tea.NewProgram(nil)
+	p.Kill()
+	ref.SetProgram(p)
+
+	if err := ref.Send(ProgressMsg{Value: 0.5}); err != nil {
+		t.Fatalf("Send after SetProgram returned %v, want nil", err)
+	}
 }
 
 func TestProgramRef_SendOrLog_NilProgramLogs(t *testing.T) {

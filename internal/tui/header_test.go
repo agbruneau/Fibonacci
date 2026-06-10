@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHeaderModel_View_ContainsTitle(t *testing.T) {
@@ -58,6 +59,22 @@ func TestHeaderModel_View_ZeroWidth(t *testing.T) {
 	// Should not panic
 	view := h.View()
 	_ = view
+}
+
+func TestHeaderModel_View_FrozenAfterDone(t *testing.T) {
+	t.Parallel()
+	h := NewHeaderModel("v1.0.0")
+	h.SetWidth(80)
+	h.SetDone()
+	// Pin the start exactly 90s before the frozen end: the elapsed text must
+	// be computed from endTime ("1m30s" exactly), not from time.Since, which
+	// would add wall-clock jitter and render e.g. "1m30.0001s".
+	h.startTime = h.endTime.Add(-90 * time.Second)
+
+	view := h.View()
+	if !strings.Contains(view, "Elapsed: 1m30s") {
+		t.Errorf("expected frozen elapsed 'Elapsed: 1m30s', got %q", view)
+	}
 }
 
 func TestSpaces(t *testing.T) {
