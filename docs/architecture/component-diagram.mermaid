@@ -7,14 +7,14 @@ classDiagram
         +Name() string
     }
 
-    class coreCalculator {
+    class CoreCalculator {
         <<interface>>
         +CalculateCore(ctx, reporter, n, opts) *big.Int, error
         +Name() string
     }
 
     class FibCalculator {
-        -core coreCalculator
+        -core CoreCalculator
         +Calculate(ctx, progressChan, calcIndex, n, opts) *big.Int, error
         +CalculateWithObservers(ctx, subject, calcIndex, n, opts) *big.Int, error
         +Name() string
@@ -63,12 +63,6 @@ classDiagram
     }
 
     class FFTOnlyStrategy {
-        +Multiply(z, x, y, opts) *big.Int, error
-        +Square(z, x, opts) *big.Int, error
-        +ExecuteStep(ctx, state, opts, inParallel) error
-    }
-
-    class KaratsubaStrategy {
         +Multiply(z, x, y, opts) *big.Int, error
         +Square(z, x, opts) *big.Int, error
         +ExecuteStep(ctx, state, opts, inParallel) error
@@ -158,8 +152,13 @@ classDiagram
     }
 
     class DynamicThresholdManager {
-        -metrics []IterationMetric
-        -ringPos int
+        -mu sync.Mutex
+        -currentFFTThreshold atomic.Int64
+        -currentParallelThreshold atomic.Int64
+        -buffer MetricsBuffer
+        -analyzer ThresholdAnalyzer
+        -iterationCount atomic.Int64
+        -lastAdjustment atomic.Pointer~time.Time~
         +RecordIteration(bitLen, duration, usedFFT, usedParallel)
         +ShouldAdjust() newFFT, newParallel, adjusted
         +GetThresholds() fft, parallel
@@ -179,14 +178,12 @@ classDiagram
     }
 
     Calculator <|.. FibCalculator
-    coreCalculator <|.. FibCalculator : wraps
+    CoreCalculator <|.. FibCalculator : wraps
     CalculatorFactory <|.. DefaultFactory
     Multiplier <|.. AdaptiveStrategy
     Multiplier <|.. FFTOnlyStrategy
-    Multiplier <|.. KaratsubaStrategy
     DoublingStepExecutor <|.. AdaptiveStrategy
     DoublingStepExecutor <|.. FFTOnlyStrategy
-    DoublingStepExecutor <|.. KaratsubaStrategy
     DoublingStepExecutor --|> Multiplier : extends
     ProgressObserver <|.. ChannelObserver
     ProgressObserver <|.. LoggingObserver

@@ -1,403 +1,256 @@
-# FibCalc: High-Performance Fibonacci Calculator
+# FibCalc — Calculateur Fibonacci haute performance
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
-![Status](https://img.shields.io/badge/Status-Academic_Prototype-orange?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Prototype_acad%C3%A9mique-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
 
-> **[Live Knowledge-Graph Dashboard →](https://agbruneau.github.io/FibGo/dashboard/)** — Explore the full architecture interactively (797 nodes, 3 533 edges, 8 layers, 13-step guided tour).
+> **Audit 2026-06** — Ce code a été **audité en totalité, refactorisé et optimisé** à l'aide du modèle
+> **[Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)** (Anthropic) en mode effort **Max**.
+> Résultats mesurés : temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M),
+> couverture de tests portée de 88,9 % à **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires
+> vérifiées. Détails : [`docs/audits/bench-audit-loop-2026-06.md`](docs/audits/bench-audit-loop-2026-06.md) et [`CHANGELOG.md`](CHANGELOG.md).
 
-**FibCalc** is an academic prototype that computes arbitrarily large Fibonacci numbers at extreme speed. It demonstrates Clean Architecture, zero-allocation strategies, adaptive parallelism, and algorithmic optimization (Fast Doubling, Matrix Exponentiation with Strassen, FFT-based multiplication). Written in Go; handles indices in the hundreds of millions.
+**FibCalc** est un prototype académique qui calcule des nombres de Fibonacci arbitrairement grands à très haute
+vitesse. Il démontre une Clean Architecture, des stratégies zéro-allocation, du parallélisme adaptatif et des
+algorithmes optimisés (Fast Doubling, exponentiation matricielle Strassen-Winograd, multiplication FFT
+Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de millions.
 
-> "The fastest, most over-engineered Fibonacci calculator you will ever use."
+> **[Dashboard knowledge-graph interactif →](https://agbruneau.github.io/FibGo/dashboard/)** — l'architecture
+> complète navigable (797 nœuds, 3 533 arêtes, 8 couches, visite guidée en 13 étapes).
 
 ---
 
-## Table of Contents
+## Table des matières
 
-1. [Quick Start](#quick-start)
-2. [Key Features](#key-features)
+1. [Démarrage rapide](#démarrage-rapide)
+2. [Fonctionnalités](#fonctionnalités)
 3. [Architecture](#architecture)
-4. [Performance Benchmarks](#performance-benchmarks)
-5. [Usage Guide](#usage-guide)
+4. [Performance](#performance)
+5. [Guide d'utilisation](#guide-dutilisation)
 6. [Configuration](#configuration)
-7. [Development](#development)
-8. [Testing](#testing)
-9. [Troubleshooting](#troubleshooting)
-10. [Changelog](#changelog)
-11. [Contributing](#contributing)
-12. [License](#license)
+7. [Développement et tests](#développement-et-tests)
+8. [Dépannage](#dépannage)
+9. [Contribution et licence](#contribution-et-licence)
 
 ---
 
-## Quick Start
+## Démarrage rapide
 
-Requires **Go 1.26.0** or later.
+Prérequis : **Go 1.26.0+**. Toutes les commandes ci-dessous ont été exécutées telles quelles le 2026-06-10
+(hôte Windows 11 ; sous Windows, le binaire produit est `fibcalc.exe`).
 
 ```bash
 git clone https://github.com/agbruneau/FibGo.git
 cd FibGo
 go build -o fibcalc ./cmd/fibcalc
-./fibcalc -n 1000000 -algo fast
+./fibcalc -n 1000000 -algo fast        # F(1 000 000) : 4 ms, 694 241 bits
+./fibcalc -n 100 -c                    # petit indice, valeur affichée
+./fibcalc -tui -n 5000000 -algo all    # dashboard TUI interactif (terminal requis)
 ```
 
-Or with `make`:
+Avec GNU make (Linux/macOS/WSL — absent par défaut sous Windows, voir les équivalents `go` plus bas) :
 
 ```bash
-make build    # ./build/fibcalc (uses PGO profile if present)
+make build    # ./build/fibcalc (utilise le profil PGO s'il est présent)
 make all      # clean + build + test
 ```
 
 ---
 
-## Key Features
+## Fonctionnalités
 
-### Algorithms
+### Algorithmes
 
-- **Fast Doubling** (default, $O(\log n)$): uses $F(2k) = F(k) \cdot (2F(k+1) - F(k))$.
-- **Matrix Exponentiation**: $O(\log n)$ with Strassen (7 muls instead of 8) for large matrices; symmetric squaring optimization.
-- **FFT-Based Multiplication**: auto-switches to Schonhage-Strassen over Fermat rings past ~500k bits, taking complexity from $O(n^{1.585})$ to $O(n \log n)$.
-- **GMP backend** (optional build tag) for maximum raw throughput.
+| Algorithme | Complexité | Notes |
+|---|---|---|
+| **Fast Doubling** (défaut) | O(log n) × M(n) | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; pooling état+arène+scratch FFT |
+| **Exponentiation matricielle** | O(log n) × M(n) | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices |
+| **FFT (Schönhage-Strassen)** | O(n log n) | Bascule automatique au-delà de ~500 000 bits (seuil adaptatif) |
+| **GMP** (tag de build `gmp`) | — | Backend GNU MP, nécessite CGO + libgmp |
 
-See [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING.md](docs/algorithms/FAST_DOUBLING.md), [MATRIX.md](docs/algorithms/MATRIX.md), [FFT.md](docs/algorithms/FFT.md), [GMP.md](docs/algorithms/GMP.md), [COMPARISON.md](docs/algorithms/COMPARISON.md).
+Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING](docs/algorithms/FAST_DOUBLING.md),
+[MATRIX](docs/algorithms/MATRIX.md), [FFT](docs/algorithms/FFT.md), [GMP](docs/algorithms/GMP.md),
+[COMPARISON](docs/algorithms/COMPARISON.md).
 
-### Performance engineering
+### Ingénierie de performance
 
-- **Zero-allocation**: `sync.Pool` recycles `big.Int`, reducing GC pressure 95%+.
-- **Bump allocator** (O(1), no fragmentation) for FFT temporaries.
-- **State-bound calculation arena** (`internal/fibonacci/memory/`): pooled `CalculationState` owns its arena; same `[]big.Word` block is reused across calls when wide enough (`Reset()` only on the hot path). Aliases are severed before pool return.
-- **GC controller** disables GC during large calculations (N ≥ 1M) with a soft memory-limit safety net.
-- **Result detachment**: `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the caller never aliases pooled memory.
-- **FFT LRU cache** (thread-safe) for repeated forward transforms → 15-30% speedup on the paths that consult it (direct `bigfft.Mul`/`Sqr` and the `fft`-only strategy). The default Fast Doubling calculator transforms via `TransformWithBump` and does **not** read the cache, so the inter-iteration gain does not apply to the default mode (A3-01). Eviction allocates fresh backing (no recycle) so concurrent `Get()` callers cannot observe a use-after-free.
-- **Adaptive parallelism**: semaphore cap at `runtime.NumCPU()`. The FFT pointwise coefficient products (`PolValues.Mul`/`Sqr`) and the butterfly reconstruction loops are parallelized across cores for large transforms (gate 64k words; non-blocking semaphore acquire, per-worker pool scratch) — measured −23 % to −35 % on F(10M) and −46 % on the F(100M) calculation (2026-06 audit, [`docs/audits/bench-parallel-pointwise-2026-06.md`](docs/audits/bench-parallel-pointwise-2026-06.md)).
-- **Dynamic thresholds** with hysteresis (parallel, FFT, Strassen) adjusted from observed metrics. Atomic-backed (`sync/atomic.Int64`) — safe under concurrent reads (see [`docs/adr/0001-dtm-decision.md`](docs/adr/0001-dtm-decision.md)).
-- **Auto-calibration** (`-calibrate`), versioned profile persistence, CPU-heuristic key to invalidate stale cache.
-- **PGO** (Profile-Guided Optimization) supported via `make build-pgo`.
-- **Modular Fast Doubling**: `--last-digits K` gives O(K) memory for arbitrarily large N.
-
-Full guide: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+- **Pooling agressif** : `sync.Pool` pour `big.Int` ; `CalculationState` possède son arène **et** son scratch FFT
+  (bump allocator acquis une fois par calcul). Depuis l'audit 2026-06, un **slot GC-immune par calculateur**
+  conserve l'état entre les appels (le GC forcé post-calcul purge les `sync.Pool`) — c'est la source des gains
+  −12 à −15 % mesurés sur F(10M).
+- **Allocateur bump** O(1) sans fragmentation pour les tampons FFT.
+- **GC désactivé** pendant les grands calculs (N ≥ 1M), panic-safe (`WithGC`), refcount concurrent (ADR-0005).
+- **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
+  acquisition non bloquante) — mesuré −23 à −35 % sur F(10M) en 2026-06
+  ([`bench-parallel-pointwise-2026-06.md`](docs/audits/bench-parallel-pointwise-2026-06.md)).
+- **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées (ADR-0001).
+- **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
+  stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
+- **Auto-calibration** (`-calibrate`) avec profil persistant et clé matérielle d'invalidation.
+- **PGO** : `make build-pgo`.
+- **Mode `-last-digits K`** : derniers K chiffres décimaux en mémoire O(K), pour des N arbitrairement grands.
 
 ### Interfaces
 
-- **Modern CLI**: spinners, ETA, color themes, `NO_COLOR` support.
-- **Interactive TUI** (`--tui`): btop-style dashboard (Bubble Tea) — progress chart, sparklines, memory metrics, keyboard navigation. See [`docs/TUI_GUIDE.md`](docs/TUI_GUIDE.md).
-- **Machine-readable output** (`--machine`) for scripting.
-- **Shell completion**: bash, zsh, fish, PowerShell (`fibcalc -completion <shell>`). All four generators shell-escape interpolated flag help text and static values (per-shell quoting rules in `internal/cli/completion/escape.go`), closing the script-injection vector (audit F-014).
+- **CLI moderne** : spinners, ETA, thèmes couleur, support `NO_COLOR`, sortie `-machine` pour scripts.
+- **TUI interactif** (`-tui`) : dashboard type btop (Bubble Tea) — graphe de progression, sparklines, métriques
+  mémoire ([`docs/TUI_GUIDE.md`](docs/TUI_GUIDE.md)).
+- **Complétion shell** : bash, zsh, fish, PowerShell (`fibcalc -completion <shell>`), générateurs avec échappement
+  systématique (vecteur d'injection fermé, audit F-014).
 
 ---
 
 ## Architecture
 
-Clean Architecture with four layers. Source of truth: [`docs/architecture/`](docs/architecture/).
+Clean Architecture en quatre couches — `cmd → app → orchestration → fibonacci/bigfft → config/errors`,
+étanchéité gardée par `internal/arch_test.go`. Source de vérité : [`docs/architecture/`](docs/architecture/)
+(diagrammes C4, [graphe de dépendances](docs/architecture/dependency-graph.mermaid)) et le
+[dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/) (généré, servi par GitHub Pages depuis
+[`docs/dashboard/`](docs/dashboard/)).
 
-> **Interactive view** — Browse the full knowledge graph (797 nodes, 3 533 edges, 8 architectural layers, 13-step guided tour) at **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. The dashboard is generated from [`.understand-anything/knowledge-graph.json`](.understand-anything/knowledge-graph.json) and served statically by GitHub Pages from [`docs/dashboard/`](docs/dashboard/).
-
-```mermaid
-graph TD
-    User --> Entry[cmd/fibcalc]
-    Entry --> App[internal/app]
-    App --> Config[internal/config]
-    App --> Orch[internal/orchestration]
-    Orch --> Fib[internal/fibonacci]
-    Fib --> BigFFT[internal/bigfft]
-    Fib --> FibMem[internal/fibonacci/memory]
-    Fib --> FibThr[internal/fibonacci/threshold]
-    App --> CLI[internal/cli]
-    App --> TUI[internal/tui]
-    App --> Calib[internal/calibration]
-```
-
-Key packages:
-
-| Package | Responsibility |
+| Package | Responsabilité |
 |---|---|
-| `cmd/fibcalc` | CLI entry point. |
-| `internal/app` | Lifecycle, dispatch, version. |
-| `internal/fibonacci` | Algorithms, frameworks, strategies. Sub-packages: `memory/` (arena, GC, budget), `threshold/` (dynamic manager). |
-| `internal/bigfft` | Schonhage-Strassen over Fermat rings, bump allocator, LRU transform cache. |
-| `internal/orchestration` | Concurrent execution (`errgroup`), result aggregation, calculator selection. |
-| `internal/calibration` | Hardware-adaptive tuning, micro-benchmarks, profile persistence. |
-| `internal/cli` / `internal/tui` | Presentation layers sharing `ProgressReporter` / `ResultPresenter`. |
-| `internal/config` | Flag parsing, env vars, threshold estimation. |
-| `internal/progress` | Observer pattern; production path is `Freeze` (snapshot + recover). |
-| `internal/{errors,format,metrics,metrics/system,parallel,ui,testutil}` | Support packages (leaves). `parallel.ErrorCollector` is used by `fibonacci/common.go`. |
-
-Full package list and dependency graph: [`docs/architecture/README.md`](docs/architecture/README.md), [`docs/architecture/dependency-graph.mermaid`](docs/architecture/dependency-graph.mermaid).
+| `cmd/fibcalc` | Point d'entrée CLI |
+| `internal/app` | Cycle de vie, dispatch, version |
+| `internal/fibonacci` | Algorithmes, frameworks, stratégies ; `memory/` (arène, GC, budget), `threshold/` (seuils dynamiques) |
+| `internal/bigfft` | Schönhage-Strassen sur anneaux de Fermat, bump allocator, cache LRU |
+| `internal/orchestration` | Exécution concurrente (`errgroup`), agrégation, sélection des calculateurs |
+| `internal/calibration` | Calibration adaptative au matériel, micro-benchmarks, profils |
+| `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) |
+| `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
+| `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
+| `internal/{errors,format,metrics,parallel,ui,testutil}` | Packages de support (feuilles) |
 
 ---
 
-## Performance Benchmarks
+## Performance
 
-Reference platform: **AMD Ryzen 9 5900X** (12 C / 24 T), 32 GB DDR4-3600, Linux 6.1, Go 1.25.0.
+Mesures du **2026-06-10** (Intel Core Ultra 9 275HX, 24 threads, Windows 11, Go 1.26.4 ; `benchstat` n=6,
+source : [`docs/audits/bench-audit-loop-2026-06.md`](docs/audits/bench-audit-loop-2026-06.md)) :
 
-> **Provenance** — These are historical measurements (env. Go 1.25.0); the project now targets Go 1.26.0. The figures and platform above are kept as a snapshot, not re-measured per toolchain bump. For up-to-date numbers on your host, run `make benchmark`.
+| N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
+|---|---|---|---|---|
+| 1 000 000 | 3,4 ms | 5,7 ms | 4,7 ms | 208 988 |
+| 10 000 000 | **28,2 ms** | 27,9 ms | 30,8 ms | 2 089 877 |
+| 100 000 000 | ~0,2 s (calcul seul, 2026-06-09¹) | — | — | 20 898 764 |
 
-| N            | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
-|--------------|---------------|-------------|-----------|-----------------|
-| 10,000       | 180us         | 220us       | 350us     | 2,090           |
-| 1,000,000    | 85ms          | 110ms       | 95ms      | 208,988         |
-| 10,000,000   | 2.1s          | 2.8s        | 2.3s      | 2,089,877       |
-| 100,000,000  | 45s           | 62s         | 48s       | 20,898,764      |
-| 250,000,000  | 3m12s         | 4m25s       | 3m28s     | 52,246,909      |
+¹ binaire `-algo fast` sans conversion décimale, médiane de 4 runs
+([`bench-parallel-pointwise-2026-06.md`](docs/audits/bench-parallel-pointwise-2026-06.md)).
 
-**Algorithm selection guide**
-
-- Use **`fast`** for general-purpose high performance (consistently fastest).
-- Use **`matrix`** for educational purposes or cross-validation.
-- Use **`fft`** for $N > 100{,}000{,}000$ where it becomes very competitive.
-
-Full methodology, Intel comparison, regression tracking: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+**Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
+validation croisée ; `fft` devient compétitif sur les très grands N. Méthodologie, tuning et suivi de
+non-régression : [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 ---
 
-## Usage Guide
-
-### Synopsis
+## Guide d'utilisation
 
 ```text
 fibcalc [flags]
 ```
 
-### Common flags
-
-| Flag | Short | Default | Description |
+| Flag | Raccourci | Défaut | Description |
 |---|---|---|---|
-| `-n` | | 100,000,000 | Fibonacci index. |
-| `-algo` | | `all` | `fast`, `matrix`, `fft`, or `all`. |
-| `-calculate` | `-c` | `false` | Display the calculated value. |
-| `-verbose` | `-v` | `false` | Display the full result. |
-| `-details` | `-d` | `false` | Performance details and metadata. |
-| `-output` | `-o` | | Write result to a file. |
-| `-quiet` | `-q` | `false` | Minimal output (scripting). |
-| `-machine` | | `false` | Machine-readable output (no ANSI). |
-| `-calibrate` | | `false` | Benchmark to tune thresholds. |
-| `-auto-calibrate` | | `false` | Quick startup calibration. |
-| `-calibration-profile` | | | Path to calibration profile. |
-| `-timeout` | | `5m` | Maximum calculation time. |
-| `-threshold` | | `0` (auto) | Parallelism threshold (bits). |
-| `-fft-threshold` | | `0` (auto) | FFT multiplication threshold (bits). |
-| `-strassen-threshold` | | `0` (auto) | Strassen threshold (bits). |
-| `-tui` | | `false` | Launch TUI dashboard. |
-| `-completion` | | | Generate shell completion (bash/zsh/fish/powershell). |
-| `--version` | `-V` | | Display version info. |
-| `--last-digits` | | `0` | Compute only the last K decimal digits (O(K) memory). |
-| `--memory-limit` | | | Memory budget (e.g. `8G`). Pre-flight estimator aborts if exceeded. |
-| `--gc-control` | | `auto` | GC behaviour during calculation: `auto`, `aggressive`, or `disabled`. |
+| `-n` | | 100 000 000 | Indice Fibonacci |
+| `-algo` | | `all` | `fast`, `matrix`, `fft` ou `all` (comparaison) |
+| `-calculate` | `-c` | `false` | Affiche la valeur calculée |
+| `-verbose` | `-v` | `false` | Affiche la valeur complète |
+| `-details` | `-d` | `false` | Détails de performance et métadonnées |
+| `-output` | `-o` | | Écrit le résultat dans un fichier |
+| `-quiet` | `-q` | `false` | Sortie minimale (scripts) |
+| `-machine` | | `false` | Sortie machine (sans ANSI) |
+| `-tui` | | `false` | Dashboard TUI interactif |
+| `-last-digits` | | `0` | Derniers K chiffres décimaux (mémoire O(K)) |
+| `-memory-limit` | | | Budget mémoire (ex. `8G`), estimation préalable |
+| `-gc-control` | | `auto` | GC pendant le calcul : `auto`, `aggressive`, `disabled` |
+| `-timeout` | | `5m` | Durée maximale du calcul |
+| `-threshold` / `-fft-threshold` / `-strassen-threshold` | | `0` (auto) | Seuils en bits (0 = estimation adaptative) |
+| `-calibrate` / `-auto-calibrate` | | `false` | Calibration des seuils pour cet hôte |
+| `-calibration-profile` | | | Chemin du profil de calibration |
+| `-completion` | | | Script de complétion (`bash`, `zsh`, `fish`, `powershell`) |
+| `-version` | | | Informations de version |
 
-> Threshold `0` triggers hardware-adaptive estimation. Static fallbacks: parallel = 4,096 bits, FFT = 500,000 bits, Strassen = 3,072 bits (config) / 256 bits (internal).
-
-### Examples
+Exemples (exécutés le 2026-06-10) :
 
 ```bash
-fibcalc -n 10000000 -algo all -details       # compare algorithms
-fibcalc --tui -n 5000000 -algo all           # TUI dashboard
-fibcalc -n 5000000 -algo fast -fft-threshold 100000   # FFT tuning
-fibcalc -n 10000000000 --last-digits 100     # last K digits, O(K) memory
-fibcalc -n 1000000000 --memory-limit 8G      # pre-flight memory validation
-fibcalc -calibrate                           # tune for this host
-fibcalc -completion bash > /etc/bash_completion.d/fibcalc
+./fibcalc -n 10000000 -algo all -d                  # compare les trois algorithmes
+./fibcalc -n 100000000 -last-digits 10 -q -machine  # → 7760546875
+./fibcalc -n 1000000000 -memory-limit 8G            # validation mémoire préalable
+./fibcalc -calibrate                                # calibre les seuils pour cet hôte
+./fibcalc -completion bash > fibcalc.bash           # complétion shell
 ```
-
-TUI walkthrough, keyboard shortcuts, screenshots: [`docs/TUI_GUIDE.md`](docs/TUI_GUIDE.md).
 
 ---
 
 ## Configuration
 
-Environment variables override defaults (CLI flags still win). Priority: **CLI flags > Environment variables > Adaptive estimation > Static defaults**. Full list is also in [`.env.example`](.env.example).
-
-| Variable | Description | Default |
-|---|---|---|
-| `FIBCALC_N` | Fibonacci index | 100,000,000 |
-| `FIBCALC_ALGO` | `fast`, `matrix`, `fft`, `all` | `all` |
-| `FIBCALC_TIMEOUT` | Calculation timeout | `5m` |
-| `FIBCALC_THRESHOLD` | Parallelism threshold (bits) | 0 (auto) |
-| `FIBCALC_FFT_THRESHOLD` | FFT threshold (bits) | 0 (auto) |
-| `FIBCALC_STRASSEN_THRESHOLD` | Strassen threshold (bits) | 0 (auto) |
-| `FIBCALC_VERBOSE` / `FIBCALC_DETAILS` / `FIBCALC_QUIET` | Output verbosity | `false` |
-| `FIBCALC_MACHINE_OUTPUT` | Machine-readable output | `false` |
-| `FIBCALC_CALCULATE` | Display computed value | `false` |
-| `FIBCALC_OUTPUT` | Output file path | |
-| `FIBCALC_TUI` | Launch TUI dashboard | `false` |
-| `FIBCALC_TUI_THEME` | `high-contrast` or empty (dark) | |
-| `FIBCALC_CALIBRATE` / `FIBCALC_AUTO_CALIBRATE` | Calibration mode | `false` |
-| `FIBCALC_CALIBRATION_PROFILE` | Profile path | |
-| `FIBCALC_PROFILE_MAX_AGE` | Calibration profile freshness window before re-calibration | `168h` (7 d) |
-| `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling | |
-| `NO_COLOR` | Disable ANSI colors ([no-color.org](https://no-color.org/)) | |
-
-Build and deployment details (cross-compilation, PGO, signing): [`docs/BUILD.md`](docs/BUILD.md).
+Les variables d'environnement surchargent les défauts (les flags CLI gagnent toujours).
+Priorité : **flags CLI > variables d'environnement > estimation adaptative > défauts statiques**.
+Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FIBCALC_ALGO`, `FIBCALC_TIMEOUT`,
+`FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`,
+`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, et
+[`NO_COLOR`](https://no-color.org/).
 
 ---
 
-## Development
+## Développement et tests
 
-- Go 1.26.0+, optional `golangci-lint` and `gosec`.
-- **No remote CI/CD — a deliberate, owned decision.** GitHub Actions
-  workflows have been removed on purpose: for an academic prototype the
-  rigor lives in **tooled local discipline**, not a remote gate. Every
-  check (tests, race detector, lint, benchmarks, cross-compile, coverage
-  floor) is the contributor's responsibility, run locally before each
-  commit/PR, backed by these guard-rails:
-  - `scripts/check.ps1` (Windows) / `scripts/check.sh` (POSIX) — one-shot
-    local gate replacing the missing CI pipeline.
-  - `make coverage-check` — enforces the 80 % coverage floor.
-  - `make test` — full suite with `-race` (needs a CGO toolchain: Linux,
-    macOS, or WSL on Windows).
-  - `make test-win` — Windows-without-gcc fallback (no `-race`).
+- **Pas de CI distante — décision assumée** : la rigueur repose sur la discipline locale outillée
+  (gate `scripts/check.ps1` / `scripts/check.sh`, plancher de couverture, baselines de benchmark).
+- **Couverture : 95,0 %** (2026-06-10, `go test ./... -coverprofile` ; plancher gate : 80 %).
+- **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
+  non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
+- **Race detector** : exige CGO/gcc — indisponible sous Windows sans gcc ; sur cet environnement les passes
+  `-race` complètes se font via **WSL** (`wsl go test -race ./...`, vérifiées le 2026-06-10).
+- Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
+  benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0008). Guide agents IA : [`CLAUDE.md`](CLAUDE.md).
 
-  See [Testing](#testing) for the expected checklist and
-  [`CLAUDE.md`](CLAUDE.md) directive #8.
-- **Reproducible environment** — open the repo in VS Code with the
-  [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO +
-  libgmp + benchstat pre-installed) or build the
-  [multi-stage `Dockerfile`](Dockerfile) for a distroless runtime image.
-- **Cross-compilation** — `make build-all` builds `linux/arm64`,
-  `darwin/arm64`, `darwin/amd64` locally ; see [`docs/PORTABILITY.md`](docs/PORTABILITY.md)
-  for the matrix and the assembler/generic fallback contract.
-- Architectural decisions (concurrence, panic policy, globals, backlog):
-  [`docs/adr/`](docs/adr/).
-- Guidance for AI assistants: [`CLAUDE.md`](CLAUDE.md).
-- Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-Most common commands:
+Commandes principales (équivalents `go` pour Windows sans GNU make) :
 
 ```bash
-make all             # clean + build + test
-make test            # go test -v -race -cover ./...  (needs CGO/gcc; Linux/macOS/WSL)
-make test-win        # go test -v -cover ./...  (Windows without gcc; no -race)
-make test-short      # skip slow tests
-make lint            # golangci-lint (24 linters, govet shadow enabled)
-make coverage        # coverage.html report
-make benchmark       # performance benchmarks
-make bench-baseline  # refresh docs/audits/bench-baseline.txt regression baseline
-make build-pgo       # build with PGO
-make build-all       # cross-compile linux/windows/darwin (amd64 + arm64)
-make stats           # canonical package & LOC counts
-make help            # list all targets
+make all             # clean + build + test     (équiv. : go build ./... && go test ./...)
+make test            # go test -v -race -cover ./...   (CGO requis ; Linux/macOS/WSL)
+make test-win        # go test -v -cover ./...         (Windows sans gcc, sans -race)
+make lint            # golangci-lint run ./...  (24 linters)
+make coverage        # rapport HTML            (équiv. : go test ./... -coverprofile=coverage.out)
+make benchmark       # benchmarks fibonacci    (équiv. : go test -bench=BenchmarkFibonacci -benchmem -run=^$ ./internal/fibonacci/)
+make bench-baseline  # rafraîchit la baseline de non-régression docs/audits/
+make build-pgo       # build avec PGO
+make build-all       # cross-compilation linux/windows/darwin (amd64 + arm64)
+make stats           # décompte canonique packages/LOC
 ```
 
-Project layout:
-
-```
-cmd/
-  fibcalc/            # CLI entry point
-  generate-golden/    # golden-data generator
-internal/
-  app/                # lifecycle, dispatch, version
-  bigfft/             # FFT (Schonhage-Strassen), bump allocator
-  calibration/        # hardware-adaptive tuning, profiles
-  cli/                # CLI output, progress, completion
-  config/             # flag + env parsing, threshold estimation
-  errors/             # ConfigError, CalculationError, exit codes
-  fibonacci/          # algorithms, frameworks, strategies
-    fibonaccitest/    # test doubles for CoreCalculator
-    memory/           # arena, GC controller, memory budget
-    threshold/        # dynamic threshold manager
-  format/             # duration/number formatting
-  metrics/            # performance & memory indicators
-    system/           # OS CPU/memory probes (formerly sysmon)
-  orchestration/      # concurrent execution, aggregation
-  parallel/           # ErrorCollector (used by fibonacci/common.go)
-  progress/           # observer pattern (production path: Freeze)
-  testutil/           # test-only helpers
-  tui/                # Bubble Tea dashboard
-    component/        # reusable TUI component
-  ui/                 # color themes, NO_COLOR
-docs/
-  adr/                # Architectural Decision Records (0000-template, 0001..0007)
-  architecture/       # C4 diagrams, dependency graph, patterns
-  algorithms/         # math deep dives per algorithm
-  audits/             # benchmark baseline + DTM on/off measurements
-  dashboard/          # static GitHub Pages build of the interactive knowledge graph
-  external-reviews/   # archived external reviews with transparency banners
-  {BUILD,PERFORMANCE,TESTING,CALIBRATION,TUI_GUIDE,PORTABILITY}.md
-.devcontainer/        # VS Code devcontainer (Go + CGO + libgmp)
-.understand-anything/ # generated knowledge graph (source for docs/dashboard/)
-Dockerfile            # multi-stage build (golang builder → distroless runtime)
-test/
-  e2e/                # end-to-end CLI integration tests
-```
+Stratégie de test (table-driven, `t.Parallel()`, doubles `fibonaccitest`, fuzzing, golden, property-based) :
+[`docs/TESTING.md`](docs/TESTING.md). Portabilité (matrice OS/arch, fallbacks) :
+[`docs/PORTABILITY.md`](docs/PORTABILITY.md). Build avancé (PGO, cross-compilation, Docker) :
+[`docs/BUILD.md`](docs/BUILD.md).
 
 ---
 
-## Testing
+## Dépannage
 
-Coverage floor is **80 % project-wide**, enforced locally by
-`make coverage-check` (the authoritative source — no figure is hard-coded
-in this README; run `make coverage` for the HTML report or
-`make coverage-check` to verify the floor). The hardening sprint
-lifted `internal/cli/completion/` from 0 % coverage to full coverage of
-the shell generators. Test layers:
-
-- **Unit & integration** — every package under `internal/`.
-- **Architecture gate** — `internal/arch_test.go` fails the build if a
-  forbidden upward import is introduced (e.g. `tui → fibonacci`).
-- **Golden** — `internal/fibonacci/testdata/fibonacci_golden.json`
-  exercises every algorithm against an independent oracle (sizes
-  through F(200 000), well into the FFT regime).
-- **Property-based** — `gopter` identities (Cassini, recurrence,
-  doubling, `GCD(F(m),F(n)) = F(GCD(m,n))`).
-- **Fuzz** — 7 targets : `FuzzFastDoublingConsistency`,
-  `FuzzFFTBasedConsistency`, `FuzzFibonacciIdentities`,
-  `FuzzProgressMonotonicity`, `FuzzFastDoublingMod`,
-  `bigfft.FuzzMul`, `bigfft.FuzzSqr`.
-- **Panic-site contract** — `TestFermatPanicSites` documents and
-  exercises each pre-condition panic in `internal/bigfft/fermat.go`;
-  `TestFermatPostConditionPanicClassifier` guards the sentinel
-  re-propagation (see [`docs/adr/0002-recover-strategy.md`](docs/adr/0002-recover-strategy.md)).
-- **End-to-end** — `test/e2e/` exercises the CLI binary.
-- **Performance baseline** — `docs/audits/bench-baseline.txt` is the
-  reference for `benchstat`. Run `make benchmark` then `benchstat` against
-  the baseline before merging perf-sensitive changes (target: no regression
-  > 5 % on the algorithmic hot paths).
-
-> `-race` requires a CGO toolchain (gcc/clang) — available natively on
-> Linux/macOS, and on Windows only via WSL or a locally installed MinGW.
-> On a plain Windows host without gcc, use `make test-win` (no `-race`) or
-> `scripts/check.ps1`; the race detector stays recommended via WSL/Linux.
-
-```bash
-go test -v -race -cover ./...                        # all tests (needs CGO/gcc)
-make test-win                                        # Windows without gcc (no -race)
-go test -v -short ./...                              # skip slow
-go test -bench=. -benchmem ./internal/fibonacci/     # benchmarks
-go test -fuzz=FuzzFastDoublingConsistency -fuzztime=30s ./internal/fibonacci/
-go test -fuzz=FuzzMul -fuzztime=30s ./internal/bigfft/
-make stats                                           # package / LOC counts
-make bench-baseline                                  # refresh the regression baseline
-```
-
-Strategy, golden files, E2E, mocking policy: [`docs/TESTING.md`](docs/TESTING.md).
+| Symptôme | Cause / remède |
+|---|---|
+| `-race` échoue : « cgo: C compiler not found » | Le race detector exige gcc/clang. Sous Windows : WSL (`wsl go test -race ./...`) ou `make test-win` (sans race). |
+| `go test -bench=.` ne lance rien sous PowerShell | Quirk de parsing PowerShell : utiliser `-bench=BenchmarkFibonacci` (préfixe explicite). |
+| Build tag `gmp` : « gmp.h: No such file » | Installer les en-têtes : `sudo apt-get install libgmp-dev` (Linux/WSL). |
+| Le TUI ne se lance pas | `-tui` exige un terminal interactif (TTY) ; indisponible dans les pipes/CI. |
+| Calcul interrompu à 5 minutes | Défaut `-timeout 5m` — augmenter, p. ex. `-timeout 30m`. |
 
 ---
 
-## Troubleshooting
+## Contribution et licence
 
-- **`runtime: out of memory`** — $F(10^9)$ needs ~25 GB. Reduce N, add swap, or use `--last-digits K`.
-- **Calculation hangs / times out** — raise `-timeout` (e.g. `-timeout 30m`).
-- **Memory-limit exceeded** — pre-flight check with `--memory-limit 8G` or switch to `--last-digits`.
+- Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer).
+- Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — branche dédiée, test rouge → fix → vert,
+  validation locale complète avant chaque commit (directive 8 de [`CLAUDE.md`](CLAUDE.md)).
+- Licence : **Apache 2.0** — voir [`LICENSE`](LICENSE).
 
----
+### Remerciements
 
-## Changelog
-
-See [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format, SemVer).
-
----
-
-## Contributing
-
-Contributions welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow, coding conventions, and test expectations.
-
----
-
-## License
-
-Apache License 2.0 — see [`LICENSE`](LICENSE).
-
-### Acknowledgments
-
-- The Go team for `math/big`.
-- The open-source community for the underlying FFT research.
-- The [Charm](https://charm.sh/) team for Bubble Tea, Lipgloss, Bubbles.
+Architecture et algorithmique inspirées de la littérature classique (Schönhage-Strassen, Strassen-Winograd,
+fast doubling) ; outillage : Go, Bubble Tea, benchstat, golangci-lint. Audit, refactorisation et optimisation
+2026-06 réalisés avec [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) (Anthropic),
+mode effort Max.

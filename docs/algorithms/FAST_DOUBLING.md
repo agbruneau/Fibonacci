@@ -158,7 +158,8 @@ The recursive version is converted to an iterative `DoublingFramework` that acce
 ```go
 type DoublingFramework struct {
     strategy         DoublingStepExecutor
-    dynamicThreshold *DynamicThresholdManager
+    dynamicThreshold *threshold.DynamicThresholdManager
+    CacheStrategy    CacheStrategy // optional hook tuning the transform cache from inside the loop
 }
 
 // Create framework with a strategy
@@ -168,18 +169,24 @@ framework := NewDoublingFramework(strategy)
 result, err := framework.ExecuteDoublingLoop(ctx, reporter, n, opts, state, inParallel)
 ```
 
-The `OptimizedFastDoubling` calculator uses an `AdaptiveStrategy` that selects between standard `math/big` and FFT multiplication based on operand size. The `FFTBasedCalculator` uses an `FFTOnlyStrategy` that forces FFT for all operations.
+The `FastDoublingCalculator` uses an `AdaptiveStrategy` that selects between standard `math/big` and FFT multiplication based on operand size. The `FFTBasedCalculator` uses an `FFTOnlyStrategy` that forces FFT for all operations.
 
 ### 2. Zero-Allocation with sync.Pool
 
-Calculation states are recycled via a `sync.Pool`. The `CalculationState` type is public and holds five `*big.Int` temporaries:
+Calculation states are recycled via a `sync.Pool`. The `CalculationState` type is public; besides five `*big.Int` temporaries it owns its calculation arena and its FFT scratch allocator (nine fields total):
 
 ```go
 type CalculationState struct {
     FK, FK1, T1, T2, T3 *big.Int
+
+    arena         *memory.CalculationArena // state-bound arena (see "Calculation Arena" below)
+    arenaCapWords int                      // cached arena capacity in words
+
+    bump            *bigfft.BumpAllocator // FFT forward-transform scratch, acquired once per calculation (F-012)
+    fftBumpCapWords int                   // bump capacity targeted at the final doubling step
 }
 
-// Acquire a state from the pool (resets FK=0, FK1=1)
+// Acquire a state from the pool (resets FK=0, FK1=1; no arena pre-sizing)
 state := AcquireState()
 defer ReleaseState(state)
 ```
@@ -197,6 +204,13 @@ result := ReleaseStateWithResult(s, s.FK)  // deep-copies result OUT of arena, r
 ```
 
 If the arena is exhausted, allocation falls back to the standard heap. Past `maxArenaPoolWords` (~50M words / ~400 MB), the arena is dropped rather than pooled. A "steal `s.FK`" zero-copy trick is incompatible with arena reuse: stealing the slice would leave the released result aliasing pooled memory that the next tenant's `Reset()` overwrites. Instead, `ReleaseStateWithResult` performs a single deep-copy of the result out of the arena (one `~850 KB` memcpy for F(10M), <0.01 % of runtime).
+
+Since the 2026-06 audit loop, the default `FastDoublingCalculator` layers two refinements on top of the pool (the public `AcquireStateForN`/`ReleaseStateWithResult` pair above remains the mechanism used by `FFTBasedCalculator`):
+
+- **GC-immune cache slot** (commit `fa13bfd`) — each calculator instance keeps the last released state in a single slot (`cachedState`, an `atomic.Pointer[CalculationState]`). The GC-disable pattern of large calculations (`memory.GCController`) triggers a collection after every call, and that collection flushes `sync.Pool`: the pool alone never retained the arena across calls (arena recreation was ~46 % of all allocations at F(10M)). The slot survives those collections. It is bounded by `maxCachedArenaWords` (4M words, ~32 MB; larger arenas stay pool-only), and every release still goes through the single teardown path `finalizeStateReleaseTo` (order: `checkLimit` → `clearStateAliases` → sink).
+- **Per-calculation FFT bump allocator** (commit `7999c39`, F-012) — the forward-transform `BumpAllocator` is acquired once per calculation, sized for the final doubling step (`fftBumpCapWords`), carried by the state, and only `Reset()` between steps. Its retention follows the arena's anti-bloat drop policy.
+
+Measured 2026-06-10 for the two changes combined ([bench-audit-loop-2026-06.md](../audits/bench-audit-loop-2026-06.md)): FastDoubling/10M 33.30 ms → 28.20 ms, geomean sec/op −12.0 %, B/op at 10M roughly −70 %.
 
 ### 3. Parallel Multiplication via Strategy
 
@@ -293,11 +307,14 @@ result, _ := calc.Calculate(ctx, progressChan, 0, n, fibonacci.Options{
 ### Benchmarks
 
 ```bash
-# Run Fast Doubling benchmarks
-go test -bench=BenchmarkFastDoubling -benchmem ./internal/fibonacci/
+# Run Fast Doubling benchmarks (sub-benchmarks of BenchmarkFibonacci)
+go test -bench='BenchmarkFibonacci/FastDoubling' -benchmem -run='^$' ./internal/fibonacci/
 
 # Compare with other algorithms
-go test -bench='Benchmark(FastDoubling|Matrix|FFT)' -benchmem ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -run='^$' ./internal/fibonacci/
+
+# benchstat-comparable run against the baselines in docs/audits/
+make bench-baseline
 ```
 
 ## References

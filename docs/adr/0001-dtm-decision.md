@@ -62,3 +62,17 @@ Trois raisons :
 
 - Benchmark artifacts : `docs/audits/bench-dtm-{on,off}.txt`
 - Implementation : `internal/fibonacci/dtm_bench_test.go`, `internal/fibonacci/threshold/manager.go`
+
+## Status note (2026-06-10)
+
+Précisions factuelles issues de l'audit documentaire 2026-06 ; le corps
+historique ci-dessus est conservé tel quel et la décision KEEP reste inchangée.
+
+- `internal/fibonacci/threshold/manager.go` compte 353 lignes à HEAD
+  (2026-06-10), contre ~283 à la rédaction : extensions de l'audit 2026-06,
+  dont le mutex qui sérialise désormais `Reset` et tout accès au
+  `MetricsBuffer` (fix de data race, commit `a2e4eee`).
+- La référence « justification chiffrée (`internal/calibration/profile.go:196-224`) »
+  a dérivé : ce range couvre la fin de `renameAtomic`. La cible visée est la
+  validation de profil `CalibrationProfile.IsValid` (référence symbolique
+  `profile.go:IsValid` ; lignes 205-234 à HEAD).

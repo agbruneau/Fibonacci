@@ -51,3 +51,11 @@ Mais aucun consommateur de production n'utilise les wrappers `*Safe`.
 
 - Implementation : `internal/bigfft/fft.go` (sentinel `isFermatPostConditionPanic`)
 - Tests : `internal/bigfft/fft_recover_policy_test.go`, `internal/bigfft/fermat_panic_test.go`
+
+## Status note (2026-06-10)
+
+Le range cité en Context (`fft.go:41-101`) a dérivé : à HEAD (2026-06-10),
+les quatre entry-points `Mul`/`MulTo`/`Sqr`/`SqrTo` et leurs `recover()`
+occupent `internal/bigfft/fft.go:63-144`. La politique sentinelle décrite ici
+reste en place (`isFermatPostConditionPanic`, `fft.go:273` à HEAD), gardée par
+`TestFermatPostConditionPanicClassifier`.

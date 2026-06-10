@@ -12,6 +12,7 @@ import (
 	"github.com/agbruneau/FibGo/internal/config"
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/metrics"
 	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
@@ -422,6 +423,89 @@ func TestModel_Update_TickMsg_Paused(t *testing.T) {
 	// When paused, should return only tickCmd (no mem stats sampling)
 	if cmd == nil {
 		t.Error("expected tick command even when paused")
+	}
+}
+
+func TestModel_Update_FinalResultMsg_NilResult(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	// A failed calculation carries no numeric value: the result must still be
+	// logged but no indicators command may be scheduled.
+	msg := FinalResultMsg{
+		Result: orchestration.CalculationResult{Name: "Fast", Duration: time.Millisecond},
+		N:      10,
+	}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no indicators command when result value is nil")
+	}
+	if len(result.logs.entries) == 0 {
+		t.Error("expected logs to record the final result even without a value")
+	}
+}
+
+func TestModel_Update_TickMsg_Done(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.done = true
+
+	_, cmd := m.Update(TickMsg(time.Now()))
+	if cmd != nil {
+		t.Error("expected the tick loop to stop once the model is done")
+	}
+}
+
+func TestModel_Update_CalculationComplete_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// A completion from a previous generation (pre-reset) must be dropped.
+	msg := CalculationCompleteMsg{ExitCode: apperrors.ExitErrorGeneric, Generation: m.generation + 1}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.done {
+		t.Error("expected stale completion message to be ignored")
+	}
+	if result.exitCode != apperrors.ExitSuccess {
+		t.Errorf("expected exit code to stay %d, got %d", apperrors.ExitSuccess, result.exitCode)
+	}
+}
+
+func TestModel_Update_IndicatorsMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	ind := &metrics.Indicators{BitsPerSecond: 1234}
+	updated, cmd := m.Update(IndicatorsMsg{Indicators: ind})
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from indicators update")
+	}
+	if result.metrics.indicators != ind {
+		t.Error("expected indicators to be stored on the metrics panel")
+	}
+}
+
+func TestTickCmd_DeliversTickMsg(t *testing.T) {
+	t.Parallel()
+	cmd := tickCmd()
+	if cmd == nil {
+		t.Fatal("expected non-nil command from tickCmd")
+	}
+	// Executing the command blocks for the 500ms tick interval, then must
+	// yield a TickMsg carrying the firing time.
+	msg := cmd()
+	tick, ok := msg.(TickMsg)
+	if !ok {
+		t.Fatalf("expected TickMsg, got %T", msg)
+	}
+	if time.Time(tick).IsZero() {
+		t.Error("expected tick message to carry a non-zero timestamp")
 	}
 }
 

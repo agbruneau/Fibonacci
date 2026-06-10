@@ -71,8 +71,10 @@ The constant k represents the "multiplicative density" of the algorithm.
 
 | Algorithm | Temporary variables | Pool objects |
 |-----------|---------------------|--------------|
-| Fast Doubling | 5 big.Int | CalculationState |
-| Matrix Exp. | 3 matrices + ~22 big.Int | matrixState |
+| Fast Doubling | 5 big.Int | CalculationState (sync.Pool + per-instance GC-immune cache slot, ~32 MB cap) |
+| Matrix Exp. | 3 matrices (res, p, tempMatrix) + 20 big.Int | matrixState |
+
+> **Note (2026-06, commit `fa13bfd`)**: `FastDoublingCalculator` additionally retains the last released `CalculationState` in a per-instance, GC-immune cache slot (arena capped at 4M words ≈ 32 MB), preferred over the shared `sync.Pool` for repeated calls. Matrix Exp. and FFT-Based are unaffected (FFT-Based acquires its state through the shared `AcquireStateForN` pool path). Measured impact (2026-06-10, cumulative with the F-012 bump fix): `BenchmarkFibonacci/FastDoubling/10M` 33.30 ms -> 28.20 ms sec/op, ~-70 % B/op — see [`docs/audits/bench-audit-loop-2026-06.md`](../audits/bench-audit-loop-2026-06.md).
 
 ## Benchmarks
 
@@ -85,7 +87,7 @@ Go: 1.25.0
 OS: Linux 6.1
 ```
 
-> **Provenance**: the timings below are historical measurements (env. Go 1.25.0, Ryzen reference machine) and are kept unchanged as a relative-ordering reference. The project now targets Go 1.26.0+; for up-to-date numbers on your hardware, run `make benchmark`.
+> **Provenance**: the timings below are historical measurements (env. Go 1.25.0, Ryzen reference machine) kept unchanged as a relative-ordering reference; their raw benchmark output was not archived (no backing file in `docs/audits/`), so they are indicative only. The project now targets Go 1.26.0+; the current dated non-regression baseline is [`docs/audits/bench-audit-loop-2026-06.md`](../audits/bench-audit-loop-2026-06.md) (2026-06-10 — note it reports `BenchmarkFibonacci` op times with warm per-process pools, not one-shot wall times like the tables below). For up-to-date numbers on your hardware, run `make benchmark`.
 
 ### Results (average times over 10 runs)
 
@@ -204,7 +206,7 @@ result, _ := calc.Calculate(ctx, progressChan, 0, 100_000_000, fibonacci.Options
 
 ```bash
 # Compare all algorithm benchmarks
-go test -bench='Benchmark(FastDoubling|Matrix|FFT)' -benchmem ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -run='^$' ./internal/fibonacci/
 ```
 
 ## Configuration Recommendations

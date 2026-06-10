@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit loop (2026-06-10)
+
+Performance and coverage audit loop (multi-agent workflow, branch
+`refactor/audit-loop-2026-06`). Benchmark figures below: Windows 11,
+Intel Core Ultra 9 275HX (24 threads), Go 1.26.4, `benchstat` n=6 —
+methodology, cumulative results and rejected candidates are archived in
+`docs/audits/bench-audit-loop-2026-06.md` (2026-06-10), now the
+non-regression baseline for `internal/fibonacci/`. Full `-race` run
+validated under WSL (go1.26.0 linux/amd64).
+
+#### Performance
+
+- **Per-calculator state+arena cache** (`fa13bfd`) — the GC disable/re-enable
+  pattern forces a collection after every calculation ≥ 1M, which purges
+  `sync.Pool`: `statePool` never retained the arena between calls (~46 % of
+  allocations at F(10M) were arena recreation; mem profile 3.89 GB / ~155 ops).
+  A GC-immune single-state slot per `FastDoublingCalculator` instance
+  (`cachedState`, `atomic.Pointer`) with `sync.Pool` fallback now retains it,
+  bounded by `maxCachedArenaWords` (4M words, ~32 MB); the single teardown
+  path is preserved (`finalizeStateReleaseTo`, order checkLimit →
+  clearStateAliases → sink, over-limit states never reach the sink).
+  benchstat (commit message, n=6, p=0.002): FastDoubling/10M
+  33.30 ms → 29.22 ms (−12.3 %, B/op −45.4 %), MatrixExp/10M −25.3 %,
+  FFTBased/10M −10.2 %, DTM Off/On 10M −16.8 %/−16.3 %, geomean sec/op
+  −7.96 %. 5 guard tests added (`state_cache_test.go`).
+- **FFT bump scratch acquired once per calculation** (`7999c39`, implements
+  F-012 from the 2026-05-29 audit) — the forward-transform `BumpAllocator`
+  was acquired/released at every doubling step and regrown almost every
+  iteration (~25 % of the residual allocations after the arena fix). It is
+  now sized for the final step (`s.fftBumpCapWords`), carried by the
+  `CalculationState`, and `Reset()` between steps; retention follows the
+  arena anti-bloat policy. benchstat (commit message, n=6): geomean sec/op
+  −4.42 %, DTM Off/On 10M −6.9 %/−6.7 % (p=0.002), fast-doubling B/op −46 %
+  (13.57 → 7.25 Mi), no regression ≥ 5 %. +3 bump guard tests.
+- **Cumulative effect** (`docs/audits/bench-audit-loop-2026-06.md`,
+  2026-06-10) — geomean sec/op **−12.0 %** vs the same-day baseline;
+  FastDoubling/10M 33.30 ms → 28.20 ms (−15.3 %); B/op ~**−70 %** cumulative
+  at 10M (−61 % at 1M). No significant sec/op regression.
+
+#### Fixed
+
+- **threshold — data race in the dynamic threshold manager** (`a2e4eee`) —
+  the first full `-race` pass of the module (WSL) caught a real race:
+  `MetricsBuffer.Record` (write, via `RecordIteration`) vs
+  `MetricsBuffer.Count` (read, via `GetStats`). All `MetricsBuffer` accesses
+  now go through the manager's existing mutex (`snapshotMetrics` copies under
+  lock, analysis outside); thresholds/counters stay atomic and the A2-04
+  package-level knobs are untouched. Targeted 10M benchmarks neutral
+  (p>0.05).
+- **TUI keymap** (`7b97d48`) — the help label of the `r` key said "Reset"
+  while `footer.go` and `docs/TUI_GUIDE.md` say "Restart"; label aligned on
+  "Restart".
+
+#### Added
+
+- **Benchmark output hygiene** (`4e34b82`) — `internal/fibonacci` tests gain
+  a `TestMain` (`testmain_test.go`) aligning the global zerolog level on
+  `InfoLevel` (the production level set by `app.New`); trace-level JSON log
+  lines no longer interleave with benchmark result lines, which had made the
+  bench output unparseable by `benchstat` (45+ parse errors eliminated).
+- **Test repair** (`9cad06e`) — `TestSetTransformCacheConfig` built malformed
+  `PolValues` that the A-05 shape guard silently rejected; the test only
+  passed through global-cache pollution from neighbouring parallel tests and
+  failed deterministically in isolation. Fixed with a conformant mock
+  (coefficients of N+1 words) and `t.Parallel` removed from the two subtests
+  mutating the global singleton.
+- **Coverage wave (Phase 2)** — total coverage 88.9 % → **95.0 %** across
+  9 commits (`c306344`..`d549da4`; Phase 2 close `83e3404`): bigfft
+  85.3 → 95.9 %, tui 87.8 → 97.3 %, memory 87.9 → 99.1 %, orchestration
+  88.0 → 99.1 %, app 88.6 → 94.9 %, config 88.6 → 99.6 %, errors
+  89.2 → 100 %, cmd/fibcalc 75.0 → 91.7 %, cmd/generate-golden
+  28.6 → 88.6 %. Unreachable paths are documented as exceptions; the golden
+  corpus is untouched.
+
+#### Docs
+
+- **`docs/audits/bench-audit-loop-2026-06.md`** (`cfb4ff2`) — dated benchmark
+  baseline of the audit loop (Phase 1 close); rejected optimization
+  candidates documented with evidence (`fermat.Shift` `shlVU` guard refuted
+  by reading `math/big`; forward-transform parallelization set aside).
+- **`internal/cli/completion`** (`ed6c334`) — dedicated `doc.go` per project
+  convention (package comment moved out of `registry.go`, enriched with the
+  shell-escaping note).
+
 ### Refactoring audit (2026-06-09)
 
 Audit de refactorisation exhaustif (exploration multi-agents, vérification
@@ -21,8 +105,11 @@ vérification sont matérialisés dans ADR-0008.
   sont désormais répartis sur les cœurs pour les grandes transformées
   (gate 64k mots ; sémaphore FFT global, acquisition non bloquante,
   scratch pool par worker — le bump allocator reste mono-goroutine).
-  Mesuré (médianes appariées, hôte 24 threads) : **−23 % à −35 %** sur
-  F(10M) selon l'algorithme, **−46 %** sur le calcul seul de F(100M)
+  Mesuré (médianes appariées, hôte 24 threads, 2026-06-09 — chiffres
+  antérieurs aux optimisations `fa13bfd`/`7999c39` du 2026-06-10 ci-dessus) :
+  **−14 % à −35 %** sur F(10M) selon l'algorithme (FastDoubling −27,6 %,
+  FFTBased −22,9 %, MatrixExp −14,0 %, DTM Off/On −34,8 %/−24,6 %),
+  **−46 %** sur le calcul seul de F(100M)
   (0,379 s → 0,204 s). Aucune régression à F(1M) ; chemin séquentiel
   strictement préservé sous le gate. Détails :
   `docs/audits/bench-parallel-pointwise-2026-06.md`. Les panics de
@@ -268,7 +355,7 @@ been purged ; the ADR series is the surviving source of truth.
 
 ### Added
 
-- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/FibGo/dashboard/>. 744 nodes / 3 526 edges / 8 architectural layers / 13-step guided tour, generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages).
+- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/FibGo/dashboard/>. 797 nodes / 3 533 edges / 8 architectural layers / 13-step guided tour (figures from the 2026-06 regeneration, verified against the tracked `docs/dashboard/knowledge-graph.json`), generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build — the `.understand-anything/` source JSON is not tracked in git; only the `docs/dashboard/` bundle is. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages).
 - **Interactive TUI mode**: btop-style dashboard built with Bubble Tea (Elm architecture), featuring real-time progress charts, algorithm comparison, and keyboard navigation
 - Portable arithmetic fallback for non-amd64 architectures (`arith_generic.go`)
 - Godoc example functions for `Calculator`, `DefaultFactory`, and `CalculateWithObservers`
@@ -401,6 +488,8 @@ been purged ; the ADR series is the surviving source of truth.
 
 ---
 
-[Unreleased]: https://github.com/agbru/fibcalc/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/agbru/fibcalc/compare/v0.1.0...v1.0.0
-[0.1.0]: https://github.com/agbru/fibcalc/releases/tag/v0.1.0
+<!-- v3.0.0 (https://github.com/agbruneau/FibGo/releases/tag/v3.0.0) is the
+only release tag on the remote; no v1.0.0/v0.1.0 tags exist, so the 1.0.0
+and 0.1.0 sections above are intentionally unlinked. -->
+
+[Unreleased]: https://github.com/agbruneau/FibGo/compare/v3.0.0...HEAD

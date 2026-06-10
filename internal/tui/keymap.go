@@ -26,7 +26,9 @@ func DefaultKeyMap() KeyMap {
 		),
 		Reset: key.NewBinding(
 			key.WithKeys("r"),
-			key.WithHelp("r", "Reset"),
+			// Label aligned with footer.go ("Restart") — the two help
+			// surfaces drifted apart and the TUI guide documents "Restart".
+			key.WithHelp("r", "Restart"),
 		),
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),

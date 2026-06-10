@@ -94,3 +94,11 @@ build_err.txt
 test_err.txt
 test_out.txt
 e2e_rich_out.txt
+
+# Audit-loop work artifacts (2026-06): benchmark/lint/coverage snapshots
+# produced at the repo root by audit iterations — never to be committed.
+# (Archived baselines live in docs/audits/ and use dashes, not underscores.)
+bench_*.txt
+benchstat_*.txt
+lint_*.txt
+coverage_by_pkg.txt

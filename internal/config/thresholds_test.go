@@ -116,3 +116,30 @@ func TestEstimateOptimalStrassenThreshold_Positive(t *testing.T) {
 		t.Errorf("EstimateOptimalStrassenThreshold = %d; estimateStrassenThresholdForHeuristic(detected) = %d", got, want)
 	}
 }
+
+// TestParallelThresholdFromCPUCount pins the full CPU-count ladder, including
+// tiers (e.g. 9-16 cores) that host-detected heuristics never reach on a
+// given machine. A reshuffled tier would silently change parallelism defaults.
+func TestParallelThresholdFromCPUCount(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		numCPU int
+		want   int
+	}{
+		{1, 0},
+		{2, 8192},
+		{3, 4096},
+		{4, 4096},
+		{5, 2048},
+		{8, 2048},
+		{9, 1024},
+		{16, 1024},
+		{17, 512},
+		{64, 512},
+	}
+	for _, tc := range cases {
+		if got := parallelThresholdFromCPUCount(tc.numCPU); got != tc.want {
+			t.Errorf("parallelThresholdFromCPUCount(%d) = %d, want %d", tc.numCPU, got, tc.want)
+		}
+	}
+}

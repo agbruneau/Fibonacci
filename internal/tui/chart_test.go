@@ -183,6 +183,55 @@ func TestChartModel_View_HidesSparklines_SmallHeight(t *testing.T) {
 	}
 }
 
+func TestChartModel_View_Done(t *testing.T) {
+	t.Parallel()
+	chart := NewChartModel()
+	chart.SetSize(50, 10)
+	chart.SetDone(2 * time.Second)
+
+	view := chart.View()
+	if !strings.Contains(view, "Completed in 2s") {
+		t.Errorf("expected done view to show the frozen total duration, got %q", view)
+	}
+	if strings.Contains(view, "ETA:") {
+		t.Error("expected done view to drop the ETA header")
+	}
+	// SetDone must also force the bar to 100%.
+	if !strings.Contains(view, "100.0%") {
+		t.Error("expected done view to show a full progress bar")
+	}
+}
+
+func TestChartModel_RenderProgressBar_ClampNegative(t *testing.T) {
+	t.Parallel()
+	chart := NewChartModel()
+	chart.SetSize(50, 10)
+	chart.AddDataPoint(-0.5, -0.5, 0)
+
+	bar := chart.renderProgressBar()
+	if strings.Contains(bar, "█") {
+		t.Error("expected no filled blocks for negative progress")
+	}
+	if !strings.Contains(bar, "░") {
+		t.Error("expected a fully empty bar for negative progress")
+	}
+}
+
+func TestChartModel_RenderProgressBar_ClampOverflow(t *testing.T) {
+	t.Parallel()
+	chart := NewChartModel()
+	chart.SetSize(50, 10)
+	chart.AddDataPoint(1.5, 1.5, 0)
+
+	bar := chart.renderProgressBar()
+	if strings.Contains(bar, "░") {
+		t.Error("expected no empty blocks when progress overflows 100%")
+	}
+	if !strings.Contains(bar, "█") {
+		t.Error("expected a fully filled bar when progress overflows 100%")
+	}
+}
+
 func TestChartModel_SetSize_ResizesBuffers(t *testing.T) {
 	t.Parallel()
 	chart := NewChartModel()

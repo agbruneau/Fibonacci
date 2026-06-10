@@ -8,12 +8,12 @@ Pour une exploration interactive complémentaire aux diagrammes statiques :
 
 **[https://agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**
 
-- **797 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 533 arêtes** (imports, calls, contains, tested_by, documents…)
+- **797 nœuds** (fichiers, fonctions, classes, configs, docs) · **3 533 arêtes** (imports, calls, contains, tested_by, documents…) — comptes mesurés sur le graphe régénéré le 2026-06-09 (commit 2fca040) ; à re-vérifier à la prochaine régénération
 - **8 couches** architecturales (entry-point, application, presentation, domain, math-kernel, cross-cutting, e2e-tests, project-support)
 - **Tour guidé 13 étapes** depuis `cmd/fibcalc/main.go` jusqu'aux tests
 - Recherche, filtres par couche/type, layout dynamique (force, ELK, dagre)
 
-Source : [`.understand-anything/knowledge-graph.json`](../../.understand-anything/knowledge-graph.json). Build statique dans [`../dashboard/`](../dashboard/). Régénération : voir [`../BUILD.md#dashboard-statique-github-pages`](../BUILD.md#dashboard-statique-github-pages).
+Source : [`docs/dashboard/knowledge-graph.json`](../dashboard/knowledge-graph.json). Build statique dans [`../dashboard/`](../dashboard/). Régénération : voir [`../BUILD.md#dashboard-statique-github-pages`](../BUILD.md#dashboard-statique-github-pages).
 
 ## 1) Diagrammes d'Architecture (C4 Model)
 
@@ -60,6 +60,7 @@ Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
 | [0005](../adr/0005-gc-control-concurrent.md) | Contrôle GC concurrency-safe (refcount package-level) | Accepted |
 | [0006](../adr/0006-fft-recursion-cancellation.md) | Annulation récursion FFT — report au token par-appel (FFTContext) | Accepted |
 | [0007](../adr/0007-pool-pointer-vs-value.md) | SA6002 (`sync.Pool.Put` de slice) — décision mesurée | Accepted |
+| [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | Audit de refactorisation 2026-06 — candidats rejetés après vérification | Accepted |
 
 L'historique granulaire des décisions héritées (heuristique CPU, backends
 de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.

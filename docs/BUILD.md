@@ -60,7 +60,7 @@ PGO uses a CPU profile from a representative workload to guide the compiler towa
 #### PGO Workflow
 
 ```bash
-# Step 1: Generate CPU profile (runs BenchmarkFastDoubling with 5s benchtime, 3 count)
+# Step 1: Generate CPU profile (runs the BenchmarkFibonacci sub-benchmarks, 5s benchtime, 3 count)
 make pgo-profile
 
 # Step 2: Build with PGO
@@ -78,7 +78,7 @@ make pgo-rebuild
 |--------|-------------|
 | `pgo-profile` | Generate CPU profile from benchmarks |
 | `build-pgo` | Build with PGO optimization |
-| `build-pgo-all` | Build all platforms with PGO |
+| `build-pgo-all` | Build linux/amd64, windows/amd64, and macOS (amd64 + arm64) with PGO — unlike `build-all`, no linux/arm64 or windows/arm64 |
 | `pgo-rebuild` | Full PGO workflow (profile + build) |
 | `pgo-check` | Verify PGO profile exists |
 | `pgo-clean` | Clean PGO artifacts |
@@ -203,7 +203,7 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 | `build-windows-arm64` | Build for Windows arm64 |
 | `build-darwin` | Build for macOS amd64 and arm64 |
 | `build-pgo` | Build with profile-guided optimization |
-| `build-pgo-all` | Build all platforms with PGO |
+| `build-pgo-all` | Build linux/amd64, windows/amd64, and macOS (amd64 + arm64) with PGO — unlike `build-all`, no linux/arm64 or windows/arm64 |
 | `install` | Install to `$GOPATH/bin` |
 | `clean` | Remove build artifacts |
 
@@ -243,6 +243,9 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 
 | Target | Description |
 |--------|-------------|
+| `stats` | Print package and LOC counts (canonical source for the counts quoted in CLAUDE.md / ARCH.md) |
+| `bench-baseline` | Refresh `docs/audits/bench-baseline.txt` (regression baseline; fixed flags, benchstat-comparable) |
+| `bench-versioned` | Record a benchmark snapshot with Go version and Git revision to `build/bench/` |
 | `version` | Display version info |
 | `help` | Display all available targets |
 

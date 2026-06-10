@@ -6,7 +6,9 @@ import (
 	"math/big"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
+	"github.com/agbruneau/FibGo/internal/bigfft"
 	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/progress"
@@ -17,6 +19,18 @@ import (
 // rather than being kept indefinitely, so a single huge call (e.g. F(50M+))
 // does not pin ~400 MB of backing memory in the pool forever.
 const maxArenaPoolWords = 50_000_000
+
+// maxCachedArenaWords caps the size of a CalculationArena retained in the
+// per-calculator cache slot (FastDoublingCalculator.cachedState). The slot is
+// GC-immune, unlike statePool: the GC-disable pattern of large calculations
+// (memory.GCController) re-enables GC right after every call, and the
+// resulting collection keeps flushing sync.Pool, so repeated calls paid a
+// full arena reallocation each time (measured: ~46 % of all allocations at
+// F(10M)). Because the slot pins its arena until the next call (or the
+// calculator is dropped), the cap is deliberately much tighter than
+// maxArenaPoolWords: ~32 MB, covering n up to roughly 20M. Larger arenas
+// keep the historical pool-only behavior.
+const maxCachedArenaWords = 4_000_000
 
 // FastDoublingCalculator provides a high-performance implementation of the "Fast
 // Doubling" algorithm for calculating Fibonacci numbers.
@@ -70,7 +84,17 @@ const maxArenaPoolWords = 50_000_000
 //     when the numbers exceed a specified `fftThreshold`. This threshold
 //     defaults to 500,000 bits, a conservative value where FFT's superior
 //     asymptotic complexity reliably outperforms standard multiplication.
-type FastDoublingCalculator struct{}
+type FastDoublingCalculator struct {
+	// cachedState is a single-slot, GC-immune cache of the last released
+	// CalculationState (and its bound arena). It exists because statePool
+	// alone cannot retain the arena across calls: every large calculation
+	// re-enables GC on exit (memory.GCController), and that collection
+	// demotes/clears sync.Pool entries, so each repeated call reallocated
+	// and re-zeroed the full arena. Swap(nil) hands exclusive ownership to
+	// one caller; concurrent calls on the same instance fall back to the
+	// shared pool path. See maxCachedArenaWords for the retention bound.
+	cachedState atomic.Pointer[CalculationState]
+}
 
 // Name returns the descriptive name of the algorithm.
 // This name is displayed in the application's user interface, providing a clear
@@ -102,11 +126,12 @@ func (fd *FastDoublingCalculator) Name() string {
 //   - *big.Int: The calculated Fibonacci number.
 //   - error: An error if one occurred (e.g., context cancellation).
 func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
-	// AcquireStateForN reuses (or grows) the state's bound arena and pre-sizes
-	// all big.Int slots from it. The arena is owned by the state, so the
+	// acquireStateForN reuses (or grows) the state's bound arena and pre-sizes
+	// all big.Int slots from it — preferring the calculator's GC-immune cache
+	// slot over the shared pool. The arena is owned by the state, so the
 	// invariant "no big.Int alias outlives its backing arena" is enforced
-	// at Release time — see ReleaseStateWithResult.
-	s := AcquireStateForN(n)
+	// at Release time — see releaseStateWithResult.
+	s := fd.acquireStateForN(n)
 
 	// Normalize options to ensure consistent default threshold handling
 	normalizedOpts := normalizeOptions(opts)
@@ -140,10 +165,10 @@ func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter pr
 	// of the arena before returning the state (and arena) to the pool.
 	raw, err := framework.ExecuteDoublingLoop(ctx, reporter, n, normalizedOpts, s, useParallel)
 	if err != nil {
-		ReleaseState(s)
+		fd.releaseState(s)
 		return nil, err
 	}
-	return ReleaseStateWithResult(s, raw), nil
+	return fd.releaseStateWithResult(s, raw), nil
 }
 
 // ShouldParallelizeMultiplication determines whether the multiplication operations
@@ -228,6 +253,20 @@ type CalculationState struct {
 	FK, FK1, T1, T2, T3 *big.Int
 	arena               *memory.CalculationArena
 	arenaCapWords       int // cached len(arena.buf) to avoid a method call on hot paths
+
+	// bump is the FFT forward-transform scratch allocator, acquired once per
+	// calculation at final-operand size (F-012) and only Reset between
+	// doubling steps. Like the arena it is part of the state's pooled
+	// identity: it travels with the state through the pool and the
+	// per-calculator cache slot, follows the arena's anti-bloat drop, and is
+	// released when the state is dropped (overLimit). It must never be
+	// shared with the goroutines of executeParallel3 (mono-goroutine
+	// forward phase only — see executeDoublingStepFFT).
+	bump *bigfft.BumpAllocator
+	// fftBumpCapWords is the bump capacity needed by the calculation's FINAL
+	// doubling step (set by prepareStateForN), so the first FFT step acquires
+	// the allocator once at full size instead of growing it on every step.
+	fftBumpCapWords int
 }
 
 // Reset prepares the state for a new calculation.
@@ -309,7 +348,15 @@ func acquireSizingForN(n uint64) (wordsNeeded, totalWords int) {
 func AcquireStateForN(n uint64) *CalculationState {
 	s := statePool.Get().(*CalculationState)
 	s.Reset()
+	prepareStateForN(s, n)
+	return s
+}
 
+// prepareStateForN pre-sizes the (already Reset) state's big.Int slots from
+// its bound arena for F(n), reusing the arena when large enough and
+// allocating a fresh one otherwise. Shared by AcquireStateForN (pool path)
+// and FastDoublingCalculator.acquireStateForN (per-calculator cache path).
+func prepareStateForN(s *CalculationState, n uint64) {
 	if n > 1000 {
 		wordsNeeded, totalWords := acquireSizingForN(n)
 
@@ -330,13 +377,69 @@ func AcquireStateForN(n uint64) *CalculationState {
 		s.arena.PreSizeFromArena(s.T1, wordsNeeded)
 		s.arena.PreSizeFromArena(s.T2, wordsNeeded)
 		s.arena.PreSizeFromArena(s.T3, wordsNeeded)
-	} else if s.arena != nil {
-		// Even on the small-N path we reset the arena so any previous
-		// large-N tenancy is cleared before potential reuse.
-		s.arena.Reset()
+		// Target capacity for the FFT bump scratch at the FINAL step (the
+		// operands double each step, so sizing for the last step lets
+		// executeDoublingStepFFT acquire the allocator exactly once). The
+		// allocator itself is acquired lazily, only if the FFT path runs.
+		s.fftBumpCapWords = bigfft.EstimateBumpCapacity(2 * wordsNeeded)
+	} else {
+		if s.arena != nil {
+			// Even on the small-N path we reset the arena so any previous
+			// large-N tenancy is cleared before potential reuse.
+			s.arena.Reset()
+		}
+		s.fftBumpCapWords = 0
 	}
+}
 
-	return s
+// acquireStateForN prefers the calculator's cached state (whose arena then
+// survives across calls) and falls back to the shared pool path.
+func (fd *FastDoublingCalculator) acquireStateForN(n uint64) *CalculationState {
+	if s := fd.cachedState.Swap(nil); s != nil {
+		s.Reset()
+		prepareStateForN(s, n)
+		return s
+	}
+	return AcquireStateForN(n)
+}
+
+// releaseState is the error-path release for states acquired through
+// (*FastDoublingCalculator).acquireStateForN: same teardown contract as
+// ReleaseState, but the state is offered to the calculator's cache slot
+// before the shared pool.
+func (fd *FastDoublingCalculator) releaseState(s *CalculationState) {
+	if s == nil {
+		return
+	}
+	finalizeStateReleaseTo(s, fd.cacheOrPool)
+}
+
+// releaseStateWithResult is the success-path counterpart of
+// ReleaseStateWithResult for states acquired through
+// (*FastDoublingCalculator).acquireStateForN. The deep copy of src out of
+// the arena is mandatory for the same reason (see ReleaseStateWithResult).
+func (fd *FastDoublingCalculator) releaseStateWithResult(s *CalculationState, src *big.Int) *big.Int {
+	if s == nil {
+		return src
+	}
+	var result *big.Int
+	if src != nil {
+		result = new(big.Int).Set(src)
+	}
+	finalizeStateReleaseTo(s, fd.cacheOrPool)
+	return result
+}
+
+// cacheOrPool is the sink used by the calculator-level releases: a finalized
+// state whose arena is worth pinning goes to the per-calculator slot
+// (CompareAndSwap keeps at most one cached state per instance under
+// concurrency); everything else goes back to the shared pool. States dropped
+// by finalizeStateReleaseTo (overLimit) never reach this sink.
+func (fd *FastDoublingCalculator) cacheOrPool(s *CalculationState) {
+	if s.arena != nil && s.arenaCapWords <= maxCachedArenaWords && fd.cachedState.CompareAndSwap(nil, s) {
+		return
+	}
+	statePool.Put(s)
 }
 
 // clearStateAliases re-points every big.Int slot in s to a fresh, empty
@@ -422,6 +525,20 @@ func ReleaseStateWithResult(s *CalculationState, src *big.Int) *big.Int {
 //
 // Precondition: s != nil. Callers handle the nil case before invocation.
 func finalizeStateRelease(s *CalculationState) {
+	finalizeStateReleaseTo(s, statePoolPut)
+}
+
+// statePoolPut is the default sink of finalizeStateReleaseTo.
+func statePoolPut(s *CalculationState) { statePool.Put(s) }
+
+// finalizeStateReleaseTo is finalizeStateRelease with a caller-chosen sink
+// for the state once teardown completes. The ordering contract documented
+// above is unchanged and applies to every sink: checkLimit is evaluated
+// BEFORE clearStateAliases, clearStateAliases runs unconditionally BEFORE
+// the sink, and an overLimit state is dropped without ever reaching the
+// sink. The sink receives a state whose slots are fresh (no arena aliases)
+// and whose arena, if retained, is already Reset.
+func finalizeStateReleaseTo(s *CalculationState, put func(*CalculationState)) {
 	// Evaluate overLimit FIRST while the original big.Int headers still
 	// reflect the calculation's true bit-length.
 	overLimit := checkLimit(s.FK) || checkLimit(s.FK1) ||
@@ -438,14 +555,24 @@ func finalizeStateRelease(s *CalculationState) {
 		if s.arenaCapWords > maxArenaPoolWords {
 			s.arena = nil
 			s.arenaCapWords = 0
+			// The FFT bump scratch follows the arena's anti-bloat policy:
+			// dropping a huge arena while pinning its companion allocator
+			// would defeat the retention bound.
+			bigfft.ReleaseBumpAllocator(s.bump) // nil-safe
+			s.bump = nil
+			s.fftBumpCapWords = 0
 		}
 	}
 
 	if overLimit {
-		// Drop the state from the pool, but only AFTER clearStateAliases has
+		// Drop the state entirely, but only AFTER clearStateAliases has
 		// run, so the dropped state cannot leak aliased slots through any
-		// remaining reference.
+		// remaining reference. The bump scratch goes back to its pool
+		// instead of dying with the dropped state.
+		bigfft.ReleaseBumpAllocator(s.bump) // nil-safe
+		s.bump = nil
+		s.fftBumpCapWords = 0
 		return
 	}
-	statePool.Put(s)
+	put(s)
 }

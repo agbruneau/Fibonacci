@@ -1,8 +1,11 @@
 package config
 
 import (
+	"runtime"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/cpu"
 )
 
 func TestDetectHardwareHeuristic(t *testing.T) {
@@ -87,5 +90,57 @@ func TestHardwareHeuristicHeuristicKey(t *testing.T) {
 	k := HardwareHeuristic{GOARCH: "amd64", SIMD: SIMDAVX2}.HeuristicKey()
 	if k != "amd64-avx2" {
 		t.Errorf("got %q, want amd64-avx2", k)
+	}
+}
+
+// TestHeuristicKeySIMDVariants pins the calibration-profile invalidation key
+// for every SIMD class; a silent rename would orphan stored profiles.
+func TestHeuristicKeySIMDVariants(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		h    HardwareHeuristic
+		want string
+	}{
+		{HardwareHeuristic{GOARCH: "amd64", SIMD: SIMDAVX512}, "amd64-avx512"},
+		{HardwareHeuristic{GOARCH: "amd64", SIMD: SIMDAVX2}, "amd64-avx2"},
+		{HardwareHeuristic{GOARCH: "arm64", SIMD: SIMDNone}, "arm64-generic"},
+	}
+	for _, tc := range cases {
+		if got := tc.h.HeuristicKey(); got != tc.want {
+			t.Errorf("HeuristicKey(%+v) = %q, want %q", tc.h, got, tc.want)
+		}
+	}
+}
+
+// TestDetectHardwareHeuristic_SIMDClassification forces the x86 feature flags
+// reported by golang.org/x/sys/cpu to verify the AVX512 > AVX2 > none
+// priority. It mutates package-level state in x/sys/cpu, so it must not run
+// in parallel; the original flags are restored via t.Cleanup.
+func TestDetectHardwareHeuristic_SIMDClassification(t *testing.T) {
+	if runtime.GOARCH != "amd64" && runtime.GOARCH != "386" {
+		t.Skipf("SIMD classification reads cpu.X86 only on amd64/386 (GOARCH=%s)", runtime.GOARCH)
+	}
+	origAVX512, origAVX2 := cpu.X86.HasAVX512F, cpu.X86.HasAVX2
+	t.Cleanup(func() {
+		cpu.X86.HasAVX512F, cpu.X86.HasAVX2 = origAVX512, origAVX2
+	})
+
+	cases := []struct {
+		name    string
+		avx512f bool
+		avx2    bool
+		want    SIMDKind
+	}{
+		{"avx512 wins over avx2", true, true, SIMDAVX512},
+		{"avx2 only", false, true, SIMDAVX2},
+		{"no simd", false, false, SIMDNone},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cpu.X86.HasAVX512F, cpu.X86.HasAVX2 = tc.avx512f, tc.avx2
+			if got := DetectHardwareHeuristic().SIMD; got != tc.want {
+				t.Errorf("SIMD = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

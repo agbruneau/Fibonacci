@@ -104,3 +104,12 @@ F(100k), F(500k), F(1M) ajoutées via `cmd/generate-golden`.
 - ADR-0002 (recover sentinel)
 - ADR-0003 (globaux atomic)
 - `docs/PORTABILITY.md`
+
+## Status note (2026-06-10)
+
+Item B5 — corpus effectivement ajouté en mai 2026 via `cmd/generate-golden` :
+F(50000), F(100000), F(200000) — et non F(100k)/F(500k)/F(1M) comme
+l'annonçait l'action concrète ci-dessus (vérifié sur
+`internal/fibonacci/testdata/fibonacci_golden.json` à HEAD). Le fichier golden
+reste immuable sans nouvel accord ADR ; toute extension future requiert le
+même protocole.

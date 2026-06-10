@@ -117,19 +117,33 @@ func executeDoublingStepFFT(ctx context.Context, s *CalculationState, opts Optio
 	nWords := bigfft.ValueSize(k, m, 2)
 	n := nWords
 
-	// P1-01: allocate a bump allocator for the two forward transforms.
-	// The bump allocator supplies the transient fermat input buffers, keeping
-	// them contiguous and avoiding per-call sync.Pool churn for the initial
-	// transforms. The returned PolValues' output storage is still pooled
-	// (see internal/bigfft/fft_poly.go transform()) and gets released via
-	// fkPoly.Release()/fk1Poly.Release() in the parallel/sequential helpers.
+	// P1-01: a bump allocator supplies the transient fermat input buffers of
+	// the two forward transforms, keeping them contiguous and avoiding
+	// per-call sync.Pool churn. The returned PolValues' output storage is
+	// still pooled (see internal/bigfft/fft_poly.go transform()) and gets
+	// released via fkPoly.Release()/fk1Poly.Release().
 	//
-	// Sizing: two forward transforms each need ~K*(n+1) words of temp plus
-	// some FFT working memory — EstimateBumpCapacity sizes for a full
-	// mul/sqr, which is a safe over-estimate for two transforms.
+	// F-012: the allocator is acquired once per CALCULATION — sized for the
+	// final step via s.fftBumpCapWords — and carried by the state, then only
+	// Reset between steps. Acquiring per step regrew the buffer on almost
+	// every iteration (operands double each step), which dominated the
+	// residual allocation profile after the arena fix. Alloc() zeroes every
+	// slice it hands out, so cross-step reuse is safe; the allocator stays
+	// confined to this mono-goroutine forward phase and is never visible to
+	// executeParallel3 (its ops use the pool allocator — fft_poly.go Mul/Sqr).
 	baCap := bigfft.EstimateBumpCapacity(2 * fk1Words)
-	ba := bigfft.AcquireBumpAllocator(baCap)
-	defer bigfft.ReleaseBumpAllocator(ba)
+	if s.fftBumpCapWords > baCap {
+		baCap = s.fftBumpCapWords
+	}
+	ba := s.bump
+	if ba != nil {
+		ba.Reset()
+	}
+	if ba == nil || ba.Remaining() < baCap {
+		bigfft.ReleaseBumpAllocator(ba) // nil-safe
+		ba = bigfft.AcquireBumpAllocator(baCap)
+		s.bump = ba
+	}
 
 	pFk := bigfft.PolyFromInt(s.FK, k, m)
 	fkPoly, err := pFk.TransformWithBump(n, ba)

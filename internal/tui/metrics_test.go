@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/format"
+	"github.com/agbruneau/FibGo/internal/metrics"
 )
 
 func TestMetricsModel_UpdateMemStats(t *testing.T) {
@@ -119,6 +120,42 @@ func TestMetricsModel_View(t *testing.T) {
 	}
 	if !strings.Contains(view, "Goroutines") {
 		t.Error("expected view to contain 'Goroutines' label")
+	}
+}
+
+func TestMetricsModel_View_WithIndicators(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		isEven bool
+		parity string
+	}{
+		{"even result", true, "even"},
+		{"odd result", false, "odd"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			m := NewMetricsModel()
+			m.SetSize(60, 12)
+			m.UpdateIndicators(&metrics.Indicators{
+				BitsPerSecond:   1.5e6,
+				DigitsPerSecond: 4.2e5,
+				DoublingSteps:   20,
+				StepsPerSecond:  3.5,
+				IsEven:          tt.isEven,
+			})
+
+			view := m.View()
+			for _, label := range []string{"Bits/s:", "Steps:", "Digits/s:", "Parity:"} {
+				if !strings.Contains(view, label) {
+					t.Errorf("expected view with indicators to contain %q", label)
+				}
+			}
+			if !strings.Contains(view, tt.parity) {
+				t.Errorf("expected parity %q in view", tt.parity)
+			}
+		})
 	}
 }
 

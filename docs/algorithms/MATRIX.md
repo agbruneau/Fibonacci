@@ -1,6 +1,6 @@
 # Matrix Exponentiation
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 797 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 797 nodes / 8 layers / 13-step tour as of the 2026-06-09 regeneration, commit f4d3a7f)
 
 > **Complexity**: O(log n) matrix operations
 > **Actual Complexity**: O(log n * M(n)) where M(n) is the multiplication cost
@@ -118,13 +118,13 @@ MatrixFibonacci(n):
 The implementation uses the `MatrixFramework` to encapsulate the exponentiation loop:
 
 ```go
-type MatrixExponentiation struct{}
+type MatrixExponentiationCalculator struct{}
 
-func (c *MatrixExponentiation) Name() string {
+func (c *MatrixExponentiationCalculator) Name() string {
     return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
 }
 
-func (c *MatrixExponentiation) CalculateCore(ctx context.Context, reporter ProgressCallback,
+func (c *MatrixExponentiationCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback,
     n uint64, opts Options) (*big.Int, error) {
     state := acquireMatrixState()
     defer releaseMatrixState(state)
@@ -144,9 +144,9 @@ type matrix struct{ a, b, c, d *big.Int }
 
 ## Implemented Optimizations
 
-### 1. Strassen Algorithm
+### 1. Strassen Algorithm (Winograd Variant)
 
-For 2x2 matrices with large elements, the Strassen algorithm reduces the number of multiplications from 8 to 7:
+For 2x2 matrices with large elements, Strassen-style multiplication reduces the number of multiplications from 8 to 7. The implementation (`multiplyMatrixStrassen` in `matrix_ops.go`) uses the **Strassen-Winograd variant**, which needs only 15 additions/subtractions instead of the 18 required by the classical Strassen formulation:
 
 ```
 Classic 2x2 multiplication:
@@ -156,23 +156,40 @@ Classic 2x2 multiplication:
   C[1][1] = A[1][0]*B[0][1] + A[1][1]*B[1][1]  (2 mult)
   Total: 8 multiplications
 
-Strassen 2x2:
-  P1 = A[0][0] * (B[0][1] - B[1][1])
-  P2 = (A[0][0] + A[0][1]) * B[1][1]
-  P3 = (A[1][0] + A[1][1]) * B[0][0]
-  P4 = A[1][1] * (B[1][0] - B[0][0])
-  P5 = (A[0][0] + A[1][1]) * (B[0][0] + B[1][1])
-  P6 = (A[0][1] - A[1][1]) * (B[1][0] + B[1][1])
-  P7 = (A[0][0] - A[1][0]) * (B[0][0] + B[0][1])
+Strassen-Winograd 2x2 (1-based indices: A11 = A[0][0], ..., B22 = B[1][1]):
 
-  C[0][0] = P5 + P4 - P2 + P6
-  C[0][1] = P1 + P2
-  C[1][0] = P3 + P4
-  C[1][1] = P5 + P1 - P3 - P7
-  Total: 7 multiplications + 18 additions
+  Pre-computations (8 additions/subtractions, computeStrassenIntermediates):
+    S1 = A21 + A22
+    S2 = S1 - A11
+    S3 = A11 - A21
+    S4 = A12 - S2
+    S5 = B12 - B11
+    S6 = B22 - S5
+    S7 = B22 - B12
+    S8 = S6 - B21
+
+  Products (7 multiplications):
+    P1 = S2 * S6
+    P2 = A11 * B11
+    P3 = A12 * B21
+    P4 = S3 * S7
+    P5 = S1 * S5
+    P6 = S4 * B22
+    P7 = A22 * S8
+
+  Post-computations and assembly (7 additions/subtractions, assembleStrassenResult):
+    T1 = P1 + P2
+    T2 = T1 + P4
+
+    C11 = P2 + P3
+    C12 = T1 + P5 + P6
+    C21 = T2 - P7
+    C22 = T2 + P5
+
+  Total: 7 multiplications + 15 additions/subtractions
 ```
 
-**Strassen Decomposition Diagram**:
+**Strassen-Winograd Decomposition Diagram** (dataflow as implemented in `matrix_ops.go`):
 
 ```mermaid
 graph TD
@@ -181,49 +198,78 @@ graph TD
         B[Matrix B]
     end
 
-    subgraph Strassen_Products
-        P1["P1 = A11*(B12-B22)"]
-        P2["P2 = (A11+A12)*B22"]
-        P3["P3 = (A21+A22)*B11"]
-        P4["P4 = A22*(B21-B11)"]
-        P5["P5 = (A11+A22)*(B11+B22)"]
-        P6["P6 = (A12-A22)*(B21+B22)"]
-        P7["P7 = (A11-A21)*(B11+B12)"]
+    subgraph Pre_Computations
+        S1["S1 = A21 + A22"]
+        S2["S2 = S1 - A11"]
+        S3["S3 = A11 - A21"]
+        S4["S4 = A12 - S2"]
+        S5["S5 = B12 - B11"]
+        S6["S6 = B22 - S5"]
+        S7["S7 = B22 - B12"]
+        S8["S8 = S6 - B21"]
+    end
+
+    subgraph Products
+        P1["P1 = S2 * S6"]
+        P2["P2 = A11 * B11"]
+        P3["P3 = A12 * B21"]
+        P4["P4 = S3 * S7"]
+        P5["P5 = S1 * S5"]
+        P6["P6 = S4 * B22"]
+        P7["P7 = A22 * S8"]
+    end
+
+    subgraph Post_Computations
+        T1["T1 = P1 + P2"]
+        T2["T2 = T1 + P4"]
     end
 
     subgraph Output
-        C11["C11 = P5+P4-P2+P6"]
-        C12["C12 = P1+P2"]
-        C21["C21 = P3+P4"]
-        C22["C22 = P5+P1-P3-P7"]
+        C11["C11 = P2 + P3"]
+        C12["C12 = T1 + P5 + P6"]
+        C21["C21 = T2 - P7"]
+        C22["C22 = T2 + P5"]
     end
 
-    A --> P1
+    A --> S1
+    A --> S2
+    A --> S3
+    A --> S4
+    B --> S5
+    B --> S6
+    B --> S7
+    B --> S8
+    S1 --> S2
+    S2 --> S4
+    S5 --> S6
+    S6 --> S8
+    S2 --> P1
+    S6 --> P1
     A --> P2
-    A --> P3
-    A --> P4
-    A --> P5
-    A --> P6
-    A --> P7
-    B --> P1
     B --> P2
+    A --> P3
     B --> P3
-    B --> P4
-    B --> P5
+    S3 --> P4
+    S7 --> P4
+    S1 --> P5
+    S5 --> P5
+    S4 --> P6
     B --> P6
-    B --> P7
-    P1 --> C12
-    P1 --> C22
+    A --> P7
+    S8 --> P7
+    P1 --> T1
+    P2 --> T1
+    T1 --> T2
+    P4 --> T2
     P2 --> C11
-    P2 --> C12
-    P3 --> C21
-    P3 --> C22
-    P4 --> C11
-    P4 --> C21
-    P5 --> C11
+    P3 --> C11
+    T1 --> C12
+    P5 --> C12
+    P6 --> C12
+    T2 --> C21
+    P7 --> C21
+    T2 --> C22
     P5 --> C22
-    P6 --> C11
-    P7 --> C22
 ```
 
 #### Threshold Mechanism
@@ -253,10 +299,11 @@ This is primarily used by the calibration system to tune the threshold based on 
 
 #### Implementation Details
 
-The `multiplyMatrixStrassen()` function uses a two-phase approach:
+The `multiplyMatrixStrassen()` function uses a three-phase approach:
 
-1. **`computeStrassenIntermediates()`** -- Pre-computes the seven Strassen products P1-P7 using temporary storage from the pooled `matrixState`.
-2. **`assembleStrassenResult()`** -- Combines the intermediates into the four result matrix elements.
+1. **`computeStrassenIntermediates()`** -- Pre-computes the eight sums/differences S1-S8 using temporary storage from the pooled `matrixState`.
+2. **Product phase** -- `multiplyMatrixStrassen()` dispatches the seven multiplications P1-P7 through the generic task executor.
+3. **`assembleStrassenResult()`** -- Computes T1/T2 and combines the products into the four result matrix elements.
 
 Independent Strassen products can be parallelized when operands exceed the `ParallelThreshold`.
 
@@ -279,7 +326,7 @@ Matrix states are recycled via a `sync.Pool`:
 ```go
 type matrixState struct {
     res, p, tempMatrix *matrix
-    // Temporaries for Strassen (p1-p7, s1-s10)
+    // Temporaries for Strassen (p1-p7, s1-s8)
     // Temporaries for symmetric square (t1-t5)
 }
 ```
@@ -292,10 +339,12 @@ Independent multiplications within Strassen's algorithm (P1-P7) can be paralleli
 
 ### Operations per Iteration
 
-| Operation | Classic | Strassen | Symmetric Square |
-|-----------|---------|----------|------------------|
+| Operation | Classic | Strassen* | Symmetric Square |
+|-----------|---------|-----------|------------------|
 | Multiplications | 8 | 7 | 4 |
-| Additions | 4 | 18 | 4 |
+| Additions | 4 | 15 | 4 |
+
+\* Strassen-Winograd variant as implemented in `matrix_ops.go` (15 additions/subtractions; the classical Strassen formulation requires 18).
 
 ### Number of Iterations
 
@@ -332,10 +381,10 @@ result, _ := calc.Calculate(ctx, progressChan, 0, n, fibonacci.Options{
 
 ```bash
 # Run Matrix Exponentiation benchmarks
-go test -bench=BenchmarkMatrix -benchmem ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/MatrixExp' -benchmem -run='^$' ./internal/fibonacci/
 
 # Compare with Fast Doubling
-go test -bench='Benchmark(FastDoubling|Matrix)' -benchmem ./internal/fibonacci/
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp)' -benchmem -run='^$' ./internal/fibonacci/
 ```
 
 ## References

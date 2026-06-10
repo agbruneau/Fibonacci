@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to the Fibonacci Calculator project! This document provides guidelines and information for contributors.
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 744 nodes / 8 layers / 13-step tour). Useful when scoping a PR — verify which packages your change touches and what depends on them.
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 797 nodes / 8 layers / 13-step tour). Useful when scoping a PR — verify which packages your change touches and what depends on them.
 
 ## Table of Contents
 
@@ -53,15 +53,19 @@ make deps
 go mod download
 
 # Verify the setup
-make test
-# or
-go test ./...
+make test            # runs: go test -v -race -cover ./...
+# or, without make (omits -race):
+go test -v -cover ./...
 
 # Build the project
 make build
 # or
 go build -o build/fibcalc ./cmd/fibcalc
 ```
+
+> Note: `-race` requires CGO and a C compiler (gcc/clang). On Windows
+> without gcc, use `make test-win` (same tests without `-race`) or run the
+> race-enabled suite under WSL.
 
 ### Useful Commands
 
@@ -332,6 +336,8 @@ The following directories are produced by tooling; manual edits will be overwrit
 | ----------------------------- | -------------------------------------------------------- |
 | `.understand-anything/*.json` | `/understand` (Anthropic `understand-anything` plugin)   |
 | `docs/dashboard/`             | Vite build of the dashboard — see [`docs/BUILD.md#dashboard-statique-github-pages`](docs/BUILD.md#dashboard-statique-github-pages) |
+
+`.understand-anything/` is not tracked in git; the only tracked copy of the knowledge graph is the bundle under `docs/dashboard/` (`docs/dashboard/knowledge-graph.json`).
 
 If your PR changes code under `cmd/`, `internal/`, or `docs/architecture/`, consider rerunning `/understand` and rebuilding the dashboard so the published knowledge graph stays in sync.
 

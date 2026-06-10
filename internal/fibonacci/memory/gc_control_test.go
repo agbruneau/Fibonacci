@@ -1,9 +1,13 @@
 package memory
 
 import (
+	"bytes"
 	"errors"
 	"runtime/debug"
+	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
 )
 
 func TestGCController_Disabled(t *testing.T) {
@@ -175,6 +179,34 @@ func TestGCController_ConcurrentBeginEnd_RestoresOriginal(t *testing.T) {
 	// Last End -> original GOGC restored exactly once.
 	if cur := debug.SetGCPercent(sentinel); cur != sentinel {
 		t.Fatalf("GC not restored after last End: got %d, want %d", cur, sentinel)
+	}
+}
+
+// TestGCController_SetLogger_EmitsGCEvents verifies that SetLogger wires the
+// logger actually used by Begin/End: the "gc disabled" and "gc re-enabled"
+// debug events must land in the configured sink, with the mode field set.
+//
+// Not parallel: Begin/End (via WithGC) mutate the process-global GOGC through
+// the package refcount. WithGC itself restores the original value on return,
+// but the test stays sequential so no parallel test observes the temporary
+// GC-off window or asserts global GC state concurrently.
+func TestGCController_SetLogger_EmitsGCEvents(t *testing.T) {
+	var buf bytes.Buffer
+	gc := NewGCController("aggressive", 100)
+	if !gc.active {
+		t.Fatal("test prerequisite: aggressive controller must be active")
+	}
+	gc.SetLogger(zerolog.New(&buf))
+
+	if err := gc.WithGC(func() error { return nil }); err != nil {
+		t.Fatalf("WithGC: %v", err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{"gc disabled", "gc re-enabled", string(GCModeAggressive)} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log output missing %q: %s", want, out)
+		}
 	}
 }
 

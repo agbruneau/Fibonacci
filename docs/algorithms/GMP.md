@@ -70,7 +70,9 @@ calc, err := factory.Get("gmp")  // available only with gmp build tag
 if err != nil {
     // GMP not available (built without -tags=gmp)
 }
-result, err := calc.Calculate(ctx, progressChan, 0, 100_000_000, fibonacci.Options{})
+// nil progress channel disables progress reporting; to receive updates,
+// pass a chan<- progress.ProgressUpdate (package internal/progress)
+result, err := calc.Calculate(ctx, nil, 0, 100_000_000, fibonacci.Options{})
 ```
 
 ### Running Tests with GMP
@@ -82,11 +84,13 @@ go test -tags=gmp -v ./internal/fibonacci/
 # Run benchmarks with GMP
 go test -tags=gmp -bench=BenchmarkGMP -benchmem ./internal/fibonacci/
 
-# Compare GMP vs native algorithms
-go test -tags=gmp -bench='Benchmark(FastDoubling|GMP)' -benchmem ./internal/fibonacci/
+# Compare GMP vs native algorithms (native paths are sub-benchmarks of BenchmarkFibonacci)
+go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/
 ```
 
 ## Performance
+
+> **Status (2026-06-10)**: the figures in this section (CGO overhead per call, crossover around N = 1,000,000, net advantage for N > 100,000,000) are unverified approximations to date — no dated GMP benchmark exists in `docs/audits/`. A measurement was attempted on 2026-06-10 under WSL but could not run: the `libgmp-dev` headers are not installed there (`gmp.h: No such file or directory`). Once installed (`sudo apt-get install libgmp-dev`), run `go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/` and archive the output in `docs/audits/` to replace these estimates.
 
 GMP excels at extremely high precision. For inputs N < 1,000,000, Go's native `math/big` (and especially the optimized `bigfft` implementation used in the `"fast"` strategy) is often competitive or even faster due to CGO overhead. However, for N > 100,000,000, GMP's hand-tuned assembly loops typically provide a significant speed advantage.
 

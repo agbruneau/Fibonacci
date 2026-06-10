@@ -305,9 +305,14 @@ When benchmarks cannot run (e.g., timeout or missing calculator), heuristic func
 | 9-16 | 1024 |
 | 17+ | 512 |
 
-**`EstimateOptimalFFTThreshold()`**: 500,000 bits on 64-bit systems, 250,000 bits on 32-bit systems.
+> **SIMD adjustment** — on hosts with 8+ cores and a table value above 512,
+> `estimateParallelThresholdForHeuristic()` (`internal/config/thresholds.go`)
+> lowers the estimate for higher SIMD throughput: `max(512, base - 512)` with
+> AVX-512, `max(512, base - 256)` with AVX2.
 
-**`EstimateOptimalStrassenThreshold()`**: 256 bits on systems with 4+ cores, 3,072 bits otherwise.
+**`EstimateOptimalFFTThreshold()`**: on 64-bit systems, 500,000 bits (generic), 480,000 (AVX2) or 460,000 (AVX-512); 250,000 bits on 32-bit systems.
+
+**`EstimateOptimalStrassenThreshold()`**: on systems with 4+ cores, 256 bits (generic), 240 (AVX2) or 224 (AVX-512); 3,072 bits otherwise.
 
 ## Calibration Runner
 
@@ -344,6 +349,9 @@ Each method returns the best threshold and its duration. If all trials fail (tim
 | `profile.go` | `CalibrationProfile` data structure, validation, serialization |
 | `io.go` | Result formatting and output (`printCalibrationResults()`, `printCalibrationOutput()`) |
 | `runner.go` | `calibrationRunner` with `findBest*Threshold()` methods |
+| `strategy.go` | `CalibrationStrategy` interface (Strategy pattern, see the Architecture note under Auto-Calibration) |
+| `strategy_fast.go` | `FastStrategy` -- micro-benchmark tier |
+| `strategy_complete.go` | `CompleteStrategy` -- full calibration runner tier |
 | `doc.go` | Package documentation |
 
 ## Tuning Recommendations
@@ -367,7 +375,7 @@ For most users, running `fibcalc --auto-calibrate` once is sufficient. The saved
 | `FIBCALC_CALIBRATION_PROFILE` | Path to calibration profile file | `~/.fibcalc_calibration.json` |
 | `FIBCALC_PROFILE_MAX_AGE` | Freshness window; a profile older than this is `IsStale` and triggers re-calibration via `CompleteStrategy` | `168h` (7 d) |
 
-These environment variables follow the `FIBCALC_*` convention and have lower priority than their corresponding CLI flags. See `internal/config/env.go` for the full list.
+These environment variables follow the `FIBCALC_*` convention and have lower priority than their corresponding CLI flags. See `internal/config/env.go` for the full list — except `FIBCALC_PROFILE_MAX_AGE`, which is defined and consumed by `internal/calibration/calibration.go` (`ProfileMaxAgeEnv` / `profileMaxAgeFromEnv`).
 
 ## Cross-References
 
