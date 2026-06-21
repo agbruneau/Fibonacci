@@ -76,3 +76,8 @@ historique ci-dessus est conservé tel quel et la décision KEEP reste inchangé
   a dérivé : ce range couvre la fin de `renameAtomic`. La cible visée est la
   validation de profil `CalibrationProfile.IsValid` (référence symbolique
   `profile.go:IsValid` ; lignes 205-234 à HEAD).
+- Les artefacts `docs/audits/bench-dtm-{on,off}.txt` (Decision §2, References)
+  ont été purgés avec le reste de `docs/audits/` (CHANGELOG, Housekeeping
+  2026-06-10) ; ils restent régénérables à la demande via `BenchmarkFibonacciDTM`
+  (`internal/fibonacci/dtm_bench_test.go`). Les résultats chiffrés restent inline
+  dans la table ci-dessus, donc la décision KEEP n'en dépend pas.

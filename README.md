@@ -200,7 +200,9 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO/gcc — indisponible sous Windows sans gcc ; sur cet environnement les passes
-  `-race` complètes se font via **WSL** (`wsl go test -race ./...`, vérifiées le 2026-06-10).
+  `-race` complètes se font via **WSL** (`wsl go test -race ./...`) — suite intégralement verte au 2026-06-21
+  après dé-flake d'un test de pool `bigfft` qui échouait par intermittence sous `-race` (assertion d'identité
+  `sync.Pool` non contractuelle retirée ; cf. table des invariants de [`CLAUDE.md`](CLAUDE.md)).
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
 - Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0008). Guide agents IA : [`CLAUDE.md`](CLAUDE.md).

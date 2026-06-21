@@ -24,11 +24,11 @@ var ErrMissingFastCalculator = errors.New("calibration: 'fast' calculator missin
 var ErrNoUsefulResults = errors.New("calibration: no usable timings collected")
 
 // CompleteStrategy runs the runner-based threshold sweep: it walks the
-// quick parallel/FFT/Strassen candidate sets (adaptive.go) and times
-// each one against the real fibonacci.Calculator, picking the best
-// timing per dimension. It is significantly slower than FastStrategy
-// (multiple seconds vs ~100 ms) but provides the authoritative value
-// recorded with full confidence (1.0).
+// parallel/FFT/Strassen candidate sets (quick for parallel & Strassen,
+// comprehensive for FFT; adaptive.go) and times each one against the real
+// fibonacci.Calculator, picking the best timing per dimension. It is
+// significantly slower than FastStrategy (multiple seconds vs ~100 ms) but
+// provides the authoritative value recorded with full confidence (1.0).
 type CompleteStrategy struct{}
 
 // NewCompleteStrategy returns a ready-to-use CompleteStrategy.

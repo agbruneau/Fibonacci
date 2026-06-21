@@ -13,10 +13,12 @@
 //
 //   - Calibration runs are bounded by a context.Context deadline; callers
 //     are expected to pass a cancellable context so the user can abort.
-//   - Profiles written by io.go are versioned; a mismatch causes a
-//     silent re-calibration rather than loading stale thresholds.
-//   - Micro-benchmarks (microbench.go) use a median-of-N strategy to reduce
-//     noise; they never run concurrently with each other.
+//   - Profiles are versioned (profile.go: ProfileVersion vs
+//     CurrentProfileVersion); a mismatch causes a silent re-calibration
+//     rather than loading stale thresholds.
+//   - Micro-benchmarks (microbench.go) average N timed iterations per
+//     configuration to reduce noise; the configurations themselves run
+//     concurrently, bounded by a runtime.NumCPU semaphore.
 //
 // # Entry points
 //

@@ -49,8 +49,8 @@ baseline is regenerated on demand via `make bench-baseline`.
   arena anti-bloat policy. benchstat (commit message, n=6): geomean sec/op
   −4.42 %, DTM Off/On 10M −6.9 %/−6.7 % (p=0.002), fast-doubling B/op −46 %
   (13.57 → 7.25 Mi), no regression ≥ 5 %. +3 bump guard tests.
-- **Cumulative effect** (`docs/audits/bench-audit-loop-2026-06.md`,
-  2026-06-10) — geomean sec/op **−12.0 %** vs the same-day baseline;
+- **Cumulative effect** (2026-06-10, the two commits above vs the same-day
+  `make bench-baseline`) — geomean sec/op **−12.0 %** vs that baseline;
   FastDoubling/10M 33.30 ms → 28.20 ms (−15.3 %); B/op ~**−70 %** cumulative
   at 10M (−61 % at 1M). No significant sec/op regression.
 
@@ -91,10 +91,12 @@ baseline is regenerated on demand via `make bench-baseline`.
 
 #### Docs
 
-- **`docs/audits/bench-audit-loop-2026-06.md`** (`cfb4ff2`) — dated benchmark
-  baseline of the audit loop (Phase 1 close); rejected optimization
-  candidates documented with evidence (`fermat.Shift` `shlVU` guard refuted
-  by reading `math/big`; forward-transform parallelization set aside).
+- **Rejected optimization candidates** (`cfb4ff2`, Phase 1 close) — documented
+  with evidence: `fermat.Shift` `shlVU` guard refuted by reading `math/big`;
+  forward-transform parallelization set aside. The dated benchmark baseline
+  that backed them (`docs/audits/bench-audit-loop-2026-06.md`) was purged with
+  the rest of `docs/audits/` (see Housekeeping above); regenerate via
+  `make bench-baseline`.
 - **`internal/cli/completion`** (`ed6c334`) — dedicated `doc.go` per project
   convention (package comment moved out of `registry.go`, enriched with the
   shell-escaping note).

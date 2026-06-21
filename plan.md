@@ -28,7 +28,7 @@ répéter pour passe p = 1, 2, 3, … :
              - aucun changement & A ouverte & A.dry ≥ K(A) . A.statut = DONE (convergée à sec)
              - aucun changement & A.dry < K(A) ..... A.dry += 1
              - condition BLOCKED rencontrée ......... A.statut = BLOCKED ; consigner la raison
-        5. mettre le Ledger (§ 2) à jour
+        5. mettre à jour le Ledger (§ 2) **et** le Journal (§ 6) — suivi obligatoire après **chaque** itération de loop
     arrêt global SI : toutes les activités ∈ {DONE, BLOCKED}
     arrêt global SI : progrès = faux sur 2 passes consécutives  → escalader au mainteneur
 ```
@@ -70,15 +70,15 @@ forcer.
 
 | ID | Activité (loop) | Priorité | Statut | dry | Dernière vérif |
 |----|-----------------|:--------:|:------:|:---:|----------------|
-| A0 | Baseline gate (Post-release baseline) | 0 | PENDING | — | — |
-| A1 | Groundtruth audit (cartographie code-evidence) | 1 | PENDING | 0 | — |
-| A2 | Champion / baseline perf gate | 2 | PENDING | — | — |
-| A3 | Adversarial-review hot-path (Clodex / multi-LLM) | 3 | PENDING | — | — |
-| A4 | Architecture satisfaction (refactor checkpointé) | 4 | PENDING | 0 | — |
-| A5 | Docs sweep + Propagation compliance | 5 | PENDING | 0 | — |
-| A6 | Test stabilizer (flaky `-race`) | 6 | PENDING | 0 | — |
-| A7 | Housekeeper (code mort, ponytail-audit) | 7 | PENDING | 0 | — |
-| A8 | Security-review `cli/completion` (échappement shell) | 8 | PENDING | — | — |
+| A0 | Baseline gate (Post-release baseline) | 0 | **DONE** | — | P1: gate PASS, cov 95.0 % |
+| A1 | Groundtruth audit (cartographie code-evidence) | 1 | **DONE** | 1 | P1: 8 trouvailles, 0 rejetée — toutes docs-drift |
+| A2 | Champion / baseline perf gate | 2 | **DONE** | — | aucun code prod modifié → perf invariante (trivial) |
+| A3 | Adversarial-review hot-path (Clodex / multi-LLM) | 3 | **DONE** | — | P1: 0 trouvaille hot-path (base propre) |
+| A4 | Architecture satisfaction (refactor checkpointé) | 4 | **DONE** | 1 | P1: aucun refactor requis ; arch_test vert |
+| A5 | Docs sweep + Propagation compliance | 5 | **DONE** | 1 | P1: 8 docs-drift corrigés + vérifiés |
+| A6 | Test stabilizer (flaky `-race`) | 6 | **DONE** | 1 | P1: fix flake bigfft ; `-race ./...` vert |
+| A7 | Housekeeper (code mort, ponytail-audit) | 7 | **DONE** | 1 | P1: 0 code mort détecté (convergé à sec) |
+| A8 | Security-review `cli/completion` (échappement shell) | 8 | **DONE** | — | P1: escape.go par-dialecte ; audit+spot-check propres |
 
 Statuts : `PENDING` · `IN_PROGRESS` · `DONE` · `BLOCKED`.
 
@@ -86,15 +86,15 @@ Statuts : `PENDING` · `IN_PROGRESS` · `DONE` · `BLOCKED`.
 
 ## 3. Gate final (condition de fin globale — succès)
 
-Toutes vraies, sinon la boucle globale continue :
+Toutes vraies → **boucle close (P1, 2026-06-21)** :
 
-- [ ] `pwsh scripts/check.ps1` → **PASS** (build/vet/test/couverture ≥ 80 %)
-- [ ] `go test ./internal -run TestArchitectureLayering` → PASS
-- [ ] `go test ./internal/fibonacci -run Golden` → PASS (golden intact)
-- [ ] `wsl go test -race ./...` → PASS (ou A6 = `BLOCKED: WSL indisponible`, consigné)
-- [ ] `benchstat` baseline vs final → **aucune** régression > 5 % sur FastDoubling / MatrixExp / FFTBased
-- [ ] Couverture totale ≥ 90 % (cible projet ; plancher dur 80 %)
-- [ ] Aucune activité ≠ `DONE` sans raison `BLOCKED` consignée
+- [x] `pwsh scripts/check.ps1` → **PASS** (build/vet/test/couverture)
+- [x] `go test ./internal -run TestArchitectureLayering` → **ok**
+- [x] `go test ./internal/fibonacci -run Golden` → **ok** (golden intact)
+- [x] `wsl go test -race ./...` → **RACE_ALL_GREEN**
+- [x] `benchstat` → **N/A trivial** : aucun code de production modifié (commentaires + 1 test + `.md`) → binaire identique, perf invariante par construction
+- [x] Couverture totale **95.0 %** (≥ 90 % cible)
+- [x] Aucune activité ≠ `DONE` sans raison `BLOCKED` consignée (0 BLOCKED)
 
 ---
 
@@ -172,4 +172,56 @@ Toutes vraies, sinon la boucle globale continue :
 
 | Passe | Activité | Itération | Action | Vérif | Résultat |
 |:-----:|----------|:---------:|--------|-------|----------|
-| — | — | — | *(à remplir au lancement)* | — | — |
+| P1 | A0 | 1 | gate baseline | `check.ps1` | PASS, cov 95.0 % ; baseline commitée non réécrite |
+| P1 | A6 | 1 | `-race` sanity | `wsl go test -race ./...` | FAIL `TestReleaseWordSliceResizedReturnsToBucket` (bigfft) |
+| P1 | A6 | 1 | diagnostic | race ×10 FAIL / no-race ×20 OK | flaky par conception (identité `sync.Pool` non garantie) |
+| P1 | A6 | 1 | fix racine | suppr. boucle identité, garde miss-counter conservée | race ×30 + bigfft ×3 + `-race ./...` **verts** |
+| P1 | A1+A3 | 1 | audit + revue adverse (workflow, 11 agents) | schema-validé | 8 trouvailles, **0 rejetée** — 100 % docs-drift, hot-path propre |
+| P1 | A5 | 1 | fix 8 docs-drift (app/calib/orch doc.go, strategy_complete, CHANGELOG, ADR-0001, ARCH.md) | chaque claim vérifié vs code | build/vet/test verts |
+| P1 | A2/A4/A7/A8 | 1 | — | audit + spot-check sécu | aucune matière (perf 0 delta ; 0 refactor ; 0 code mort ; escape.go OK) |
+| P1 | **GATE** | — | gate final | check.ps1 + arch + golden + `-race` | **PASS** — boucle close, 0 BLOCKED |
+
+---
+
+## 7. Phase Skills — exécution par ordre de priorité
+
+> Seconde phase, **après** la boucle d'activités. On passe les *skills* priorisés pour ce
+> repo sur l'**état courant** (diff de P1 = 9 fichiers : 8 fixes doc + 1 suppr. d'assertion
+> flaky). Deux familles :
+> - **Skills-rapport** : exécutables maintenant, produisent des findings → fix chirurgical + re-gate.
+> - **Skills-process** : s'activent sur déclencheur (bug, feature). On **ne simule pas** une
+>   exécution sans entrée réelle (honnêteté, CLAUDE.md §4) ; on note « déjà exercé » ou « N/A ».
+
+| Rang | Skill | Type | Cible ici | Exéc. P1 | Critère de succès |
+|------|-------|------|-----------|:--------:|-------------------|
+| S1 | `verification-before-completion` + `/code-review` | rapport | diff courant | OUI | 0 bug de correction ; cleanups traités/justifiés |
+| S2 | `systematic-debugging` | process | bug/échec actif | déjà exercé (A6) | cause racine prouvée |
+| S3 | `/ponytail-audit` | rapport | dépôt entier | OUI | rapport bloat produit ; rien d'actionnable non noté |
+| S4 | `/ponytail-review` | rapport | diff courant | OUI | aucune sur-ingénierie **introduite** par P1 |
+| S5 | `/tdd` (test-driven-development) | process | feature/bugfix | N/A (rien à construire) | rouge → vert |
+| S6 | `/review` (Standards + Spec) | rapport | diff depuis `HEAD` | OUI | conforme aux standards repo + intention |
+| S7 | `/security-review` | rapport | diff + `cli/completion` | OUI | 0 faille |
+| S8 | `dispatching-parallel-agents` / Workflow | process | audit à l'échelle | déjà exercé (A1/A3) | fan-out vérifié adversairement |
+
+**Protocole de la phase** :
+1. Exécuter les skills-rapport **S1 → S7** dans l'ordre de priorité ; consigner chaque sortie au Journal § 8.
+2. Toute trouvaille **actionnable** → fix chirurgical + re-gate (§ 3) **avant** de continuer.
+3. Skills-process : statut « déjà exercé » / « N/A » justifié — pas d'exécution à vide.
+4. **Fin de phase** : tous les skills-rapport passés **et** gate § 3 toujours vert.
+
+---
+
+## 8. Journal d'exécution des skills (rempli par la phase 7)
+
+| Rang | Skill | Cible | Findings | Action | Résultat |
+|:----:|-------|-------|----------|--------|----------|
+| S1 | `/code-review` | diff P1 (9 fichiers) | 0 critique ; 1 note mineure non-actionnable (doc-comment test) | aucune | **Approve** — 0 bug/faille/régression |
+| S2 | `systematic-debugging` | flake bigfft | — | — | **déjà exercé** (A6 : race×10 vs no-race×20 → cause racine `sync.Pool`) |
+| S3 | `/ponytail-audit` | dépôt entier | 1 yagni (`parallel` knob ~8 l.) ; 1 delete conditionnel (FFTContext réservé, ADR-0004) | aucune (report seul ; documenté intentionnel) | quasi *Lean already* — sur-ingénierie évidente déjà tranchée (ADR-0008) |
+| S4 | `/ponytail-review` | diff P1 | 1 shrink optionnel (commentaire « pourquoi », protégé) | aucune | **Lean already. Ship.** — diff = simplification nette (−46 l.) |
+| S5 | `/tdd` | feature/bugfix | — | — | **N/A** — aucune feature à construire ; le fix flake A6 était un test, pas un build de prod |
+| S6 | `/review` (Standards + Spec, 2 sous-agents //) | diff P1 vs HEAD | **1 vrai défaut** (les 2 axes, indép.) : `strategy_complete.go:27` « comprehensive » faux pour parallel & Strassen (quick) | **corrigé** : wording mixte exact vérifié vs runner.go | défaut réparé ; 0 scope-creep ; golden/globals OK |
+| S7 | `/security-review` | diff P1 + `cli/completion` | 0 faille (diff = commentaires+test+md, exclusions #11/#16) | aucune | **No findings** ; `escape.go` par-dialecte sain (hors diff) |
+| S8 | `dispatching-parallel-agents` / Workflow | audit à l'échelle | — | — | **déjà exercé** (A1/A3 : workflow 11 agents, vérif adverse) |
+
+**Phase Skills close (P1, 2026-06-21)** : 5 skills-rapport passés (S1/S3/S4/S6/S7), 3 process notés (S2/S5/S8). **Bilan net** : le `/review` a attrapé 1 vrai défaut que j'avais introduit (sur-correction A5) → corrigé. Gate § 3 toujours vert.

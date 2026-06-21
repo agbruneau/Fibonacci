@@ -22,7 +22,7 @@
 // # Example
 //
 //	func main() {
-//	    a, err := app.New(os.Args[1:], os.Stderr)
+//	    a, err := app.New(os.Args, os.Stderr)
 //	    if err != nil {
 //	        // handle wiring error
 //	    }

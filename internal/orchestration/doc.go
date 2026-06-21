@@ -7,7 +7,8 @@
 // Key types:
 //
 //   - ExecuteCalculations: errgroup-based parallel dispatcher. Each
-//     selected calculator runs concurrently, bounded by NumCPU. Results
+//     selected calculator runs in its own goroutine (one per calculator,
+//     a small fixed set — the errgroup has no SetLimit). Results
 //     flow back through a progress channel that is closed and drained
 //     deterministically.
 //   - CalculationResult: the uniform domain DTO returned to the

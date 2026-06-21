@@ -100,7 +100,7 @@ fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
 ├── cmd/
 │   ├── fibcalc/                 # Main application entrypoint
 │   └── generate-golden/         # Golden-data generator for tests
-├── internal/                    # 15 top-level packages (+ fibonacci/memory, fibonacci/threshold)
+├── internal/                    # top-level packages (run `make stats` for the authoritative count)
 ├── test/
 │   └── e2e/                     # End-to-end CLI tests
 ├── docs/                        # Architecture, algorithm, build, test, perf docs
@@ -137,12 +137,14 @@ internal/
 │   ├── arith_generic.go         # Portable fallback arithmetic
 │   └── cpu_amd64.go             # Runtime CPU feature detection (AVX2, etc.)
 ├── calibration/                 # Threshold benchmarking + profile persistence
-├── cli/                         # CLI output/presenter/spinner/completion
+├── cli/                         # CLI output/presenter/spinner
+│   └── completion/              # Shell completion generators (bash/zsh/fish/powershell)
 ├── config/                      # Flag parsing, env override, adaptive thresholds
 ├── errors/                      # Typed app errors + exit code handling
 ├── fibonacci/                   # Core Fibonacci algorithms + framework/strategy/factory
 │   ├── memory/                  # Arena allocator, GC control, memory budget
-│   └── threshold/               # Dynamic threshold manager
+│   ├── threshold/               # Dynamic threshold manager
+│   └── fibonaccitest/           # Public test double for fibonacci.Calculator
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
 │   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
@@ -151,6 +153,7 @@ internal/
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
 ├── tui/                         # Bubble Tea interactive dashboard
+│   └── component/               # Reusable TUI components
 └── ui/                          # Themes/colors/NO_COLOR behavior
 ```
 
