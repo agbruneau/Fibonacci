@@ -62,9 +62,17 @@ Justification :
 À revoir si : le projet passe sous GitHub Enterprise / Actions Pro, ou
 si un runner self-hosted ARM64 devient disponible.
 
+**Mise à jour (2026-06-21) :** il n'y a plus de CI dans le dépôt — le
+répertoire `.github/` (et le job `cross-compile` d'E10-R5 cité ci-dessus)
+a été supprimé (cf. `CHANGELOG.md`). La compilabilité cross-arch est
+désormais vérifiée **localement** via `make build-all` /
+`make build-windows-arm64` (`docs/PORTABILITY.md` §6). Le statut WONT-FIX
+(bench cross-arch) reste valide ; seule la justification s'appuyant sur la
+CI est caduque.
+
 ### Item B4 — Suppression définitive de `EVALUATION.md`
 
-**Statut : DEFER (sera supprimé après une release).**
+**Statut : DONE (exécuté) — voir mise à jour ci-dessous.**
 
 Justification :
 - Le fichier est déjà déplacé vers `docs/external-reviews/` avec un
@@ -73,7 +81,10 @@ Justification :
 - Garder l'historique permet de tracer la trajectoire (auto-eval →
   audit consolidé) pour les contributeurs futurs.
 
-À revoir si : un mainteneur juge que l'historique n'a plus de valeur.
+**Mise à jour (2026-06-21) :** exécuté. Le fichier (déplacé en
+`docs/external-reviews/2026-02-08-jules-self-evaluation.md`) a été purgé
+au commit `7ab9098` ; `docs/external-reviews/` est désormais vide. La
+décision de report n'a plus d'objet.
 
 ### Item B5 — Extension du golden au-delà de F(10 000)
 

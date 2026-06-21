@@ -139,14 +139,16 @@ go test -fuzz=FuzzFFTBasedConsistency -fuzztime=1m ./internal/fibonacci/
 
 ### Mathematical Identities Verified
 
-`FuzzFibonacciIdentities` checks two properties:
+`FuzzFibonacciIdentities` checks four properties:
 
 1. **Doubling identity**: `F(2n) = F(n) * (2*F(n+1) - F(n))`
 2. **d'Ocagne's identity**: `|F(m)*F(n+1) - F(m+1)*F(n)| = F(n-m)` for n > m
+3. **Cassini's identity**: `F(n-1)*F(n+1) - F(n)^2 = (-1)^n`
+4. **Addition identity**: `F(m+n) = F(m)*F(n+1) + F(m-1)*F(n)`
 
 These provide independent verification without comparing two calculator implementations.
 
-Each fuzz test is seeded with known interesting values (0, 1, 92, 93, 1000, 5000) to guide the fuzzer toward productive exploration.
+Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoublingConsistency`: 0, 1, 2, 10, 50, 92, 93, 100, 500, 1000, 5000, 50000, 100000, 150000) to guide the fuzzer toward productive exploration.
 
 ## Architecture-Layering Gate
 

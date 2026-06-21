@@ -64,7 +64,9 @@ func fftmulTo(dst, x, y nat) (nat, error) {
     if err != nil {
         return nil, err
     }
-    return rp.IntTo(dst), nil
+    result := rp.IntTo(dst)
+    rp.Release() // return pooled buffers after the result is copied
+    return result, nil
 }
 ```
 
@@ -390,7 +392,7 @@ Two implementations:
 | Type | Strategy | Cleanup |
 |------|----------|---------|
 | `PoolAllocator` | `sync.Pool` acquire/release | Returns buffers to pool |
-| `BumpAllocatorAdapter` | Bump allocation from contiguous buffer | No-op (bulk release) |
+| `*BumpAllocator` | Bump allocation from contiguous buffer (implements `TempAllocator` directly via `AllocFermatTemp`/`AllocFermatSlice`) | No-op (bulk release via `ReleaseBumpAllocator`) |
 
 This abstraction allows the same FFT recursion code (`fourierRecursiveUnified`) to
 work with either allocator without duplication.
@@ -410,7 +412,7 @@ K = 2^k (from fftSizeThreshold lookup)
 n = wordLen / K + 1
 transformTemp = K * (n+1)
 multiplyTemp  = 8 * n
-total = (2*transformTemp + multiplyTemp) * 1.2   // 20% safety margin
+total = (2*transformTemp + multiplyTemp) * 11 / 10   // 10% safety margin (reduced from 20% per profiling)
 ```
 
 ### Pool Pre-Warming
@@ -538,7 +540,7 @@ Available via `GetTransformCache().Stats()`.
 flowchart TD
     Input["Input nat + (k, n)"] --> Hash["FNV-1a 64-bit Key"]
     Hash --> Lookup{"Cache Hit?"}
-    Lookup -->|Yes| Clone["Deep-copy cached PolValues"]
+    Lookup -->|Yes| Clone["Return shared (read-only) cached PolValues"]
     Lookup -->|No| Compute["Compute FFT Transform"]
     Compute --> Store["Deep-copy into cache + LRU push"]
     Clone --> Return["Return PolValues"]
@@ -618,20 +620,20 @@ of 10 using the FFT multiplier.
 
 | File | Lines | Responsibility |
 |------|-------|---------------|
-| `fft.go` | ~292 | Public API: `Mul`, `MulTo`, `Sqr`, `SqrTo`; FFT size selection |
+| `fft.go` | ~293 | Public API: `Mul`, `MulTo`, `Sqr`, `SqrTo`; FFT size selection |
 | `fft_core.go` | ~108 | Core FFT: `fftmulTo`, `fftsqrTo`, `fourier`, `fourierWithBump` |
-| `fft_recursion.go` | ~186 | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
+| `fft_recursion.go` | ~266 | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
 | `fft_recursion_ctx.go` | ~91 | Context-aware FFT recursion variant routing goroutine admission through an `FFTContext`-owned semaphore |
-| `context.go` | ~445 | `FFTContext`: opt-in isolation of cache/semaphore/allocator + context-aware `Mul`/`Sqr` variants (ADR-0004 §B1, ADR-0006) |
-| `fft_poly.go` | ~523 | `Poly` and `PolValues` types; transform, multiply, inverse |
-| `fft_cache.go` | ~629 | `TransformCache`: thread-safe LRU for FFT transforms |
+| `context.go` | ~451 | `FFTContext`: opt-in isolation of cache/semaphore/allocator + context-aware `Mul`/`Sqr` variants (ADR-0004 §B1, ADR-0006) |
+| `fft_poly.go` | ~619 | `Poly` and `PolValues` types; transform, multiply, inverse |
+| `fft_cache.go` | ~642 | `TransformCache`: thread-safe LRU for FFT transforms |
 | `fermat.go` | ~386 | Fermat ring arithmetic: Z/(2^k+1) |
 | `pool.go` | ~517 | `sync.Pool` hierarchies (4 types, 33 size classes), `fftState` |
 | `pool_warming.go` | ~121 | `PreWarmPools`, `EnsurePoolsWarmed` |
 | `bump.go` | ~260 | `BumpAllocator`: O(1) bump allocation with capacity estimation |
-| `allocator.go` | ~90 | `TempAllocator` interface, `PoolAllocator`, `BumpAllocatorAdapter` |
+| `allocator.go` | ~90 | `TempAllocator` interface, `PoolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`) |
 | `memory_est.go` | ~79 | `EstimateMemoryNeeds` for pool pre-warming |
-| `scan.go` | ~88 | `FromDecimalString`: subquadratic decimal parsing |
+| `scan.go` | ~98 | `FromDecimalString`: subquadratic decimal parsing |
 | `arith_amd64.go` | ~32 | amd64 vector arithmetic wrappers delegating to `math/big` internals |
 | `arith_generic.go` | ~36 | Non-amd64 vector arithmetic wrappers delegating to `math/big` internals |
 | `arith_decl.go` | ~65 | Architecture-independent `go:linkname` declarations to `math/big` |

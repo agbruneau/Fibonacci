@@ -38,9 +38,9 @@ Where M(n) is the cost of multiplying numbers of n bits.
 | **Fast Doubling** | **3** | 1 | 1 | **5** |
 | Matrix Exp. (Classic) | 8 | 4 | 0 | 12 |
 | Matrix Exp. (Symmetric) | 4 | 4 | 0 | 8 |
-| Matrix Exp. (Strassen) | 7 | 18 | 18 | 43 |
+| Matrix Exp. (Strassen-Winograd) | 7 | 7 | 8 | 22 |
 
-> **Note**: While Strassen reduces multiplications (the most expensive operation), it significantly increases additions and subtractions. This explains why it is only beneficial for extremely large numbers where M(n) >> A(n).
+> **Note**: The implemented Strassen-Winograd variant (`internal/fibonacci/matrix_ops.go`) keeps 7 multiplications and uses 15 additions/subtractions total (7 adds + 8 subs) — fewer than the textbook Strassen (18 add/sub). It still trades more add/sub for fewer multiplications, so it only pays off for extremely large numbers where M(n) >> A(n).
 
 > **Note**: The three multiplications in the current implementation are `FK×FK1`, `FK²`, and `FK1²` (using the reformulated `F(2k) = 2·FK·FK1 - FK²` identity).
 

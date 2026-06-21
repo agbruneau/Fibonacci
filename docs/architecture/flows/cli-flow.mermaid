@@ -36,7 +36,7 @@ flowchart LR
     end
 
     subgraph Progress["Progress Reporting"]
-        D3 -.->|ChannelObserver| E1[CLIProgressReporter]
+        D3 -.->|ChannelObserver| E1[cli.DisplayProgress<br/>via ProgressReporterFunc]
         D4 -.->|ChannelObserver| E1
         E1 --> E2[Spinner + Progress Bar + ETA]
     end

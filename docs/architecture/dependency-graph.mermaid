@@ -47,14 +47,13 @@ flowchart LR
     app --> ui
 
     orch --> fib
-    orch --> config
     orch --> errors
     orch --> progress
     orch --> fibmem
+    orch --> format
 
     calib --> fib
     calib --> bigfft
-    calib --> cli
     calib --> config
     calib --> errors
     calib --> format
@@ -72,7 +71,6 @@ flowchart LR
     cli --> metrics
     cli --> ui
     cli --> orch
-    cli --> fib
     cli --> config
     cli --> progress
 
@@ -86,6 +84,7 @@ flowchart LR
     tui --> progress
 
     app --> fibmem
+    app --> fibthr
 
     style Entry fill:#e1f5fe
     style Core fill:#f3e5f5

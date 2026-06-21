@@ -381,5 +381,5 @@ These environment variables follow the `FIBCALC_*` convention and have lower pri
 
 - [PERFORMANCE.md](PERFORMANCE.md) -- Threshold impact on the 3-tier multiplication system
 - [BUILD.md](BUILD.md) -- `make run-calibrate` target
-- [Architecture](architecture/README.md) -- Calibration package placement in the orchestration layer
+- [Architecture](architecture/README.md) -- Calibration package placement (Business Logic layer, wired in at the app layer via `internal/app`)
 - [algorithms/FFT.md](algorithms/FFT.md) -- FFT threshold context and algorithm details

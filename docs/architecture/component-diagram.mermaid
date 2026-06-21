@@ -113,7 +113,10 @@ classDiagram
         <<interface>>
         +PresentComparisonTable(results, out)
         +PresentResult(result, n, verbose, details, showValue, out)
-        +FormatDuration(d) string
+    }
+
+    class ErrorHandler {
+        <<interface>>
         +HandleError(err, duration, out) int
     }
 
@@ -128,11 +131,6 @@ classDiagram
         -offset int
         +Alloc(n) []big.Word
         +AllocFermat(n) fermat
-        +AllocFermatSlice(K, n) []fermat, []big.Word
-    }
-
-    class BumpAllocatorAdapter {
-        -ba *BumpAllocator
         +AllocFermatTemp(n) fermat, func()
         +AllocFermatSlice(K, n) []fermat, []big.Word, func()
     }
@@ -188,9 +186,8 @@ classDiagram
     ProgressObserver <|.. ChannelObserver
     ProgressObserver <|.. LoggingObserver
     ProgressObserver <|.. NoOpObserver
-    TempAllocator <|.. BumpAllocatorAdapter
+    TempAllocator <|.. BumpAllocator
     TempAllocator <|.. PoolAllocator
-    BumpAllocatorAdapter --> BumpAllocator : wraps
 
     DoublingFramework --> DoublingStepExecutor : uses
     DoublingFramework --> Options : configured by

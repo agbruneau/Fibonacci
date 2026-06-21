@@ -12,7 +12,7 @@ flowchart LR
         S2 --> P1
         P1 --> P2[flag.Parse]
         P2 --> P3[applyEnvOverrides]
-        P3 --> P4[validateConfig]
+        P3 --> P4[AppConfig.Validate]
         P4 --> P5[AppConfig struct]
     end
 

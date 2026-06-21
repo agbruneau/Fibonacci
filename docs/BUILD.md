@@ -377,7 +377,7 @@ This runs the `understand-anything` plugin and rewrites:
 Requires the `understand-anything` plugin checkout (Node 22+, pnpm 10+):
 
 ```bash
-PLUGIN=~/.claude/plugins/cache/understand-anything/understand-anything/2.7.3
+PLUGIN=$(ls -d ~/.claude/plugins/cache/understand-anything/understand-anything/*/ | sort -V | tail -1)
 cd "$PLUGIN" && pnpm install --ignore-scripts && pnpm --filter @understand-anything/core build
 
 # Bake env vars into the bundle pointing at the colocated JSON files

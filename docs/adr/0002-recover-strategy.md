@@ -31,7 +31,7 @@ Mais aucun consommateur de production n'utilise les wrappers `*Safe`.
 ### Positive
 
 - Régressions algorithmiques visibles immédiatement (test stack trace au lieu de `err opaque`).
-- Suppression du *code mort* `*Safe`.
+- Couverture explicite des pré-conditions conservée via les wrappers `*Safe` **testés** (`fermat_test.go`, `misc_extra_test.go`) — cohérent avec la Décision §5 qui les conserve.
 - Contrat d'API public inchangé pour les pré-conditions attendues.
 
 ### Negative / Trade-offs

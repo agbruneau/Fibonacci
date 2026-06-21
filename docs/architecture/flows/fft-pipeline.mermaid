@@ -38,7 +38,7 @@ flowchart LR
     end
 
     subgraph InverseFFT["Inverse FFT Transform"]
-        E6 --> F1[inverseFourier<br/>reverse butterfly]
+        E6 --> F1[fourier backward=true<br/>inverse butterfly]
         F1 --> F2[Scale by 1/N]
         F2 --> F3[Carry propagation]
     end
@@ -53,7 +53,7 @@ flowchart LR
         H1[LRU eviction policy]
         H2[Thread-safe RWMutex]
         H3[Configurable max entries]
-        H4[Benefits cache-consulting paths only<br/>direct Mul/Sqr and FFTOnlyStrategy —<br/>no effect on default fast doubling]
+        H4[Benefits cache-consulting paths only<br/>direct Mul/Sqr/MulTo/SqrTo —<br/>no effect on any doubling loop]
     end
 
     style Input fill:#e1f5fe

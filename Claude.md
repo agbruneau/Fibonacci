@@ -21,7 +21,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique : Clean Arc
 Clean Architecture, 4 couches : `cmd → app → orchestration → fibonacci/bigfft → config/errors`.
 
 - **Structure des packages** : source de vérité dans [`docs/architecture/`](docs/architecture/) (diagrammes C4, [`dependency-graph.mermaid`](docs/architecture/dependency-graph.mermaid)) et la table des packages du [README](README.md#architecture). Ne pas redupliquer l'arbre ici (il dérive).
-- **Étanchéité** (`internal/arch_test.go` / `TestArchitectureLayering`) : trois arrows remontants interdits — `threshold → config`, `errors → format`, `tui → fibonacci` ; `internal/` ne fuit pas vers `cmd/`.
+- **Étanchéité** (`internal/arch_test.go` / `TestArchitectureLayering`) : trois arrows remontants interdits — `threshold → config`, `errors → format`, `tui → fibonacci`. (Le non-débordement de `internal/` vers `cmd/` est garanti par le langage Go, pas par ce test.)
 
 ---
 
@@ -66,7 +66,7 @@ Contexte « pourquoi » du hot path (détail mesuré : [`docs/PERFORMANCE.md`](d
 - **Allocateur bump** O(1), zéro fragmentation, mono-goroutine, pour les tampons FFT.
 - **GC désactivé** pendant les grands calculs (N ≥ 1M) via `gcCtrl.WithGC(fn)` (panic-safe).
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs via un sémaphore FFT global à **acquisition non bloquante** (pas de jeton ⇒ exécution sur la goroutine appelante : aucun interblocage avec la récursion). Panics de worker re-propagées.
-- **Cache LRU de transformées FFT** : bénéficie **uniquement** aux chemins qui le consultent (`bigfft.Mul/Sqr` directs, `FFTOnlyStrategy`). Le **Fast Doubling par défaut ne consulte pas** le cache (zéro hit, mesuré).
+- **Cache LRU de transformées FFT** : bénéficie **uniquement** aux chemins qui le consultent (`bigfft.Mul/Sqr/MulTo/SqrTo` directs ; `FFTOnlyStrategy.Multiply/Square` les délèguent). **Aucune boucle de doublement ne le consulte** : le **Fast Doubling par défaut** *et* le calculateur **FFT-only** passent par `executeDoublingStepFFT` (`TransformWithBump`, non caché) — zéro hit, mesuré.
 - **PGO** via `make build-pgo`.
 
 > **Gate perf-sensitive** : toute modif `fibonacci/`|`bigfft/` se compare via `benchstat` à la baseline (`make bench-baseline`) — seuil et procédure en **Directive #1**.
@@ -83,7 +83,7 @@ make test           # go test -v -race -cover ./...   (race: CGO/gcc requis — 
 make test-win       # go test -v -cover ./...          (Windows sans gcc : pas de -race)
 make lint           # golangci-lint run ./...          (24 linters, advisory)
 make coverage-check # plancher de couverture 80 %
-make benchmark      # go test -bench=BenchmarkFibonacci -benchmem -run=^$ ./internal/fibonacci/
+make benchmark      # go test -bench=. -benchmem ./internal/fibonacci/   (PowerShell : préfixer -bench=BenchmarkFibonacci, cf. note ci-dessous)
 make bench-baseline # régénère docs/audits/bench-baseline.txt
 make stats          # décompte packages / LOC (canonique)
 make build-pgo      # build avec PGO

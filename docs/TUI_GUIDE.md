@@ -116,8 +116,16 @@ func (m Model) Init() tea.Cmd {
 
 ```go
 func (m Model) View() string {
+    if m.width == 0 || m.height == 0 {
+        return "Initializing..."
+    }
     rightCol := lipgloss.JoinVertical(lipgloss.Left, m.metrics.View(), m.chart.View())
-    body := lipgloss.JoinHorizontal(lipgloss.Top, m.logs.View(), rightCol)
+    var body string
+    if m.isNarrow() { // R4.10: narrow terminals stack logs on top of the right column
+        body = lipgloss.JoinVertical(lipgloss.Left, m.logs.renderToHeight(m.logsHeight()), rightCol)
+    } else {
+        body = lipgloss.JoinHorizontal(lipgloss.Top, m.logs.renderToHeight(lipgloss.Height(rightCol)), rightCol)
+    }
     return lipgloss.JoinVertical(lipgloss.Left, m.header.View(), body, m.footer.View())
 }
 ```
@@ -148,7 +156,7 @@ func (m Model) View() string {
 Constants: `headerHeight=1`, `footerHeight=1`, `minBodyHeight=4`, `MetricsPanelHeight=7`.
 
 `layoutPanels()` is called on every `WindowSizeMsg`: logsWidth = 60%, rightWidth = 40%,
-metricsH = fixed 7 (capped at half body height), chartH = remaining body height.
+metricsH = MetricsPanelHeight (7), dropping to compactMetricsHeight (3) on short terminals (height < minNormalHeight, 20) via isShort(), then capped at half the right-column height; chartH = remaining body height.
 
 ---
 

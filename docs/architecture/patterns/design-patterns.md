@@ -19,7 +19,7 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
 | **Decorator**    | Cross-cutting capabilities layered on a base calculator | `FibCalculator` wrapping `CoreCalculator` in `internal/fibonacci/calculator.go` |
 | **Facade**       | `app.Application` hides CLI parsing, dispatch, and error-to-exit-code mapping | `internal/app/app.go`                                                               |
 | **Template Method** | `DoublingStepExecutor` fixes the Fast Doubling skeleton while subclasses choose the multiplication backend | `internal/fibonacci/doubling_framework.go`                                          |
-| **Cache (LRU)**  | Thread-safe plan cache for FFT twiddle tables | `internal/bigfft/fft_cache.go`                                                      |
+| **Cache (LRU)**  | Thread-safe cache of forward-FFT transform results (`PolValues`) | `internal/bigfft/fft_cache.go`                                                      |
 | **Circuit Breaker** (light) | Memory-budget pre-flight exits before OOM | `internal/fibonacci/memory/budget.go`                                               |
 | **Adapter**      | OS-specific memory probes exposed behind a stable interface | `internal/metrics/system/`                                                          |
 

@@ -18,14 +18,11 @@ flowchart LR
         B2 --> C1[Get bit length of n]
         B3 --> C1
         C1 --> C2[Iterate bits MSB to LSB]
-        C2 --> C3{Current bit}
-        C3 -->|0: Doubling Step| C4["a' = a(2b - a)<br/>b' = a² + b²"]
-        C3 -->|1: Doubling + Step| C5["a' = a² + b²<br/>b' = b(2a + b)"]
+        C2 --> C3["Doubling step (unconditional)<br/>F(2k) = 2*FK*FK1 - FK^2<br/>F(2k+1) = FK1^2 + FK^2"]
     end
 
     subgraph Multiply["Multiplication Decision"]
-        C4 --> D1{Operand size}
-        C5 --> D1
+        C3 --> D1{Operand size}
         D1 -->|< FFTThreshold| D2[math/big Karatsuba]
         D1 -->|>= FFTThreshold| D3[FFT Multiplication]
         D1 -->|>= ParallelThreshold<br/>& bits > 5M| D4[Parallel FFT<br/>via goroutines]
@@ -45,7 +42,7 @@ flowchart LR
     end
 
     subgraph Parallel["Parallel Execution"]
-        D4 --> F1[Acquire Task Semaphore<br/>NumCPU x 2]
+        D4 --> F1[Acquire Task Semaphore<br/>NumCPU]
         F1 --> F2[executeTasks generic]
         F2 --> F3[Launch goroutines]
         F3 --> F4[Acquire FFT Semaphore<br/>NumCPU]
@@ -55,7 +52,10 @@ flowchart LR
     subgraph Result["Result Extraction"]
         D2 --> G1[Update state a, b]
         E9 --> G1
-        G1 --> G2{More bits?}
+        G1 --> G1b{Current bit set?}
+        G1b -->|1| G1c["Advance one index<br/>FK, FK1 = FK1, FK+FK1"]
+        G1b -->|0| G2{More bits?}
+        G1c --> G2
         G2 -->|Yes| C2
         G2 -->|No| G3[Zero-Copy Result Steal]
         G3 --> G4[Return to Pool]

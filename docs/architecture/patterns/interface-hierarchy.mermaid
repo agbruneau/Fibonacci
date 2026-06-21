@@ -1,25 +1,28 @@
 classDiagram
     direction TB
 
+    %% Source file noted per class (basename only — line numbers omitted
+    %% deliberately, they drift on every edit; grep the basename to locate).
+
     %% ── Computation Interfaces ──
 
     class Calculator {
         <<interface>>
-        calculator.go:25
+        calculator.go
         +Calculate(ctx, progressChan, calcIndex, n, opts) *big.Int, error
         +Name() string
     }
 
     class CoreCalculator {
         <<interface>>
-        calculator.go:64
+        calculator.go
         +CalculateCore(ctx, reporter, n, opts) *big.Int, error
         +Name() string
     }
 
     class CalculatorFactory {
         <<interface>>
-        registry.go:14
+        registry.go
         +Create(name) Calculator, error
         +Get(name) Calculator, error
         +List() []string
@@ -29,53 +32,47 @@ classDiagram
 
     class Multiplier {
         <<interface>>
-        strategy.go:29
-        +Multiply(a, b, alloc) *big.Int
-        +Square(a, alloc) *big.Int
+        strategy.go
+        +Multiply(z, x, y, opts) *big.Int, error
+        +Square(z, x, opts) *big.Int, error
         +Name() string
     }
 
     class DoublingStepExecutor {
         <<interface>>
-        strategy.go:65
-        +Multiply(a, b, alloc) *big.Int
-        +Square(a, alloc) *big.Int
-        +ExecuteStep(state, isOne, alloc)
-        +Name() string
+        strategy.go
+        embeds Multiplier
+        +ExecuteStep(ctx, state, opts, inParallel) error
     }
 
     %% ── Observation Interfaces ──
 
     class ProgressObserver {
         <<interface>>
-        observer.go:16
-        +OnProgress(step, total, bitLen)
-        +OnComplete(result, duration)
+        observer.go
+        +Update(calcIndex, progress)
     }
 
     class ProgressReporter {
         <<interface>>
-        interfaces.go:19
-        +ReportProgress(name, step, total, bitLen)
-        +ReportStart(name)
-        +ReportComplete(name, duration)
+        interfaces.go
+        +DisplayProgress(wg, progressChan, numCalculators, out)
     }
 
     class ResultPresenter {
         <<interface>>
-        interfaces.go:58
-        +PresentResult(result, n, duration, name)
-        +PresentComparison(results)
-        +PresentError(err)
+        interfaces.go
+        +PresentComparisonTable(results, out)
+        +PresentResult(result, n, verbose, details, showValue, out)
     }
 
     %% ── Allocation Interfaces ──
 
     class TempAllocator {
         <<interface>>
-        allocator.go:10
-        +Get(n) *big.Int
-        +Put(x *big.Int)
+        allocator.go
+        +AllocFermatTemp(n) fermat, func()
+        +AllocFermatSlice(K, n) []fermat, []big.Word, func()
     }
 
     %% ── Interface Segregation ──
@@ -85,43 +82,44 @@ classDiagram
     %% ── Implementations ──
 
     class FibCalculator {
-        calculator.go:58
+        calculator.go
     }
     class DefaultFactory {
-        registry.go:37
+        registry.go
     }
     class AdaptiveStrategy {
-        strategy.go:96
+        strategy.go
     }
     class FFTOnlyStrategy {
-        strategy.go:127
+        strategy.go
     }
     class ChannelObserver {
-        observers.go:19
+        observers.go
     }
     class LoggingObserver {
-        observers.go:67
+        observers.go
     }
     class NoOpObserver {
-        observers.go:126
+        observers.go
     }
     class ProgressReporterFunc {
-        interfaces.go:93
+        interfaces.go
     }
     class TUIProgressReporter {
-        bridge.go:32
+        bridge.go
     }
     class NullProgressReporter {
-        interfaces.go:44
+        interfaces.go
     }
     class BumpAllocator {
-        bump.go:27
+        bump.go
     }
     class PoolAllocator {
-        allocator.go:39
+        allocator.go
     }
 
     Calculator <|.. FibCalculator
+    CoreCalculator <|.. FibCalculator : wraps
     CalculatorFactory <|.. DefaultFactory
     DoublingStepExecutor <|.. AdaptiveStrategy
     DoublingStepExecutor <|.. FFTOnlyStrategy

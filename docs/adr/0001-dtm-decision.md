@@ -8,7 +8,7 @@
 
 Le projet maintient **deux** mécanismes adaptatifs pour les seuils FFT/parallèle :
 
-1. `internal/calibration/` (~1 686 LOC) produit `OptimalFFTThreshold`/`OptimalParallelThreshold` *au démarrage* via micro-benchmarks (`internal/calibration/profile.go:30-32`).
+1. `internal/calibration/` (~1 686 LOC) produit `OptimalFFTThreshold`/`OptimalParallelThreshold` *au démarrage* via micro-benchmarks (`internal/calibration/profile.go:30-31` ; `:32` = `OptimalStrassenThreshold`, hors sujet ici).
 2. `internal/fibonacci/threshold/manager.go` (~283 L) ajuste ces seuils *en cours de calcul* via une fenêtre glissante de 20 métriques avec hystérésis.
 
 L'audit a relevé que cette redondance n'est appuyée par aucun benchmark publié dans `docs/audits/`, et que l'invariant single-writer du DTM (A-18, lignes 167-174) est fragile sans `atomic`.
