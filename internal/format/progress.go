@@ -57,8 +57,3 @@ func (ps *ProgressState) CalculateAverage() float64 {
 	}
 	return totalProgress / float64(ps.numCalculators)
 }
-
-// NumCalculators returns the number of calculators being tracked.
-func (ps *ProgressState) NumCalculators() int {
-	return ps.numCalculators
-}
