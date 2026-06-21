@@ -14,9 +14,7 @@ import (
 // on len(slice), and must restore the full bucket capacity before Put so
 // the next acquisition gets a usable buffer.
 func TestReleaseWordSliceResizedReturnsToBucket(t *testing.T) {
-	// No t.Parallel(): we inspect the global pool/miss-counter state.
-
-	const canary = big.Word(0xDEADBEEF)
+	// No t.Parallel(): we inspect the global miss-counter state.
 
 	// Acquire a slice from the smallest bucket (size 64).
 	s := acquireWordSliceUnsafe(64)
@@ -27,46 +25,30 @@ func TestReleaseWordSliceResizedReturnsToBucket(t *testing.T) {
 		t.Fatalf("precondition: want len=64 from acquireWordSliceUnsafe(64), got len=%d", len(s))
 	}
 
-	// Mark the very last element as a canary, then simulate a caller that
-	// reshapes the slice down (e.g. via a temporary view): cap stays 64.
-	s[63] = canary
+	// Simulate a caller that reshapes the slice down (e.g. via a temporary
+	// view): cap stays 64, only len shrinks.
 	s = s[:30]
 	if cap(s) != 64 {
 		t.Fatalf("precondition: cap must stay 64 after s[:30], got cap=%d", cap(s))
 	}
 
-	// The miss counter must NOT increment for an exact-bucket cap, even if
-	// len has been reduced.
+	// The reliable contract: a slice whose cap matches a bucket exactly must
+	// be routed back to that bucket (Put), NOT counted as a miss — even when
+	// len has been reduced. A zero miss-counter delta proves the slice was
+	// pooled rather than dropped.
+	//
+	// We deliberately do NOT assert sync.Pool *identity* (that the same
+	// backing array reappears on a later Get): the stdlib makes no such
+	// guarantee, and the per-P victim cache can drop any entry on GC, so a
+	// reappearance check is inherently flaky — notably under the -race build's
+	// different GC timing. The exact-bucket routing is further covered by
+	// TestReleaseWordSliceAllExactBuckets.
 	missBefore := WordSlicePoolMissCount()
 	releaseWordSlice(s)
 	missAfter := WordSlicePoolMissCount()
 	if missAfter != missBefore {
 		t.Fatalf("releaseWordSlice(cap=64, len=30) was treated as a miss: "+
 			"counter delta=%d (want 0)", missAfter-missBefore)
-	}
-
-	// Best-effort identity check: try to retrieve the same backing array.
-	// sync.Pool does not formally guarantee identity, but the per-P local
-	// cache typically returns the most recent Put on the same goroutine,
-	// so within a small bounded loop the canary should reappear.
-	const maxAttempts = 1024
-	found := false
-	leakedCount := 0
-	for i := 0; i < maxAttempts; i++ {
-		got := acquireWordSliceUnsafe(64)
-		if cap(got) == 64 && len(got) == 64 && got[63] == canary {
-			found = true
-			break
-		}
-		// Release back so we don't bloat the pool with this test.
-		releaseWordSlice(got)
-		leakedCount++
-	}
-	if !found {
-		t.Fatalf("released slice (cap=64, canary=0x%x at index 63) did not "+
-			"reappear in bucket 0 within %d acquireWordSliceUnsafe(64) calls "+
-			"— suggests the slice was dropped instead of pooled",
-			uint64(canary), maxAttempts)
 	}
 }
 
