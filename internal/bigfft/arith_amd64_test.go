@@ -30,34 +30,6 @@ func copyWords(src []Word) []Word {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CPU Feature Detection Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-func TestCPUFeatureDetection(t *testing.T) {
-	t.Parallel()
-	features := GetCPUFeatures()
-	t.Logf("CPU Features: %s", features.String())
-	t.Logf("SIMD Level: %s", features.SIMDLevel.String())
-	t.Logf("AVX2: %v, AVX-512: %v, BMI2: %v, ADX: %v",
-		features.AVX2, features.AVX512, features.BMI2, features.ADX)
-}
-
-func TestSIMDLevel(t *testing.T) {
-	t.Parallel()
-	level := GetSIMDLevel()
-	t.Logf("Active SIMD Level: %s", level.String())
-
-	// SIMD level should be consistent with feature detection
-	if HasAVX512() && level != SIMDAVX512 {
-		// Note: We might fall back to AVX2 even with AVX512 available
-		t.Logf("AVX512 detected but level is %s (may be by design)", level)
-	}
-	if HasAVX2() && level == SIMDNone {
-		t.Logf("AVX2 detected but level is None (may be disabled)")
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Correctness Tests for AddVV
 // ─────────────────────────────────────────────────────────────────────────────
 

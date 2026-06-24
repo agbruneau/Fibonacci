@@ -35,10 +35,8 @@ func FastDoublingMod(n uint64, m *big.Int) (*big.Int, error) {
 		t1.Lsh(fk1, 1)
 		t1.Sub(t1, fk)
 		t1.Mod(t1, m)
-		// Handle negative mod result
-		if t1.Sign() < 0 {
-			t1.Add(t1, m)
-		}
+		// big.Int.Mod is Euclidean: for m > 0 the result is already in [0, m),
+		// so no negative-result correction is needed here.
 		t1.Mul(t1, fk)
 		t1.Mod(t1, m)
 

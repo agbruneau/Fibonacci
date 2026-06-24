@@ -17,66 +17,6 @@ import (
 // Environment Variable Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
-// getEnvString returns the value of the environment variable with the given key
-// (prefixed with EnvPrefix), or the default value if not set.
-func getEnvString(key, defaultVal string) string {
-	if val := os.Getenv(EnvPrefix + key); val != "" {
-		return val
-	}
-	return defaultVal
-}
-
-// getEnvUint64 returns the value of the environment variable with the given key
-// (prefixed with EnvPrefix) parsed as uint64, or the default value if not set
-// or invalid.
-func getEnvUint64(key string, defaultVal uint64) uint64 {
-	if val := os.Getenv(EnvPrefix + key); val != "" {
-		if parsed, err := strconv.ParseUint(val, 10, 64); err == nil {
-			return parsed
-		}
-	}
-	return defaultVal
-}
-
-// getEnvInt returns the value of the environment variable with the given key
-// (prefixed with EnvPrefix) parsed as int, or the default value if not set
-// or invalid.
-func getEnvInt(key string, defaultVal int) int {
-	if val := os.Getenv(EnvPrefix + key); val != "" {
-		if parsed, err := strconv.Atoi(val); err == nil {
-			return parsed
-		}
-	}
-	return defaultVal
-}
-
-// getEnvBool returns the value of the environment variable with the given key
-// (prefixed with EnvPrefix) parsed as bool, or the default value if not set.
-// Accepts "true", "1", "yes" as true; "false", "0", "no" as false (case-insensitive).
-func getEnvBool(key string, defaultVal bool) bool {
-	if val := os.Getenv(EnvPrefix + key); val != "" {
-		switch strings.ToLower(val) {
-		case "true", "1", "yes":
-			return true
-		case "false", "0", "no":
-			return false
-		}
-	}
-	return defaultVal
-}
-
-// getEnvDuration returns the value of the environment variable with the given key
-// (prefixed with EnvPrefix) parsed as time.Duration, or the default value if not
-// set or invalid. Accepts formats like "5m", "30s", "1h30m".
-func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
-	if val := os.Getenv(EnvPrefix + key); val != "" {
-		if parsed, err := time.ParseDuration(val); err == nil {
-			return parsed
-		}
-	}
-	return defaultVal
-}
-
 // isFlagSet checks if a flag was explicitly set on the command line.
 // This is used to determine whether to apply environment variable overrides.
 func isFlagSet(fs *flag.FlagSet, name string) bool {

@@ -54,11 +54,6 @@ func subVW(z, x []Word, y Word) (c Word)
 //go:linkname shlVU math/big.shlVU
 func shlVU(z, x []Word, s uint) (c Word)
 
-// mulAddVWW computes z = x*y + r element-wise and returns the carry.
-//
-//go:linkname mulAddVWW math/big.mulAddVWW
-func mulAddVWW(z, x []Word, y, r Word) (c Word)
-
 // addMulVVW computes z += x*y element-wise and returns the carry.
 //
 //go:linkname addMulVVW math/big.addMulVVW

@@ -22,6 +22,7 @@ package fibonacci
 import (
 	"context"
 	"math/big"
+	"math/bits"
 
 	"github.com/agbruneau/FibGo/internal/progress"
 	"github.com/ncw/gmp"
@@ -51,17 +52,6 @@ type GMPCalculator struct{}
 // Name returns the name of the algorithm.
 func (c *GMPCalculator) Name() string {
 	return "GMP (Fast Doubling)"
-}
-
-// findHighestBit returns the number of bits needed to represent n.
-// For n=0, returns 0. For n>0, returns floor(log2(n)) + 1.
-func findHighestBit(n uint64) int {
-	for i := 63; i >= 0; i-- {
-		if (n>>i)&1 == 1 {
-			return i + 1
-		}
-	}
-	return 0
 }
 
 // gmpDoublingStep performs the Fast Doubling step on GMP integers.
@@ -121,7 +111,7 @@ func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter progress.Pro
 	t2 := gmp.NewInt(0)
 
 	// Calculate bit length for iteration
-	numBits := findHighestBit(n)
+	numBits := bits.Len64(n)
 
 	// Progress reporting setup
 	var lastReported float64

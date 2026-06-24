@@ -34,17 +34,6 @@ func NewMatrixFramework() *MatrixFramework {
 	}
 }
 
-// NewMatrixFrameworkWithSquareFunc creates a new Matrix Exponentiation framework
-// with a custom symmetric matrix squaring function, useful for testing.
-func NewMatrixFrameworkWithSquareFunc(fn SquareSymmetricMatrixFunc) *MatrixFramework {
-	if fn == nil {
-		fn = squareSymmetricMatrix
-	}
-	return &MatrixFramework{
-		SquareFunc: fn,
-	}
-}
-
 // ExecuteMatrixLoop executes the Matrix Exponentiation algorithm loop.
 // This encapsulates the common logic for binary exponentiation of the Fibonacci matrix.
 //

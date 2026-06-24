@@ -93,13 +93,11 @@ func preSizeBigInt(z *big.Int, words int) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // taskLogger is the package-level logger for parallel task distribution.
-// Defaults to zerolog.Nop() (no output) to avoid performance impact.
+// Defaults to zerolog.Nop() (no output) to avoid performance impact. It is not
+// currently wired to a configurable sink (no SetTaskLogger): the Debug calls
+// below are kept as ready instrumentation that logs to Nop until a future
+// app-level wiring opts in.
 var taskLogger = zerolog.Nop()
-
-// SetTaskLogger configures the logger used for parallel task distribution decisions.
-func SetTaskLogger(l zerolog.Logger) {
-	taskLogger = l
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parallel Execution Helper
