@@ -25,9 +25,10 @@ type LastDigitsResult struct {
 // arithmetic. It uses O(k) memory regardless of n.
 //
 // The function is pure with respect to I/O: it performs no printing, no
-// signal handling and no logging. The provided context is forwarded to the
-// underlying calculator and is currently checked once before the call so the
-// caller can short-circuit on cancellation.
+// signal handling and no logging. The provided context is checked once before
+// the computation begins so the caller can short-circuit on cancellation; the
+// underlying modular calculator (FastDoublingMod) takes no context and runs to
+// completion (it is O(k) memory and fast for realistic k).
 //
 // Returns:
 //   - LastDigitsResult: The result, including a pre-formatted zero-padded string.

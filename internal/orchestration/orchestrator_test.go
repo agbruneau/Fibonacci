@@ -24,6 +24,30 @@ func (MockResultPresenter) HandleError(err error, duration time.Duration, out io
 	return apperrors.ExitErrorGeneric
 }
 
+// nilSuccessErrorHandler mimics the real CLIResultPresenter, which maps a nil
+// error to ExitSuccess. It exists to prove AnalyzeComparisonResults never
+// returns success when no algorithm produced a result (firstError == nil).
+type nilSuccessErrorHandler struct{}
+
+func (nilSuccessErrorHandler) HandleError(err error, _ time.Duration, _ io.Writer) int {
+	if err == nil {
+		return apperrors.ExitSuccess
+	}
+	return apperrors.ExitErrorGeneric
+}
+
+// TestAnalyzeComparisonResults_EmptyResultsNeverSucceeds guards the
+// defense-in-depth gap where an empty result set (no calculator constructed or
+// selected) yielded a success exit code: with no error to classify, the
+// function must still report failure rather than delegate nil to HandleError.
+func TestAnalyzeComparisonResults_EmptyResultsNeverSucceeds(t *testing.T) {
+	t.Parallel()
+	got := AnalyzeComparisonResults(nil, PresentationOptions{N: 10}, MockResultPresenter{}, nilSuccessErrorHandler{}, io.Discard)
+	if got == apperrors.ExitSuccess {
+		t.Fatalf("empty results must never return success, got %d", got)
+	}
+}
+
 // MockCalculator is a mock implementation of fibonacci.Calculator
 // used for testing the orchestration logic without invoking real algorithms.
 type MockCalculator struct {

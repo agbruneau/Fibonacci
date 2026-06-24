@@ -95,6 +95,61 @@ func TestAnalyzeResultsSaveFailureReturnsGeneric(t *testing.T) {
 	}
 }
 
+// TestPresentQuietAllMismatchReturnsMismatch guards the quiet + comparison-mode
+// fast path: when several algorithms succeed but disagree, quiet mode must NOT
+// emit a (wrong) value with a success code — it must surface ExitErrorMismatch
+// and print nothing on stdout. Regression guard for the silent-wrong-answer gap.
+func TestPresentQuietAllMismatchReturnsMismatch(t *testing.T) {
+	t.Parallel()
+	app := &Application{
+		Config:    config.AppConfig{N: 10, Quiet: true},
+		ErrWriter: &bytes.Buffer{},
+	}
+	results := []orchestration.CalculationResult{
+		{Name: "fast", Result: big.NewInt(55), Duration: time.Millisecond},
+		{Name: "matrix", Result: big.NewInt(54), Duration: 2 * time.Millisecond}, // divergent
+	}
+	outputCfg := cli.OutputConfig{Quiet: true}
+
+	var outBuf bytes.Buffer
+	exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+
+	if exitCode != apperrors.ExitErrorMismatch {
+		t.Errorf("quiet+all with divergent results: got exit %d, want %d (mismatch)",
+			exitCode, apperrors.ExitErrorMismatch)
+	}
+	if got := strings.TrimSpace(outBuf.String()); got != "" {
+		t.Errorf("quiet mode must not print a value on mismatch, got %q", got)
+	}
+}
+
+// TestPresentQuietAllConsistentPrintsValue is the companion: when the successful
+// algorithms agree, quiet mode prints the value and exits 0 (the mismatch guard
+// must not regress the normal consistent path).
+func TestPresentQuietAllConsistentPrintsValue(t *testing.T) {
+	t.Parallel()
+	app := &Application{
+		Config:    config.AppConfig{N: 10, Quiet: true},
+		ErrWriter: &bytes.Buffer{},
+	}
+	results := []orchestration.CalculationResult{
+		{Name: "fast", Result: big.NewInt(55), Duration: time.Millisecond},
+		{Name: "matrix", Result: big.NewInt(55), Duration: 2 * time.Millisecond},
+	}
+	outputCfg := cli.OutputConfig{Quiet: true}
+
+	var outBuf bytes.Buffer
+	exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+
+	if exitCode != apperrors.ExitSuccess {
+		t.Errorf("quiet+all with consistent results: got exit %d, want %d (success)",
+			exitCode, apperrors.ExitSuccess)
+	}
+	if !strings.Contains(outBuf.String(), "55") {
+		t.Errorf("quiet mode should print the value on success, got %q", outBuf.String())
+	}
+}
+
 // TestValidateMemoryBudgetSuggestion pins the presentation branch on budget
 // overrun: the --last-digits hint must only appear when the user is not
 // already in last-digits mode.

@@ -144,17 +144,16 @@ func AnalyzeComparisonResults(results []CalculationResult, presOpts Presentation
 
 	if successCount == 0 {
 		fmt.Fprintf(out, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")
+		if firstError == nil {
+			// No calculator produced a result at all (e.g. none were constructed
+			// or selected): there is no error to classify, but this is still a
+			// failure — never report success.
+			return apperrors.ExitErrorGeneric
+		}
 		return errHandler.HandleError(firstError, 0, out)
 	}
 
-	mismatch := false
-	for _, res := range results {
-		if res.Err == nil && res.Result.Cmp(firstValidResult.Result) != 0 {
-			mismatch = true
-			break
-		}
-	}
-	if mismatch {
+	if HasResultMismatch(results) {
 		fmt.Fprintf(out, "\nGlobal Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.")
 		return apperrors.ExitErrorMismatch
 	}
@@ -162,4 +161,26 @@ func AnalyzeComparisonResults(results []CalculationResult, presOpts Presentation
 	fmt.Fprintf(out, "\nGlobal Status: Success. All valid results are consistent.\n")
 	presenter.PresentResult(*firstValidResult, presOpts.N, presOpts.Verbose, presOpts.Details, presOpts.ShowValue, out)
 	return apperrors.ExitSuccess
+}
+
+// HasResultMismatch reports whether two or more successful results disagree on
+// the computed value. Failed results (Err != nil) are ignored; with fewer than
+// two successes it returns false. It is the single source of truth for the
+// cross-algorithm consistency check, shared by the comparison report and the
+// quiet-mode fast path so the two cannot drift.
+func HasResultMismatch(results []CalculationResult) bool {
+	firstIdx := -1
+	for i := range results {
+		if results[i].Err != nil {
+			continue
+		}
+		if firstIdx == -1 {
+			firstIdx = i
+			continue
+		}
+		if results[i].Result.Cmp(results[firstIdx].Result) != 0 {
+			return true
+		}
+	}
+	return false
 }

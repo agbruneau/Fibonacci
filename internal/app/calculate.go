@@ -195,6 +195,12 @@ func (a *Application) present(
 	out io.Writer,
 ) int {
 	if outputCfg.Quiet && best != nil {
+		// Quiet mode must still honor comparison mode's purpose: never emit a
+		// value when the algorithms disagree. Without this, `--algo all --quiet`
+		// would print the fastest result and exit 0 on a real divergence.
+		if orchestration.HasResultMismatch(results) {
+			return apperrors.ExitErrorMismatch
+		}
 		cli.DisplayQuietResult(out, best.Result, a.Config.N, best.Duration)
 		return apperrors.ExitSuccess
 	}
