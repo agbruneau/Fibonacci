@@ -43,8 +43,8 @@ func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config
 // startCalculationCmd returns a tea.Cmd that launches the orchestration.
 func startCalculationCmd(ref *programRef, ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
 	return func() tea.Msg {
-		progressReporter := &TUIProgressReporter{ref: ref}
-		presenter := &TUIResultPresenter{ref: ref}
+		progressReporter := &TUIProgressReporter{ref: ref, gen: gen}
+		presenter := &TUIResultPresenter{ref: ref, gen: gen}
 
 		opts := orchestration.Options{
 			ParallelThreshold: cfg.Threshold,

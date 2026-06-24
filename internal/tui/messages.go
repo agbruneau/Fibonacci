@@ -13,6 +13,9 @@ type ProgressMsg struct {
 	Value           float64
 	AverageProgress float64
 	ETA             time.Duration
+	// Generation tags the run that emitted this update so the model can drop
+	// messages from a previous run still in flight after a Restart.
+	Generation uint64
 }
 
 // ProgressDoneMsg signals that the progress channel has been closed.
@@ -20,22 +23,25 @@ type ProgressDoneMsg struct{}
 
 // ComparisonResultsMsg carries comparison results for display in the logs.
 type ComparisonResultsMsg struct {
-	Results []orchestration.CalculationResult
+	Results    []orchestration.CalculationResult
+	Generation uint64
 }
 
 // FinalResultMsg carries the final calculation result for display.
 type FinalResultMsg struct {
-	Result    orchestration.CalculationResult
-	N         uint64
-	Verbose   bool
-	Details   bool
-	ShowValue bool
+	Result     orchestration.CalculationResult
+	N          uint64
+	Verbose    bool
+	Details    bool
+	ShowValue  bool
+	Generation uint64
 }
 
 // ErrorMsg carries an error from the calculation.
 type ErrorMsg struct {
-	Err      error
-	Duration time.Duration
+	Err        error
+	Duration   time.Duration
+	Generation uint64
 }
 
 // TickMsg triggers periodic metric sampling.

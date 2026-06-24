@@ -68,6 +68,7 @@ func (r *programRef) sendOrLog(msg tea.Msg, site string) {
 // It drains the progress channel and forwards updates as bubbletea messages.
 type TUIProgressReporter struct {
 	ref *programRef
+	gen uint64
 }
 
 // Verify interface compliance.
@@ -90,6 +91,7 @@ func (t *TUIProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <
 			Value:           ap.Value,
 			AverageProgress: ap.AverageProgress,
 			ETA:             ap.ETA,
+			Generation:      t.gen,
 		}, "DisplayProgress")
 	}
 	t.ref.sendOrLog(ProgressDoneMsg{}, "DisplayProgress")
@@ -99,6 +101,7 @@ func (t *TUIProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <
 // It sends result messages to the TUI instead of writing to stdout.
 type TUIResultPresenter struct {
 	ref *programRef
+	gen uint64
 }
 
 // Verify interface compliance.
@@ -109,17 +112,18 @@ var (
 
 // PresentComparisonTable sends comparison results to the TUI.
 func (t *TUIResultPresenter) PresentComparisonTable(results []orchestration.CalculationResult, _ io.Writer) {
-	t.ref.sendOrLog(ComparisonResultsMsg{Results: results}, "PresentComparisonTable")
+	t.ref.sendOrLog(ComparisonResultsMsg{Results: results, Generation: t.gen}, "PresentComparisonTable")
 }
 
 // PresentResult sends the final result to the TUI.
 func (t *TUIResultPresenter) PresentResult(result orchestration.CalculationResult, n uint64, verbose, details, showValue bool, _ io.Writer) {
 	t.ref.sendOrLog(FinalResultMsg{
-		Result:    result,
-		N:         n,
-		Verbose:   verbose,
-		Details:   details,
-		ShowValue: showValue,
+		Result:     result,
+		N:          n,
+		Verbose:    verbose,
+		Details:    details,
+		ShowValue:  showValue,
+		Generation: t.gen,
 	}, "PresentResult")
 }
 
@@ -130,6 +134,6 @@ func (t *TUIResultPresenter) FormatDuration(d time.Duration) string {
 
 // HandleError sends an error message to the TUI and returns the exit code.
 func (t *TUIResultPresenter) HandleError(err error, duration time.Duration, _ io.Writer) int {
-	t.ref.sendOrLog(ErrorMsg{Err: err, Duration: duration}, "HandleError")
+	t.ref.sendOrLog(ErrorMsg{Err: err, Duration: duration, Generation: t.gen}, "HandleError")
 	return apperrors.HandleCalculationError(err, duration, io.Discard, nil)
 }

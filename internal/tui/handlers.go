@@ -15,6 +15,9 @@ import (
 // No-op when paused, so the UI freezes cleanly while the underlying
 // calculation keeps running.
 func (m *Model) handleProgress(msg ProgressMsg) {
+	if msg.Generation != m.generation {
+		return
+	}
 	if m.paused {
 		return
 	}
@@ -30,6 +33,9 @@ func (m *Model) handleProgress(msg ProgressMsg) {
 // result is available, returns a follow-up command that computes the
 // post-calculation indicators off the UI thread.
 func (m *Model) handleFinalResult(msg FinalResultMsg) tea.Cmd {
+	if msg.Generation != m.generation {
+		return nil
+	}
 	m.logs.AddFinalResult(msg)
 	if msg.Result.Result != nil {
 		return computeIndicatorsCmd(msg)
@@ -40,6 +46,9 @@ func (m *Model) handleFinalResult(msg FinalResultMsg) tea.Cmd {
 // handleError records an error in the logs and flips header/footer to the
 // "done with error" terminal state.
 func (m *Model) handleError(msg ErrorMsg) {
+	if msg.Generation != m.generation {
+		return
+	}
 	m.logs.AddError(msg)
 	m.footer.SetError(true)
 	m.done = true

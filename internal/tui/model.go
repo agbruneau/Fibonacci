@@ -110,7 +110,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ComparisonResultsMsg:
-		m.logs.AddResults(msg.Results)
+		if msg.Generation == m.generation {
+			m.logs.AddResults(msg.Results)
+		}
 		return m, nil
 
 	case FinalResultMsg:

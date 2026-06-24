@@ -475,6 +475,60 @@ func TestModel_Update_CalculationComplete_StaleGeneration(t *testing.T) {
 	}
 }
 
+// TestModel_Update_ErrorMsg_StaleGeneration guards the headline symptom of the
+// missing data-message generation check: an ErrorMsg from a previous run still
+// in flight after Restart must NOT flip the fresh run into a done+error state.
+func TestModel_Update_ErrorMsg_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	msg := ErrorMsg{Err: context.DeadlineExceeded, Duration: time.Second, Generation: m.generation + 1}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.done {
+		t.Error("stale ErrorMsg must not mark the fresh run done")
+	}
+	if result.footer.hasErr {
+		t.Error("stale ErrorMsg must not flip the footer to error state")
+	}
+}
+
+// TestModel_Update_StaleDataMessagesDropped covers the remaining data-bearing
+// messages (Progress/Comparison/FinalResult): a stale generation must leave the
+// logs untouched and yield no follow-up command.
+func TestModel_Update_StaleDataMessagesDropped(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+	stale := m.generation + 1
+	before := len(m.logs.entries)
+
+	progressed, _ := m.Update(ProgressMsg{CalculatorIndex: 0, Value: 0.5, AverageProgress: 0.5, Generation: stale})
+	if got := len(progressed.(Model).logs.entries); got != before {
+		t.Errorf("stale ProgressMsg changed log entries to %d, want unchanged %d", got, before)
+	}
+
+	compared, _ := m.Update(ComparisonResultsMsg{
+		Results:    []orchestration.CalculationResult{{Name: "Fast", Result: big.NewInt(55)}},
+		Generation: stale,
+	})
+	if got := len(compared.(Model).logs.entries); got != before {
+		t.Errorf("stale ComparisonResultsMsg changed log entries to %d, want unchanged %d", got, before)
+	}
+
+	finalized, cmd := m.Update(FinalResultMsg{
+		Result:     orchestration.CalculationResult{Name: "Fast", Result: big.NewInt(55), Duration: time.Millisecond},
+		N:          10,
+		Generation: stale,
+	})
+	if cmd != nil {
+		t.Error("stale FinalResultMsg must not return a follow-up command")
+	}
+	if got := len(finalized.(Model).logs.entries); got != before {
+		t.Errorf("stale FinalResultMsg changed log entries to %d, want unchanged %d", got, before)
+	}
+}
+
 func TestModel_Update_IndicatorsMsg(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
@@ -770,11 +824,12 @@ func TestModel_Update_VeryWideTerminal(t *testing.T) {
 
 func TestModel_metricsHeight_SmallTerminal(t *testing.T) {
 	t.Parallel()
-	// When height is very small, bodyHeight gets clamped to minBodyHeight.
-	// metricsFixedH (8) is capped at bodyHeight*2/3 = 4*2/3 = 2.
+	// When height is very small, bodyHeight clamps to minBodyHeight (4). In
+	// side-by-side mode the right-column height equals bodyHeight, and
+	// metricsHeight() caps the panel at avail/2 = minBodyHeight/2.
 	m := newTestModelWithSize(t, 80, 4)
 	mh := m.metricsHeight()
-	expected := minBodyHeight * 2 / 3
+	expected := minBodyHeight / 2
 	if mh != expected {
 		t.Errorf("expected metricsHeight=%d for small terminal, got %d", expected, mh)
 	}
