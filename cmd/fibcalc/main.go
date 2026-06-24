@@ -35,7 +35,10 @@ func run(args []string, stdout, stderr io.Writer) app.ExitAction {
 		if app.IsHelpError(err) {
 			return app.ActionSuccess
 		}
-		return app.ActionError
+		// app.New only fails while parsing/validating configuration, so any
+		// other error is a configuration error and must use the dedicated
+		// ExitErrorConfig (4) contract, not the generic code 1.
+		return app.ActionConfig
 	}
 
 	return application.Run(context.Background(), stdout)

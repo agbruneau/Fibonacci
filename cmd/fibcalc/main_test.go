@@ -89,8 +89,8 @@ func TestRun_InvalidFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	action := run([]string{"fibcalc", "--invalid-flag-xyz"}, &stdout, &stderr)
 
-	if action.Code() != 1 {
-		t.Errorf("Expected exit code 1, got %d", action.Code())
+	if action.Code() != 4 {
+		t.Errorf("Expected exit code 4 (config), got %d", action.Code())
 	}
 }
 
@@ -117,11 +117,11 @@ func TestRun_ConfigErrors(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			action := run(tt.args, &stdout, &stderr)
 
-			if action != app.ActionError {
-				t.Errorf("Expected ActionError, got %v", action)
+			if action != app.ActionConfig {
+				t.Errorf("Expected ActionConfig, got %v", action)
 			}
-			if action.Code() != 1 {
-				t.Errorf("Expected exit code 1, got %d", action.Code())
+			if action.Code() != 4 {
+				t.Errorf("Expected exit code 4 (config), got %d", action.Code())
 			}
 			if !action.ShouldExit() {
 				t.Error("Error action should require os.Exit")
@@ -337,11 +337,11 @@ func TestMain_ExitCodes(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid flag exits 1", func(t *testing.T) {
+	t.Run("invalid flag exits 4", func(t *testing.T) {
 		t.Parallel()
 		_, code := runBinary(t, bin, "--invalid-flag-xyz")
-		if code != 1 {
-			t.Errorf("Expected exit code 1, got %d", code)
+		if code != 4 {
+			t.Errorf("Expected exit code 4 (config), got %d", code)
 		}
 	})
 
@@ -353,33 +353,33 @@ func TestMain_ExitCodes(t *testing.T) {
 		}
 	})
 
-	t.Run("negative n exits 1", func(t *testing.T) {
+	t.Run("negative n exits 4", func(t *testing.T) {
 		t.Parallel()
 		out, code := runBinary(t, bin, "-n=-5")
-		if code != 1 {
-			t.Errorf("Expected exit code 1, got %d. Output:\n%s", code, out)
+		if code != 4 {
+			t.Errorf("Expected exit code 4 (config), got %d. Output:\n%s", code, out)
 		}
 		if !strings.Contains(out, "invalid value") {
 			t.Errorf("Output should report the invalid value, got:\n%s", out)
 		}
 	})
 
-	t.Run("zero timeout exits 1", func(t *testing.T) {
+	t.Run("zero timeout exits 4", func(t *testing.T) {
 		t.Parallel()
 		out, code := runBinary(t, bin, "-timeout", "0s")
-		if code != 1 {
-			t.Errorf("Expected exit code 1, got %d. Output:\n%s", code, out)
+		if code != 4 {
+			t.Errorf("Expected exit code 4 (config), got %d. Output:\n%s", code, out)
 		}
 		if !strings.Contains(out, "timeout value must be strictly positive") {
 			t.Errorf("Output should report the timeout configuration error, got:\n%s", out)
 		}
 	})
 
-	t.Run("unknown algorithm exits 1", func(t *testing.T) {
+	t.Run("unknown algorithm exits 4", func(t *testing.T) {
 		t.Parallel()
 		out, code := runBinary(t, bin, "--algo", "bogus")
-		if code != 1 {
-			t.Errorf("Expected exit code 1, got %d. Output:\n%s", code, out)
+		if code != 4 {
+			t.Errorf("Expected exit code 4 (config), got %d. Output:\n%s", code, out)
 		}
 		if !strings.Contains(out, "unrecognized algorithm") {
 			t.Errorf("Output should report the unknown algorithm, got:\n%s", out)

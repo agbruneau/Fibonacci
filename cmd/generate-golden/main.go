@@ -26,14 +26,29 @@ func main() {
 	}
 }
 
-// run holds the program body so that deferred cleanup (notably file.Close)
-// executes on every error path, which os.Exit in main would otherwise skip.
-func run() error {
-	outputDir := flag.String("out", "internal/fibonacci/testdata", "Output directory for the golden file")
+// defaultOutDir is the module-relative output directory used when -out is not
+// overridden. It only resolves correctly from the repository root.
+const defaultOutDir = "internal/fibonacci/testdata"
+
+// run holds the program body so that deferred cleanup (notably file.Close,
+// whose error is now surfaced) executes on every error path, which os.Exit in
+// main would otherwise skip. The named return lets the deferred close report a
+// flush/close failure that would otherwise leave a silently truncated oracle.
+func run() (err error) {
+	outputDir := flag.String("out", defaultOutDir, "Output directory for the golden file")
 	flag.Parse()
 
-	if err := os.MkdirAll(*outputDir, 0o700); err != nil {
-		return fmt.Errorf("creating output directory: %w", err)
+	// Fail fast on misinvocation: the default -out is module-relative, so a run
+	// from the wrong working directory would scatter a stray oracle tree instead
+	// of regenerating the real one. An explicit -out bypasses this guard.
+	if *outputDir == defaultOutDir {
+		if _, statErr := os.Stat("go.mod"); statErr != nil {
+			return fmt.Errorf("default -out %q is module-relative; run from the repository root (no go.mod in working directory): %w", defaultOutDir, statErr)
+		}
+	}
+
+	if mkErr := os.MkdirAll(*outputDir, 0o700); mkErr != nil {
+		return fmt.Errorf("creating output directory: %w", mkErr)
 	}
 
 	filename := filepath.Join(*outputDir, "fibonacci_golden.json")
@@ -41,7 +56,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("creating output file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing output file: %w", cerr)
+		}
+	}()
 
 	// Generate Fibonacci numbers
 	// We'll generate a set of interesting cases:
@@ -78,8 +97,8 @@ func run() error {
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("encoding JSON: %w", err)
+	if encErr := encoder.Encode(data); encErr != nil {
+		return fmt.Errorf("encoding JSON: %w", encErr)
 	}
 
 	fmt.Printf("Successfully generated golden file at %s\n", filename)
