@@ -90,6 +90,8 @@ func GetFFTParallelismConfig() FFTParallelismConfig {
 //   - depth: current recursion depth
 //   - tmp, tmp2: temporary buffers for this goroutine
 //   - alloc: allocator for creating new temp buffers in parallel goroutines
+//
+//nolint:gocognit // dispatch récursion FFT : branche séquentielle + branche parallèle (token non bloquant) avec capture/re-propagation des panics worker (ADR-0002) ; la scinder masquerait le hot path, comportement épinglé par TestFourierRecursive*/golden.
 func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc TempAllocator) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
@@ -127,9 +129,18 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 			var wg sync.WaitGroup
 			wg.Add(1)
 			var errAsync error
+			panicCh := make(chan any, 1)
 			go func() {
 				defer wg.Done()
 				defer func() { <-getSemaphore() }()
+				defer func() {
+					if r := recover(); r != nil {
+						select {
+						case panicCh <- r:
+						default:
+						}
+					}
+				}()
 
 				// Allocate new temps for this branch using the allocator
 				// For parallel goroutines, we always use pool to avoid race conditions
@@ -146,6 +157,11 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 			errSync := fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
 
 			wg.Wait()
+			select {
+			case r := <-panicCh:
+				panic(r)
+			default:
+			}
 			if errAsync != nil {
 				return errAsync
 			}

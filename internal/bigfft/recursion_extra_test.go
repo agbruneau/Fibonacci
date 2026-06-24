@@ -227,6 +227,66 @@ func TestFourierRecursiveCtxParallelErrorPropagation(t *testing.T) {
 	}
 }
 
+// TestFourierRecursiveAsyncPanicPropagates plants a malformed dst element at
+// an odd index in the second (async) half. That index is the dst[1] of a
+// size-1 leaf, which the recursion's top-of-call validation never checks (it
+// only validates dst[0]/src[0]), so fermat.Sub panics deep inside the spawned
+// goroutine. The panic must surface to the caller (ADR-0002 re-propagation)
+// instead of crashing the process from a bare goroutine — the recursion-split
+// counterpart of TestExecuteReconstructionPanicPropagates.
+//
+// Not parallel: relies on free tokens on the package-level FFT semaphore so
+// the async branch is taken.
+func TestFourierRecursiveAsyncPanicPropagates(t *testing.T) {
+	const (
+		k = 4
+		n = 511
+	)
+	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
+		t.Skip("parallelism knobs exclude the parallel branch at this size")
+	}
+	K := 1 << k
+	src := newFermatVec(K, n)
+	dst := newFermatVec(K, n)
+	dst[K/2+1] = make(fermat, 5) // odd index in the async half: dst[1] of a leaf, Sub panics
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic from the async recursion half to propagate to the caller")
+		}
+	}()
+	_ = fourierRecursive(dst, src, false, n, k, k, 0, make(fermat, n+1), make(fermat, n+1))
+	t.Fatal("fourierRecursive returned normally despite a malformed async-half element")
+}
+
+// TestFourierRecursiveCtxAsyncPanicPropagates mirrors the above for the
+// context-aware recursion; the context owns its semaphore, so the async branch
+// is taken deterministically without touching package globals.
+func TestFourierRecursiveCtxAsyncPanicPropagates(t *testing.T) {
+	t.Parallel()
+	const (
+		k = 4
+		n = 511
+	)
+	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
+		t.Skip("parallelism knobs exclude the parallel branch at this size")
+	}
+	ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
+	K := 1 << k
+	src := newFermatVec(K, n)
+	dst := newFermatVec(K, n)
+	dst[K/2+1] = make(fermat, 5)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic from the ctx async recursion half to propagate to the caller")
+		}
+	}()
+	_ = fourierRecursiveCtx(ctx, dst, src, false, n, k, k, 0,
+		make(fermat, n+1), make(fermat, n+1), GetPoolAllocator())
+	t.Fatal("fourierRecursiveCtx returned normally despite a malformed async-half element")
+}
+
 // TestFourierRecursiveSizeZeroIsIdentity pins the size-0 base case of both
 // recursion variants: a 1-point FFT is the identity copy.
 func TestFourierRecursiveSizeZeroIsIdentity(t *testing.T) {

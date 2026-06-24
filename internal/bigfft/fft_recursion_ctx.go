@@ -22,6 +22,8 @@ func fourierWithBumpCtx(ctx *FFTContext, dst []fermat, src []fermat, backward bo
 
 // fourierRecursiveCtx mirrors fourierRecursiveUnified but uses
 // ctx.Semaphore for parallel admission. Sequential structure is identical.
+//
+//nolint:gocognit // dispatch récursion FFT (variante FFTContext) : même structure branchue séquentiel/parallèle avec capture/re-propagation des panics worker (ADR-0002) ; comportement épinglé par TestFourierRecursiveCtx*/golden.
 func fourierRecursiveCtx(ctx *FFTContext, dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc TempAllocator) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
@@ -52,9 +54,18 @@ func fourierRecursiveCtx(ctx *FFTContext, dst, src []fermat, backward bool, n in
 			var wg sync.WaitGroup
 			wg.Add(1)
 			var errAsync error
+			panicCh := make(chan any, 1)
 			go func() {
 				defer wg.Done()
 				defer func() { <-ctx.Semaphore }()
+				defer func() {
+					if r := recover(); r != nil {
+						select {
+						case panicCh <- r:
+						default:
+						}
+					}
+				}()
 
 				// Parallel goroutines use the global pool allocator for
 				// temps to avoid races on non-thread-safe BumpAllocator.
@@ -69,6 +80,11 @@ func fourierRecursiveCtx(ctx *FFTContext, dst, src []fermat, backward bool, n in
 			errSync := fourierRecursiveCtx(ctx, dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
 
 			wg.Wait()
+			select {
+			case r := <-panicCh:
+				panic(r)
+			default:
+			}
 			if errAsync != nil {
 				return errAsync
 			}
