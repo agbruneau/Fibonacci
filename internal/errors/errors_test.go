@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func TestConfigError(t *testing.T) {
@@ -531,6 +532,21 @@ func TestSanitizeConfigExcerpt(t *testing.T) {
 				t.Errorf("sanitizeConfigExcerpt(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestSanitizeConfigExcerpt_RuneBoundary ensures truncation never splits a
+// multibyte rune: a >maxLen string whose 200th byte lands inside a rune must be
+// cut back to the rune boundary, yielding valid UTF-8.
+func TestSanitizeConfigExcerpt_RuneBoundary(t *testing.T) {
+	t.Parallel()
+	input := strings.Repeat("a", 199) + "好" // 199 + 3 bytes = 202 > 200; byte 200 is mid-rune
+	got := sanitizeConfigExcerpt(input)
+	if !utf8.ValidString(got) {
+		t.Fatalf("sanitizeConfigExcerpt produced invalid UTF-8: %q", got)
+	}
+	if want := strings.Repeat("a", 199) + "…"; got != want {
+		t.Errorf("sanitizeConfigExcerpt(...) = %q, want %q", got, want)
 	}
 }
 

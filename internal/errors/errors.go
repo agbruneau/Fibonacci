@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Application exit codes define the standard exit statuses for the application.
@@ -115,7 +116,12 @@ func sanitizeConfigExcerpt(s string) string {
 	s = strings.TrimSpace(s)
 	const maxLen = 200
 	if len(s) > maxLen {
-		return s[:maxLen] + "…"
+		// Trim back to a rune boundary so the cut never splits a multibyte rune.
+		cut := maxLen
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		return s[:cut] + "…"
 	}
 	return s
 }

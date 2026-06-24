@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"math"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -45,13 +44,15 @@ const DefaultMemoryLimitMultiplier = 3.0
 // OOM memory limit) while a sibling is still computing a huge number.
 //
 // We serialize through a package-level refcount: only the first active Begin
-// disables GC and records the TRUE original GOGC; only the last active End
-// restores it and removes the soft memory limit. This preserves the panic-safe
-// WithGC contract while making concurrent activation correct.
+// disables GC and records the TRUE original GOGC and soft memory limit; only the
+// last active End restores both. Restoring (not zeroing) the memory limit keeps
+// a user-supplied GOMEMLIMIT in effect across calculations. This preserves the
+// panic-safe WithGC contract while making concurrent activation correct.
 var (
-	gcGlobalMu     sync.Mutex
-	gcActiveDepth  int
-	gcSavedPercent int
+	gcGlobalMu      sync.Mutex
+	gcActiveDepth   int
+	gcSavedPercent  int
+	gcSavedMemLimit int64
 )
 
 // GCController manages Go's garbage collector during intensive calculations.
@@ -117,9 +118,12 @@ func (gc *GCController) Begin() {
 
 	gcGlobalMu.Lock()
 	if gcActiveDepth == 0 {
-		// First active controller: capture the TRUE original GOGC and disable
-		// GC process-wide, then install the soft memory limit as an OOM net.
+		// First active controller: capture the TRUE original GOGC and soft
+		// memory limit, disable GC process-wide, then install our own soft
+		// memory limit as an OOM net. SetMemoryLimit(-1) reads the current
+		// limit without changing it.
 		gcSavedPercent = debug.SetGCPercent(-1)
+		gcSavedMemLimit = debug.SetMemoryLimit(-1)
 		if gc.startStats.Sys > 0 {
 			if limit := int64(float64(gc.startStats.Sys) * DefaultMemoryLimitMultiplier); limit > 0 {
 				debug.SetMemoryLimit(limit)
@@ -149,9 +153,10 @@ func (gc *GCController) End() {
 	last := gcActiveDepth == 0
 	if last {
 		// Last active controller: no sibling is still computing, so it is safe
-		// to restore the original GOGC and drop the soft memory limit.
+		// to restore the original GOGC and soft memory limit (restoring, not
+		// zeroing, so a pre-existing GOMEMLIMIT survives).
 		debug.SetGCPercent(gcSavedPercent)
-		debug.SetMemoryLimit(math.MaxInt64)
+		debug.SetMemoryLimit(gcSavedMemLimit)
 	}
 	gcGlobalMu.Unlock()
 

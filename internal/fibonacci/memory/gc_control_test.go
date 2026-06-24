@@ -182,6 +182,32 @@ func TestGCController_ConcurrentBeginEnd_RestoresOriginal(t *testing.T) {
 	}
 }
 
+// TestGCController_RestoresMemoryLimit verifies that End restores the soft
+// memory limit present before Begin rather than zeroing it to "no limit". A
+// process launched with GOMEMLIMIT (applied through the same process-global
+// debug.SetMemoryLimit knob) must keep that OOM net after a GC-controlled
+// calculation. Closes the coverage gap that let the MaxInt64 reset slip by.
+//
+// Not parallel: it mutates and probes the process-global soft memory limit.
+func TestGCController_RestoresMemoryLimit(t *testing.T) {
+	const sentinel int64 = 512 << 20 // 512 MiB, a plausible user GOMEMLIMIT
+	original := debug.SetMemoryLimit(sentinel)
+	defer debug.SetMemoryLimit(original) // restore whatever was there for other tests
+
+	gc := NewGCController("aggressive", 2_000_000)
+	if !gc.active {
+		t.Fatal("test prerequisite: aggressive controller must be active")
+	}
+
+	if err := gc.WithGC(func() error { return nil }); err != nil {
+		t.Fatalf("WithGC: %v", err)
+	}
+
+	if cur := debug.SetMemoryLimit(-1); cur != sentinel {
+		t.Fatalf("soft memory limit not restored after End: got %d, want %d", cur, sentinel)
+	}
+}
+
 // TestGCController_SetLogger_EmitsGCEvents verifies that SetLogger wires the
 // logger actually used by Begin/End: the "gc disabled" and "gc re-enabled"
 // debug events must land in the configured sink, with the mode field set.
