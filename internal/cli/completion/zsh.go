@@ -59,20 +59,21 @@ func zshHelp(f FlagCompletion) string {
 
 // zshArgEntry formats a single FlagCompletion as a zsh _arguments entry.
 func zshArgEntry(f FlagCompletion) string {
-	help := escapeZshSingleQuoted(zshHelp(f))
+	help := escapeZshArgSpec(zshHelp(f))
+	vn := escapeZshArgSpec(f.ValueName)
 
 	// Build the value suffix
 	valueSuffix := ""
 	switch {
 	case f.IsFile:
-		valueSuffix = fmt.Sprintf(":%s:_files", f.ValueName)
+		valueSuffix = fmt.Sprintf(":%s:_files", vn)
 	case f.IsAlgo:
-		valueSuffix = fmt.Sprintf(":%s:($algorithms)", f.ValueName)
+		valueSuffix = fmt.Sprintf(":%s:($algorithms)", vn)
 	case len(f.Values) > 0:
-		valueSuffix = fmt.Sprintf(":%s:(%s)", f.ValueName, formatZshValueList(f.Values))
+		valueSuffix = fmt.Sprintf(":%s:(%s)", vn, formatZshValueList(f.Values))
 	case f.ValueName != "":
 		// Value-taking flag with no suggestions (e.g., -n)
-		valueSuffix = fmt.Sprintf(":%s:", f.ValueName)
+		valueSuffix = fmt.Sprintf(":%s:", vn)
 	}
 
 	if f.Long != "" && f.Short != "" {

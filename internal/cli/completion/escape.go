@@ -58,6 +58,34 @@ func escapeZshSingleQuoted(s string) string {
 	return r.Replace(s)
 }
 
+// escapeZshArgSpec escapes s for splicing into a zsh _arguments spec, which is
+// itself a single-quoted string. Two layers apply: the shell single-quote layer
+// (' and newline) and the _arguments mini-language, where ':', '[' and ']' are
+// structural delimiters. A help string or value containing them would otherwise
+// terminate a description early or open a spurious field, so they are
+// backslash-escaped (zsh un-escapes them back to literals). This is deliberately
+// separate from escapeZshSingleQuoted, which is used for plain zsh array
+// elements where ':', '[' and ']' are ordinary literals that must NOT be
+// escaped — folding the two would corrupt the algorithm array.
+func escapeZshArgSpec(s string) string {
+	var b strings.Builder
+	b.Grow(len(s) + 8)
+	for _, r := range s {
+		switch r {
+		case '\'':
+			b.WriteString(`'\''`) // close-escape-reopen the single quote
+		case ':', '[', ']':
+			b.WriteByte('\\')
+			b.WriteRune(r)
+		case '\n':
+			b.WriteByte(' ')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // escapePowerShellSingleQuoted escapes s for a PowerShell '...' literal.
 // PowerShell single quotes are literal except that ' is escaped by
 // doubling: ”.
@@ -87,12 +115,14 @@ func formatAlgoListZsh(algorithms []string) string {
 }
 
 // formatZshValueList escapes and space-joins static completion values for a
-// zsh ':name:(...)' value group, which is itself spliced inside the
-// single-quoted _arguments entry (so each value follows the '...' escape rule).
+// zsh ':name:(...)' value group, which sits inside the single-quoted _arguments
+// entry. Values go in the action segment (outside the [...] description), so
+// they follow the full _arguments escaping rule (':', '[', ']' as well as the
+// single-quote layer).
 func formatZshValueList(values []string) string {
 	escaped := make([]string, len(values))
 	for i, v := range values {
-		escaped[i] = escapeZshSingleQuoted(v)
+		escaped[i] = escapeZshArgSpec(v)
 	}
 	return strings.Join(escaped, " ")
 }

@@ -2,7 +2,9 @@ package completion
 
 // FlagCompletion describes a CLI flag for shell completion generation.
 // All shell completion functions generate from this registry, so adding
-// a new flag only requires appending to flagRegistry.
+// a new flag only requires appending to flagRegistry. TestFlagRegistryInSyncWithConfig
+// enforces that this list stays in sync with config.registerFlags (the canonical
+// flag set), so a new CLI flag added there fails the build until it is added here.
 type FlagCompletion struct {
 	Long      string   // long flag name without "--" (e.g., "help")
 	Short     string   // short flag without "-" (e.g., "h")
@@ -20,7 +22,7 @@ var flagRegistry = []FlagCompletion{
 	{Long: "help", Short: "h", Help: "Show help message"},
 	{Long: "version", Short: "V", Help: "Show version information"},
 	{Short: "n", Help: "Fibonacci index to calculate", ValueName: "number"},
-	{Short: "v", Help: "Display full result value"},
+	{Long: "verbose", Short: "v", Help: "Display the full result value (can be very long)"},
 	{Long: "details", Short: "d", Help: "Show performance details"},
 	{Long: "timeout", Help: "Maximum execution time", Values: []string{"1m", "5m", "10m", "30m", "1h"}, ValueName: "duration"},
 	{Long: "algo", Help: "Algorithm to use", IsAlgo: true, ValueName: "algorithm"},
@@ -34,6 +36,11 @@ var flagRegistry = []FlagCompletion{
 	{Long: "quiet", Short: "q", Help: "Quiet mode for scripts"},
 	{Long: "machine", Help: "Machine-readable output (no ANSI colors)"},
 	{Long: "completion", Help: "Generate completion script", Values: []string{"bash", "zsh", "fish", "powershell"}, ValueName: "shell"},
+	{Long: "calculate", Short: "c", Help: "Display the calculated value (disabled by default)"},
+	{Long: "tui", Help: "Launch interactive TUI dashboard"},
+	{Long: "last-digits", Help: "Compute only the last K decimal digits", ValueName: "count"},
+	{Long: "memory-limit", Help: "Maximum memory budget (e.g., 8G, 512M)", ValueName: "size"},
+	{Long: "gc-control", Help: "GC control during calculation", Values: []string{"auto", "aggressive", "disabled"}, ValueName: "mode"},
 }
 
 // flagKey returns the identifier used for lookups: Long name if present, else Short.

@@ -223,6 +223,56 @@ func TestGeneratePowerShell_AdversarialAlgo(t *testing.T) {
 	}
 }
 
+// TestEscapeZshArgSpec_NeutralisesArgMetachars covers the zsh _arguments grammar
+// layer: ':', '[' and ']' in help text or values must be backslash-escaped so
+// they cannot terminate a description early or open a spurious field, while the
+// single-quote shell layer still holds. Guards the latent injection class the
+// package security contract pledges to keep closed.
+func TestEscapeZshArgSpec_NeutralisesArgMetachars(t *testing.T) {
+	t.Parallel()
+	cases := []string{
+		"a:b",                  // field separator
+		"desc]break",           // would close a [description] early
+		"open[bracket",         // would open a spurious group
+		"all: at [once]",       // mixed
+		"quote'inside",         // single-quote layer must still hold
+		"line\nactual_newline", // newline must not survive
+	}
+	for _, in := range cases {
+		out := escapeZshArgSpec(in)
+		for i := 0; i < len(out); i++ {
+			if c := out[i]; c == ':' || c == '[' || c == ']' {
+				if i == 0 || out[i-1] != '\\' {
+					t.Errorf("escapeZshArgSpec(%q): unescaped %q at %d in %q", in, string(c), i, out)
+				}
+			}
+		}
+		if strings.Contains(out, "\n") {
+			t.Errorf("escapeZshArgSpec(%q) leaked newline in %q", in, out)
+		}
+		if got, want := strings.Count(out, `'\''`), strings.Count(in, "'"); got != want {
+			t.Errorf("escapeZshArgSpec(%q): single-quote not close-reopened (%d/%d) in %q", in, got, want, out)
+		}
+	}
+}
+
+// TestZshArgEntry_EscapesArgMetachars confirms the escaper is wired into the
+// real _arguments entry builder for both help text and value lists.
+func TestZshArgEntry_EscapesArgMetachars(t *testing.T) {
+	t.Parallel()
+	entry := zshArgEntry(FlagCompletion{
+		Long:      "evil",
+		ValueName: "name",
+		Help:      "desc] and : and [brackets]",
+		Values:    []string{"a:b", "c]d"},
+	})
+	for _, want := range []string{`desc\]`, `\: and \[brackets\]`, `a\:b`, `c\]d`} {
+		if !strings.Contains(entry, want) {
+			t.Errorf("zshArgEntry did not escape payload %q; entry: %q", want, entry)
+		}
+	}
+}
+
 // TestFlagFormatters_NeutraliseHelpAndValues extends the shell-escape contract
 // to flag Help text and static Values (audit F-014): both are interpolated into
 // the same quoting contexts as algorithm names, so they must be escaped too.

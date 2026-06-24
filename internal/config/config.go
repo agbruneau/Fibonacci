@@ -173,6 +173,19 @@ func registerFlags(fs *flag.FlagSet, config *AppConfig, availableAlgos []string)
 	fs.StringVar(&config.GCControl, "gc-control", "auto", "GC control during calculation (auto, aggressive, disabled).")
 }
 
+// FlagNames returns the names of every CLI flag registered by registerFlags.
+// It is the canonical flag list and exists so shell-completion generation (and
+// its sync test) can verify it never drifts from the real flag set. Note: it
+// does not include --version/-V or --help/-h, which are handled outside the
+// FlagSet (HasVersionFlag and flag.ErrHelp respectively).
+func FlagNames() []string {
+	fs := flag.NewFlagSet("fibcalc", flag.ContinueOnError)
+	registerFlags(fs, &AppConfig{}, nil)
+	var names []string
+	fs.VisitAll(func(f *flag.Flag) { names = append(names, f.Name) })
+	return names
+}
+
 // ParseConfig parses the command-line arguments and populates an AppConfig
 // struct. It defines all the command-line flags, sets their default values, and
 // handles the parsing process. After parsing, it performs validation on the
