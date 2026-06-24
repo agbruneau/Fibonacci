@@ -2,7 +2,7 @@
 
 > **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
 
-> **Vue interactive** — Un dashboard navigable du graphe de connaissances (797 nœuds, 3 533 arêtes, 8 couches, tour guidé 13 étapes — comptages vérifiés le 2026-06-10 sur l'artefact régénéré au commit 2fca040 ; à re-vérifier à chaque régénération du dashboard) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`docs/dashboard/knowledge-graph.json`](dashboard/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
+> **Vue interactive** — Un dashboard navigable du graphe de connaissances (797 nœuds, 3 533 arêtes, 8 couches, tour guidé 13 étapes — comptages vérifiés le 2026-06-10 sur l'artefact régénéré au commit f4d3a7f ; à re-vérifier à chaque régénération du dashboard) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`docs/dashboard/knowledge-graph.json`](dashboard/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
 
 ## 1) Project Overview
 
@@ -113,7 +113,7 @@ fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
 ├── README.md                    # Product and usage overview
 ├── CONTRIBUTING.md              # Development guidelines
 ├── CHANGELOG.md                 # Version history
-└── Claude.md                    # AI assistant context
+└── CLAUDE.md                    # AI assistant context
 ```
 
 ### `internal/` package map

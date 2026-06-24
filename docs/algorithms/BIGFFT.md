@@ -12,8 +12,8 @@ The `internal/bigfft` package implements **Schonhage-Strassen FFT multiplication
 Fermat rings for arbitrarily large integers. It is the computational backbone of all
 Fibonacci algorithms in this project once operand sizes exceed ~500,000 bits.
 
-The subsystem comprises ~19 non-test source files totalling approximately 4,100 lines of Go,
-organized around four concerns:
+The subsystem comprises ~18 non-test source files totalling approximately 4,200 lines of Go
+(run `make stats` for the canonical, up-to-date count), organized around four concerns:
 
 1. **Public API** -- panic-safe entry points for multiplication and squaring
 2. **FFT core** -- polynomial decomposition, forward/inverse transforms, pointwise operations
@@ -549,29 +549,10 @@ flowchart TD
 
 ---
 
-## CPU Feature Detection (amd64)
+## Low-Level Arithmetic (amd64)
 
-**File**: `internal/bigfft/cpu_amd64.go`
-
-Runtime detection via `golang.org/x/sys/cpu` at package init:
-
-| Feature | Flag | Purpose |
-|---------|------|---------|
-| AVX2 | `cpu.X86.HasAVX2` | 256-bit SIMD vector arithmetic |
-| AVX-512F + AVX-512DQ | `cpu.X86.HasAVX512F && HasAVX512DQ` | 512-bit SIMD |
-| BMI2 | `cpu.X86.HasBMI2` | MULX for faster multiplication |
-| ADX | `cpu.X86.HasADX` | ADCX/ADOX for parallel carry chains |
-
-A `SIMDLevel` enum (None, AVX2, AVX-512) summarizes the highest available tier:
-
-```go
-type SIMDLevel int
-const (
-    SIMDNone   SIMDLevel = iota
-    SIMDAVX2
-    SIMDAVX512
-)
-```
+Word-level vector arithmetic is delegated to `math/big`'s internal assembly via
+`go:linkname`; bigfft performs no runtime CPU-feature detection of its own.
 
 ### Vector Arithmetic
 
@@ -636,8 +617,7 @@ of 10 using the FFT multiplier.
 | `scan.go` | ~98 | `FromDecimalString`: subquadratic decimal parsing |
 | `arith_amd64.go` | ~32 | amd64 vector arithmetic wrappers delegating to `math/big` internals |
 | `arith_generic.go` | ~36 | Non-amd64 vector arithmetic wrappers delegating to `math/big` internals |
-| `arith_decl.go` | ~65 | Architecture-independent `go:linkname` declarations to `math/big` |
-| `cpu_amd64.go` | ~168 | Runtime CPU feature detection (amd64 only) |
+| `arith_decl.go` | ~60 | Architecture-independent `go:linkname` declarations to `math/big` |
 
 ---
 

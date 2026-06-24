@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit Go exhaustif (2026-06-24)
+
+Revue Go exhaustive et vérifiée (Claude Opus 4.8, orchestration multi-agents, vérification
+adversariale de chaque trouvaille moyenne/haute). Gate : `go build` / `go vet` / `go test ./...`
+verts, `gofmt` propre, couverture 95,0 % (plancher 80 %), aucune nouvelle alerte `golangci-lint`
+introduite. Chemin critique T1.1 validé sans régression (`benchstat` A/B, cas 1M-mots p=0,72).
+Détail complet et déviations assumées : [`AuditPlan.md`](AuditPlan.md).
+
+#### Fixed
+
+- **bigfft — panic de récursion FFT parallèle** (`fft_recursion.go`, `fft_recursion_ctx.go`) : les
+  goroutines async capturent désormais les panics worker (`panicCh` + re-panic après `wg.Wait()`)
+  au lieu de crasher le process sur une goroutine nue (ADR-0002). Gardé par
+  `TestFourierRecursiveAsyncPanicPropagates` / `...CtxAsyncPanicPropagates`.
+- **app — `--algo all --quiet` masquait une divergence** : le mode quiet vérifie la cohérence
+  inter-algorithmes et renvoie `ExitErrorMismatch` (3) au lieu d'un résultat faux avec exit 0
+  (helper partagé `orchestration.HasResultMismatch`).
+- **tui — corruption d'état après *Restart*** : `ProgressMsg`/`ComparisonResultsMsg`/`FinalResultMsg`/
+  `ErrorMsg` portent une `Generation` ; les messages d'une génération obsolète sont ignorés.
+- **memory — restauration de `GOMEMLIMIT`** : `GCController.End()` restaure la limite mémoire
+  d'origine au lieu de la remettre à « illimité ».
+- **errors — troncature UTF-8** : `sanitizeConfigExcerpt` coupe sur une frontière de rune.
+- **cli/completion** : 6 flags manquants ajoutés au registre (test de sync contre `config.FlagNames`) ;
+  escaper dédié zsh `_arguments` neutralisant `:` `[` `]`.
+- **orchestration** : un ensemble de résultats vide renvoie un code d'échec (plus d'exit 0 silencieux).
+- **cmd** : erreurs de configuration → `ExitErrorConfig` (4) ; le générateur golden remonte l'erreur
+  de `Close()` et échoue vite hors de la racine du module.
+- **modular** : suppression d'une branche de correction de modulo négatif inatteignable (Mod euclidien).
+
+#### Removed (code mort)
+
+- Sous-système `internal/bigfft/cpu_amd64.go` (détection CPU sans consommateur de production, doublon
+  de la détection de `internal/config`) et ses tests dédiés.
+- 5 helpers `getEnv*` (`config/env.go`), `NewMatrixFrameworkWithSquareFunc`, setter `SetTaskLogger`,
+  déclaration `go:linkname mulAddVWW` — tous sans appelant de production.
+
+#### Changed
+
+- `findHighestBit` → `bits.Len64` (backend `gmp`).
+- `threshold.ShouldAdjust` : un seul snapshot du buffer de métriques par ajustement (un lock + une
+  copie en moins).
+- `calibration` : annulation de contexte honorée avant le warm-up multiply.
+- Renommage `Claude.md` → `CLAUDE.md` (découvrabilité Claude Code sous système de fichiers sensible à la casse).
+
+#### Docs
+
+- README : bannière d'audit 2026-06-24 ; plancher de couverture délié (directive A5-04).
+- `bigfft/doc.go` (claims SIMD/CPU obsolètes), `config/doc.go` (dépendance `internal/ui`),
+  `BIGFFT.md` (recomptage, retrait de `cpu_amd64.go`) ; hash de provenance du dashboard réconcilié
+  sur l'artefact généré (`f4d3a7f`).
+
 ### Audit loop (2026-06-10)
 
 Performance and coverage audit loop (multi-agent workflow, branch

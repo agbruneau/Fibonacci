@@ -104,13 +104,16 @@ func PreWarmPools(n uint64) {
 // Using sync/atomic for lock-free, thread-safe initialization.
 var poolsWarmed atomic.Bool
 
-// EnsurePoolsWarmed ensures that pools are pre-warmed exactly once.
-// This is more efficient than calling PreWarmPools on every calculation,
-// as it uses atomic compare-and-swap to guarantee single initialization.
+// EnsurePoolsWarmed ensures that pools are pre-warmed exactly once, sized for
+// the first maxN seen. It uses atomic compare-and-swap to guarantee single
+// initialization and is safe to call concurrently from multiple goroutines.
 //
-// The function is safe to call concurrently from multiple goroutines.
-// Only the first call will actually pre-warm the pools; subsequent calls
-// return immediately.
+// Known ceiling (intentional): subsequent calls — including ones with a LARGER
+// maxN — return immediately without re-warming. A later, larger calculation
+// simply grows the size-class pools on demand. Pre-warming is a cold-start
+// optimization, not an adaptive sizing mechanism; re-warming mid-process would
+// risk pool thrashing for negligible benefit, so the one-shot behavior is by
+// design.
 //
 // Parameters:
 //   - maxN: The maximum Fibonacci index expected (used for estimation).

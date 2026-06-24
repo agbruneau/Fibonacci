@@ -10,6 +10,15 @@
 > Résultats mesurés : temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M),
 > couverture de tests portée de 88,9 % à **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires
 > vérifiées. Détails : [`CHANGELOG.md`](CHANGELOG.md).
+>
+> **Audit 2026-06-24** — Revue Go exhaustive supplémentaire avec **Claude Opus 4.8** (orchestration
+> multi-agents, vérification adversariale de chaque trouvaille). Corrige trois défauts de correctness —
+> panic de la récursion FFT parallèle désormais re-propagée au lieu de crasher le process (ADR-0002) ;
+> `--algo all --quiet` ne masque plus une divergence de résultats (code de sortie 3) ; messages TUI
+> obsolètes ignorés après *Restart* — durcit la restauration de `GOMEMLIMIT`, la troncature UTF-8, la
+> complétion shell (synchronisation des flags + échappement zsh `_arguments`) et les codes de sortie de
+> configuration (4), puis purge du code mort. Chemin critique validé sans régression (`benchstat`).
+> Détails : [`CHANGELOG.md`](CHANGELOG.md).
 
 **FibCalc** est un prototype académique qui calcule des nombres de Fibonacci arbitrairement grands à très haute
 vitesse. Il démontre une Clean Architecture, des stratégies zéro-allocation, du parallélisme adaptatif et des
@@ -196,7 +205,8 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
 
 - **Pas de CI distante — décision assumée** : la rigueur repose sur la discipline locale outillée
   (gate `scripts/check.ps1` / `scripts/check.sh`, plancher de couverture, baselines de benchmark).
-- **Couverture : 95,0 %** (2026-06-10, `go test ./... -coverprofile` ; plancher gate : 80 %).
+- **Couverture** : plancher garanti **80 %** via `make coverage-check` ; la couverture réelle le
+  dépasse confortablement (mesure ponctuelle avec `go test ./... -cover`, non figée — directive A5-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO/gcc — indisponible sous Windows sans gcc ; sur cet environnement les passes
