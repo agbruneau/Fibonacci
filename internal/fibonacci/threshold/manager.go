@@ -240,8 +240,11 @@ func (m *DynamicThresholdManager) ShouldAdjust() (newFFT, newParallel int, adjus
 		return currentFFT, currentParallel, false
 	}
 
-	newFFT = m.analyzeFFTThreshold()
-	newParallel = m.analyzeParallelThreshold()
+	// One snapshot shared by both analyzers (previously each call snapshotted
+	// independently — a redundant lock + buffer copy per adjustment).
+	metrics := m.snapshotMetrics()
+	newFFT = m.analyzeFFTThresholdFrom(metrics)
+	newParallel = m.analyzeParallelThresholdFrom(metrics)
 
 	fftChanged := m.analyzer.SignificantChange(currentFFT, newFFT)
 	parallelChanged := m.analyzer.SignificantChange(currentParallel, newParallel)
@@ -282,9 +285,17 @@ func (m *DynamicThresholdManager) snapshotMetrics() []IterationMetric {
 	return m.buffer.RecentMetrics()
 }
 
-// analyzeFFTThreshold delegates to the analyzer with FFT-specific parameters.
+// analyzeFFTThreshold snapshots the metrics buffer and analyzes the FFT
+// threshold. Retained for direct test access; ShouldAdjust calls
+// analyzeFFTThresholdFrom with a shared snapshot to avoid a redundant lock+copy.
 func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
-	return m.analyzer.Analyze(m.snapshotMetrics(), AnalysisParams{
+	return m.analyzeFFTThresholdFrom(m.snapshotMetrics())
+}
+
+// analyzeFFTThresholdFrom analyzes the FFT threshold from a caller-provided
+// metrics snapshot, applying FFT-specific parameters.
+func (m *DynamicThresholdManager) analyzeFFTThresholdFrom(metrics []IterationMetric) int {
+	return m.analyzer.Analyze(metrics, AnalysisParams{
 		Predicate:         func(metric IterationMetric) bool { return metric.UsedFFT },
 		SpeedupThreshold:  FFTSpeedupThreshold,
 		LowerNumerator:    9,
@@ -296,9 +307,17 @@ func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
 	})
 }
 
-// analyzeParallelThreshold delegates to the analyzer with parallel-specific parameters.
+// analyzeParallelThreshold snapshots the metrics buffer and analyzes the
+// parallel threshold. Retained for direct test access; ShouldAdjust calls
+// analyzeParallelThresholdFrom with a shared snapshot.
 func (m *DynamicThresholdManager) analyzeParallelThreshold() int {
-	return m.analyzer.Analyze(m.snapshotMetrics(), AnalysisParams{
+	return m.analyzeParallelThresholdFrom(m.snapshotMetrics())
+}
+
+// analyzeParallelThresholdFrom analyzes the parallel threshold from a
+// caller-provided metrics snapshot, applying parallel-specific parameters.
+func (m *DynamicThresholdManager) analyzeParallelThresholdFrom(metrics []IterationMetric) int {
+	return m.analyzer.Analyze(metrics, AnalysisParams{
 		Predicate:         func(metric IterationMetric) bool { return metric.UsedParallel },
 		SpeedupThreshold:  ParallelSpeedupThreshold,
 		LowerNumerator:    8,

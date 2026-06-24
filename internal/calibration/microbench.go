@@ -181,6 +181,13 @@ func (mb *MicroBenchmark) runParallelTests(ctx context.Context) []testResult {
 // consume it. See P1-07.
 func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) {
 	_ = parallel // documented above; silence unparam without dropping the knob
+
+	// Honor cancellation before the (potentially expensive) warm-up multiply,
+	// not only inside the timed loop — a large wordSize warm-up can run long.
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+
 	// Create test numbers
 	x := generateTestNumber(wordSize)
 	y := generateTestNumber(wordSize)

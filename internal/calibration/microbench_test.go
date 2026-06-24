@@ -101,6 +101,21 @@ func TestMicroBenchContextCancellation(t *testing.T) {
 	_ = results
 }
 
+// TestRunSingleTestRespectsCancellationBeforeWarmup verifies the early ctx
+// guard added before the warm-up multiply: a pre-canceled context returns the
+// cancellation error rather than running a (potentially expensive) warm-up.
+func TestRunSingleTestRespectsCancellationBeforeWarmup(t *testing.T) {
+	t.Parallel()
+	mb := NewMicroBenchmark()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	d, err := mb.runSingleTest(ctx, 1024, false, false)
+	if err != context.Canceled {
+		t.Fatalf("expected context.Canceled before warm-up, got d=%v err=%v", d, err)
+	}
+}
+
 func TestGenerateTestNumber(t *testing.T) {
 	t.Parallel()
 	words := 10
