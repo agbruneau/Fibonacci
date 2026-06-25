@@ -126,7 +126,7 @@ Clean Architecture en quatre couches — `cmd → app → orchestration → fibo
 | `internal/bigfft` | Schönhage-Strassen sur anneaux de Fermat, bump allocator, cache LRU |
 | `internal/orchestration` | Exécution concurrente (`errgroup`), agrégation, sélection des calculateurs |
 | `internal/calibration` | Calibration adaptative au matériel, micro-benchmarks, profils |
-| `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) ; sous-packages `cli/completion` (génération complétion shell), `tui/component` |
+| `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) ; sous-package `cli/completion` (génération complétion shell) |
 | `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
 | `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
 | `internal/{errors,format,metrics,parallel,ui,testutil}` | Packages de support (feuilles) |
