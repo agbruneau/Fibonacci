@@ -3,6 +3,10 @@ flowchart LR
         main["cmd/fibcalc<br/>main.go"]
     end
 
+    subgraph Tooling["Dev Tooling"]
+        gen["cmd/generate-golden<br/>golden oracle — zéro import interne"]
+    end
+
     subgraph Core["Application Core"]
         app["internal/app<br/>Lifecycle & Dispatch"]
         config["internal/config<br/>Flag Parsing & Env"]
@@ -22,6 +26,7 @@ flowchart LR
 
     subgraph Presentation["Presentation Layer"]
         cli["internal/cli<br/>CLI Output"]
+        completion["internal/cli/completion<br/>Shell Completion"]
         tui["internal/tui<br/>TUI Dashboard"]
     end
 
@@ -66,6 +71,7 @@ flowchart LR
     fib --> fibmem
     fib --> fibthr
 
+    cli --> completion
     cli --> format
     cli --> errors
     cli --> metrics
@@ -87,6 +93,7 @@ flowchart LR
     app --> fibthr
 
     style Entry fill:#e1f5fe
+    style Tooling fill:#ede7f6
     style Core fill:#f3e5f5
     style Orchestration fill:#fff3e0
     style Business fill:#e8f5e9

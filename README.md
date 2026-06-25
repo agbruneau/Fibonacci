@@ -120,12 +120,13 @@ Clean Architecture en quatre couches — `cmd → app → orchestration → fibo
 | Package | Responsabilité |
 |---|---|
 | `cmd/fibcalc` | Point d'entrée CLI |
+| `cmd/generate-golden` | Générateur du golden (oracle indépendant : `math/big` itératif, zéro import interne — ne valide pas la lib par elle-même) |
 | `internal/app` | Cycle de vie, dispatch, version |
 | `internal/fibonacci` | Algorithmes, frameworks, stratégies ; `memory/` (arène, GC, budget), `threshold/` (seuils dynamiques) |
 | `internal/bigfft` | Schönhage-Strassen sur anneaux de Fermat, bump allocator, cache LRU |
 | `internal/orchestration` | Exécution concurrente (`errgroup`), agrégation, sélection des calculateurs |
 | `internal/calibration` | Calibration adaptative au matériel, micro-benchmarks, profils |
-| `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) |
+| `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) ; sous-packages `cli/completion` (génération complétion shell), `tui/component` |
 | `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
 | `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
 | `internal/{errors,format,metrics,parallel,ui,testutil}` | Packages de support (feuilles) |
