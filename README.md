@@ -5,21 +5,6 @@
 ![Status](https://img.shields.io/badge/Status-Prototype_acad%C3%A9mique-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
 
-> **Audit 2026-06** — Ce code a été **audité en totalité, refactorisé et optimisé** à l'aide du modèle
-> **[Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)** (Anthropic) en mode effort **Max**.
-> Résultats mesurés : temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M),
-> couverture de tests portée de 88,9 % à **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires
-> vérifiées. Détails : [`CHANGELOG.md`](CHANGELOG.md).
->
-> **Audit 2026-06-24** — Revue Go exhaustive supplémentaire avec **Claude Opus 4.8** (orchestration
-> multi-agents, vérification adversariale de chaque trouvaille). Corrige trois défauts de correctness —
-> panic de la récursion FFT parallèle désormais re-propagée au lieu de crasher le process (ADR-0002) ;
-> `--algo all --quiet` ne masque plus une divergence de résultats (code de sortie 3) ; messages TUI
-> obsolètes ignorés après *Restart* — durcit la restauration de `GOMEMLIMIT`, la troncature UTF-8, la
-> complétion shell (synchronisation des flags + échappement zsh `_arguments`) et les codes de sortie de
-> configuration (4), puis purge du code mort. Chemin critique validé sans régression (`benchstat`).
-> Détails : [`CHANGELOG.md`](CHANGELOG.md).
-
 **FibCalc** est un prototype académique qui calcule des nombres de Fibonacci arbitrairement grands à très haute
 vitesse. Il démontre une Clean Architecture, des stratégies zéro-allocation, du parallélisme adaptatif et des
 algorithmes optimisés (Fast Doubling, exponentiation matricielle Strassen-Winograd, multiplication FFT
@@ -27,6 +12,14 @@ Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de
 
 > **[Dashboard knowledge-graph interactif →](https://agbruneau.github.io/FibGo/dashboard/)** — l'architecture
 > complète navigable (797 nœuds, 3 533 arêtes, 8 couches, visite guidée en 13 étapes).
+
+### Historique des audits
+
+| Date | Portée | Résultats clés |
+|---|---|---|
+| **2026-06** | Audit complet, refactorisation et optimisation — [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) (Anthropic), effort Max | Temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M), couverture 88,9 % → **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires vérifiées — [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-06-24** | Revue Go exhaustive — Claude Opus 4.8, orchestration multi-agents, vérification adversariale | Trois défauts de correctness corrigés (panic de la récursion FFT parallèle re-propagée au lieu de crasher — ADR-0002 ; `--algo all --quiet` ne masque plus une divergence — exit 3 ; messages TUI obsolètes ignorés après *Restart*), durcissements (`GOMEMLIMIT`, troncature UTF-8, complétion shell, codes de sortie), purge de code mort. Chemin critique validé sans régression (`benchstat`) — [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Fable 5 | Rapport [`audit.md`](audit.md) (0 critique, 11 majeurs, ~50 mineurs/info) et plan d'exécution [`auditPlan.md`](auditPlan.md) — correctifs planifiés, exécution à venir |
 
 ---
 
@@ -85,9 +78,8 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 ### Ingénierie de performance
 
 - **Pooling agressif** : `sync.Pool` pour `big.Int` ; `CalculationState` possède son arène **et** son scratch FFT
-  (bump allocator acquis une fois par calcul). Depuis l'audit 2026-06, un **slot GC-immune par calculateur**
-  conserve l'état entre les appels (le GC forcé post-calcul purge les `sync.Pool`) — c'est la source des gains
-  −12 à −15 % mesurés sur F(10M).
+  (bump allocator acquis une fois par calcul). Un **slot GC-immune par calculateur** conserve l'état entre les
+  appels (le GC forcé post-calcul purge les `sync.Pool`) — source des gains −12 à −15 % mesurés sur F(10M).
 - **Allocateur bump** O(1) sans fragmentation pour les tampons FFT.
 - **GC désactivé** pendant les grands calculs (N ≥ 1M), panic-safe (`WithGC`), refcount concurrent (ADR-0005).
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
@@ -217,6 +209,7 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
 - Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0008). Guide agents IA : [`CLAUDE.md`](CLAUDE.md).
+  Dernier audit : [`audit.md`](audit.md) / [`auditPlan.md`](auditPlan.md).
 
 Commandes principales (équivalents `go` pour Windows sans GNU make) :
 
@@ -255,13 +248,13 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles `fibonaccitest`, fuzzi
 ## Contribution et licence
 
 - Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer).
-- Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — branche dédiée, test rouge → fix → vert,
+- Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — test rouge → fix → vert,
   validation locale complète avant chaque commit (directive 8 de [`CLAUDE.md`](CLAUDE.md)).
 - Licence : **Apache 2.0** — voir [`LICENSE`](LICENSE).
 
 ### Remerciements
 
 Architecture et algorithmique inspirées de la littérature classique (Schönhage-Strassen, Strassen-Winograd,
-fast doubling) ; outillage : Go, Bubble Tea, benchstat, golangci-lint. Audit, refactorisation et optimisation
-2026-06 réalisés avec [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) (Anthropic),
-mode effort Max.
+fast doubling) ; outillage : Go, Bubble Tea, benchstat, golangci-lint. Audits, refactorisation et optimisation
+2026 réalisés avec [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) et Claude Opus 4.8
+(Anthropic).
