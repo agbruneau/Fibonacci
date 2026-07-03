@@ -105,8 +105,7 @@ func TestDisplayResult(t *testing.T) {
 
 func TestRealSpinner(t *testing.T) {
 	t.Parallel()
-	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-	rs := &realSpinner{s}
+	rs := newSpinner(spinner.WithColor("fgCyan"))
 
 	// Just verify these methods don't panic
 	rs.Start()

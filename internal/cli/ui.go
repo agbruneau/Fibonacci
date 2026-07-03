@@ -43,30 +43,52 @@ type Spinner interface {
 // realSpinner is a wrapper for the `spinner.Spinner` that implements the
 // `Spinner` interface. This adapter allows the `spinner` library to be used
 // within the application's CLI framework.
+//
+// stop/start/setSuffix default to the wrapped spinner's own methods/field
+// and only exist as indirection so tests can assert the ordering below
+// without a real terminal (see ui_suffix_race_test.go).
 type realSpinner struct {
 	s *spinner.Spinner
+
+	stop      func()
+	start     func()
+	setSuffix func(string)
 }
 
 // Start begins the spinner animation.
 func (rs *realSpinner) Start() {
-	rs.s.Start()
+	rs.start()
 }
 
 // Stop halts the spinner animation.
 func (rs *realSpinner) Stop() {
-	rs.s.Stop()
+	rs.stop()
 }
 
 // UpdateSuffix sets the text that is displayed after the spinner.
 //
+// The spinner library's render goroutine reads Suffix under its internal
+// mutex while running; writing rs.s.Suffix directly from here would race
+// with it in a real terminal (CONC-01). Stopping the spinner first blocks
+// until that goroutine has exited (Stop() happens-before the write), and
+// starting it again afterwards spawns a fresh goroutine that only reads
+// Suffix after the write (write happens-before Start()) -- no concurrent
+// access is possible.
+//
 // Parameters:
 //   - suffix: The string to display.
 func (rs *realSpinner) UpdateSuffix(suffix string) {
-	rs.s.Suffix = suffix
+	rs.stop()
+	rs.setSuffix(suffix)
+	rs.start()
 }
 
 var newSpinner = func(options ...spinner.Option) Spinner {
 	// Using the same interval as ProgressRefreshRate to synchronize
 	s := spinner.New(spinner.CharSets[11], ProgressRefreshRate, options...)
-	return &realSpinner{s}
+	rs := &realSpinner{s: s}
+	rs.stop = s.Stop
+	rs.start = s.Start
+	rs.setSuffix = func(suffix string) { s.Suffix = suffix }
+	return rs
 }
