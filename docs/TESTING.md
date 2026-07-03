@@ -32,6 +32,11 @@ make coverage          # Generate coverage.html
 make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + lint (advisory) + coverage floor
 ```
 
+> `make test` and `make check` (via `check.sh`) use `-race`, which requires
+> CGO/gcc — unavailable on a bare Windows host. On Windows without gcc, use
+> `make test-win` (no `-race`) or the PowerShell gate `scripts/check.ps1`
+> (which omits `-race`). This is a long-standing constraint, not new.
+
 ## Table-Driven Unit Tests
 
 The standard test pattern uses table-driven subtests with `t.Parallel()`. Every algorithm is validated against a shared test oracle (`knownFibResults`) with reference values from F(0) through F(1000).
