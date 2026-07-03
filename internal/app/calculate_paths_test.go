@@ -275,6 +275,35 @@ func TestValidateMemoryBudgetSuggestion(t *testing.T) {
 	}
 }
 
+// TestRunTUI_RejectsOversizedMemoryBudget reproduces audit.md APP-07: runTUI
+// launched the dashboard unconditionally, so --memory-limit was silently
+// ignored in TUI mode. An over-budget limit must short-circuit before
+// tui.Run is ever invoked (which would otherwise hang the test, per the note
+// in app_dispatch_test.go) and return the same config exit code the CLI path
+// uses.
+func TestRunTUI_RejectsOversizedMemoryBudget(t *testing.T) {
+	t.Parallel()
+	var errBuf bytes.Buffer
+	app := &Application{
+		Config: config.AppConfig{
+			N:           1_000_000_000,
+			MemoryLimit: "1K",
+			TUI:         true,
+		},
+		ErrWriter: &errBuf,
+	}
+
+	var outBuf bytes.Buffer
+	exitCode := app.runTUI(context.Background(), &outBuf)
+
+	if exitCode != apperrors.ExitErrorConfig {
+		t.Fatalf("expected exit code %d (config), got %d", apperrors.ExitErrorConfig, exitCode)
+	}
+	if !strings.Contains(outBuf.String(), "exceeds limit") {
+		t.Errorf("expected the memory budget diagnostic on out, got:\n%s", outBuf.String())
+	}
+}
+
 // gcSpyCalculator captures the Options it receives so tests can assert on
 // GCMode wiring without depending on the shared MockCalculator (which
 // discards opts).

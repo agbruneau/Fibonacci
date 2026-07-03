@@ -140,9 +140,11 @@ func (m Model) handleReset() (tea.Model, tea.Cmd) {
 		m.cancel()
 	}
 
-	// Create a new context for the restarted calculation.
+	// Create a new context for the restarted calculation, with its own fresh
+	// timeout budget (APP-05) rather than inheriting the original session's
+	// absolute deadline via m.parentCtx.
 	m.generation++
-	ctx, cancel := context.WithCancel(m.parentCtx)
+	ctx, cancel := context.WithTimeout(m.parentCtx, m.config.Timeout)
 	m.ctx = ctx
 	m.cancel = cancel
 

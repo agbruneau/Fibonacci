@@ -160,9 +160,23 @@ func (a *Application) runAutoCalibrationIfEnabled(ctx context.Context, out io.Wr
 }
 
 // runTUI launches the interactive TUI dashboard.
-func (a *Application) runTUI(ctx context.Context, _ io.Writer) int {
-	ctx, cancelTimeout := context.WithTimeout(ctx, a.Config.Timeout)
-	defer cancelTimeout()
+//
+// --memory-limit is validated here (audit.md APP-07): Validate() already
+// rejects --tui combined with --last-digits or --output, but the TUI always
+// computes the full N, so its memory budget must still be checked before
+// launch — runCalculate's validateMemoryBudget call is on a path this mode
+// never reaches.
+//
+// The timeout budget is applied per generation inside the TUI itself (in
+// NewModel/handleReset, APP-05) rather than once here: a restart must get a
+// fresh full budget instead of inheriting a single absolute deadline set at
+// session start. signal.NotifyContext still wraps the parent context so
+// SIGINT/SIGTERM cancel every generation uniformly.
+func (a *Application) runTUI(ctx context.Context, out io.Writer) int {
+	if code := a.validateMemoryBudget(out); code != apperrors.ExitSuccess {
+		return code
+	}
+
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -389,6 +390,52 @@ func TestModel_Update_ContextCancelledMsg_StaleGeneration(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Error("expected no command from stale context canceled")
+	}
+}
+
+// TestModel_HandleReset_FreshTimeoutBudget pins APP-05: a restart must get a
+// full new timeout budget for its generation instead of inheriting a single
+// absolute deadline computed once at session start. parentCtx here mirrors
+// the real app.runTUI parent post-fix: signal-cancelable only, no deadline of
+// its own. The first generation's short Timeout is left to expire, then
+// handleReset must produce a context whose remaining budget is close to a
+// fresh cfg.Timeout again -- not already expired and not just the leftover
+// sliver a shared absolute deadline would have given it.
+func TestModel_HandleReset_FreshTimeoutBudget(t *testing.T) {
+	t.Parallel()
+
+	parentCtx, parentCancel := context.WithCancel(context.Background())
+	defer parentCancel()
+
+	cfg := config.AppConfig{N: 1000, Timeout: 20 * time.Millisecond}
+	m := NewModel(parentCtx, nil, cfg, "v0.1.0")
+	t.Cleanup(m.cancel)
+
+	// Let the first generation's budget fully expire.
+	<-m.ctx.Done()
+	if !errors.Is(m.ctx.Err(), context.DeadlineExceeded) {
+		t.Fatalf("expected first generation to expire via deadline, got %v", m.ctx.Err())
+	}
+
+	updated, _ := m.handleReset()
+	result := updated.(Model)
+	t.Cleanup(result.cancel)
+
+	deadline, ok := result.ctx.Deadline()
+	if !ok {
+		t.Fatal("expected the restarted generation's context to carry a deadline")
+	}
+	remaining := time.Until(deadline)
+	if remaining < cfg.Timeout/2 {
+		t.Fatalf("expected a fresh ~%v budget after restart, got only %v remaining", cfg.Timeout, remaining)
+	}
+
+	select {
+	case <-result.ctx.Done():
+		t.Fatalf("expected fresh per-generation context to still be alive, got error: %v", result.ctx.Err())
+	default:
+		// Context is alive: restart got a fresh budget, not the expired
+		// original deadline.
 	}
 }
 

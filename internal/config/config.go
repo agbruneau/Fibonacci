@@ -112,6 +112,12 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.LastDigits < 0 {
 		return apperrors.NewConfigError("last-digits cannot be negative: %d (0 disables, >0 computes the last K digits)", c.LastDigits)
 	}
+	if c.TUI && c.LastDigits > 0 {
+		return apperrors.NewConfigError("--tui is incompatible with --last-digits: the TUI dashboard always computes the full value")
+	}
+	if c.TUI && c.OutputFile != "" {
+		return apperrors.NewConfigError("--tui is incompatible with --output: the TUI dashboard does not save results to a file")
+	}
 	switch c.GCControl {
 	case "", string(memory.GCModeAuto), string(memory.GCModeAggressive), string(memory.GCModeDisabled):
 		// valid

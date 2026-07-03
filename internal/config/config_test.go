@@ -310,6 +310,57 @@ func TestValidate_RejectsNegativeStrassen(t *testing.T) {
 	})
 }
 
+func TestValidate_RejectsIncompatibleTUICombinations(t *testing.T) {
+	t.Parallel()
+	algos := []string{"fast", "matrix"}
+
+	assertConfigError := func(t *testing.T, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+		var cfgErr apperrors.ConfigError
+		if !errors.As(err, &cfgErr) {
+			t.Errorf("expected apperrors.ConfigError, got %T: %v", err, err)
+		}
+	}
+
+	t.Run("tui + last-digits rejected", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.TUI = true
+		c.LastDigits = 10
+		assertConfigError(t, c.Validate(algos))
+	})
+
+	t.Run("tui + output rejected", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.TUI = true
+		c.OutputFile = "result.txt"
+		assertConfigError(t, c.Validate(algos))
+	})
+
+	t.Run("tui alone is valid", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.TUI = true
+		if err := c.Validate(algos); err != nil {
+			t.Errorf("tui alone should be valid, got: %v", err)
+		}
+	})
+
+	t.Run("last-digits + output without tui is valid", func(t *testing.T) {
+		t.Parallel()
+		c := base()
+		c.LastDigits = 10
+		c.OutputFile = "result.txt"
+		if err := c.Validate(algos); err != nil {
+			t.Errorf("last-digits + output without tui should be valid, got: %v", err)
+		}
+	})
+}
+
 func TestValidate_RejectsUnknownGCControl(t *testing.T) {
 	t.Parallel()
 	algos := []string{"fast", "matrix"}

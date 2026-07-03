@@ -51,7 +51,12 @@ func NewModel(parentCtx context.Context, calculators []orchestration.Calculator,
 		algoNames[i] = c.Name()
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
+	// Per-generation timeout: each run (including restarts via handleReset)
+	// gets its own full budget instead of inheriting a single absolute
+	// deadline set once at session start (APP-05). signal.NotifyContext
+	// stays on parentCtx in app.runTUI, so SIGINT/SIGTERM still cancel
+	// through this derived context.
+	ctx, cancel := context.WithTimeout(parentCtx, cfg.Timeout)
 
 	logs := NewLogsModel(algoNames)
 	logs.AddExecutionConfig(cfg)
