@@ -90,7 +90,7 @@ func New(args []string, errWriter io.Writer, opts ...AppOption) (*Application, e
 		return nil, err
 	}
 
-	if cfgWithProfile, loaded := calibration.LoadCachedCalibration(cfg, cfg.CalibrationProfile); loaded {
+	if cfgWithProfile, loaded := calibration.LoadCachedCalibration(cfg, cfg.CalibrationProfile); loaded && cfgWithProfile.Validate(availableAlgos) == nil {
 		cfg = cfgWithProfile
 	} else {
 		cfg = config.ApplyAdaptiveThresholds(cfg)

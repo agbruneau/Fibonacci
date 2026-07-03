@@ -110,6 +110,55 @@ func TestNew(t *testing.T) {
 			t.Errorf("Expected default N=100000000, got N=%d", app.Config.N)
 		}
 	})
+
+	// SEC-01: a calibration profile is untrusted disk input. IsValid only
+	// checks hardware compatibility, never threshold ranges, so a forged
+	// profile with a negative threshold must be rejected after being
+	// applied to cfg, falling back to config.ApplyAdaptiveThresholds
+	// instead of propagating the invalid value.
+	t.Run("Forged profile with negative threshold is ignored", func(t *testing.T) {
+		t.Parallel()
+		var errBuf bytes.Buffer
+
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/forged.json"
+
+		wordSize := 32 << (^uint(0) >> 63)
+		forged := calibration.CalibrationProfile{
+			ProfileVersion:           calibration.CurrentProfileVersion,
+			NumCPU:                   runtime.NumCPU(),
+			GOARCH:                   runtime.GOARCH,
+			WordSize:                 wordSize,
+			CPUHeuristicKey:          config.CurrentHardwareHeuristicKey(),
+			OptimalParallelThreshold: -1,
+			OptimalFFTThreshold:      600000,
+			OptimalStrassenThreshold: 4096,
+			CalibratedAt:             time.Now(),
+		}
+		profileData, err := json.Marshal(forged)
+		if err != nil {
+			t.Fatalf("Failed to marshal forged profile: %v", err)
+		}
+		if err := os.WriteFile(profilePath, profileData, 0o644); err != nil {
+			t.Fatalf("Failed to write forged profile: %v", err)
+		}
+
+		args := []string{"fibcalc", "-n", "100", "-calibration-profile", profilePath}
+
+		app, err := New(args, &errBuf)
+		if err != nil {
+			t.Fatalf("New() returned unexpected error: %v", err)
+		}
+
+		if app.Config.Threshold < 0 {
+			t.Fatalf("forged negative threshold leaked into cfg: Threshold=%d", app.Config.Threshold)
+		}
+
+		want := config.ApplyAdaptiveThresholds(config.AppConfig{N: 100})
+		if app.Config.Threshold != want.Threshold {
+			t.Errorf("Threshold = %d, want fallback ApplyAdaptiveThresholds value %d", app.Config.Threshold, want.Threshold)
+		}
+	})
 }
 
 // TestApplicationRun tests the Application.Run method.

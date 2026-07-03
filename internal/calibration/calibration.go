@@ -333,7 +333,19 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	profileStale := profileFresh && profile.IsStale(maxAge)
 
 	if profileFresh && !profileStale {
-		return applyCachedProfile(cfg, profile, out), true
+		// SEC-01: IsValid() checks only hardware compatibility, never
+		// threshold ranges, so a forged on-disk profile can carry an
+		// out-of-range value. Re-validate the three thresholds the profile
+		// controls (mirroring config.Validate's non-negativity checks) before
+		// trusting them; on failure fall through to a fresh calibration
+		// instead of leaking the forged value into the running config.
+		if profile.OptimalParallelThreshold >= 0 &&
+			profile.OptimalFFTThreshold >= 0 &&
+			profile.OptimalStrassenThreshold >= 0 {
+			return applyCachedProfile(cfg, profile, out), true
+		}
+		fmt.Fprintf(out, "%sCached calibration profile has invalid thresholds, re-calibrating%s\n",
+			ui.ColorYellow(), ui.ColorReset())
 	}
 
 	stratOpts := StrategyOptions{

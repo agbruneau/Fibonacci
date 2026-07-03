@@ -247,6 +247,44 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 		}
 	})
 
+	// SEC-01: the runtime auto-calibrate path must not trust a hardware-valid
+	// but forged on-disk profile whose thresholds are out of range. IsValid()
+	// checks hardware compatibility only, so a negative threshold would leak
+	// straight into the running config via applyCachedProfile.
+	t.Run("Forged fresh profile with negative threshold is not applied", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/forged.json"
+
+		// NewProfile() stamps the current hardware fields, so IsValid() passes;
+		// CalibratedAt is now, so it is fresh (not stale). Only the threshold
+		// is forged.
+		profile := NewProfile()
+		profile.OptimalParallelThreshold = -1
+		profile.OptimalFFTThreshold = 600000
+		profile.OptimalStrassenThreshold = 4096
+		if err := profile.SaveProfile(profilePath); err != nil {
+			t.Fatalf("Failed to save forged profile: %v", err)
+		}
+
+		registry := map[string]fibonacci.Calculator{
+			"fast": &MockCalculator{name: "fast"},
+		}
+		cfg := config.AppConfig{Timeout: 5 * time.Second}
+
+		var outBuf bytes.Buffer
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		updated, _ := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+
+		if updated.Threshold < 0 {
+			t.Fatalf("forged negative threshold leaked via auto-calibrate: Threshold=%d", updated.Threshold)
+		}
+		if strings.Contains(outBuf.String(), "Using cached calibration") {
+			t.Errorf("forged profile must not be applied as a cached calibration; output=%q", outBuf.String())
+		}
+	})
+
 	t.Run("Quick calibration fallback", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
