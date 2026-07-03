@@ -3,13 +3,12 @@ package orchestration
 import (
 	"time"
 
-	"github.com/agbruneau/FibGo/internal/format"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // ProgressAggregator manages multi-calculator progress aggregation with ETA
 // estimation. It combines the per-calculator progress state (delegated to
-// format.ProgressState) with time-based smoothing to produce a stable ETA.
+// ProgressState) with time-based smoothing to produce a stable ETA.
 //
 // Both CLI and TUI use this type so that aggregation, smoothing, and ETA
 // computation are not duplicated across UI layers.
@@ -17,7 +16,7 @@ import (
 // ProgressAggregator is NOT thread-safe. It is designed to be accessed from a
 // single consumer goroutine that reads from the progress channel.
 type ProgressAggregator struct {
-	state          *format.ProgressState
+	state          *ProgressState
 	numCalculators int
 
 	// ETA computation state.
@@ -35,7 +34,7 @@ func NewProgressAggregator(numCalculators int) *ProgressAggregator {
 	}
 	now := time.Now()
 	return &ProgressAggregator{
-		state:          format.NewProgressState(numCalculators),
+		state:          NewProgressState(numCalculators),
 		numCalculators: numCalculators,
 		startTime:      now,
 		lastUpdate:     now,

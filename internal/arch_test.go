@@ -4,11 +4,12 @@
 //	cmd → app → orchestration → fibonacci/bigfft → config/errors
 //
 // The test inspects the go list -deps graph at runtime and fails if a
-// forbidden upward import is introduced. It guards the three upward
-// arrows broken by the May-2026 hardening:
+// forbidden upward import is introduced. It guards the upward arrows
+// broken by the May-2026 hardening and the July-2026 audit:
 //   - internal/fibonacci/threshold → internal/config
 //   - internal/errors → internal/format
 //   - internal/tui → internal/fibonacci (production code only)
+//   - internal/orchestration → internal/format
 package internal_test
 
 import (
@@ -58,6 +59,16 @@ var architectureRules = []forbiddenImport{
 		importer: "github.com/agbruneau/FibGo/internal/tui",
 		forbid: []string{
 			"github.com/agbruneau/FibGo/internal/fibonacci",
+		},
+	},
+	{
+		// internal/orchestration owns progress aggregation (ProgressState
+		// moved here from internal/format, audit APP-10) ; it must not
+		// reach back into the presentation-only format package, which is
+		// a pure string-in/string-out layer with no aggregation state.
+		importer: "github.com/agbruneau/FibGo/internal/orchestration",
+		forbid: []string{
+			"github.com/agbruneau/FibGo/internal/format",
 		},
 	},
 }

@@ -1,4 +1,4 @@
-package format
+package orchestration
 
 // ProgressState encapsulates the aggregated progress of concurrent calculations.
 // It maintains the individual progress of each calculator and computes the
@@ -6,7 +6,7 @@ package format
 // multiple algorithms are running in parallel.
 //
 // ProgressState is a primitive aggregation type. Higher-level concerns such as
-// ETA estimation live in the orchestration layer, on top of this type.
+// ETA estimation live in ProgressAggregator, on top of this type.
 type ProgressState struct {
 	progresses     []float64
 	numCalculators int
