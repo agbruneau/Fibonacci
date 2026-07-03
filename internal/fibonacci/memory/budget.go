@@ -68,7 +68,7 @@ func ParseMemoryLimit(s string) (uint64, error) {
 		return 0, fmt.Errorf("invalid memory limit %q: %w", s, err)
 	}
 
-	return val * multiplier, nil
+	return satMul(val, multiplier), nil
 }
 
 // FormatMemoryEstimate returns a human-readable string of the estimate.

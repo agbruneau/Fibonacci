@@ -74,6 +74,24 @@ func TestParseMemoryLimit(t *testing.T) {
 	}
 }
 
+// TestParseMemoryLimit_OverflowSaturates verifies that a value*multiplier
+// product exceeding uint64 range saturates to math.MaxUint64 instead of
+// silently wrapping to a small value, which would defeat the CanCalculate
+// memory guard (memLimitBytes == 0 means "no limit").
+func TestParseMemoryLimit_OverflowSaturates(t *testing.T) {
+	t.Parallel()
+
+	// 2^54 * 1024 (K multiplier) = 2^64, which wraps to 0 under raw uint64
+	// multiplication.
+	got, err := ParseMemoryLimit("18014398509481984K")
+	if err != nil {
+		t.Fatalf("ParseMemoryLimit() error: %v", err)
+	}
+	if got != math.MaxUint64 {
+		t.Errorf("ParseMemoryLimit() = %d, want saturated %d (must not wrap to a small value)", got, uint64(math.MaxUint64))
+	}
+}
+
 func TestParseMemoryLimit_Errors(t *testing.T) {
 	t.Parallel()
 
