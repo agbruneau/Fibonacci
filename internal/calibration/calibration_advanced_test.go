@@ -37,6 +37,43 @@ func (m *MockBlockingCalculator) Calculate(ctx context.Context, progressChan cha
 	return big.NewInt(1), nil
 }
 
+// TestRunCalibrationWithOptions_LoadProfile_ShowsEffectivePath is the
+// FIB-09 red test: when a custom (non-default) ProfilePath is used, the
+// path printed to the user must be that effective path, not
+// GetDefaultProfilePath() — otherwise a custom profile is loaded from one
+// location but the user is told it came from another.
+func TestRunCalibrationWithOptions_LoadProfile_ShowsEffectivePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	profilePath := filepath.Join(tmpDir, "custom_profile.json")
+	if profilePath == GetDefaultProfilePath() {
+		t.Fatal("test precondition violated: custom path collides with default path")
+	}
+
+	profile := NewProfile()
+	profile.OptimalParallelThreshold = 1234
+	if err := profile.SaveProfile(profilePath); err != nil {
+		t.Fatalf("Failed to save profile: %v", err)
+	}
+
+	opts := CalibrationOptions{
+		ProfilePath: profilePath,
+		LoadProfile: true,
+	}
+
+	var outBuf strings.Builder
+	registry := map[string]fibonacci.Calculator{}
+	ctx := context.Background()
+	exitCode := RunCalibrationWithOptions(ctx, &outBuf, registry, opts, noopProgressDisplay, noopColorProvider{})
+
+	if exitCode != 0 {
+		t.Fatalf("Expected exit code 0, got %d", exitCode)
+	}
+	output := outBuf.String()
+	if !strings.Contains(output, profilePath) {
+		t.Errorf("Output should show the effective profile path %q, got: %s", profilePath, output)
+	}
+}
+
 func TestRunCalibrationWithOptions_LoadProfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	profilePath := filepath.Join(tmpDir, "profile.json")
@@ -60,6 +97,40 @@ func TestRunCalibrationWithOptions_LoadProfile(t *testing.T) {
 
 	if exitCode != 0 {
 		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+}
+
+// TestRunCalibrationWithOptions_SaveProfile_ShowsEffectivePath is the
+// FIB-09 red test for the persistCalibrationProfile save-path message: a
+// full calibration run with a custom, non-default ProfilePath must report
+// that same path in the "profile saved to" message.
+func TestRunCalibrationWithOptions_SaveProfile_ShowsEffectivePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	profilePath := filepath.Join(tmpDir, "custom_save_profile.json")
+	if profilePath == GetDefaultProfilePath() {
+		t.Fatal("test precondition violated: custom path collides with default path")
+	}
+
+	registry := map[string]fibonacci.Calculator{
+		"fast": &MockCalculator{name: "fast"},
+	}
+
+	opts := CalibrationOptions{
+		ProfilePath: profilePath,
+		LoadProfile: false,
+		SaveProfile: true,
+	}
+
+	var outBuf strings.Builder
+	ctx := context.Background()
+	exitCode := RunCalibrationWithOptions(ctx, &outBuf, registry, opts, noopProgressDisplay, noopColorProvider{})
+
+	if exitCode != 0 {
+		t.Fatalf("Expected exit code 0, got %d", exitCode)
+	}
+	output := outBuf.String()
+	if !strings.Contains(output, profilePath) {
+		t.Errorf("Output should show the effective save path %q, got: %s", profilePath, output)
 	}
 }
 

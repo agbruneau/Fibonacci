@@ -19,7 +19,7 @@ func printCalibrationResults(out io.Writer, results []calibrationResult, bestThr
 	fmt.Fprintf(tw, "  %s┼%s\n", strings.Repeat("─", 14), strings.Repeat("─", 25))
 	for _, res := range results {
 		thresholdLabel := fmt.Sprintf("%d bits", res.Threshold)
-		if res.Threshold == 0 {
+		if res.Threshold < 0 {
 			thresholdLabel = "Sequential"
 		}
 		durationStr := fmt.Sprintf("%sN/A%s", ui.ColorRed(), ui.ColorReset())

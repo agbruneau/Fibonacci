@@ -112,6 +112,18 @@ func (mb *MicroBenchmark) RunQuick(ctx context.Context) (ThresholdResults, error
 	thresholds := mb.analyzeResults(results)
 	thresholds.Duration = time.Since(start)
 
+	// FIB-03: RunQuick used to always report success even when nothing was
+	// measured, letting a zero-confidence result look like a completed
+	// benchmark to callers checking only the error. Surface the context
+	// error when analyzeResults found no valid measurement to work with
+	// (results may be non-empty but entirely errored, e.g. every worker
+	// observed ctx.Done() before timing anything).
+	if thresholds.Confidence == 0 {
+		if err := ctx.Err(); err != nil {
+			return thresholds, err
+		}
+	}
+
 	return thresholds, nil
 }
 
@@ -243,9 +255,17 @@ func multiplyTest(x, y *big.Int, useFFT bool) {
 }
 
 // analyzeResults examines test results to determine optimal thresholds.
+//
+// FIB-03: find*Crossover report 0 when they have no measured crossover to
+// offer (see their doc comments); the conservative defaults live here, and
+// applying a default earns no confidence bonus — confidence must reflect
+// only what was actually measured. The historical +0.2 "parallel crossover
+// found" bonus is dropped entirely: runSingleTest does not branch on the
+// parallel flag, so any detected "crossover" was measurement noise between
+// two identical configurations, not a real signal.
 func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults {
 	tr := ThresholdResults{
-		// Start with conservative defaults
+		// Conservative defaults, used only when no measurement says otherwise.
 		FFTThreshold:      500000,
 		ParallelThreshold: 4096,
 		Confidence:        0.5,
@@ -265,19 +285,22 @@ func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults 
 		}
 	}
 
-	// Analyze FFT crossover point
-	fftCrossover := mb.findFFTCrossover(bySize)
-	if fftCrossover > 0 {
+	if len(bySize) == 0 {
+		// Every result errored: no valid measurement at all.
+		tr.Confidence = 0.0
+		return tr
+	}
+
+	// Analyze FFT crossover point; only a real measurement earns confidence.
+	if fftCrossover := mb.findFFTCrossover(bySize); fftCrossover > 0 {
 		tr.FFTThreshold = fftCrossover
 		tr.Confidence += 0.2
 	}
 
-	// Analyze parallel crossover point
-	parallelCrossover := mb.findParallelCrossover(bySize)
-	if parallelCrossover > 0 {
-		tr.ParallelThreshold = parallelCrossover
-		tr.Confidence += 0.2
-	}
+	// Parallel crossover is not currently measured (runSingleTest ignores
+	// the parallel flag); keep the conservative default without a
+	// confidence bonus.
+	_ = mb.findParallelCrossover(bySize)
 
 	// Cap confidence at 1.0
 	if tr.Confidence > 1.0 {
@@ -287,7 +310,11 @@ func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults 
 	return tr
 }
 
-// findFFTCrossover determines the bit size where FFT becomes faster than standard math/big.
+// findFFTCrossover determines the bit size where FFT becomes faster than
+// standard math/big. Returns 0 when no crossover was observed in the
+// measured data — analyzeResults owns the conservative default for that
+// case (FIB-03: a fallback value is not a measurement and must not be
+// treated as one for confidence purposes).
 func (mb *MicroBenchmark) findFFTCrossover(bySize map[int][]testResult) int {
 	var crossoverSize int
 
@@ -319,16 +346,16 @@ func (mb *MicroBenchmark) findFFTCrossover(bySize map[int][]testResult) int {
 		}
 	}
 
-	// If no crossover found, use a high default
-	if crossoverSize == 0 {
-		return 1000000
-	}
-
-	// Add some margin (FFT should be clearly better)
+	// Add some margin (FFT should be clearly better). crossoverSize == 0
+	// (no crossover observed) passes through unchanged: 0 * 9 / 10 == 0.
 	return crossoverSize * 9 / 10
 }
 
-// findParallelCrossover determines the bit size where parallelism becomes beneficial.
+// findParallelCrossover determines the bit size where parallelism becomes
+// beneficial. Returns 0 when no crossover was observed — analyzeResults
+// owns the conservative default (see findFFTCrossover; FIB-03 applies
+// identically here, and today the crossover it computes is unused for a
+// confidence bonus since runSingleTest does not branch on parallel).
 func (mb *MicroBenchmark) findParallelCrossover(bySize map[int][]testResult) int {
 	if runtime.NumCPU() <= 1 {
 		return 0 // No parallelism on single-core
@@ -364,11 +391,6 @@ func (mb *MicroBenchmark) findParallelCrossover(bySize map[int][]testResult) int
 				}
 			}
 		}
-	}
-
-	// If no crossover found, use default
-	if crossoverSize == 0 {
-		return 4096
 	}
 
 	return crossoverSize

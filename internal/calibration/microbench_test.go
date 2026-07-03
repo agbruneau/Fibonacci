@@ -84,6 +84,24 @@ func TestMicroBenchAnalyzeResultsEmpty(t *testing.T) {
 	}
 }
 
+// TestMicroBenchAnalyzeResultsAllErrored is the FIB-03 red test: when every
+// timed result errored, bySize ends up empty (no valid measurement at all),
+// yet analyzeResults must not report a confident result. Today it starts at
+// 0.5 and still adds the FFT/parallel "found a crossover" bonuses purely
+// from the >0 defaults, landing at 0.9 despite zero real data.
+func TestMicroBenchAnalyzeResultsAllErrored(t *testing.T) {
+	t.Parallel()
+	mb := NewMicroBenchmark()
+	results := []testResult{
+		{wordSize: 500, useFFT: false, parallel: false, err: context.DeadlineExceeded},
+		{wordSize: 500, useFFT: true, parallel: false, err: context.DeadlineExceeded},
+	}
+	tr := mb.analyzeResults(results)
+	if tr.Confidence >= 0.5 {
+		t.Errorf("Confidence = %f with zero valid measurements, want < 0.5", tr.Confidence)
+	}
+}
+
 func TestMicroBenchContextCancellation(t *testing.T) {
 	t.Parallel()
 	mb := NewMicroBenchmark()
@@ -93,12 +111,15 @@ func TestMicroBenchContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	results, err := mb.RunQuick(ctx)
-	// RunQuick currently doesn't return context error directly from parallel tests
-	// but we check if it handles it gracefully
-	if err != nil {
-		t.Errorf("RunQuick should handle canceled context gracefully, got err: %v", err)
+	// FIB-03: RunQuick must propagate the cancellation instead of silently
+	// returning a "successful" zero-confidence result as if nothing went
+	// wrong.
+	if err == nil {
+		t.Error("RunQuick should propagate the context error when no measurement could be collected")
 	}
-	_ = results
+	if results.Confidence != 0 {
+		t.Errorf("Confidence = %f, want 0 when RunQuick errors out", results.Confidence)
+	}
 }
 
 // TestRunSingleTestRespectsCancellationBeforeWarmup verifies the early ctx

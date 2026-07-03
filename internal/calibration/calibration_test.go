@@ -483,6 +483,30 @@ func TestAutoCalibrateWithProfile_StaleProfileTriggersRecalibration(t *testing.T
 	}
 }
 
+// TestTryFastThenEscalate_InvalidMeasurementsEscalates is the FIB-03 guard
+// test: with a pre-canceled context, FastStrategy.Calibrate cannot collect
+// any timing (runParallelTests returns no results), so analyzeResults must
+// report confidence 0 and tryFastThenEscalate must signal escalation
+// (ok=false) rather than accepting an inflated fallback confidence. Before
+// the fix, the >0 defaults in find*Crossover added +0.2/+0.2 bonuses even
+// with zero real data, making escalation unreachable via this path.
+func TestTryFastThenEscalate_InvalidMeasurementsEscalates(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // pre-canceled: no measurement can complete
+
+	stratOpts := StrategyOptions{
+		BaseConfig: config.AppConfig{StrassenThreshold: 256},
+		Out:        io.Discard,
+	}
+
+	_, ok := tryFastThenEscalate(ctx, stratOpts, "")
+	if ok {
+		t.Error("tryFastThenEscalate should signal escalation (ok=false) when no valid measurement was collected")
+	}
+}
+
 func TestApplyCalibrationResults(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{}

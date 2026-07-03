@@ -21,8 +21,11 @@ import (
 func GenerateParallelThresholds() []int {
 	numCPU := runtime.NumCPU()
 
-	// Base thresholds always tested
-	thresholds := []int{0} // Sequential (no parallelism)
+	// Base thresholds always tested. -1 (not 0) is the genuine sequential
+	// baseline: normalizeOptions only replaces ==0 with the package
+	// default, so 0 silently duplicated the default candidate and the
+	// true no-parallelism run was never measured (FIB-02).
+	thresholds := []int{-1} // Sequential (no parallelism)
 
 	switch {
 	case numCPU == 1:
@@ -55,24 +58,24 @@ func GenerateQuickParallelThresholds() []int {
 	numCPU := runtime.NumCPU()
 
 	if numCPU == 1 {
-		return []int{0}
+		return []int{-1}
 	}
 
 	// Reduced set for quick calibration
 	switch {
 	case numCPU <= 4:
-		return []int{0, 2048, 4096}
+		return []int{-1, 2048, 4096}
 	case numCPU <= 8:
-		return []int{0, 2048, 4096, 8192}
+		return []int{-1, 2048, 4096, 8192}
 	default:
-		return []int{0, 2048, 4096, 8192, 16384}
+		return []int{-1, 2048, 4096, 8192, 16384}
 	}
 }
 
 // GenerateFFTThresholds generates a comprehensive list of FFT thresholds to test,
 // sweeping the range 200K-1M bits by steps of 50K bits.
 func GenerateFFTThresholds() []int {
-	thresholds := []int{0} // Always include sequential baseline
+	thresholds := []int{-1} // Always include sequential (no-FFT) baseline
 
 	for t := 200000; t <= 1000000; t += 50000 {
 		thresholds = append(thresholds, t)
@@ -83,7 +86,7 @@ func GenerateFFTThresholds() []int {
 
 // GenerateQuickFFTThresholds generates a smaller set for quick calibration.
 func GenerateQuickFFTThresholds() []int {
-	return []int{0, 750000, 1000000, 1500000}
+	return []int{-1, 750000, 1000000, 1500000}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -134,8 +134,16 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 	// Print results table
 	printCalibrationResults(out, results, bestThreshold)
 
-	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s--threshold %d%s\n",
-		ui.ColorGreen(), ui.ColorYellow(), bestThreshold, ui.ColorReset())
+	recommendation := fmt.Sprintf("--threshold %d", bestThreshold)
+	if bestThreshold < 0 {
+		// -1 is the internal "genuinely sequential" sentinel (FIB-02); it
+		// is not a valid CLI flag value (config.Validate rejects negative
+		// thresholds), so tell the user what it means instead of an
+		// unusable flag.
+		recommendation = "Sequential (no parallelism)"
+	}
+	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s%s%s\n",
+		ui.ColorGreen(), ui.ColorYellow(), recommendation, ui.ColorReset())
 
 	if opts.SaveProfile {
 		persistCalibrationProfile(out, opts.ProfilePath, bestThreshold, calibrationDuration)
@@ -154,7 +162,7 @@ func tryUseCachedCalibrationProfile(profilePath string, out io.Writer) (int, boo
 		return 0, false
 	}
 	fmt.Fprintf(out, "%sLoaded existing calibration profile from %s%s\n",
-		ui.ColorGreen(), GetDefaultProfilePath(), ui.ColorReset())
+		ui.ColorGreen(), effectiveProfilePath(profilePath), ui.ColorReset())
 	fmt.Fprintf(out, "Profile: %s\n", profile.String())
 	fmt.Fprintf(out, "\n%s✅ Using cached calibration: %s--threshold %d%s\n",
 		ui.ColorGreen(), ui.ColorYellow(), profile.OptimalParallelThreshold, ui.ColorReset())
@@ -256,7 +264,19 @@ func persistCalibrationProfile(out io.Writer, profilePath string, bestThreshold 
 		return
 	}
 	fmt.Fprintf(out, "%sCalibration profile saved to %s%s\n",
-		ui.ColorGreen(), GetDefaultProfilePath(), ui.ColorReset())
+		ui.ColorGreen(), effectiveProfilePath(profilePath), ui.ColorReset())
+}
+
+// effectiveProfilePath resolves the path a profile load/save call actually
+// used: SaveProfile/LoadOrCreateProfile substitute GetDefaultProfilePath()
+// when profilePath is empty, so display code must apply the same
+// resolution to avoid claiming the default path was used when a custom one
+// was in effect (FIB-09).
+func effectiveProfilePath(profilePath string) string {
+	if profilePath == "" {
+		return GetDefaultProfilePath()
+	}
+	return profilePath
 }
 
 // AutoCalibrate runs a quick startup calibration to fine-tune performance
