@@ -92,9 +92,8 @@ The `internal/bigfft` package uses `go:linkname` to access `math/big` internal v
 | `internal/bigfft/arith_decl.go` | `go:linkname` declarations to `math/big` internals (all platforms) |
 | `internal/bigfft/arith_amd64.go` | Exported wrappers for amd64 |
 | `internal/bigfft/arith_generic.go` | Exported wrappers for non-amd64 platforms |
-| `internal/bigfft/cpu_amd64.go` | Runtime CPU feature detection via `golang.org/x/sys/cpu` |
 
-Go's `math/big` package already includes platform-optimized assembly for these operations, so the `go:linkname` approach provides the best available performance on all architectures without maintaining separate assembly code.
+Go's `math/big` package already includes platform-optimized assembly for these operations, so the `go:linkname` approach provides the best available performance on all architectures without maintaining separate assembly code. Runtime CPU feature detection (`golang.org/x/sys/cpu`) lives separately in `internal/config/hardware.go`, used for adaptive threshold heuristics — not by the `bigfft` vector arithmetic above.
 
 ## Cross-Compilation
 
@@ -145,14 +144,17 @@ docker build -t fibcalc:local .
 docker run --rm fibcalc:local --help
 ```
 
-- Stage 1 (`golang:1.26-bookworm` builder) — installs `libgmp-dev` and the
-  full CGO toolchain. Consumes `cmd/fibcalc/default.pgo` if present.
+- Stage 1 (`golang:1.26-bookworm` builder) — `CGO_ENABLED=0`, no `apt`
+  packages installed; builds the static default binary (no `gmp` tag).
+  Consumes `cmd/fibcalc/default.pgo` if present.
 - Stage 2 (`gcr.io/distroless/base-debian12` runtime) — ships only the
   linked binary as `nonroot`. Image size < 50 MB (indicative — measure on
   your own image, e.g. `docker images fibcalc:local`).
 
-To build with the GMP backend enabled : edit the Dockerfile's build line
-to add `-tags=gmp`.
+The GMP backend needs CGO + `libgmp-dev` and is intentionally out of
+scope for this image — the default binary is the intended artifact here,
+kept `CGO_ENABLED=0` for a smaller, statically-linked image; build with
+GMP locally instead — see [Build Tags § GMP](#gmp) above.
 
 ### `.devcontainer/devcontainer.json` (VS Code)
 

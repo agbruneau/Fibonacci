@@ -13,7 +13,9 @@ Revue Go exhaustive et vérifiée (Claude Opus 4.8, orchestration multi-agents, 
 adversariale de chaque trouvaille moyenne/haute). Gate : `go build` / `go vet` / `go test ./...`
 verts, `gofmt` propre, couverture 95,0 % (plancher 80 %), aucune nouvelle alerte `golangci-lint`
 introduite. Chemin critique T1.1 validé sans régression (`benchstat` A/B, cas 1M-mots p=0,72).
-Détail complet et déviations assumées : [`AuditPlan.md`](AuditPlan.md).
+Détail complet et déviations assumées : voir les entrées ci-dessous (le
+document de plan `AuditPlan.md` associé à cette passe a depuis été supprimé
+du dépôt).
 
 #### Fixed
 
@@ -40,6 +42,9 @@ Détail complet et déviations assumées : [`AuditPlan.md`](AuditPlan.md).
 
 - Sous-système `internal/bigfft/cpu_amd64.go` (détection CPU sans consommateur de production, doublon
   de la détection de `internal/config`) et ses tests dédiés.
+- `internal/tui/component` (commit `b87a342`) : package ne contenant qu'un `doc.go` avec une
+  interface `Component` jamais implémentée ni importée (placeholder de refactor jamais réalisé) ;
+  zéro importateur confirmé par `go list`.
 - 5 helpers `getEnv*` (`config/env.go`), `NewMatrixFrameworkWithSquareFunc`, setter `SetTaskLogger`,
   déclaration `go:linkname mulAddVWW` — tous sans appelant de production.
 

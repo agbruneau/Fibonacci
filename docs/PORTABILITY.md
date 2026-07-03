@@ -35,24 +35,27 @@ est fonctionnellement équivalent ; la performance arithmétique pure est
 légèrement moindre (5-10 % d'écart attendu sur les très grands `big.Int`,
 non profilé formellement à ce jour).
 
-### 2.2 `internal/bigfft/cpu_amd64.go`
+### 2.2 `internal/config/hardware.go`
 
-- `cpu_amd64.go` (`//go:build amd64`) : détection runtime des capacités SIMD
-  (AVX2, AVX-512, BMI2, ADX) via `golang.org/x/sys/cpu`. Aucun dispatch FFT
-  n'est implémenté à ce jour : les accesseurs (`HasAVX2()`, etc.) ne sont
-  consommés que par les tests. Les heuristiques de seuils adaptatifs
-  (`internal/config/hardware.go`) lisent AVX2/AVX-512 directement depuis
-  `golang.org/x/sys/cpu`, indépendamment de ce fichier.
-- Sur les architectures non-amd64, aucune détection CPU avancée ;
-  l'implémentation generic est utilisée systématiquement.
+- Sans `//go:build` : `DetectHardwareHeuristic()` branche à l'exécution sur
+  `runtime.GOARCH` et ne consulte `golang.org/x/sys/cpu` (`HasAVX512F`,
+  `HasAVX2`) que pour `amd64`/`386` ; toute autre architecture reste en
+  `SIMDNone`. Aucun dispatch FFT n'en dépend — le résultat (`SIMDKind`) sert
+  uniquement à `HeuristicKey()`/`CurrentHardwareHeuristicKey()`, consommés
+  par les heuristiques de seuils adaptatifs et l'invalidation de profil de
+  calibration (un profil calibré sur une classe SIMD différente est rejeté).
+- Sur les architectures non-amd64/386, aucune détection SIMD avancée ;
+  seule la classification `NumCPU`/`GOARCH` s'applique.
 
 ### 2.3 Backend GMP (`build tag gmp`)
 
 - Activé via `go build -tags gmp` ; nécessite `libgmp-dev` à la compilation
   et à l'exécution.
-- Désactivé par défaut. Le `Dockerfile` et `.devcontainer/devcontainer.json`
-  installent `libgmp-dev` mais ne posent pas le tag — il faut l'ajouter
-  explicitement à la commande de build.
+- Désactivé par défaut. Le `Dockerfile` (image de production) est
+  `CGO_ENABLED=0` sans paquet `apt` : il ne peut pas construire ce backend.
+  Seul `.devcontainer/devcontainer.json` installe `libgmp-dev` (poste de
+  développement) ; le tag `gmp` doit alors être ajouté explicitement à la
+  commande de build locale.
 
 ## 3. Race detector
 

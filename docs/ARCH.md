@@ -133,9 +133,7 @@ internal/
 │   ├── pool.go, pool_warming.go # Size-class pools, adaptive pre-warming
 │   ├── allocator.go, bump.go    # Memory allocators (bump allocator)
 │   ├── arith_decl.go            # go:linkname declarations into math/big
-│   ├── arith_amd64.go           # amd64 SIMD vector wrappers (go:linkname)
-│   ├── arith_generic.go         # Portable fallback arithmetic
-│   └── cpu_amd64.go             # Runtime CPU feature detection (AVX2, etc.)
+│   └── arith.go                 # AddVV/SubVV/AddMulVVW wrappers (no build-tag split)
 ├── calibration/                 # Threshold benchmarking + profile persistence
 ├── cli/                         # CLI output/presenter/spinner
 │   └── completion/              # Shell completion generators (bash/zsh/fish/powershell)
@@ -153,7 +151,6 @@ internal/
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
 ├── tui/                         # Bubble Tea interactive dashboard
-│   └── component/               # Reusable TUI components
 └── ui/                          # Themes/colors/NO_COLOR behavior
 ```
 

@@ -29,7 +29,7 @@ Makefile targets (require `make`):
 ```bash
 make test              # go test -v -race -cover ./...
 make coverage          # Generate coverage.html
-make check             # format + lint + test
+make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + lint (advisory) + coverage floor
 ```
 
 ## Table-Driven Unit Tests
@@ -362,7 +362,7 @@ There is **no remote CI** for this project (an assumed decision). Pre-commit val
 
 Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
 
-On Windows hosts without gcc, the `-race` run is executable via WSL; complete `-race` passes of the suite were last run successfully on 2026-06-10.
+On Windows hosts without gcc, the `-race` run is executable via WSL; complete `-race` passes of the suite were last run successfully on 2026-06-21.
 
 ## Test Organization
 

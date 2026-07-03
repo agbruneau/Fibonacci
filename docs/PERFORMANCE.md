@@ -87,8 +87,11 @@ make bench-baseline                            # writes docs/audits/bench-baseli
 git add docs/audits/bench-baseline.txt && git commit -m 'perf(bench): refresh baseline'
 ```
 
-For a one-shot DTM (Dynamic Threshold Manager) comparison, see
-`docs/audits/bench-dtm-{on,off}.txt` and ADR-0001.
+For a one-shot DTM (Dynamic Threshold Manager) comparison, the raw
+`bench-dtm-{on,off}.txt` snapshots were purged as stale audit artifacts;
+regenerate via `BenchmarkFibonacciDTM`
+(`internal/fibonacci/dtm_bench_test.go`) — the numeric results are kept
+inline in [ADR-0001](adr/0001-dtm-decision.md) and the CHANGELOG.
 
 ### Versioned benchmark snapshots (regression tracking)
 

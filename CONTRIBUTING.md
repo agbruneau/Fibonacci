@@ -30,8 +30,8 @@ This project adheres to a code of conduct. By participating, you are expected to
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/fibcalc.git
-   cd fibcalc
+   git clone https://github.com/YOUR-USERNAME/FibGo.git
+   cd FibGo
    ```
 3. **Add the upstream remote**:
    ```bash

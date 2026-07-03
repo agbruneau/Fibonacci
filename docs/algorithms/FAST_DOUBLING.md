@@ -186,8 +186,8 @@ type CalculationState struct {
     fftBumpCapWords int                   // bump capacity targeted at the final doubling step
 }
 
-// Acquire a state from the pool (resets FK=0, FK1=1; no arena pre-sizing)
-state := AcquireState()
+// Acquire a state from the pool sized for n (resets FK=0, FK1=1)
+state := AcquireStateForN(n)
 defer ReleaseState(state)
 ```
 
