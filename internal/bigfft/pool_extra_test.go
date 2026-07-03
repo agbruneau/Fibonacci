@@ -78,26 +78,3 @@ func TestAcquireReleaseFermatSlice(t *testing.T) {
 
 	releaseFermatSlice(nil)
 }
-
-func TestFFTStatePoolExtra(t *testing.T) {
-	t.Parallel()
-	state := acquireFFTState(100, 4)
-	if state == nil {
-		t.Fatal("acquireFFTState returned nil")
-	}
-	if state.n != 100 || state.k != 4 {
-		t.Errorf("state params mismatch: n=%d, k=%d", state.n, state.k)
-	}
-	if len(state.tmp) < 101 {
-		t.Errorf("tmp buffer too small: %d", len(state.tmp))
-	}
-
-	// Reuse
-	releaseFFTState(state)
-	state2 := acquireFFTState(200, 5)
-	if state2 == nil {
-		t.Fatal("acquireFFTState (reuse) returned nil")
-	}
-	releaseFFTState(state2)
-	releaseFFTState(nil)
-}

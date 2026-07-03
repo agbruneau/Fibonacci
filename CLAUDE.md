@@ -70,14 +70,14 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 
 ### `bigfft/pool.go`
 
-- Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`) + `fftStatePool`. **Routage par capacité** critique : `releaseWordSlice` route sur `cap` (**pas** `len`) + compteur de miss ; `releaseFFTState` relâche les buffers `tmp`/`tmp2` dont `cap` dépasse `maxPooledFFTTmpCap` (anti-bloat, A2-05).
+- Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`). **Routage par capacité** critique : `releaseWordSlice` route sur `cap` (**pas** `len`) + compteur de miss. La machinerie `fftState`/`fftStatePool`/A2-05 (code mort, zéro appelant prod) a été supprimée en Phase 4 (FFT-05, audit 2026-07) — `fourier()` acquiert `tmp`/`tmp2` directement via `acquireFermat`/`releaseFermat`.
 - SA6002 (Put de slice valeur) = **décision alloc-neutre mesurée**, exclusion golangci ciblée `pool.go`/`pool_warming.go` ; le vrai fix = migration `FFTContext` — ADR-0007 (cf. ADR-0004 §B1).
 - `TestReleaseWordSliceResizedReturnsToBucket` valide le routage `cap`→bucket via le **compteur de miss uniquement** : ne **pas** y réintroduire d'assertion d'identité `sync.Pool` (canary / réapparition du backing) — non contractuelle et **flaky sous `-race`** (victim cache + timing GC), retirée 2026-06-21. **Gardien** du routage exhaustif : `TestReleaseWordSliceAllExactBuckets`.
 
 ### `bigfft/fft_cache.go`
 
 - Globaux + cache LRU. `putByKey` alloue **toujours** un backing frais — pas de recyclage à l'éviction (aliasing avec un `PolValues` vivant, Audit-PRD E1-R4).
-- `logger` = `atomic.Pointer[zerolog.Logger]` (ne pas remettre en champ nu) : `SetCacheLogger` ne doit pas racer avec la lecture hot-path de `logPeriodicStats` (A2-02).
+- `logger` = `atomic.Pointer[zerolog.Logger]` (ne pas remettre en champ nu) : `setCacheLogger` (dé-exporté test-only en Phase 4, OVR-12) ne doit pas racer avec la lecture hot-path de `logPeriodicStats` (A2-02).
 
 ### `bigfft/fft.go`, `fft_recursion.go`
 

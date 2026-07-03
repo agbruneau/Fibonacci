@@ -64,7 +64,7 @@ type TransformCache struct {
 	misses    atomic.Uint64
 	evictions atomic.Uint64
 	accesses  atomic.Uint64
-	// logger is an atomic.Pointer so SetCacheLogger (called from the wiring
+	// logger is an atomic.Pointer so setCacheLogger (called from the wiring
 	// layer, possibly after FFT work has started) does not race with the
 	// hot-path read in logPeriodicStats. A2-02.
 	logger atomic.Pointer[zerolog.Logger]
@@ -99,10 +99,10 @@ func NewTransformCache(config TransformCacheConfig) *TransformCache {
 	return tc
 }
 
-// SetCacheLogger configures the logger for the global FFT transform cache.
+// setCacheLogger configures the logger for the global FFT transform cache.
 // Safe to call concurrently with FFT operations: the logger is stored in an
 // atomic.Pointer (A2-02).
-func SetCacheLogger(l zerolog.Logger) {
+func setCacheLogger(l zerolog.Logger) {
 	cache := GetTransformCache()
 	cache.logger.Store(&l)
 }
@@ -215,16 +215,15 @@ func computePolyKey(p *Poly, k uint, n int) uint64 {
 	return b.sum()
 }
 
-// computeKey is an alias for computeCacheKey for backward compatibility.
-func computeKey(data nat, k uint, n int) uint64 {
-	return computeCacheKey(data, k, n)
-}
-
 // Get retrieves a cached transform if available.
 // Returns the PolValues and true if found, zero values and false otherwise.
 // IMPORTANT: The returned PolValues references internal cache data and MUST NOT
 // be modified. PolValues.Mul() and PolValues.Sqr() are safe as they create new
 // result values without mutating the receiver.
+//
+// Test oracle: production paths go through getByKey (called from
+// TransformCachedWithBump); this by-value entry point is exercised directly
+// by cache behavior tests (audit OVR-10).
 func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
 	enabled, minBitLen := tc.cacheGate()
 	if !enabled || len(data)*_W < minBitLen {
@@ -320,6 +319,10 @@ func (tc *TransformCache) logPeriodicStats() {
 }
 
 // Put stores a transform result in the cache.
+//
+// Test oracle: production paths go through putByKey (called from
+// TransformCachedWithBump); this by-value entry point is exercised directly
+// by cache behavior tests (audit OVR-10).
 func (tc *TransformCache) Put(data nat, pv PolValues) {
 	enabled, minBitLen := tc.cacheGate()
 	if !enabled || len(data)*_W < minBitLen {
@@ -442,6 +445,9 @@ func (tc *TransformCache) Stats() CacheStats {
 }
 
 // Clear removes all entries from the cache.
+//
+// Test oracle: no production caller; used by tests to reset global cache
+// state between cases (audit OVR-10).
 func (tc *TransformCache) Clear() {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
@@ -469,6 +475,10 @@ func polyBitLen(p *Poly) int {
 // TransformCached is like Transform but uses the global cache.
 // If the transform result is cached, it returns the cached value.
 // Otherwise, it computes the transform and caches the result.
+//
+// Test oracle: production code uses TransformCachedWithBump; this non-bump
+// variant is retained as a simpler reference for cache behavior tests
+// (audit OVR-10).
 func (p *Poly) TransformCached(n int) (PolValues, error) {
 	cache := GetTransformCache()
 
@@ -529,6 +539,9 @@ func (p *Poly) TransformCachedWithBump(n int, ba *BumpAllocator) (PolValues, err
 }
 
 // MulCached multiplies p and q using cached transforms when beneficial.
+//
+// Test oracle: production code uses MulCachedWithBump; this non-bump variant
+// is retained as a reference for cache-path correctness tests (audit OVR-10).
 func (p *Poly) MulCached(q *Poly) (Poly, error) {
 	n := valueSize(p.K, p.M, 2)
 
@@ -594,6 +607,9 @@ func (p *Poly) MulCachedWithBump(q *Poly, ba *BumpAllocator) (Poly, error) {
 }
 
 // SqrCached computes p*p using cached transform when beneficial.
+//
+// Test oracle: production code uses SqrCachedWithBump; this non-bump variant
+// is retained as a reference for cache-path correctness tests (audit OVR-10).
 func (p *Poly) SqrCached() (Poly, error) {
 	n := valueSize(p.K, p.M, 2)
 

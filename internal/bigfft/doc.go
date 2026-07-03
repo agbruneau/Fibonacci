@@ -15,10 +15,9 @@
 //   - Temporary buffers (twiddle tables, coefficient slabs) are drawn from a
 //     package-level sync.Pool and MUST be returned; callers using BumpAlloc
 //     must call Reset before the next top-level operation.
-//   - On amd64 (arith_amd64.go), element-wise word arithmetic is delegated to
-//     math/big's internal assembly via go:linkname, selected by build tag; the
-//     pure-Go fallback in arith_generic.go (other architectures) is always
-//     correct but slower.
+//   - Element-wise word arithmetic (arith.go) delegates to math/big's internal
+//     assembly via go:linkname (arith_decl.go) on every architecture math/big
+//     itself supports in assembly.
 //   - The FFT cache (fft_cache.go) is thread-safe (sync.Mutex + LRU).
 //
 // # Example

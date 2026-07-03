@@ -4,30 +4,17 @@ package bigfft
 // of src, a length 1<<k vector of numbers modulo b^n+1
 // where b = 1<<_W.
 func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
-	return fourierWithState(dst, src, backward, n, k, nil)
-}
+	tmp := acquireFermat(n + 1)
+	tmp2 := acquireFermat(n + 1)
+	defer releaseFermat(tmp)
+	defer releaseFermat(tmp2)
 
-// fourierWithState performs the Fourier transform with optional pre-allocated state.
-// If state is nil, temporary buffers are allocated from the pool.
-func fourierWithState(dst []fermat, src []fermat, backward bool, n int, k uint, state *fftState) error {
-	// Use pooled state if not provided
-	var tmp, tmp2 fermat
-	if state != nil {
-		tmp = state.tmp
-		tmp2 = state.tmp2
-	} else {
-		tmp = acquireFermat(n + 1)
-		tmp2 = acquireFermat(n + 1)
-		defer releaseFermat(tmp)
-		defer releaseFermat(tmp2)
-	}
-
-	// Call the recursive FFT function
 	return fourierRecursive(dst, src, backward, n, k, k, 0, tmp, tmp2)
 }
 
 // fourierWithBump performs the Fourier transform using a bump allocator for
-// temporary buffers. This provides better cache locality than fourierWithState.
+// temporary buffers, giving better cache locality than the pooled-buffer path
+// in fourier() (which acquires tmp/tmp2 via acquireFermat/releaseFermat).
 func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
 	tmp := ba.AllocFermat(n)
 	tmp2 := ba.AllocFermat(n)

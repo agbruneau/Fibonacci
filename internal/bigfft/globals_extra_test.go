@@ -64,10 +64,10 @@ func TestSetFFTParallelismConfigRoundTrip(t *testing.T) {
 // global cache and drives logPeriodicStats until the periodic emission fires
 // (exactly one of cacheLogInterval consecutive accesses hits the modulo).
 func TestSetCacheLoggerWiresPeriodicStats(t *testing.T) {
-	t.Cleanup(func() { SetCacheLogger(zerolog.Nop()) })
+	t.Cleanup(func() { setCacheLogger(zerolog.Nop()) })
 
 	var buf bytes.Buffer
-	SetCacheLogger(zerolog.New(&buf))
+	setCacheLogger(zerolog.New(&buf))
 
 	tc := GetTransformCache()
 	for i := 0; i < cacheLogInterval && buf.Len() == 0; i++ {

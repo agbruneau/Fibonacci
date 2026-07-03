@@ -573,11 +573,11 @@ func TestComputeKeyConsistency(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	key1 := computeKey(testData, 4, 100)
-	key2 := computeKey(testData, 4, 100)
+	key1 := computeCacheKey(testData, 4, 100)
+	key2 := computeCacheKey(testData, 4, 100)
 
 	if key1 != key2 {
-		t.Error("computeKey should return consistent results for same input")
+		t.Error("computeCacheKey should return consistent results for same input")
 	}
 }
 
@@ -588,9 +588,9 @@ func TestComputeKeyDifferentParams(t *testing.T) {
 		testData[i] = big.Word(i + 1)
 	}
 
-	key1 := computeKey(testData, 4, 100)
-	key2 := computeKey(testData, 5, 100) // Different k
-	key3 := computeKey(testData, 4, 200) // Different n
+	key1 := computeCacheKey(testData, 4, 100)
+	key2 := computeCacheKey(testData, 5, 100) // Different k
+	key3 := computeCacheKey(testData, 4, 200) // Different n
 
 	if key1 == key2 {
 		t.Error("different k values should produce different keys")

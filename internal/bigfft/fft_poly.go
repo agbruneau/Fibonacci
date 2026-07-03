@@ -132,6 +132,9 @@ func trim(n nat) nat {
 
 // Mul multiplies p and q modulo X^K-1, where K = 1<<p.K.
 // The product is done via a Fourier transform.
+//
+// Test oracle: no production caller; cross-validated by fuzz/precision tests
+// against MulWithBump and other multiplication paths (audit OVR-10). Kept.
 func (p *Poly) Mul(q *Poly) (Poly, error) {
 	return p.mul(q, GetPoolAllocator())
 }
@@ -220,6 +223,10 @@ func (v *PolValues) Release() {
 
 // Transform evaluates p at θ^i for i = 0...K-1, where
 // θ is a K-th primitive root of unity in Z/(b^n+1)Z.
+//
+// Test oracle: production code uses TransformWithBump/TransformCached*; this
+// pool-backed variant is retained as the reference for cross-validation
+// (audit OVR-10).
 func (p *Poly) Transform(n int) (PolValues, error) {
 	return p.transform(n, GetPoolAllocator())
 }
@@ -348,6 +355,10 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 // Returns an error if the underlying Fourier transform fails validation
 // (e.g. malformed operand sizes). Callers previously silently discarded
 // this error — see audit P2-12.
+//
+// Test oracle: no production caller (Mul/MulTo/Sqr/SqrTo route through
+// TransformWithBump via executeDoublingStepFFT); retained as a
+// cross-validation reference (audit OVR-10).
 func (p *Poly) NTransform(n int) (PolValues, error) {
 	k := p.K
 	if len(p.A) >= 1<<k {
@@ -401,6 +412,9 @@ func (p *Poly) NTransform(n int) (PolValues, error) {
 // Returns an error if the underlying inverse Fourier transform fails
 // validation. Callers previously silently discarded this error — see
 // audit P2-12.
+//
+// Test oracle: no production caller; pairs with NTransform as a
+// round-trip cross-validation reference (audit OVR-10).
 func (v *PolValues) InvNTransform() (Poly, error) {
 	k := v.K
 	n := v.N
@@ -611,6 +625,10 @@ func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 // Clone creates a deep copy of PolValues to allow safe concurrent usage.
 // This is essential when the same transformed polynomial needs to be used
 // in multiple goroutines simultaneously (e.g., for both Mul and Sqr operations).
+//
+// Test oracle: no production caller today; retained for tests that need an
+// independent, aliasing-free copy to diff against a mutated original
+// (audit OVR-10).
 func (p *PolValues) Clone() PolValues {
 	K := len(p.Values)
 	n := p.N

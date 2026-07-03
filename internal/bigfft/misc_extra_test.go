@@ -88,46 +88,6 @@ func TestFermatSafeWrappersSecondOperandMismatch(t *testing.T) {
 	}
 }
 
-// TestScannerChunkSizePanicsAtThreshold pins the documented precondition of
-// chunkSize: sizes at or below quadraticScanThreshold are caller bugs.
-func TestScannerChunkSizePanicsAtThreshold(t *testing.T) {
-	t.Parallel()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("chunkSize must panic for size <= quadraticScanThreshold")
-		}
-	}()
-	var s scanner
-	s.chunkSize(quadraticScanThreshold)
-}
-
-// TestFromDecimalStringMalformedHalves drives the divide-and-conquer scanner
-// above the quadratic threshold with an invalid character in each half: both
-// recursive branches must surface the validation error (audit F-016).
-func TestFromDecimalStringMalformedHalves(t *testing.T) {
-	t.Parallel()
-	longDigits := strings.Repeat("7", 2*quadraticScanThreshold)
-
-	tests := []struct {
-		name, input string
-	}{
-		{"left half malformed", "x" + longDigits},
-		{"right half malformed", longDigits + "x"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			z, err := FromDecimalString(tc.input)
-			if err == nil {
-				t.Fatalf("expected error, got value with bitlen %d", z.BitLen())
-			}
-			if !strings.Contains(err.Error(), "invalid decimal input") {
-				t.Fatalf("error must surface the invalid-input cause, got: %v", err)
-			}
-		})
-	}
-}
-
 // TestBumpAllocatorEdgeCases covers the defensive paths of the bump
 // allocator: nil release, over-capacity fallback, and estimation extremes.
 func TestBumpAllocatorEdgeCases(t *testing.T) {

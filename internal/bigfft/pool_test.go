@@ -158,35 +158,6 @@ func TestFermatSlicePool(t *testing.T) {
 	}
 }
 
-func TestFFTStatePool(t *testing.T) {
-	t.Parallel()
-	n := 100
-	k := uint(4)
-
-	state := acquireFFTState(n, k)
-	if state == nil {
-		t.Fatal("acquireFFTState returned nil")
-	}
-
-	if len(state.tmp) != n+1 {
-		t.Errorf("tmp has wrong length: got %d, want %d", len(state.tmp), n+1)
-	}
-
-	if len(state.tmp2) != n+1 {
-		t.Errorf("tmp2 has wrong length: got %d, want %d", len(state.tmp2), n+1)
-	}
-
-	if state.n != n {
-		t.Errorf("state.n = %d, want %d", state.n, n)
-	}
-
-	if state.k != k {
-		t.Errorf("state.k = %d, want %d", state.k, k)
-	}
-
-	releaseFFTState(state)
-}
-
 func TestReleaseNilSafe(t *testing.T) {
 	t.Parallel()
 	// These should not panic
@@ -194,7 +165,6 @@ func TestReleaseNilSafe(t *testing.T) {
 	releaseFermat(nil)
 	releaseNatSlice(nil)
 	releaseFermatSlice(nil)
-	releaseFFTState(nil)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -425,14 +395,6 @@ func BenchmarkFermatPoolLarge(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		f := acquireFermat(8192)
 		releaseFermat(f)
-	}
-}
-
-func BenchmarkFFTStatePool(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		state := acquireFFTState(100, 4)
-		releaseFFTState(state)
 	}
 }
 
