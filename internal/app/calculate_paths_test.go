@@ -292,6 +292,61 @@ func (s *gcSpyCalculator) Calculate(_ context.Context, progressChan chan<- progr
 	return big.NewInt(55), nil
 }
 
+// TestSaveResultIfNeeded_WritesToErrWriter reproduces audit.md APP-16:
+// saveResultIfNeeded wrote its failure diagnostic straight to os.Stderr
+// instead of the injected a.ErrWriter, so tests/consumers redirecting
+// ErrWriter never saw the message. A save failure must be visible on
+// a.ErrWriter and must NOT leak onto the real os.Stderr.
+func TestSaveResultIfNeeded_WritesToErrWriter(t *testing.T) {
+	t.Parallel()
+	var errBuf bytes.Buffer
+	app := &Application{
+		Config:    config.AppConfig{N: 10},
+		ErrWriter: &errBuf,
+	}
+	res := &orchestration.CalculationResult{
+		Name:     "fast",
+		Result:   big.NewInt(55),
+		Duration: 1 * time.Millisecond,
+	}
+	cfg := cli.OutputConfig{OutputFile: "invalid\x00path/file.txt"}
+
+	if err := app.saveResultIfNeeded(res, cfg); err == nil {
+		t.Fatal("expected error for invalid output path")
+	}
+
+	if !strings.Contains(errBuf.String(), "Error saving result") {
+		t.Errorf("expected diagnostic on a.ErrWriter, got: %q", errBuf.String())
+	}
+}
+
+// TestRunLastDigits_RejectsOversizedK reproduces audit.md SEC-03: the
+// last-digits path dispatches straight to ComputeLastDigits with no bound on
+// K, so 10^K allocates ~K*3.32 bits of memory regardless of --memory-limit.
+// An oversized K must be rejected (config error, no allocation attempted)
+// with the diagnostic written to a.ErrWriter.
+func TestRunLastDigits_RejectsOversizedK(t *testing.T) {
+	t.Parallel()
+	var outBuf, errBuf bytes.Buffer
+	app := &Application{
+		Config: config.AppConfig{
+			N:          1_000_000,
+			LastDigits: maxLastDigits + 1,
+			Timeout:    1 * time.Minute,
+		},
+		ErrWriter: &errBuf,
+	}
+
+	exitCode := app.runLastDigits(context.Background(), &outBuf)
+
+	if exitCode != apperrors.ExitErrorConfig {
+		t.Errorf("Expected exit code %d (config error), got %d", apperrors.ExitErrorConfig, exitCode)
+	}
+	if !strings.Contains(errBuf.String(), "last-digits") {
+		t.Errorf("Expected rejection diagnostic on a.ErrWriter, got: %q", errBuf.String())
+	}
+}
+
 // TestExecuteCalculations_WiresGCControl reproduces audit.md M2/FIB-01=APP-02:
 // --gc-control is parsed and validated but never copied into the
 // fibonacci.Options the calculator receives, so "disabled"/"aggressive" are

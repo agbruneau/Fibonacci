@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -127,6 +126,12 @@ func (a *Application) validateMemoryBudget(out io.Writer) int {
 	return apperrors.ExitErrorConfig
 }
 
+// maxLastDigits bounds the K accepted by --last-digits. The path is O(K)
+// memory (10^K as a big.Int, ~K*3.32 bits): unlike the full-N path, it is
+// never checked against --memory-limit, so K itself must stay bounded
+// regardless of whether a limit was set (audit.md SEC-03).
+const maxLastDigits = 10_000_000
+
 // runLastDigits computes only the last K decimal digits of F(N) using modular
 // arithmetic, requiring O(K) memory regardless of N. It owns the lifecycle
 // (timeout + signals) and presentation; the math itself lives in
@@ -139,6 +144,11 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 
 	k := a.Config.LastDigits
 	n := a.Config.N
+
+	if k > maxLastDigits {
+		fmt.Fprintf(a.ErrWriter, "Error: --last-digits %d exceeds the maximum of %d digits.\n", k, maxLastDigits)
+		return apperrors.ExitErrorConfig
+	}
 
 	if !a.Config.Quiet {
 		fmt.Fprintf(out, "Computing last %d digits of F(%d)...\n", k, n)
@@ -225,13 +235,10 @@ func (a *Application) present(
 // save writes the result to disk if requested and prints a success notice
 // (only in non-quiet mode).
 func (a *Application) save(best *orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) error {
-	if outputCfg.OutputFile == "" {
-		return nil
-	}
 	if err := a.saveResultIfNeeded(best, outputCfg); err != nil {
 		return err
 	}
-	if !outputCfg.Quiet {
+	if outputCfg.OutputFile != "" && !outputCfg.Quiet {
 		fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
 			ui.ColorGreen(), ui.ColorCyan(), outputCfg.OutputFile, ui.ColorReset())
 	}
@@ -255,7 +262,7 @@ func (a *Application) saveResultIfNeeded(res *orchestration.CalculationResult, c
 		return nil
 	}
 	if err := cli.WriteResultToFile(res.Result, a.Config.N, res.Duration, res.Name, cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Error saving result: %v\n", err)
+		fmt.Fprintf(a.ErrWriter, "Error saving result: %v\n", err)
 		return err
 	}
 	return nil
