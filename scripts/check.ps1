@@ -8,7 +8,7 @@
 # Steps (stop at first hard failure):
 #   1. go build ./...
 #   2. go vet ./...
-#   3. go test ./...            (no -race; Windows/no-CGO)
+#   3. go test -coverprofile ./...  (no -race; Windows/no-CGO; coverage floor derived from this run)
 #   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
 #   5. coverage floor (>= 80% on the module total)
 #
@@ -55,8 +55,11 @@ Invoke-HardStep -Name "go build ./..." -Action { go build ./... }
 # 2. Vet
 Invoke-HardStep -Name "go vet ./..." -Action { go vet ./... }
 
-# 3. Tests (no -race on Windows/no-CGO)
-Invoke-HardStep -Name "go test ./... (no -race)" -Action { go test ./... }
+# 3. Tests + coverage (no -race on Windows/no-CGO) — single run, one profile
+# Note: pass the flag value as a separate argument. PowerShell 7 mis-parses the
+# "-coverprofile=coverage.out" form (it splits on '=' and treats ".out" as a
+# package), so the equals form is intentionally avoided here.
+Invoke-HardStep -Name "go test -coverprofile coverage.out ./... (no -race)" -Action { go test -coverprofile coverage.out ./... }
 
 # 4. Lint (soft: reported but distinct from the hard gate)
 Write-Step "golangci-lint run ./..."
@@ -74,17 +77,8 @@ if ($null -eq $golangci) {
     }
 }
 
-# 5. Coverage floor (>= 80% on the module total)
-# Note: pass the flag value as a separate argument. PowerShell 7 mis-parses the
-# "-coverprofile=coverage.out" form (it splits on '=' and treats ".out" as a
-# package), so the equals form is intentionally avoided here.
+# 5. Coverage floor (>= 80% on the module total) — derived from the profile above
 Write-Step "coverage floor (>= $CoverageFloor%)"
-go test -coverprofile coverage.out ./... | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "FAIL: coverage run (go test -coverprofile) exit $LASTEXITCODE" -ForegroundColor Red
-    exit 1
-}
-
 $coverFunc = go tool cover -func coverage.out
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAIL: go tool cover -func exit $LASTEXITCODE" -ForegroundColor Red

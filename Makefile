@@ -288,9 +288,9 @@ format:
 	$(GO) fmt ./...
 	gofmt -s -w .
 
-## check: Run all checks (format, lint, test)
-check: format lint test
-	@echo "All checks passed!"
+## check: Run the canonical pre-commit gate (delegates to scripts/check.sh)
+check:
+	@bash scripts/check.sh
 
 ## tidy: Tidy up go.mod and go.sum
 tidy:

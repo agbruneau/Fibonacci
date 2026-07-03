@@ -8,7 +8,7 @@
 # Steps:
 #   1. go build ./...
 #   2. go vet ./...
-#   3. go test -race ./...
+#   3. go test -race -coverprofile=coverage.out ./...  (coverage floor derived from this run)
 #   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
 #   5. coverage floor (>= 80% on the module total)
 #
@@ -42,9 +42,9 @@ step "go vet ./..."
 go vet ./...
 echo "OK: go vet"
 
-# 3. Tests (with race detector; requires CGO)
-step "go test -race ./..."
-go test -race ./...
+# 3. Tests + coverage (with race detector; requires CGO) — single run, one profile
+step "go test -race -coverprofile=coverage.out ./..."
+go test -race -coverprofile=coverage.out ./...
 echo "OK: go test -race"
 
 # 4. Lint (soft: reported but distinct from the hard gate)
@@ -63,9 +63,8 @@ else
     echo "WARN: golangci-lint not found on PATH; skipping lint."
 fi
 
-# 5. Coverage floor (>= 80% on the module total)
+# 5. Coverage floor (>= 80% on the module total) — derived from the profile above
 step "coverage floor (>= ${COVERAGE_FLOOR}%)"
-go test -coverprofile=coverage.out ./... >/dev/null
 total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')"
 if [ -z "${total}" ]; then
     echo "FAIL: could not parse total coverage from coverage.out"
