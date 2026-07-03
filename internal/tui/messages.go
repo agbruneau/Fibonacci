@@ -71,6 +71,9 @@ type SysStatsMsg struct {
 // IndicatorsMsg carries post-calculation indicators of interest for display.
 type IndicatorsMsg struct {
 	Indicators *metrics.Indicators
+	// Generation tags the run that emitted this message so the model can drop
+	// stragglers from a previous run still in flight after a Reset.
+	Generation uint64
 }
 
 // ContextCancelledMsg signals that the context was canceled.

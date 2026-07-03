@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -83,13 +84,20 @@ func (m *Model) handleCalculationComplete(msg CalculationCompleteMsg) {
 	m.footer.SetDone(true)
 }
 
-// handleContextCancelled marks the model done and asks bubbletea to quit.
-// Stale messages from a previous generation are ignored.
+// handleContextCancelled marks the model done, maps the cancellation cause to
+// the matching process exit code, and asks bubbletea to quit. Stale messages
+// from a previous generation are ignored.
 func (m *Model) handleContextCancelled(msg ContextCancelledMsg) tea.Cmd {
 	if msg.Generation != m.generation {
 		return nil
 	}
 	m.done = true
+	switch {
+	case errors.Is(msg.Err, context.DeadlineExceeded):
+		m.exitCode = apperrors.ExitErrorTimeout
+	case errors.Is(msg.Err, context.Canceled):
+		m.exitCode = apperrors.ExitErrorCanceled
+	}
 	m.header.SetDone()
 	m.footer.SetDone(true)
 	return tea.Quit

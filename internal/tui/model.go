@@ -119,7 +119,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleFinalResult(msg)
 
 	case IndicatorsMsg:
-		m.metrics.UpdateIndicators(msg.Indicators)
+		if msg.Generation == m.generation {
+			m.metrics.UpdateIndicators(msg.Indicators)
+		}
 		return m, nil
 
 	case ErrorMsg:

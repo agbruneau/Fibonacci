@@ -109,7 +109,7 @@ func sampleSysStatsCmd() tea.Cmd {
 func computeIndicatorsCmd(msg FinalResultMsg) tea.Cmd {
 	return func() tea.Msg {
 		ind := metrics.Compute(msg.Result.Result, msg.N, msg.Result.Duration)
-		return IndicatorsMsg{Indicators: ind}
+		return IndicatorsMsg{Indicators: ind, Generation: msg.Generation}
 	}
 }
 

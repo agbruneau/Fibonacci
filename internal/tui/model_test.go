@@ -349,6 +349,32 @@ func TestModel_Update_ContextCancelledMsg(t *testing.T) {
 	}
 }
 
+func TestModel_Update_ContextCancelledMsg_TimeoutExitCode(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := ContextCancelledMsg{Err: context.DeadlineExceeded, Generation: m.generation}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.exitCode != apperrors.ExitErrorTimeout {
+		t.Errorf("expected exit code %d for timeout, got %d", apperrors.ExitErrorTimeout, result.exitCode)
+	}
+}
+
+func TestModel_Update_ContextCancelledMsg_SIGINTExitCode(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := ContextCancelledMsg{Err: context.Canceled, Generation: m.generation}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.exitCode != apperrors.ExitErrorCanceled {
+		t.Errorf("expected exit code %d for SIGINT/canceled, got %d", apperrors.ExitErrorCanceled, result.exitCode)
+	}
+}
+
 func TestModel_Update_ContextCancelledMsg_StaleGeneration(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
@@ -534,7 +560,7 @@ func TestModel_Update_IndicatorsMsg(t *testing.T) {
 	m := newTestModel(t)
 
 	ind := &metrics.Indicators{BitsPerSecond: 1234}
-	updated, cmd := m.Update(IndicatorsMsg{Indicators: ind})
+	updated, cmd := m.Update(IndicatorsMsg{Indicators: ind, Generation: m.generation})
 	result := updated.(Model)
 
 	if cmd != nil {
@@ -542,6 +568,26 @@ func TestModel_Update_IndicatorsMsg(t *testing.T) {
 	}
 	if result.metrics.indicators != ind {
 		t.Error("expected indicators to be stored on the metrics panel")
+	}
+}
+
+func TestModel_Update_IndicatorsMsg_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// Simulate a Reset: bump the generation, then a straggler IndicatorsMsg
+	// from the previous generation arrives.
+	m.generation++
+
+	ind := &metrics.Indicators{BitsPerSecond: 1234}
+	updated, cmd := m.Update(IndicatorsMsg{Indicators: ind, Generation: m.generation - 1})
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from stale indicators update")
+	}
+	if result.metrics.indicators == ind {
+		t.Error("expected stale-generation IndicatorsMsg to be ignored")
 	}
 }
 
