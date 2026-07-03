@@ -25,7 +25,7 @@ type scanner struct {
 
 func (s *scanner) chunkSize(size int) (int, *big.Int) {
 	if size <= quadraticScanThreshold {
-		panic("size < quadraticScanThreshold")
+		panic("size <= quadraticScanThreshold")
 	}
 	pow := uint(0)
 	for n := size; n > quadraticScanThreshold; n /= 2 {

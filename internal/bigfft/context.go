@@ -292,7 +292,6 @@ func fftsqrToCtx(ctx *FFTContext, dst, x nat) (nat, error) {
 	if err != nil {
 		return nil, err
 	}
-	rp.M = m
 	result := rp.IntTo(dst)
 	rp.Release()
 	return result, nil
@@ -348,6 +347,8 @@ func transformWithBumpCtx(ctx *FFTContext, p *Poly, n int, ba *BumpAllocator) (P
 	}
 
 	if err := fourierWithBumpCtx(ctx, values, input, false, n, k, ba); err != nil {
+		releaseWordSlice(valbits)
+		releaseFermatSlice(values)
 		return PolValues{}, err
 	}
 
@@ -375,6 +376,7 @@ func invTransformWithBumpCtx(ctx *FFTContext, v *PolValues, ba *BumpAllocator) (
 	}
 
 	if err := fourierWithBumpCtx(ctx, p, v.Values, true, n, k, ba); err != nil {
+		releaseWordSlice(pbits)
 		return Poly{}, err
 	}
 

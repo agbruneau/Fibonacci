@@ -254,10 +254,14 @@ func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
 	// Determine if we are using bump allocator to pass down
 	if ba, ok := alloc.(*BumpAllocator); ok {
 		if err := fourierWithBump(values, input, false, n, k, ba); err != nil {
+			releaseWordSlice(valbits)
+			releaseFermatSlice(values)
 			return PolValues{}, err
 		}
 	} else {
 		if err := fourier(values, input, false, n, k); err != nil {
+			releaseWordSlice(valbits)
+			releaseFermatSlice(values)
 			return PolValues{}, err
 		}
 	}
@@ -304,10 +308,12 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 	// Determine if we are using bump allocator to pass down
 	if ba, ok := alloc.(*BumpAllocator); ok {
 		if err := fourierWithBump(p, v.Values, true, n, k, ba); err != nil {
+			releaseWordSlice(pbits)
 			return Poly{}, err
 		}
 	} else {
 		if err := fourier(p, v.Values, true, n, k); err != nil {
+			releaseWordSlice(pbits)
 			return Poly{}, err
 		}
 	}
@@ -368,9 +374,7 @@ func (p *Poly) NTransform(n int) (PolValues, error) {
 	for i := range twisted {
 		twisted[i] = fermat(tbits[i*(n+1) : (i+1)*(n+1)])
 		if i < len(p.A) {
-			for i := range src {
-				src[i] = 0
-			}
+			clear(src)
 			copy(src, p.A[i])
 			twisted[i].Shift(src, θshift*i)
 		}
@@ -383,6 +387,8 @@ func (p *Poly) NTransform(n int) (PolValues, error) {
 		values[i] = fermat(valbits[i*(n+1) : (i+1)*(n+1)])
 	}
 	if err := fourier(values, twisted, false, n, k); err != nil {
+		releaseWordSlice(valbits)
+		releaseFermatSlice(values)
 		return PolValues{}, fmt.Errorf("NTransform: forward fourier failed: %w", err)
 	}
 	return PolValues{K: k, N: n, Values: values, pooledBacking: valbits, pooledValues: true}, nil
