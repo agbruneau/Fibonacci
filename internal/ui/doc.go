@@ -2,7 +2,7 @@
 //
 // It exposes two coordinated theme systems sharing a single active state:
 //
-//   - CLI themes ([Theme], [DarkTheme], [LightTheme], [OrangeTheme], [NoColorTheme])
+//   - CLI themes ([Theme], [DarkTheme], [NoColorTheme])
 //     hold ANSI escape codes consumed by the CLI/calibration/app layers via the
 //     [ColorRed], [ColorGreen], … helpers and [GetCurrentTheme].
 //   - TUI themes ([TUITheme], [DarkTUITheme], [HighContrastTUITheme], [NoColorTUITheme])

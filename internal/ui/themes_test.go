@@ -5,36 +5,6 @@ import (
 	"testing"
 )
 
-// TestSetTheme verifies that SetTheme correctly switches between themes.
-func TestSetTheme(t *testing.T) {
-	// Save original theme to restore after test
-	originalTheme := GetCurrentTheme()
-	defer func() { SetCurrentTheme(originalTheme) }()
-
-	testCases := []struct {
-		name          string
-		themeName     string
-		expectedTheme Theme
-	}{
-		{"Set dark theme", "dark", DarkTheme},
-		{"Set light theme", "light", LightTheme},
-		{"Set none theme", "none", NoColorTheme},
-		{"Unknown theme defaults to dark", "unknown", DarkTheme},
-		{"Empty string defaults to dark", "", DarkTheme},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			SetTheme(tc.themeName)
-			current := GetCurrentTheme()
-			if current.Name != tc.expectedTheme.Name {
-				t.Errorf("SetTheme(%q): got theme %q, want %q",
-					tc.themeName, current.Name, tc.expectedTheme.Name)
-			}
-		})
-	}
-}
-
 // TestInitThemeWithNoColorFlag verifies that InitTheme respects the noColor flag.
 func TestInitThemeWithNoColorFlag(t *testing.T) {
 	// Save original theme and env to restore after test
@@ -131,21 +101,6 @@ func TestThemeColors(t *testing.T) {
 		}
 	})
 
-	t.Run("LightTheme has non-empty colors", func(t *testing.T) {
-		if LightTheme.Primary == "" {
-			t.Error("LightTheme.Primary should not be empty")
-		}
-		if LightTheme.Success == "" {
-			t.Error("LightTheme.Success should not be empty")
-		}
-		if LightTheme.Error == "" {
-			t.Error("LightTheme.Error should not be empty")
-		}
-		if LightTheme.Reset == "" {
-			t.Error("LightTheme.Reset should not be empty")
-		}
-	})
-
 	t.Run("NoColorTheme has all empty colors", func(t *testing.T) {
 		if NoColorTheme.Primary != "" {
 			t.Errorf("NoColorTheme.Primary should be empty, got %q", NoColorTheme.Primary)
@@ -169,7 +124,7 @@ func TestColorFunctions(t *testing.T) {
 	defer func() { SetCurrentTheme(originalTheme) }()
 
 	t.Run("Color functions with DarkTheme", func(t *testing.T) {
-		SetTheme("dark")
+		SetCurrentTheme(DarkTheme)
 		if ColorReset() != DarkTheme.Reset {
 			t.Errorf("ColorReset() = %q, want %q", ColorReset(), DarkTheme.Reset)
 		}
@@ -200,7 +155,7 @@ func TestColorFunctions(t *testing.T) {
 	})
 
 	t.Run("Color functions with NoColorTheme", func(t *testing.T) {
-		SetTheme("none")
+		SetCurrentTheme(NoColorTheme)
 		if ColorReset() != "" {
 			t.Errorf("ColorReset() with none theme should be empty, got %q", ColorReset())
 		}
@@ -235,7 +190,7 @@ func TestGetCurrentTUITheme_HighContrastEnv(t *testing.T) {
 	orig := GetCurrentTheme()
 	t.Cleanup(func() { SetCurrentTheme(orig) })
 
-	SetTheme("dark")
+	SetCurrentTheme(DarkTheme)
 	t.Setenv("FIBCALC_TUI_THEME", "high-contrast")
 	ht := GetCurrentTUITheme()
 	if ht != HighContrastTUITheme {

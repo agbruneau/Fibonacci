@@ -49,36 +49,6 @@ var (
 		Reset:     "\033[0m",
 	}
 
-	// LightTheme is optimized for light terminal backgrounds.
-	// Uses darker colors for better readability.
-	LightTheme = Theme{
-		Name:      "light",
-		Primary:   "\033[38;5;27m",  // Dark blue
-		Secondary: "\033[38;5;240m", // Dark grey
-		Success:   "\033[38;5;28m",  // Dark green
-		Warning:   "\033[38;5;130m", // Orange
-		Error:     "\033[38;5;124m", // Dark red
-		Info:      "\033[38;5;54m",  // Dark purple
-		Bold:      "\033[1m",
-		Underline: "\033[4m",
-		Reset:     "\033[0m",
-	}
-
-	// OrangeTheme is an orange-dominant dark theme matching the TUI palette.
-	// Uses warm orange tones for a btop-inspired aesthetic.
-	OrangeTheme = Theme{
-		Name:      "orange",
-		Primary:   "\033[38;5;208m", // Orange
-		Secondary: "\033[38;5;245m", // Grey
-		Success:   "\033[38;5;82m",  // Bright green
-		Warning:   "\033[38;5;214m", // Light orange
-		Error:     "\033[38;5;196m", // Red
-		Info:      "\033[38;5;69m",  // Blue
-		Bold:      "\033[1m",
-		Underline: "\033[4m",
-		Reset:     "\033[0m",
-	}
-
 	// NoColorTheme disables all color output.
 	// Used when NO_COLOR is set or --no-color flag is provided.
 	NoColorTheme = Theme{
@@ -95,7 +65,7 @@ var (
 	}
 
 	// currentTheme is the active theme used throughout the application.
-	// Defaults to DarkTheme but can be changed via SetTheme or InitTheme.
+	// Defaults to DarkTheme but can be changed via InitTheme.
 	currentTheme = DarkTheme
 	themeMutex   sync.RWMutex
 )
@@ -183,35 +153,12 @@ func GetCurrentTheme() Theme {
 }
 
 // SetCurrentTheme sets the currently active theme in a thread-safe manner.
-// This is primarily used for testing purposes to restore state.
+// Test-only: production selects a theme exclusively via InitTheme (dark or
+// no-color); this setter exists so tests can save/restore theme state.
 func SetCurrentTheme(t Theme) {
 	themeMutex.Lock()
 	defer themeMutex.Unlock()
 	currentTheme = t
-}
-
-// SetTheme changes the active theme by name.
-// Valid names are: "dark", "light", "orange", "none".
-// Unknown names default to dark theme.
-//
-// Parameters:
-//   - name: The name of the theme to activate.
-func SetTheme(name string) {
-	themeMutex.Lock()
-	defer themeMutex.Unlock()
-
-	switch name {
-	case "dark":
-		currentTheme = DarkTheme
-	case "light":
-		currentTheme = LightTheme
-	case "orange":
-		currentTheme = OrangeTheme
-	case "none":
-		currentTheme = NoColorTheme
-	default:
-		currentTheme = DarkTheme
-	}
 }
 
 // InitTheme initializes the theme based on the noColor flag and environment.
