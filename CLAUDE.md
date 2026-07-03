@@ -24,7 +24,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique : Clean Arc
 Clean Architecture, 4 couches : `cmd → app → orchestration → fibonacci/bigfft → config/errors`.
 
 - **Structure des packages** : source de vérité dans [`docs/architecture/`](docs/architecture/) (diagrammes C4, [`dependency-graph.mermaid`](docs/architecture/dependency-graph.mermaid)) et la table des packages du [README](README.md#architecture). Ne pas redupliquer l'arbre ici — il dérive.
-- **Étanchéité** (`internal/arch_test.go` / `TestArchitectureLayering`) : trois arrows remontants interdits — `threshold → config`, `errors → format`, `tui → fibonacci`. Le non-débordement de `internal/` vers `cmd/` est garanti par le langage, pas par ce test.
+- **Étanchéité** (`internal/arch_test.go` / `TestArchitectureLayering`) : quatre arrows remontants interdits — `threshold → config`, `errors → format`, `tui → fibonacci`, `orchestration → format` (ajouté audit 2026-07 APP-10 : `ProgressState` déplacé de `format` vers `orchestration`). Le non-débordement de `internal/` vers `cmd/` est garanti par le langage, pas par ce test.
 
 ## Algorithmes
 
@@ -46,6 +46,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 - `finalizeStateReleaseTo` est le **chemin unique** de teardown (`finalizeStateRelease` = wrapper vers le sink pool).
 - `clearStateAliases` **inconditionnel** avant **tout** sink : `statePool.Put` **ou** slot GC-immune `cachedState` (borné à `maxCachedArenaWords` = 4M mots ≈ 32 Mo).
 - État overLimit **jamais publié** ; bump relâché sur drop anti-bloat et overLimit. Jamais publier un état dans le slot hors de ce chemin.
+- **Multiplicateur d'arène ×15** (`acquireSizingForN`, en miroir dans `memory/arena.go:arenaTotalWords`) : audit 2026-07 (FIB-05) recommandait ×15→×5-6 (5 slots réellement consommés par `prepareStateForN`). **Tenté en Phase 3D et abandonné** — régression perf mesurée au benchstat (gate Directive #1). Le ×15 est **charge utile intentionnelle**, pas un reliquat mort : ne pas le réduire sans un balayage complet du multiplicateur (plusieurs valeurs, benchstat à chaque palier) démontrant un gain net.
 - **Gardiens** : `TestReleaseState_OverLimit_AliasesCleared`, `TestCalculatorStateCache_OverLimitNotCached`, `TestStateBump_*`.
 
 ### `fibonacci/doubling_framework.go`
@@ -67,6 +68,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 ### `calibration/calibration.go`
 
 - `IsStale` doit rester invoqué ; la branche stale route vers `CompleteStrategy`.
+- **SEC-01** : un profil frais et hardware-valide (`IsValid`) n'est **pas** suffisant pour être appliqué — `IsValid` ne vérifie que la compatibilité matérielle, jamais les plages de seuils. Les trois seuils (`OptimalParallelThreshold`/`OptimalFFTThreshold`/`OptimalStrassenThreshold`) sont re-validés (non-négativité) avant `applyCachedProfile` ; sinon fallback vers une calibration fraîche plutôt que de laisser fuiter un seuil forgé. **Gardien** : `TestAutoCalibrateWithProfile` (sous-test « Forged fresh profile with negative threshold is not applied »).
 
 ### `bigfft/pool.go`
 
@@ -96,10 +98,16 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 
 - N'importe **pas** `internal/fibonacci` directement → passer par les aliases `orchestration.Calculator`/`Options`/`Default*Threshold`. **Gardien** : `TestArchitectureLayering`.
 - `model.go` : routeur `Update` **pur** — aucun effet de bord dans le routage.
+- **APP-05** : `handleReset` incrémente `m.generation` et pose un budget de timeout **frais** par génération (`context.WithTimeout(m.parentCtx, ...)`) — un restart ne doit pas hériter du délai absolu de la session précédente. Tout message porteur d'un `Generation` périmé est ignoré par `Update`. **Gardiens** : `TestModel_HandleReset_FreshTimeoutBudget`, `TestModel_Update_ContextCancelledMsg_StaleGeneration`, `TestModel_Update_CalculationComplete_StaleGeneration`, `TestModel_Update_ErrorMsg_StaleGeneration`, `TestModel_Update_IndicatorsMsg_StaleGeneration` (`internal/tui/model_test.go`).
+
+### `cli/ui.go`
+
+- `realSpinner.UpdateSuffix` (**CONC-01**) : ordre **stop → write → start** obligatoire — le spinner externe lit `Suffix` sous son propre mutex pendant que sa goroutine de rendu tourne ; écrire hors de cette séquence est une data race réelle en session TTY (invisible sous `-race`, la goroutine de rendu ne démarre que si `isRunningInTerminal`). **Gardien** : `TestUpdateSuffix_StopWriteStartOrder` (`internal/cli/ui_suffix_race_test.go`) — assertion du contrat d'ordre, pas de la race elle-même.
 
 ### `cli/completion/`
 
 - Registry unique, 4 générateurs shell. Échappement des identifiants vers le shell **par dialecte** (`escape.go`) — **risque sécu latent**, vecteur d'injection à garder fermé.
+- **APP-03/APP-11** : chaque flag de `flagRegistry` doit apparaître littéralement (forme courte et longue) dans le script généré des 4 shells — un générateur peut silencieusement en laisser tomber (fish en a perdu 6). **Gardiens** : `TestFlagRegistryInSyncWithConfig` (registry ⊆ `config.FlagNames()`), `TestRegistrySubsetOfGeneratedScript` (registry ⊆ script généré, les 4 shells) — `internal/cli/completion/registry_sync_test.go`.
 
 ### `fibonacci/testdata/fibonacci_golden.json`
 
@@ -162,7 +170,7 @@ Points d'attention :
 
 1. **Performance critique** — Modif dans `internal/fibonacci/` ou `internal/bigfft/` : benchmark `benchstat` avant + après (baseline `make bench-baseline`). **Régression > 5 % = blocage.**
 2. **Golden tests obligatoires** — Tout changement algorithmique passe `fibonacci_golden.json`. Fichier **immuable** sans approbation ADR (aucun `-update`).
-3. **Étanchéité des couches** — Hiérarchie `cmd → app → orchestration → fibonacci/bigfft → config/errors`. Trois arrows remontants gardés par `arch_test.go` : `threshold → config`, `errors → format`, `tui → fibonacci`.
+3. **Étanchéité des couches** — Hiérarchie `cmd → app → orchestration → fibonacci/bigfft → config/errors`. Quatre arrows remontants gardés par `arch_test.go` : `threshold → config`, `errors → format`, `tui → fibonacci`, `orchestration → format`.
 4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutine sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** : les trois existants sont en `atomic.*` privés avec accesseurs (ADR-0003). Migration `FFTContext` exclusive tracée en backlog (ADR-0004 §B1, won't-fix release courante).
 5. **Modifications chirurgicales** — Diff minimal. Un refactoring d'envergure (> 50 LOC sur > 2 fichiers) se justifie dans le message de commit (raison, compromis, alternative écartée).
 6. **Pas de nouveaux fichiers `progress*` sans consultation** — Chemin de production : `Freeze`. Étendre un point existant après lecture de `internal/progress`.
