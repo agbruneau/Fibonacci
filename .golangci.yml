@@ -133,7 +133,6 @@ issues:
         - gocognit
         - funlen
         - gosec
-        - dupl
         - unparam
 
     # Exclude specific linter issues that are considered false positives or not relevant
@@ -151,19 +150,6 @@ issues:
     - linters:
         - revive
       text: "and that is repetitive; consider calling this"
-
-    # G304: file path from variable. FibGo is a mono-user CLI; every path
-    # opened this way originates from a flag/env var explicitly provided by
-    # the invoking user, not from untrusted input (network, other users).
-    # Non-exploitable under the single-user CLI threat model.
-    - path: internal/calibration/profile\.go
-      linters:
-        - gosec
-      text: "G304"
-    - path: internal/cli/output\.go
-      linters:
-        - gosec
-      text: "G304"
 
     # SA6002: sync.Pool.Put of a slice VALUE boxes the 3-word header (one alloc).
     # In pool.go / pool_warming.go this value-Put is RETAINED deliberately.

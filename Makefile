@@ -178,6 +178,7 @@ coverage:
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+# POSIX-only (requires awk)
 ## coverage-check: Fail if total coverage drops below 80%
 coverage-check:
 	@echo "Checking coverage floor (>= 80%)..."
@@ -191,6 +192,7 @@ benchmark:
 	@echo "Running benchmarks..."
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
 
+# POSIX-only (requires find/xargs/wc/awk)
 ## stats: Print package and LOC counts (canonical source for CLAUDE.md / ARCH.md)
 ##
 ## Audit-PRD P2-05 / Sprint S4 — replaces the hardcoded "23 packages" /
