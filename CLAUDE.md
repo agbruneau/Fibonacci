@@ -204,7 +204,7 @@ Pratique effective : **trunk-based** (mainteneur solo). Une branche dédiée + P
 ## Références
 
 - [`audit.md`](audit.md) / [`auditPlan.md`](auditPlan.md) — audit exhaustif 2026-07 et plan d'exécution des correctifs.
-- [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06.
+- [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + rejet FIB-05 audit 2026-07.
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph. [Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/).
 - [`docs/algorithms/`](docs/algorithms/), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/PORTABILITY.md`](docs/PORTABILITY.md), [`docs/BUILD.md`](docs/BUILD.md), [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 - [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), `.golangci.yml` (24 linters, `govet shadow`, exceptions documentées).

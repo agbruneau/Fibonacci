@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit exhaustif 2026-07
+
+Audit exhaustif de toute la base ([`audit.md`](audit.md)) exécuté via
+[`auditPlan.md`](auditPlan.md) en orchestration multi-agents (modèle exécuteur
+Sonnet, vérification adversariale par panels réfutateurs + gate manuel avant
+chaque commit). Gate : `go build`/`go vet`/`go test ./...` verts, WSL `-race`
+propre, couverture 95,2 % (plancher 80 %), golden intact, `benchstat` A/B sans
+régression réelle sur le chemin critique (les écarts 1M mono-shot sont du bruit
+thermique, prouvé par inversion d'ordre). Une recommandation (FIB-05) a été
+**rejetée sur preuve de performance** — voir [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md).
+
+#### Fixed
+
+- **app — panic pointeur invalidé par le tri** : en mode comparaison avec `-o`,
+  le meilleur résultat est copié avant `present()` (qui trie le slice en place),
+  évitant un nil-deref dans `WriteResultToFile` (APP-01/M1).
+- **app,tui — `--gc-control` inerte** : `GCMode` est câblé dans `Options` sur les
+  deux chemins CLI et TUI (FIB-01/APP-02/M2).
+- **cli/completion — flags fish manquants + valeurs bash erronées** : fish itère
+  tout le registre (section « Other » catch-all) ; bash émet les valeurs propres
+  de chaque flag ; garde `registre ⊆ script` étendue aux 4 shells (APP-03/APP-11/M3).
+- **cli — data race sur `spinner.Suffix`** : `UpdateSuffix` fait Stop→write→Start
+  (CONC-01/M4).
+- **calibration — baseline non séquentielle + confiance gonflée** : candidat `-1`
+  (réellement séquentiel via le garde `> 0`) ; confiance 0.0 sans mesure valide ;
+  chemin de profil effectif affiché ; re-validation d'un profil forgé sur les
+  deux chemins de confiance (SEC-01) (FIB-02/03/09/M5/M6).
+- **bigfft — mémoire pool non initialisée + workers non attendus au panic** :
+  `NTransform` utilise un slice zéroïsé ; les 4 sites parallèles attendent
+  `wg.Wait()` inconditionnellement avant de re-propager un panic de la moitié
+  synchrone (FFT-01/FFT-02/M7/M8).
+- **memory — `ParseMemoryLimit` débordait** : multiplication saturante
+  (FIB-04/SEC-02).
+- **fibonacci — clamp cache + gate matriciel aligné sur `GOMAXPROCS(0)`**
+  (FIB-07/FIB-08).
+- **config — env `LAST_DIGITS`/`GC_CONTROL`, bool malformé bruyant, erreur typée**
+  (APP-08/09/14).
+- **tui — codes de sortie timeout/SIGINT (2/130), génération sur `IndicatorsMsg`,
+  timeout par génération, rejet `--tui`+`--last-digits`/`--output`**
+  (APP-04/06/05/07).
+- **bigfft — release des buffers sur chemins d'erreur** (FFT-08/13).
+- **app — erreurs de sauvegarde vers `ErrWriter`, borne `--last-digits`** (APP-16/SEC-03).
+- **metrics — zero-padding des derniers chiffres corrigé** (APP-18).
+- **gmp — build `-tags=gmp` réparé** : `globalFactory` déplacé dans
+  `calculator_gmp.go` après la suppression de la fabrique globale.
+
+#### Removed (code mort / sur-ingénierie, ~500 LOC)
+
+- **ui** : `LightTheme`, `OrangeTheme`, `SetTheme` (inatteignables) (OVR-02).
+- **tui** : chart braille mort (`RenderBrailleChart`/`brailleDots`/`plotBrailleValue`),
+  paramètre `progress` ignoré d'`AddDataPoint` (OVR-09/APP-15).
+- **errors** : `TimeoutError`, `ValidationError`, `WrapError`, `IsContextError` (OVR-07).
+- **fibonacci/threshold** : `preSizeBigInt` dupliqué, wrappers DTM legacy +
+  constructeur jumeau, `AcquireState`, `ShouldParallelizeMultiplication`,
+  `setOrReturn`, `GlobalFactory`/`RegisterCalculator`, `MicroBenchPerTestTimeout`
+  (OVR-03/04/05/06/FIB-10).
+- **bigfft** : `scan.go` (OVR-01), machinerie `fftState`/`fftStatePool` (FFT-05),
+  fusion `arith_amd64.go`+`arith_generic.go`→`arith.go` (FFT-06), alias
+  `computeKey` (FFT-12) — cluster oracle **conservé** et documenté (OVR-10, ADR-0009).
+- Exports test-only dé-exportés (OVR-12), `HexDisplayEdges`, champ `Indicators.Live`.
+
+#### Changed
+
+- **format→orchestration** : `ProgressState` déplacé ; 4ᵉ arrow interdit
+  `orchestration → format` dans `TestArchitectureLayering` (APP-10).
+- **Dockerfile** : `CGO_ENABLED=0` sans apt (toolchain CGO/libgmp mort retiré) (TOOL-03).
+- **gate** : `make check` délègue à `scripts/check.sh` ; test+couverture fusionnés
+  en une passe (TOOL-04/05). `docs/audits/bench-baseline.txt` régénérée et
+  committée (M9/DOC-01/TOOL-01).
+- **.golangci.yml** : blocs G304 morts + `dupl` retirés (TOOL-02).
+
+#### Rejected
+
+- **FIB-05 — réduction du multiplicateur d'arène ×15** : tentée puis abandonnée,
+  régression benchstat mesurée (+18 % à +34 % sur F(10M), alloc-neutre). Le ×15
+  est charge utile intentionnelle. Détail : [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md).
+
+#### Docs
+
+- Purge `cpu_amd64.go` (→ `internal/config/hardware.go`) et `tui/component` des
+  docs ; doc-comments bigfft/config/parallel corrigés ; CLAUDE.md synchronisé
+  (invariants Phases 1-5, gardiens, décision FIB-05). `govulncheck` (recompilé
+  go1.26) : 0 vulnérabilité atteignable.
+
 ### Audit Go exhaustif (2026-06-24)
 
 Revue Go exhaustive et vérifiée (Claude Opus 4.8, orchestration multi-agents, vérification
