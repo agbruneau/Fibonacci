@@ -3,7 +3,9 @@ package parallel
 import "sync"
 
 // ErrorCollector collects the first error from parallel goroutines.
-// It is thread-safe and can be used by multiple goroutines simultaneously.
+// SetError is safe for concurrent use; Err() and reset() are not — read the
+// result only after every SetError-ing goroutine has finished (see Err's doc
+// and the Usage pattern below).
 //
 // Usage:
 //
@@ -41,8 +43,11 @@ func (c *ErrorCollector) SetError(err error) {
 }
 
 // Err returns the first recorded error, or nil if no error was recorded.
-// This method is thread-safe but should typically be called after all
-// goroutines have completed.
+// This method reads c.err with no synchronization of its own: it is safe
+// only when called after every SetError-ing goroutine has finished (e.g.
+// after wg.Wait()), which establishes the happens-before edge. All current
+// callers follow this pattern. Calling Err() concurrently with a live
+// SetError is a data race.
 //
 // Returns:
 //   - error: The first recorded error or nil.

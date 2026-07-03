@@ -4,8 +4,8 @@
 //
 // system offers a single, dependency-light entry point — Sample — that
 // returns a snapshot of host-level resource usage. It is consumed by the
-// metrics and TUI packages to surface live CPU/memory pressure alongside
-// per-calculation indicators.
+// TUI package to surface live CPU/memory pressure alongside per-calculation
+// indicators.
 //
 // # Invariants
 //

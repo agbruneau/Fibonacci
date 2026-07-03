@@ -16,8 +16,10 @@ import (
 )
 
 // ErrProgramNotInitialized is returned by programRef.Send when the underlying
-// tea.Program reference has not yet been wired (race window between bridge
-// goroutines starting and SetProgram being called from the model's Init).
+// tea.Program reference has not yet been wired. In production this cannot
+// happen: Run (commands.go) calls SetProgram before p.Run() starts any
+// bridge goroutine. This guard exists for defensive/test use of programRef
+// outside that sequencing.
 var ErrProgramNotInitialized = errors.New("tui: program not initialized")
 
 // bridgeLogger is the discreet logger used to surface Send failures without

@@ -6,9 +6,11 @@
 //
 //   - Format calculation results (full value, last digits, summary)
 //     via Presenter implementations of orchestration.ResultPresenter.
-//   - Render in-flight progress (spinner, percent, ETA, throughput)
-//     for the non-TUI mode. The TUI mode lives in internal/tui and
-//     bypasses these helpers.
+//   - Render in-flight progress (spinner, percent, ETA) for the non-TUI
+//     mode. Throughput is a post-completion indicator shown by
+//     DisplayResult's --details output, not part of the in-flight
+//     progress line. The TUI mode lives in internal/tui and bypasses
+//     these helpers.
 //   - Emit completion scripts for bash/zsh/fish/powershell — see the
 //     internal/cli/completion subpackage for the registry-driven
 //     generators and their hardened escape contracts.

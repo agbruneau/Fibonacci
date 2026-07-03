@@ -46,8 +46,10 @@ func init() {
 func getFFTThreshold() int { return int(fftThreshold.Load()) }
 
 // SetFFTThreshold updates the FFT activation threshold (in words) atomically.
-// Intended for calibration and tests; production code should prefer
-// FFTContext-based configuration.
+// Test-only in practice: no production caller exists (internal/calibration's
+// only touchpoint with this package is bigfft.Mul, which reads the threshold
+// via getFFTThreshold but never calls this setter); production code should
+// prefer FFTContext-based configuration.
 func SetFFTThreshold(v int) { fftThreshold.Store(int64(v)) }
 
 // Mul computes the product x*y and returns z.

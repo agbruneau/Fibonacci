@@ -64,9 +64,10 @@ type TransformCache struct {
 	misses    atomic.Uint64
 	evictions atomic.Uint64
 	accesses  atomic.Uint64
-	// logger is an atomic.Pointer so setCacheLogger (called from the wiring
-	// layer, possibly after FFT work has started) does not race with the
-	// hot-path read in logPeriodicStats. A2-02.
+	// logger is an atomic.Pointer so setCacheLogger (test-only, OVR-12; no
+	// production wiring calls it) does not race with the hot-path read in
+	// logPeriodicStats if a test swaps the logger while FFT work is in
+	// flight. A2-02.
 	logger atomic.Pointer[zerolog.Logger]
 }
 
@@ -100,8 +101,10 @@ func NewTransformCache(config TransformCacheConfig) *TransformCache {
 }
 
 // setCacheLogger configures the logger for the global FFT transform cache.
-// Safe to call concurrently with FFT operations: the logger is stored in an
-// atomic.Pointer (A2-02).
+// Test-only (OVR-12): no production code path calls it, so cache stats
+// (logPeriodicStats) are never emitted in production; the default logger is
+// zerolog.Nop(). Safe to call concurrently with FFT operations regardless,
+// since the logger is stored in an atomic.Pointer (A2-02).
 func setCacheLogger(l zerolog.Logger) {
 	cache := GetTransformCache()
 	cache.logger.Store(&l)

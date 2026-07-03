@@ -14,7 +14,8 @@
 //
 // # Invariants
 //
-//   - All exported types are safe for concurrent use.
+//   - Concurrent writers are safe (e.g. ErrorCollector.SetError); results
+//     must be read only after those writers finish (see ErrorCollector.Err).
 //   - No exported function spawns goroutines; callers own goroutine
 //     lifecycle and are responsible for waiting on completion before
 //     reading results.

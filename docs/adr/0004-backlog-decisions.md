@@ -24,6 +24,13 @@ Justification :
 - Le coût ingénierie pour un gain marginal (suppression de quelques
   variables atomiques) n'est pas justifiable face aux items productifs.
 
+> **Correctif (OVR-08, audit 2026-07)** : la justification « le code de
+> calibration qui s'appuie dessus » est caduque — vérifié par grep,
+> `internal/calibration` n'appelle que `bigfft.Mul` ; aucun appelant
+> n'invoque `SetFFTThreshold`/`SetFFTParallelismConfig`/les accesseurs
+> `Get*` hors tests. Seul le premier argument (risque concurrentiel
+> neutralisé par ADR-0003) reste valide pour ce WONT-FIX.
+
 À revoir si : un *use case multi-tenant* concret (plusieurs `Mul`
 concurrents avec configurations divergentes dans le même process) est
 ouvert dans l'issue tracker.
