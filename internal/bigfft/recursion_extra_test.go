@@ -7,6 +7,20 @@ import (
 	"testing"
 )
 
+// pinFFTParallelismConfig pins the package-level FFT parallelism knobs to
+// values that guarantee the parallel branch is taken (RecursionThreshold <=
+// 4, MaxDepth > 0), restoring the prior config via t.Cleanup. Guardian tests
+// for ADR-0002 panic re-propagation must exercise the parallel branch
+// unconditionally: a t.Skip guarded only by reading the current knobs would
+// silently stop testing the invariant if a future tuning ever raised
+// RecursionThreshold above 4 (TEST-04).
+func pinFFTParallelismConfig(t *testing.T) {
+	t.Helper()
+	orig := GetFFTParallelismConfig()
+	t.Cleanup(func() { SetFFTParallelismConfig(orig) })
+	SetFFTParallelismConfig(FFTParallelismConfig{RecursionThreshold: 4, MaxDepth: 3})
+}
+
 // newFermatVec builds count zeroed fermat elements of n+1 words each.
 func newFermatVec(count, n int) []fermat {
 	v := make([]fermat, count)
@@ -155,9 +169,7 @@ func TestExecuteReconstructionPanicPropagates(t *testing.T) {
 func TestFourierRecursiveParallelErrorPropagation(t *testing.T) {
 	const n = 8
 
-	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
-		t.Skip("parallelism knobs exclude the parallel branch at this size")
-	}
+	pinFFTParallelismConfig(t)
 
 	for _, tc := range []struct {
 		name   string
@@ -190,13 +202,12 @@ func TestFourierRecursiveParallelErrorPropagation(t *testing.T) {
 // TestFourierRecursiveCtxParallelErrorPropagation mirrors the test above for
 // the context-aware recursion; the context owns its semaphore, so the
 // parallel branch is deterministic without touching package globals.
+//
+// Not parallel: pins the package-level FFT recursion-threshold knobs.
 func TestFourierRecursiveCtxParallelErrorPropagation(t *testing.T) {
-	t.Parallel()
 	const n = 8
 
-	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
-		t.Skip("parallelism knobs exclude the parallel branch at this size")
-	}
+	pinFFTParallelismConfig(t)
 
 	for _, tc := range []struct {
 		name   string
@@ -208,7 +219,6 @@ func TestFourierRecursiveCtxParallelErrorPropagation(t *testing.T) {
 		{"sequential path reports error", 3, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
 			K := 1 << tc.k
 			src := newFermatVec(K, n)
@@ -242,9 +252,7 @@ func TestFourierRecursiveAsyncPanicPropagates(t *testing.T) {
 		k = 4
 		n = 511
 	)
-	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
-		t.Skip("parallelism knobs exclude the parallel branch at this size")
-	}
+	pinFFTParallelismConfig(t)
 	K := 1 << k
 	src := newFermatVec(K, n)
 	dst := newFermatVec(K, n)
@@ -262,15 +270,14 @@ func TestFourierRecursiveAsyncPanicPropagates(t *testing.T) {
 // TestFourierRecursiveCtxAsyncPanicPropagates mirrors the above for the
 // context-aware recursion; the context owns its semaphore, so the async branch
 // is taken deterministically without touching package globals.
+//
+// Not parallel: pins the package-level FFT recursion-threshold knobs.
 func TestFourierRecursiveCtxAsyncPanicPropagates(t *testing.T) {
-	t.Parallel()
 	const (
 		k = 4
 		n = 511
 	)
-	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
-		t.Skip("parallelism knobs exclude the parallel branch at this size")
-	}
+	pinFFTParallelismConfig(t)
 	ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
 	K := 1 << k
 	src := newFermatVec(K, n)
@@ -466,9 +473,7 @@ func tokenReleasedBeforePanic(t *testing.T, sem chan struct{}, call func()) {
 // re-panicking, so the worker's semaphore token is always released by the
 // time the caller observes the panic.
 func TestFourierRecursiveUnifiedSyncPanicWaitsForWorker(t *testing.T) {
-	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
-		t.Skip("parallelism knobs exclude the parallel branch at this size")
-	}
+	pinFFTParallelismConfig(t)
 	const (
 		k = 4
 		n = 4095 // heavy enough that the async half outlives an early sync panic
@@ -487,9 +492,7 @@ func TestFourierRecursiveUnifiedSyncPanicWaitsForWorker(t *testing.T) {
 // FFTContext-aware recursion (fourierRecursiveCtx), which owns its own
 // semaphore instead of the package-global one.
 func TestFourierRecursiveCtxSyncPanicWaitsForWorker(t *testing.T) {
-	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
-		t.Skip("parallelism knobs exclude the parallel branch at this size")
-	}
+	pinFFTParallelismConfig(t)
 	const (
 		k = 4
 		n = 4095

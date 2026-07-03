@@ -56,6 +56,7 @@ func skipShortE2E(t *testing.T) {
 
 // TestCLI_E2E verifies the built binary functions correctly
 func TestCLI_E2E(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -117,6 +118,7 @@ func TestCLI_E2E(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cmd := exec.Command(binPath, tt.args...)
 			cmd.Env = append(os.Environ(), "NO_COLOR=1")
 			output, err := cmd.CombinedOutput()
@@ -155,6 +157,7 @@ func TestCLI_E2E(t *testing.T) {
 
 // TestCLI_InvalidFlags verifies that invalid flags produce non-zero exit codes.
 func TestCLI_InvalidFlags(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -178,6 +181,7 @@ func TestCLI_InvalidFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cmd := exec.Command(binPath, tt.args...)
 			cmd.Env = append(os.Environ(), "NO_COLOR=1")
 			output, err := cmd.CombinedOutput()
@@ -199,6 +203,7 @@ func TestCLI_InvalidFlags(t *testing.T) {
 
 // TestCLI_OutputFile verifies that --output creates a file containing the result.
 func TestCLI_OutputFile(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -239,6 +244,7 @@ func TestCLI_OutputFile(t *testing.T) {
 
 // TestCLI_TimeoutLargeN verifies that a very short timeout with a huge N triggers timeout behavior.
 func TestCLI_TimeoutLargeN(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -262,6 +268,7 @@ func TestCLI_TimeoutLargeN(t *testing.T) {
 
 // TestCLI_Completion verifies that shell completion scripts are generated for all supported shells.
 func TestCLI_Completion(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -294,6 +301,7 @@ func TestCLI_Completion(t *testing.T) {
 
 	for _, tt := range shells {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cmd := exec.Command(binPath, "--completion", tt.shell)
 			cmd.Env = append(os.Environ(), "NO_COLOR=1")
 			output, err := cmd.CombinedOutput()
@@ -318,6 +326,7 @@ func TestCLI_Completion(t *testing.T) {
 
 // TestCLI_LastDigits verifies the --last-digits flag computes partial results.
 func TestCLI_LastDigits(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -343,6 +352,7 @@ func TestCLI_LastDigits(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cmd := exec.Command(binPath, tt.args...)
 			cmd.Env = append(os.Environ(), "NO_COLOR=1")
 			output, err := cmd.CombinedOutput()
@@ -368,10 +378,12 @@ func TestCLI_LastDigits(t *testing.T) {
 // nominal cases above do not: K larger than the digit count (zero-padded),
 // and negative K (rejected by config validation with a non-zero exit).
 func TestCLI_LastDigitsBoundaries(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	t.Run("K Exceeds Digit Count Is Zero Padded", func(t *testing.T) {
+		t.Parallel()
 		// F(10) = 55; asking for the last 10 digits must zero-pad to 0000000055.
 		cmd := exec.Command(binPath, "-n", "10", "--last-digits", "10", "--quiet")
 		cmd.Env = append(os.Environ(), "NO_COLOR=1")
@@ -386,6 +398,7 @@ func TestCLI_LastDigitsBoundaries(t *testing.T) {
 	})
 
 	t.Run("Negative K Is Rejected", func(t *testing.T) {
+		t.Parallel()
 		cmd := exec.Command(binPath, "-n", "10", "--last-digits", "-5")
 		cmd.Env = append(os.Environ(), "NO_COLOR=1")
 		output, err := cmd.CombinedOutput()
@@ -400,10 +413,12 @@ func TestCLI_LastDigitsBoundaries(t *testing.T) {
 // binary, and that a malformed override is rejected loudly rather than
 // silently falling back to the default.
 func TestCLI_EnvOverrides(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
 	t.Run("Env N Applies When Flag Absent", func(t *testing.T) {
+		t.Parallel()
 		cmd := exec.Command(binPath, "--quiet", "-c")
 		cmd.Env = append(os.Environ(), "NO_COLOR=1", "FIBCALC_N=12")
 		output, err := cmd.CombinedOutput()
@@ -417,6 +432,7 @@ func TestCLI_EnvOverrides(t *testing.T) {
 	})
 
 	t.Run("CLI Flag Wins Over Env", func(t *testing.T) {
+		t.Parallel()
 		cmd := exec.Command(binPath, "-n", "10", "--quiet", "-c")
 		cmd.Env = append(os.Environ(), "NO_COLOR=1", "FIBCALC_N=12")
 		output, err := cmd.CombinedOutput()
@@ -433,6 +449,7 @@ func TestCLI_EnvOverrides(t *testing.T) {
 	})
 
 	t.Run("Malformed Env Value Is Rejected", func(t *testing.T) {
+		t.Parallel()
 		cmd := exec.Command(binPath, "--quiet")
 		cmd.Env = append(os.Environ(), "NO_COLOR=1", "FIBCALC_N=notanumber")
 		output, err := cmd.CombinedOutput()
@@ -444,6 +461,7 @@ func TestCLI_EnvOverrides(t *testing.T) {
 
 // TestCLI_CompareMode verifies running specific algorithms with --algo flag.
 func TestCLI_CompareMode(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
@@ -475,6 +493,7 @@ func TestCLI_CompareMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cmd := exec.Command(binPath, tt.args...)
 			cmd.Env = append(os.Environ(), "NO_COLOR=1")
 			output, err := cmd.CombinedOutput()
@@ -498,6 +517,7 @@ func TestCLI_CompareMode(t *testing.T) {
 
 // TestCLI_VersionDetails verifies the version output contains expected fields.
 func TestCLI_VersionDetails(t *testing.T) {
+	t.Parallel()
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 

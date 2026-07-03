@@ -48,7 +48,9 @@ func TestCalculatorsAgainstGoldenFile(t *testing.T) {
 					t.Parallel()
 
 					expected := new(big.Int)
-					expected.SetString(tc.Result, 10)
+					if _, ok := expected.SetString(tc.Result, 10); !ok {
+						t.Fatalf("golden file entry for N=%d is malformed: %q is not a valid base-10 integer", tc.N, tc.Result)
+					}
 
 					got, err := calc.Calculate(ctx, nil, 0, tc.N, Options{ParallelThreshold: DefaultParallelThreshold})
 					if err != nil {

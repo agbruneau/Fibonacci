@@ -24,13 +24,19 @@ func (m *MockFailingCalculator) Calculate(ctx context.Context, progressChan chan
 	return nil, errors.New("simulated error")
 }
 
-// MockBlockingCalculator simulates a long running calculation
+// MockBlockingCalculator simulates a long running calculation. Entered
+// closes EnteredChan (if set) so callers can synchronize on the calculation
+// having actually started, instead of guessing with a fixed sleep.
 type MockBlockingCalculator struct {
-	BlockChan chan struct{}
+	BlockChan   chan struct{}
+	EnteredChan chan struct{}
 }
 
 func (m *MockBlockingCalculator) Name() string { return "block" }
 func (m *MockBlockingCalculator) Calculate(ctx context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+	if m.EnteredChan != nil {
+		close(m.EnteredChan)
+	}
 	if m.BlockChan != nil {
 		<-m.BlockChan
 	}
@@ -155,8 +161,9 @@ func TestRunCalibrationWithOptions_CalculationError(t *testing.T) {
 
 func TestRunCalibrationWithOptions_ContextCanceled(t *testing.T) {
 	blockChan := make(chan struct{})
+	enteredChan := make(chan struct{})
 	registry := map[string]fibonacci.Calculator{
-		"fast": &MockBlockingCalculator{BlockChan: blockChan},
+		"fast": &MockBlockingCalculator{BlockChan: blockChan, EnteredChan: enteredChan},
 	}
 
 	opts := CalibrationOptions{
@@ -166,9 +173,10 @@ func TestRunCalibrationWithOptions_ContextCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Cancel context shortly after start
+	// Cancel only once the mock has actually entered Calculate, instead of
+	// guessing with a fixed sleep (TEST-03).
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		<-enteredChan
 		cancel()
 		close(blockChan) // Unblock to allow clean exit if needed
 	}()
