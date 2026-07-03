@@ -56,7 +56,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter progre
 	numBits := bits.Len64(exponent)
 	// Normalize options to ensure consistent default threshold handling
 	normalizedOpts := normalizeOptions(opts)
-	useParallel := runtime.NumCPU() > 1 && normalizedOpts.ParallelThreshold > 0
+	useParallel := runtime.GOMAXPROCS(0) > 1 && normalizedOpts.ParallelThreshold > 0
 
 	// Calculate total work for progress reporting via common utility
 	totalWork := progress.CalcTotalWork(numBits)

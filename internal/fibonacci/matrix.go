@@ -38,7 +38,7 @@ import (
 //   - Symmetric Squaring: A specialized function, `squareSymmetricMatrix`, is
 //     used for squaring symmetric matrices, reducing the multiplication count.
 //   - Strassen's Algorithm: For matrices with elements larger than a
-//     `strassen-threshold` (default 256 bits), Strassen's algorithm is used to
+//     `strassen-threshold` (default 3072 bits), Strassen's algorithm is used to
 //     reduce the number of expensive `big.Int` multiplications from 8 to 7.
 //     The threshold is set to overcome the overhead of the extra additions and
 //     subtractions involved.

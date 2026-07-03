@@ -5,31 +5,36 @@ import (
 	"sync/atomic"
 )
 
-// defaultStrassenThresholdBits controls the switch to Strassen's algorithm.
-// It is the bit size threshold at which matrix multiplication switches from the
-// classic algorithm to the more complex, but asymptotically faster, Strassen's
-// algorithm. This value is modifiable at startup via configuration, allowing for
-// performance tuning based on the specific hardware and workload.
-// Access is thread-safe via atomic operations.
+// defaultStrassenThresholdBits is a package-level fallback threshold read by
+// multiplyMatrices ONLY when it is handed a zero strassenThreshold. In
+// production that never happens: normalizeOptions (options.go) rewrites a zero
+// Options.StrassenThreshold to the non-zero DefaultStrassenThreshold (3072)
+// before any matrix multiply, so the effective threshold always comes from the
+// caller's Options, not this atomic. The knob (and Set/GetDefaultStrassenThreshold)
+// therefore exists only as a test-only safety net for callers that bypass
+// normalizeOptions and pass 0 directly. Access is atomic for that test use.
 var defaultStrassenThresholdBits atomic.Int32
 
-// init sets the default Strassen threshold.
-// This is an immutable default that can be overridden via SetDefaultStrassenThreshold.
+// init sets the test-only fallback Strassen threshold. Not a production tuning
+// knob: see defaultStrassenThresholdBits — the production threshold comes from
+// normalized Options, which this init value never overrides.
 func init() {
 	defaultStrassenThresholdBits.Store(256)
 }
 
-// SetDefaultStrassenThreshold sets the default Strassen threshold in bits.
-// This function is thread-safe. The caller is expected to pass a non-negative
-// threshold that fits in int32 (practical values are < 10^6).
+// SetDefaultStrassenThreshold sets the test-only fallback Strassen threshold in
+// bits (see defaultStrassenThresholdBits). It does not affect production runs,
+// which always carry a non-zero Options.StrassenThreshold. This function is
+// thread-safe. The caller is expected to pass a non-negative threshold that
+// fits in int32 (practical values are < 10^6).
 func SetDefaultStrassenThreshold(bits int) {
 	// Threshold values are configuration knobs in practice always <= 10^6,
 	// well within int32 range. #nosec G115
 	defaultStrassenThresholdBits.Store(int32(bits))
 }
 
-// GetDefaultStrassenThreshold returns the current default Strassen threshold in bits.
-// This function is thread-safe.
+// GetDefaultStrassenThreshold returns the test-only fallback Strassen threshold
+// in bits (see defaultStrassenThresholdBits). This function is thread-safe.
 func GetDefaultStrassenThreshold() int {
 	return int(defaultStrassenThresholdBits.Load())
 }

@@ -44,6 +44,14 @@ func TestDecideCacheTuning(t *testing.T) {
 			wantMinBitLen:  100000,
 		},
 		{
+			name:           "clamps growth that would overshoot the upper bound",
+			stats:          bigfft.CacheStats{Evictions: 5, HitRate: 0.9},
+			cfg:            bigfft.TransformCacheConfig{MaxEntries: 8000, MinBitLen: 100000, Enabled: true},
+			wantChanged:    true,
+			wantMaxEntries: cacheMaxEntriesUpperBound, // 8000 * 1.2 = 9600, must clamp to 8192
+			wantMinBitLen:  100000,
+		},
+		{
 			name:           "raises MinBitLen when cache is not useful",
 			stats:          bigfft.CacheStats{Hits: 1, Misses: 19, HitRate: 0.05},
 			cfg:            baseCfg,

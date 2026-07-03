@@ -26,17 +26,16 @@ import (
 // accidentally create a second semaphore. The rename and the direct
 // variable make the invariant obvious.
 //
-// Sizing: runtime.NumCPU(). The previous value was NumCPU*2, which
+// Sizing: runtime.GOMAXPROCS(0). The previous value was NumCPU*2, which
 // allowed oversubscription when big.Int arithmetic is already
-// CPU-saturating (e.g. FFT paths). NumCPU tracks the actual parallel
-// capacity of the machine and matches the bigfft FFT-level semaphore at
-// the same tier. The two semaphores remain separate because collapsing
-// them across packages would require internal/bigfft to import
+// CPU-saturating (e.g. FFT paths). GOMAXPROCS(0) tracks the actual parallel
+// capacity the runtime is allowed to use and matches the bigfft FFT-level
+// semaphore at the same tier. The two semaphores remain separate because
+// collapsing them across packages would require internal/bigfft to import
 // internal/fibonacci — a layering inversion.
 //
-// globalSem is lazily initialized on first use so tests that mutate
-// runtime.NumCPU (via GOMAXPROCS) before importing this package still
-// get the correct sizing.
+// globalSem is lazily initialized on first use so tests that adjust
+// GOMAXPROCS before importing this package still get the correct sizing.
 var (
 	globalSem     chan struct{}
 	globalSemOnce sync.Once
@@ -44,10 +43,10 @@ var (
 
 // getTaskSemaphore returns globalSem, initializing it on first call.
 // Kept as a function (rather than a package-level var) so we pick up the
-// runtime.NumCPU() value after test harnesses adjust GOMAXPROCS.
+// runtime.GOMAXPROCS(0) value after test harnesses adjust it.
 func getTaskSemaphore() chan struct{} {
 	globalSemOnce.Do(func() {
-		globalSem = make(chan struct{}, runtime.NumCPU())
+		globalSem = make(chan struct{}, runtime.GOMAXPROCS(0))
 	})
 	return globalSem
 }

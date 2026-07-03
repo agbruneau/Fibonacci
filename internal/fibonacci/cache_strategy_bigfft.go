@@ -81,6 +81,9 @@ func decideCacheTuning(stats bigfft.CacheStats, cfg bigfft.TransformCacheConfig)
 	if stats.Evictions > 0 && stats.HitRate > cacheHitRateGrow {
 		if cfg.MaxEntries < cacheMaxEntriesUpperBound {
 			cfg.MaxEntries = int(float64(cfg.MaxEntries) * cacheGrowthFactor)
+			if cfg.MaxEntries > cacheMaxEntriesUpperBound {
+				cfg.MaxEntries = cacheMaxEntriesUpperBound
+			}
 			return cfg, true
 		}
 		return cfg, false
