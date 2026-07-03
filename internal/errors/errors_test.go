@@ -6,7 +6,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 	"unicode/utf8"
 )
 
@@ -100,104 +99,6 @@ func TestCalculationError(t *testing.T) {
 	}
 }
 
-func TestTimeoutError(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name        string
-		err         TimeoutError
-		expected    string
-		checkTypeAs bool
-	}{
-		{
-			name:     "Error returns formatted message",
-			err:      TimeoutError{Operation: "fibonacci", Limit: 30 * time.Second},
-			expected: `operation "fibonacci" timed out after 30s`,
-		},
-		{
-			name:     "Error with subsecond limit",
-			err:      TimeoutError{Operation: "matrix multiply", Limit: 500 * time.Millisecond},
-			expected: `operation "matrix multiply" timed out after 500ms`,
-		},
-		{
-			name:        "errors.As works with TimeoutError",
-			err:         TimeoutError{Operation: "fft", Limit: 10 * time.Second},
-			expected:    `operation "fft" timed out after 10s`,
-			checkTypeAs: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			var err error = tt.err
-			if err.Error() != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, err.Error())
-			}
-			if tt.checkTypeAs {
-				var timeoutErr TimeoutError
-				if !errors.As(err, &timeoutErr) {
-					t.Error("expected error to be TimeoutError type")
-				}
-				if timeoutErr.Operation != tt.err.Operation {
-					t.Errorf("expected Operation %q, got %q", tt.err.Operation, timeoutErr.Operation)
-				}
-				if timeoutErr.Limit != tt.err.Limit {
-					t.Errorf("expected Limit %v, got %v", tt.err.Limit, timeoutErr.Limit)
-				}
-			}
-		})
-	}
-}
-
-func TestValidationError(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name        string
-		err         ValidationError
-		expected    string
-		checkTypeAs bool
-	}{
-		{
-			name:     "Error returns formatted message",
-			err:      ValidationError{Field: "n", Message: "must be non-negative"},
-			expected: `validation error for "n": must be non-negative`,
-		},
-		{
-			name:     "Error with different field",
-			err:      ValidationError{Field: "threshold", Message: "must be greater than zero"},
-			expected: `validation error for "threshold": must be greater than zero`,
-		},
-		{
-			name:        "errors.As works with ValidationError",
-			err:         ValidationError{Field: "algorithm", Message: "unknown algorithm"},
-			expected:    `validation error for "algorithm": unknown algorithm`,
-			checkTypeAs: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			var err error = tt.err
-			if err.Error() != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, err.Error())
-			}
-			if tt.checkTypeAs {
-				var validationErr ValidationError
-				if !errors.As(err, &validationErr) {
-					t.Error("expected error to be ValidationError type")
-				}
-				if validationErr.Field != tt.err.Field {
-					t.Errorf("expected Field %q, got %q", tt.err.Field, validationErr.Field)
-				}
-				if validationErr.Message != tt.err.Message {
-					t.Errorf("expected Message %q, got %q", tt.err.Message, validationErr.Message)
-				}
-			}
-		})
-	}
-}
-
 func TestMemoryError(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -253,28 +154,6 @@ func TestMemoryError(t *testing.T) {
 func TestNewErrorTypes_ErrorsAsWithWrapping(t *testing.T) {
 	t.Parallel()
 
-	t.Run("TimeoutError wrapped in CalculationError", func(t *testing.T) {
-		t.Parallel()
-		inner := TimeoutError{Operation: "fibonacci", Limit: 5 * time.Second}
-		err := CalculationError{Cause: inner}
-
-		var timeoutErr TimeoutError
-		if !errors.As(err, &timeoutErr) {
-			t.Error("errors.As should find TimeoutError through CalculationError")
-		}
-	})
-
-	t.Run("ValidationError wrapped with WrapError", func(t *testing.T) {
-		t.Parallel()
-		inner := ValidationError{Field: "n", Message: "too large"}
-		err := WrapError(inner, "config check failed")
-
-		var validationErr ValidationError
-		if !errors.As(err, &validationErr) {
-			t.Error("errors.As should find ValidationError through WrapError")
-		}
-	})
-
 	t.Run("MemoryError wrapped in CalculationError", func(t *testing.T) {
 		t.Parallel()
 		inner := MemoryError{Requested: 4096, Available: 1024, Limit: 2048}
@@ -285,97 +164,6 @@ func TestNewErrorTypes_ErrorsAsWithWrapping(t *testing.T) {
 			t.Error("errors.As should find MemoryError through CalculationError")
 		}
 	})
-}
-
-func TestWrapError(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name        string
-		original    error
-		format      string
-		args        []any
-		expectedMsg string
-		expectNil   bool
-		checkIs     error
-	}{
-		{
-			name:        "wraps error with context",
-			original:    errors.New("file not found"),
-			format:      "failed to load config",
-			expectedMsg: "failed to load config: file not found",
-		},
-		{
-			name:        "preserves error chain",
-			original:    context.DeadlineExceeded,
-			format:      "operation timed out",
-			expectedMsg: "operation timed out: context deadline exceeded",
-			checkIs:     context.DeadlineExceeded,
-		},
-		{
-			name:      "returns nil for nil error",
-			original:  nil,
-			format:    "some context",
-			expectNil: true,
-		},
-		{
-			name:        "supports format arguments",
-			original:    errors.New("connection reset"),
-			format:      "failed to connect to %s:%d",
-			args:        []any{"localhost", 8080},
-			expectedMsg: "failed to connect to localhost:8080: connection reset",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			wrapped := WrapError(tt.original, tt.format, tt.args...)
-
-			if tt.expectNil {
-				if wrapped != nil {
-					t.Error("WrapError(nil, ...) should return nil")
-				}
-				return
-			}
-
-			if wrapped == nil {
-				t.Fatal("wrapped error should not be nil")
-			}
-
-			if wrapped.Error() != tt.expectedMsg {
-				t.Errorf("expected %q, got %q", tt.expectedMsg, wrapped.Error())
-			}
-
-			if tt.checkIs != nil && !errors.Is(wrapped, tt.checkIs) {
-				t.Errorf("wrapped error should preserve %v in the chain", tt.checkIs)
-			}
-		})
-	}
-}
-
-func TestIsContextError(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name     string
-		err      error
-		expected bool
-	}{
-		{"context.Canceled", context.Canceled, true},
-		{"context.DeadlineExceeded", context.DeadlineExceeded, true},
-		{"wrapped context.Canceled", WrapError(context.Canceled, "operation canceled"), true},
-		{"regular error", errors.New("some error"), false},
-		{"nil error", nil, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := IsContextError(tt.err)
-			if result != tt.expected {
-				t.Errorf("IsContextError(%v) = %v, expected %v", tt.err, result, tt.expected)
-			}
-		})
-	}
 }
 
 func TestExitCodes(t *testing.T) {

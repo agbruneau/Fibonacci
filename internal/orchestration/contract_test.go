@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 	"github.com/agbruneau/FibGo/internal/fibonacci/fibonaccitest"
 	"github.com/agbruneau/FibGo/internal/progress"
@@ -46,7 +45,7 @@ func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 	if results[0].Err == nil {
 		t.Fatal("expected error from canceled context")
 	}
-	if !apperrors.IsContextError(results[0].Err) && !errors.Is(results[0].Err, context.Canceled) {
+	if !errors.Is(results[0].Err, context.Canceled) {
 		t.Errorf("expected context cancellation in error chain, got %v", results[0].Err)
 	}
 }

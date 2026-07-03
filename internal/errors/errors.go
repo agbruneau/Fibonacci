@@ -1,12 +1,9 @@
 package apperrors
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
@@ -177,40 +174,6 @@ func WrapCalculationError(cause error, ctx CalculationContext) error {
 	return CalculationError{Cause: cause, CalculationContext: ctx}
 }
 
-// TimeoutError represents a calculation timeout. It captures the operation
-// name and the duration limit that was exceeded.
-type TimeoutError struct {
-	// Operation is the name of the operation that timed out.
-	Operation string
-	// Limit is the duration after which the operation was considered timed out.
-	Limit time.Duration
-}
-
-// Error returns a formatted message describing the timeout.
-//
-// Returns:
-//   - string: The error message string.
-func (e TimeoutError) Error() string {
-	return fmt.Sprintf("operation %q timed out after %s", e.Operation, e.Limit)
-}
-
-// ValidationError represents an input validation failure. It identifies which
-// field failed validation and provides a human-readable explanation.
-type ValidationError struct {
-	// Field is the name of the field that failed validation.
-	Field string
-	// Message explains the validation failure.
-	Message string
-}
-
-// Error returns a formatted message describing the validation failure.
-//
-// Returns:
-//   - string: The error message string.
-func (e ValidationError) Error() string {
-	return fmt.Sprintf("validation error for %q: %s", e.Field, e.Message)
-}
-
 // MemoryError represents a memory limit exceeded condition. It captures the
 // requested, available, and limit memory values for diagnostic purposes.
 type MemoryError struct {
@@ -228,34 +191,4 @@ type MemoryError struct {
 //   - string: The error message string.
 func (e MemoryError) Error() string {
 	return fmt.Sprintf("memory error: requested %d bytes, available %d bytes (limit: %d)", e.Requested, e.Available, e.Limit)
-}
-
-// WrapError wraps an error with additional context using fmt.Errorf and %w.
-// This allows the wrapped error to be unwrapped with errors.Unwrap() and
-// checked with errors.Is() and errors.As().
-//
-// Parameters:
-//   - err: The error to wrap.
-//   - format: A format string for the context message.
-//   - args: Arguments for the format string.
-//
-// Returns:
-//   - error: The wrapped error, or nil if err is nil.
-func WrapError(err error, format string, args ...any) error {
-	if err == nil {
-		return nil
-	}
-	message := fmt.Sprintf(format, args...)
-	return fmt.Errorf("%s: %w", message, err)
-}
-
-// IsContextError checks if the error is a context cancellation or deadline exceeded error.
-//
-// Parameters:
-//   - err: The error to check.
-//
-// Returns:
-//   - bool: true if the error is a context error.
-func IsContextError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
