@@ -240,7 +240,7 @@ func TestModel_HandleKey_Restart(t *testing.T) {
 	m := newTestModelWithSize(t, 80, 24)
 
 	// Add some chart data and log entries
-	m.chart.AddDataPoint(0.5, 0.5, 10*time.Second)
+	m.chart.AddDataPoint(0.5, 10*time.Second)
 	m.logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: 0.5})
 	m.done = true
 	m.footer.SetDone(true)

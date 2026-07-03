@@ -44,7 +44,7 @@ func (c *ChartModel) SetSize(w, h int) {
 }
 
 // AddDataPoint records a progress sample.
-func (c *ChartModel) AddDataPoint(progress float64, avg float64, eta time.Duration) {
+func (c *ChartModel) AddDataPoint(avg float64, eta time.Duration) {
 	c.averageProgress = avg
 	c.eta = eta
 }
@@ -104,7 +104,7 @@ func (c ChartModel) View() string {
 	// Render CPU braille chart if space allows
 	if c.height >= 8 && c.sparklineWidth() > 0 {
 		b.WriteString("\n\n")
-		b.WriteString(c.renderBrailleSection())
+		b.WriteString(c.renderSparklineSection())
 	}
 
 	return panelStyle.
@@ -145,8 +145,8 @@ func (c ChartModel) sparklineWidth() int {
 	return w
 }
 
-// renderBrailleSection renders CPU and MEM sparkline indicators.
-func (c ChartModel) renderBrailleSection() string {
+// renderSparklineSection renders CPU and MEM sparkline indicators.
+func (c ChartModel) renderSparklineSection() string {
 	var b strings.Builder
 
 	// CPU label: percentage after colon, then sparkline

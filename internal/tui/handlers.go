@@ -23,7 +23,7 @@ func (m *Model) handleProgress(msg ProgressMsg) {
 		return
 	}
 	m.logs.AddProgressEntry(msg)
-	m.chart.AddDataPoint(msg.Value, msg.AverageProgress, msg.ETA)
+	m.chart.AddDataPoint(msg.AverageProgress, msg.ETA)
 	m.metrics.UpdateProgress(msg.AverageProgress)
 	// Refresh live indicators from progress data
 	elapsed := time.Since(m.header.startTime)
