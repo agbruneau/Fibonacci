@@ -135,8 +135,9 @@ func lastNDigits(x *big.Int, n int) string {
 	last := new(big.Int).Mod(x, mod)
 	s := last.String()
 
-	// Zero-pad if the result has fewer than n digits (leading zeros)
-	if len(s) < n && x.BitLen() > n*4 { // only pad if x is large enough to have n digits
+	// Zero-pad if the result has fewer than n digits (leading zeros).
+	// Only pad if x itself has at least n digits, i.e. x >= 10^n (x >= mod).
+	if len(s) < n && x.Cmp(mod) >= 0 {
 		s = fmt.Sprintf("%0*s", n, s)
 	}
 	return s

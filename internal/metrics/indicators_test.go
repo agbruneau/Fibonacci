@@ -67,6 +67,23 @@ func TestLastNDigits(t *testing.T) {
 	}
 }
 
+// TestLastNDigitsZeroPaddingThreshold covers APP-18: the zero-padding guard
+// compared BitLen against n*4 bits/digit, but a decimal digit needs only
+// log2(10) ≈ 3.32 bits. For n=20 that mismatch (67 bits actual vs 80 bits
+// required) meant 20-24 digit numbers whose last 20 digits start with zeros
+// were not padded, silently truncating the reported LastDigits.
+func TestLastNDigitsZeroPaddingThreshold(t *testing.T) {
+	t.Parallel()
+	// 10^20 has BitLen 67 (< old threshold of n*4=80) but 21 decimal digits,
+	// so its last 20 digits must be twenty zeros, not a single "0".
+	x := new(big.Int).Exp(big.NewInt(10), big.NewInt(20), nil)
+	got := lastNDigits(x, 20)
+	want := "00000000000000000000"[:20]
+	if got != want {
+		t.Errorf("lastNDigits(10^20, 20) = %q, want %q", got, want)
+	}
+}
+
 func TestLastNDigitsLargeNumber(t *testing.T) {
 	t.Parallel()
 	// F(1000) is a large number; verify last 10 digits
