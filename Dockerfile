@@ -1,9 +1,9 @@
 # FibCalc reproducible build image.
 #
 # Two-stage build:
-#  1. builder — toolchain + CGO + libgmp-dev to compile with the `gmp`
-#     build tag and to run `go test -race`. Profile-guided optimisation
-#     consumes cmd/fibcalc/default.pgo when present.
+#  1. builder — CGO-disabled static build of the default binary (no `gmp`
+#     build tag). Profile-guided optimisation consumes
+#     cmd/fibcalc/default.pgo when present.
 #  2. runtime — distroless minimal base shipping only the linked binary.
 #
 # Audit-PRD E6 / Sprint S1-T6.
@@ -12,16 +12,7 @@ ARG GO_VERSION=1.26
 
 FROM golang:${GO_VERSION}-bookworm AS builder
 
-# CGO toolchain + libgmp headers required by the optional `gmp` backend
-# and by `go test -race`.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        build-essential \
-        libgmp-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV CGO_ENABLED=1 \
+ENV CGO_ENABLED=0 \
     GOFLAGS=-trimpath
 
 WORKDIR /src
