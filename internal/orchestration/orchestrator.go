@@ -106,6 +106,10 @@ func wrapCalculationFailure(err error, n uint64, opts fibonacci.Options) error {
 // logic for determining global success or failure based on the individual
 // outcomes.
 //
+// It mutates results in place (sort.Slice): callers must not hold pointers
+// into the slice across this call, and must not rely on the input order
+// afterward.
+//
 // Parameters:
 //   - results: The slice of calculation results to analyze.
 //   - presOpts: Presentation options (N, verbose, details, showValue).

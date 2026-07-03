@@ -80,6 +80,7 @@ func (a *Application) executeCalculations(ctx context.Context, out io.Writer) []
 		ParallelThreshold: a.Config.Threshold,
 		FFTThreshold:      a.Config.FFTThreshold,
 		StrassenThreshold: a.Config.StrassenThreshold,
+		GCMode:            a.Config.GCControl,
 	}
 	return orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 		Calculators:      calculatorsToRun,
@@ -170,10 +171,17 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 // selecting the best result, presenting it (quiet vs verbose), and saving it
 // to a file when requested.
 func (a *Application) analyzeResultsWithOutput(results []orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) int {
-	bestResult := a.selectBest(results)
-	exitCode := a.present(results, bestResult, outputCfg, out)
-	if bestResult != nil && exitCode == apperrors.ExitSuccess {
-		if err := a.save(bestResult, outputCfg, out); err != nil {
+	bestPtr := a.selectBest(results)
+	// Copy the value out before present(): AnalyzeComparisonResults sorts
+	// results in place, which would invalidate a pointer held into the slice.
+	var best *orchestration.CalculationResult
+	if bestPtr != nil {
+		v := *bestPtr
+		best = &v
+	}
+	exitCode := a.present(results, bestPtr, outputCfg, out)
+	if best != nil && exitCode == apperrors.ExitSuccess {
+		if err := a.save(best, outputCfg, out); err != nil {
 			return apperrors.ExitErrorGeneric
 		}
 	}

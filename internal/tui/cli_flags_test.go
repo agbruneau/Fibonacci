@@ -733,6 +733,27 @@ func TestStartCalculationCmd_SmallN(t *testing.T) {
 	}
 }
 
+// TestStartCalculationCmd_WiresGCControl reproduces audit.md M2/FIB-01=APP-02
+// on the TUI path: cfg.GCControl is parsed and validated but never copied
+// into orchestration.Options, so the calculator always sees GCMode == "".
+func TestStartCalculationCmd_WiresGCControl(t *testing.T) {
+	t.Parallel()
+	capture := &capturingCalculator{result: big.NewInt(55)}
+	ref := &programRef{}
+	cfg := config.AppConfig{
+		N:         10,
+		Timeout:   time.Minute,
+		GCControl: "disabled",
+	}
+
+	cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{capture}, cfg, 0)
+	cmd()
+
+	if capture.capturedOpts.GCMode != "disabled" {
+		t.Errorf("Options.GCMode: want %q, got %q", "disabled", capture.capturedOpts.GCMode)
+	}
+}
+
 func TestStartCalculationCmd_ZeroThresholds(t *testing.T) {
 	t.Parallel()
 	capture := &capturingCalculator{result: big.NewInt(55)}

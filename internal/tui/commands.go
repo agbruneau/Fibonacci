@@ -50,6 +50,7 @@ func startCalculationCmd(ref *programRef, ctx context.Context, calculators []orc
 			ParallelThreshold: cfg.Threshold,
 			FFTThreshold:      cfg.FFTThreshold,
 			StrassenThreshold: cfg.StrassenThreshold,
+			GCMode:            cfg.GCControl,
 		}
 		results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 			Calculators:      calculators,

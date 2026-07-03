@@ -3,7 +3,9 @@ package app
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +13,9 @@ import (
 	"github.com/agbruneau/FibGo/internal/cli"
 	"github.com/agbruneau/FibGo/internal/config"
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
 	"github.com/agbruneau/FibGo/internal/testutil"
 )
 
@@ -150,6 +154,83 @@ func TestPresentQuietAllConsistentPrintsValue(t *testing.T) {
 	}
 }
 
+// TestAnalyzeResultsWithOutput_ComparisonModePartialFailure reproduces APP-01:
+// in comparison mode with an output file, selectBest captures a pointer into
+// the results slice; AnalyzeComparisonResults (invoked from present) then
+// sorts that same slice in place, which can leave the pointer aimed at a
+// failed slot (Result == nil) by the time save() dereferences it. Mirrors the
+// audit.md §3/M1 probe: {failure, slow success, fast success}.
+func TestAnalyzeResultsWithOutput_ComparisonModePartialFailure(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	outputFile := dir + "/result.txt"
+	app := &Application{
+		Config: config.AppConfig{
+			N:          10,
+			OutputFile: outputFile,
+		},
+		ErrWriter: &bytes.Buffer{},
+	}
+	results := []orchestration.CalculationResult{
+		{Name: "failure", Result: nil, Duration: time.Millisecond, Err: fmt.Errorf("boom")},
+		{Name: "slow", Result: big.NewInt(55), Duration: 20 * time.Millisecond},
+		{Name: "fast", Result: big.NewInt(55), Duration: 5 * time.Millisecond},
+	}
+	outputCfg := cli.OutputConfig{OutputFile: outputFile}
+
+	var outBuf bytes.Buffer
+	exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+
+	if exitCode != apperrors.ExitSuccess {
+		t.Fatalf("expected exit code %d (success), got %d", apperrors.ExitSuccess, exitCode)
+	}
+	saved, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+	if !strings.Contains(string(saved), "# Algorithm: fast") {
+		t.Errorf("output file must record the fastest successful algorithm (fast), got:\n%s", saved)
+	}
+}
+
+// TestAnalyzeResultsWithOutput_AllSucceedSavesFastest is the complementary
+// case: when every algorithm succeeds, the output file must still carry the
+// Name/Duration of the correct (fastest) algorithm after the in-place sort.
+func TestAnalyzeResultsWithOutput_AllSucceedSavesFastest(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	outputFile := dir + "/result.txt"
+	app := &Application{
+		Config: config.AppConfig{
+			N:          10,
+			OutputFile: outputFile,
+		},
+		ErrWriter: &bytes.Buffer{},
+	}
+	results := []orchestration.CalculationResult{
+		{Name: "slow", Result: big.NewInt(55), Duration: 20 * time.Millisecond},
+		{Name: "fast", Result: big.NewInt(55), Duration: 5 * time.Millisecond},
+	}
+	outputCfg := cli.OutputConfig{OutputFile: outputFile}
+
+	var outBuf bytes.Buffer
+	exitCode := app.analyzeResultsWithOutput(results, outputCfg, &outBuf)
+
+	if exitCode != apperrors.ExitSuccess {
+		t.Fatalf("expected exit code %d (success), got %d", apperrors.ExitSuccess, exitCode)
+	}
+	saved, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+	if !strings.Contains(string(saved), "# Algorithm: fast") {
+		t.Errorf("output file must record the fastest algorithm (fast), got:\n%s", saved)
+	}
+	if !strings.Contains(string(saved), "# Duration: 5ms") {
+		t.Errorf("output file must record the fastest algorithm's duration (5ms), got:\n%s", saved)
+	}
+}
+
 // TestValidateMemoryBudgetSuggestion pins the presentation branch on budget
 // overrun: the --last-digits hint must only appear when the user is not
 // already in last-digits mode.
@@ -191,5 +272,49 @@ func TestValidateMemoryBudgetSuggestion(t *testing.T) {
 					gotHint, tc.wantHint, output)
 			}
 		})
+	}
+}
+
+// gcSpyCalculator captures the Options it receives so tests can assert on
+// GCMode wiring without depending on the shared MockCalculator (which
+// discards opts).
+type gcSpyCalculator struct {
+	capturedOpts fibonacci.Options
+}
+
+func (s *gcSpyCalculator) Name() string { return "spy" }
+
+func (s *gcSpyCalculator) Calculate(_ context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, _ uint64, opts fibonacci.Options) (*big.Int, error) {
+	s.capturedOpts = opts
+	if progressChan != nil {
+		progressChan <- progress.ProgressUpdate{CalculatorIndex: calcIndex, Value: 1.0}
+	}
+	return big.NewInt(55), nil
+}
+
+// TestExecuteCalculations_WiresGCControl reproduces audit.md M2/FIB-01=APP-02:
+// --gc-control is parsed and validated but never copied into the
+// fibonacci.Options the calculator receives, so "disabled"/"aggressive" are
+// silent no-ops. executeCalculations must forward Config.GCControl as
+// Options.GCMode.
+func TestExecuteCalculations_WiresGCControl(t *testing.T) {
+	t.Parallel()
+	spy := &gcSpyCalculator{}
+	factory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{"fast": spy})
+	app := &Application{
+		Config: config.AppConfig{
+			N:         10,
+			Algo:      "fast",
+			GCControl: "disabled",
+			Quiet:     true,
+		},
+		Factory: factory,
+	}
+
+	var outBuf bytes.Buffer
+	app.executeCalculations(context.Background(), &outBuf)
+
+	if spy.capturedOpts.GCMode != "disabled" {
+		t.Errorf("Options.GCMode: want %q, got %q", "disabled", spy.capturedOpts.GCMode)
 	}
 }
