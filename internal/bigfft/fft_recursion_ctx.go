@@ -77,9 +77,21 @@ func fourierRecursiveCtx(ctx *FFTContext, dst, src []fermat, backward bool, n in
 				errAsync = fourierRecursiveCtx(ctx, dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2, alloc)
 			}()
 
-			errSync := fourierRecursiveCtx(ctx, dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
+			// Wrapped so a panic here still lets wg.Wait() run below instead of
+			// unwinding straight past it — otherwise the async worker could
+			// still be reading/writing pooled buffers when this goroutine's
+			// defers recycle them (FFT-02).
+			var rSync any
+			var errSync error
+			func() {
+				defer func() { rSync = recover() }()
+				errSync = fourierRecursiveCtx(ctx, dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
+			}()
 
 			wg.Wait()
+			if rSync != nil {
+				panic(rSync)
+			}
 			select {
 			case r := <-panicCh:
 				panic(r)

@@ -100,6 +100,65 @@ func TestPoly_MulWithBump(t *testing.T) {
 	})
 }
 
+// TestNTransform_DirtyPoolBucket reproduces audit finding FFT-01: NTransform
+// used acquireWordSliceUnsafe (uninitialized pool memory) for the twist
+// buffer, so any coefficient index >= len(p.A) kept whatever garbage the
+// pool bucket last held instead of being zero. Dirtying the exact bucket
+// backing wordCount = (n+1)<<k before calling NTransform must not change
+// the NTransform/InvNTransform round-trip result relative to a clean pool.
+func TestNTransform_DirtyPoolBucket(t *testing.T) {
+	k := uint(4)
+	m := 1
+	n := valueSize(k, m, 2)
+
+	newPoly := func() Poly {
+		p := Poly{K: k, M: m}
+		p.A = make([]nat, (1<<k)-1)
+		for i := range p.A {
+			p.A[i] = nat{big.Word(i + 1)}
+		}
+		return p
+	}
+
+	roundTrip := func() []nat {
+		p := newPoly()
+		vals, err := p.NTransform(n)
+		if err != nil {
+			t.Fatalf("NTransform failed: %v", err)
+		}
+		pRes, err := vals.InvNTransform()
+		if err != nil {
+			t.Fatalf("InvNTransform failed: %v", err)
+		}
+		return pRes.A
+	}
+
+	// Reference: NTransform/InvNTransform round-trip against a clean pool.
+	want := roundTrip()
+
+	// Dirty the exact word-slice bucket that NTransform's twist buffer
+	// (wordCount = (n+1)<<k) will be served from.
+	wordCount := (n + 1) << k
+	dirty := acquireWordSlice(wordCount)
+	for i := range dirty {
+		dirty[i] = ^big.Word(0)
+	}
+	releaseWordSlice(dirty)
+
+	got := roundTrip()
+
+	if len(got) != len(want) {
+		t.Fatalf("coefficient count mismatch: got %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		gi := new(big.Int).SetBits(got[i])
+		wi := new(big.Int).SetBits(want[i])
+		if gi.Cmp(wi) != 0 {
+			t.Fatalf("coefficient %d differs after dirtying pool bucket: got %s, want %s", i, gi, wi)
+		}
+	}
+}
+
 func TestPoly_mul(t *testing.T) {
 	t.Parallel()
 

@@ -412,3 +412,131 @@ func TestAcquireFFTStateReturnsZeroedBuffers(t *testing.T) {
 		}
 	}
 }
+
+// assertSemaphoreFullyReleased drains sem immediately (no retry, no sleep)
+// and fails if any token is still outstanding. With wg.Wait() unconditional
+// before the re-panic (the fix), the worker's token-release defer runs
+// before Wait() returns, which happens-before the panic reaches the caller
+// via a real synchronization edge — so every token must already be back
+// the instant this is called. With wg.Wait() skipped (the FFT-02 bug), the
+// still-running worker has had no such happens-before edge with the caller,
+// so this reliably (not just occasionally) observes a missing token.
+func assertSemaphoreFullyReleased(t *testing.T, sem chan struct{}) {
+	t.Helper()
+	capacity := cap(sem)
+	filled := 0
+	for filled < capacity {
+		select {
+		case sem <- struct{}{}:
+			filled++
+		default:
+			goto drain
+		}
+	}
+drain:
+	for i := 0; i < filled; i++ {
+		<-sem
+	}
+	if filled != capacity {
+		t.Fatalf("semaphore short %d/%d tokens right after the panic recovered: wg.Wait() was skipped while a worker still held a token", capacity-filled, capacity)
+	}
+}
+
+// tokenReleasedBeforePanic runs call, which must panic, then immediately
+// asserts every token of sem is available.
+func tokenReleasedBeforePanic(t *testing.T, sem chan struct{}, call func()) {
+	t.Helper()
+
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected the sync half to panic")
+			}
+		}()
+		call()
+	}()
+
+	assertSemaphoreFullyReleased(t, sem)
+}
+
+// TestFourierRecursiveUnifiedSyncPanicWaitsForWorker reproduces audit finding
+// FFT-02 at the fourierRecursiveUnified site: the sync half (dst1) panics
+// while the async half (dst2), given deliberately heavy real work via a large
+// n, is still running. The fix must wg.Wait() unconditionally before
+// re-panicking, so the worker's semaphore token is always released by the
+// time the caller observes the panic.
+func TestFourierRecursiveUnifiedSyncPanicWaitsForWorker(t *testing.T) {
+	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
+		t.Skip("parallelism knobs exclude the parallel branch at this size")
+	}
+	const (
+		k = 4
+		n = 4095 // heavy enough that the async half outlives an early sync panic
+	)
+	K := 1 << k
+	src := newFermatVec(K, n)
+	dst := newFermatVec(K, n)
+	dst[1] = make(fermat, 5) // dst[1] of the first leaf in the sync half (dst1): panics almost immediately
+
+	tokenReleasedBeforePanic(t, getSemaphore(), func() {
+		_ = fourierRecursive(dst, src, false, n, k, k, 0, make(fermat, n+1), make(fermat, n+1))
+	})
+}
+
+// TestFourierRecursiveCtxSyncPanicWaitsForWorker mirrors the above for the
+// FFTContext-aware recursion (fourierRecursiveCtx), which owns its own
+// semaphore instead of the package-global one.
+func TestFourierRecursiveCtxSyncPanicWaitsForWorker(t *testing.T) {
+	if GetParallelFFTRecursionThreshold() > 4 || GetMaxParallelFFTDepth() == 0 {
+		t.Skip("parallelism knobs exclude the parallel branch at this size")
+	}
+	const (
+		k = 4
+		n = 4095
+	)
+	K := 1 << k
+	ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
+	src := newFermatVec(K, n)
+	dst := newFermatVec(K, n)
+	dst[1] = make(fermat, 5)
+
+	tokenReleasedBeforePanic(t, ctx.Semaphore, func() {
+		_ = fourierRecursiveCtx(ctx, dst, src, false, n, k, k, 0,
+			make(fermat, n+1), make(fermat, n+1), GetPoolAllocator())
+	})
+}
+
+// TestExecuteReconstructionChunkZeroPanicWaitsForWorker reproduces audit
+// finding FFT-02 at the executeReconstruction site: chunk 0 (the span run
+// synchronously on the calling goroutine) panics while the other chunks,
+// dispatched as workers over a deliberately large n, are still running.
+func TestExecuteReconstructionChunkZeroPanicWaitsForWorker(t *testing.T) {
+	const (
+		K = 128
+		n = 8191 // heavy enough that worker chunks outlive an early chunk-0 panic
+	)
+	dst1 := newFermatVec(K, n)
+	dst2 := newFermatVec(K, n)
+	dst1[0] = make(fermat, 5) // chunk 0 element: Sub panics almost immediately
+
+	tmp := make(fermat, n+1)
+	tmp2 := make(fermat, n+1)
+
+	tokenReleasedBeforePanic(t, getSemaphore(), func() {
+		_ = executeReconstruction(dst1, dst2, 511, tmp, tmp2)
+	})
+}
+
+// TestRunPointwiseChunkZeroPanicWaitsForWorker reproduces audit finding
+// FFT-02 at the runPointwise site: chunk 0 panics while other chunks,
+// dispatched as workers over a deliberately large n, are still running.
+func TestRunPointwiseChunkZeroPanicWaitsForWorker(t *testing.T) {
+	const k, n = 8, 8191 // heavy enough that worker chunks outlive an early chunk-0 panic
+	p := makePointwiseOperand(t, k, n, 5)
+	q := makePointwiseOperand(t, k, n, 6)
+	q.Values[0] = q.Values[0][:n] // chunk 0 element: fermat.Mul panics almost immediately
+
+	tokenReleasedBeforePanic(t, getSemaphore(), func() {
+		_, _ = p.Mul(&q)
+	})
+}

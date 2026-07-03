@@ -153,10 +153,22 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 				errAsync = fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2, alloc)
 			}()
 
-			// Run first half in current thread with current temps
-			errSync := fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
+			// Run first half in current thread with current temps. The call is
+			// wrapped so a panic here still lets wg.Wait() run below instead of
+			// unwinding straight past it — otherwise the async worker could still
+			// be reading/writing pooled buffers (tmp/tmp2, dst2) when this
+			// goroutine's defers recycle them (FFT-02).
+			var rSync any
+			var errSync error
+			func() {
+				defer func() { rSync = recover() }()
+				errSync = fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
+			}()
 
 			wg.Wait()
+			if rSync != nil {
+				panic(rSync)
+			}
 			select {
 			case r := <-panicCh:
 				panic(r)
@@ -264,9 +276,19 @@ func executeReconstruction(dst1, dst2 []fermat, ω2shift int, tmp, tmp2 fermat) 
 	if hi > len(dst1) {
 		hi = len(dst1)
 	}
-	body(0, hi, tmp, tmp2)
+	// Chunk 0 runs wrapped so a panic here still lets wg.Wait() run below
+	// instead of unwinding straight past it — otherwise a spawned worker could
+	// still be reading/writing dst1/dst2 when the caller returns (FFT-02).
+	var rSync any
+	func() {
+		defer func() { rSync = recover() }()
+		body(0, hi, tmp, tmp2)
+	}()
 
 	wg.Wait()
+	if rSync != nil {
+		panic(rSync)
+	}
 	select {
 	case r := <-panicCh:
 		panic(r)

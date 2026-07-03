@@ -355,7 +355,7 @@ func (p *Poly) NTransform(n int) (PolValues, error) {
 	//
 	// Twist p by θ to obtain q.
 	wordCount := (n + 1) << k
-	tbits := acquireWordSliceUnsafe(wordCount)
+	tbits := acquireWordSlice(wordCount)
 	defer releaseWordSlice(tbits)
 
 	K := 1 << k
@@ -499,7 +499,12 @@ func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
 		}
 	}
 
+	// Chunk 0 runs wrapped so a panic here still lets wg.Wait() run below
+	// instead of unwinding straight past it — otherwise a spawned worker could
+	// still be reading/writing shared buffers when the caller returns (FFT-02).
+	var rSync any
 	func() {
+		defer func() { rSync = recover() }()
 		buf, cleanup := alloc.AllocFermatTemp(8 * n)
 		defer cleanup()
 		hi := chunk
@@ -512,6 +517,9 @@ func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
 	}()
 
 	wg.Wait()
+	if rSync != nil {
+		panic(rSync)
+	}
 	select {
 	case r := <-panicCh:
 		panic(r)
