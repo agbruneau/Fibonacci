@@ -15,7 +15,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique : Clean Arc
 | **Licence** | Apache 2.0 |
 | **CI/CD** | Aucune (`.github/workflows/` absent). Validation **locale** uniquement, gardée par `scripts/check.{sh,ps1}` — la rigueur tient à la discipline locale |
 | **Chiffres** | `make stats` est la **source canonique** (packages, LOC) — ne jamais coder en dur de décompte daté |
-| **Audit** | Dernier audit exhaustif : 2026-07 — rapport [`audit.md`](audit.md), plan d'exécution [`auditPlan.md`](auditPlan.md) |
+| **Audit** | Dernier audit exhaustif : 2026-07 — **exécuté** (30 commits, `aa542d8`→`c1b6fb8` inclus, décisions dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Rapport [`audit.md`](audit.md), plan d'exécution [`auditPlan.md`](auditPlan.md) |
 
 ---
 
