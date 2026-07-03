@@ -293,12 +293,20 @@ func TestProgressSubject_FreezePanicRecovery(t *testing.T) {
 
 	callback := subject.Freeze(0)
 
+	before := RecoveredObserverCount()
+
 	// Should not panic — the panicking observer is recovered
 	callback(0.5)
 
 	// The mock observer (registered after panicker) should still receive the update
 	if mock.updateCount() != 1 {
 		t.Errorf("mock expected 1 update despite panicking observer, got %d", mock.updateCount())
+	}
+
+	// The recovered-panic counter is process-wide and monotonic, so assert
+	// the delta rather than an absolute value.
+	if got := RecoveredObserverCount() - before; got != 1 {
+		t.Errorf("RecoveredObserverCount() delta = %d, want 1", got)
 	}
 }
 

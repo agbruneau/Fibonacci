@@ -9,13 +9,24 @@ import (
 	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 )
 
+// newTestDynamicThresholdManager adapts a fixed-argument shape to
+// threshold.NewDynamicThresholdManagerFromConfig, the only constructor
+// production (fastdoubling.go) calls.
+func newTestDynamicThresholdManager(fftThreshold, parallelThreshold int) *threshold.DynamicThresholdManager {
+	return threshold.NewDynamicThresholdManagerFromConfig(threshold.DynamicThresholdConfig{
+		Enabled:                  true,
+		InitialFFTThreshold:      fftThreshold,
+		InitialParallelThreshold: parallelThreshold,
+	})
+}
+
 func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Create with dynamic thresholds", func(t *testing.T) {
 		t.Parallel()
 		strategy := &AdaptiveStrategy{}
-		dtm := threshold.NewDynamicThresholdManager(1000000, 4096)
+		dtm := newTestDynamicThresholdManager(1000000, 4096)
 
 		framework := NewDoublingFrameworkWithDynamicThresholds(strategy, dtm)
 
@@ -72,7 +83,7 @@ func TestDoublingFramework_CacheStrategyInjected(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockCacheStrategy{}
-	dtm := threshold.NewDynamicThresholdManager(1_000_000, 4096)
+	dtm := newTestDynamicThresholdManager(1_000_000, 4096)
 	framework := NewDoublingFrameworkWithDynamicThresholds(&AdaptiveStrategy{}, dtm)
 	framework.CacheStrategy = mock // override the default bigfft wrapper
 
@@ -135,7 +146,7 @@ func TestDoublingFramework_CacheStrategyError(t *testing.T) {
 
 	wantErr := errors.New("cache sample boom")
 	mock := &mockCacheStrategy{returnError: wantErr}
-	dtm := threshold.NewDynamicThresholdManager(1_000_000, 4096)
+	dtm := newTestDynamicThresholdManager(1_000_000, 4096)
 	framework := NewDoublingFrameworkWithDynamicThresholds(&AdaptiveStrategy{}, dtm)
 	framework.CacheStrategy = mock
 

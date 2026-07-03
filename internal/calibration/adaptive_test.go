@@ -109,7 +109,7 @@ func TestGenerateQuickParallelThresholds(t *testing.T) {
 
 func TestGenerateQuickFFTThresholds(t *testing.T) {
 	t.Parallel()
-	thresholds := GenerateQuickFFTThresholds()
+	thresholds := generateQuickFFTThresholds()
 
 	if len(thresholds) < 2 {
 		t.Error("Expected multiple quick FFT thresholds")

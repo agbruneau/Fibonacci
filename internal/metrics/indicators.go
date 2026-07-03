@@ -24,9 +24,6 @@ type Indicators struct {
 	DigitalRoot          int     // iterative digit sum until single digit (1-9)
 	LastDigits           string  // last 20 decimal digits of F(n)
 	IsEven               bool    // true when F(n) is even (iff 3 | n)
-
-	// Live is true when indicators are estimated from progress, false when final.
-	Live bool
 }
 
 // log2Phi is log₂(φ) where φ = (1+√5)/2 ≈ 1.6180339887.
@@ -46,7 +43,6 @@ func ComputeLive(n uint64, progress float64, elapsed time.Duration) *Indicators 
 			// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
 			DoublingSteps: uint64(bits.Len64(n)),
 			IsEven:        n%3 == 0,
-			Live:          true,
 		}
 	}
 
@@ -64,7 +60,6 @@ func ComputeLive(n uint64, progress float64, elapsed time.Duration) *Indicators 
 		DoublingSteps:   doublingSteps,
 		StepsPerSecond:  completedSteps / seconds,
 		IsEven:          n%3 == 0,
-		Live:            true,
 	}
 }
 

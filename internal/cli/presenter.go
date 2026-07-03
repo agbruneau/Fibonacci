@@ -103,8 +103,8 @@ func (p CLIResultPresenter) HandleError(err error, duration time.Duration, out i
 	return apperrors.HandleCalculationError(err, duration, out, colors)
 }
 
-// DisplayMemoryStats shows memory statistics after a calculation.
-func DisplayMemoryStats(heapAlloc, totalAlloc uint64, numGC uint32, pauseTotalNs uint64, out io.Writer) {
+// displayMemoryStats shows memory statistics after a calculation.
+func displayMemoryStats(heapAlloc, totalAlloc uint64, numGC uint32, pauseTotalNs uint64, out io.Writer) {
 	fmt.Fprintf(out, "\nMemory Stats:\n")
 	fmt.Fprintf(out, "  Peak heap:       %s\n", format.FormatBytes(heapAlloc))
 	fmt.Fprintf(out, "  Total allocated: %s\n", format.FormatBytes(totalAlloc))

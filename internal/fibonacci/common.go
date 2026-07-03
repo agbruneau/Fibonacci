@@ -69,24 +69,6 @@ func checkLimit(z *big.Int) bool {
 	return z != nil && z.BitLen() > MaxPooledBitLen
 }
 
-// preSizeBigInt ensures a big.Int has at least the specified word capacity.
-// This avoids repeated reallocation during the doubling loop as values grow.
-// Uses SetBits with a length-0 capacity-N slice to pre-allocate without
-// changing the numeric value.
-func preSizeBigInt(z *big.Int, words int) {
-	if z == nil || words <= 0 {
-		return
-	}
-	// Only pre-size if current capacity is smaller
-	if cap(z.Bits()) >= words {
-		return
-	}
-	// SetBits([]big.Word{}) with length 0 sets z to 0.
-	// We use a slice with length=0, cap=words to give z the backing array.
-	buf := make([]big.Word, 0, words)
-	z.SetBits(buf)
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Logging
 // ─────────────────────────────────────────────────────────────────────────────

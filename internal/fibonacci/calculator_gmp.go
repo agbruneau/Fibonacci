@@ -28,6 +28,13 @@ import (
 	"github.com/ncw/gmp"
 )
 
+// globalFactory is the package-level factory this file's init() registers the
+// GMP calculator into. It lives here, behind the gmp build tag, because the
+// default build has no global factory — app.New builds its own via
+// NewDefaultFactory (OVR-06 removed the exported GlobalFactory/RegisterCalculator
+// accessors, but the gmp init still needs a target factory).
+var globalFactory = NewDefaultFactory()
+
 // RegisterGMPCalculator registers the GMP calculator in the given factory.
 func RegisterGMPCalculator(f *DefaultFactory) {
 	f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })

@@ -38,9 +38,9 @@ func (b *MetricsBuffer) Count() int {
 	return b.written
 }
 
-// Written returns the total number of samples ever written, even after the
-// buffer wraps. Useful to drive periodic adjustment cadences.
-func (b *MetricsBuffer) Written() int {
+// writtenCount returns the total number of samples ever written, even after
+// the buffer wraps. Useful to drive periodic adjustment cadences.
+func (b *MetricsBuffer) writtenCount() int {
 	return b.written
 }
 

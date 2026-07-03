@@ -60,7 +60,7 @@ func TestGCController_Stats_BeforeBegin(t *testing.T) {
 	t.Parallel()
 
 	gc := NewGCController("disabled", 100)
-	stats := gc.Stats()
+	stats := gc.stats()
 	if stats.TotalAlloc != 0 {
 		t.Errorf("TotalAlloc before Begin should be 0, got %d", stats.TotalAlloc)
 	}
@@ -75,7 +75,7 @@ func TestGCController_Stats_AfterBeginEnd(t *testing.T) {
 	_ = make([]byte, 1024*1024)
 	gc.End()
 
-	stats := gc.Stats()
+	stats := gc.stats()
 	// HeapAlloc should be non-zero after some allocations
 	// (we can't assert exact values due to runtime variability)
 	_ = stats
@@ -222,7 +222,7 @@ func TestGCController_SetLogger_EmitsGCEvents(t *testing.T) {
 	if !gc.active {
 		t.Fatal("test prerequisite: aggressive controller must be active")
 	}
-	gc.SetLogger(zerolog.New(&buf))
+	gc.setLogger(zerolog.New(&buf))
 
 	if err := gc.WithGC(func() error { return nil }); err != nil {
 		t.Fatalf("WithGC: %v", err)

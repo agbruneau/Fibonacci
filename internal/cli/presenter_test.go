@@ -129,10 +129,10 @@ func TestDisplayMemoryStats(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
-			DisplayMemoryStats(tc.heapAlloc, tc.totalAlloc, tc.numGC, tc.pauseTotalNs, &buf)
+			displayMemoryStats(tc.heapAlloc, tc.totalAlloc, tc.numGC, tc.pauseTotalNs, &buf)
 			for _, want := range tc.wantSubstring {
 				if !strings.Contains(buf.String(), want) {
-					t.Errorf("DisplayMemoryStats output missing %q; got:\n%s", want, buf.String())
+					t.Errorf("displayMemoryStats output missing %q; got:\n%s", want, buf.String())
 				}
 			}
 		})

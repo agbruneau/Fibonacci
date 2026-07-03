@@ -205,9 +205,6 @@ func TestComputeLive(t *testing.T) {
 
 	ind := ComputeLive(n, progress, elapsed)
 
-	if !ind.Live {
-		t.Error("expected Live = true")
-	}
 	if ind.BitsPerSecond <= 0 {
 		t.Errorf("BitsPerSecond = %f, want > 0", ind.BitsPerSecond)
 	}
@@ -239,9 +236,6 @@ func TestComputeLive(t *testing.T) {
 func TestComputeLiveZeroProgress(t *testing.T) {
 	t.Parallel()
 	ind := ComputeLive(1000, 0, time.Second)
-	if !ind.Live {
-		t.Error("expected Live = true")
-	}
 	if ind.BitsPerSecond != 0 {
 		t.Errorf("expected BitsPerSecond = 0 for zero progress, got %f", ind.BitsPerSecond)
 	}

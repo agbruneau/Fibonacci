@@ -89,7 +89,7 @@ func TestFormatQuietResult(t *testing.T) {
 
 	t.Run("Decimal format", func(t *testing.T) {
 		t.Parallel()
-		output := FormatQuietResult(result, 10, 100*time.Millisecond)
+		output := FormatQuietResult(result)
 		if output != "55" {
 			t.Errorf("Expected '55', got '%s'", output)
 		}
@@ -99,7 +99,7 @@ func TestFormatQuietResult(t *testing.T) {
 		t.Parallel()
 		large := new(big.Int)
 		large.SetString("123456789012345678901234567890", 10)
-		output := FormatQuietResult(large, 100, 1*time.Second)
+		output := FormatQuietResult(large)
 		if output != large.String() {
 			t.Errorf("Expected full decimal string, got '%s'", output)
 		}
@@ -113,7 +113,7 @@ func TestDisplayQuietResult(t *testing.T) {
 	t.Run("Decimal output", func(t *testing.T) {
 		t.Parallel()
 		var buf bytes.Buffer
-		DisplayQuietResult(&buf, result, 10, 100*time.Millisecond)
+		DisplayQuietResult(&buf, result)
 		output := buf.String()
 		if !strings.Contains(output, "55") {
 			t.Errorf("Output should contain '55', got '%s'", output)
@@ -132,7 +132,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 		config := OutputConfig{
 			Quiet: true,
 		}
-		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		err := displayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -150,7 +150,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 			OutputFile: outputFile,
 			Quiet:      false,
 		}
-		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		err := displayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -173,7 +173,7 @@ func TestDisplayResultWithConfig(t *testing.T) {
 			OutputFile: outputFile,
 			Quiet:      true,
 		}
-		err := DisplayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
+		err := displayResultWithConfig(&buf, result, 10, 100*time.Millisecond, "fast", config)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}

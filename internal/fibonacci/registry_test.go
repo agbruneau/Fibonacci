@@ -144,18 +144,3 @@ func TestCalculatorFactory_ConcurrentCreation(t *testing.T) {
 		}
 	}
 }
-
-func TestGlobalFactory(t *testing.T) {
-	t.Parallel()
-	// Ensure GlobalFactory returns a non-nil factory
-	f := GlobalFactory()
-	if f == nil {
-		t.Error("GlobalFactory returned nil")
-	}
-
-	// Ensure RegisterCalculator works
-	RegisterCalculator("global_test", func() CoreCalculator { return &mockCoreCalculator{} })
-	if !f.Has("global_test") {
-		t.Error("Global factory should have 'global_test' calculator")
-	}
-}

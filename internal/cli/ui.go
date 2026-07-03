@@ -13,9 +13,6 @@ const (
 	// DisplayEdges specifies the number of digits to display at the beginning
 	// and end of a truncated number.
 	DisplayEdges = 25
-	// HexDisplayEdges specifies the number of hex characters to display at the
-	// beginning and end of a truncated hexadecimal number.
-	HexDisplayEdges = 40
 	// ProgressRefreshRate defines the refresh frequency of the progress bar.
 	// Optimized to 200ms to reduce updates and improve performance.
 	ProgressRefreshRate = 200 * time.Millisecond

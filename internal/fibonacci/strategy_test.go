@@ -5,32 +5,6 @@ import (
 	"testing"
 )
 
-// TestSetOrReturn tests the setOrReturn helper function.
-func TestSetOrReturn(t *testing.T) {
-	t.Parallel()
-	t.Run("z is nil - returns result directly", func(t *testing.T) {
-		t.Parallel()
-		result := big.NewInt(456)
-		ret := setOrReturn(nil, result)
-		if ret != result {
-			t.Error("expected same pointer when z is nil")
-		}
-	})
-
-	t.Run("z is non-nil - sets z and returns it", func(t *testing.T) {
-		t.Parallel()
-		z := big.NewInt(0)
-		result := big.NewInt(456)
-		ret := setOrReturn(z, result)
-		if ret != z {
-			t.Error("expected z pointer to be returned")
-		}
-		if z.Cmp(result) != 0 {
-			t.Errorf("expected z to be set to %s, got %s", result.String(), z.String())
-		}
-	})
-}
-
 // TestAdaptiveStrategy tests the adaptive multiplication strategy.
 func TestAdaptiveStrategy(t *testing.T) {
 	t.Parallel()
@@ -143,9 +117,9 @@ func TestFFTOnlyStrategy(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		// After setOrReturn, z should have the value
+		// z should be reused as the destination when non-nil.
 		if z != result {
-			t.Log("z was returned (as expected with setOrReturn)")
+			t.Log("z was returned (as expected)")
 		}
 
 		expected := big.NewInt(20000)

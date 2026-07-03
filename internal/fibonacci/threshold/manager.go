@@ -134,19 +134,6 @@ type DynamicThresholdManager struct {
 // Constructor and Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-// NewDynamicThresholdManager creates a new manager with the given initial thresholds.
-func NewDynamicThresholdManager(fftThreshold, parallelThreshold int) *DynamicThresholdManager {
-	m := &DynamicThresholdManager{
-		logger:                    zerolog.Nop(),
-		originalFFTThreshold:      fftThreshold,
-		originalParallelThreshold: parallelThreshold,
-		adjustmentInterval:        DynamicAdjustmentInterval,
-	}
-	m.currentFFTThreshold.Store(int64(fftThreshold))
-	m.currentParallelThreshold.Store(int64(parallelThreshold))
-	return m
-}
-
 // NewDynamicThresholdManagerFromConfig creates a manager from configuration.
 func NewDynamicThresholdManagerFromConfig(cfg DynamicThresholdConfig) *DynamicThresholdManager {
 	if !cfg.Enabled {
@@ -285,13 +272,6 @@ func (m *DynamicThresholdManager) snapshotMetrics() []IterationMetric {
 	return m.buffer.RecentMetrics()
 }
 
-// analyzeFFTThreshold snapshots the metrics buffer and analyzes the FFT
-// threshold. Retained for direct test access; ShouldAdjust calls
-// analyzeFFTThresholdFrom with a shared snapshot to avoid a redundant lock+copy.
-func (m *DynamicThresholdManager) analyzeFFTThreshold() int {
-	return m.analyzeFFTThresholdFrom(m.snapshotMetrics())
-}
-
 // analyzeFFTThresholdFrom analyzes the FFT threshold from a caller-provided
 // metrics snapshot, applying FFT-specific parameters.
 func (m *DynamicThresholdManager) analyzeFFTThresholdFrom(metrics []IterationMetric) int {
@@ -307,13 +287,6 @@ func (m *DynamicThresholdManager) analyzeFFTThresholdFrom(metrics []IterationMet
 	})
 }
 
-// analyzeParallelThreshold snapshots the metrics buffer and analyzes the
-// parallel threshold. Retained for direct test access; ShouldAdjust calls
-// analyzeParallelThresholdFrom with a shared snapshot.
-func (m *DynamicThresholdManager) analyzeParallelThreshold() int {
-	return m.analyzeParallelThresholdFrom(m.snapshotMetrics())
-}
-
 // analyzeParallelThresholdFrom analyzes the parallel threshold from a
 // caller-provided metrics snapshot, applying parallel-specific parameters.
 func (m *DynamicThresholdManager) analyzeParallelThresholdFrom(metrics []IterationMetric) int {
@@ -327,18 +300,6 @@ func (m *DynamicThresholdManager) analyzeParallelThresholdFrom(metrics []Iterati
 		CurrentThreshold:  int(m.currentParallelThreshold.Load()),
 		OriginalThreshold: m.originalParallelThreshold,
 	})
-}
-
-// avgTimePerBit is a thin wrapper preserved for backward-compatible test
-// access; new code should use ThresholdAnalyzer.AvgTimePerBit directly.
-func (m *DynamicThresholdManager) avgTimePerBit(metrics []IterationMetric) float64 {
-	return m.analyzer.AvgTimePerBit(metrics)
-}
-
-// significantChange is a thin wrapper preserved for backward-compatible test
-// access; new code should use ThresholdAnalyzer.SignificantChange directly.
-func (m *DynamicThresholdManager) significantChange(oldVal, newVal int) bool {
-	return m.analyzer.SignificantChange(oldVal, newVal)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -314,12 +314,10 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 //
 // Parameters:
 //   - result: The calculated Fibonacci number.
-//   - n: The index.
-//   - duration: The calculation duration.
 //
 // Returns:
 //   - string: The formatted result string.
-func FormatQuietResult(result *big.Int, n uint64, duration time.Duration) string {
+func FormatQuietResult(result *big.Int) string {
 	return result.String()
 }
 
@@ -328,13 +326,11 @@ func FormatQuietResult(result *big.Int, n uint64, duration time.Duration) string
 // Parameters:
 //   - out: The output writer.
 //   - result: The calculated Fibonacci number.
-//   - n: The index.
-//   - duration: The calculation duration.
-func DisplayQuietResult(out io.Writer, result *big.Int, n uint64, duration time.Duration) {
-	fmt.Fprintln(out, FormatQuietResult(result, n, duration))
+func DisplayQuietResult(out io.Writer, result *big.Int) {
+	fmt.Fprintln(out, FormatQuietResult(result))
 }
 
-// DisplayResultWithConfig displays a result with the given output configuration.
+// displayResultWithConfig displays a result with the given output configuration.
 // This is a unified function that handles all output modes.
 //
 // Parameters:
@@ -347,10 +343,10 @@ func DisplayQuietResult(out io.Writer, result *big.Int, n uint64, duration time.
 //
 // Returns:
 //   - error: An error if file output fails.
-func DisplayResultWithConfig(out io.Writer, result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) error {
+func displayResultWithConfig(out io.Writer, result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) error {
 	// Handle quiet mode
 	if config.Quiet {
-		DisplayQuietResult(out, result, n, duration)
+		DisplayQuietResult(out, result)
 	} else {
 		// Use standard display
 		DisplayResult(result, n, duration, config.Verbose, true, config.ShowValue, out)

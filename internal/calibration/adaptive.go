@@ -84,8 +84,8 @@ func GenerateFFTThresholds() []int {
 	return thresholds
 }
 
-// GenerateQuickFFTThresholds generates a smaller set for quick calibration.
-func GenerateQuickFFTThresholds() []int {
+// generateQuickFFTThresholds generates a smaller set for quick calibration.
+func generateQuickFFTThresholds() []int {
 	return []int{-1, 750000, 1000000, 1500000}
 }
 

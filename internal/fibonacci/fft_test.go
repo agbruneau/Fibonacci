@@ -120,7 +120,7 @@ func TestSmartMultiply_InPlace_BufferReuse(t *testing.T) {
 
 	// Pre-allocate z with sufficient capacity
 	z := new(big.Int)
-	preSizeBigInt(z, len(expected.Bits())+10)
+	z.SetBits(make([]big.Word, 0, len(expected.Bits())+10))
 
 	result, err := smartMultiply(z, x, y, 0)
 	if err != nil {
@@ -158,7 +158,7 @@ func TestSmartSquare_InPlace_BufferReuse(t *testing.T) {
 	expected := new(big.Int).Mul(x, x)
 
 	z := new(big.Int)
-	preSizeBigInt(z, len(expected.Bits())+10)
+	z.SetBits(make([]big.Word, 0, len(expected.Bits())+10))
 
 	result, err := smartSquare(z, x, 0)
 	if err != nil {

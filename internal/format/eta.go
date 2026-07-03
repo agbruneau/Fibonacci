@@ -72,7 +72,7 @@ func ProgressBar(progress float64, length int) string {
 	return builder.String()
 }
 
-// FormatProgressBarWithETA generates a formatted progress string with ETA.
+// formatProgressBarWithETA generates a formatted progress string with ETA.
 // It combines the progress percentage, visual bar, and time estimate.
 //
 // Parameters:
@@ -82,7 +82,7 @@ func ProgressBar(progress float64, length int) string {
 //
 // Returns:
 //   - string: A formatted string like "45.00% [####....] ETA: 2m30s".
-func FormatProgressBarWithETA(progress float64, eta time.Duration, width int) string {
+func formatProgressBarWithETA(progress float64, eta time.Duration, width int) string {
 	bar := ProgressBar(progress, width)
 	etaStr := FormatETA(eta)
 	return fmt.Sprintf("%6.2f%% [%s] ETA: %s", progress*100, bar, etaStr)

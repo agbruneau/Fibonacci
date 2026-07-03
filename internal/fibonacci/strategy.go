@@ -11,17 +11,6 @@ import (
 	"github.com/agbruneau/FibGo/internal/bigfft"
 )
 
-// setOrReturn sets z to result if z is non-nil, otherwise returns result directly.
-// This is a common pattern for methods that optionally reuse a destination buffer,
-// eliminating code duplication in strategy implementations.
-func setOrReturn(z, result *big.Int) *big.Int {
-	if z != nil {
-		z.Set(result)
-		return z
-	}
-	return result
-}
-
 // Multiplier defines pure multiplication and squaring operations used in
 // Fibonacci calculations. Different implementations can choose between
 // standard math/big, FFT, or other multiplication algorithms.
@@ -128,9 +117,9 @@ func (s *FFTOnlyStrategy) Name() string {
 
 // Multiply performs FFT-based multiplication. When z != nil it writes directly
 // into z via bigfft.MulTo (reusing z's buffer), avoiding the fresh allocation +
-// O(n) copy that mulFFT()+setOrReturn would incur. bigfft.MulTo applies the same
-// getFFTThreshold gate (and math/big fallback + sign handling) as mulFFT, so the
-// result is identical. A3-03.
+// O(n) copy that mulFFT() plus a manual copy into z would incur. bigfft.MulTo
+// applies the same getFFTThreshold gate (and math/big fallback + sign
+// handling) as mulFFT, so the result is identical. A3-03.
 func (s *FFTOnlyStrategy) Multiply(z, x, y *big.Int, opts Options) (*big.Int, error) {
 	if z == nil {
 		res, err := mulFFT(x, y)

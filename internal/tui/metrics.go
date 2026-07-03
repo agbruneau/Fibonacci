@@ -55,6 +55,12 @@ func (m *MetricsModel) UpdateMemStats(msg MemStatsMsg) {
 }
 
 // UpdateProgress updates the speed metric.
+//
+// The 70/30 EMA smoothing here intentionally duplicates
+// ProgressAggregator.recomputeETA (internal/orchestration/progress.go): this
+// method tracks a display-only speed metric with no ETA cap, while the
+// aggregator produces a capped ETA duration shared by both CLI and TUI.
+// Won't-fix (audit APP-17) unless one side changes again.
 func (m *MetricsModel) UpdateProgress(progress float64) {
 	now := time.Now()
 	dt := now.Sub(m.lastUpdate).Seconds()

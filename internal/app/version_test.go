@@ -68,27 +68,27 @@ func TestPrintVersion(t *testing.T) {
 	}
 }
 
-// TestGetVersionInfo tests the GetVersionInfo function.
+// TestGetVersionInfo tests the getVersionInfo function.
 func TestGetVersionInfo(t *testing.T) {
 	t.Parallel()
-	info := GetVersionInfo()
+	info := getVersionInfo()
 
 	if info.Version != Version {
-		t.Errorf("GetVersionInfo().Version = %s, want %s", info.Version, Version)
+		t.Errorf("getVersionInfo().Version = %s, want %s", info.Version, Version)
 	}
 	if info.Commit != Commit {
-		t.Errorf("GetVersionInfo().Commit = %s, want %s", info.Commit, Commit)
+		t.Errorf("getVersionInfo().Commit = %s, want %s", info.Commit, Commit)
 	}
 	if info.BuildDate != BuildDate {
-		t.Errorf("GetVersionInfo().BuildDate = %s, want %s", info.BuildDate, BuildDate)
+		t.Errorf("getVersionInfo().BuildDate = %s, want %s", info.BuildDate, BuildDate)
 	}
 	if info.GoVersion != runtime.Version() {
-		t.Errorf("GetVersionInfo().GoVersion = %s, want %s", info.GoVersion, runtime.Version())
+		t.Errorf("getVersionInfo().GoVersion = %s, want %s", info.GoVersion, runtime.Version())
 	}
 	if info.OS != runtime.GOOS {
-		t.Errorf("GetVersionInfo().OS = %s, want %s", info.OS, runtime.GOOS)
+		t.Errorf("getVersionInfo().OS = %s, want %s", info.OS, runtime.GOOS)
 	}
 	if info.Arch != runtime.GOARCH {
-		t.Errorf("GetVersionInfo().Arch = %s, want %s", info.Arch, runtime.GOARCH)
+		t.Errorf("getVersionInfo().Arch = %s, want %s", info.Arch, runtime.GOARCH)
 	}
 }

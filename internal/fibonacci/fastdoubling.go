@@ -171,8 +171,9 @@ func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter pr
 	return fd.releaseStateWithResult(s, raw), nil
 }
 
-// ShouldParallelizeMultiplication determines whether the multiplication operations
-// should be parallelized based on the operand sizes and configuration options.
+// shouldParallelizeMultiplicationCached determines whether the multiplication
+// operations should be parallelized based on the operand sizes and
+// configuration options.
 //
 // This function encapsulates the complex decision logic for parallelization:
 //   - It checks if the operands are large enough to benefit from parallelism.
@@ -181,23 +182,10 @@ func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter pr
 //   - For FFT-sized operands, parallelism is only enabled for very large
 //     numbers (> ParallelFFTThreshold bits) to overcome concurrency overhead.
 //
-// Parameters:
-//   - s: The current calculation state containing the operands.
-//   - opts: Configuration options including thresholds.
-//
-// Returns:
-//   - bool: true if multiplication should be parallelized, false otherwise.
-func ShouldParallelizeMultiplication(s *CalculationState, opts Options) bool {
-	// Cache BitLen() values to avoid redundant calls.
-	// BitLen() traverses the internal representation of big.Int, so caching
-	// these values provides a measurable performance improvement (2-5%).
-	fkBitLen := s.FK.BitLen()
-	fk1BitLen := s.FK1.BitLen()
-	return shouldParallelizeMultiplicationCached(opts, fkBitLen, fk1BitLen)
-}
-
-// shouldParallelizeMultiplicationCached is an optimized version that accepts
-// pre-computed BitLen() values to avoid redundant calls.
+// It accepts pre-computed BitLen() values (rather than a *CalculationState)
+// to avoid redundant calls; BitLen() traverses the internal representation
+// of big.Int, so caching these values provides a measurable performance
+// improvement (2-5%).
 //
 // Parameters:
 //   - opts: Configuration options including thresholds.
@@ -292,24 +280,6 @@ var statePool = sync.Pool{
 			T3:  new(big.Int),
 		}
 	},
-}
-
-// AcquireState gets a state from the pool and resets it. It does NOT pre-size
-// the state's big.Ints from an arena — use AcquireStateForN for that. This
-// entry point exists for call sites (notably tests) that do not know n at
-// acquisition time.
-//
-// The returned state must be released using ReleaseState, preferably with defer:
-//
-//	state := AcquireState()
-//	defer ReleaseState(state)
-//
-// Returns:
-//   - *CalculationState: A ready-to-use calculation state.
-func AcquireState() *CalculationState {
-	s := statePool.Get().(*CalculationState)
-	s.Reset()
-	return s
 }
 
 // maxReasonableWords caps arena sizing well above any computable F(n)

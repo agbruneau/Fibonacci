@@ -17,16 +17,11 @@ func TestShouldParallelizeMultiplication(t *testing.T) {
 		fk := new(big.Int).Exp(big.NewInt(2), big.NewInt(5000), nil)  // ~5000 bits
 		fk1 := new(big.Int).Exp(big.NewInt(2), big.NewInt(5000), nil) // ~5000 bits
 
-		state := &CalculationState{
-			FK:  fk,
-			FK1: fk1,
-		}
-
 		opts := Options{
 			ParallelThreshold: 4096, // Lower than bit length
 		}
 
-		shouldParallel := ShouldParallelizeMultiplication(state, opts)
+		shouldParallel := shouldParallelizeMultiplicationCached(opts, fk.BitLen(), fk1.BitLen())
 		if !shouldParallel {
 			t.Error("Should parallelize when bit length exceeds threshold")
 		}
@@ -38,16 +33,11 @@ func TestShouldParallelizeMultiplication(t *testing.T) {
 		fk := big.NewInt(100)
 		fk1 := big.NewInt(200)
 
-		state := &CalculationState{
-			FK:  fk,
-			FK1: fk1,
-		}
-
 		opts := Options{
 			ParallelThreshold: 4096, // Higher than bit length
 		}
 
-		shouldParallel := ShouldParallelizeMultiplication(state, opts)
+		shouldParallel := shouldParallelizeMultiplicationCached(opts, fk.BitLen(), fk1.BitLen())
 		if shouldParallel {
 			t.Error("Should not parallelize when bit length below threshold")
 		}
@@ -60,17 +50,12 @@ func TestShouldParallelizeMultiplication(t *testing.T) {
 		fk := new(big.Int).Exp(big.NewInt(2), big.NewInt(5000), nil)
 		fk1 := new(big.Int).Exp(big.NewInt(2), big.NewInt(5000), nil)
 
-		state := &CalculationState{
-			FK:  fk,
-			FK1: fk1,
-		}
-
 		opts := Options{
 			ParallelThreshold: 4096,
 			FFTThreshold:      10000, // Low FFT threshold - FFT will be used instead
 		}
 
-		shouldParallel := ShouldParallelizeMultiplication(state, opts)
+		shouldParallel := shouldParallelizeMultiplicationCached(opts, fk.BitLen(), fk1.BitLen())
 		// The function checks if FFT will be used, and if so, doesn't parallelize
 		// However, the actual logic might still parallelize if bit length is high enough
 		// So we just verify the function doesn't panic
@@ -83,17 +68,12 @@ func TestShouldParallelizeMultiplication(t *testing.T) {
 		fk := new(big.Int).Exp(big.NewInt(2), big.NewInt(4096), nil)
 		fk1 := new(big.Int).Exp(big.NewInt(2), big.NewInt(4096), nil)
 
-		state := &CalculationState{
-			FK:  fk,
-			FK1: fk1,
-		}
-
 		opts := Options{
 			ParallelThreshold: 4096,
 			FFTThreshold:      1000000, // High FFT threshold
 		}
 
-		shouldParallel := ShouldParallelizeMultiplication(state, opts)
+		shouldParallel := shouldParallelizeMultiplicationCached(opts, fk.BitLen(), fk1.BitLen())
 		// Should parallelize when >= threshold
 		if !shouldParallel {
 			t.Error("Should parallelize when bit length equals threshold")

@@ -18,9 +18,9 @@ func TestReleaseState_NilSafe(t *testing.T) {
 func TestAcquireAndReleaseState_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	state := AcquireState()
+	state := AcquireStateForN(0)
 	if state == nil {
-		t.Fatal("AcquireState returned nil")
+		t.Fatal("AcquireStateForN returned nil")
 	}
 
 	// Verify state is properly initialized
@@ -49,9 +49,9 @@ func TestCalculationStatePool_ConcurrentAllocation(t *testing.T) {
 		for range goroutines {
 			go func() {
 				defer wg.Done()
-				state := AcquireState()
+				state := AcquireStateForN(0)
 				if state == nil {
-					t.Error("AcquireState returned nil")
+					t.Error("AcquireStateForN returned nil")
 					return
 				}
 				if state.FK == nil || state.FK1 == nil {

@@ -176,7 +176,7 @@ func TestReleaseState_OverLimit_AliasesCleared(t *testing.T) {
 
 	t.Run("ReleaseState_overLimit", func(t *testing.T) {
 		t.Parallel()
-		s := AcquireState()
+		s := AcquireStateForN(0)
 		// Force overLimit: inflate FK past MaxPooledBitLen.
 		s.FK.SetBit(s.FK, MaxPooledBitLen+1, 1)
 		if !checkLimit(s.FK) {
@@ -196,7 +196,7 @@ func TestReleaseState_OverLimit_AliasesCleared(t *testing.T) {
 
 	t.Run("ReleaseStateWithResult_overLimit", func(t *testing.T) {
 		t.Parallel()
-		s := AcquireState()
+		s := AcquireStateForN(0)
 		// Force overLimit on a different slot to cover the OR chain.
 		s.T2.SetBit(s.T2, MaxPooledBitLen+1, 1)
 		if !checkLimit(s.T2) {
@@ -221,7 +221,7 @@ func TestReleaseState_OverLimit_AliasesCleared(t *testing.T) {
 		// clear aliases. This is the historically-correct path; we check it
 		// here so a regression on EITHER branch trips this test.
 		t.Parallel()
-		s := AcquireState()
+		s := AcquireStateForN(0)
 		s.FK.SetInt64(42) // small enough: not over-limit
 
 		captured := map[string]*big.Int{

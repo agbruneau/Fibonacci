@@ -340,7 +340,7 @@ func TestRunCompletion(t *testing.T) {
 		Config: config.AppConfig{
 			Completion: "bash",
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   fibonacci.NewDefaultFactory(),
 		ErrWriter: &bytes.Buffer{},
 	}
 
@@ -364,7 +364,7 @@ func TestRunCompletionInvalid(t *testing.T) {
 		Config: config.AppConfig{
 			Completion: "invalid-shell",
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   fibonacci.NewDefaultFactory(),
 		ErrWriter: &errBuf,
 	}
 
@@ -478,7 +478,7 @@ func TestAnalyzeResultsWithOutputFile(t *testing.T) {
 			N:          10,
 			OutputFile: outputPath,
 		},
-		Factory:   fibonacci.GlobalFactory(),
+		Factory:   fibonacci.NewDefaultFactory(),
 		ErrWriter: &bytes.Buffer{},
 	}
 

@@ -66,11 +66,11 @@ type VersionData struct {
 	Arch      string `json:"arch"`
 }
 
-// GetVersionInfo returns the current version information as a struct.
+// getVersionInfo returns the current version information as a struct.
 //
 // Returns:
 //   - VersionData: The version information.
-func GetVersionInfo() VersionData {
+func getVersionInfo() VersionData {
 	return VersionData{
 		Version:   Version,
 		Commit:    Commit,

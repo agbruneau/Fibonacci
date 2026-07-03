@@ -88,8 +88,8 @@ func NewGCController(mode string, n uint64) *GCController {
 	return gc
 }
 
-// SetLogger configures the logger for GC control events.
-func (gc *GCController) SetLogger(l zerolog.Logger) {
+// setLogger configures the logger for GC control events.
+func (gc *GCController) setLogger(l zerolog.Logger) {
 	gc.logger = l
 }
 
@@ -172,8 +172,8 @@ func (gc *GCController) End() {
 		Msg("gc re-enabled")
 }
 
-// Stats returns GC statistics delta between Begin and End.
-func (gc *GCController) Stats() GCStats {
+// stats returns GC statistics delta between Begin and End.
+func (gc *GCController) stats() GCStats {
 	return GCStats{
 		HeapAlloc:    gc.endStats.HeapAlloc,
 		TotalAlloc:   gc.endStats.TotalAlloc - gc.startStats.TotalAlloc,

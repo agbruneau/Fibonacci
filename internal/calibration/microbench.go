@@ -17,13 +17,8 @@ import (
 // Micro-benchmark Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-const (
-	// MicroBenchIterations is the number of iterations per test for averaging.
-	MicroBenchIterations = 3
-
-	// MicroBenchPerTestTimeout is the maximum time per individual test.
-	MicroBenchPerTestTimeout = 30 * time.Millisecond
-)
+// MicroBenchIterations is the number of iterations per test for averaging.
+const MicroBenchIterations = 3
 
 // MicroBenchTimeout is the maximum time for the entire micro-benchmark suite.
 //

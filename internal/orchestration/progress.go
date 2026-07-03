@@ -119,8 +119,8 @@ func (a *ProgressAggregator) GetETA() time.Duration {
 	return capETA(a.progressRate, a.state.CalculateAverage())
 }
 
-// NumCalculators returns the number of calculators being tracked.
-func (a *ProgressAggregator) NumCalculators() int {
+// calculatorCount returns the number of calculators being tracked.
+func (a *ProgressAggregator) calculatorCount() int {
 	return a.numCalculators
 }
 

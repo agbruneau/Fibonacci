@@ -236,26 +236,3 @@ func (f *DefaultFactory) Has(name string) bool {
 	_, exists := f.creators[name]
 	return exists
 }
-
-// globalFactory is the default global factory instance.
-var globalFactory = NewDefaultFactory()
-
-// GlobalFactory returns the global factory instance.
-// This is a convenience for applications that don't need
-// multiple factory instances.
-//
-// Returns:
-//   - *DefaultFactory: The global factory instance.
-func GlobalFactory() *DefaultFactory {
-	return globalFactory
-}
-
-// RegisterCalculator registers a calculator in the global factory.
-// This is a convenience function for adding custom calculators.
-//
-// Parameters:
-//   - name: The unique identifier for the calculator type.
-//   - creator: A function that creates a new CoreCalculator instance.
-func RegisterCalculator(name string, creator func() CoreCalculator) error {
-	return globalFactory.Register(name, creator)
-}

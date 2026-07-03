@@ -219,7 +219,7 @@ func (a *Application) present(
 		if orchestration.HasResultMismatch(results) {
 			return apperrors.ExitErrorMismatch
 		}
-		cli.DisplayQuietResult(out, best.Result, a.Config.N, best.Duration)
+		cli.DisplayQuietResult(out, best.Result)
 		return apperrors.ExitSuccess
 	}
 	presOpts := orchestration.PresentationOptions{

@@ -70,7 +70,7 @@ func TestErrorCollector_Reset(t *testing.T) {
 		t.Errorf("Expected error %v, got %v", err, ec.Err())
 	}
 
-	ec.Reset()
+	ec.reset()
 	if ec.Err() != nil {
 		t.Errorf("Expected nil error after reset, got %v", ec.Err())
 	}

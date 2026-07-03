@@ -65,6 +65,12 @@ func (l *LogsModel) SetSize(w, h int) {
 }
 
 // AddExecutionConfig adds the execution configuration summary as initial log entries.
+//
+// This intentionally duplicates the "Execution Configuration" block rendered
+// by cli.PrintExecutionConfig (internal/cli/calculate.go): the CLI writes
+// plain lines to an io.Writer while the TUI pushes styled entries to a
+// scrollback buffer, so a shared helper would need to abstract over both
+// output models. Won't-fix (audit APP-17) unless one side changes again.
 func (l *LogsModel) AddExecutionConfig(cfg config.AppConfig) {
 	l.buffer.Push(logAlgoStyle.Render("--- Execution Configuration ---"))
 	l.buffer.Push(fmt.Sprintf("  Calculating %s with a timeout of %s.",

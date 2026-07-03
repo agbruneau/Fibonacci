@@ -77,21 +77,21 @@ func TestFormatProgressBarWithETA(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result := FormatProgressBarWithETA(tc.progress, tc.eta, tc.width)
+			result := formatProgressBarWithETA(tc.progress, tc.eta, tc.width)
 
 			if tc.containsETA {
 				if !contains(result, "ETA:") {
-					t.Errorf("FormatProgressBarWithETA result should contain 'ETA:', got %q", result)
+					t.Errorf("formatProgressBarWithETA result should contain 'ETA:', got %q", result)
 				}
 			}
 			if tc.containsPct {
 				if !contains(result, "%") {
-					t.Errorf("FormatProgressBarWithETA result should contain '%%', got %q", result)
+					t.Errorf("formatProgressBarWithETA result should contain '%%', got %q", result)
 				}
 			}
 			// Should contain progress bar characters
 			if !contains(result, "[") || !contains(result, "]") {
-				t.Errorf("FormatProgressBarWithETA result should contain progress bar brackets, got %q", result)
+				t.Errorf("formatProgressBarWithETA result should contain progress bar brackets, got %q", result)
 			}
 		})
 	}

@@ -9,7 +9,7 @@ import (
 // TestGetCalculatorsToRun tests the GetCalculatorsToRun function.
 func TestGetCalculatorsToRun(t *testing.T) {
 	t.Parallel()
-	factory := fibonacci.GlobalFactory()
+	factory := fibonacci.NewDefaultFactory()
 
 	t.Run("Single algorithm returns one calculator", func(t *testing.T) {
 		t.Parallel()
