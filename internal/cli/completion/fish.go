@@ -18,7 +18,9 @@ func GenerateFish(out io.Writer, algorithms []string) error {
 	lines = append(lines, "")
 
 	// Group flags into sections for comments.
-	// The sections mirror the original fish completion output.
+	// The sections mirror the original fish completion output. Any registry
+	// flag not claimed by an earlier section falls into "Other" so no flag
+	// can be silently dropped by an outdated section list.
 	type section struct {
 		comment string
 		flags   []FlagCompletion
@@ -26,10 +28,29 @@ func GenerateFish(out io.Writer, algorithms []string) error {
 
 	sections := []section{
 		{comment: "# Help and version", flags: filterFlags("help", "version")},
-		{comment: "# Main options", flags: filterFlags("n_short", "v_short", "details", "timeout", "algo", "threshold", "fft-threshold", "strassen-threshold")},
+		{comment: "# Main options", flags: filterFlags("n_short", "verbose", "details", "timeout", "algo", "threshold", "fft-threshold", "strassen-threshold")},
 		{comment: "# Calibration", flags: filterFlags("calibrate", "auto-calibrate", "calibration-profile")},
 		{comment: "# Output options", flags: filterFlags("output", "quiet", "machine")},
 		{comment: "# Completion", flags: filterFlags("completion")},
+	}
+
+	// Any registry flag not claimed by a section above still needs a
+	// completion line, so it doesn't silently vanish when a new flag is
+	// added to flagRegistry without updating the section lists here.
+	claimed := map[string]bool{}
+	for _, sec := range sections {
+		for _, f := range sec.flags {
+			claimed[flagKey(f)] = true
+		}
+	}
+	var other []FlagCompletion
+	for _, f := range flagRegistry {
+		if !claimed[flagKey(f)] {
+			other = append(other, f)
+		}
+	}
+	if len(other) > 0 {
+		sections = append(sections, section{comment: "# Other", flags: other})
 	}
 
 	// Use escape-aware joiner: fish single-quoted strings need \\ and \' escaping.

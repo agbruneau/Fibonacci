@@ -6,12 +6,6 @@ import (
 	"strings"
 )
 
-// bashGroupValues defines the completion values used in bash for grouped flags.
-// Flags sharing the same BashGroup use these values in the bash case statement.
-var bashGroupValues = map[string][]string{
-	"threshold": {"1024", "2048", "4096", "8192", "16384"},
-}
-
 type bashCase struct {
 	patterns []string
 	body     string
@@ -74,33 +68,9 @@ func collectBashFileCases() []bashCase {
 func collectBashStaticCases() []bashCase {
 	var cases []bashCase
 	for _, f := range flagRegistry {
-		if !f.IsAlgo && !f.IsFile && f.BashGroup == "" && f.Long != "completion" && len(f.Values) > 0 {
+		if !f.IsAlgo && !f.IsFile && f.Long != "completion" && len(f.Values) > 0 {
 			cases = append(cases, bashStaticValueCase(f))
 		}
-	}
-	return cases
-}
-
-func collectBashGroupedCases() []bashCase {
-	var cases []bashCase
-	seen := map[string]bool{}
-	for _, f := range flagRegistry {
-		if f.BashGroup == "" || seen[f.BashGroup] {
-			continue
-		}
-		seen[f.BashGroup] = true
-		var patterns []string
-		for _, gf := range flagRegistry {
-			if gf.BashGroup == f.BashGroup {
-				patterns = append(patterns, "--"+gf.Long)
-			}
-		}
-		vals := bashGroupValues[f.BashGroup]
-		cases = append(cases, bashCase{
-			patterns: patterns,
-			//nolint:gocritic // %s intentionnel: litteral bash -W, %q=quoting Go non-shell; echappement via escape.go
-			body: fmt.Sprintf(`COMPREPLY=( $(compgen -W "%s" -- "${cur}") )`, formatAlgoListBash(vals)),
-		})
 	}
 	return cases
 }
@@ -117,13 +87,12 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 		}
 	}
 
-	// Order: algo, completion, file, static-with-values, grouped (matches the original layout).
+	// Order: algo, completion, file, static-with-values (matches the original layout).
 	var orderedCases []bashCase
 	orderedCases = append(orderedCases, collectBashAlgoCases()...)
 	orderedCases = append(orderedCases, collectBashCompletionCases()...)
 	orderedCases = append(orderedCases, collectBashFileCases()...)
 	orderedCases = append(orderedCases, collectBashStaticCases()...)
-	orderedCases = append(orderedCases, collectBashGroupedCases()...)
 
 	var caseBody strings.Builder
 	for _, c := range orderedCases {
