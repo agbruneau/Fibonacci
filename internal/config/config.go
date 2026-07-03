@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -230,7 +229,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	if err := config.Validate(availableAlgos); err != nil {
 		fmt.Fprintln(errorWriter, "Configuration error:", err)
 		fs.Usage()
-		return AppConfig{}, errors.New("invalid configuration")
+		return AppConfig{}, err
 	}
 	return config, nil
 }

@@ -1,10 +1,13 @@
 package config
 
 import (
+	"errors"
 	"io"
 	"os"
 	"testing"
 	"time"
+
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -179,6 +182,17 @@ func TestParseConfig(t *testing.T) {
 		_, err := ParseConfig("fibcalc", []string{"-algo", "invalid"}, io.Discard, availableAlgos)
 		if err == nil {
 			t.Error("Expected error for invalid algorithm")
+		}
+	})
+
+	t.Run("ValidationFailureReturnsTypedError", func(t *testing.T) {
+		t.Parallel()
+		// APP-14: ParseConfig must propagate Validate's typed ConfigError
+		// rather than replacing it with a generic error.
+		_, err := ParseConfig("fibcalc", []string{"-algo", "invalid"}, io.Discard, availableAlgos)
+		var cfgErr apperrors.ConfigError
+		if !errors.As(err, &cfgErr) {
+			t.Errorf("expected error chain to contain apperrors.ConfigError, got %T: %v", err, err)
 		}
 	})
 }

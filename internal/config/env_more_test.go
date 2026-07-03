@@ -7,8 +7,9 @@ import (
 	"testing"
 )
 
-// TestParseBoolEnv covers the tri-state parsing, including the fallback to
-// the caller-supplied default for unrecognized values.
+// TestParseBoolEnv covers the tri-state parsing, including the loud error for
+// unrecognized values (APP-09: malformed input must not be silently dropped
+// back to the default).
 func TestParseBoolEnv(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -22,14 +23,55 @@ func TestParseBoolEnv(t *testing.T) {
 		{"false", true, false},
 		{"0", true, false},
 		{"No", true, false},
-		{"garbage", true, true},
-		{"garbage", false, false},
-		{"", true, true},
 	}
 	for _, tc := range cases {
-		if got := parseBoolEnv(tc.val, tc.defaultVal); got != tc.want {
+		got, err := parseBoolEnv(tc.val, tc.defaultVal)
+		if err != nil {
+			t.Errorf("parseBoolEnv(%q, %v) unexpected error: %v", tc.val, tc.defaultVal, err)
+		}
+		if got != tc.want {
 			t.Errorf("parseBoolEnv(%q, %v) = %v, want %v", tc.val, tc.defaultVal, got, tc.want)
 		}
+	}
+}
+
+// TestParseBoolEnv_Malformed verifies that an unrecognized value surfaces an
+// error instead of silently falling back to the default (APP-09).
+func TestParseBoolEnv_Malformed(t *testing.T) {
+	t.Parallel()
+	if _, err := parseBoolEnv("garbage", true); err == nil {
+		t.Fatal("expected error for malformed bool env value, got nil")
+	}
+}
+
+// TestEnvOverride_MalformedBool verifies that a malformed boolean env
+// override surfaces a structured config error through ParseConfig (APP-09).
+func TestEnvOverride_MalformedBool(t *testing.T) {
+	algos := []string{"fast", "matrix"}
+	t.Setenv(EnvPrefix+"VERBOSE", "notabool")
+
+	_, err := ParseConfig("test", []string{}, io.Discard, algos)
+	if err == nil {
+		t.Fatal("expected error for malformed FIBCALC_VERBOSE, got nil")
+	}
+}
+
+// TestEnvOverride_LastDigitsAndGCControl verifies that FIBCALC_LAST_DIGITS
+// and FIBCALC_GC_CONTROL are honored (APP-08).
+func TestEnvOverride_LastDigitsAndGCControl(t *testing.T) {
+	algos := []string{"fast", "matrix"}
+	t.Setenv(EnvPrefix+"LAST_DIGITS", "42")
+	t.Setenv(EnvPrefix+"GC_CONTROL", "aggressive")
+
+	cfg, err := ParseConfig("test", []string{}, io.Discard, algos)
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	if cfg.LastDigits != 42 {
+		t.Errorf("LastDigits = %d, want 42 (env override)", cfg.LastDigits)
+	}
+	if cfg.GCControl != "aggressive" {
+		t.Errorf("GCControl = %q, want %q (env override)", cfg.GCControl, "aggressive")
 	}
 }
 

@@ -89,6 +89,14 @@ var envOverrides = []envOverride{
 		c.StrassenThreshold = parsed
 		return nil
 	}},
+	{"LAST_DIGITS", []string{"last-digits"}, func(c *AppConfig, v string) error {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			return malformedEnvError("LAST_DIGITS", v, err)
+		}
+		c.LastDigits = parsed
+		return nil
+	}},
 
 	// Duration overrides
 	{"TIMEOUT", []string{"timeout"}, func(c *AppConfig, v string) error {
@@ -117,38 +125,74 @@ var envOverrides = []envOverride{
 		c.MemoryLimit = v
 		return nil
 	}},
+	{"GC_CONTROL", []string{"gc-control"}, func(c *AppConfig, v string) error {
+		c.GCControl = v
+		return nil
+	}},
 
 	// Boolean overrides
 	{"VERBOSE", []string{"v", "verbose"}, func(c *AppConfig, v string) error {
-		c.Verbose = parseBoolEnv(v, c.Verbose)
+		parsed, err := parseBoolEnv(v, c.Verbose)
+		if err != nil {
+			return malformedEnvError("VERBOSE", v, err)
+		}
+		c.Verbose = parsed
 		return nil
 	}},
 	{"DETAILS", []string{"d", "details"}, func(c *AppConfig, v string) error {
-		c.Details = parseBoolEnv(v, c.Details)
+		parsed, err := parseBoolEnv(v, c.Details)
+		if err != nil {
+			return malformedEnvError("DETAILS", v, err)
+		}
+		c.Details = parsed
 		return nil
 	}},
 	{"QUIET", []string{"quiet", "q"}, func(c *AppConfig, v string) error {
-		c.Quiet = parseBoolEnv(v, c.Quiet)
+		parsed, err := parseBoolEnv(v, c.Quiet)
+		if err != nil {
+			return malformedEnvError("QUIET", v, err)
+		}
+		c.Quiet = parsed
 		return nil
 	}},
 	{"MACHINE_OUTPUT", []string{"machine"}, func(c *AppConfig, v string) error {
-		c.MachineOutput = parseBoolEnv(v, c.MachineOutput)
+		parsed, err := parseBoolEnv(v, c.MachineOutput)
+		if err != nil {
+			return malformedEnvError("MACHINE_OUTPUT", v, err)
+		}
+		c.MachineOutput = parsed
 		return nil
 	}},
 	{"CALIBRATE", []string{"calibrate"}, func(c *AppConfig, v string) error {
-		c.Calibrate = parseBoolEnv(v, c.Calibrate)
+		parsed, err := parseBoolEnv(v, c.Calibrate)
+		if err != nil {
+			return malformedEnvError("CALIBRATE", v, err)
+		}
+		c.Calibrate = parsed
 		return nil
 	}},
 	{"AUTO_CALIBRATE", []string{"auto-calibrate"}, func(c *AppConfig, v string) error {
-		c.AutoCalibrate = parseBoolEnv(v, c.AutoCalibrate)
+		parsed, err := parseBoolEnv(v, c.AutoCalibrate)
+		if err != nil {
+			return malformedEnvError("AUTO_CALIBRATE", v, err)
+		}
+		c.AutoCalibrate = parsed
 		return nil
 	}},
 	{"CALCULATE", []string{"calculate", "c"}, func(c *AppConfig, v string) error {
-		c.ShowValue = parseBoolEnv(v, c.ShowValue)
+		parsed, err := parseBoolEnv(v, c.ShowValue)
+		if err != nil {
+			return malformedEnvError("CALCULATE", v, err)
+		}
+		c.ShowValue = parsed
 		return nil
 	}},
 	{"TUI", []string{"tui"}, func(c *AppConfig, v string) error {
-		c.TUI = parseBoolEnv(v, c.TUI)
+		parsed, err := parseBoolEnv(v, c.TUI)
+		if err != nil {
+			return malformedEnvError("TUI", v, err)
+		}
+		c.TUI = parsed
 		return nil
 	}},
 }
@@ -163,15 +207,16 @@ func malformedEnvError(envKey, value string, cause error) error {
 
 // parseBoolEnv parses a boolean environment variable value.
 // Accepts "true", "1", "yes" as true; "false", "0", "no" as false (case-insensitive).
-// Returns defaultVal if the value is not recognized.
-func parseBoolEnv(val string, defaultVal bool) bool {
+// Returns a malformedEnvError if the value is not recognized, instead of
+// silently falling back to defaultVal (APP-09).
+func parseBoolEnv(val string, defaultVal bool) (bool, error) {
 	switch strings.ToLower(val) {
 	case "true", "1", "yes":
-		return true
+		return true, nil
 	case "false", "0", "no":
-		return false
+		return false, nil
 	}
-	return defaultVal
+	return defaultVal, fmt.Errorf("unrecognized boolean value %q (expected true/1/yes or false/0/no)", val)
 }
 
 // validateEnvOverrides verifies the structural consistency of the envOverrides
@@ -225,9 +270,9 @@ func validateEnvOverrides(fs *flag.FlagSet) error {
 // This implements the priority: CLI flags > Environment variables > Defaults.
 //
 // Supported environment variables (all prefixed with FIBCALC_):
-//   - N, ALGO, TIMEOUT, THRESHOLD, FFT_THRESHOLD, STRASSEN_THRESHOLD,
+//   - N, ALGO, TIMEOUT, THRESHOLD, FFT_THRESHOLD, STRASSEN_THRESHOLD, LAST_DIGITS,
 //     VERBOSE, DETAILS, QUIET, MACHINE_OUTPUT, CALIBRATE, AUTO_CALIBRATE, CALCULATE,
-//     OUTPUT, CALIBRATION_PROFILE, MEMORY_LIMIT, TUI
+//     OUTPUT, CALIBRATION_PROFILE, MEMORY_LIMIT, GC_CONTROL, TUI
 //   - FIBCALC_TUI_THEME: TUI palette (read by ui.GetCurrentTUITheme), e.g. high-contrast
 //
 // It returns a structured ConfigError (without mutating further) the first
