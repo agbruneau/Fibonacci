@@ -197,7 +197,7 @@ Pratique effective : **trunk-based** (mainteneur solo). Une branche dédiée + P
 
 | Chemin | Régénération | Description |
 |---|---|---|
-| `docs/dashboard/` | Procédure complète : [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages) | Build React/Vite statique (knowledge graph), déployé sur GitHub Pages. |
+| `docs/dashboard/` | Procédure complète : [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages) | Build React/Vite statique (knowledge graph), déployé sur GitHub Pages. Graphe régénéré le **2026-07-06** via `/understand` (1 128 nœuds / 4 782 arêtes / 9 couches / visite 12 étapes, contenu **français**, `autoUpdate` activé — `.understand-anything/config.json`). |
 
 ---
 

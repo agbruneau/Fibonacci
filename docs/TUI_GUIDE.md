@@ -1,6 +1,6 @@
 # TUI Developer Guide
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 797 nodes / 8 layers / 13-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
 
 Interactive terminal dashboard inspired by btop, built on Bubble Tea (Elm architecture).
 Activated via the `--tui` flag or the `FIBCALC_TUI=true` environment variable.

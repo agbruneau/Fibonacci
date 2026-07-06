@@ -11,9 +11,9 @@ algorithmes optimisés (Fast Doubling, exponentiation matricielle Strassen-Winog
 Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de millions.
 
 > **[Dashboard knowledge-graph interactif →](https://agbruneau.github.io/FibGo/dashboard/)** — l'architecture
-> complète navigable, 8 couches, visite guidée en 13 étapes. **Régénération en attente** (DOC-09) : le
-> graphe date d'avant l'audit 2026-07 et référence des symboles depuis retirés — le nombre de nœuds/arêtes
-> n'est pas republié tant que l'artefact n'est pas reconstruit (voir [`docs/BUILD.md`](docs/BUILD.md)).
+> complète navigable : **1 128 nœuds**, **4 782 arêtes**, **9 couches**, visite guidée en **12 étapes**.
+> Graphe **régénéré le 2026-07-06** (post-audit 2026-07, contenu en français), avec mise à jour automatique
+> activée (`autoUpdate`) ; procédure de reconstruction : [`docs/BUILD.md`](docs/BUILD.md).
 
 ### Historique des audits
 

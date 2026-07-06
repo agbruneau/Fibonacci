@@ -102,3 +102,6 @@ bench_*.txt
 benchstat_*.txt
 lint_*.txt
 coverage_by_pkg.txt
+
+# understand-anything tool working dir (deployed artifact lives in docs/dashboard/)
+.understand-anything/
