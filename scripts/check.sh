@@ -9,6 +9,7 @@
 #   1. go build ./...
 #   2. go vet ./...
 #   3. go test -race -coverprofile=coverage.out ./...  (coverage floor derived from this run)
+#   3b. gmp build tag: build+vet+test -tags gmp (hard when libgmp present, else skipped)
 #   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
 #   5. coverage floor (>= 80% on the module total)
 #
@@ -46,6 +47,20 @@ echo "OK: go vet"
 step "go test -race -coverprofile=coverage.out ./..."
 go test -race -coverprofile=coverage.out ./...
 echo "OK: go test -race"
+
+# 3b. GMP build tag (hard when libgmp is available, skipped otherwise).
+# The gmp backend (CGO + libgmp) is not compiled by the default steps above;
+# it has silently broken before (globalFactory, fixed in the 2026-07 audit).
+# Header search covers the Debian/Ubuntu multiarch path as well as /usr/include.
+step "gmp build tag (-tags gmp)"
+if [ -f /usr/include/gmp.h ] || [ -f /usr/include/x86_64-linux-gnu/gmp.h ]; then
+    go build -tags gmp ./...
+    go vet -tags gmp ./internal/fibonacci/
+    go test -tags gmp -race -count=1 ./internal/fibonacci/
+    echo "OK: gmp build tag"
+else
+    echo "SKIP: gmp (libgmp headers not found; apt-get install libgmp-dev)"
+fi
 
 # 4. Lint (soft: reported but distinct from the hard gate)
 step "golangci-lint run ./..."

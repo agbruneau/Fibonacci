@@ -149,7 +149,7 @@ make build-pgo      # build avec PGO
 Points d'attention :
 
 - **Gate de pré-commit** : `scripts/check.{sh,ps1}` — build → vet → test → lint (**advisory**) → couverture ≥ 80 %. Le gate **dur** est build/vet/test/couverture.
-- **`-race`** : exige CGO/gcc, indisponible sous Windows sans gcc ⇒ passes complètes via **WSL** (`wsl go test -race ./...`). `libgmp-dev` absent de WSL ⇒ tag `gmp` non testable là.
+- **`-race`** : exige CGO/gcc, indisponible sous Windows sans gcc ⇒ passes complètes via **WSL** (`wsl go test -race ./...`). `libgmp-dev` installé dans WSL (2026-07) ⇒ tag `gmp` testable : `wsl go test -tags gmp -race ./internal/fibonacci/` ; `scripts/check.sh` compile+teste le tag `gmp` (étape `3b`) quand les headers libgmp sont présents, sinon SKIP.
 - **PowerShell** : `go test -bench=.` est mal parsé — préfixer le pattern (`-bench=BenchmarkFibonacci`).
 
 ---

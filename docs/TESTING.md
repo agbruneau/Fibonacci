@@ -315,7 +315,7 @@ The HTML report (`coverage.html`) highlights tested and untested code paths. Foc
 Two categories of code are intentionally not reflected in the standard `coverage.out` totals:
 
 1. **E2E subprocess paths** — The e2e tests (`test/e2e/`) build and execute the `fibcalc` binary as a subprocess (black-box). The `go test` coverage instrumentation does not see code run in a separate process, so these packages are reported as `[no statements]` and the CLI paths the e2e suite exercises are **not** counted in the module total. Measuring them would require building the binary with `go build -cover` (Go 1.20+) and aggregating the per-run profiles emitted to `GOCOVERDIR`. This is **not** wired up today — it is a known, documented limitation.
-2. **GMP backend** — `internal/fibonacci/calculator_gmp.go` is guarded by `//go:build gmp` and requires CGO plus `libgmp`. It is **not** built by default, so it reports **0 %** on hosts without GMP. Validate it on a Linux runner with `libgmp-dev` installed and the `gmp` build tag enabled.
+2. **GMP backend** — `internal/fibonacci/calculator_gmp.go` is guarded by `//go:build gmp` and requires CGO plus `libgmp`. It is **not** built by default, so it reports **0 %** on hosts without GMP. Validate it on a host with `libgmp-dev` installed and the `gmp` build tag enabled — e.g. WSL: `wsl go test -tags gmp -race ./internal/fibonacci/`. Since 2026-07 `scripts/check.sh` runs this automatically (step `3b`, hard) whenever the libgmp headers are present (`/usr/include/gmp.h` or the Debian/Ubuntu multiarch path), and SKIPs otherwise; the `.devcontainer/` image also ships libgmp.
 
 ### generate-golden is sparsely covered (A5-09)
 
