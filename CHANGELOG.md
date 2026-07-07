@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Rien pour l'instant._
+
+## [4.0.0] - 2026-07-07
+
+> Note de versionnage : les tags `v2.x`/`v3.0.0` (2026-04-18) n'ont jamais reçu
+> d'entrée de version dédiée dans ce fichier ; cette entrée 4.0.0 regroupe donc
+> tout le travail livré depuis 1.0.0 (vagues d'audit 2026-04 → 2026-07). Bump
+> majeur : codes de sortie CLI modifiés (timeout 2, SIGINT 130, divergence 3),
+> nouveaux rejets de combinaisons de flags, exigence Go 1.26.
+
 ### Audit exhaustif 2026-07
 
 Audit exhaustif de toute la base (rapport `audit.md`, purgé post-exécution au
