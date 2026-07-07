@@ -1,6 +1,7 @@
 # FibCalc — Calculateur Fibonacci haute performance
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
+[![Release](https://img.shields.io/github/v/tag/agbruneau/FibGo?style=for-the-badge&label=Release&color=2ea44f)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Prototype_acad%C3%A9mique-orange?style=for-the-badge)
 [![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
@@ -15,13 +16,14 @@ Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de
 > Graphe **régénéré le 2026-07-06** (post-audit 2026-07, contenu en français), avec mise à jour automatique
 > activée (`autoUpdate`) ; procédure de reconstruction : [`docs/BUILD.md`](docs/BUILD.md).
 
-### Historique des audits
+### Historique des audits et jalons
 
 | Date | Portée | Résultats clés |
 |---|---|---|
 | **2026-06** | Audit complet, refactorisation et optimisation — [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) (Anthropic), effort Max | Temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M), couverture 88,9 % → **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires vérifiées — [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-06-24** | Revue Go exhaustive — Claude Opus 4.8, orchestration multi-agents, vérification adversariale | Trois défauts de correctness corrigés (panic de la récursion FFT parallèle re-propagée au lieu de crasher — ADR-0002 ; `--algo all --quiet` ne masque plus une divergence — exit 3 ; messages TUI obsolètes ignorés après *Restart*), durcissements (`GOMEMLIMIT`, troncature UTF-8, complétion shell, codes de sortie), purge de code mort. Chemin critique validé sans régression (`benchstat`) — [`CHANGELOG.md`](CHANGELOG.md) |
-| **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Opus 4.8 pilote, exécuteurs Sonnet, vérification adversariale — **exécuté** (6 phases, ~30 commits) | ~40 findings corrigés (dont panic pointeur/tri, `--gc-control` inerte, complétions shell, data race spinner, correctifs calibration + re-validation profil forgé SEC-01, `bigfft` alloc pool non initialisée + ordonnancement panic FFT-02), ~500 LOC de code mort retiré, couverture 95,0 % → **95,2 %**, build `gmp` réparé, `benchstat` global **sans régression réelle** (chemin critique sous le seuil de 5 %) ; **FIB-05** (réduction ×15 de l'arène) **rejetée sur preuve** (+18 à +34 % à F(10M)) → [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md). Gate final vert — [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) / [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Opus 4.8 pilote, exécuteurs Sonnet, vérification adversariale — **exécuté** (6 phases, ~30 commits) | ~40 findings corrigés (dont panic pointeur/tri, `--gc-control` inerte, complétions shell, data race spinner, correctifs calibration + re-validation profil forgé SEC-01, `bigfft` alloc pool non initialisée + ordonnancement panic FFT-02), ~500 LOC de code mort retiré, couverture 95,0 % → **95,2 %**, build `gmp` réparé, `benchstat` global **sans régression réelle**. FIB-05 (réduction du multiplicateur d'arène) initialement **rejetée sur preuve Ryzen** (+18 à +34 % à F(10M)) → [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) / [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-07-07** | Suivi post-audit — exécution des 5 tâches à plus fort levier + **release v4.0.0** | Tag `v4.0.0` (première coupe CHANGELOG depuis 1.0.0) ; backend **GMP branché au gate local** (`check.sh` étape 3b, libgmp dans WSL) ; profil **PGO régénéré** ; **balayage complet du multiplicateur d'arène** (protocole ADR-0009 R4) → **×15 → ×10 adopté** : mémoire FFT 10M **−16 % B/op** à coût CPU nul, confirmé en ordre inversé (addendum [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) |
 
 ---
 
@@ -41,14 +43,14 @@ Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de
 
 ## Démarrage rapide
 
-Prérequis : **Go 1.26.0+**. Toutes les commandes ci-dessous ont été exécutées telles quelles le 2026-06-10
-(hôte Windows 11 ; sous Windows, le binaire produit est `fibcalc.exe`).
+Prérequis : **Go 1.26.0+**. Toutes les commandes ci-dessous ont été exécutées telles quelles le 2026-07-07
+(hôte Windows 11 + WSL2 ; sous Windows, le binaire produit est `fibcalc.exe`).
 
 ```bash
 git clone https://github.com/agbruneau/FibGo.git
 cd FibGo
 go build -o fibcalc ./cmd/fibcalc
-./fibcalc -n 1000000 -algo fast        # F(1 000 000) : 4 ms, 694 241 bits
+./fibcalc -n 1000000 -algo fast        # F(1 000 000) : 5 ms, 694 241 bits
 ./fibcalc -n 100 -c                    # petit indice, valeur affichée
 ./fibcalc -tui -n 5000000 -algo all    # dashboard TUI interactif (terminal requis)
 ```
@@ -71,7 +73,7 @@ make all      # clean + build + test
 | **Fast Doubling** (défaut) | O(log n) × M(n) | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; pooling état+arène+scratch FFT |
 | **Exponentiation matricielle** | O(log n) × M(n) | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices |
 | **FFT (Schönhage-Strassen)** | O(n log n) | Bascule automatique au-delà de ~500 000 bits (seuil adaptatif) |
-| **GMP** (tag de build `gmp`) | — | Backend GNU MP, nécessite CGO + libgmp |
+| **GMP** (tag de build `gmp`) | — | Backend GNU MP (CGO + libgmp) ; validé localement par l'étape 3b de `scripts/check.sh` |
 
 Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING](docs/algorithms/FAST_DOUBLING.md),
 [MATRIX](docs/algorithms/MATRIX.md), [FFT](docs/algorithms/FFT.md), [GMP](docs/algorithms/GMP.md),
@@ -82,6 +84,9 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Pooling agressif** : `sync.Pool` pour `big.Int` ; `CalculationState` possède son arène **et** son scratch FFT
   (bump allocator acquis une fois par calcul). Un **slot GC-immune par calculateur** conserve l'état entre les
   appels (le GC forcé post-calcul purge les `sync.Pool`) — source des gains −12 à −15 % mesurés sur F(10M).
+- **Arène dimensionnée ×10** : sur-dimensionnement mesuré par balayage complet (ADR-0009 R4, addendum
+  2026-07-07) — mémoire FFT 10M −16 % B/op vs l'ancien ×15, à coût CPU nul ; la valeur optimale est
+  microarchitecture-dépendante et gardée par le protocole de re-balayage documenté.
 - **Allocateur bump** O(1) sans fragmentation pour les tampons FFT.
 - **GC désactivé** pendant les grands calculs (N ≥ 1M), panic-safe (`WithGC`), refcount concurrent (ADR-0005).
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
@@ -90,7 +95,7 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
   stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
 - **Auto-calibration** (`-calibrate`) avec profil persistant et clé matérielle d'invalidation.
-- **PGO** : `make build-pgo`.
+- **PGO** : `make build-pgo` (profil régénéré le 2026-07-07).
 - **Mode `-last-digits K`** : derniers K chiffres décimaux en mémoire O(K), pour des N arbitrairement grands.
 
 ### Interfaces
@@ -129,22 +134,25 @@ Clean Architecture en quatre couches — `cmd → app → orchestration → fibo
 
 ## Performance
 
-Mesures du **2026-06-10** (Intel Core Ultra 9 275HX, 24 threads, Windows 11, Go 1.26.4 ; `benchstat` n=6,
-détail dans [`CHANGELOG.md`](CHANGELOG.md)) :
+Mesures du **2026-07-07** (Intel Core Ultra 9 275HX, 24 threads, WSL2 Ubuntu, Go 1.26.0, arène ×10 ;
+Fast Doubling et FFT : `benchstat` n=10 issus du balayage ADR-0009 R4 ; MatrixExp : session PGO du même jour) :
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
 |---|---|---|---|---|
-| 1 000 000 | 3,4 ms | 5,7 ms | 4,7 ms | 208 988 |
-| 10 000 000 | **28,2 ms** | 27,9 ms | 30,8 ms | 2 089 877 |
+| 1 000 000 | **3,4 ms** | ~6,5 ms | 5,0 ms | 208 988 |
+| 10 000 000 | **22,3 ms** | ~32 ms | 24,4 ms | 2 089 877 |
 | 100 000 000 | ~0,2 s (calcul seul, 2026-06-09¹) | — | — | 20 898 764 |
 
 ¹ binaire `-algo fast` sans conversion décimale, médiane de 4 runs.
 
+Côté mémoire, l'adoption du multiplicateur d'arène ×10 (2026-07-07) réduit les B/op FFT à F(10M) de **−16 %**
+vs ×15, allocations inchangées — gain confirmé en ordre d'exécution inversé (addendum
+[ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)).
+
 **Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
 validation croisée ; `fft` devient compétitif sur les très grands N. Méthodologie, tuning et suivi de
-non-régression : [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). L'audit exhaustif 2026-07 a confirmé
-l'absence de régression réelle sur le chemin critique (`benchstat` global sous le seuil de 5 % —
-Directive #1) ; les chiffres ci-dessus restent la mesure de référence.
+non-régression : [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) ; baseline du gate perf :
+`docs/audits/bench-baseline.txt` (régénérée le 2026-07-07).
 
 ---
 
@@ -175,7 +183,7 @@ fibcalc [flags]
 | `-completion` | | | Script de complétion (`bash`, `zsh`, `fish`, `powershell`) |
 | `-version` | | | Informations de version |
 
-Exemples (exécutés le 2026-06-10) :
+Exemples :
 
 ```bash
 ./fibcalc -n 10000000 -algo all -d                  # compare les trois algorithmes
@@ -207,9 +215,11 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO/gcc — indisponible sous Windows sans gcc ; sur cet environnement les passes
-  `-race` complètes se font via **WSL** (`wsl go test -race ./...`) — suite intégralement verte au 2026-06-21
-  après dé-flake d'un test de pool `bigfft` qui échouait par intermittence sous `-race` (assertion d'identité
-  `sync.Pool` non contractuelle retirée ; cf. table des invariants de [`CLAUDE.md`](CLAUDE.md)).
+  `-race` complètes se font via **WSL** (`wsl go test -race ./...`). Les scripts shell sont épinglés en LF
+  (`.gitattributes`) pour rester exécutables côté WSL.
+- **Backend GMP sous gate** : depuis 2026-07, `scripts/check.sh` compile et teste `-tags gmp -race`
+  (étape 3b, **dure** quand les headers libgmp sont présents, SKIP sinon) — le tag ne peut plus casser
+  silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
 - Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0009). Guide agents IA : [`CLAUDE.md`](CLAUDE.md).
@@ -243,7 +253,8 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles `fibonaccitest`, fuzzi
 |---|---|
 | `-race` échoue : « cgo: C compiler not found » | Le race detector exige gcc/clang. Sous Windows : WSL (`wsl go test -race ./...`) ou `make test-win` (sans race). |
 | `go test -bench=.` ne lance rien sous PowerShell | Quirk de parsing PowerShell : utiliser `-bench=BenchmarkFibonacci` (préfixe explicite). |
-| Build tag `gmp` : « gmp.h: No such file » | Installer les en-têtes : `sudo apt-get install libgmp-dev` (Linux/WSL). |
+| Build tag `gmp` : « gmp.h: No such file » | Installer les en-têtes : `sudo apt-get install libgmp-dev` (Linux/WSL). Sans eux, l'étape 3b de `check.sh` est proprement sautée (SKIP). |
+| `bash scripts/check.sh` : « syntax error near `$'{\r'` » | Fins de ligne CRLF (checkout antérieur au pin `*.sh eol=lf`) : `git checkout -- scripts/check.sh` ou `sed -i 's/\r$//' scripts/check.sh`. |
 | Le TUI ne se lance pas | `-tui` exige un terminal interactif (TTY) ; indisponible dans les pipes/CI. |
 | Calcul interrompu à 5 minutes | Défaut `-timeout 5m` — augmenter, p. ex. `-timeout 30m`. |
 
@@ -251,7 +262,7 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles `fibonaccitest`, fuzzi
 
 ## Contribution et licence
 
-- Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer).
+- Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer — release courante : `v4.0.0`).
 - Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — test rouge → fix → vert,
   validation locale complète avant chaque commit (directive 8 de [`CLAUDE.md`](CLAUDE.md)).
 - Licence : **Apache 2.0** — voir [`LICENSE`](LICENSE).
@@ -261,5 +272,5 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles `fibonaccitest`, fuzzi
 Architecture et algorithmique inspirées de la littérature classique (Schönhage-Strassen, Strassen-Winograd,
 fast doubling) ; outillage : Go, Bubble Tea, benchstat, golangci-lint. Audits, refactorisation et optimisation
 2026 réalisés avec [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) et Claude Opus 4.8
-(Anthropic) ; l'audit exhaustif 2026-07 (~40 findings corrigés, exécution complète) a été mené en
-orchestration multi-agents — Claude Opus 4.8 en pilote, exécuteurs Claude Sonnet.
+(Anthropic) : audit exhaustif 2026-07 (~40 findings, orchestration multi-agents — Claude Opus 4.8 pilote,
+exécuteurs Claude Sonnet) puis suivi 2026-07-07 (release v4.0.0, gate GMP, balayage arène ×10 — Claude Fable 5).

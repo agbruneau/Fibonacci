@@ -12,10 +12,11 @@ Calculateur Fibonacci haute performance en Go. Prototype académique : Clean Arc
 |---|---|
 | **Module** | `github.com/agbruneau/FibGo` |
 | **Go** | `go.mod` requiert `go 1.26.0` (toolchain non épinglée) |
+| **Version** | `v4.0.0` (tag du 2026-07-07) — première coupe CHANGELOG depuis 1.0.0 ; note de versionnage en tête de [`CHANGELOG.md`](CHANGELOG.md) |
 | **Licence** | Apache 2.0 |
-| **CI/CD** | Aucune (`.github/workflows/` absent). Validation **locale** uniquement, gardée par `scripts/check.{sh,ps1}` — la rigueur tient à la discipline locale |
+| **CI/CD** | Aucune (décision assumée A5-02, `.github/workflows/` absent). Validation **locale** uniquement, gardée par `scripts/check.{sh,ps1}` — la rigueur tient à la discipline locale |
 | **Chiffres** | `make stats` est la **source canonique** (packages, LOC) — ne jamais coder en dur de décompte daté |
-| **Audit** | Dernier audit exhaustif : 2026-07 — **exécuté** (30 commits, `aa542d8`→`c1b6fb8` inclus, décisions dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Rapport `audit.md` et plan `auditPlan.md` purgés post-exécution (commit `d10299b`) ; traçabilité : ADR-0009 + [CHANGELOG](CHANGELOG.md) |
+| **Audit** | Dernier audit exhaustif : 2026-07 — **exécuté** (30 commits, `aa542d8`→`c1b6fb8`, décisions dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) ; rapport `audit.md` et plan `auditPlan.md` purgés post-exécution, commit `d10299b`). **Suivi 2026-07-07** : release v4.0.0, gate GMP (`check.sh` étape 3b), profil PGO régénéré, balayage du multiplicateur d'arène → **×10 adopté** (addendum ADR-0009 R4) |
 
 ---
 
@@ -31,7 +32,7 @@ Clean Architecture, 4 couches : `cmd → app → orchestration → fibonacci/big
 1. **Fast Doubling** (défaut) — O(log n), identité F(2k) = F(k)(2F(k+1) − F(k)).
 2. **Matrix Exponentiation** — O(log n), Strassen-Winograd pour grandes matrices.
 3. **FFT (Schönhage-Strassen)** — seuil adaptatif (~500k bits par défaut).
-4. **GMP** (build tag `gmp`) — backend GNU MP (CGO + libgmp requis).
+4. **GMP** (build tag `gmp`) — backend GNU MP (CGO + libgmp requis ; testable dans WSL et gardé par `check.sh` étape 3b depuis 2026-07).
 
 Détails mathématiques : [`docs/algorithms/`](docs/algorithms/).
 
@@ -46,8 +47,8 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 - `finalizeStateReleaseTo` est le **chemin unique** de teardown (`finalizeStateRelease` = wrapper vers le sink pool).
 - `clearStateAliases` **inconditionnel** avant **tout** sink : `statePool.Put` **ou** slot GC-immune `cachedState` (borné à `maxCachedArenaWords` = 4M mots ≈ 32 Mo).
 - État overLimit **jamais publié** ; bump relâché sur drop anti-bloat et overLimit. Jamais publier un état dans le slot hors de ce chemin.
-- **Multiplicateur d'arène ×10** (`acquireSizingForN`, en miroir dans `memory/arena.go:arenaTotalWords`) : **swept de ×15 à ×10 le 2026-07-07** ([addendum ADR-0009 R4](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Un balayage complet {12,10,8,6} sur la machine Intel de référence a montré une baisse mémoire order-stable (≈ −16 % B/op FFT 10M, allocs inchangées) à **coût CPU nul** (≤ +2 % geomean, ordre inversé confirmé) — l'inverse de la régression Ryzen d'origine (FIB-05/R4). **La valeur est microarchitecture-dépendante** : ne pas la re-changer sans un nouveau balayage complet (plusieurs valeurs, benchstat à chaque palier, confirmation ordre inversé) selon le protocole de l'addendum. Les deux littéraux (`acquireSizingForN` et `arenaTotalWords`) doivent rester **en miroir**.
-- **Gardiens** : `TestReleaseState_OverLimit_AliasesCleared`, `TestCalculatorStateCache_OverLimitNotCached`, `TestStateBump_*`.
+- **Multiplicateur d'arène ×10** (`acquireSizingForN`, en miroir dans `memory/arena.go:arenaTotalWords`) : **swept de ×15 à ×10 le 2026-07-07** ([addendum ADR-0009 R4](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Le balayage complet {12, 10, 8, 6} sur la machine Intel de référence a montré une baisse mémoire order-stable (≈ −16 % B/op FFT 10M, allocs inchangées) à coût CPU nul (≤ +2 % geomean, confirmé en ordre inversé) — l'inverse de la régression Ryzen d'origine (FIB-05/R4). **La valeur optimale est microarchitecture-dépendante** : ne pas la re-changer sans un nouveau balayage complet selon le protocole de l'addendum (plusieurs paliers, benchstat à chacun, confirmation ordre inversé). Les deux littéraux (`acquireSizingForN` et `arenaTotalWords`) et leurs miroirs de test doivent rester **synchronisés**.
+- **Gardiens** : `TestReleaseState_OverLimit_AliasesCleared`, `TestCalculatorStateCache_OverLimitNotCached`, `TestStateBump_*`, `TestAcquireStateForN_HugeN_NoPanic` (clamps), `TestArenaTotalWords_ClampNoUB` (miroir).
 
 ### `fibonacci/doubling_framework.go`
 
@@ -124,9 +125,9 @@ Contexte « pourquoi » du hot path (détail mesuré : [`docs/PERFORMANCE.md`](d
 - **GC désactivé** pendant les grands calculs (N ≥ 1M) via `gcCtrl.WithGC(fn)` (panic-safe).
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs via un sémaphore FFT global à **acquisition non bloquante** (pas de jeton ⇒ exécution sur la goroutine appelante : aucun interblocage avec la récursion). Panics de worker re-propagées.
 - **Cache LRU de transformées FFT** : bénéficie **uniquement** aux chemins qui le consultent (`bigfft.Mul/Sqr/MulTo/SqrTo` directs ; `FFTOnlyStrategy.Multiply/Square` les délèguent). **Aucune boucle de doublement ne le consulte** : le Fast Doubling par défaut *et* le calculateur FFT-only passent par `executeDoublingStepFFT` (`TransformWithBump`, non caché) — zéro hit, mesuré.
-- **PGO** via `make build-pgo`.
+- **PGO** via `make build-pgo` (profil `cmd/fibcalc/default.pgo`, régénéré le 2026-07-07 post-adoption ×10 ; `make build` l'utilise automatiquement s'il est présent).
 
-> **Gate perf-sensitive** : toute modif `fibonacci/`|`bigfft/` se compare via `benchstat` à la baseline (`make bench-baseline` → `docs/audits/bench-baseline.txt`) — seuil et procédure en **Directive #1**.
+> **Gate perf-sensitive** : toute modif `fibonacci/`|`bigfft/` se compare via `benchstat` à la baseline (`make bench-baseline` → `docs/audits/bench-baseline.txt`, régénérée le 2026-07-07) — seuil et procédure en **Directive #1**.
 
 ---
 
@@ -148,8 +149,9 @@ make build-pgo      # build avec PGO
 
 Points d'attention :
 
-- **Gate de pré-commit** : `scripts/check.{sh,ps1}` — build → vet → test → lint (**advisory**) → couverture ≥ 80 %. Le gate **dur** est build/vet/test/couverture.
-- **`-race`** : exige CGO/gcc, indisponible sous Windows sans gcc ⇒ passes complètes via **WSL** (`wsl go test -race ./...`). `libgmp-dev` installé dans WSL (2026-07) ⇒ tag `gmp` testable : `wsl go test -tags gmp -race ./internal/fibonacci/` ; `scripts/check.sh` compile+teste le tag `gmp` (étape `3b`) quand les headers libgmp sont présents, sinon SKIP.
+- **Gate de pré-commit** : `scripts/check.{sh,ps1}` — build → vet → test → lint (**advisory**) → couverture ≥ 80 %. Le gate **dur** est build/vet/test/couverture. `check.sh` inclut en plus l'étape **3b GMP** (build+vet+test `-tags gmp -race`, dure quand les headers libgmp sont présents, SKIP sinon).
+- **`-race`** : exige CGO/gcc, indisponible sous Windows sans gcc ⇒ passes complètes via **WSL** (`wsl go test -race ./...`). `libgmp-dev` installé dans WSL (2026-07) ⇒ tag `gmp` testable : `wsl go test -tags gmp -race ./internal/fibonacci/`.
+- **Fins de ligne** : `.gitattributes` épingle `*.go` **et** `*.sh` en LF — sans quoi `check.sh` checkout en CRLF sous `core.autocrlf=true` n'est pas exécutable dans bash/WSL.
 - **PowerShell** : `go test -bench=.` est mal parsé — préfixer le pattern (`-bench=BenchmarkFibonacci`).
 
 ---
@@ -198,13 +200,15 @@ Pratique effective : **trunk-based** (mainteneur solo). Une branche dédiée + P
 | Chemin | Régénération | Description |
 |---|---|---|
 | `docs/dashboard/` | Procédure complète : [`docs/BUILD.md`](docs/BUILD.md#dashboard-statique-github-pages) | Build React/Vite statique (knowledge graph), déployé sur GitHub Pages. Graphe régénéré le **2026-07-06** via `/understand` (1 128 nœuds / 4 782 arêtes / 9 couches / visite 12 étapes, contenu **français**, `autoUpdate` activé — `.understand-anything/config.json`). |
+| `cmd/fibcalc/default.pgo` | `make pgo-profile` (WSL ; machine au calme, jamais `-tags gmp`) | Profil CPU pour PGO, régénéré le **2026-07-07** (post-adoption arène ×10). |
+| `docs/audits/bench-baseline.txt` | `make bench-baseline` | Baseline du gate perf (Directive #1), régénérée le **2026-07-07**. Ne la régénérer qu'avec une cause (changement perf mergé). |
 
 ---
 
 ## Références
 
-- Audit exhaustif 2026-07 — exécuté puis purgé (`d10299b`) ; décisions résiduelles dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) et [`CHANGELOG.md`](CHANGELOG.md).
-- [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + rejet FIB-05 audit 2026-07.
+- Audit exhaustif 2026-07 — exécuté puis purgé (`d10299b`) ; décisions résiduelles dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) (+ addendum R4 du 2026-07-07 : balayage arène, ×10 adopté) et [`CHANGELOG.md`](CHANGELOG.md).
+- [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + FIB-05 (rejet initial, puis ×10 adopté par l'addendum R4).
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph. [Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/).
 - [`docs/algorithms/`](docs/algorithms/), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/PORTABILITY.md`](docs/PORTABILITY.md), [`docs/BUILD.md`](docs/BUILD.md), [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 - [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), `.golangci.yml` (24 linters, `govet shadow`, exceptions documentées).
