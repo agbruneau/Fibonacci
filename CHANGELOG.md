@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Audit exhaustif 2026-07
 
-Audit exhaustif de toute la base ([`audit.md`](audit.md)) exécuté via
-[`auditPlan.md`](auditPlan.md) en orchestration multi-agents (modèle exécuteur
+Audit exhaustif de toute la base (rapport `audit.md`, purgé post-exécution au
+commit `d10299b`) exécuté via son plan `auditPlan.md` (idem) en orchestration
+multi-agents (modèle exécuteur
 Sonnet, vérification adversariale par panels réfutateurs + gate manuel avant
 chaque commit). Gate : `go build`/`go vet`/`go test ./...` verts, WSL `-race`
 propre, couverture 95,2 % (plancher 80 %), golden intact, `benchstat` A/B sans

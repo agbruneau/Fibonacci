@@ -2,8 +2,9 @@
 
 - **Status**: Accepted
 - **Date**: 2026-07-03
-- **Context source**: audit exhaustif 2026-07 ([`audit.md`](../../audit.md)),
-  exécuté via le plan [`auditPlan.md`](../../auditPlan.md) (orchestration
+- **Context source**: audit exhaustif 2026-07 (rapport `audit.md`, exécuté via
+  le plan `auditPlan.md` ; les deux fichiers ont été purgés post-exécution au
+  commit `d10299b`, cf. CHANGELOG) — (orchestration
   multi-agents, vérification par grep/tests/benchstat + panels réfutateurs
   avant chaque commit).
 

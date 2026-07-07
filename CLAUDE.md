@@ -15,7 +15,7 @@ Calculateur Fibonacci haute performance en Go. Prototype académique : Clean Arc
 | **Licence** | Apache 2.0 |
 | **CI/CD** | Aucune (`.github/workflows/` absent). Validation **locale** uniquement, gardée par `scripts/check.{sh,ps1}` — la rigueur tient à la discipline locale |
 | **Chiffres** | `make stats` est la **source canonique** (packages, LOC) — ne jamais coder en dur de décompte daté |
-| **Audit** | Dernier audit exhaustif : 2026-07 — **exécuté** (30 commits, `aa542d8`→`c1b6fb8` inclus, décisions dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Rapport [`audit.md`](audit.md), plan d'exécution [`auditPlan.md`](auditPlan.md) |
+| **Audit** | Dernier audit exhaustif : 2026-07 — **exécuté** (30 commits, `aa542d8`→`c1b6fb8` inclus, décisions dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Rapport `audit.md` et plan `auditPlan.md` purgés post-exécution (commit `d10299b`) ; traçabilité : ADR-0009 + [CHANGELOG](CHANGELOG.md) |
 
 ---
 
@@ -203,7 +203,7 @@ Pratique effective : **trunk-based** (mainteneur solo). Une branche dédiée + P
 
 ## Références
 
-- [`audit.md`](audit.md) / [`auditPlan.md`](auditPlan.md) — audit exhaustif 2026-07 et plan d'exécution des correctifs.
+- Audit exhaustif 2026-07 — exécuté puis purgé (`d10299b`) ; décisions résiduelles dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) et [`CHANGELOG.md`](CHANGELOG.md).
 - [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + rejet FIB-05 audit 2026-07.
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph. [Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/).
 - [`docs/algorithms/`](docs/algorithms/), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/PORTABILITY.md`](docs/PORTABILITY.md), [`docs/BUILD.md`](docs/BUILD.md), [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
