@@ -92,7 +92,7 @@ func TestAcquireStateForN_HugeN_NoPanic(t *testing.T) {
 
 	naive := func(n uint64) (int, int) {
 		w := int(float64(n)*FibonacciGrowthFactor)/64 + 1
-		return w, w * 15
+		return w, w * 10
 	}
 	for _, n := range []uint64{1001, 100_000, 1_000_000, 1_000_000_000, 1_000_000_000_000} {
 		wGot, tGot := acquireSizingForN(n)
@@ -104,9 +104,9 @@ func TestAcquireStateForN_HugeN_NoPanic(t *testing.T) {
 
 	// MaxUint64: must clamp, not produce a garbage/overflowed value.
 	w, total := acquireSizingForN(math.MaxUint64)
-	if total != maxReasonableWords || w != maxReasonableWords/15 {
+	if total != maxReasonableWords || w != maxReasonableWords/10 {
 		t.Errorf("acquireSizingForN(MaxUint64) = (%d,%d), want (%d,%d)",
-			w, total, maxReasonableWords/15, maxReasonableWords)
+			w, total, maxReasonableWords/10, maxReasonableWords)
 	}
 
 	// Release path stays intact for a normal acquisition.

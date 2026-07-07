@@ -102,3 +102,51 @@ L'annotation d'ADR-0004 §B1 (« le code de calibration s'appuie sur
   re-tenté sans le protocole R4.
 - Les oracles bigfft sont explicitement étiquetés, protégeant la validation
   croisée d'une suppression future naïve.
+
+## Addendum (2026-07-07) — R4 revisité : balayage complet, adoption de ×10
+
+Le protocole ouvert par R4 (« À revoir si : un balayage complet… ») a été
+**exécuté**. Contrairement à la prédiction de R4 (fondée sur une mesure Ryzen où
+×5 régressait de +18 à +34 %), le balayage sur la **machine de référence
+actuelle** ne montre **aucune régression CPU** en réduisant le multiplicateur.
+
+**Protocole** : paliers m ∈ {12, 10, 8, 6} vs base ×15, A/B même session,
+`-benchmem -benchtime=1s -count=10`, `BenchmarkFibonacci/(FastDoubling|FFTBased)`
+à 1M et 10M. Machine : **Intel Core Ultra 9 275HX** (goarch amd64, 24 threads).
+Gardiens + golden verts à chaque palier.
+
+| Multiplicateur | geomean sec/op | FFTBased/10M B/op | geomean B/op | allocs/op |
+|---|---|---|---|---|
+| ×15 (base) | — | — | — | — |
+| ×12 | −0,66 % | −9,92 % | −2,36 % | ~ |
+| **×10** | **−2,92 %** | **−17,34 %** | −5,46 % | ~ |
+| ×8 | −0,37 % | −22,83 % | −7,70 % | ~ |
+| ×6 | −3,19 % | −31,24 % | −12,14 % | ~ |
+
+Le CPU reste dans le bruit à tous les paliers (−0,4 % à −3,2 % geomean, aucun
+> +5 %) ; la mémoire baisse de façon monotone ; les allocs ne bougent pas (pas
+de fallback d'arène mesurable, bien que les étapes de doublement FFT puissent
+consommer jusqu'à 12 temporaires — le scratch au-delà de l'arène passe par le
+bump allocator).
+
+**Confirmation anti-thermique (ordre inversé)** pour le palier retenu ×10
+(palier mesuré en premier, base ×15 en second) : geomean sec/op **−0,57 %**
+(vs −2,92 % en ordre direct), FFTBased/10M B/op **−15,74 %** (vs −17,34 %),
+allocs plates. Le gain CPU est donc **dans le bruit** (aucune régression, ordre
+direct partiellement thermique) ; le gain **mémoire est robuste et
+indépendant de l'ordre** (−16 à −17 % de B/op FFT 10M).
+
+**Décision : ×15 → ×10 adopté.** Justification : gain mémoire net et
+order-stable (≈ −16 % B/op FFT 10M, allocs inchangées) à **coût CPU nul**
+(≤ +2 % geomean dans les deux ordres) — les critères Cas A du protocole R4 sont
+satisfaits. La conclusion R4 « ×15 = charge utile intentionnelle » reste **vraie
+sur le Ryzen** de la mesure d'origine ; le multiplicateur optimal est
+**dépendant de la microarchitecture** (coût du `memclr` d'arène / pression
+cache). `internal/fibonacci/fastdoubling.go` (`acquireSizingForN`) et
+`internal/fibonacci/memory/arena.go` (`arenaTotalWords`) sont mis à jour en
+miroir ; `docs/audits/bench-baseline.txt` et le profil PGO `cmd/fibcalc/default.pgo`
+sont régénérés post-adoption.
+
+À revoir si : un mainteneur travaille sur une microarchitecture où le
+sur-dimensionnement d'arène redevient favorable (re-balayer alors selon ce même
+protocole avant de changer la valeur).

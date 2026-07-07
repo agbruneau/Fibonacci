@@ -14,9 +14,10 @@ const fibonacciGrowthFactor = 0.69424
 const maxReasonableWords = 1 << 60
 
 // arenaTotalWords computes the arena size (in big.Word) for F(n): one int of
-// ~n*fibonacciGrowthFactor bits, times 15 temporaries. The clamp only changes
-// the result for n far beyond the computable range; for realistic n it is
-// bit-identical to the naive estimatedBits/64+1 then ×15 computation.
+// ~n*fibonacciGrowthFactor bits, times 10 temporaries (over-sizing factor swept
+// from 15 to 10 in ADR-0009 R4, 2026-07-07). The clamp only changes the result
+// for n far beyond the computable range; for realistic n it is bit-identical to
+// the naive estimatedBits/64+1 then ×10 computation.
 func arenaTotalWords(n uint64) int {
 	estimatedBits := float64(n) * fibonacciGrowthFactor
 	// A float64 outside the int range yields an impl-defined value on
@@ -25,10 +26,10 @@ func arenaTotalWords(n uint64) int {
 		return maxReasonableWords
 	}
 	wordsPerInt := int(estimatedBits/64) + 1
-	if wordsPerInt > maxReasonableWords/15 {
+	if wordsPerInt > maxReasonableWords/10 {
 		return maxReasonableWords
 	}
-	return wordsPerInt * 15
+	return wordsPerInt * 10
 }
 
 // CalculationArena pre-allocates a contiguous block of big.Word memory
@@ -44,13 +45,15 @@ type CalculationArena struct {
 }
 
 // NewCalculationArena creates an arena sized for F(n).
-// It estimates the total memory needed for 15 big.Int temporaries
+// It estimates the total memory needed for 10 big.Int temporaries
 // of size ~ n * fibonacciGrowthFactor bits.
 func NewCalculationArena(n uint64) *CalculationArena {
 	if n < 1000 {
 		return &CalculationArena{}
 	}
-	// 15 temporaries: sufficient for FFT doubling steps which use up to 12.
+	// x10 over-sizing = growth headroom for the big.Int temporaries; reduced
+	// from x15 by the ADR-0009 R4 sweep (2026-07-07): x10 is CPU-optimal on the
+	// reference machine (-2.9% geomean, -17% FFT B/op, flat allocs).
 	totalWords := arenaTotalWords(n)
 	return &CalculationArena{
 		buf: make([]big.Word, totalWords),

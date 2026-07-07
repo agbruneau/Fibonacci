@@ -50,8 +50,9 @@ func TestCalculatorStateCache_OverCapGoesToPool(t *testing.T) {
 	t.Parallel()
 	fd := &FastDoublingCalculator{}
 	// Sized so the arena exceeds maxCachedArenaWords (4M words) while staying
-	// far below maxArenaPoolWords: 30M * 0.694 / 64 * 15 ~= 4.9M words.
-	const n = 30_000_000
+	// far below maxArenaPoolWords: 50M * 0.694 / 64 * 10 ~= 5.4M words (N raised
+	// with the x15 -> x10 multiplier change so the premise stays valid, ADR-0009 R4).
+	const n = 50_000_000
 
 	s := fd.acquireStateForN(n)
 	if s.arena == nil {
