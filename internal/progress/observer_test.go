@@ -2,7 +2,6 @@ package progress_test
 
 import (
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -355,7 +354,7 @@ func TestChannelObserver_NilChannel(t *testing.T) {
 func TestChannelObserver_FullChannel(t *testing.T) {
 	t.Parallel()
 
-	ch := make(chan progress.ProgressUpdate) // Unbuffered = full
+	ch := make(chan progress.ProgressUpdate) // unbuffered, so a send blocks until received
 	observer := progress.NewChannelObserver(ch)
 
 	// Should not block - use timeout to verify
@@ -405,12 +404,10 @@ func TestMultipleObserversIntegration(t *testing.T) {
 	channelObs := progress.NewChannelObserver(ch)
 
 	// Set up mock observer to count
-	var updateCount int64
-	countingObs := &struct{ progress.ProgressObserver }{} // Anonymous observer
-	countingObsImpl := newMockObserver()
+	countingObs := newMockObserver()
 
 	subject.Register(channelObs)
-	subject.Register(countingObsImpl)
+	subject.Register(countingObs)
 
 	// Notify progress
 	subject.Notify(0, 0.5)
@@ -422,10 +419,7 @@ func TestMultipleObserversIntegration(t *testing.T) {
 	}
 
 	// Verify mock received updates
-	if countingObsImpl.updateCount() != 2 {
-		t.Errorf("expected 2 mock updates, got %d", atomic.LoadInt64(&updateCount))
+	if got := countingObs.updateCount(); got != 2 {
+		t.Errorf("expected 2 mock updates, got %d", got)
 	}
-
-	// Verify no panics occurred (implicit)
-	_ = countingObs
 }

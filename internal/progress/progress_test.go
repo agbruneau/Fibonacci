@@ -1,6 +1,7 @@
 package progress_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -91,8 +92,7 @@ func TestProgress_MonotonicLargeN(t *testing.T) {
 	t.Parallel()
 
 	for _, numBits := range []int{64, 512, 2000, 100000} {
-
-		t.Run("", func(t *testing.T) {
+		t.Run(fmt.Sprintf("numBits=%d", numBits), func(t *testing.T) {
 			t.Parallel()
 
 			totalWork := progress.CalcTotalWork(numBits)
@@ -235,12 +235,18 @@ func TestReportStepProgress(t *testing.T) {
 	t.Run("handles zero total work", func(t *testing.T) {
 		t.Parallel()
 		var lastReported float64
+		var reported bool
 		powers := progress.PrecomputePowers4(5)
 
-		// Should not panic with zero total work
-		result := progress.ReportStepProgress(func(float64) {}, &lastReported, 0, 0, 0, 5, powers)
-		if result == 0 {
-			// Expected: work of step should still be calculated
+		// totalWork == 0 must suppress the reporter callback (the `totalWork >
+		// 0` guard) without panicking, while still returning the accumulated
+		// work-done total (powers[4] == 4^4 for step index numBits-1-i == 4).
+		result := progress.ReportStepProgress(func(float64) { reported = true }, &lastReported, 0, 0, 0, 5, powers)
+		if reported {
+			t.Error("expected reporter not to be called when totalWork == 0")
+		}
+		if want := powers[4]; result != want {
+			t.Errorf("ReportStepProgress() cumulative work = %v, want %v", result, want)
 		}
 	})
 }
