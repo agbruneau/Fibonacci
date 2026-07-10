@@ -250,40 +250,54 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 	// SEC-01: the runtime auto-calibrate path must not trust a hardware-valid
 	// but forged on-disk profile whose thresholds are out of range. IsValid()
 	// checks hardware compatibility only, so a negative threshold would leak
-	// straight into the running config via applyCachedProfile.
-	t.Run("Forged fresh profile with negative threshold is not applied", func(t *testing.T) {
-		t.Parallel()
-		tmpDir := t.TempDir()
-		profilePath := tmpDir + "/forged.json"
+	// straight into the running config via applyCachedProfile. One subtest
+	// per forgeable threshold: a partial re-validation (e.g. parallel-only)
+	// must fail on the two thresholds it stopped checking.
+	forgeries := []struct {
+		name  string
+		forge func(p *CalibrationProfile)
+	}{
+		{"negative parallel threshold", func(p *CalibrationProfile) { p.OptimalParallelThreshold = -1 }},
+		{"negative FFT threshold", func(p *CalibrationProfile) { p.OptimalFFTThreshold = -1 }},
+		{"negative Strassen threshold", func(p *CalibrationProfile) { p.OptimalStrassenThreshold = -1 }},
+	}
+	for _, tc := range forgeries {
+		t.Run("Forged fresh profile is not applied: "+tc.name, func(t *testing.T) {
+			t.Parallel()
+			tmpDir := t.TempDir()
+			profilePath := tmpDir + "/forged.json"
 
-		// NewProfile() stamps the current hardware fields, so IsValid() passes;
-		// CalibratedAt is now, so it is fresh (not stale). Only the threshold
-		// is forged.
-		profile := NewProfile()
-		profile.OptimalParallelThreshold = -1
-		profile.OptimalFFTThreshold = 600000
-		profile.OptimalStrassenThreshold = 4096
-		if err := profile.SaveProfile(profilePath); err != nil {
-			t.Fatalf("Failed to save forged profile: %v", err)
-		}
+			// NewProfile() stamps the current hardware fields, so IsValid()
+			// passes; CalibratedAt is now, so it is fresh (not stale). Only
+			// one threshold is forged per subtest.
+			profile := NewProfile()
+			profile.OptimalParallelThreshold = 4096
+			profile.OptimalFFTThreshold = 600000
+			profile.OptimalStrassenThreshold = 4096
+			tc.forge(profile)
+			if err := profile.SaveProfile(profilePath); err != nil {
+				t.Fatalf("Failed to save forged profile: %v", err)
+			}
 
-		registry := map[string]fibonacci.Calculator{
-			"fast": &MockCalculator{name: "fast"},
-		}
-		cfg := config.AppConfig{Timeout: 5 * time.Second}
+			registry := map[string]fibonacci.Calculator{
+				"fast": &MockCalculator{name: "fast"},
+			}
+			cfg := config.AppConfig{Timeout: 5 * time.Second}
 
-		var outBuf bytes.Buffer
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		updated, _ := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+			var outBuf bytes.Buffer
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			updated, _ := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
 
-		if updated.Threshold < 0 {
-			t.Fatalf("forged negative threshold leaked via auto-calibrate: Threshold=%d", updated.Threshold)
-		}
-		if strings.Contains(outBuf.String(), "Using cached calibration") {
-			t.Errorf("forged profile must not be applied as a cached calibration; output=%q", outBuf.String())
-		}
-	})
+			if updated.Threshold < 0 || updated.FFTThreshold < 0 || updated.StrassenThreshold < 0 {
+				t.Fatalf("forged negative threshold leaked via auto-calibrate: parallel=%d fft=%d strassen=%d",
+					updated.Threshold, updated.FFTThreshold, updated.StrassenThreshold)
+			}
+			if strings.Contains(outBuf.String(), "Using cached calibration") {
+				t.Errorf("forged profile must not be applied as a cached calibration; output=%q", outBuf.String())
+			}
+		})
+	}
 
 	t.Run("Quick calibration fallback", func(t *testing.T) {
 		t.Parallel()
