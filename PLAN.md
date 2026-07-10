@@ -497,6 +497,74 @@ Alternative écartée : scinder les fichiers mixtes (partie boîte-noire /
 partie boîte-blanche) — rejeté en vague P, restructurer une suite = phase B.
 ```
 
+```
+[2026-07-10] vague 1, bigfft + fibonacci (phase A)
+Écart au plan : phase A n'a produit aucun diff de production pour bigfft
+(16 fichiers) ni pour la majorité de fibonacci (18 fichiers) — seuls
+executeParallel3/executeTasks/executeMixedTasks (common.go), le point
+d'appel de cache tuning (doubling_framework.go) et un mort trouvé dans
+threshold ont été touchés.
+Raison : lecture complète des deux packages (§5.1) : zéro trouvaille
+ponytail dans bigfft, invariants CLAUDE.md confirmés exacts partout.
+Retyper mécaniquement du code déjà minimal et invariant-correct, sans
+gain comportemental ni perf, aurait été un risque pur sur le module le
+plus dangereux du dépôt — rejeté au barreau 1 de ponytail. Hypothèse la
+plus réversible (CLAUDE.md global, tâche autonome) : effort redirigé vers
+les trois coupes déjà prévues (§8) plutôt qu'un diff de principe.
+Alternative écartée : réécriture mécanique intégrale — voir §1.1 (déjà
+objecté avant exécution) et ADR-0010.
+```
+
+```
+[2026-07-10] vague 1, internal/fibonacci/common.go
+Écart au plan : executeParallel3 n'utilise PAS errgroup, contrairement à
+executeTasks/executeMixedTasks migrés dans le même commit.
+Raison : benchstat a mesuré une régression allocs/op de +15 à +19 % sur
+FastDoubling/1M (errgroup.Group.Go(closure) alloue deux fermetures par
+appel là où l'original n'en allouait aucune). Corrigé par une struct
+parallel3Result à une seule allocation — meilleure que l'original.
+Alternative écartée : garder errgroup partout — rejeté, régression
+> 5 % avec p < 0,05 confirmée sur trois mesures indépendantes. Détail
+complet : ADR-0010.
+```
+
+```
+[2026-07-10] vague 2, internal/metrics/system
+Écart au plan : la coupe assignée (inliner Sample() dans tui/commands.go,
+§8 tag yagni) n'a PAS été exécutée en vague 2.
+Raison : son unique appelant (tui/commands.go) appartient à la vague 3 ;
+l'exécuter maintenant aurait touché un fichier hors périmètre de la
+vague 2 (Directive #5, chirurgie). Le package a été lu et vérifié sain
+(28 lignes, aucune autre trouvaille) mais laissé intact.
+Alternative écartée : inliner quand même, en avance sur la vague 3 —
+rejeté, empièterait sur le périmètre déclaré de la vague 3 sans raison
+suffisante.
+```
+
+```
+[2026-07-10] vague 2 (gate de sortie), internal/fibonacci (hors périmètre de la vague)
+Écart au plan : deux bogues de concurrence PRÉEXISTANTS trouvés et
+corrigés dans internal/fibonacci pendant le gate de sortie -race de la
+vague 2, alors qu'aucun fichier de ce package n'était dans le périmètre
+de la vague 2.
+Raison : `wsl go test -race ./... -count=1` sur l'arbre fusionné (§10.2)
+a révélé une race intermittente (state_cache_test.go:
+TestStateBump_FollowsArenaDrop) puis, après un premier correctif, une
+seconde race de même nature (state_pool_arena_test.go:
+TestReleaseState_OverLimit_AliasesCleared/ReleaseState_nominal_alsoCleared) :
+les deux tests appelaient ReleaseState(s) sur un état non-overLimit
+(donc remis dans le statePool partagé) puis continuaient de lire les
+champs de s — lisible/mutable entre-temps par n'importe quel autre test
+parallèle via AcquireStateForN. Directive #7 (bug fix avant refactor) :
+corrigés immédiatement, en dehors du package assigné, plutôt que
+suspendus jusqu'à la vague 1 déjà close.
+Alternative écartée : ignorer et documenter comme dette de vague 1 —
+rejeté, le gate -race existe précisément pour empêcher ce genre de
+régression silencieuse de franchir une frontière de vague (§6, critère
+de sortie inter-vague). Vérifié : wsl go test -race
+./internal/fibonacci/... -count=30 propre après le second correctif.
+```
+
 Format attendu, une entrée par déviation :
 
 ```

@@ -25,6 +25,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   régression retenue (> 5 % avec p < 0,05) sur les six benchmarks du cœur ;
   geomean `sec/op` -3 à -7 % selon le run.
 
+- **PLAN.md vague 2 — pipeline multi-agents sur 7 packages feuilles.**
+  `errors`, `progress`, `ui`, `format`, `metrics`, `testutil`,
+  `cmd/generate-golden` réécrits par 7 agents isolés en worktree git
+  (parallélisme d'écriture, gate en série lors de la fusion — PLAN.md §9.3),
+  fusionnés séquentiellement avec gate complet après chacun. Coupe ponytail :
+  `LoggingObserver`/`NoOpObserver` supprimés de `internal/progress` (morts,
+  zéro appelant) ; le pattern Observer/Subject lui-même n'a **pas** été touché
+  (Directive #6, consultation requise, non obtenue). Plusieurs trous de
+  couverture réels comblés en cours de réécriture (pas du remplissage) :
+  `internal/ui` 96,8 %→100 %, `internal/metrics` 97,9 %→100 %,
+  `cmd/generate-golden` 82,5 %→87,5 %. `internal/metrics/system` vérifié sain
+  et laissé intact — sa coupe assignée touche `tui/commands.go` (vague 3),
+  reportée pour rester dans le périmètre de fichiers de la vague. Le gate de
+  sortie (`wsl go test -race ./...` sur l'arbre fusionné) a révélé deux
+  bogues de concurrence **préexistants** dans `internal/fibonacci` (hors
+  périmètre de la vague 2, jamais touché) : deux tests relâchaient un état
+  vers le `statePool` partagé puis continuaient d'en lire les champs,
+  lisibles/mutables entre-temps par n'importe quel autre test parallèle —
+  corrigés en deux commits isolés (Directive #7), vérifiés propres sur 30
+  exécutions `-race` consécutives. `scripts/check.sh` : PASS intégral
+  (couverture module 95,1 %).
+
 ## [4.0.0] - 2026-07-07
 
 > Note de versionnage : les tags `v2.x`/`v3.0.0` (2026-04-18) n'ont jamais reçu
