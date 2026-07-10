@@ -674,3 +674,57 @@ Format attendu, une entrée par mutation de phase B :
 Patch : ...
 Test rouge produit : func TestXxx (fichier:ligne)
 ```
+
+```
+[2026-07-10] vague 4, re-run /ponytail-audit final (§2, §10.3)
+Écart au plan : le critère de sortie §10.3 (« aucun constat nouveau de
+sévérité comparable à la cut-list §8 ») n'est PAS satisfait tel quel. Le
+re-run (5 agents de scan parallèles par zone + une synthèse, 236 appels
+d'outil, grep-vérifié pour chaque constat) a produit 18 constats
+survivant la relecture, dont deux dépassent clairement la barre de
+sévérité de la cut-list originale (95 LOC max, internal/parallel) :
+FFTContext — API opt-in entière (NewFFTContext, Mul/SqrWithContext,
+fourierRecursiveCtx et leur plomberie privée), zéro appelant en dehors
+de ses propres fichiers/tests, ~572 LOC [internal/bigfft/context.go,
+fft_recursion_ctx.go] ; et le pipeline FFT dupliqué « oracle de test »
+poolé (Poly.Mul/Transform/TransformCached/MulCached/SqrCached,
+TransformCache.Get/Put/Clear, NTransform, InvNTransform,
+PolValues.Clone), chaque site déjà commenté « Test oracle: no
+production caller » (audit OVR-10), production n'utilisant que les
+variantes *WithBump, ~230 LOC [internal/bigfft/fft_cache.go,
+fft_poly.go]. Seize autres constats plus petits (yagni/delete/shrink,
+~3 à 75 LOC chacun) répartis sur bigfft/fibonacci/threshold, calibration,
+config, progress, format, metrics, app, cli, orchestration — liste
+complète dans le rapport de synthèse de l'agent (non committé, résumé
+ci-dessus). Vérifié : aucun des 18 ne re-signale une coupe déjà exécutée
+(internal/parallel, fibonaccitest, CacheStrategy, metrics/system,
+progress Observer, testutil doc.go, config test dedup).
+Raison : FFTContext a été construit pour une trajectoire de migration
+que ADR-0004 §B1 a explicitement classée WONT-FIX (release actuelle) —
+coder l'abstraction puis renoncer à la migration qui la justifierait est
+exactement le schéma que /ponytail-audit est censé détecter ; l'ADR ne
+dit nulle part de conserver le code mort en l'état, seulement de ne pas
+poursuivre la migration tant qu'aucun cas multi-tenant concret n'existe.
+Le pipeline poolé dupliqué porte lui-même le commentaire d'origine
+« aucun appelant production » depuis l'audit antérieur (OVR-10) — jamais
+retiré. Ni l'un ni l'autre n'a été détecté par la lecture complète de
+bigfft en vague 1 (§14, entrée « vague 1, bigfft + fibonacci ») parce que
+cette lecture cherchait des trouvailles ponytail dans le code *appelé
+par la production*, pas une cartographie exhaustive des appelants de
+chaque symbole exporté — angle mort méthodologique, pas erreur de
+lecture.
+Alternative écartée : exécuter les 18 coupes dans cette même session
+pour satisfaire §10.3 à la lettre — rejeté unilatéralement. Les deux plus
+gros constats touchent bigfft/fibonacci (module protégé par la Règle
+d'or de CLAUDE.md, gate benchstat Directive #1 obligatoire) et
+rouvriraient des packages déjà tagués -green en vague 1 ; les 16 autres
+rouvriraient des packages tagués -green en vagues 1 à 3. Décider seul
+d'étendre le périmètre de la vague 4 (39 LOC annoncées) à ~800+ LOC de
+suppression dans le cœur du dépôt, sans validation du mainteneur, viole
+CLAUDE.md global (« plusieurs interprétations possibles → présente-les,
+ne tranche pas en silence » ; tâche non triviale → arrête-toi et
+demande). Décision reportée au mainteneur (options posées en fin de
+session : clore la vague 4 avec ce rapport comme livrable et ouvrir un
+suivi séparé, hors PLAN.md, pour les 18 constats ; ou traiter au moins
+les deux plus gros avant de taguer rewrite/v4/done).
+```
