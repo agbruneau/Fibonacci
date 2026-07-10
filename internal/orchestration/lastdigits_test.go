@@ -1,9 +1,11 @@
-package orchestration
+package orchestration_test
 
 import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
 // TestComputeLastDigits exercises the pure last-digits modular computation.
@@ -12,7 +14,7 @@ func TestComputeLastDigits(t *testing.T) {
 
 	t.Run("F(10) last 3 digits is 055 (zero-padded)", func(t *testing.T) {
 		t.Parallel()
-		got, err := ComputeLastDigits(context.Background(), 10, 3)
+		got, err := orchestration.ComputeLastDigits(context.Background(), 10, 3)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -27,7 +29,7 @@ func TestComputeLastDigits(t *testing.T) {
 
 	t.Run("F(100) last 5 digits is 15075", func(t *testing.T) {
 		t.Parallel()
-		got, err := ComputeLastDigits(context.Background(), 100, 5)
+		got, err := orchestration.ComputeLastDigits(context.Background(), 100, 5)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -39,7 +41,7 @@ func TestComputeLastDigits(t *testing.T) {
 
 	t.Run("F(0) last 4 digits is 0000", func(t *testing.T) {
 		t.Parallel()
-		got, err := ComputeLastDigits(context.Background(), 0, 4)
+		got, err := orchestration.ComputeLastDigits(context.Background(), 0, 4)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -50,11 +52,10 @@ func TestComputeLastDigits(t *testing.T) {
 
 	t.Run("invalid k returns error", func(t *testing.T) {
 		t.Parallel()
-		if _, err := ComputeLastDigits(context.Background(), 10, 0); err == nil {
-			t.Error("expected error for k=0")
-		}
-		if _, err := ComputeLastDigits(context.Background(), 10, -1); err == nil {
-			t.Error("expected error for k<0")
+		for _, k := range []int{0, -1} {
+			if _, err := orchestration.ComputeLastDigits(context.Background(), 10, k); err == nil {
+				t.Errorf("expected error for k=%d", k)
+			}
 		}
 	})
 
@@ -62,7 +63,7 @@ func TestComputeLastDigits(t *testing.T) {
 		t.Parallel()
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err := ComputeLastDigits(ctx, 100, 3)
+		_, err := orchestration.ComputeLastDigits(ctx, 100, 3)
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("expected context.Canceled, got %v", err)
 		}
