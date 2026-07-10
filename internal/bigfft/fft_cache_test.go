@@ -326,6 +326,68 @@ func TestTransformCacheEvictionRecyclesBacking(t *testing.T) {
 	}
 }
 
+// TestCacheGetSurvivesEviction pins the Audit-PRD E1-R4 contract directly:
+// a PolValues returned by Get() aliases the entry's backing buffer, so an
+// evicted entry's backing must NEVER be recycled into a new entry. The
+// eviction test above only bounds allocation counts and capacities —
+// reintroducing the salvage makes it *more* green (fewer allocations).
+// Here the Get() result is held across the evictions and its words must
+// stay intact; a recycled backing gets overwritten by the new entry's
+// copy-in (use-after-free observed as silent corruption).
+func TestCacheGetSurvivesEviction(t *testing.T) {
+	t.Parallel()
+	cache := NewTransformCache(TransformCacheConfig{MaxEntries: 2, MinBitLen: 64, Enabled: true})
+
+	const K, N = 8, 32
+	makeValues := func(seed int) PolValues {
+		vals := make([]fermat, K)
+		for i := range vals {
+			vals[i] = make(fermat, N+1)
+			for j := range vals[i] {
+				vals[i][j] = big.Word(seed*100000 + i*(N+1) + j)
+			}
+		}
+		return PolValues{K: 4, N: N, Values: vals}
+	}
+	makeData := func(tag big.Word) nat {
+		data := make(nat, 10)
+		data[0] = tag
+		return data
+	}
+
+	dataA := makeData(0xA)
+	cache.Put(dataA, makeValues(1))
+	cache.Put(makeData(0xB), makeValues(2))
+
+	held, ok := cache.Get(dataA, 4, N)
+	if !ok {
+		t.Fatal("expected Get to hit entry A")
+	}
+	// Snapshot the words that must survive the evictions below.
+	want := make([][]big.Word, len(held.Values))
+	for i, v := range held.Values {
+		want[i] = append([]big.Word(nil), v...)
+	}
+
+	// Get moved A to the LRU front, so at capacity 2 the next insert evicts
+	// B and the one after evicts A — while `held` is still live.
+	cache.Put(makeData(0xC), makeValues(3))
+	cache.Put(makeData(0xD), makeValues(4))
+	if _, stillThere := cache.Get(dataA, 4, N); stillThere {
+		t.Fatal("test setup broken: entry A was not evicted")
+	}
+
+	for i, v := range held.Values {
+		for j, w := range v {
+			if w != want[i][j] {
+				t.Fatalf("held PolValues corrupted after eviction at [%d][%d]: got %#x, want %#x "+
+					"(evicted backing was recycled into a new entry — E1-R4 use-after-free)",
+					i, j, w, want[i][j])
+			}
+		}
+	}
+}
+
 // TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall verifies the fallback
 // path: if the evicted backing is too small for the new entry, putByKey must
 // allocate fresh storage (and the new entry's cap must reflect the new size).
