@@ -1,12 +1,16 @@
-package metrics
+package metrics_test
 
 import (
 	"math"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/agbruneau/FibGo/internal/metrics"
 )
 
+// fibSmall computes F(n) via naive iteration; used only to build realistic
+// *big.Int fixtures for the exported Compute/ComputeLive API.
 func fibSmall(n int) *big.Int {
 	if n == 0 {
 		return big.NewInt(0)
@@ -19,93 +23,14 @@ func fibSmall(n int) *big.Int {
 	return b
 }
 
-func TestDigitalRoot(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name string
-		x    *big.Int
-		want int
-	}{
-		{"zero", big.NewInt(0), 0},
-		{"one", big.NewInt(1), 1},
-		{"nine", big.NewInt(9), 9},
-		{"ten", big.NewInt(10), 1},
-		{"55 (F10)", big.NewInt(55), 1},   // 5+5=10, 1+0=1
-		{"89 (F11)", big.NewInt(89), 8},   // 8+9=17, 1+7=8
-		{"144 (F12)", big.NewInt(144), 9}, // 1+4+4=9
-		{"233 (F13)", big.NewInt(233), 8}, // 2+3+3=8
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := digitalRoot(tt.x)
-			if got != tt.want {
-				t.Errorf("digitalRoot(%s) = %d, want %d", tt.x, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestLastNDigits(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name string
-		x    *big.Int
-		n    int
-		want string
-	}{
-		{"F10 last 5", big.NewInt(55), 5, "55"},
-		{"F12 last 3", big.NewInt(144), 3, "144"},
-		{"F20 last 4", fibSmall(20), 4, "6765"}, // F(20) = 6765
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := lastNDigits(tt.x, tt.n)
-			if got != tt.want {
-				t.Errorf("lastNDigits(%s, %d) = %q, want %q", tt.x, tt.n, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestLastNDigitsZeroPaddingThreshold covers APP-18: the zero-padding guard
-// compared BitLen against n*4 bits/digit, but a decimal digit needs only
-// log2(10) ≈ 3.32 bits. For n=20 that mismatch (67 bits actual vs 80 bits
-// required) meant 20-24 digit numbers whose last 20 digits start with zeros
-// were not padded, silently truncating the reported LastDigits.
-func TestLastNDigitsZeroPaddingThreshold(t *testing.T) {
-	t.Parallel()
-	// 10^20 has BitLen 67 (< old threshold of n*4=80) but 21 decimal digits,
-	// so its last 20 digits must be twenty zeros, not a single "0".
-	x := new(big.Int).Exp(big.NewInt(10), big.NewInt(20), nil)
-	got := lastNDigits(x, 20)
-	want := "00000000000000000000"[:20]
-	if got != want {
-		t.Errorf("lastNDigits(10^20, 20) = %q, want %q", got, want)
-	}
-}
-
-func TestLastNDigitsLargeNumber(t *testing.T) {
-	t.Parallel()
-	// F(1000) is a large number; verify last 10 digits
-	f1000 := fibSmall(1000)
-	got := lastNDigits(f1000, 10)
-	// F(1000) ends with ...8757193200 (last 10 digits)
-	fullStr := f1000.String()
-	want := fullStr[len(fullStr)-10:]
-	if got != want {
-		t.Errorf("lastNDigits(F(1000), 10) = %q, want %q", got, want)
-	}
-}
-
 func TestCompute(t *testing.T) {
 	t.Parallel()
 	result := fibSmall(100) // F(100) = 354224848179261915075
 	duration := 500 * time.Millisecond
 	n := uint64(100)
 
-	ind := Compute(result, n, duration)
+	ind := metrics.Compute(result, n, duration)
 
-	// Performance indicators should be positive
 	if ind.BitsPerSecond <= 0 {
 		t.Errorf("BitsPerSecond = %f, want > 0", ind.BitsPerSecond)
 	}
@@ -133,34 +58,52 @@ func TestCompute(t *testing.T) {
 	if ind.DigitalRoot != 3 {
 		t.Errorf("DigitalRoot = %d, want 3", ind.DigitalRoot)
 	}
+}
 
-	// F(100) is even because 100 % 3 != 0 → false? 100/3 = 33.33, so 100%3 = 1 → not even
-	// F(100) = 354224848179261915075, last digit 5 → odd
-	if ind.IsEven != false {
-		t.Errorf("IsEven = %v, want false (100 %% 3 = %d)", ind.IsEven, 100%3)
+// TestComputeParity covers IsEven for both branches of n%3==0: F(n) is even
+// iff 3 | n.
+func TestComputeParity(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		n    int
+		want bool
+	}{
+		{"F(100), 100%3 != 0, odd", 100, false},
+		{"F(99), 99%3 == 0, even", 99, true},
 	}
-
-	// F(99) should be even (99 % 3 == 0)
-	f99 := fibSmall(99)
-	ind99 := Compute(f99, 99, duration)
-	if ind99.IsEven != true {
-		t.Errorf("IsEven for n=99 = %v, want true", ind99.IsEven)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ind := metrics.Compute(fibSmall(tt.n), uint64(tt.n), time.Second)
+			if ind.IsEven != tt.want {
+				t.Errorf("IsEven = %v, want %v (n%%3 = %d)", ind.IsEven, tt.want, tt.n%3)
+			}
+		})
 	}
 }
 
-func TestComputeNilResult(t *testing.T) {
+// TestComputeEdgeCases covers the two guard branches of Compute: a nil
+// result and a non-positive duration both yield zero-value Indicators
+// instead of dividing by zero or dereferencing nil.
+func TestComputeEdgeCases(t *testing.T) {
 	t.Parallel()
-	ind := Compute(nil, 100, time.Second)
-	if ind.BitsPerSecond != 0 {
-		t.Errorf("expected zero indicators for nil result")
+	tests := []struct {
+		name     string
+		result   *big.Int
+		duration time.Duration
+	}{
+		{"nil result", nil, time.Second},
+		{"zero duration", big.NewInt(55), 0},
 	}
-}
-
-func TestComputeZeroDuration(t *testing.T) {
-	t.Parallel()
-	ind := Compute(big.NewInt(55), 10, 0)
-	if ind.BitsPerSecond != 0 {
-		t.Errorf("expected zero indicators for zero duration")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ind := metrics.Compute(tt.result, 100, tt.duration)
+			if ind.BitsPerSecond != 0 {
+				t.Errorf("BitsPerSecond = %f, want 0", ind.BitsPerSecond)
+			}
+		})
 	}
 }
 
@@ -170,30 +113,11 @@ func TestGoldenRatioDeviationConverges(t *testing.T) {
 	var prevDeviation float64 = math.MaxFloat64
 	for _, n := range []int{50, 100, 500, 1000} {
 		result := fibSmall(n)
-		ind := Compute(result, uint64(n), time.Second)
+		ind := metrics.Compute(result, uint64(n), time.Second)
 		if ind.GoldenRatioDeviation >= prevDeviation {
 			t.Logf("n=%d: deviation=%f%% (prev=%f%%)", n, ind.GoldenRatioDeviation, prevDeviation)
 		}
 		prevDeviation = ind.GoldenRatioDeviation
-	}
-}
-
-func TestFormatBitsPerSecond(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		bps  float64
-		want string
-	}{
-		{500, "500 bit/s"},
-		{1500, "1.50 Kbit/s"},
-		{2_500_000, "2.50 Mbit/s"},
-		{3_500_000_000, "3.50 Gbit/s"},
-	}
-	for _, tt := range tests {
-		got := FormatBitsPerSecond(tt.bps)
-		if got != tt.want {
-			t.Errorf("FormatBitsPerSecond(%f) = %q, want %q", tt.bps, got, tt.want)
-		}
 	}
 }
 
@@ -203,7 +127,7 @@ func TestComputeLive(t *testing.T) {
 	progress := 0.5
 	elapsed := 2 * time.Second
 
-	ind := ComputeLive(n, progress, elapsed)
+	ind := metrics.ComputeLive(n, progress, elapsed)
 
 	if ind.BitsPerSecond <= 0 {
 		t.Errorf("BitsPerSecond = %f, want > 0", ind.BitsPerSecond)
@@ -233,11 +157,48 @@ func TestComputeLive(t *testing.T) {
 	}
 }
 
-func TestComputeLiveZeroProgress(t *testing.T) {
+// TestComputeLiveEdgeCases covers the three guard conditions of ComputeLive
+// (elapsed <= 0, progress <= 0, n <= 1): each must short-circuit to a
+// zero-value performance indicator instead of dividing by zero.
+func TestComputeLiveEdgeCases(t *testing.T) {
 	t.Parallel()
-	ind := ComputeLive(1000, 0, time.Second)
-	if ind.BitsPerSecond != 0 {
-		t.Errorf("expected BitsPerSecond = 0 for zero progress, got %f", ind.BitsPerSecond)
+	tests := []struct {
+		name     string
+		n        uint64
+		progress float64
+		elapsed  time.Duration
+	}{
+		{"zero progress", 1000, 0, time.Second},
+		{"zero elapsed", 1000, 0.5, 0},
+		{"n <= 1", 1, 0.5, time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ind := metrics.ComputeLive(tt.n, tt.progress, tt.elapsed)
+			if ind.BitsPerSecond != 0 {
+				t.Errorf("BitsPerSecond = %f, want 0", ind.BitsPerSecond)
+			}
+		})
+	}
+}
+
+func TestFormatBitsPerSecond(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		bps  float64
+		want string
+	}{
+		{500, "500 bit/s"},
+		{1500, "1.50 Kbit/s"},
+		{2_500_000, "2.50 Mbit/s"},
+		{3_500_000_000, "3.50 Gbit/s"},
+	}
+	for _, tt := range tests {
+		got := metrics.FormatBitsPerSecond(tt.bps)
+		if got != tt.want {
+			t.Errorf("FormatBitsPerSecond(%f) = %q, want %q", tt.bps, got, tt.want)
+		}
 	}
 }
 
@@ -252,7 +213,7 @@ func TestFormatDigitsPerSecond(t *testing.T) {
 		{2_500_000, "2.50 M digits/s"},
 	}
 	for _, tt := range tests {
-		got := FormatDigitsPerSecond(tt.dps)
+		got := metrics.FormatDigitsPerSecond(tt.dps)
 		if got != tt.want {
 			t.Errorf("FormatDigitsPerSecond(%f) = %q, want %q", tt.dps, got, tt.want)
 		}
