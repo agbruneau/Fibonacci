@@ -1,13 +1,10 @@
 package progress_test
 
 import (
-	"bytes"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/rs/zerolog"
 
 	"github.com/agbruneau/FibGo/internal/progress"
 )
@@ -42,14 +39,14 @@ func TestProgressSubject_Register(t *testing.T) {
 	}
 
 	// Register valid observer
-	observer := progress.NewNoOpObserver()
+	observer := newMockObserver()
 	subject.Register(observer)
 	if subject.ObserverCount() != 1 {
 		t.Errorf("expected 1 observer, got %d", subject.ObserverCount())
 	}
 
 	// Register second observer
-	subject.Register(progress.NewNoOpObserver())
+	subject.Register(newMockObserver())
 	if subject.ObserverCount() != 2 {
 		t.Errorf("expected 2 observers, got %d", subject.ObserverCount())
 	}
@@ -174,7 +171,7 @@ func TestProgressSubject_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subject.Register(progress.NewNoOpObserver())
+			subject.Register(newMockObserver())
 		}()
 	}
 
@@ -394,77 +391,6 @@ func TestChannelObserver_ClampsProgress(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LoggingObserver Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TestLoggingObserver_Update verifies logging behavior.
-func TestLoggingObserver_Update(t *testing.T) {
-	t.Parallel()
-
-	var buf bytes.Buffer
-	logger := zerolog.New(&buf).Level(zerolog.DebugLevel)
-	observer := progress.NewLoggingObserver(logger, 0.1)
-
-	// First update should log (initial progress)
-	observer.Update(0, 0.1)
-	if buf.Len() == 0 {
-		t.Error("expected initial progress to be logged")
-	}
-
-	// Small increase should not log (below threshold)
-	buf.Reset()
-	observer.Update(0, 0.15)
-	if buf.Len() > 0 {
-		t.Error("expected small progress change to not be logged")
-	}
-
-	// Large increase should log
-	buf.Reset()
-	observer.Update(0, 0.5)
-	if buf.Len() == 0 {
-		t.Error("expected significant progress change to be logged")
-	}
-
-	// Completion should log
-	buf.Reset()
-	observer.Update(0, 1.0)
-	if buf.Len() == 0 {
-		t.Error("expected completion to be logged")
-	}
-}
-
-// TestLoggingObserver_DefaultThreshold verifies default threshold handling.
-func TestLoggingObserver_DefaultThreshold(t *testing.T) {
-	t.Parallel()
-
-	var buf bytes.Buffer
-	logger := zerolog.New(&buf).Level(zerolog.DebugLevel)
-
-	// Zero threshold should use default
-	observer := progress.NewLoggingObserver(logger, 0)
-
-	observer.Update(0, 0.0)
-	observer.Update(0, 0.05) // Below default 0.1 threshold
-	if buf.Len() == 0 {
-		t.Error("expected first update to be logged")
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NoOpObserver Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TestNoOpObserver_Update verifies no-op behavior.
-func TestNoOpObserver_Update(t *testing.T) {
-	t.Parallel()
-
-	observer := progress.NewNoOpObserver()
-	// Should not panic
-	observer.Update(0, 0.0)
-	observer.Update(1, 1.0)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Integration Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -478,18 +404,12 @@ func TestMultipleObserversIntegration(t *testing.T) {
 	ch := make(chan progress.ProgressUpdate, 10)
 	channelObs := progress.NewChannelObserver(ch)
 
-	// Set up logging observer
-	var logBuf bytes.Buffer
-	logger := zerolog.New(&logBuf).Level(zerolog.DebugLevel)
-	loggingObs := progress.NewLoggingObserver(logger, 0.1)
-
 	// Set up mock observer to count
 	var updateCount int64
 	countingObs := &struct{ progress.ProgressObserver }{} // Anonymous observer
 	countingObsImpl := newMockObserver()
 
 	subject.Register(channelObs)
-	subject.Register(loggingObs)
 	subject.Register(countingObsImpl)
 
 	// Notify progress
