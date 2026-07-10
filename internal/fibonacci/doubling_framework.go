@@ -10,6 +10,7 @@ import (
 	"math/bits"
 	"time"
 
+	"github.com/agbruneau/FibGo/internal/bigfft"
 	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
@@ -18,15 +19,14 @@ import (
 // It uses a DoublingStepExecutor to perform multiplications, allowing
 // different strategies (adaptive, FFT-only, etc.) to be plugged in.
 //
-// CacheStrategy is an optional pluggable hook called from inside the doubling
-// loop to let an adapter tune an underlying transform cache (e.g. the bigfft
-// global cache). When nil, no cache adjustment is performed. The DTM-driven
-// constructors install the default bigfft-backed strategy automatically so
-// the historical behavior is preserved.
+// While dynamicThreshold is non-nil, ExecuteDoublingLoop also periodically
+// tunes the bigfft global transform cache — see decideCacheTuning
+// (cache_tuning.go). There is no separate on/off flag for this: it is gated
+// by the same dynamicThreshold != nil check as threshold adjustment itself,
+// matching the historical "cache tuning only runs alongside DTM" behavior.
 type DoublingFramework struct {
 	strategy         DoublingStepExecutor
 	dynamicThreshold *threshold.DynamicThresholdManager
-	CacheStrategy    CacheStrategy
 }
 
 // NewDoublingFramework creates a new Fast Doubling framework with the given strategy.
@@ -52,7 +52,6 @@ func NewDoublingFrameworkWithDynamicThresholds(strategy DoublingStepExecutor, dt
 	return &DoublingFramework{
 		strategy:         strategy,
 		dynamicThreshold: dtm,
-		CacheStrategy:    NewBigFFTCacheStrategy(),
 	}
 }
 
@@ -159,9 +158,6 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 	// Normalize options to ensure consistent default threshold handling
 	currentOpts := normalizeOptions(opts)
 	dtm := f.dynamicThreshold
-	// P1-02 / R3.2: cache adjustment is delegated to a CacheStrategy. The
-	// strategy implements its own throttling so the loop stays algorithm-only.
-	cacheStrategy := f.CacheStrategy
 	iterCount := 0
 
 	for i := numBits - 1; i >= 0; i-- {
@@ -215,12 +211,15 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 				currentOpts.ParallelThreshold = newParallel
 			}
 
-			// Cache tuning is delegated to the pluggable strategy. Preserves
-			// the historical "only when DTM is enabled" gate so loops without
-			// dynamic thresholds remain side-effect-free on the global cache.
-			if cacheStrategy != nil {
-				if err := cacheStrategy.Sample(iterCount, numBits); err != nil {
-					return nil, fmt.Errorf("cache strategy sample failed at bit %d/%d: %w", i, numBits-1, err)
+			// P1-02: tune the bigfft global transform cache, throttled to every
+			// cacheSampleInterval iterations plus always the final one. Nested
+			// inside the dtm != nil block so loops without dynamic thresholds
+			// remain side-effect-free on the global cache (decideCacheTuning is
+			// pure and cannot fail — see cache_tuning.go).
+			if iterCount%cacheSampleInterval == 0 || iterCount == numBits {
+				cache := bigfft.GetTransformCache()
+				if cfg, changed := decideCacheTuning(cache.Stats(), cache.Config()); changed {
+					bigfft.SetTransformCacheConfig(cfg)
 				}
 			}
 		}

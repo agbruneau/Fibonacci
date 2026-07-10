@@ -2,8 +2,6 @@ package fibonacci
 
 import (
 	"context"
-	"errors"
-	"sync/atomic"
 	"testing"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
@@ -59,35 +57,23 @@ func TestNewDoublingFrameworkWithDynamicThresholds(t *testing.T) {
 	})
 }
 
-// mockCacheStrategy is a CacheStrategy double used by the unit tests below to
-// verify that ExecuteDoublingLoop wires the strategy correctly without
-// touching the global bigfft cache.
-type mockCacheStrategy struct {
-	calls       atomic.Int64
-	lastIter    atomic.Int64
-	lastTotal   atomic.Int64
-	returnError error
-}
-
-func (m *mockCacheStrategy) Sample(iter int, totalIters int) error {
-	m.calls.Add(1)
-	m.lastIter.Store(int64(iter))
-	m.lastTotal.Store(int64(totalIters))
-	return m.returnError
-}
-
-// TestDoublingFramework_CacheStrategyInjected verifies that an injected
-// CacheStrategy is invoked from ExecuteDoublingLoop when dynamic thresholds
-// are enabled (the historical "DTM gate" preserved by the R3.2 refactor).
-func TestDoublingFramework_CacheStrategyInjected(t *testing.T) {
+// TestDoublingFramework_CacheTuningRunsWithDTM is a smoke test for the
+// inlined cache-tuning call in ExecuteDoublingLoop (cache_tuning.go):
+// running a full doubling loop with dynamic thresholds enabled must not
+// panic or error, and must still produce the correct result. The tuning
+// heuristic itself (decideCacheTuning) is unit-tested in isolation by
+// TestDecideCacheTuning; the "only runs alongside DTM" gate is now a
+// structural property of the code (the call sits inside the same `if dtm !=
+// nil` block as threshold adjustment) rather than a separately-settable
+// field, so there is nothing left to assert by injection.
+func TestDoublingFramework_CacheTuningRunsWithDTM(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockCacheStrategy{}
 	dtm := newTestDynamicThresholdManager(1_000_000, 4096)
 	framework := NewDoublingFrameworkWithDynamicThresholds(&AdaptiveStrategy{}, dtm)
-	framework.CacheStrategy = mock // override the default bigfft wrapper
 
-	// F(64) → numBits = bits.Len64(64) = 7 iterations.
+	// F(64) → numBits = bits.Len64(64) = 7 iterations, crossing the
+	// cacheSampleInterval throttle at least once plus the final iteration.
 	const n uint64 = 64
 	s := AcquireStateForN(n)
 	raw, err := framework.ExecuteDoublingLoop(context.Background(), noopReporter, n, Options{}, s, false)
@@ -97,68 +83,8 @@ func TestDoublingFramework_CacheStrategyInjected(t *testing.T) {
 	}
 	result := ReleaseStateWithResult(s, raw)
 
-	// F(64) = 10610209857723.
-	if result.Uint64() != 10610209857723 {
-		t.Errorf("F(64) = %s, want 10610209857723", result.String())
-	}
-
-	// Strategy must be called once per iteration (numBits = 7) — Sample throttling
-	// is the strategy's own concern; the loop dispatches unconditionally.
-	if got := mock.calls.Load(); got != 7 {
-		t.Errorf("CacheStrategy.Sample called %d times, want 7", got)
-	}
-	if got := mock.lastTotal.Load(); got != 7 {
-		t.Errorf("CacheStrategy received totalIters=%d, want 7", got)
-	}
-	if got := mock.lastIter.Load(); got != 7 {
-		t.Errorf("CacheStrategy last iter=%d, want 7 (final iteration)", got)
-	}
-}
-
-// TestDoublingFramework_CacheStrategySkippedWithoutDTM ensures the DTM gate is
-// preserved: when dynamicThreshold is nil the strategy must never be called,
-// even if one is set on the framework.
-func TestDoublingFramework_CacheStrategySkippedWithoutDTM(t *testing.T) {
-	t.Parallel()
-
-	mock := &mockCacheStrategy{}
-	framework := NewDoublingFramework(&AdaptiveStrategy{})
-	framework.CacheStrategy = mock
-
-	const n uint64 = 64
-	s := AcquireStateForN(n)
-	raw, err := framework.ExecuteDoublingLoop(context.Background(), noopReporter, n, Options{}, s, false)
-	if err != nil {
-		ReleaseState(s)
-		t.Fatalf("ExecuteDoublingLoop returned error: %v", err)
-	}
-	_ = ReleaseStateWithResult(s, raw)
-
-	if got := mock.calls.Load(); got != 0 {
-		t.Errorf("CacheStrategy.Sample called %d times without DTM, want 0", got)
-	}
-}
-
-// TestDoublingFramework_CacheStrategyError verifies that an error returned by
-// the strategy aborts the loop and is propagated.
-func TestDoublingFramework_CacheStrategyError(t *testing.T) {
-	t.Parallel()
-
-	wantErr := errors.New("cache sample boom")
-	mock := &mockCacheStrategy{returnError: wantErr}
-	dtm := newTestDynamicThresholdManager(1_000_000, 4096)
-	framework := NewDoublingFrameworkWithDynamicThresholds(&AdaptiveStrategy{}, dtm)
-	framework.CacheStrategy = mock
-
-	const n uint64 = 64
-	s := AcquireStateForN(n)
-	_, err := framework.ExecuteDoublingLoop(context.Background(), noopReporter, n, Options{}, s, false)
-	ReleaseState(s)
-
-	if err == nil {
-		t.Fatal("expected error from cache strategy, got nil")
-	}
-	if !errors.Is(err, wantErr) {
-		t.Errorf("error = %v, want it to wrap %v", err, wantErr)
+	const wantF64 = 10610209857723 // known value of F(64)
+	if result.Uint64() != wantF64 {
+		t.Errorf("F(64) = %s, want %d", result.String(), wantF64)
 	}
 }
