@@ -372,14 +372,24 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	return runStrategy(parentCtx, NewCompleteStrategy(), stratOpts, profilePath, true)
 }
 
-// applyCachedProfile copies the cached threshold values onto cfg and
-// emits the legacy "Using cached calibration" log line. It does not
-// touch disk: the caller has already loaded and validated the profile.
-func applyCachedProfile(cfg config.AppConfig, profile *CalibrationProfile, out io.Writer) config.AppConfig {
+// applyProfileThresholds copies the three calibrated thresholds from
+// profile onto a copy of cfg. It is the single place that defines what
+// "apply a profile" means so applyCachedProfile, finalizeStrategyResult
+// and LoadCachedCalibration cannot drift from each other on which
+// fields a profile controls.
+func applyProfileThresholds(cfg config.AppConfig, profile *CalibrationProfile) config.AppConfig {
 	updated := cfg
 	updated.Threshold = profile.OptimalParallelThreshold
 	updated.FFTThreshold = profile.OptimalFFTThreshold
 	updated.StrassenThreshold = profile.OptimalStrassenThreshold
+	return updated
+}
+
+// applyCachedProfile copies the cached threshold values onto cfg and
+// emits the legacy "Using cached calibration" log line. It does not
+// touch disk: the caller has already loaded and validated the profile.
+func applyCachedProfile(cfg config.AppConfig, profile *CalibrationProfile, out io.Writer) config.AppConfig {
+	updated := applyProfileThresholds(cfg, profile)
 
 	fmt.Fprintf(out, "%sUsing cached calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
 		ui.ColorGreen(), ui.ColorReset(),
@@ -420,10 +430,7 @@ func runStrategy(parentCtx context.Context, strategy CalibrationStrategy, stratO
 // optionally prints the human-facing summary. Persistence failures are
 // non-fatal (saveCalibrationProfile already logs a warning).
 func finalizeStrategyResult(cfg config.AppConfig, profile *CalibrationProfile, profilePath string, out io.Writer, announce bool) config.AppConfig {
-	updated := cfg
-	updated.Threshold = profile.OptimalParallelThreshold
-	updated.FFTThreshold = profile.OptimalFFTThreshold
-	updated.StrassenThreshold = profile.OptimalStrassenThreshold
+	updated := applyProfileThresholds(cfg, profile)
 
 	saveCalibrationProfile(updated, profilePath, out, profile.Confidence)
 	if announce {
@@ -441,11 +448,7 @@ func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (updated co
 		return cfg, false
 	}
 
-	updated = cfg
-	updated.Threshold = profile.OptimalParallelThreshold
-	updated.FFTThreshold = profile.OptimalFFTThreshold
-	updated.StrassenThreshold = profile.OptimalStrassenThreshold
-	return updated, true
+	return applyProfileThresholds(cfg, profile), true
 }
 
 // applyCalibrationResults updates the configuration with the calibration results.

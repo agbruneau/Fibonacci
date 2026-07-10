@@ -1,3 +1,6 @@
+// This file stays package calibration (white-box) because it exercises
+// the unexported printCalibrationOutput directly -- there is no exported
+// seam that lets a black-box test assert on this exact message text.
 package calibration
 
 import (
@@ -55,7 +58,7 @@ func TestPrintCalibrationOutput(t *testing.T) {
 			t.Error("Output should contain 'Auto-calibration'")
 		}
 		// Should still print even with zero values
-		if len(output) == 0 {
+		if output == "" {
 			t.Error("Output should not be empty")
 		}
 	})

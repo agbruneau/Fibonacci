@@ -1,62 +1,40 @@
-package calibration
+// Package calibration_test exercises internal/calibration's exported API
+// only. It is the black-box counterpart to adaptive_internal_test.go,
+// which stays package calibration because it calls the unexported
+// generateParallelThresholds/generateQuickFFTThresholds seams directly.
+package calibration_test
 
 import (
 	"context"
 	"runtime"
-	"slices"
 	"testing"
 
+	"github.com/agbruneau/FibGo/internal/calibration"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
-func TestGenerateParallelThresholds(t *testing.T) {
-	t.Parallel()
-
-	// Table-driven over the injected CPU count so every CPU-gated branch is
-	// exercised on any development machine (runtime.NumCPU ignores
-	// GOMAXPROCS, so the branches below 8 CPUs were dead on real hardware).
-	// FIB-02: the baseline candidate must be -1 (genuinely sequential —
-	// normalizeOptions only replaces ==0 with the default, so 0 was a
-	// duplicate of the default candidate, never a real baseline).
-	cases := []struct {
-		numCPU int
-		want   []int
-	}{
-		{1, []int{-1}},
-		{2, []int{-1, 512, 1024, 2048, 4096}},
-		{4, []int{-1, 512, 1024, 2048, 4096}},
-		{8, []int{-1, 256, 512, 1024, 2048, 4096, 8192}},
-		{16, []int{-1, 256, 512, 1024, 2048, 4096, 8192, 16384}},
-		{24, []int{-1, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768}},
-	}
-	for _, tc := range cases {
-		if got := generateParallelThresholds(tc.numCPU); !slices.Equal(got, tc.want) {
-			t.Errorf("generateParallelThresholds(%d) = %v, want %v", tc.numCPU, got, tc.want)
-		}
-	}
-
-	// The exported wrapper must delegate to the current machine's CPU count.
-	if got, want := GenerateParallelThresholds(), generateParallelThresholds(runtime.NumCPU()); !slices.Equal(got, want) {
-		t.Errorf("GenerateParallelThresholds() = %v, want %v", got, want)
-	}
-}
-
 func TestGenerateQuickParallelThresholds(t *testing.T) {
 	t.Parallel()
-	thresholds := GenerateQuickParallelThresholds()
+	thresholds := calibration.GenerateQuickParallelThresholds()
+	fullThresholds := calibration.GenerateParallelThresholds()
 
-	// Should be shorter than full list
-	fullThresholds := GenerateParallelThresholds()
 	if len(thresholds) > len(fullThresholds) {
 		t.Error("Quick thresholds should not be longer than full thresholds")
 	}
-
-	// Should have at least one threshold
 	if len(thresholds) < 1 {
 		t.Error("Expected at least one threshold")
 	}
+	// The baseline candidate must always be the genuine sequential sentinel
+	// (FIB-02): 0 would silently duplicate the package default via
+	// fibonacci.normalizeOptions.
+	if thresholds[0] >= 0 {
+		t.Errorf("GenerateQuickParallelThresholds()[0] = %d, want negative baseline", thresholds[0])
+	}
 
-	// Verify thresholds are appropriate for CPU count
+	// GenerateQuickParallelThresholds calls runtime.NumCPU() directly (no
+	// injected seam, unlike GenerateParallelThresholds/P-06), so only the
+	// branch matching this machine's core count is exercised here -- exact
+	// per-tier length matches the production switch in adaptive.go.
 	numCPU := runtime.NumCPU()
 	switch {
 	case numCPU == 1:
@@ -76,37 +54,21 @@ func TestGenerateQuickParallelThresholds(t *testing.T) {
 			t.Errorf("For %d CPUs, expected 5 thresholds, got %d", numCPU, len(thresholds))
 		}
 	}
-
-	t.Logf("Generated %d quick parallel thresholds: %v", len(thresholds), thresholds)
-}
-
-func TestGenerateQuickFFTThresholds(t *testing.T) {
-	t.Parallel()
-	thresholds := generateQuickFFTThresholds()
-
-	if len(thresholds) < 2 {
-		t.Error("Expected multiple quick FFT thresholds")
-	}
-
-	t.Logf("Generated %d quick FFT thresholds: %v", len(thresholds), thresholds)
 }
 
 func TestGenerateQuickStrassenThresholds(t *testing.T) {
 	t.Parallel()
-	thresholds := GenerateQuickStrassenThresholds()
-
+	thresholds := calibration.GenerateQuickStrassenThresholds()
 	if len(thresholds) < 2 {
 		t.Error("Expected multiple quick Strassen thresholds")
 	}
-
-	t.Logf("Generated %d quick Strassen thresholds: %v", len(thresholds), thresholds)
 }
 
 // TestBaselineCandidateIsGenuinelySequential is the FIB-02 red test: the
 // "Sequential (no parallelism)" candidate emitted by the generators must
 // survive fibonacci.normalizeOptions as a real baseline. normalizeOptions
 // treats ==0 as "unset" and substitutes the package defaults, so a 0
-// candidate silently becomes a duplicate of the default run — only a
+// candidate silently becomes a duplicate of the default run -- only a
 // negative threshold reliably disables both parallelism (useParallel :=
 // ... && ParallelThreshold > 0) and FFT (FFTThreshold > 0 && ...). We spy
 // on the effective behavior via the real "fast" calculator: F(64) is tiny
@@ -116,12 +78,12 @@ func TestGenerateQuickStrassenThresholds(t *testing.T) {
 func TestBaselineCandidateIsGenuinelySequential(t *testing.T) {
 	t.Parallel()
 
-	baseline := GenerateParallelThresholds()[0]
+	baseline := calibration.GenerateParallelThresholds()[0]
 	if baseline >= 0 {
 		t.Fatalf("baseline parallel candidate = %d, want negative (0 duplicates the default via normalizeOptions)", baseline)
 	}
 
-	fftBaseline := GenerateFFTThresholds()[0]
+	fftBaseline := calibration.GenerateFFTThresholds()[0]
 	if fftBaseline >= 0 {
 		t.Fatalf("baseline FFT candidate = %d, want negative (0 duplicates the default via normalizeOptions)", fftBaseline)
 	}
@@ -135,10 +97,9 @@ func TestBaselineCandidateIsGenuinelySequential(t *testing.T) {
 	}
 }
 
-// Benchmark threshold generation
 func BenchmarkGenerateParallelThresholds(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = GenerateParallelThresholds()
+		_ = calibration.GenerateParallelThresholds()
 	}
 }
