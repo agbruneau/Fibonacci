@@ -1,4 +1,8 @@
-package calibration
+// Package calibration_test exercises internal/calibration's exported API
+// only. It is the black-box counterpart to microbench_internal_test.go,
+// which stays package calibration because it calls analyzeResults,
+// runSingleTest and generateTestNumber directly.
+package calibration_test
 
 import (
 	"context"
@@ -6,11 +10,12 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/calibration"
 )
 
 func TestNewMicroBenchmark(t *testing.T) {
 	t.Parallel()
-	mb := NewMicroBenchmark()
+	mb := calibration.NewMicroBenchmark()
 	if mb == nil {
 		t.Fatal("Expected non-nil MicroBenchmark")
 	}
@@ -25,14 +30,25 @@ func TestNewMicroBenchmark(t *testing.T) {
 	}
 }
 
+// TestMicroBenchRunQuick is NOT parallel: it calls
+// bigfft.SetTransformCacheConfig, whose own doc comment says it "should be
+// called before any FFT operations for consistent behavior" -- this
+// package's many other tests perform FFT work (via QuickCalibrate,
+// CompleteStrategy, etc.) and would observe the temporarily-mutated global
+// config if this test ran concurrently with them. SetTransformCacheConfig
+// itself is data-race-free (guarded by an internal mutex), but a
+// same-package mutex here would only serialize participants that opt in --
+// no other test in this package touches the same global, so the correct
+// fix is keeping this one test in the sequential phase rather than adding
+// protection with nothing else to coordinate with.
 func TestMicroBenchRunQuick(t *testing.T) {
-	mb := NewMicroBenchmark()
-	// Use very small sizes and iterations for fast test
+	mb := calibration.NewMicroBenchmark()
+	// Use very small sizes and iterations for a fast test.
 	mb.TestSizes = []int{100, 200}
 	mb.Iterations = 10
 	mb.Timeout = 2 * time.Second
 
-	// Ensure MinBitLen doesn't skip FFT tests
+	// Ensure MinBitLen doesn't skip FFT tests.
 	bigfft.SetTransformCacheConfig(bigfft.TransformCacheConfig{
 		MaxEntries: 10,
 		MinBitLen:  0,
@@ -40,8 +56,7 @@ func TestMicroBenchRunQuick(t *testing.T) {
 	})
 	defer bigfft.SetTransformCacheConfig(bigfft.DefaultTransformCacheConfig())
 
-	ctx := context.Background()
-	results, err := mb.RunQuick(ctx)
+	results, err := mb.RunQuick(context.Background())
 	if err != nil {
 		t.Fatalf("RunQuick failed: %v", err)
 	}
@@ -65,46 +80,18 @@ func TestQuickCalibrate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	results, err := QuickCalibrate(ctx)
+	results, err := calibration.QuickCalibrate(ctx)
 	if err != nil {
 		t.Fatalf("QuickCalibrate failed: %v", err)
 	}
-
 	if results.Confidence < 0 || results.Confidence > 1.0 {
 		t.Errorf("Invalid confidence score: %f", results.Confidence)
 	}
 }
 
-func TestMicroBenchAnalyzeResultsEmpty(t *testing.T) {
-	t.Parallel()
-	mb := NewMicroBenchmark()
-	results := mb.analyzeResults(nil)
-	if results.Confidence != 0.0 {
-		t.Errorf("Expected 0.0 confidence for empty results, got %f", results.Confidence)
-	}
-}
-
-// TestMicroBenchAnalyzeResultsAllErrored is the FIB-03 red test: when every
-// timed result errored, bySize ends up empty (no valid measurement at all),
-// yet analyzeResults must not report a confident result. Today it starts at
-// 0.5 and still adds the FFT/parallel "found a crossover" bonuses purely
-// from the >0 defaults, landing at 0.9 despite zero real data.
-func TestMicroBenchAnalyzeResultsAllErrored(t *testing.T) {
-	t.Parallel()
-	mb := NewMicroBenchmark()
-	results := []testResult{
-		{wordSize: 500, useFFT: false, parallel: false, err: context.DeadlineExceeded},
-		{wordSize: 500, useFFT: true, parallel: false, err: context.DeadlineExceeded},
-	}
-	tr := mb.analyzeResults(results)
-	if tr.Confidence >= 0.5 {
-		t.Errorf("Confidence = %f with zero valid measurements, want < 0.5", tr.Confidence)
-	}
-}
-
 func TestMicroBenchContextCancellation(t *testing.T) {
 	t.Parallel()
-	mb := NewMicroBenchmark()
+	mb := calibration.NewMicroBenchmark()
 	mb.Iterations = 100 // Many iterations to ensure it takes some time
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,33 +106,5 @@ func TestMicroBenchContextCancellation(t *testing.T) {
 	}
 	if results.Confidence != 0 {
 		t.Errorf("Confidence = %f, want 0 when RunQuick errors out", results.Confidence)
-	}
-}
-
-// TestRunSingleTestRespectsCancellationBeforeWarmup verifies the early ctx
-// guard added before the warm-up multiply: a pre-canceled context returns the
-// cancellation error rather than running a (potentially expensive) warm-up.
-func TestRunSingleTestRespectsCancellationBeforeWarmup(t *testing.T) {
-	t.Parallel()
-	mb := NewMicroBenchmark()
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	d, err := mb.runSingleTest(ctx, 1024, false, false)
-	if err != context.Canceled {
-		t.Fatalf("expected context.Canceled before warm-up, got d=%v err=%v", d, err)
-	}
-}
-
-func TestGenerateTestNumber(t *testing.T) {
-	t.Parallel()
-	words := 10
-	num := generateTestNumber(words)
-	if num == nil {
-		t.Fatal("Expected non-nil big.Int")
-	}
-	if len(num.Bits()) != words {
-		// Matches or trimmed? generateTestNumber uses random bits so it should usually be full
-		// but leading zeros are possible.
 	}
 }
