@@ -34,6 +34,18 @@ import (
 // simplicity of basicMul for small operands.
 const smallMulThreshold = 30
 
+// Post-condition panic messages, shared with the sentinel classifier in
+// fft.go (fermatPostConditionPanics). A string literal duplicated on both
+// sides let a reworded panic() silently demote a post-condition violation
+// to an error (ADR-0002 violation); the shared constants make that drift a
+// compile-time impossibility. Guardian:
+// TestFermatRealPostConditionPanicIsClassified.
+const (
+	panicMsgOversizedProduct = "len(z) > 2n+1"
+	panicMsgMulCarry         = "fermat.Mul: unexpected carry after normalization"
+	panicMsgSqrCarry         = "fermat.Sqr: unexpected carry after normalization"
+)
+
 // Arithmetic modulo 2^n+1.
 
 // fermat represents a number modulo 2^(w*_W) + 1 as a slice of length w+1.
@@ -198,7 +210,7 @@ func (z fermat) Mul(x, y fermat) fermat {
 	}
 	// len(z) is at most 2n+1.
 	if len(z) > 2*n+1 {
-		panic("len(z) > 2n+1")
+		panic(panicMsgOversizedProduct)
 	}
 	// We now have
 	// z = z[:n] + 1<<(n*W) * z[n:2n+1]
@@ -223,7 +235,7 @@ func (z fermat) Mul(x, y fermat) fermat {
 	z[n] = c1
 	c := addVW(z, z, c2)
 	if c != 0 {
-		panic("fermat.Mul: unexpected carry after normalization")
+		panic(panicMsgMulCarry)
 	}
 	z.norm()
 	return z
@@ -259,7 +271,7 @@ func (z fermat) Sqr(x fermat) fermat {
 	}
 	// len(z) is at most 2n+1.
 	if len(z) > 2*n+1 {
-		panic("len(z) > 2n+1")
+		panic(panicMsgOversizedProduct)
 	}
 	// Reduce modulo 2^(n*_W)+1: same normalization as Mul
 	c1 := big.Word(0)
@@ -278,7 +290,7 @@ func (z fermat) Sqr(x fermat) fermat {
 	z[n] = c1
 	c := addVW(z, z, c2)
 	if c != 0 {
-		panic("fermat.Sqr: unexpected carry after normalization")
+		panic(panicMsgSqrCarry)
 	}
 	z.norm()
 	return z

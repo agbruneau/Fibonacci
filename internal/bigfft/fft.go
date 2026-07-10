@@ -265,9 +265,9 @@ func valueSize(k uint, m int, extra uint) int {
 // panics (operand-size mismatches) remain converted to errors, preserving
 // the existing public contract.
 var fermatPostConditionPanics = map[string]struct{}{
-	"len(z) > 2n+1": {},
-	"fermat.Mul: unexpected carry after normalization": {},
-	"fermat.Sqr: unexpected carry after normalization": {},
+	panicMsgOversizedProduct: {},
+	panicMsgMulCarry:         {},
+	panicMsgSqrCarry:         {},
 }
 
 // isFermatPostConditionPanic reports whether r is a recover()'d value that
