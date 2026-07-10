@@ -1,191 +1,204 @@
-package ui_test
+package ui
 
 import (
 	"os"
-	"sync"
 	"testing"
-
-	"github.com/agbruneau/FibGo/internal/ui"
 )
 
-// stateMu serializes the tests below against each other: InitTheme,
-// SetCurrentTheme and GetCurrentTUITheme all read/write ui's single
-// process-wide active theme, and some of them also mutate the NO_COLOR /
-// FIBCALC_TUI_THEME environment variables. Each test still calls
-// t.Parallel() so it runs alongside other packages' suites; the mutex only
-// keeps this package's own state-mutating tests from interleaving with each
-// other.
-//
-// ponytail: a per-test mutex is the smallest fix for real t.Parallel()
-// coverage over a package-level singleton without weakening any assertion.
-// Threading the theme through a context instead of a global would remove
-// the need for it, but that is a production API change outside this pass.
-var stateMu sync.Mutex
-
-// withCleanState locks stateMu, snapshots the current theme and the two
-// environment variables these tests touch, and returns a func that restores
-// them and unlocks. Not t.Setenv: callers here run under t.Parallel(), and
-// Setenv forbids parallel ancestors.
-func withCleanState(t *testing.T) func() {
-	t.Helper()
-	stateMu.Lock()
-	theme := ui.GetCurrentTheme()
-	noColor, hadNoColor := os.LookupEnv("NO_COLOR")
-	tuiTheme, hadTUITheme := os.LookupEnv("FIBCALC_TUI_THEME")
-	return func() {
-		ui.SetCurrentTheme(theme)
-		restoreEnv("NO_COLOR", noColor, hadNoColor)
-		restoreEnv("FIBCALC_TUI_THEME", tuiTheme, hadTUITheme)
-		stateMu.Unlock()
-	}
-}
-
-func restoreEnv(key, value string, had bool) {
-	if had {
-		os.Setenv(key, value)
-	} else {
-		os.Unsetenv(key)
-	}
-}
-
-// TestThemeLiterals verifies the two CLI theme literals never touch the
-// active-theme singleton, so it never needs stateMu.
-func TestThemeLiterals(t *testing.T) {
-	t.Parallel()
-
-	fields := func(th ui.Theme) map[string]string {
-		return map[string]string{
-			"Primary": th.Primary, "Secondary": th.Secondary, "Success": th.Success,
-			"Warning": th.Warning, "Error": th.Error, "Info": th.Info,
-			"Bold": th.Bold, "Underline": th.Underline, "Reset": th.Reset,
+// TestInitThemeWithNoColorFlag verifies that InitTheme respects the noColor flag.
+func TestInitThemeWithNoColorFlag(t *testing.T) {
+	// Save original theme and env to restore after test
+	originalTheme := GetCurrentTheme()
+	originalNoColor := os.Getenv("NO_COLOR")
+	defer func() {
+		SetCurrentTheme(originalTheme)
+		if originalNoColor == "" {
+			os.Unsetenv("NO_COLOR")
+		} else {
+			os.Setenv("NO_COLOR", originalNoColor)
 		}
-	}
+	}()
 
-	t.Run("DarkTheme colors are all set", func(t *testing.T) {
-		t.Parallel()
-		for name, v := range fields(ui.DarkTheme) {
-			if v == "" {
-				t.Errorf("DarkTheme.%s is empty", name)
-			}
+	// Ensure NO_COLOR is not set for this test
+	os.Unsetenv("NO_COLOR")
+
+	t.Run("noColor flag true disables colors", func(t *testing.T) {
+		InitTheme(true)
+		current := GetCurrentTheme()
+		if current.Name != "none" {
+			t.Errorf("InitTheme(true): got theme %q, want %q", current.Name, "none")
+		}
+		if current.Primary != "" {
+			t.Errorf("InitTheme(true): Primary should be empty, got %q", current.Primary)
 		}
 	})
 
-	t.Run("NoColorTheme colors are all empty", func(t *testing.T) {
-		t.Parallel()
-		for name, v := range fields(ui.NoColorTheme) {
-			if v != "" {
-				t.Errorf("NoColorTheme.%s = %q, want empty", name, v)
-			}
+	t.Run("noColor flag false uses dark theme", func(t *testing.T) {
+		InitTheme(false)
+		current := GetCurrentTheme()
+		if current.Name != "dark" {
+			t.Errorf("InitTheme(false): got theme %q, want %q", current.Name, "dark")
 		}
 	})
 }
 
-func TestInitTheme(t *testing.T) {
-	t.Parallel()
+// TestInitThemeWithNO_COLOREnv verifies that InitTheme respects NO_COLOR env var.
+func TestInitThemeWithNO_COLOREnv(t *testing.T) {
+	// Save original theme and env to restore after test
+	originalTheme := GetCurrentTheme()
+	originalNoColor := os.Getenv("NO_COLOR")
+	defer func() {
+		SetCurrentTheme(originalTheme)
+		if originalNoColor == "" {
+			os.Unsetenv("NO_COLOR")
+		} else {
+			os.Setenv("NO_COLOR", originalNoColor)
+		}
+	}()
 
-	tests := []struct {
-		name     string
-		noColor  bool
-		envSet   bool
-		envValue string
-		want     string
-	}{
-		{name: "flag disables colors", noColor: true, want: "none"},
-		{name: "flag false with no env uses dark theme", noColor: false, want: "dark"},
-		{name: "NO_COLOR=1 disables colors", envSet: true, envValue: "1", want: "none"},
-		{name: "NO_COLOR empty value still disables colors", envSet: true, envValue: "", want: "none"},
-	}
+	t.Run("NO_COLOR set disables colors", func(t *testing.T) {
+		os.Setenv("NO_COLOR", "1")
+		InitTheme(false)
+		current := GetCurrentTheme()
+		if current.Name != "none" {
+			t.Errorf("InitTheme with NO_COLOR=1: got theme %q, want %q", current.Name, "none")
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			restore := withCleanState(t)
-			defer restore()
+	t.Run("NO_COLOR empty value still disables colors", func(t *testing.T) {
+		os.Setenv("NO_COLOR", "")
+		InitTheme(false)
+		current := GetCurrentTheme()
+		if current.Name != "none" {
+			t.Errorf("InitTheme with NO_COLOR='': got theme %q, want %q", current.Name, "none")
+		}
+	})
 
-			if tt.envSet {
-				os.Setenv("NO_COLOR", tt.envValue)
-			} else {
-				os.Unsetenv("NO_COLOR")
-			}
-
-			ui.InitTheme(tt.noColor)
-
-			if got := ui.GetCurrentTheme().Name; got != tt.want {
-				t.Errorf("InitTheme(%v) with NO_COLOR set=%v value=%q: theme = %q, want %q",
-					tt.noColor, tt.envSet, tt.envValue, got, tt.want)
-			}
-		})
-	}
+	t.Run("NO_COLOR not set uses dark theme", func(t *testing.T) {
+		os.Unsetenv("NO_COLOR")
+		InitTheme(false)
+		current := GetCurrentTheme()
+		if current.Name != "dark" {
+			t.Errorf("InitTheme without NO_COLOR: got theme %q, want %q", current.Name, "dark")
+		}
+	})
 }
 
-// colorFuncs pairs each CLI color helper with the Theme field it must
-// mirror, so TestColorFunctions can drive both over one table.
-var colorFuncs = []struct {
-	name  string
-	fn    func() string
-	field func(ui.Theme) string
-}{
-	{"ColorReset", ui.ColorReset, func(th ui.Theme) string { return th.Reset }},
-	{"ColorRed", ui.ColorRed, func(th ui.Theme) string { return th.Error }},
-	{"ColorGreen", ui.ColorGreen, func(th ui.Theme) string { return th.Success }},
-	{"ColorYellow", ui.ColorYellow, func(th ui.Theme) string { return th.Warning }},
-	{"ColorBlue", ui.ColorBlue, func(th ui.Theme) string { return th.Primary }},
-	{"ColorMagenta", ui.ColorMagenta, func(th ui.Theme) string { return th.Info }},
-	{"ColorCyan", ui.ColorCyan, func(th ui.Theme) string { return th.Secondary }},
-	{"ColorBold", ui.ColorBold, func(th ui.Theme) string { return th.Bold }},
-	{"ColorUnderline", ui.ColorUnderline, func(th ui.Theme) string { return th.Underline }},
+// TestThemeColors verifies that theme colors are properly defined.
+func TestThemeColors(t *testing.T) {
+	t.Run("DarkTheme has non-empty colors", func(t *testing.T) {
+		if DarkTheme.Primary == "" {
+			t.Error("DarkTheme.Primary should not be empty")
+		}
+		if DarkTheme.Success == "" {
+			t.Error("DarkTheme.Success should not be empty")
+		}
+		if DarkTheme.Error == "" {
+			t.Error("DarkTheme.Error should not be empty")
+		}
+		if DarkTheme.Reset == "" {
+			t.Error("DarkTheme.Reset should not be empty")
+		}
+	})
+
+	t.Run("NoColorTheme has all empty colors", func(t *testing.T) {
+		if NoColorTheme.Primary != "" {
+			t.Errorf("NoColorTheme.Primary should be empty, got %q", NoColorTheme.Primary)
+		}
+		if NoColorTheme.Success != "" {
+			t.Errorf("NoColorTheme.Success should be empty, got %q", NoColorTheme.Success)
+		}
+		if NoColorTheme.Error != "" {
+			t.Errorf("NoColorTheme.Error should be empty, got %q", NoColorTheme.Error)
+		}
+		if NoColorTheme.Reset != "" {
+			t.Errorf("NoColorTheme.Reset should be empty, got %q", NoColorTheme.Reset)
+		}
+	})
 }
 
+// TestColorFunctions verifies that color functions return current theme values.
 func TestColorFunctions(t *testing.T) {
-	t.Parallel()
+	// Save original theme to restore after test
+	originalTheme := GetCurrentTheme()
+	defer func() { SetCurrentTheme(originalTheme) }()
 
-	for _, theme := range []ui.Theme{ui.DarkTheme, ui.NoColorTheme} {
-		t.Run(theme.Name, func(t *testing.T) {
-			restore := withCleanState(t)
-			defer restore()
+	t.Run("Color functions with DarkTheme", func(t *testing.T) {
+		SetCurrentTheme(DarkTheme)
+		if ColorReset() != DarkTheme.Reset {
+			t.Errorf("ColorReset() = %q, want %q", ColorReset(), DarkTheme.Reset)
+		}
+		if ColorGreen() != DarkTheme.Success {
+			t.Errorf("ColorGreen() = %q, want %q", ColorGreen(), DarkTheme.Success)
+		}
+		if ColorRed() != DarkTheme.Error {
+			t.Errorf("ColorRed() = %q, want %q", ColorRed(), DarkTheme.Error)
+		}
+		if ColorYellow() != DarkTheme.Warning {
+			t.Errorf("ColorYellow() = %q, want %q", ColorYellow(), DarkTheme.Warning)
+		}
+		if ColorBlue() != DarkTheme.Primary {
+			t.Errorf("ColorBlue() = %q, want %q", ColorBlue(), DarkTheme.Primary)
+		}
+		if ColorMagenta() != DarkTheme.Info {
+			t.Errorf("ColorMagenta() = %q, want %q", ColorMagenta(), DarkTheme.Info)
+		}
+		if ColorCyan() != DarkTheme.Secondary {
+			t.Errorf("ColorCyan() = %q, want %q", ColorCyan(), DarkTheme.Secondary)
+		}
+		if ColorBold() != DarkTheme.Bold {
+			t.Errorf("ColorBold() = %q, want %q", ColorBold(), DarkTheme.Bold)
+		}
+		if ColorUnderline() != DarkTheme.Underline {
+			t.Errorf("ColorUnderline() = %q, want %q", ColorUnderline(), DarkTheme.Underline)
+		}
+	})
 
-			ui.SetCurrentTheme(theme)
-			for _, cf := range colorFuncs {
-				want := cf.field(theme)
-				if got := cf.fn(); got != want {
-					t.Errorf("%s() = %q, want %q", cf.name, got, want)
-				}
-			}
-		})
-	}
+	t.Run("Color functions with NoColorTheme", func(t *testing.T) {
+		SetCurrentTheme(NoColorTheme)
+		if ColorReset() != "" {
+			t.Errorf("ColorReset() with none theme should be empty, got %q", ColorReset())
+		}
+		if ColorGreen() != "" {
+			t.Errorf("ColorGreen() with none theme should be empty, got %q", ColorGreen())
+		}
+		if ColorRed() != "" {
+			t.Errorf("ColorRed() with none theme should be empty, got %q", ColorRed())
+		}
+		if ColorYellow() != "" {
+			t.Errorf("ColorYellow() with none theme should be empty, got %q", ColorYellow())
+		}
+		if ColorBlue() != "" {
+			t.Errorf("ColorBlue() with none theme should be empty, got %q", ColorBlue())
+		}
+		if ColorMagenta() != "" {
+			t.Errorf("ColorMagenta() with none theme should be empty, got %q", ColorMagenta())
+		}
+		if ColorCyan() != "" {
+			t.Errorf("ColorCyan() with none theme should be empty, got %q", ColorCyan())
+		}
+		if ColorBold() != "" {
+			t.Errorf("ColorBold() with none theme should be empty, got %q", ColorBold())
+		}
+		if ColorUnderline() != "" {
+			t.Errorf("ColorUnderline() with none theme should be empty, got %q", ColorUnderline())
+		}
+	})
 }
 
-func TestGetCurrentTUITheme(t *testing.T) {
-	t.Parallel()
+func TestGetCurrentTUITheme_HighContrastEnv(t *testing.T) {
+	orig := GetCurrentTheme()
+	t.Cleanup(func() { SetCurrentTheme(orig) })
 
-	tests := []struct {
-		name     string
-		theme    ui.Theme
-		envSet   bool
-		envValue string
-		want     ui.TUITheme
-	}{
-		{name: "no-color theme ignores env", theme: ui.NoColorTheme, want: ui.NoColorTUITheme},
-		{name: "dark theme with no env", theme: ui.DarkTheme, want: ui.DarkTUITheme},
-		{name: "dark theme with high-contrast env", theme: ui.DarkTheme, envSet: true, envValue: "high-contrast", want: ui.HighContrastTUITheme},
-		{name: "dark theme with highcontrast env (no dash)", theme: ui.DarkTheme, envSet: true, envValue: "highcontrast", want: ui.HighContrastTUITheme},
-		{name: "dark theme with unrelated env value", theme: ui.DarkTheme, envSet: true, envValue: "solarized", want: ui.DarkTUITheme},
+	SetCurrentTheme(DarkTheme)
+	t.Setenv("FIBCALC_TUI_THEME", "high-contrast")
+	ht := GetCurrentTUITheme()
+	if ht != HighContrastTUITheme {
+		t.Errorf("GetCurrentTUITheme() with FIBCALC_TUI_THEME=high-contrast: got %+v, want HighContrastTUITheme", ht)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			restore := withCleanState(t)
-			defer restore()
-
-			ui.SetCurrentTheme(tt.theme)
-			if tt.envSet {
-				os.Setenv("FIBCALC_TUI_THEME", tt.envValue)
-			} else {
-				os.Unsetenv("FIBCALC_TUI_THEME")
-			}
-
-			if got := ui.GetCurrentTUITheme(); got != tt.want {
-				t.Errorf("GetCurrentTUITheme() = %+v, want %+v", got, tt.want)
-			}
-		})
+	t.Setenv("FIBCALC_TUI_THEME", "")
+	if got := GetCurrentTUITheme(); got != DarkTUITheme {
+		t.Errorf("with empty FIBCALC_TUI_THEME: got %+v, want DarkTUITheme", got)
 	}
 }

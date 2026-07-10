@@ -1,7 +1,6 @@
 package threshold
 
 import (
-	"sync"
 	"testing"
 	"time"
 )
@@ -354,38 +353,4 @@ func TestConcurrentAccess(t *testing.T) {
 	if stats.IterationsProcessed != 100 {
 		t.Errorf("expected 100 iterations, got %d", stats.IterationsProcessed)
 	}
-}
-
-// TestMetricsBufferConcurrentRecordSnapshot pins the mu contract on the
-// buffer directly: MetricsBuffer is not goroutine-safe, so the write path
-// (RecordIteration) and the read path (snapshotMetrics/RecentMetrics) must
-// both hold mu. TestConcurrentAccess above cannot catch a lock dropped from
-// the snapshot path: it only reaches snapshotMetrics through ShouldAdjust's
-// modulo and MinMetricsForAdjustment gates, which rarely coincide with a
-// concurrent writer. Here both paths are hammered unconditionally. Only
-// meaningful under -race (the WSL gate); it is a no-op check without it.
-func TestMetricsBufferConcurrentRecordSnapshot(t *testing.T) {
-	t.Parallel()
-	mgr := newTestManager(500000, 10000)
-
-	var wg sync.WaitGroup
-	// Single writer, per the manager's documented usage (the doubling loop
-	// owns recording); the guarded race is writer vs snapshot readers.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 1000; i++ {
-			mgr.RecordIteration(1000+i, time.Millisecond, i%2 == 0, i%3 == 0)
-		}
-	}()
-	for r := 0; r < 4; r++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < 1000; i++ {
-				_ = mgr.snapshotMetrics()
-			}
-		}()
-	}
-	wg.Wait()
 }

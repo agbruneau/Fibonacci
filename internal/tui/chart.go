@@ -119,7 +119,13 @@ func (c ChartModel) renderProgressBar() string {
 		return ""
 	}
 
-	filled := min(max(int(c.averageProgress*float64(barWidth)), 0), barWidth)
+	filled := int(c.averageProgress * float64(barWidth))
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > barWidth {
+		filled = barWidth
+	}
 	empty := barWidth - filled
 
 	filledStr := chartBarStyle.Render(strings.Repeat("█", filled))

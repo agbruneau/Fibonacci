@@ -60,11 +60,17 @@ func (f FooterModel) View() string {
 		status = statusRunningStyle.Render("[>] Status: Running")
 	}
 
-	innerWidth := max(f.width-2, 0)
+	innerWidth := f.width - 2
+	if innerWidth < 0 {
+		innerWidth = 0
+	}
 
 	shortcutsWidth := lipgloss.Width(shortcuts)
 	statusWidth := lipgloss.Width(status)
-	gap := max(innerWidth-shortcutsWidth-statusWidth, 2)
+	gap := innerWidth - shortcutsWidth - statusWidth
+	if gap < 2 {
+		gap = 2
+	}
 
 	row := shortcuts + spaces(gap) + status
 

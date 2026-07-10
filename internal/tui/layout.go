@@ -37,7 +37,11 @@ func (l LayoutManager) isShort() bool {
 
 // bodyHeight returns the available height for the main body panels.
 func (l LayoutManager) bodyHeight() int {
-	return max(l.height-headerHeight-footerHeight, minBodyHeight)
+	h := l.height - headerHeight - footerHeight
+	if h < minBodyHeight {
+		h = minBodyHeight
+	}
+	return h
 }
 
 // logsWidth returns the width allocated to the logs panel.
@@ -72,8 +76,14 @@ func (l LayoutManager) baseMetricsHeight() int {
 // stacked right column in narrow mode).
 func (l LayoutManager) metricsHeight() int {
 	avail := l.rightColumnHeight()
-	h := min(l.baseMetricsHeight(), avail/2)
-	return max(h, 1)
+	h := l.baseMetricsHeight()
+	if h > avail/2 {
+		h = avail / 2
+	}
+	if h < 1 {
+		h = 1
+	}
+	return h
 }
 
 // metricsWidth returns the width allocated to the metrics panel.
@@ -83,7 +93,11 @@ func (l LayoutManager) metricsWidth() int {
 
 // chartHeight returns the height allocated to the chart panel.
 func (l LayoutManager) chartHeight() int {
-	return max(l.rightColumnHeight()-l.metricsHeight(), 1)
+	h := l.rightColumnHeight() - l.metricsHeight()
+	if h < 1 {
+		h = 1
+	}
+	return h
 }
 
 // rightColumnHeight returns the vertical space available for the metrics +
@@ -96,7 +110,12 @@ func (l LayoutManager) rightColumnHeight() int {
 	}
 	// Single-column: reserve roughly half the body for the stacked panels,
 	// floored at minBodyHeight/2 so neither panel collapses to zero.
-	return max(l.bodyHeight()/2, 2)
+	body := l.bodyHeight()
+	h := body / 2
+	if h < 2 {
+		h = 2
+	}
+	return h
 }
 
 // logsHeight returns the height allocated to the logs panel. In side-by-side
@@ -106,5 +125,9 @@ func (l LayoutManager) logsHeight() int {
 	if !l.isNarrow() {
 		return l.bodyHeight()
 	}
-	return max(l.bodyHeight()-l.rightColumnHeight(), minBodyHeight)
+	h := l.bodyHeight() - l.rightColumnHeight()
+	if h < minBodyHeight {
+		h = minBodyHeight
+	}
+	return h
 }

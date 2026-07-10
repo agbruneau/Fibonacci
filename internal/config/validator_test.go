@@ -1,21 +1,20 @@
-package config_test
+package config
 
 import (
 	"errors"
 	"strings"
 	"testing"
 
-	config "github.com/agbruneau/FibGo/internal/config"
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 func TestValidateMemoryBudget_NoLimit(t *testing.T) {
 	t.Parallel()
-	report, err := config.ValidateMemoryBudget(config.AppConfig{N: 1_000_000, MemoryLimit: ""})
+	report, err := ValidateMemoryBudget(AppConfig{N: 1_000_000, MemoryLimit: ""})
 	if err != nil {
 		t.Fatalf("expected nil error when no limit is set, got %v", err)
 	}
-	if report != (config.MemoryBudgetReport{}) {
+	if report != (MemoryBudgetReport{}) {
 		t.Errorf("expected zero-value report when no limit is set, got %+v", report)
 	}
 }
@@ -25,11 +24,11 @@ func TestValidateMemoryBudget_ParseError(t *testing.T) {
 	for _, raw := range []string{"abc", "12X", "??G"} {
 		t.Run(raw, func(t *testing.T) {
 			t.Parallel()
-			_, err := config.ValidateMemoryBudget(config.AppConfig{N: 1000, MemoryLimit: raw})
+			_, err := ValidateMemoryBudget(AppConfig{N: 1000, MemoryLimit: raw})
 			if err == nil {
 				t.Fatalf("expected parse error for limit %q, got nil", raw)
 			}
-			var perr config.MemoryLimitParseError
+			var perr MemoryLimitParseError
 			if !errors.As(err, &perr) {
 				t.Fatalf("expected MemoryLimitParseError, got %T: %v", err, err)
 			}
@@ -50,7 +49,7 @@ func TestValidateMemoryBudget_ParseError(t *testing.T) {
 func TestValidateMemoryBudget_ExceedsLimit(t *testing.T) {
 	t.Parallel()
 	const limitBytes = uint64(1 << 20) // "1M"
-	report, err := config.ValidateMemoryBudget(config.AppConfig{N: 10_000_000, MemoryLimit: "1M"})
+	report, err := ValidateMemoryBudget(AppConfig{N: 10_000_000, MemoryLimit: "1M"})
 	if err == nil {
 		t.Fatal("expected MemoryError for F(10M) under a 1M budget, got nil")
 	}
@@ -76,7 +75,7 @@ func TestValidateMemoryBudget_ExceedsLimit(t *testing.T) {
 func TestValidateMemoryBudget_Fits(t *testing.T) {
 	t.Parallel()
 	const limitBytes = uint64(1 << 30) // "1G"
-	report, err := config.ValidateMemoryBudget(config.AppConfig{N: 1000, MemoryLimit: "1G"})
+	report, err := ValidateMemoryBudget(AppConfig{N: 1000, MemoryLimit: "1G"})
 	if err != nil {
 		t.Fatalf("expected nil error for F(1000) under a 1G budget, got %v", err)
 	}

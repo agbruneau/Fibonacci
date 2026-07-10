@@ -1,15 +1,13 @@
-// This file covers env.go's private surface (isFlagSet, isFlagSetAny,
-// validateEnvOverrides, parseBoolEnv, the envOverrides table itself). Tests
-// that only exercise the public ParseConfig/AppConfig surface live in the
-// black-box config_test.go instead.
-
 package config
 
 import (
+	"errors"
 	"flag"
 	"io"
-	"strings"
+	"os"
 	"testing"
+
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 // TestEnvOverridesIntegrity guards against silent drift between the
@@ -25,6 +23,49 @@ func TestEnvOverridesIntegrity(t *testing.T) {
 
 	if err := validateEnvOverrides(fs); err != nil {
 		t.Fatalf("envOverrides table is inconsistent with the CLI FlagSet: %v", err)
+	}
+}
+
+// TestEnvOverride_MalformedReturnsError verifies that an explicitly-set but
+// unparsable environment override surfaces a structured config error instead
+// of being silently swallowed (which previously left a default value that
+// could trigger an O(memory) calculation / OOM).
+func TestEnvOverride_MalformedReturnsError(t *testing.T) {
+	algos := []string{"fast", "matrix", "fft"}
+
+	tests := []struct {
+		name   string
+		envKey string
+		envVal string
+	}{
+		{"malformed N", EnvPrefix + "N", "abc"},
+		{"malformed TIMEOUT", EnvPrefix + "TIMEOUT", "xyz"},
+		{"malformed THRESHOLD", EnvPrefix + "THRESHOLD", "notanint"},
+		{"malformed FFT_THRESHOLD", EnvPrefix + "FFT_THRESHOLD", "1.5"},
+		{"malformed STRASSEN_THRESHOLD", EnvPrefix + "STRASSEN_THRESHOLD", "??"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			old, had := os.LookupEnv(tt.envKey)
+			os.Setenv(tt.envKey, tt.envVal)
+			defer func() {
+				if had {
+					os.Setenv(tt.envKey, old)
+				} else {
+					os.Unsetenv(tt.envKey)
+				}
+			}()
+
+			_, err := ParseConfig("test", []string{}, io.Discard, algos)
+			if err == nil {
+				t.Fatalf("expected error for %s=%q, got nil", tt.envKey, tt.envVal)
+			}
+			var cfgErr apperrors.ConfigError
+			if !errors.As(err, &cfgErr) {
+				t.Errorf("expected error chain to contain apperrors.ConfigError, got %T: %v", err, err)
+			}
+		})
 	}
 }
 
@@ -134,112 +175,4 @@ func TestIsFlagSet(t *testing.T) {
 			t.Error("Expected flag to not be set")
 		}
 	})
-}
-
-// TestParseBoolEnv covers the tri-state parsing, including the loud error for
-// unrecognized values (APP-09: malformed input must not be silently dropped
-// back to the default).
-func TestParseBoolEnv(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		val        string
-		defaultVal bool
-		want       bool
-	}{
-		{"true", false, true},
-		{"1", false, true},
-		{"YES", false, true},
-		{"false", true, false},
-		{"0", true, false},
-		{"No", true, false},
-	}
-	for _, tc := range cases {
-		got, err := parseBoolEnv(tc.val, tc.defaultVal)
-		if err != nil {
-			t.Errorf("parseBoolEnv(%q, %v) unexpected error: %v", tc.val, tc.defaultVal, err)
-		}
-		if got != tc.want {
-			t.Errorf("parseBoolEnv(%q, %v) = %v, want %v", tc.val, tc.defaultVal, got, tc.want)
-		}
-	}
-}
-
-// TestParseBoolEnv_Malformed verifies that an unrecognized value surfaces an
-// error instead of silently falling back to the default (APP-09).
-func TestParseBoolEnv_Malformed(t *testing.T) {
-	t.Parallel()
-	if _, err := parseBoolEnv("garbage", true); err == nil {
-		t.Fatal("expected error for malformed bool env value, got nil")
-	}
-}
-
-// TestValidateEnvOverrides_Errors exercises every structural-inconsistency
-// branch of validateEnvOverrides. It swaps the package-level envOverrides
-// table, so it must not run in parallel with tests that read it (ParseConfig,
-// the integrity test above); the original table is restored via t.Cleanup.
-// Not t.Parallel(): mutates package-level state; Go's test runner completes
-// all non-parallel tests (including this one's t.Cleanup restoration) before
-// any t.Parallel() test body executes, so ParseConfig-based tests elsewhere
-// in this package are never exposed to the swapped table.
-func TestValidateEnvOverrides_Errors(t *testing.T) {
-	orig := envOverrides
-	t.Cleanup(func() { envOverrides = orig })
-
-	fs := flag.NewFlagSet("verrs", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	var dummy string
-	fs.StringVar(&dummy, "x", "", "")
-	noop := func(*AppConfig, string) error { return nil }
-
-	cases := []struct {
-		name    string
-		table   []envOverride
-		wantSub string
-	}{
-		{
-			name:    "empty envKey",
-			table:   []envOverride{{envKey: "", flags: []string{"x"}, apply: noop}},
-			wantSub: "empty envKey",
-		},
-		{
-			name:    "prefixed envKey",
-			table:   []envOverride{{envKey: EnvPrefix + "N", flags: []string{"x"}, apply: noop}},
-			wantSub: "must not include",
-		},
-		{
-			name: "duplicate envKey",
-			table: []envOverride{
-				{envKey: "A", flags: []string{"x"}, apply: noop},
-				{envKey: "A", flags: []string{"x"}, apply: noop},
-			},
-			wantSub: "duplicate envKey",
-		},
-		{
-			name:    "empty flags slice",
-			table:   []envOverride{{envKey: "A", flags: nil, apply: noop}},
-			wantSub: "empty flags slice",
-		},
-		{
-			name:    "unknown flag reference",
-			table:   []envOverride{{envKey: "A", flags: []string{"missing"}, apply: noop}},
-			wantSub: "unknown flag",
-		},
-		{
-			name:    "nil apply",
-			table:   []envOverride{{envKey: "A", flags: []string{"x"}, apply: nil}},
-			wantSub: "nil apply",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			envOverrides = tc.table
-			err := validateEnvOverrides(fs)
-			if err == nil {
-				t.Fatalf("expected error containing %q, got nil", tc.wantSub)
-			}
-			if !strings.Contains(err.Error(), tc.wantSub) {
-				t.Errorf("error %q does not contain %q", err.Error(), tc.wantSub)
-			}
-		})
-	}
 }

@@ -182,16 +182,7 @@ func TestStateBump_FollowsArenaDrop(t *testing.T) {
 	}
 	s.arenaCapWords = maxArenaPoolWords + 1 // force the anti-bloat drop branch
 	s.bump = bigfft.AcquireBumpAllocator(64)
-	// finalizeStateReleaseTo with a no-op sink, not ReleaseState: s is a
-	// local object here, never issued by statePool. This state is not
-	// overLimit (only arenaCapWords is forced, not the big.Ints), so
-	// ReleaseState's real statePool.Put(s) would hand s to any other
-	// parallel test's concurrent AcquireStateForN -- a genuine data race
-	// with the field reads below, caught by -race (2026-07-10). The no-op
-	// sink exercises the identical teardown path (checkLimit,
-	// clearStateAliases, arena reset/drop, bump release) without
-	// re-entering the shared pool.
-	finalizeStateReleaseTo(s, func(*CalculationState) {})
+	ReleaseState(s)
 	if s.arena != nil {
 		t.Error("oversized arena must be dropped")
 	}

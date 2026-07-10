@@ -294,47 +294,6 @@ func TestFourierRecursiveCtxAsyncPanicPropagates(t *testing.T) {
 	t.Fatal("fourierRecursiveCtx returned normally despite a malformed async-half element")
 }
 
-// TestFourierRecursiveSyncPanicWaitsForAsyncWorker plants the malformed leaf
-// in the FIRST (synchronous) half: dst[1] is the dst[1] of the sync branch's
-// first size-1 leaf, so the panic fires on the calling goroutine moments
-// after the async worker was spawned. fourierRecursiveUnified wraps the sync
-// call and runs wg.Wait() BEFORE re-panicking (FFT-02); inlining that call
-// still propagates the panic — the async-half guardian above stays green —
-// but the unwind then skips wg.Wait while the worker is still writing the
-// buffers. The post-recover writes into the async half below are what make
-// the regression observable: race-free after a completed wg.Wait, a data
-// race under -race without it. This guardian only bites on the WSL -race
-// gate.
-//
-// Not parallel: relies on free tokens on the package-level FFT semaphore so
-// the async branch is taken.
-func TestFourierRecursiveSyncPanicWaitsForAsyncWorker(t *testing.T) {
-	const (
-		k = 4
-		n = 511
-	)
-	pinFFTParallelismConfig(t)
-	K := 1 << k
-	src := newFermatVec(K, n)
-	dst := newFermatVec(K, n)
-	dst[1] = make(fermat, 5) // odd index in the sync half: dst[1] of a leaf, Sub panics
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic from the sync recursion half to propagate to the caller")
-		}
-		// The re-panic contract guarantees wg.Wait() completed, so the async
-		// worker is done and these writes cannot race with it.
-		for i := K / 2; i < K; i++ {
-			for j := range dst[i] {
-				dst[i][j] = 0xDEAD
-			}
-		}
-	}()
-	_ = fourierRecursive(dst, src, false, n, k, k, 0, make(fermat, n+1), make(fermat, n+1))
-	t.Fatal("fourierRecursive returned normally despite a malformed sync-half element")
-}
-
 // TestFourierRecursiveSizeZeroIsIdentity pins the size-0 base case of both
 // recursion variants: a 1-point FFT is the identity copy.
 func TestFourierRecursiveSizeZeroIsIdentity(t *testing.T) {

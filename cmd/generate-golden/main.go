@@ -82,7 +82,7 @@ func run() (err error) {
 		50_000, 100_000, 200_000,
 	}
 
-	data := make([]GoldenData, 0, len(targets))
+	var data []GoldenData
 
 	fmt.Println("Generating golden data...")
 

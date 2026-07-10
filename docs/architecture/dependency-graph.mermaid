@@ -34,7 +34,9 @@ flowchart LR
         errors["internal/errors"]
         format["internal/format"]
         metrics["internal/metrics"]
+        parallel["internal/parallel"]
         progress["internal/progress"]
+        sysmon["internal/metrics/system"]
         ui["internal/ui"]
         testutil["internal/testutil"]
     end
@@ -53,6 +55,7 @@ flowchart LR
     orch --> errors
     orch --> progress
     orch --> fibmem
+    orch --> format
 
     calib --> fib
     calib --> bigfft
@@ -63,6 +66,7 @@ flowchart LR
     calib --> progress
 
     fib --> bigfft
+    fib --> parallel
     fib --> progress
     fib --> fibmem
     fib --> fibthr
@@ -78,6 +82,7 @@ flowchart LR
 
     tui --> format
     tui --> metrics
+    tui --> sysmon
     tui --> ui
     tui --> errors
     tui --> config

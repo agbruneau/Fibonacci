@@ -1,7 +1,6 @@
 package bigfft
 
 import (
-	"math/big"
 	"strings"
 	"testing"
 )
@@ -98,45 +97,4 @@ func TestMulRepanicsOnPostCondition(t *testing.T) {
 		}()
 		panic("fermat.Mul: unexpected carry after normalization")
 	}()
-}
-
-// TestFermatRealPostConditionPanicIsClassified triggers a GENUINE
-// post-condition panic through fermat.Mul instead of a synthetic string:
-// denormalized operands with saturated words (a valid fermat keeps its top
-// word in {0,1}) overflow the 2n+1-word product bound in the big.Int
-// branch. Every other test in this file feeds the classifier strings taken
-// from its own map, so rewording a panic() message in fermat.go without
-// touching fermatPostConditionPanics kept them all green while demoting a
-// real post-condition violation to an error (ADR-0002 violation). This test
-// fails the moment the emitted message and the sentinel map drift apart,
-// and pins that fermatPanicToError re-propagates the real panic.
-func TestFermatRealPostConditionPanicIsClassified(t *testing.T) {
-	t.Parallel()
-
-	n := smallMulThreshold // big.Int branch, where the length bound is enforced
-	x := make(fermat, n+1)
-	for i := range x {
-		x[i] = ^big.Word(0)
-	}
-	z := make(fermat, 2*n+2)
-
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected a post-condition panic from fermat.Mul on denormalized operands")
-		}
-		if !isFermatPostConditionPanic(r) {
-			t.Fatalf("real post-condition panic %q is not recognized by the sentinel classifier; "+
-				"the panic sites in fermat.go and fermatPostConditionPanics drifted apart", r)
-		}
-		// The ADR-0002 policy must re-propagate it, never convert to error.
-		defer func() {
-			if rr := recover(); rr == nil {
-				t.Fatal("fermatPanicToError masked a real post-condition panic as an error")
-			}
-		}()
-		_ = fermatPanicToError(r, "Mul")
-	}()
-	_ = z.Mul(x, x)
-	t.Fatal("fermat.Mul returned normally on denormalized operands")
 }

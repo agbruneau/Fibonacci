@@ -1,49 +1,76 @@
-package tui_test
+package tui
 
 import (
 	"strings"
 	"testing"
-
-	"github.com/agbruneau/FibGo/internal/tui"
 )
 
-func TestFooterModel_View_Status(t *testing.T) {
+func TestFooterModel_View_Running(t *testing.T) {
 	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(80)
 
-	tests := []struct {
-		name         string
-		paused       bool
-		done         bool
-		hasErr       bool
-		wantContains string
-	}{
-		{"Running by default", false, false, false, "Running"},
-		{"Paused", true, false, false, "Paused"},
-		{"Done", false, true, false, "Done"},
-		{"Error takes precedence over Done", false, true, true, "Error"},
-		{"Error takes precedence over Done and Paused", true, true, true, "Error"},
+	view := f.View()
+	if !strings.Contains(view, "Running") {
+		t.Error("expected footer to show 'Running' status by default")
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			f := tui.NewFooterModel()
-			f.SetWidth(80)
-			f.SetPaused(tt.paused)
-			f.SetDone(tt.done)
-			f.SetError(tt.hasErr)
+func TestFooterModel_View_Paused(t *testing.T) {
+	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(80)
+	f.SetPaused(true)
 
-			view := f.View()
-			if !strings.Contains(view, tt.wantContains) {
-				t.Errorf("expected footer to show %q status, got %q", tt.wantContains, view)
-			}
-		})
+	view := f.View()
+	if !strings.Contains(view, "Paused") {
+		t.Error("expected footer to show 'Paused' status")
+	}
+}
+
+func TestFooterModel_View_Done(t *testing.T) {
+	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(80)
+	f.SetDone(true)
+
+	view := f.View()
+	if !strings.Contains(view, "Done") {
+		t.Error("expected footer to show 'Done' status")
+	}
+}
+
+func TestFooterModel_View_Error(t *testing.T) {
+	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(80)
+	f.SetError(true)
+	f.SetDone(true)
+
+	view := f.View()
+	if !strings.Contains(view, "Error") {
+		t.Error("expected footer to show 'Error' status")
+	}
+}
+
+func TestFooterModel_View_ErrorPrecedence(t *testing.T) {
+	t.Parallel()
+	// Error should take precedence over Done and Paused
+	f := NewFooterModel()
+	f.SetWidth(80)
+	f.SetError(true)
+	f.SetDone(true)
+	f.SetPaused(true)
+
+	view := f.View()
+	if !strings.Contains(view, "Error") {
+		t.Error("expected 'Error' to take precedence")
 	}
 }
 
 func TestFooterModel_View_Shortcuts(t *testing.T) {
 	t.Parallel()
-	f := tui.NewFooterModel()
+	f := NewFooterModel()
 	f.SetWidth(120)
 
 	view := f.View()
@@ -58,29 +85,38 @@ func TestFooterModel_View_Shortcuts(t *testing.T) {
 	}
 }
 
-func TestFooterModel_View_EdgeWidths(t *testing.T) {
+func TestFooterModel_View_NarrowWidth(t *testing.T) {
 	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(5)
 
-	tests := []struct {
-		name  string
-		width int
-	}{
-		{"Narrow width", 5},
-		{"Negative width", -1},
-		{"Zero width", 0},
+	// Should not panic
+	view := f.View()
+	if len(view) == 0 {
+		t.Error("expected non-empty view even with narrow width")
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			f := tui.NewFooterModel()
-			f.SetWidth(tt.width)
+func TestFooterModel_SetWidth_Negative(t *testing.T) {
+	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(-1)
 
-			// Should not panic.
-			view := f.View()
-			if len(view) == 0 {
-				t.Errorf("expected non-empty view for width %d", tt.width)
-			}
-		})
+	// Should not panic
+	view := f.View()
+	if len(view) == 0 {
+		t.Error("expected non-empty view even with negative width")
+	}
+}
+
+func TestFooterModel_SetWidth_Zero(t *testing.T) {
+	t.Parallel()
+	f := NewFooterModel()
+	f.SetWidth(0)
+
+	// Should not panic
+	view := f.View()
+	if len(view) == 0 {
+		t.Error("expected non-empty view even with zero width")
 	}
 }

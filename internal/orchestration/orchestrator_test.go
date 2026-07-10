@@ -1,4 +1,4 @@
-package orchestration_test
+package orchestration
 
 import (
 	"context"
@@ -11,16 +11,14 @@ import (
 
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
-	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // MockResultPresenter is a mock implementation of ResultPresenter for testing.
 type MockResultPresenter struct{}
 
-func (MockResultPresenter) PresentComparisonTable(results []orchestration.CalculationResult, out io.Writer) {
-}
-func (MockResultPresenter) PresentResult(result orchestration.CalculationResult, n uint64, verbose, details, showValue bool, out io.Writer) {
+func (MockResultPresenter) PresentComparisonTable(results []CalculationResult, out io.Writer) {}
+func (MockResultPresenter) PresentResult(result CalculationResult, n uint64, verbose, details, showValue bool, out io.Writer) {
 }
 func (MockResultPresenter) HandleError(err error, duration time.Duration, out io.Writer) int {
 	return apperrors.ExitErrorGeneric
@@ -44,7 +42,7 @@ func (nilSuccessErrorHandler) HandleError(err error, _ time.Duration, _ io.Write
 // function must still report failure rather than delegate nil to HandleError.
 func TestAnalyzeComparisonResults_EmptyResultsNeverSucceeds(t *testing.T) {
 	t.Parallel()
-	got := orchestration.AnalyzeComparisonResults(nil, orchestration.PresentationOptions{N: 10}, MockResultPresenter{}, nilSuccessErrorHandler{}, io.Discard)
+	got := AnalyzeComparisonResults(nil, PresentationOptions{N: 10}, MockResultPresenter{}, nilSuccessErrorHandler{}, io.Discard)
 	if got == apperrors.ExitSuccess {
 		t.Fatalf("empty results must never return success, got %d", got)
 	}
@@ -118,11 +116,11 @@ func TestExecuteCalculations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			results := orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
+			results := ExecuteCalculations(context.Background(), ExecutionConfig{
 				Calculators:      tt.calculators,
 				N:                0,
 				Opts:             fibonacci.Options{},
-				ProgressReporter: orchestration.NullProgressReporter{},
+				ProgressReporter: NullProgressReporter{},
 				Out:              &DiscardWriter{},
 			})
 			if len(results) != tt.expectedLen {
@@ -148,12 +146,12 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name           string
-		results        []orchestration.CalculationResult
+		results        []CalculationResult
 		expectedStatus int
 	}{
 		{
 			name: "All success",
-			results: []orchestration.CalculationResult{
+			results: []CalculationResult{
 				{Name: "A", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
 				{Name: "B", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
 			},
@@ -161,7 +159,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 		},
 		{
 			name: "Mismatch",
-			results: []orchestration.CalculationResult{
+			results: []CalculationResult{
 				{Name: "A", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
 				{Name: "B", Result: big.NewInt(6), Duration: time.Millisecond, Err: nil},
 			},
@@ -169,7 +167,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 		},
 		{
 			name: "All failure",
-			results: []orchestration.CalculationResult{
+			results: []CalculationResult{
 				{Name: "A", Result: nil, Duration: time.Millisecond, Err: errors.New("fail")},
 				{Name: "B", Result: nil, Duration: time.Millisecond, Err: errors.New("fail")},
 			},
@@ -177,7 +175,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 		},
 		{
 			name: "Mixed success/failure",
-			results: []orchestration.CalculationResult{
+			results: []CalculationResult{
 				{Name: "A", Result: big.NewInt(5), Duration: time.Millisecond, Err: nil},
 				{Name: "B", Result: nil, Duration: time.Millisecond, Err: errors.New("fail")},
 			},
@@ -188,7 +186,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			status := orchestration.AnalyzeComparisonResults(tt.results, orchestration.PresentationOptions{}, MockResultPresenter{}, MockResultPresenter{}, &DiscardWriter{})
+			status := AnalyzeComparisonResults(tt.results, PresentationOptions{}, MockResultPresenter{}, MockResultPresenter{}, &DiscardWriter{})
 			if status != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, status)
 			}
@@ -221,11 +219,11 @@ func TestExecuteCalculations_MultiSuccess(t *testing.T) {
 			},
 		},
 	}
-	results := orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
 		Calculators:      calcs,
 		N:                10,
 		Opts:             fibonacci.Options{},
-		ProgressReporter: orchestration.NullProgressReporter{},
+		ProgressReporter: NullProgressReporter{},
 		Out:              &DiscardWriter{},
 	})
 	if len(results) != 2 {
@@ -273,11 +271,11 @@ func TestExecuteCalculations_PartialFailure(t *testing.T) {
 			},
 		},
 	}
-	results := orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
 		Calculators:      calcs,
 		N:                10,
 		Opts:             fibonacci.Options{},
-		ProgressReporter: orchestration.NullProgressReporter{},
+		ProgressReporter: NullProgressReporter{},
 		Out:              &DiscardWriter{},
 	})
 	if len(results) != 2 {
@@ -297,15 +295,15 @@ func TestExecuteCalculations_PartialFailure(t *testing.T) {
 // capturingPresenter records what the orchestrator hands to the presentation
 // layer so tests can assert on ordering and winner selection.
 type capturingPresenter struct {
-	table     []orchestration.CalculationResult
-	presented []orchestration.CalculationResult
+	table     []CalculationResult
+	presented []CalculationResult
 }
 
-func (c *capturingPresenter) PresentComparisonTable(results []orchestration.CalculationResult, _ io.Writer) {
-	c.table = append([]orchestration.CalculationResult(nil), results...)
+func (c *capturingPresenter) PresentComparisonTable(results []CalculationResult, _ io.Writer) {
+	c.table = append([]CalculationResult(nil), results...)
 }
 
-func (c *capturingPresenter) PresentResult(result orchestration.CalculationResult, _ uint64, _, _, _ bool, _ io.Writer) {
+func (c *capturingPresenter) PresentResult(result CalculationResult, _ uint64, _, _, _ bool, _ io.Writer) {
 	c.presented = append(c.presented, result)
 }
 
@@ -333,11 +331,11 @@ func TestExecuteCalculations_WrapsErrorWithCalculationContext(t *testing.T) {
 		},
 	}
 
-	results := orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
+	results := ExecuteCalculations(context.Background(), ExecutionConfig{
 		Calculators:      []fibonacci.Calculator{calc},
 		N:                42,
 		Opts:             fibonacci.Options{ParallelThreshold: 7, FFTThreshold: 9, StrassenThreshold: 11},
-		ProgressReporter: orchestration.NullProgressReporter{},
+		ProgressReporter: NullProgressReporter{},
 		Out:              io.Discard,
 	})
 
@@ -386,15 +384,15 @@ func TestExecuteCalculations_ErrgroupCancelsSiblings(t *testing.T) {
 		},
 	}
 
-	var results []orchestration.CalculationResult
+	var results []CalculationResult
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		results = orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
+		results = ExecuteCalculations(context.Background(), ExecutionConfig{
 			Calculators:      calcs,
 			N:                10,
 			Opts:             fibonacci.Options{},
-			ProgressReporter: orchestration.NullProgressReporter{},
+			ProgressReporter: NullProgressReporter{},
 			Out:              io.Discard,
 		})
 	}()
@@ -424,7 +422,7 @@ func TestExecuteCalculations_ProgressReporterFuncReceivesUpdates(t *testing.T) {
 		gotNum int
 		gotOut io.Writer
 	)
-	reporter := orchestration.ProgressReporterFunc(func(wg *sync.WaitGroup, ch <-chan progress.ProgressUpdate, numCalculators int, out io.Writer) {
+	reporter := ProgressReporterFunc(func(wg *sync.WaitGroup, ch <-chan progress.ProgressUpdate, numCalculators int, out io.Writer) {
 		defer wg.Done()
 		gotNum = numCalculators
 		gotOut = out
@@ -441,7 +439,7 @@ func TestExecuteCalculations_ProgressReporterFuncReceivesUpdates(t *testing.T) {
 		},
 	}
 
-	orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
+	ExecuteCalculations(context.Background(), ExecutionConfig{
 		Calculators:      []fibonacci.Calculator{calc},
 		N:                1,
 		Opts:             fibonacci.Options{},
@@ -473,14 +471,14 @@ func TestExecuteCalculations_ProgressReporterFuncReceivesUpdates(t *testing.T) {
 // the fastest successful result is the one handed to PresentResult.
 func TestAnalyzeComparisonResults_SortsAndPresentsFastestSuccess(t *testing.T) {
 	t.Parallel()
-	results := []orchestration.CalculationResult{
+	results := []CalculationResult{
 		{Name: "SlowOK", Result: big.NewInt(5), Duration: 30 * time.Millisecond},
 		{Name: "FailedFast", Result: nil, Duration: time.Millisecond, Err: errors.New("x")},
 		{Name: "FastOK", Result: big.NewInt(5), Duration: 10 * time.Millisecond},
 	}
 	pres := &capturingPresenter{}
 
-	status := orchestration.AnalyzeComparisonResults(results, orchestration.PresentationOptions{N: 7}, pres, &capturingErrorHandler{}, &DiscardWriter{})
+	status := AnalyzeComparisonResults(results, PresentationOptions{N: 7}, pres, &capturingErrorHandler{}, &DiscardWriter{})
 
 	if status != apperrors.ExitSuccess {
 		t.Fatalf("status = %d, want %d", status, apperrors.ExitSuccess)
@@ -508,14 +506,14 @@ func TestAnalyzeComparisonResults_AllFailureDelegatesFirstError(t *testing.T) {
 	t.Parallel()
 	errA := errors.New("err-A")
 	errB := errors.New("err-B")
-	results := []orchestration.CalculationResult{
+	results := []CalculationResult{
 		{Name: "B", Err: errB, Duration: 20 * time.Millisecond},
 		{Name: "A", Err: errA, Duration: 10 * time.Millisecond},
 	}
 	pres := &capturingPresenter{}
 	handler := &capturingErrorHandler{code: 42}
 
-	status := orchestration.AnalyzeComparisonResults(results, orchestration.PresentationOptions{}, pres, handler, &DiscardWriter{})
+	status := AnalyzeComparisonResults(results, PresentationOptions{}, pres, handler, &DiscardWriter{})
 
 	if status != 42 {
 		t.Errorf("status = %d, want the error handler's code 42", status)
@@ -532,7 +530,7 @@ func TestAnalyzeComparisonResults_AllFailureDelegatesFirstError(t *testing.T) {
 }
 
 // firstName returns the first result name or a placeholder for error messages.
-func firstName(results []orchestration.CalculationResult) string {
+func firstName(results []CalculationResult) string {
 	if len(results) == 0 {
 		return "<empty>"
 	}
@@ -573,11 +571,11 @@ func TestExecuteCalculations_ContextCancellation(t *testing.T) {
 		cancel()
 	}()
 
-	results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
+	results := ExecuteCalculations(ctx, ExecutionConfig{
 		Calculators:      calcs,
 		N:                10,
 		Opts:             fibonacci.Options{},
-		ProgressReporter: orchestration.NullProgressReporter{},
+		ProgressReporter: NullProgressReporter{},
 		Out:              &DiscardWriter{},
 	})
 	if len(results) != 2 {

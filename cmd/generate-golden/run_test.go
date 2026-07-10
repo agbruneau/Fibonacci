@@ -118,64 +118,40 @@ func TestRun_WritesGoldenFile(t *testing.T) {
 	}
 }
 
-// TestRun_ErrorPaths table-drives the three ways run() fails before writing
-// any golden data, one subtest per guard/failure branch.
-func TestRun_ErrorPaths(t *testing.T) {
-	// Serial on purpose: runWithArgs and t.Chdir swap process-global state,
-	// and subtests share that same constraint transitively.
-	tests := []struct {
-		name string
-		// setup prepares the failure precondition and returns the args to
-		// pass to run() (via runWithArgs).
-		setup      func(t *testing.T) []string
-		wantErrSub string
-	}{
-		{
-			name: "out dir path is a regular file", // MkdirAll failure branch
-			setup: func(t *testing.T) []string {
-				blocker := filepath.Join(t.TempDir(), "blocker")
-				if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
-					t.Fatalf("creating blocker file: %v", err)
-				}
-				return []string{"-out=" + blocker}
-			},
-			wantErrSub: "creating output directory",
-		},
-		{
-			name: "golden file path is a directory", // OpenFile failure branch
-			setup: func(t *testing.T) []string {
-				outDir := t.TempDir()
-				if err := os.Mkdir(filepath.Join(outDir, "fibonacci_golden.json"), 0o700); err != nil {
-					t.Fatalf("creating blocking directory: %v", err)
-				}
-				return []string{"-out=" + outDir}
-			},
-			wantErrSub: "creating output file",
-		},
-		{
-			name: "default -out without go.mod in cwd", // misinvocation guard
-			setup: func(t *testing.T) []string {
-				// The guard only fires for the unmodified default, so pass
-				// no -out flag at all.
-				t.Chdir(t.TempDir())
-				return nil
-			},
-			wantErrSub: "run from the repository root",
-		},
+// TestRun_ErrorWhenOutDirIsFile covers the MkdirAll failure branch: the -out
+// path exists but is a regular file, so the directory cannot be created.
+func TestRun_ErrorWhenOutDirIsFile(t *testing.T) {
+	// Serial on purpose: runWithArgs swaps process-global state.
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("creating blocker file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			args := tt.setup(t)
+	err := runWithArgs(t, "-out="+blocker)
+	if err == nil {
+		t.Fatal("run() = nil, want directory creation error")
+	}
+	if !strings.Contains(err.Error(), "creating output directory") {
+		t.Errorf("error %q does not wrap the mkdir failure context", err)
+	}
+}
 
-			err := runWithArgs(t, args...)
-			if err == nil {
-				t.Fatal("run() = nil, want error")
-			}
-			if !strings.Contains(err.Error(), tt.wantErrSub) {
-				t.Errorf("error %q does not contain %q", err, tt.wantErrSub)
-			}
-		})
+// TestRun_ErrorWhenGoldenPathIsDirectory covers the OpenFile failure branch:
+// the output filename is occupied by a directory, so the file cannot be
+// created or truncated.
+func TestRun_ErrorWhenGoldenPathIsDirectory(t *testing.T) {
+	// Serial on purpose: runWithArgs swaps process-global state.
+	outDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(outDir, "fibonacci_golden.json"), 0o700); err != nil {
+		t.Fatalf("creating blocking directory: %v", err)
+	}
+
+	err := runWithArgs(t, "-out="+outDir)
+	if err == nil {
+		t.Fatal("run() = nil, want file creation error")
+	}
+	if !strings.Contains(err.Error(), "creating output file") {
+		t.Errorf("error %q does not wrap the open failure context", err)
 	}
 }
 

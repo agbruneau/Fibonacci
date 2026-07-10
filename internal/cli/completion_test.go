@@ -1,12 +1,9 @@
-package cli_test
+package cli
 
 import (
 	"bytes"
-	"io"
 	"strings"
 	"testing"
-
-	"github.com/agbruneau/FibGo/internal/cli"
 )
 
 func TestGenerateCompletion(t *testing.T) {
@@ -43,8 +40,8 @@ func TestGenerateCompletion(t *testing.T) {
 				if !strings.Contains(output, "Zsh completion script") {
 					t.Error("Zsh script should contain 'Zsh completion script'")
 				}
-				// Algorithm names are individually single-quoted in the zsh
-				// array literal (Audit-PRD E5 hardening). Each name must
+				// Algorithm names are now individually single-quoted in the
+				// zsh array literal (Audit-PRD E5 hardening). Each name must
 				// appear quoted.
 				for _, name := range []string{"'fast'", "'matrix'", "'fft'", "'all'"} {
 					if !strings.Contains(output, name) {
@@ -104,6 +101,9 @@ func TestGenerateCompletion(t *testing.T) {
 			name:      "Unsupported shell",
 			shell:     "unsupported",
 			expectErr: true,
+			checkFunc: func(t *testing.T, output string) {
+				// No output expected for error case
+			},
 		},
 	}
 
@@ -111,7 +111,7 @@ func TestGenerateCompletion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
-			err := cli.GenerateCompletion(&buf, tc.shell, algorithms)
+			err := GenerateCompletion(&buf, tc.shell, algorithms)
 
 			if tc.expectErr {
 				if err == nil {
@@ -120,17 +120,17 @@ func TestGenerateCompletion(t *testing.T) {
 				if !strings.Contains(err.Error(), "unsupported shell") {
 					t.Errorf("Error message should mention 'unsupported shell', got: %v", err)
 				}
-				return
-			}
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-			output := buf.String()
-			if output == "" {
-				t.Error("Output should not be empty")
-			}
-			if tc.checkFunc != nil {
-				tc.checkFunc(t, output)
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				output := buf.String()
+				if output == "" {
+					t.Error("Output should not be empty")
+				}
+				if tc.checkFunc != nil {
+					tc.checkFunc(t, output)
+				}
 			}
 		})
 	}
@@ -139,7 +139,7 @@ func TestGenerateCompletion(t *testing.T) {
 func TestGenerateCompletion_EmptyAlgorithms(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
-	err := cli.GenerateCompletion(&buf, "bash", []string{})
+	err := GenerateCompletion(&buf, "bash", []string{})
 	if err != nil {
 		t.Errorf("Should not error with empty algorithms: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestGenerateCompletion_MultipleAlgorithms(t *testing.T) {
 	t.Parallel()
 	algorithms := []string{"fast", "matrix", "fft", "strassen", "optimized"}
 	var buf bytes.Buffer
-	err := cli.GenerateCompletion(&buf, "bash", algorithms)
+	err := GenerateCompletion(&buf, "bash", algorithms)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -162,13 +162,5 @@ func TestGenerateCompletion_MultipleAlgorithms(t *testing.T) {
 		if !strings.Contains(output, algo) {
 			t.Errorf("Output should contain algorithm '%s'", algo)
 		}
-	}
-}
-
-func BenchmarkGeneratePowerShellCompletion(b *testing.B) {
-	algorithms := []string{"fast", "matrix", "fft", "strassen", "optimized", "karatsuba", "schonhage-strassen", "toom-cook"}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = cli.GenerateCompletion(io.Discard, "powershell", algorithms)
 	}
 }

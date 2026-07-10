@@ -1,10 +1,9 @@
-package cli_test
+package cli
 
 import (
 	"bytes"
 	"testing"
 
-	"github.com/agbruneau/FibGo/internal/cli"
 	"github.com/agbruneau/FibGo/internal/config"
 )
 
@@ -19,7 +18,7 @@ func TestPrintExecutionConfig(t *testing.T) {
 		FFTThreshold: 1000000,
 	}
 
-	cli.PrintExecutionConfig(cfg, &buf)
+	PrintExecutionConfig(cfg, &buf)
 
 	output := buf.String()
 
@@ -39,7 +38,7 @@ func TestPrintExecutionMode(t *testing.T) {
 	t.Run("Single calculator mode", func(t *testing.T) {
 		t.Parallel()
 		var buf bytes.Buffer
-		cli.PrintExecutionMode([]string{"Fast Doubling"}, &buf)
+		PrintExecutionMode([]string{"Fast Doubling"}, &buf)
 		if buf.Len() == 0 {
 			t.Error("PrintExecutionMode should produce output")
 		}
@@ -48,7 +47,7 @@ func TestPrintExecutionMode(t *testing.T) {
 	t.Run("Multiple calculators mode", func(t *testing.T) {
 		t.Parallel()
 		var buf bytes.Buffer
-		cli.PrintExecutionMode([]string{"Fast Doubling", "Matrix Exp", "FFT"}, &buf)
+		PrintExecutionMode([]string{"Fast Doubling", "Matrix Exp", "FFT"}, &buf)
 		if buf.Len() == 0 {
 			t.Error("PrintExecutionMode should produce output for multiple calculators")
 		}

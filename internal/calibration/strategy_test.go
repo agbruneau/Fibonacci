@@ -1,7 +1,4 @@
-// Package calibration_test exercises internal/calibration's exported API
-// only. CalibrationStrategy, FastStrategy and CompleteStrategy are fully
-// exported, so this file needs no unexported access.
-package calibration_test
+package calibration
 
 import (
 	"context"
@@ -11,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agbruneau/FibGo/internal/calibration"
 	"github.com/agbruneau/FibGo/internal/config"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
@@ -20,22 +16,22 @@ import (
 // stable; downstream tooling greps for these tokens.
 func TestStrategyNames(t *testing.T) {
 	t.Parallel()
-	if got := calibration.NewFastStrategy().Name(); got != "fast" {
+	if got := NewFastStrategy().Name(); got != "fast" {
 		t.Errorf("FastStrategy.Name() = %q, want %q", got, "fast")
 	}
-	if got := calibration.NewCompleteStrategy().Name(); got != "complete" {
+	if got := NewCompleteStrategy().Name(); got != "complete" {
 		t.Errorf("CompleteStrategy.Name() = %q, want %q", got, "complete")
 	}
 }
 
-// TestFastStrategy_Calibrate_ReturnsProfile checks that the fast tier runs
-// without a calculator registry, returns a populated profile and a
-// confidence in [0, 1].
+// TestFastStrategy_Calibrate_ReturnsProfile checks that the fast tier
+// runs without a calculator registry, returns a populated profile and
+// a confidence in [0, 1].
 func TestFastStrategy_Calibrate_ReturnsProfile(t *testing.T) {
 	t.Parallel()
 
 	out := &strings.Builder{}
-	opts := calibration.StrategyOptions{
+	opts := StrategyOptions{
 		BaseConfig: config.AppConfig{
 			Threshold:         2048,
 			FFTThreshold:      500000,
@@ -47,7 +43,7 @@ func TestFastStrategy_Calibrate_ReturnsProfile(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	profile, conf, err := calibration.NewFastStrategy().Calibrate(ctx, opts)
+	profile, conf, err := NewFastStrategy().Calibrate(ctx, opts)
 	if err != nil {
 		t.Fatalf("Fast.Calibrate err = %v, want nil", err)
 	}
@@ -73,18 +69,19 @@ func TestFastStrategy_Calibrate_ReturnsProfile(t *testing.T) {
 	}
 }
 
-// TestCompleteStrategy_Calibrate_ReturnsProfile uses MockCalculator to
-// confirm CompleteStrategy returns a fully-populated profile with
+// TestCompleteStrategy_Calibrate_ReturnsProfile uses the same
+// MockCalculator already exercised by TestAutoCalibrate to confirm
+// CompleteStrategy returns a fully-populated profile with
 // confidence = 1.0.
 func TestCompleteStrategy_Calibrate_ReturnsProfile(t *testing.T) {
 	t.Parallel()
 
 	registry := map[string]fibonacci.Calculator{
-		"fast":   calibration.NewMockCalculator("fast"),
-		"matrix": calibration.NewMockCalculator("matrix"),
+		"fast":   &MockCalculator{name: "fast"},
+		"matrix": &MockCalculator{name: "matrix"},
 	}
 
-	opts := calibration.StrategyOptions{
+	opts := StrategyOptions{
 		BaseConfig: config.AppConfig{
 			Timeout:           1 * time.Second,
 			Threshold:         4096,
@@ -98,7 +95,7 @@ func TestCompleteStrategy_Calibrate_ReturnsProfile(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	profile, conf, err := calibration.NewCompleteStrategy().Calibrate(ctx, opts)
+	profile, conf, err := NewCompleteStrategy().Calibrate(ctx, opts)
 	if err != nil {
 		t.Fatalf("Complete.Calibrate err = %v, want nil", err)
 	}
@@ -123,14 +120,14 @@ func TestCompleteStrategy_Calibrate_ReturnsProfile(t *testing.T) {
 func TestCompleteStrategy_Calibrate_MissingFastCalculator(t *testing.T) {
 	t.Parallel()
 
-	opts := calibration.StrategyOptions{
+	opts := StrategyOptions{
 		BaseConfig:         config.AppConfig{Timeout: 1 * time.Second},
 		CalculatorRegistry: map[string]fibonacci.Calculator{}, // no "fast"
 		Out:                io.Discard,
 	}
 
-	profile, conf, err := calibration.NewCompleteStrategy().Calibrate(context.Background(), opts)
-	if !errors.Is(err, calibration.ErrMissingFastCalculator) {
+	profile, conf, err := NewCompleteStrategy().Calibrate(context.Background(), opts)
+	if !errors.Is(err, ErrMissingFastCalculator) {
 		t.Errorf("Complete.Calibrate err = %v, want ErrMissingFastCalculator", err)
 	}
 	if profile != nil {
@@ -141,10 +138,10 @@ func TestCompleteStrategy_Calibrate_MissingFastCalculator(t *testing.T) {
 	}
 }
 
-// TestCalibrationStrategy_InterfaceConformance is a compile-time guard
-// that both implementations satisfy the interface.
+// TestCalibrationStrategy_InterfaceConformance is a compile-time
+// guard that both implementations satisfy the interface.
 func TestCalibrationStrategy_InterfaceConformance(t *testing.T) {
 	t.Parallel()
-	var _ calibration.CalibrationStrategy = (*calibration.FastStrategy)(nil)
-	var _ calibration.CalibrationStrategy = (*calibration.CompleteStrategy)(nil)
+	var _ CalibrationStrategy = (*FastStrategy)(nil)
+	var _ CalibrationStrategy = (*CompleteStrategy)(nil)
 }

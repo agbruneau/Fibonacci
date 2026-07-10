@@ -57,8 +57,8 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                             Domain Layer                              |
 |                                                                       |
-| internal/fibonacci  internal/progress  internal/bigfft                    |
-| (algorithms)        (observer model)   (FFT arithmetic)                   |
+| internal/fibonacci  internal/progress  internal/bigfft  internal/parallel |
+| (algorithms)        (observer model)   (FFT arithmetic) (concurrency errs) |
 |   fibonacci/memory   fibonacci/threshold                                   |
 |   (arena, GC ctrl)   (dynamic tuning)                                      |
 +----------------------------------+------------------------------------+
@@ -67,7 +67,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                          Infrastructure Helpers                       |
 |                                                                       |
-| internal/metrics  internal/format  test/e2e, docs                     |
+| internal/metrics  metrics/system  internal/format  test/e2e, docs     |
 +-----------------------------------------------------------------------+
 ```
 
@@ -141,10 +141,13 @@ internal/
 ├── errors/                      # Typed app errors + exit code handling
 ├── fibonacci/                   # Core Fibonacci algorithms + framework/strategy/factory
 │   ├── memory/                  # Arena allocator, GC control, memory budget
-│   └── threshold/               # Dynamic threshold manager
+│   ├── threshold/               # Dynamic threshold manager
+│   └── fibonaccitest/           # Public test double for fibonacci.Calculator
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
+│   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
 ├── orchestration/               # Concurrent execution and result analysis
+├── parallel/                    # Thread-safe first-error collector
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
 ├── tui/                         # Bubble Tea interactive dashboard
@@ -244,8 +247,12 @@ internal/
 - **Key types:** `ConfigError`, `CalculationError`, `TimeoutError`, `ValidationError`, `MemoryError`.
 - **Key helpers:** `WrapError`, `IsContextError`, `HandleCalculationError`, `ColorProvider` interface.
 
-## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`
-- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers. Host CPU/memory sampling (`gopsutil`) is inlined in `internal/tui/commands.go` (`sampleSysStatsCmd`), its only call site — the former single-purpose `internal/metrics/system` wrapper package was removed.
+## `internal/parallel`
+- **Responsibility:** concurrency utility for safe first-error capture.
+- **Key type:** `ErrorCollector` — atomic-style first-error retention via `SetError`/`Err`.
+
+## `internal/metrics`, `internal/metrics/system`, `internal/format`, `internal/ui`, `internal/testutil`
+- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
 
 ---
 
@@ -640,7 +647,7 @@ FibCalc uses a layered testing approach with 100+ `*_test.go` files:
 - **Benchmarks:** algorithm and subsystem benchmarks with alloc stats and profiling hooks.
 - **Race detector:** standard test invocation includes `-race`.
 - **E2E tests:** build and execute binary subprocesses in `test/e2e`.
-- **Spy/mock patterns:** orchestration spy tests ; pour le cœur d’algorithme, implémenter [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (interface exportée) directement dans le test appelant — voir `coreStub` dans [`internal/orchestration/contract_test.go`](../internal/orchestration/contract_test.go).
+- **Spy/mock patterns:** orchestration spy tests ; pour le cœur d’algorithme, implémenter [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (interface exportée) ou utiliser [`fibonacci/fibonaccitest`](../internal/fibonacci/fibonaccitest) pour un double minimal.
 
 Typical commands:
 
@@ -712,7 +719,7 @@ From `go.mod`, direct dependencies are:
 | `github.com/leanovate/gopter` | Property-based testing |
 | `github.com/ncw/gmp` | Optional GMP big integer backend (`gmp` build tag) |
 | `github.com/rs/zerolog` | Structured logging (package-level Nop loggers by default) |
-| `github.com/shirou/gopsutil/v4` | Host/system metrics collection, inlined in `internal/tui/commands.go` |
+| `github.com/shirou/gopsutil/v4` | Host/system metrics collection (sysmon) |
 | `golang.org/x/sys` | Low-level OS/CPU support (including CPU feature usage) |
 
 **Notable indirect dependencies:** Charmbracelet ecosystem (x/ansi, x/cellbuf, x/term, colorprofile), fatih/color, go-ole (Windows COM), ebitengine/purego, tklauser/numcpus.

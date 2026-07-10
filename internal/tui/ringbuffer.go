@@ -99,7 +99,10 @@ func (r *Ring[T]) Resize(newCap int) {
 	r.data = make([]T, newCap)
 	r.head = 0
 	r.count = 0
-	start := max(len(old)-newCap, 0)
+	start := 0
+	if len(old) > newCap {
+		start = len(old) - newCap
+	}
 	for _, v := range old[start:] {
 		r.Push(v)
 	}

@@ -13,10 +13,7 @@ type FlagCompletion struct {
 	ValueName string   // label for the value in zsh (e.g., "number", "duration")
 	IsFile    bool     // true if the flag takes a file path
 	IsAlgo    bool     // true if values come from algorithm list (dynamic)
-	BashGroup string   // marks flags in the same threshold family; consulted only by
-	// the PowerShell generator, which excludes grouped flags from its
-	// context-aware value switch (bash gives every flag its own case with
-	// its own values since APP-11 - no bash case-sharing happens)
+	BashGroup string   // flags with same non-empty BashGroup share a bash case entry
 }
 
 // flagRegistry is the central list of all CLI flags for completion generation.

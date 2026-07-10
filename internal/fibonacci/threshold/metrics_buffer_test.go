@@ -11,6 +11,9 @@ func TestMetricsBuffer_EmptyState(t *testing.T) {
 	if got := b.Count(); got != 0 {
 		t.Errorf("Count() empty: expected 0, got %d", got)
 	}
+	if got := b.writtenCount(); got != 0 {
+		t.Errorf("writtenCount() empty: expected 0, got %d", got)
+	}
 	if got := b.RecentMetrics(); got != nil {
 		t.Errorf("RecentMetrics() empty: expected nil, got %v", got)
 	}
@@ -27,6 +30,9 @@ func TestMetricsBuffer_RecordBelowCapacity(t *testing.T) {
 
 	if got := b.Count(); got != n {
 		t.Errorf("Count() after %d records: expected %d, got %d", n, n, got)
+	}
+	if got := b.writtenCount(); got != n {
+		t.Errorf("writtenCount() after %d records: expected %d, got %d", n, n, got)
 	}
 
 	metrics := b.RecentMetrics()
@@ -58,6 +64,9 @@ func TestMetricsBuffer_RingBufferWrap(t *testing.T) {
 
 	if got := b.Count(); got != MaxMetricsHistory {
 		t.Errorf("Count() after wrap: expected %d, got %d", MaxMetricsHistory, got)
+	}
+	if got := b.writtenCount(); got != total {
+		t.Errorf("writtenCount() after wrap: expected %d, got %d", total, got)
 	}
 	if got := len(b.RecentMetrics()); got != MaxMetricsHistory {
 		t.Errorf("len(RecentMetrics()): expected %d, got %d", MaxMetricsHistory, got)
@@ -117,6 +126,9 @@ func TestMetricsBuffer_Reset(t *testing.T) {
 
 	if got := b.Count(); got != 0 {
 		t.Errorf("Count() after Reset: expected 0, got %d", got)
+	}
+	if got := b.writtenCount(); got != 0 {
+		t.Errorf("writtenCount() after Reset: expected 0, got %d", got)
 	}
 	if got := b.RecentMetrics(); got != nil {
 		t.Errorf("RecentMetrics() after Reset: expected nil, got %v", got)

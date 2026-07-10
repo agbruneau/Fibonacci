@@ -6,10 +6,61 @@ import (
 	"time"
 )
 
-// TestHeaderModel_View_FrozenAfterDone requires direct field access
-// (startTime/endTime are unexported): the elapsed text must be computed from
-// the frozen endTime, not time.Since, so this pins the exact duration string
-// deterministically rather than tolerating wall-clock jitter.
+func TestHeaderModel_View_ContainsTitle(t *testing.T) {
+	t.Parallel()
+	h := NewHeaderModel("v1.0.0")
+	h.SetWidth(80)
+
+	view := h.View()
+	if !strings.Contains(view, "FibGo Monitor") {
+		t.Error("expected header to contain 'FibGo Monitor'")
+	}
+}
+
+func TestHeaderModel_View_ContainsVersion(t *testing.T) {
+	t.Parallel()
+	h := NewHeaderModel("v2.3.4")
+	h.SetWidth(80)
+
+	view := h.View()
+	if !strings.Contains(view, "v2.3.4") {
+		t.Error("expected header to contain version string")
+	}
+}
+
+func TestHeaderModel_View_ContainsElapsed(t *testing.T) {
+	t.Parallel()
+	h := NewHeaderModel("v1.0.0")
+	h.SetWidth(80)
+
+	view := h.View()
+	if !strings.Contains(view, "Elapsed") {
+		t.Error("expected header to contain 'Elapsed'")
+	}
+}
+
+func TestHeaderModel_View_NarrowWidth(t *testing.T) {
+	t.Parallel()
+	h := NewHeaderModel("v1.0.0")
+	h.SetWidth(10)
+
+	// Should not panic even with very narrow width
+	view := h.View()
+	if len(view) == 0 {
+		t.Error("expected non-empty view even with narrow width")
+	}
+}
+
+func TestHeaderModel_View_ZeroWidth(t *testing.T) {
+	t.Parallel()
+	h := NewHeaderModel("v1.0.0")
+	h.SetWidth(0)
+
+	// Should not panic
+	view := h.View()
+	_ = view
+}
+
 func TestHeaderModel_View_FrozenAfterDone(t *testing.T) {
 	t.Parallel()
 	h := NewHeaderModel("v1.0.0")
