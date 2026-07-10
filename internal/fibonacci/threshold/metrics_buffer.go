@@ -38,12 +38,6 @@ func (b *MetricsBuffer) Count() int {
 	return b.written
 }
 
-// writtenCount returns the total number of samples ever written, even after
-// the buffer wraps. Useful to drive periodic adjustment cadences.
-func (b *MetricsBuffer) writtenCount() int {
-	return b.written
-}
-
 // RecentMetrics returns a copy of the currently held samples.
 //
 // The order is unspecified: temporal order is irrelevant for the
