@@ -141,8 +141,7 @@ internal/
 ├── errors/                      # Typed app errors + exit code handling
 ├── fibonacci/                   # Core Fibonacci algorithms + framework/strategy/factory
 │   ├── memory/                  # Arena allocator, GC control, memory budget
-│   ├── threshold/               # Dynamic threshold manager
-│   └── fibonaccitest/           # Public test double for fibonacci.Calculator
+│   └── threshold/               # Dynamic threshold manager
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
 │   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
@@ -642,7 +641,7 @@ FibCalc uses a layered testing approach with 100+ `*_test.go` files:
 - **Benchmarks:** algorithm and subsystem benchmarks with alloc stats and profiling hooks.
 - **Race detector:** standard test invocation includes `-race`.
 - **E2E tests:** build and execute binary subprocesses in `test/e2e`.
-- **Spy/mock patterns:** orchestration spy tests ; pour le cœur d’algorithme, implémenter [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (interface exportée) ou utiliser [`fibonacci/fibonaccitest`](../internal/fibonacci/fibonaccitest) pour un double minimal.
+- **Spy/mock patterns:** orchestration spy tests ; pour le cœur d’algorithme, implémenter [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (interface exportée) directement dans le test appelant — voir `coreStub` dans [`internal/orchestration/contract_test.go`](../internal/orchestration/contract_test.go).
 
 Typical commands:
 
