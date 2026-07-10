@@ -57,8 +57,8 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                             Domain Layer                              |
 |                                                                       |
-| internal/fibonacci  internal/progress  internal/bigfft  internal/parallel |
-| (algorithms)        (observer model)   (FFT arithmetic) (concurrency errs) |
+| internal/fibonacci  internal/progress  internal/bigfft                    |
+| (algorithms)        (observer model)   (FFT arithmetic)                   |
 |   fibonacci/memory   fibonacci/threshold                                   |
 |   (arena, GC ctrl)   (dynamic tuning)                                      |
 +----------------------------------+------------------------------------+
@@ -147,7 +147,6 @@ internal/
 ├── metrics/                     # Runtime performance/memory indicators
 │   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
 ├── orchestration/               # Concurrent execution and result analysis
-├── parallel/                    # Thread-safe first-error collector
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
 ├── tui/                         # Bubble Tea interactive dashboard
@@ -246,10 +245,6 @@ internal/
 - **Responsibility:** typed errors, wrappers, exit code mapping, standardized calculation-error handling.
 - **Key types:** `ConfigError`, `CalculationError`, `TimeoutError`, `ValidationError`, `MemoryError`.
 - **Key helpers:** `WrapError`, `IsContextError`, `HandleCalculationError`, `ColorProvider` interface.
-
-## `internal/parallel`
-- **Responsibility:** concurrency utility for safe first-error capture.
-- **Key type:** `ErrorCollector` — atomic-style first-error retention via `SetError`/`Err`.
 
 ## `internal/metrics`, `internal/metrics/system`, `internal/format`, `internal/ui`, `internal/testutil`
 - **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
