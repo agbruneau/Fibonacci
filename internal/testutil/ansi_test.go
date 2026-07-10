@@ -1,6 +1,10 @@
-package testutil
+package testutil_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/agbruneau/FibGo/internal/testutil"
+)
 
 func TestStripAnsiCodes(t *testing.T) {
 	t.Parallel()
@@ -34,7 +38,7 @@ func TestStripAnsiCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := StripAnsiCodes(tt.input)
+			got := testutil.StripAnsiCodes(tt.input)
 			if got != tt.expected {
 				t.Errorf("StripAnsiCodes(%q) = %q; want %q", tt.input, got, tt.expected)
 			}
