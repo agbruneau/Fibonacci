@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -62,15 +63,8 @@ func (h HeaderModel) View() string {
 	leftPart := title + pipe + elapsed
 	leftLen := lipgloss.Width(leftPart)
 
-	innerWidth := h.width - 2
-	if innerWidth < 0 {
-		innerWidth = 0
-	}
-
-	gap := innerWidth - leftLen
-	if gap < 0 {
-		gap = 0
-	}
+	innerWidth := max(h.width-2, 0)
+	gap := max(innerWidth-leftLen, 0)
 
 	row := leftPart + spaces(gap)
 
@@ -82,9 +76,5 @@ func spaces(n int) string {
 	if n <= 0 {
 		return ""
 	}
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = ' '
-	}
-	return string(b)
+	return strings.Repeat(" ", n)
 }

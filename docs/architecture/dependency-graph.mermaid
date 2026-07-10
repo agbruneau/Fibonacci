@@ -35,7 +35,6 @@ flowchart LR
         format["internal/format"]
         metrics["internal/metrics"]
         progress["internal/progress"]
-        sysmon["internal/metrics/system"]
         ui["internal/ui"]
         testutil["internal/testutil"]
     end
@@ -80,7 +79,6 @@ flowchart LR
 
     tui --> format
     tui --> metrics
-    tui --> sysmon
     tui --> ui
     tui --> errors
     tui --> config

@@ -15,16 +15,8 @@ func RenderSparkline(values []float64) string {
 	}
 	runes := make([]rune, len(values))
 	for i, v := range values {
-		if v < 0 {
-			v = 0
-		}
-		if v > 100 {
-			v = 100
-		}
-		idx := int(v / 100.0 * 7.0)
-		if idx > 7 {
-			idx = 7
-		}
+		v = min(max(v, 0), 100)
+		idx := min(int(v/100.0*7.0), 7)
 		runes[i] = sparklineChars[idx]
 	}
 	return string(runes)

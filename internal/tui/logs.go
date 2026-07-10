@@ -121,13 +121,9 @@ func (l *LogsModel) AddResults(results []orchestration.CalculationResult) {
 	maxNameLen := 0
 	maxDurLen := 0
 	for _, res := range results {
-		if len(res.Name) > maxNameLen {
-			maxNameLen = len(res.Name)
-		}
+		maxNameLen = max(maxNameLen, len(res.Name))
 		dur := format.FormatExecutionDuration(res.Duration)
-		if len(dur) > maxDurLen {
-			maxDurLen = len(dur)
-		}
+		maxDurLen = max(maxDurLen, len(dur))
 	}
 
 	nameFmt := fmt.Sprintf("%%-%ds", maxNameLen)
