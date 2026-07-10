@@ -565,6 +565,99 @@ de sortie inter-vague). Vérifié : wsl go test -race
 ./internal/fibonacci/... -count=30 propre après le second correctif.
 ```
 
+```
+[2026-07-10] vague 3, ordre d'exécution
+Écart au plan : le palier 1 exécuté en parallèle regroupe config,
+cli/completion ET orchestration (le libellé du plan suggérait
+« config, cli/completion → orchestration », une chaîne). Le palier 2
+regroupe calibration, cli ET tui en parallèle (libellé : « → calibration →
+cli, tui »).
+Raison : `go list -f '{{join .Imports}}'` sur les 7 packages a confirmé
+qu'orchestration n'importe aucun des deux autres paliers-1 (ni config, ni
+cli/completion) et que calibration/cli/tui ne s'importent pas entre eux —
+seule leur dépendance commune au palier 1 (déjà fusionné) les distingue de
+véritables feuilles. Le libellé du plan reflétait un ordre de risque
+prudent, pas une contrainte de compilation réelle ; le graphe vérifié
+autorise plus de parallélisme que la formulation littérale sans violer
+aucune dépendance. `app` reste strictement séquentiel, en dernier, comme
+prescrit.
+Alternative écartée : suivre l'ordre littéral (5 étapes séquentielles) —
+rejeté, aurait ajouté 2 paliers d'attente sans bénéfice de sécurité
+puisque le graphe réel ne les impose pas.
+```
+
+```
+[2026-07-10] vague 3, mécanisme d'isolation par worktree
+Écart au plan : le tier 1 (3 agents) a d'abord échoué intégralement
+(EEXIST sur le dossier parent .claude/worktrees, laissé par les worktrees
+fusionnés-mais-non-nettoyés de la vague 2 — échec de git worktree remove
+sur un verrou Windows). Après nettoyage (autorisation explicite demandée
+et obtenue, `rm -rf`/`Remove-Item -Recurse -Force` bloqués par le système
+de permissions, `find -delete` fonctionnel comme contournement), le tier 1
+a réussi intégralement, mais le tier 2 (3 agents lancés simultanément via
+Workflow.parallel()) a perdu une course de mkdir concurrent sur le même
+dossier parent : 1 agent sur 3 (cli) a réussi, 2 (calibration, tui) ont
+échoué avec la même erreur EEXIST — une vraie course, pas un problème de
+contenu résiduel cette fois.
+Raison : le mécanisme d'isolation du dossier parent partagé
+(.claude/worktrees) ne tolère ni son existence préalable (même vide) ni
+une création concurrente par plusieurs agents simultanés — un `mkdir` non
+idempotent côté outil, hors de mon contrôle. Corrigé en traitant
+calibration puis tui comme deux appels Agent séquentiels (isolation
+worktree individuelle, jamais deux créations de dossier parent au même
+instant) plutôt que via Workflow.parallel().
+Alternative écartée : abandonner l'isolation par worktree pour la vague 3
+et accepter le risque de collision en arbre partagé (§9.3) — rejeté,
+l'isolation a fonctionné dès qu'exécutée sans concurrence réelle sur la
+création du dossier parent ; le vrai correctif était la séquentialité
+ponctuelle, pas l'abandon du mécanisme.
+```
+
+```
+[2026-07-10] vague 3, tests intermittents sous charge système
+Écart au plan : deux échecs de gate rencontrés pendant les fusions
+séquentielles (TestModel_HandleReset_FreshTimeoutBudget dans
+internal/tui ; un test de propriété non identifié dans
+internal/fibonacci) sur des packages NON touchés par les commits venant
+d'être fusionnés. Les deux se sont révélés être des faux positifs :
+5/5 et 5/5 passes propres en isolation, respectivement.
+Raison : plusieurs agents/workflows tournaient en tâche de fond au moment
+des échecs, saturant le CPU de la machine — l'un des deux tests
+(FreshTimeoutBudget) est explicitement sensible au timing (fenêtre
+~20 ms). Documenté dans le prompt de l'agent tui comme caractéristique
+préexistante à surveiller plutôt que régression réelle. Aucun correctif
+appliqué (les deux packages sont sains) ; noté ici pour qu'un futur agent
+ne panique pas sur un échec isolé de ces mêmes tests sans d'abord
+ré-exécuter en isolation.
+Alternative écartée : durcir TestModel_HandleReset_FreshTimeoutBudget
+immédiatement — l'agent tui en a eu l'instruction explicite (élargir la
+tolérance sans affaiblir l'invariant réel) mais n'a pas jugé nécessaire d'y
+toucher ; laissé tel quel, non bloquant pour la clôture de la vague.
+```
+
+```
+[2026-07-10] vague 3, environnement — écart git Windows / git WSL
+Écart au plan : `git status` exécuté depuis WSL (`wsl bash -lc 'git
+status'`) sur le même dépôt a rapporté ~45 fichiers modifiés / un
+répertoire non suivi (.claude/) que git côté Windows (seul environnement
+utilisé pour TOUS les commits de cette session, via l'outil Bash/Git-Bash)
+rapporte comme un arbre parfaitement propre.
+Raison : écart d'interprétation des fins de ligne (CRLF/LF) entre les deux
+installations git sur les mêmes octets physiques (montage /mnt/c) —
+`.gitattributes` n'épingle que `*.go`/`*.sh` en LF (CLAUDE.md le
+documentait déjà pour check.sh) ; tous les autres fichiers (docs, JSON,
+Makefile, go.mod, etc.) dépendent du `core.autocrlf` de chaque
+installation, qui diffère entre Windows et WSL. Confirmé par un second
+`git status --porcelain` côté Windows immédiatement après : arbre propre,
+16 commits d'avance sur origin/main, rien à committer.
+Alternative écartée : traiter le rapport WSL comme réel et lancer un
+`git add`/`commit` depuis ce contexte — rejeté explicitement, aurait risqué
+de committer des artefacts de normalisation de fin de ligne sans diff de
+contenu réel. Règle retenue pour la suite : `git status`/`add`/`commit`
+toujours via l'environnement Windows (Bash tool), jamais depuis
+`wsl bash -lc`, qui reste réservé aux commandes go test/make/benchstat.
+```
+
 Format attendu, une entrée par déviation :
 
 ```

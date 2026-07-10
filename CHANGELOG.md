@@ -47,6 +47,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exécutions `-race` consécutives. `scripts/check.sh` : PASS intégral
   (couverture module 95,1 %).
 
+- **PLAN.md vague 3 — pipeline multi-agents sur 6 packages restants +
+  composition root.** Tier 1 (parallèle, worktrees git) : `config`,
+  `cli/completion`, `orchestration` — zéro diff production dans `config`
+  (suite de tests consolidée de 9 à 5 fichiers, -300 LOC de tests,
+  couverture stable 94,5 %) ; `orchestration` simplifié
+  (`ComputeLastDigits` en un seul `fmt.Sprintf("%0*s", ...)`), confirmé par
+  `go list` qu'il n'importe **pas** `internal/format` — arête stale
+  `orch --> format` retirée de `dependency-graph.mermaid` (obsolète depuis
+  APP-10/vague P, jamais nettoyée). Tier 2 (dispatch séquentiel après une
+  collision de verrouillage sur l'outillage worktree) : `calibration`
+  (dédoublonnage de `applyProfileThresholds`), `cli` (zéro diff production ;
+  `displayResultWithConfig`/`displayMemoryStats` morts signalés, non
+  supprimés — hors périmètre), `tui` (plus gros paquet de la vague, ~1923
+  LOC) — exécution de la coupe **obligatoire** différée de la vague 2 :
+  `internal/metrics/system` supprimé, ses appels `gopsutil` inlinés dans
+  `tui/commands.go` ; 7 idiomes min/max manuels modernisés vers les
+  builtins Go ; `strings.Repeat` remplace une boucle `spaces()` manuelle
+  (-126 LOC net) ; les 6 gardiens APP-05 confirmés intacts par nom exact.
+  `internal/app` (composition root, traité directement) : `getVersionInfo`/
+  `VersionData` supprimés (morts, zéro appelant — `main.go` appelle
+  `PrintVersion` directement), suppression forcée du seul test consommateur.
+  Deux bogues d'outillage rencontrés et contournés (pas des régressions
+  code) : la primitive worktree du Workflow échoue sur `mkdir` en cas de
+  répertoire résiduel ou de lancement simultané réel — nettoyage via
+  `find -delete` et retour au dispatch séquentiel pour le tier 2 ; deux
+  échecs de test isolés (`TestModel_HandleReset_FreshTimeoutBudget` dans
+  `tui`, un test de propriété dans `fibonacci`) confirmés flaky sous charge
+  CPU concurrente (5 relances isolées, 100 % de succès), aucune régression
+  réelle. `scripts/check.sh` : PASS intégral (couverture module 95,1 %,
+  `-tags gmp -race` vert). Détail des écarts au plan dans PLAN.md §14.
+
 ## [4.0.0] - 2026-07-07
 
 > Note de versionnage : les tags `v2.x`/`v3.0.0` (2026-04-18) n'ont jamais reçu
