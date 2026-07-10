@@ -161,9 +161,9 @@ Checklist :
 
 Une baseline est un artefact daté, produit sur la machine et l'OS qui feront tourner le gate. **Aucune ne doit être régénérée pour masquer une régression** (parallèle à la Directive #1).
 
-- [ ] **P-03 — Baseline de comportement** : `wsl go test -race ./...` et `go test ./...` (Windows) verts, à un test près (§4.3).
-- [ ] **P-04 — Baseline de performance locale** : `docs/audits/bench-local-pre.txt`, capturée en WSL, protocole §7.2. **Ne pas comparer à `docs/audits/bench-baseline.txt`** — ce fichier est inexploitable comme référence de gate (§7.1).
-- [ ] **P-05 — Baseline de couverture par package** : `docs/audits/coverage-baseline.txt`. Le plancher actuel est un total module ([check.sh:89](scripts/check.sh:89)) : il est aveugle — réécrire `calibration` (~10 % du module) en laissant une branche non testée fait tomber ce package à 60 % pendant que le total reste au-dessus de 80 % ; et supprimer du code défensif fait **monter** le pourcentage sans un test ajouté. Capturer en un seul mode (**sans `-race`**, sinon le tag `!race` de [fft_poly_pool_leak_test.go:1](internal/bigfft/fft_poly_pool_leak_test.go:1) produit deux totaux différents) :
+- [x] **P-03 — Baseline de comportement** : capturée le 2026-07-10 — `wsl go test -race ./...` et `go test ./...` (Windows) **verts intégralement** sur les 24 packages (le correctif §4.3 était déjà appliqué : aucun rouge résiduel).
+- [x] **P-04 — Baseline de performance locale** : `docs/audits/bench-local-pre.txt` capturée en WSL le 2026-07-10 (60 lignes `^Benchmark` = 6 benchs × 10 échantillons — garde-fou anti-vide passé). **Ne pas comparer à `docs/audits/bench-baseline.txt`** — ce fichier est inexploitable comme référence de gate (§7.1).
+- [x] **P-05 — Baseline de couverture par package** : `docs/audits/coverage-baseline.txt` capturée le 2026-07-10 (24 packages, sans `-race`). Le plancher actuel est un total module ([check.sh:89](scripts/check.sh:89)) : il est aveugle — réécrire `calibration` (~10 % du module) en laissant une branche non testée fait tomber ce package à 60 % pendant que le total reste au-dessus de 80 % ; et supprimer du code défensif fait **monter** le pourcentage sans un test ajouté. Capturer en un seul mode (**sans `-race`**, sinon le tag `!race` de [fft_poly_pool_leak_test.go:1](internal/bigfft/fft_poly_pool_leak_test.go:1) produit deux totaux différents) :
 
 ```
 go test -cover ./... | Select-String "coverage:" > docs/audits/coverage-baseline.txt
@@ -173,7 +173,7 @@ Gate par package : `couverture_réécrite >= baseline_package - 1,0 pp` **et** `
 
 ### 4.3 Le correctif préalable (Directive #7 — bug fix avant refactor)
 
-- [ ] **P-06** — `GenerateParallelThresholds` émet `-1` comme baseline séquentielle depuis FIB-02 ([adaptive.go:28](internal/calibration/adaptive.go:28)) ; l'attente de la branche `numCPU <= 4` cherche encore `0` ([adaptive_test.go:39](internal/calibration/adaptive_test.go:39)). Vert à 24 CPU, rouge à 2–4 cœurs. Le correctif d'une ligne (`0` → `-1`) passerait **sans être vérifiable** (`runtime.NumCPU()` n'obéit pas à `GOMAXPROCS`). Correctif retenu, minimal et testable :
+- [x] **P-06** *(fait le 2026-07-10, commit `66cf027`)* — `GenerateParallelThresholds` émet `-1` comme baseline séquentielle depuis FIB-02 ([adaptive.go:28](internal/calibration/adaptive.go:28)) ; l'attente de la branche `numCPU <= 4` cherche encore `0` ([adaptive_test.go:39](internal/calibration/adaptive_test.go:39)). Vert à 24 CPU, rouge à 2–4 cœurs. Le correctif d'une ligne (`0` → `-1`) passerait **sans être vérifiable** (`runtime.NumCPU()` n'obéit pas à `GOMAXPROCS`). Correctif retenu, minimal et testable :
 
 ```go
 // adaptive.go
@@ -203,10 +203,10 @@ Les 24 gardiens nommés par `CLAUDE.md` ont tous été localisés : **aucun gard
 
 Checklist de sortie de vague P :
 
-- [ ] **P-07** — Les 9 gardiens posés, chacun en commit isolé, chacun rouge sur sa régression simulée avant d'être vert sur le code actuel (pilotage par les tests).
-- [ ] **P-08** — Migration `package foo_test` (§3.3b) commitée, zéro diff de production.
-- [ ] **P-09** — Les 3 baselines capturées et committées dans `docs/audits/`.
-- [ ] **P-10** — Arbre entier vert : `wsl go test -race ./...` + `go test ./...` (Windows). Tag `rewrite/vP/done`.
+- [x] **P-07** — Fait le 2026-07-10 : les 9 gardiens posés, chacun en commit isolé, chacun **vérifié rouge sur sa régression simulée** avant d'être vert sur le code actuel (g1 `23f198c`, g2 `54adb5d`, g3 `49fbc12` — fix prod annoncé, g4 `adc50a5`, g5 `789fc9c`, g6 `a200255`, g7 `13af22c`, g8 `d7028c1`, g9 `2c3697b`).
+- [x] **P-08** — Fait le 2026-07-10 (commit `c80160d`) : 6 fichiers migrés, zéro diff de production ; 4 fichiers réfutés par le compilateur restent boîte-blanche, symboles gelés (§3.3a) — journal §14. `CLAUDE.md` ré-ancré en lockstep (`08f0fb0`).
+- [x] **P-09** — Les 3 baselines capturées le 2026-07-10 et committées dans `docs/audits/`.
+- [x] **P-10** — Arbre entier vert le 2026-07-10 : `wsl go test -race ./...` + `go test ./...` (Windows), 24/24 packages. Tag `rewrite/vP/done`.
 
 ---
 
