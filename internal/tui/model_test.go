@@ -439,6 +439,38 @@ func TestModel_HandleReset_FreshTimeoutBudget(t *testing.T) {
 	}
 }
 
+// TestModel_HandleReset_CancelsPreviousGeneration pins the other half of
+// APP-05: handleReset must cancel the superseded generation's context, not
+// merely mint a fresh one. Without m.cancel() the old timer leaks and the
+// previous generation's calculation keeps running behind the restarted one.
+// The sibling test above cannot catch that omission: it lets the first
+// generation expire by deadline before resetting.
+func TestModel_HandleReset_CancelsPreviousGeneration(t *testing.T) {
+	t.Parallel()
+
+	parentCtx, parentCancel := context.WithCancel(context.Background())
+	defer parentCancel()
+
+	cfg := config.AppConfig{N: 1000, Timeout: 10 * time.Minute}
+	m := NewModel(parentCtx, nil, cfg, "v0.1.0")
+	t.Cleanup(m.cancel)
+
+	oldCtx := m.ctx
+
+	updated, _ := m.handleReset()
+	result := updated.(Model)
+	t.Cleanup(result.cancel)
+
+	select {
+	case <-oldCtx.Done():
+		if !errors.Is(oldCtx.Err(), context.Canceled) {
+			t.Fatalf("expected the superseded generation to be cancelled, got %v", oldCtx.Err())
+		}
+	default:
+		t.Fatal("superseded generation's context is still alive after handleReset; its timer and calculation leak")
+	}
+}
+
 func TestModel_Update_CalculationComplete_NonZeroExitCode(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)
