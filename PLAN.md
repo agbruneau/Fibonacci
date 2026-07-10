@@ -94,7 +94,10 @@ La décision (A) exige de geler ces tests comme oracle. La décision (B) autoris
 
 | Package | Symboles privés gelés (phase A) |
 |---|---|
-| `internal/fibonacci` | `acquireSizingForN`, `clearStateAliases`, `finalizeStateReleaseTo`, `finalizeStateRelease`, `cachedState`, `statePool`, `bump`, `arenaCapWords`, `prepareStateForN`, `checkLimit`, `maxCachedArenaWords`, `maxArenaPoolWords`, `maxReasonableWords`, `fibonacciGrowthFactor` |
+| `internal/fibonacci` | `acquireSizingForN`, `clearStateAliases`, `finalizeStateReleaseTo`, `finalizeStateRelease`, `cachedState`, `statePool`, `bump`, `arenaCapWords`, `prepareStateForN`, `checkLimit`, `maxCachedArenaWords`, `maxArenaPoolWords`, `maxReasonableWords`, `fibonacciGrowthFactor`, `calculateSmall` *(découvert en P-08 : sujet du test d'équivalence A-20)* |
+| `internal/errors` | `sanitizeConfigExcerpt`, `formatBytesLocal` *(découverts en P-08)* |
+| `internal/format` | `formatProgressBarWithETA` *(découvert en P-08)* |
+| `internal/metrics` | `digitalRoot`, `lastNDigits` *(découverts en P-08)* |
 | `internal/fibonacci/memory` | `arenaTotalWords` |
 | `internal/bigfft` | `acquireWordSliceUnsafe`, `releaseWordSlice`, `acquireFermat`, `releaseFermat`, `acquireFermatSlice`, `releaseFermatSlice`, `wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`, `wordSliceSizes`, `getFFTThreshold`, `isFermatPostConditionPanic`, `putByKey`, `setCacheLogger`, `fourierRecursiveUnified`, `fourierRecursiveCtx`, `executeReconstruction`, `pointwiseMinParallelWords`, `newFermatVec`, `pinFFTParallelismConfig` |
 | `internal/fibonacci/threshold` | `newTestDynamicThresholdManager` |
@@ -151,8 +154,8 @@ Les mutations **purement perf** (`×10` → `×8` sur le multiplicateur d'arène
 
 Checklist :
 
-- [ ] **P-01** — Installer dans WSL : `wsl go install golang.org/x/perf/cmd/benchstat@latest` + `golangci-lint`. Vérifier : `wsl bash -lc "benchstat -h"`.
-- [ ] **P-02** — Vérifier `gcc` et `libgmp-dev` dans WSL (attendus présents : `/usr/include/x86_64-linux-gnu/gmp.h`).
+- [x] **P-01** — Installés dans WSL le 2026-07-10 : `benchstat` (latest) et `golangci-lint` v1.64.8 (même version que Windows). `~/go/bin` n'est **pas** sur le PATH du shell de connexion : invoquer par chemin explicite (`wsl bash -lc "~/go/bin/benchstat -h"`).
+- [x] **P-02** — Vérifié le 2026-07-10 : `gcc` (`/usr/bin/gcc`) et `libgmp-dev` (`/usr/include/x86_64-linux-gnu/gmp.h`) présents dans WSL.
 
 ### 4.2 Baselines à capturer avant la moindre ligne réécrite
 
@@ -465,7 +468,34 @@ Couplages par chemin de fichier, qui échouent en silence après un renommage :
 
 ## 14. Journal des déviations et des mutations
 
-*(vide — à remplir au fil de l'exécution)*
+```
+[2026-07-10] vague P, packages internal/parallel et internal/metrics/system
+Écart au plan : exclus de la migration foo_test (P-08 / §3.3b).
+Raison : internal/parallel est supprimé intégralement en vague 1 et
+internal/metrics/system est inliné en vague 2 (cut-list §8) — aucun des deux
+n'aura de phase A nécessitant un oracle boîte-noire ; la migration serait du
+travail jeté.
+Alternative écartée : migrer quand même pour la complétude — rejeté
+(ponytail : aucun consommateur du résultat).
+```
+
+```
+[2026-07-10] vague P, P-08 (migration foo_test)
+Écart au plan : sur les fichiers listés en §3.3b, 4 migrés seulement —
+errors/handler_test.go, ui/themes_test.go, fibonacci/fibonacci_golden_test.go
+et fibonacci/dtm_correctness_test.go (ce dernier ajouté hors liste : il ne
+consomme que l'API exportée et partage GoldenData avec le golden, ce qui
+débloque la migration du golden sans duplication).
+Raison : le compilateur a réfuté l'hypothèse « exporté seulement » de la
+rév. 2 pour 4 fichiers — errors_test.go (sanitizeConfigExcerpt,
+formatBytesLocal), format/progress_eta_test.go (formatProgressBarWithETA),
+metrics/indicators_test.go (digitalRoot, lastNDigits) et
+fibonacci/calculator_equivalence_test.go (calculateSmall, sujet même du test
+A-20). Ces fichiers restent boîte-blanche ; leurs symboles rejoignent la
+liste gelée (§3.3a), conformément au défaut D-03.
+Alternative écartée : scinder les fichiers mixtes (partie boîte-noire /
+partie boîte-blanche) — rejeté en vague P, restructurer une suite = phase B.
+```
 
 Format attendu, une entrée par déviation :
 

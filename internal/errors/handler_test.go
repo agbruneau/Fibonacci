@@ -1,4 +1,4 @@
-package apperrors
+package apperrors_test
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	apperrors "github.com/agbruneau/FibGo/internal/errors"
 )
 
 type MockColorProvider struct{}
@@ -20,14 +22,14 @@ func TestHandleCalculationError(t *testing.T) {
 		name         string
 		err          error
 		duration     time.Duration
-		colors       ColorProvider
+		colors       apperrors.ColorProvider
 		expectedCode int
 		expectedMsg  string
 	}{
 		{
 			name:         "No Error",
 			err:          nil,
-			expectedCode: ExitSuccess,
+			expectedCode: apperrors.ExitSuccess,
 			expectedMsg:  "",
 		},
 		{
@@ -35,7 +37,7 @@ func TestHandleCalculationError(t *testing.T) {
 			err:          context.DeadlineExceeded,
 			duration:     1 * time.Second,
 			colors:       MockColorProvider{},
-			expectedCode: ExitErrorTimeout,
+			expectedCode: apperrors.ExitErrorTimeout,
 			expectedMsg:  "Status: Failure (Timeout). The execution limit was reached after [YELLOW]1s[RESET].",
 		},
 		{
@@ -43,25 +45,25 @@ func TestHandleCalculationError(t *testing.T) {
 			err:          context.Canceled,
 			duration:     500 * time.Millisecond,
 			colors:       MockColorProvider{},
-			expectedCode: ExitErrorCanceled,
+			expectedCode: apperrors.ExitErrorCanceled,
 			expectedMsg:  "[YELLOW]Status: Canceled after [YELLOW]500ms[RESET].[RESET]",
 		},
 		{
 			name:         "Generic Error",
 			err:          fmt.Errorf("random error"),
-			expectedCode: ExitErrorGeneric,
+			expectedCode: apperrors.ExitErrorGeneric,
 			expectedMsg:  "Status: Failure. An unexpected error occurred: random error",
 		},
 		{
 			name: "Generic Error with calculation diagnostic",
-			err: WrapCalculationError(fmt.Errorf("compute failed"), CalculationContext{
+			err: apperrors.WrapCalculationError(fmt.Errorf("compute failed"), apperrors.CalculationContext{
 				N:                     42,
 				ParallelThresholdBits: 0,
 				FFTThresholdBits:      0,
 				StrassenThresholdBits: 0,
 				MemoryEstimateBytes:   1024,
 			}),
-			expectedCode: ExitErrorGeneric,
+			expectedCode: apperrors.ExitErrorGeneric,
 			expectedMsg:  "Status: Failure. An unexpected error occurred: compute failed\nDiagnostic: n=42; parallel_bits=auto; fft_bits=auto; strassen_bits=auto; mem_est=",
 		},
 		{
@@ -69,7 +71,7 @@ func TestHandleCalculationError(t *testing.T) {
 			err:          context.DeadlineExceeded,
 			duration:     1 * time.Second,
 			colors:       nil,
-			expectedCode: ExitErrorTimeout,
+			expectedCode: apperrors.ExitErrorTimeout,
 			expectedMsg:  "Status: Failure (Timeout). The execution limit was reached after 1s.",
 		},
 	}
@@ -78,7 +80,7 @@ func TestHandleCalculationError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			out := new(bytes.Buffer)
-			code := HandleCalculationError(tt.err, tt.duration, out, tt.colors)
+			code := apperrors.HandleCalculationError(tt.err, tt.duration, out, tt.colors)
 
 			if code != tt.expectedCode {
 				t.Errorf("HandleCalculationError() code = %v, want %v", code, tt.expectedCode)
@@ -103,9 +105,9 @@ func TestHandleCalculationError_DiagnosticPaths(t *testing.T) {
 	}{
 		{
 			name:         "timeout with diagnostic",
-			err:          WrapCalculationError(context.DeadlineExceeded, CalculationContext{N: 7}),
+			err:          apperrors.WrapCalculationError(context.DeadlineExceeded, apperrors.CalculationContext{N: 7}),
 			duration:     time.Second,
-			expectedCode: ExitErrorTimeout,
+			expectedCode: apperrors.ExitErrorTimeout,
 			contains: []string{
 				"Status: Failure (Timeout).",
 				"Diagnostic: n=7; parallel_bits=auto; fft_bits=auto; strassen_bits=auto",
@@ -113,9 +115,9 @@ func TestHandleCalculationError_DiagnosticPaths(t *testing.T) {
 		},
 		{
 			name:         "canceled with diagnostic",
-			err:          WrapCalculationError(context.Canceled, CalculationContext{FFTThresholdBits: 1000}),
+			err:          apperrors.WrapCalculationError(context.Canceled, apperrors.CalculationContext{FFTThresholdBits: 1000}),
 			duration:     time.Second,
-			expectedCode: ExitErrorCanceled,
+			expectedCode: apperrors.ExitErrorCanceled,
 			contains: []string{
 				"Status: Canceled",
 				"Diagnostic: parallel_bits=auto; fft_bits=1000; strassen_bits=auto",
@@ -124,8 +126,8 @@ func TestHandleCalculationError_DiagnosticPaths(t *testing.T) {
 		{
 			// An empty context must not emit a Diagnostic line.
 			name:         "calculation error without diagnostic",
-			err:          WrapCalculationError(fmt.Errorf("boom"), CalculationContext{}),
-			expectedCode: ExitErrorGeneric,
+			err:          apperrors.WrapCalculationError(fmt.Errorf("boom"), apperrors.CalculationContext{}),
+			expectedCode: apperrors.ExitErrorGeneric,
 			contains:     []string{"boom"},
 			notContains:  []string{"Diagnostic:"},
 		},
@@ -133,7 +135,7 @@ func TestHandleCalculationError_DiagnosticPaths(t *testing.T) {
 			name:         "zero duration omits suffix",
 			err:          context.DeadlineExceeded,
 			duration:     0,
-			expectedCode: ExitErrorTimeout,
+			expectedCode: apperrors.ExitErrorTimeout,
 			contains:     []string{"The execution limit was reached.\n"},
 			notContains:  []string{" after "},
 		},
@@ -143,7 +145,7 @@ func TestHandleCalculationError_DiagnosticPaths(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			out := new(bytes.Buffer)
-			code := HandleCalculationError(tt.err, tt.duration, out, nil)
+			code := apperrors.HandleCalculationError(tt.err, tt.duration, out, nil)
 
 			if code != tt.expectedCode {
 				t.Errorf("HandleCalculationError() code = %v, want %v", code, tt.expectedCode)
@@ -164,7 +166,7 @@ func TestHandleCalculationError_DiagnosticPaths(t *testing.T) {
 
 func TestDefaultColorProvider(t *testing.T) {
 	t.Parallel()
-	p := DefaultColorProvider{}
+	p := apperrors.DefaultColorProvider{}
 	if p.Yellow() != "" {
 		t.Error("DefaultColorProvider.Yellow should return empty string")
 	}

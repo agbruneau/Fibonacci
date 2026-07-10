@@ -1,4 +1,4 @@
-package fibonacci
+package fibonacci_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // GoldenData represents the structure of our golden file entries
@@ -30,10 +32,10 @@ func TestCalculatorsAgainstGoldenFile(t *testing.T) {
 		t.Fatalf("Failed to decode golden file: %v", err)
 	}
 
-	calculators := map[string]Calculator{
-		"FastDoubling": MustNewCalculator(&FastDoublingCalculator{}),
-		"MatrixExp":    MustNewCalculator(&MatrixExponentiationCalculator{}),
-		"FFTBased":     MustNewCalculator(&FFTBasedCalculator{}),
+	calculators := map[string]fibonacci.Calculator{
+		"FastDoubling": fibonacci.MustNewCalculator(&fibonacci.FastDoublingCalculator{}),
+		"MatrixExp":    fibonacci.MustNewCalculator(&fibonacci.MatrixExponentiationCalculator{}),
+		"FFTBased":     fibonacci.MustNewCalculator(&fibonacci.FFTBasedCalculator{}),
 	}
 
 	ctx := context.Background()
@@ -52,7 +54,7 @@ func TestCalculatorsAgainstGoldenFile(t *testing.T) {
 						t.Fatalf("golden file entry for N=%d is malformed: %q is not a valid base-10 integer", tc.N, tc.Result)
 					}
 
-					got, err := calc.Calculate(ctx, nil, 0, tc.N, Options{ParallelThreshold: DefaultParallelThreshold})
+					got, err := calc.Calculate(ctx, nil, 0, tc.N, fibonacci.Options{ParallelThreshold: fibonacci.DefaultParallelThreshold})
 					if err != nil {
 						t.Fatalf("Calculation failed for N=%d: %v", tc.N, err)
 					}

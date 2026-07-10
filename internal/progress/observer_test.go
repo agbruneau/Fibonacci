@@ -1,4 +1,4 @@
-package progress
+package progress_test
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,7 +20,7 @@ import (
 func TestNewProgressSubject(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	if subject == nil {
 		t.Fatal("NewProgressSubject returned nil")
 	}
@@ -31,7 +33,7 @@ func TestNewProgressSubject(t *testing.T) {
 func TestProgressSubject_Register(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 
 	// Register nil should be no-op
 	subject.Register(nil)
@@ -40,14 +42,14 @@ func TestProgressSubject_Register(t *testing.T) {
 	}
 
 	// Register valid observer
-	observer := NewNoOpObserver()
+	observer := progress.NewNoOpObserver()
 	subject.Register(observer)
 	if subject.ObserverCount() != 1 {
 		t.Errorf("expected 1 observer, got %d", subject.ObserverCount())
 	}
 
 	// Register second observer
-	subject.Register(NewNoOpObserver())
+	subject.Register(progress.NewNoOpObserver())
 	if subject.ObserverCount() != 2 {
 		t.Errorf("expected 2 observers, got %d", subject.ObserverCount())
 	}
@@ -57,7 +59,7 @@ func TestProgressSubject_Register(t *testing.T) {
 func TestProgressSubject_Unregister(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	// Use mockObserver instead of NoOpObserver because empty structs
 	// may share the same address, breaking pointer comparison
 	observer1 := newMockObserver()
@@ -132,7 +134,7 @@ func (m *mockObserver) updateCount() int {
 func TestProgressSubject_Notify(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	mock1 := newMockObserver()
 	mock2 := newMockObserver()
 
@@ -164,7 +166,7 @@ func TestProgressSubject_Notify(t *testing.T) {
 func TestProgressSubject_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	var wg sync.WaitGroup
 
 	// Concurrent registration
@@ -172,7 +174,7 @@ func TestProgressSubject_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subject.Register(NewNoOpObserver())
+			subject.Register(progress.NewNoOpObserver())
 		}()
 	}
 
@@ -197,7 +199,7 @@ func TestProgressSubject_ConcurrentAccess(t *testing.T) {
 func TestProgressSubject_AsProgressCallback(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	mock := newMockObserver()
 	subject.Register(mock)
 
@@ -221,7 +223,7 @@ func TestProgressSubject_AsProgressCallback(t *testing.T) {
 func TestProgressSubject_FreezeSnapshot(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	mock1 := newMockObserver()
 	mock2 := newMockObserver()
 
@@ -247,7 +249,7 @@ func TestProgressSubject_FreezeSnapshot(t *testing.T) {
 func TestProgressSubject_FreezeRaceConditions(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 	mock := newMockObserver()
 	subject.Register(mock)
 
@@ -281,7 +283,7 @@ func TestProgressSubject_FreezeRaceConditions(t *testing.T) {
 func TestProgressSubject_FreezePanicRecovery(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 
 	// Register a panicking observer
 	panicker := &panicObserver{}
@@ -293,7 +295,7 @@ func TestProgressSubject_FreezePanicRecovery(t *testing.T) {
 
 	callback := subject.Freeze(0)
 
-	before := RecoveredObserverCount()
+	before := progress.RecoveredObserverCount()
 
 	// Should not panic — the panicking observer is recovered
 	callback(0.5)
@@ -305,7 +307,7 @@ func TestProgressSubject_FreezePanicRecovery(t *testing.T) {
 
 	// The recovered-panic counter is process-wide and monotonic, so assert
 	// the delta rather than an absolute value.
-	if got := RecoveredObserverCount() - before; got != 1 {
+	if got := progress.RecoveredObserverCount() - before; got != 1 {
 		t.Errorf("RecoveredObserverCount() delta = %d, want 1", got)
 	}
 }
@@ -325,8 +327,8 @@ func (p *panicObserver) Update(int, float64) {
 func TestChannelObserver_Update(t *testing.T) {
 	t.Parallel()
 
-	ch := make(chan ProgressUpdate, 10)
-	observer := NewChannelObserver(ch)
+	ch := make(chan progress.ProgressUpdate, 10)
+	observer := progress.NewChannelObserver(ch)
 
 	observer.Update(1, 0.5)
 	observer.Update(2, 1.0)
@@ -347,7 +349,7 @@ func TestChannelObserver_Update(t *testing.T) {
 func TestChannelObserver_NilChannel(t *testing.T) {
 	t.Parallel()
 
-	observer := NewChannelObserver(nil)
+	observer := progress.NewChannelObserver(nil)
 	// Should not panic
 	observer.Update(1, 0.5)
 }
@@ -356,8 +358,8 @@ func TestChannelObserver_NilChannel(t *testing.T) {
 func TestChannelObserver_FullChannel(t *testing.T) {
 	t.Parallel()
 
-	ch := make(chan ProgressUpdate) // Unbuffered = full
-	observer := NewChannelObserver(ch)
+	ch := make(chan progress.ProgressUpdate) // Unbuffered = full
+	observer := progress.NewChannelObserver(ch)
 
 	// Should not block - use timeout to verify
 	done := make(chan bool, 1)
@@ -380,8 +382,8 @@ func TestChannelObserver_FullChannel(t *testing.T) {
 func TestChannelObserver_ClampsProgress(t *testing.T) {
 	t.Parallel()
 
-	ch := make(chan ProgressUpdate, 1)
-	observer := NewChannelObserver(ch)
+	ch := make(chan progress.ProgressUpdate, 1)
+	observer := progress.NewChannelObserver(ch)
 
 	observer.Update(1, 1.5) // Should be clamped to 1.0
 
@@ -401,7 +403,7 @@ func TestLoggingObserver_Update(t *testing.T) {
 
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf).Level(zerolog.DebugLevel)
-	observer := NewLoggingObserver(logger, 0.1)
+	observer := progress.NewLoggingObserver(logger, 0.1)
 
 	// First update should log (initial progress)
 	observer.Update(0, 0.1)
@@ -439,7 +441,7 @@ func TestLoggingObserver_DefaultThreshold(t *testing.T) {
 	logger := zerolog.New(&buf).Level(zerolog.DebugLevel)
 
 	// Zero threshold should use default
-	observer := NewLoggingObserver(logger, 0)
+	observer := progress.NewLoggingObserver(logger, 0)
 
 	observer.Update(0, 0.0)
 	observer.Update(0, 0.05) // Below default 0.1 threshold
@@ -456,7 +458,7 @@ func TestLoggingObserver_DefaultThreshold(t *testing.T) {
 func TestNoOpObserver_Update(t *testing.T) {
 	t.Parallel()
 
-	observer := NewNoOpObserver()
+	observer := progress.NewNoOpObserver()
 	// Should not panic
 	observer.Update(0, 0.0)
 	observer.Update(1, 1.0)
@@ -470,20 +472,20 @@ func TestNoOpObserver_Update(t *testing.T) {
 func TestMultipleObserversIntegration(t *testing.T) {
 	t.Parallel()
 
-	subject := NewProgressSubject()
+	subject := progress.NewProgressSubject()
 
 	// Set up channel observer
-	ch := make(chan ProgressUpdate, 10)
-	channelObs := NewChannelObserver(ch)
+	ch := make(chan progress.ProgressUpdate, 10)
+	channelObs := progress.NewChannelObserver(ch)
 
 	// Set up logging observer
 	var logBuf bytes.Buffer
 	logger := zerolog.New(&logBuf).Level(zerolog.DebugLevel)
-	loggingObs := NewLoggingObserver(logger, 0.1)
+	loggingObs := progress.NewLoggingObserver(logger, 0.1)
 
 	// Set up mock observer to count
 	var updateCount int64
-	countingObs := &struct{ ProgressObserver }{} // Anonymous observer
+	countingObs := &struct{ progress.ProgressObserver }{} // Anonymous observer
 	countingObsImpl := newMockObserver()
 
 	subject.Register(channelObs)

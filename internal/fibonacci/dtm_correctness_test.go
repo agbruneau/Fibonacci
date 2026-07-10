@@ -1,4 +1,4 @@
-package fibonacci
+package fibonacci_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // TestFastDoubling_DynamicThresholds_Correctness guards the DTM-on integration
@@ -31,7 +33,7 @@ func TestFastDoubling_DynamicThresholds_Correctness(t *testing.T) {
 		t.Fatalf("Failed to decode golden file: %v", err)
 	}
 
-	calc := MustNewCalculator(&FastDoublingCalculator{})
+	calc := fibonacci.MustNewCalculator(&fibonacci.FastDoublingCalculator{})
 	ctx := context.Background()
 
 	for _, tc := range cases {
@@ -44,8 +46,8 @@ func TestFastDoubling_DynamicThresholds_Correctness(t *testing.T) {
 			// A small adjustment interval makes the dynamic-threshold manager's
 			// ShouldAdjust logic actually fire across the doubling iterations,
 			// rather than merely toggling the DTM branch on.
-			dtmOpts := Options{
-				ParallelThreshold:         DefaultParallelThreshold,
+			dtmOpts := fibonacci.Options{
+				ParallelThreshold:         fibonacci.DefaultParallelThreshold,
 				EnableDynamicThresholds:   true,
 				DynamicAdjustmentInterval: 2,
 			}
@@ -59,7 +61,7 @@ func TestFastDoubling_DynamicThresholds_Correctness(t *testing.T) {
 			}
 
 			// Enabling dynamic thresholds must not change the computed value.
-			gotStatic, err := calc.Calculate(ctx, nil, 0, tc.N, Options{ParallelThreshold: DefaultParallelThreshold})
+			gotStatic, err := calc.Calculate(ctx, nil, 0, tc.N, fibonacci.Options{ParallelThreshold: fibonacci.DefaultParallelThreshold})
 			if err != nil {
 				t.Fatalf("DTM-off calculation failed for N=%d: %v", tc.N, err)
 			}
