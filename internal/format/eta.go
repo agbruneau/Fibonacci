@@ -48,7 +48,8 @@ func FormatETA(eta time.Duration) string {
 //
 // Parameters:
 //   - progress: The normalized progress value (0.0 to 1.0).
-//   - length: The total character width of the progress bar.
+//   - length: The total character width of the progress bar. All callers
+//     pass a fixed positive width; a negative length panics (strings.Repeat).
 //
 // Returns:
 //   - string: A string representation of the progress bar.
@@ -60,16 +61,7 @@ func ProgressBar(progress float64, length int) string {
 		progress = 0.0
 	}
 	count := int(progress * float64(length))
-	var builder strings.Builder
-	builder.Grow(length)
-	for i := 0; i < length; i++ {
-		if i < count {
-			builder.WriteRune('█')
-		} else {
-			builder.WriteRune('░')
-		}
-	}
-	return builder.String()
+	return strings.Repeat("█", count) + strings.Repeat("░", length-count)
 }
 
 // formatProgressBarWithETA generates a formatted progress string with ETA.
