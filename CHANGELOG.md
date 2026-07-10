@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Rien pour l'instant._
+### Changed
+
+- **PLAN.md vague P + vague 1 — durcissement d'oracle et réécriture du cœur.**
+  Vague P : 9 nouveaux gardiens de test comblant des trous prouvés par analyse
+  adversariale (25 scénarios, 19 non détectés par le gate d'alors), migration
+  de 6 suites vers `package foo_test`, correctif `calibration` (branches CPU
+  mortes couvertes). Vague 1 : lecture complète de `bigfft` et `fibonacci`
+  (34 fichiers de production) contre les invariants `CLAUDE.md` — confirmés
+  exacts, zéro trouvaille dans `bigfft`. Coupes ponytail : `internal/parallel`
+  supprimé (migration `errgroup`), `internal/fibonacci/fibonaccitest`
+  supprimé (inliné dans son unique appelant), interface `CacheStrategy`
+  supprimée (appel direct de `decideCacheTuning`), `MetricsBuffer.writtenCount`
+  mort supprimé. Voir [ADR-0010](docs/adr/0010-wave1-rewrite-structural-changes.md)
+  pour la correspondance ancien → nouveau et la régression `allocs/op`
+  mesurée puis corrigée sur `executeParallel3`. `benchstat` : aucune
+  régression retenue (> 5 % avec p < 0,05) sur les six benchmarks du cœur ;
+  geomean `sec/op` -3 à -7 % selon le run.
 
 ## [4.0.0] - 2026-07-07
 

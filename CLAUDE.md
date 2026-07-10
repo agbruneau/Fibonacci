@@ -208,7 +208,7 @@ Pratique effective : **trunk-based** (mainteneur solo). Une branche dédiée + P
 ## Références
 
 - Audit exhaustif 2026-07 — exécuté puis purgé (`d10299b`) ; décisions résiduelles dans [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) (+ addendum R4 du 2026-07-07 : balayage arène, ×10 adopté) et [`CHANGELOG.md`](CHANGELOG.md).
-- [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + FIB-05 (rejet initial, puis ×10 adopté par l'addendum R4).
+- [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + FIB-05 (rejet initial, puis ×10 adopté par l'addendum R4), 0010 vague 1 PLAN.md — correspondance des invariants (`internal/parallel`/`fibonaccitest`/`CacheStrategy` supprimés, `executeParallel3` n'utilise **pas** `errgroup` — régression `allocs/op` mesurée et corrigée).
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph. [Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/).
 - [`docs/algorithms/`](docs/algorithms/), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/PORTABILITY.md`](docs/PORTABILITY.md), [`docs/BUILD.md`](docs/BUILD.md), [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 - [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), `.golangci.yml` (24 linters, `govet shadow`, exceptions documentées).
