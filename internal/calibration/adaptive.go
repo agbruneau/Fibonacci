@@ -19,8 +19,13 @@ import (
 // - 8+ cores: Include higher thresholds as more parallelism can be beneficial
 // - 16+ cores: Add even higher thresholds for very fine-grained parallelism
 func GenerateParallelThresholds() []int {
-	numCPU := runtime.NumCPU()
+	return generateParallelThresholds(runtime.NumCPU())
+}
 
+// generateParallelThresholds is the CPU-count-injected core of
+// GenerateParallelThresholds: runtime.NumCPU ignores GOMAXPROCS, so the
+// low-CPU branches are untestable without this seam.
+func generateParallelThresholds(numCPU int) []int {
 	// Base thresholds always tested. -1 (not 0) is the genuine sequential
 	// baseline: normalizeOptions only replaces ==0 with the package
 	// default, so 0 silently duplicated the default candidate and the

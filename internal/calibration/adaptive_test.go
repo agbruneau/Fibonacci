@@ -3,6 +3,7 @@ package calibration
 import (
 	"context"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci"
@@ -10,62 +11,34 @@ import (
 
 func TestGenerateParallelThresholds(t *testing.T) {
 	t.Parallel()
-	thresholds := GenerateParallelThresholds()
 
+	// Table-driven over the injected CPU count so every CPU-gated branch is
+	// exercised on any development machine (runtime.NumCPU ignores
+	// GOMAXPROCS, so the branches below 8 CPUs were dead on real hardware).
 	// FIB-02: the baseline candidate must be -1 (genuinely sequential —
 	// normalizeOptions only replaces ==0 with the default, so 0 was a
 	// duplicate of the default candidate, never a real baseline).
-	if len(thresholds) == 0 || thresholds[0] != -1 {
-		t.Error("Expected thresholds to start with -1 (sequential baseline)")
+	cases := []struct {
+		numCPU int
+		want   []int
+	}{
+		{1, []int{-1}},
+		{2, []int{-1, 512, 1024, 2048, 4096}},
+		{4, []int{-1, 512, 1024, 2048, 4096}},
+		{8, []int{-1, 256, 512, 1024, 2048, 4096, 8192}},
+		{16, []int{-1, 256, 512, 1024, 2048, 4096, 8192, 16384}},
+		{24, []int{-1, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768}},
 	}
-
-	// Should have at least one threshold
-	if len(thresholds) < 1 {
-		t.Error("Expected at least one threshold")
-	}
-
-	// Verify thresholds are appropriate for CPU count
-	numCPU := runtime.NumCPU()
-	switch {
-	case numCPU == 1:
-		if len(thresholds) != 1 {
-			t.Errorf("For 1 CPU, expected 1 threshold, got %d", len(thresholds))
-		}
-	case numCPU <= 4:
-		if len(thresholds) < 5 {
-			t.Errorf("For %d CPUs, expected at least 5 thresholds, got %d", numCPU, len(thresholds))
-		}
-		// Should include: 0, 512, 1024, 2048, 4096
-		expected := []int{0, 512, 1024, 2048, 4096}
-		for _, exp := range expected {
-			found := false
-			for _, th := range thresholds {
-				if th == exp {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("Expected threshold %d not found in %v", exp, thresholds)
-			}
-		}
-	case numCPU <= 8:
-		if len(thresholds) < 7 {
-			t.Errorf("For %d CPUs, expected at least 7 thresholds, got %d", numCPU, len(thresholds))
-		}
-	case numCPU <= 16:
-		if len(thresholds) < 8 {
-			t.Errorf("For %d CPUs, expected at least 8 thresholds, got %d", numCPU, len(thresholds))
-		}
-	default:
-		if len(thresholds) < 9 {
-			t.Errorf("For %d CPUs, expected at least 9 thresholds, got %d", numCPU, len(thresholds))
+	for _, tc := range cases {
+		if got := generateParallelThresholds(tc.numCPU); !slices.Equal(got, tc.want) {
+			t.Errorf("generateParallelThresholds(%d) = %v, want %v", tc.numCPU, got, tc.want)
 		}
 	}
 
-	// Log the thresholds for visibility
-	t.Logf("Generated %d parallel thresholds for %d CPUs: %v",
-		len(thresholds), numCPU, thresholds)
+	// The exported wrapper must delegate to the current machine's CPU count.
+	if got, want := GenerateParallelThresholds(), generateParallelThresholds(runtime.NumCPU()); !slices.Equal(got, want) {
+		t.Errorf("GenerateParallelThresholds() = %v, want %v", got, want)
+	}
 }
 
 func TestGenerateQuickParallelThresholds(t *testing.T) {
