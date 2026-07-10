@@ -1,4 +1,4 @@
-package orchestration
+package orchestration_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
@@ -30,11 +31,11 @@ func TestExecuteCalculationsRespectsStrassenConfig(t *testing.T) {
 		StrassenThreshold: 12345, // Unique value to verify
 	}
 
-	ExecuteCalculations(context.Background(), ExecutionConfig{
+	orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
 		Calculators:      calculators,
 		N:                10,
 		Opts:             opts,
-		ProgressReporter: NullProgressReporter{},
+		ProgressReporter: orchestration.NullProgressReporter{},
 		Out:              io.Discard,
 	})
 

@@ -1,4 +1,4 @@
-package orchestration
+package orchestration_test
 
 import (
 	"context"
@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
-// Contract tests: invariants that should hold for orchestration + Calculator implementations
-// (modest N, fast CI). See docs/INNOVEPLAN.md P2-b.
+// Contract tests: invariants that should hold for orchestration + Calculator
+// implementations (modest N, fast CI).
 
 // coreStub is a configurable fibonacci.CoreCalculator for these contract
 // tests. It was formerly the sole production type in
@@ -59,11 +60,11 @@ func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results := ExecuteCalculations(ctx, ExecutionConfig{
+	results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 		Calculators:      []fibonacci.Calculator{calc},
 		N:                200,
 		Opts:             fibonacci.Options{},
-		ProgressReporter: NullProgressReporter{},
+		ProgressReporter: orchestration.NullProgressReporter{},
 		Out:              &DiscardWriter{},
 	})
 	if len(results) != 1 {
@@ -92,11 +93,11 @@ func TestExecuteCalculations_progressChannelClosedAndDrained(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		ExecuteCalculations(context.Background(), ExecutionConfig{
+		orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
 			Calculators:      []fibonacci.Calculator{calc},
 			N:                200,
 			Opts:             fibonacci.Options{},
-			ProgressReporter: NullProgressReporter{},
+			ProgressReporter: orchestration.NullProgressReporter{},
 			Out:              &DiscardWriter{},
 		})
 		close(done)
@@ -126,11 +127,11 @@ func TestExecuteCalculations_noPanicFromCalculatorError(t *testing.T) {
 			t.Errorf("unexpected panic: %v", r)
 		}
 	}()
-	results := ExecuteCalculations(context.Background(), ExecutionConfig{
+	results := orchestration.ExecuteCalculations(context.Background(), orchestration.ExecutionConfig{
 		Calculators:      []fibonacci.Calculator{calc},
 		N:                200,
 		Opts:             fibonacci.Options{},
-		ProgressReporter: NullProgressReporter{},
+		ProgressReporter: orchestration.NullProgressReporter{},
 		Out:              &DiscardWriter{},
 	})
 	if len(results) != 1 || results[0].Err == nil {

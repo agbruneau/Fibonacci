@@ -301,6 +301,7 @@ func TestProgressAggregator_RecomputeETA_RapidUpdatesSkipRateRefresh(t *testing.
 }
 
 func TestDrainChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan progress.ProgressUpdate, 5)
 	ch <- progress.ProgressUpdate{CalculatorIndex: 0, Value: 0.1}
 	ch <- progress.ProgressUpdate{CalculatorIndex: 0, Value: 0.2}
@@ -312,6 +313,7 @@ func TestDrainChannel(t *testing.T) {
 }
 
 func TestDrainChannel_Empty(t *testing.T) {
+	t.Parallel()
 	ch := make(chan progress.ProgressUpdate)
 	close(ch)
 
