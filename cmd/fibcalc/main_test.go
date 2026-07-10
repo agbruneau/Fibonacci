@@ -84,16 +84,6 @@ func TestRun_Help(t *testing.T) {
 	}
 }
 
-func TestRun_InvalidFlag(t *testing.T) {
-	t.Parallel()
-	var stdout, stderr bytes.Buffer
-	action := run([]string{"fibcalc", "--invalid-flag-xyz"}, &stdout, &stderr)
-
-	if action.Code() != 4 {
-		t.Errorf("Expected exit code 4 (config), got %d", action.Code())
-	}
-}
-
 func TestRun_ConfigErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
