@@ -48,18 +48,18 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 - `clearStateAliases` **inconditionnel** avant **tout** sink : `statePool.Put` **ou** slot GC-immune `cachedState` (borné à `maxCachedArenaWords` = 4M mots ≈ 32 Mo).
 - État overLimit **jamais publié** ; bump relâché sur drop anti-bloat et overLimit. Jamais publier un état dans le slot hors de ce chemin.
 - **Multiplicateur d'arène ×10** (`acquireSizingForN`, en miroir dans `memory/arena.go:arenaTotalWords`) : **swept de ×15 à ×10 le 2026-07-07** ([addendum ADR-0009 R4](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)). Le balayage complet {12, 10, 8, 6} sur la machine Intel de référence a montré une baisse mémoire order-stable (≈ −16 % B/op FFT 10M, allocs inchangées) à coût CPU nul (≤ +2 % geomean, confirmé en ordre inversé) — l'inverse de la régression Ryzen d'origine (FIB-05/R4). **La valeur optimale est microarchitecture-dépendante** : ne pas la re-changer sans un nouveau balayage complet selon le protocole de l'addendum (plusieurs paliers, benchstat à chacun, confirmation ordre inversé). Les deux littéraux (`acquireSizingForN` et `arenaTotalWords`) et leurs miroirs de test doivent rester **synchronisés**.
-- **Gardiens** : `TestReleaseState_OverLimit_AliasesCleared`, `TestCalculatorStateCache_OverLimitNotCached`, `TestStateBump_*`, `TestAcquireStateForN_HugeN_NoPanic` (clamps), `TestArenaTotalWords_ClampNoUB` (miroir).
+- **Gardiens** : `TestReleaseState_OverLimit_AliasesCleared`, `TestCalculatorStateCache_OverLimitNotCached`, `TestStateBump_*`, `TestAcquireStateForN_HugeN_NoPanic` (clamps), `TestArenaTotalWords_ClampNoUB` (miroir), `TestArenaSizingMatchesMemoryArena` (croisement effectif des deux littéraux ×10 — vague P ; les tests-miroirs ne comparent chacun que leur propre copie).
 
 ### `fibonacci/doubling_framework.go`
 
-- Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est **amplifiée**. Gate benchstat impératif (Directive #1).
+- Boucle critique étroitement couplée à `bigfft` ; toute régression perf y est **amplifiée**. Gate benchstat impératif (Directive #1). Budget d'allocations du régime permanent borné par `TestDoublingLoopAllocBudget` (`//go:build !race`, jambe Windows — vague P 2026-07-10).
 
 ### `fibonacci/threshold/manager.go`
 
 - Champs **par-instance** (`currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]`) : l'ancien invariant single-writer par-instance (A-18) est **obsolète** — migrés atomic.
 - **A2-04 toujours actif** : single-writer-before-use sur les knobs **package-level** (`FFTSpeedupThreshold`, etc. — documenté en tête `manager.go:33-39`). Pas d'écrivain concurrent sur `ShouldAdjust`/`Reset`.
 - Le package n'importe **pas** `internal/config` : câblage `config.DefaultThresholdTuning → threshold.SetTuning` exécuté une fois par `app.New` (`wireThresholdTuning`, `sync.Once`). **Gardien** : `TestWireThresholdTuning`.
-- `MetricsBuffer` n'est **pas** goroutine-safe : tout accès (`Record`/`Count`/`RecentMetrics`) sous `mu`. **Gardien** : `TestConcurrentAccess` sous `-race`.
+- `MetricsBuffer` n'est **pas** goroutine-safe : tout accès (`Record`/`Count`/`RecentMetrics`) sous `mu`. **Gardiens** : `TestConcurrentAccess` et `TestMetricsBufferConcurrentRecordSnapshot` (écrivain vs snapshot sans les gates de `ShouldAdjust` — vague P), sous `-race`.
 
 ### `fibonacci/memory/gc_control.go`
 
@@ -69,7 +69,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 ### `calibration/calibration.go`
 
 - `IsStale` doit rester invoqué ; la branche stale route vers `CompleteStrategy`.
-- **SEC-01** : un profil frais et hardware-valide (`IsValid`) n'est **pas** suffisant pour être appliqué — `IsValid` ne vérifie que la compatibilité matérielle, jamais les plages de seuils. Les trois seuils (`OptimalParallelThreshold`/`OptimalFFTThreshold`/`OptimalStrassenThreshold`) sont re-validés (non-négativité) avant `applyCachedProfile` ; sinon fallback vers une calibration fraîche plutôt que de laisser fuiter un seuil forgé. **Gardien** : `TestAutoCalibrateWithProfile` (sous-test « Forged fresh profile with negative threshold is not applied »).
+- **SEC-01** : un profil frais et hardware-valide (`IsValid`) n'est **pas** suffisant pour être appliqué — `IsValid` ne vérifie que la compatibilité matérielle, jamais les plages de seuils. Les trois seuils (`OptimalParallelThreshold`/`OptimalFFTThreshold`/`OptimalStrassenThreshold`) sont re-validés (non-négativité) avant `applyCachedProfile` ; sinon fallback vers une calibration fraîche plutôt que de laisser fuiter un seuil forgé. **Gardien** : `TestAutoCalibrateWithProfile` (sous-tests « Forged fresh profile is not applied: … », un par seuil forgé — parallel/FFT/Strassen, vague P).
 
 ### `bigfft/pool.go`
 
@@ -79,7 +79,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 
 ### `bigfft/fft_cache.go`
 
-- Globaux + cache LRU. `putByKey` alloue **toujours** un backing frais — pas de recyclage à l'éviction (aliasing avec un `PolValues` vivant, Audit-PRD E1-R4).
+- Globaux + cache LRU. `putByKey` alloue **toujours** un backing frais — pas de recyclage à l'éviction (aliasing avec un `PolValues` vivant, Audit-PRD E1-R4). **Gardien** : `TestCacheGetSurvivesEviction` (tient une `PolValues` de `Get()` à travers l'éviction — vague P ; le test d'allocations seul devient *plus* vert si le recyclage revient).
 - `logger` = `atomic.Pointer[zerolog.Logger]` (ne pas remettre en champ nu) : `setCacheLogger` (dé-exporté test-only en Phase 4, OVR-12) ne doit pas racer avec la lecture hot-path de `logPeriodicStats` (A2-02).
 
 ### `bigfft/fft.go`, `fft_recursion.go`
@@ -88,8 +88,8 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 
 ### `bigfft/fft.go` (`Mul`/`MulTo`/`Sqr`/`SqrTo`), `fermat.go`
 
-- Récepteur `fermat` uniformisé sur `z`. Le `recover()` global re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent **pas** être masquées en `error` (re-route via classifier sentinel — ADR-0002). **Gardien** : `TestFermatPostConditionPanicClassifier`.
-- **Tous** les chemins parallèles capturent les panics worker via un `panicCh` bufferisé et les re-panic sur l'appelant après `wg.Wait()` — un panic sur goroutine nue crasherait le process en contournant ADR-0002. **Gardiens** : récursion async `fourierRecursiveUnified`/`fourierRecursiveCtx` (`TestFourierRecursiveAsyncPanicPropagates`/`...CtxAsyncPanicPropagates`), `executeReconstruction` (`TestExecuteReconstructionPanicPropagates`), `runPointwise` (`TestPointwiseWorkerPanicPropagates`).
+- Récepteur `fermat` uniformisé sur `z`. Le `recover()` global re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent **pas** être masquées en `error` (re-route via classifier sentinel — ADR-0002). Les trois messages sont des **constantes partagées** (`panicMsgOversizedProduct`/`panicMsgMulCarry`/`panicMsgSqrCarry`, `fermat.go` — vague P) consommées par les sites de panic **et** la map de `fft.go` : ne pas les redupliquer en littéraux. **Gardiens** : `TestFermatPostConditionPanicClassifier`, `TestFermatRealPostConditionPanicIsClassified` (déclenche un **vrai** panic via des opérandes dénormalisés).
+- **Tous** les chemins parallèles capturent les panics worker via un `panicCh` bufferisé et les re-panic sur l'appelant après `wg.Wait()` — un panic sur goroutine nue crasherait le process en contournant ADR-0002. La moitié **synchrone** de `fourierRecursiveUnified` est elle aussi enveloppée : son panic attend `wg.Wait()` avant de se re-propager (FFT-02). **Gardiens** : récursion async `fourierRecursiveUnified`/`fourierRecursiveCtx` (`TestFourierRecursiveAsyncPanicPropagates`/`...CtxAsyncPanicPropagates`), moitié sync (`TestFourierRecursiveSyncPanicWaitsForAsyncWorker`, `-race` — vague P), `executeReconstruction` (`TestExecuteReconstructionPanicPropagates`), `runPointwise` (`TestPointwiseWorkerPanicPropagates`).
 
 ### `errors/errors.go`
 
@@ -99,7 +99,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 
 - N'importe **pas** `internal/fibonacci` directement → passer par les aliases `orchestration.Calculator`/`Options`/`Default*Threshold`. **Gardien** : `TestArchitectureLayering`.
 - `model.go` : routeur `Update` **pur** — aucun effet de bord dans le routage.
-- **APP-05** : `handleReset` incrémente `m.generation` et pose un budget de timeout **frais** par génération (`context.WithTimeout(m.parentCtx, ...)`) — un restart ne doit pas hériter du délai absolu de la session précédente. Tout message porteur d'un `Generation` périmé est ignoré par `Update`. **Gardiens** : `TestModel_HandleReset_FreshTimeoutBudget`, `TestModel_Update_ContextCancelledMsg_StaleGeneration`, `TestModel_Update_CalculationComplete_StaleGeneration`, `TestModel_Update_ErrorMsg_StaleGeneration`, `TestModel_Update_IndicatorsMsg_StaleGeneration` (`internal/tui/model_test.go`).
+- **APP-05** : `handleReset` incrémente `m.generation` et pose un budget de timeout **frais** par génération (`context.WithTimeout(m.parentCtx, ...)`) — un restart ne doit pas hériter du délai absolu de la session précédente. Tout message porteur d'un `Generation` périmé est ignoré par `Update`. **Gardiens** : `TestModel_HandleReset_FreshTimeoutBudget`, `TestModel_HandleReset_CancelsPreviousGeneration` (l'ancienne génération est annulée, pas seulement remplacée — vague P), `TestModel_Update_ContextCancelledMsg_StaleGeneration`, `TestModel_Update_CalculationComplete_StaleGeneration`, `TestModel_Update_ErrorMsg_StaleGeneration`, `TestModel_Update_IndicatorsMsg_StaleGeneration` (`internal/tui/model_test.go`).
 
 ### `cli/ui.go`
 
