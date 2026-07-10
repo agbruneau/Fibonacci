@@ -1,14 +1,16 @@
-package tui
+package tui_test
 
 import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/key"
+
+	"github.com/agbruneau/FibGo/internal/tui"
 )
 
 func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
 	t.Parallel()
-	km := DefaultKeyMap()
+	km := tui.DefaultKeyMap()
 
 	bindings := []struct {
 		name    string
@@ -24,7 +26,6 @@ func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
 	}
 
 	for _, b := range bindings {
-
 		t.Run(b.name, func(t *testing.T) {
 			t.Parallel()
 			if !b.binding.Enabled() {
@@ -40,7 +41,7 @@ func TestDefaultKeyMap_AllBindingsDefined(t *testing.T) {
 
 func TestDefaultKeyMap_QuitKeys(t *testing.T) {
 	t.Parallel()
-	km := DefaultKeyMap()
+	km := tui.DefaultKeyMap()
 
 	keys := km.Quit.Keys()
 	hasQ := false

@@ -67,7 +67,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                          Infrastructure Helpers                       |
 |                                                                       |
-| internal/metrics  metrics/system  internal/format  test/e2e, docs     |
+| internal/metrics  internal/format  test/e2e, docs                     |
 +-----------------------------------------------------------------------+
 ```
 
@@ -144,7 +144,6 @@ internal/
 │   └── threshold/               # Dynamic threshold manager
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
-│   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
 ├── orchestration/               # Concurrent execution and result analysis
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
@@ -245,8 +244,8 @@ internal/
 - **Key types:** `ConfigError`, `CalculationError`, `TimeoutError`, `ValidationError`, `MemoryError`.
 - **Key helpers:** `WrapError`, `IsContextError`, `HandleCalculationError`, `ColorProvider` interface.
 
-## `internal/metrics`, `internal/metrics/system`, `internal/format`, `internal/ui`, `internal/testutil`
-- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
+## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`
+- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers. Host CPU/memory sampling (`gopsutil`) is inlined in `internal/tui/commands.go` (`sampleSysStatsCmd`), its only call site — the former single-purpose `internal/metrics/system` wrapper package was removed.
 
 ---
 
@@ -713,7 +712,7 @@ From `go.mod`, direct dependencies are:
 | `github.com/leanovate/gopter` | Property-based testing |
 | `github.com/ncw/gmp` | Optional GMP big integer backend (`gmp` build tag) |
 | `github.com/rs/zerolog` | Structured logging (package-level Nop loggers by default) |
-| `github.com/shirou/gopsutil/v4` | Host/system metrics collection (sysmon) |
+| `github.com/shirou/gopsutil/v4` | Host/system metrics collection, inlined in `internal/tui/commands.go` |
 | `golang.org/x/sys` | Low-level OS/CPU support (including CPU feature usage) |
 
 **Notable indirect dependencies:** Charmbracelet ecosystem (x/ansi, x/cellbuf, x/term, colorprofile), fatih/color, go-ole (Windows COM), ebitengine/purego, tklauser/numcpus.

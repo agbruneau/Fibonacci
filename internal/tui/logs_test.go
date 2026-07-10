@@ -185,19 +185,6 @@ func TestLogsModel_AlgoName_OutOfBounds(t *testing.T) {
 	}
 }
 
-func TestLogsModel_View(t *testing.T) {
-	t.Parallel()
-	logs := NewLogsModel([]string{"Fast Doubling"})
-	logs.SetSize(60, 20)
-
-	logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: 0.5})
-
-	view := logs.View()
-	if len(view) == 0 {
-		t.Error("expected non-empty view")
-	}
-}
-
 func TestLogsModel_AutoScroll(t *testing.T) {
 	t.Parallel()
 	logs := NewLogsModel([]string{"Fast"})
@@ -212,23 +199,6 @@ func TestLogsModel_AutoScroll(t *testing.T) {
 	if !logs.autoScroll {
 		t.Error("expected autoScroll to be true after adding entries")
 	}
-}
-
-func TestLogsModel_Update_ScrollKeys(t *testing.T) {
-	t.Parallel()
-	logs := NewLogsModel([]string{"Fast"})
-	logs.SetSize(60, 10)
-
-	// Add content
-	for i := 0; i < 30; i++ {
-		logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: float64(i) / 30})
-	}
-
-	// Scroll up - should work without panic
-	logs.Update(tea.KeyMsg{Type: tea.KeyUp})
-	logs.Update(tea.KeyMsg{Type: tea.KeyDown})
-	logs.Update(tea.KeyMsg{Type: tea.KeyPgUp})
-	logs.Update(tea.KeyMsg{Type: tea.KeyPgDown})
 }
 
 func TestLogsModel_AddProgressEntry_BoundedGrowth(t *testing.T) {

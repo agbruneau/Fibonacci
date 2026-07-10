@@ -1,12 +1,14 @@
-package tui
+package tui_test
 
 import (
 	"testing"
+
+	"github.com/agbruneau/FibGo/internal/tui"
 )
 
 func TestRingBuffer_PushAndSlice(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := tui.NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -25,7 +27,7 @@ func TestRingBuffer_PushAndSlice(t *testing.T) {
 
 func TestRingBuffer_Overflow(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := tui.NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -45,7 +47,7 @@ func TestRingBuffer_Overflow(t *testing.T) {
 
 func TestRingBuffer_Last(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(5)
+	rb := tui.NewRingBuffer(5)
 	if rb.Last() != 0 {
 		t.Error("expected 0 for empty buffer")
 	}
@@ -59,7 +61,7 @@ func TestRingBuffer_Last(t *testing.T) {
 
 func TestRingBuffer_Last_AfterOverflow(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(2)
+	rb := tui.NewRingBuffer(2)
 	rb.Push(10)
 	rb.Push(20)
 	rb.Push(30) // overwrites 10
@@ -70,7 +72,7 @@ func TestRingBuffer_Last_AfterOverflow(t *testing.T) {
 
 func TestRingBuffer_Reset(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(5)
+	rb := tui.NewRingBuffer(5)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Reset()
@@ -85,7 +87,7 @@ func TestRingBuffer_Reset(t *testing.T) {
 
 func TestRingBuffer_Resize_Grow(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := tui.NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -108,7 +110,7 @@ func TestRingBuffer_Resize_Grow(t *testing.T) {
 
 func TestRingBuffer_Resize_Shrink(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(5)
+	rb := tui.NewRingBuffer(5)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -130,7 +132,7 @@ func TestRingBuffer_Resize_Shrink(t *testing.T) {
 
 func TestRingBuffer_ZeroCapacity(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(0)
+	rb := tui.NewRingBuffer(0)
 	if rb.Cap() != 1 {
 		t.Errorf("expected min cap 1, got %d", rb.Cap())
 	}
@@ -142,7 +144,7 @@ func TestRingBuffer_ZeroCapacity(t *testing.T) {
 
 func TestRingBuffer_Resize_SameCapacity(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := tui.NewRingBuffer(3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Resize(3) // no-op
@@ -152,78 +154,10 @@ func TestRingBuffer_Resize_SameCapacity(t *testing.T) {
 	}
 }
 
-func TestRenderSparkline_Empty(t *testing.T) {
-	t.Parallel()
-	got := RenderSparkline(nil)
-	if got != "" {
-		t.Errorf("expected empty, got %q", got)
-	}
-}
-
-func TestRenderSparkline_AllZero(t *testing.T) {
-	t.Parallel()
-	got := RenderSparkline([]float64{0, 0, 0})
-	runes := []rune(got)
-	for i, r := range runes {
-		if r != '▁' {
-			t.Errorf("index %d: expected '▁', got %c", i, r)
-		}
-	}
-}
-
-func TestRenderSparkline_AllMax(t *testing.T) {
-	t.Parallel()
-	got := RenderSparkline([]float64{100, 100, 100})
-	runes := []rune(got)
-	for i, r := range runes {
-		if r != '█' {
-			t.Errorf("index %d: expected '█', got %c", i, r)
-		}
-	}
-}
-
-func TestRenderSparkline_Gradient(t *testing.T) {
-	t.Parallel()
-	values := []float64{0, 14.3, 28.6, 42.9, 57.1, 71.4, 85.7, 100}
-	got := RenderSparkline(values)
-	runes := []rune(got)
-	if len(runes) != 8 {
-		t.Fatalf("expected 8 chars, got %d", len(runes))
-	}
-	// Should be strictly ascending
-	for i := 1; i < len(runes); i++ {
-		if runes[i] < runes[i-1] {
-			t.Errorf("expected ascending at index %d: %c < %c", i, runes[i], runes[i-1])
-		}
-	}
-}
-
-func TestRenderSparkline_Clamping(t *testing.T) {
-	t.Parallel()
-	got := RenderSparkline([]float64{-10, 150})
-	runes := []rune(got)
-	if runes[0] != '▁' {
-		t.Errorf("negative not clamped to min: got %c", runes[0])
-	}
-	if runes[1] != '█' {
-		t.Errorf("over-100 not clamped to max: got %c", runes[1])
-	}
-}
-
-func TestRenderSparkline_MidValue(t *testing.T) {
-	t.Parallel()
-	got := RenderSparkline([]float64{50})
-	runes := []rune(got)
-	// 50/100 * 7 = 3.5 -> index 3 -> '▄'
-	if runes[0] != '▄' {
-		t.Errorf("expected '▄' for 50%%, got %c", runes[0])
-	}
-}
-
 func TestRingBuffer_Resize_NonPositiveCap(t *testing.T) {
 	t.Parallel()
 	for _, newCap := range []int{0, -3} {
-		rb := NewRingBuffer(3)
+		rb := tui.NewRingBuffer(3)
 		rb.Push(1)
 		rb.Push(2)
 		rb.Push(3)
@@ -239,5 +173,73 @@ func TestRingBuffer_Resize_NonPositiveCap(t *testing.T) {
 		if rb.Last() != 3 {
 			t.Errorf("Resize(%d): last = %f, want 3", newCap, rb.Last())
 		}
+	}
+}
+
+func TestRenderSparkline_Empty(t *testing.T) {
+	t.Parallel()
+	got := tui.RenderSparkline(nil)
+	if got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+}
+
+func TestRenderSparkline_AllZero(t *testing.T) {
+	t.Parallel()
+	got := tui.RenderSparkline([]float64{0, 0, 0})
+	runes := []rune(got)
+	for i, r := range runes {
+		if r != '▁' {
+			t.Errorf("index %d: expected '▁', got %c", i, r)
+		}
+	}
+}
+
+func TestRenderSparkline_AllMax(t *testing.T) {
+	t.Parallel()
+	got := tui.RenderSparkline([]float64{100, 100, 100})
+	runes := []rune(got)
+	for i, r := range runes {
+		if r != '█' {
+			t.Errorf("index %d: expected '█', got %c", i, r)
+		}
+	}
+}
+
+func TestRenderSparkline_Gradient(t *testing.T) {
+	t.Parallel()
+	values := []float64{0, 14.3, 28.6, 42.9, 57.1, 71.4, 85.7, 100}
+	got := tui.RenderSparkline(values)
+	runes := []rune(got)
+	if len(runes) != 8 {
+		t.Fatalf("expected 8 chars, got %d", len(runes))
+	}
+	// Should be strictly ascending
+	for i := 1; i < len(runes); i++ {
+		if runes[i] < runes[i-1] {
+			t.Errorf("expected ascending at index %d: %c < %c", i, runes[i], runes[i-1])
+		}
+	}
+}
+
+func TestRenderSparkline_Clamping(t *testing.T) {
+	t.Parallel()
+	got := tui.RenderSparkline([]float64{-10, 150})
+	runes := []rune(got)
+	if runes[0] != '▁' {
+		t.Errorf("negative not clamped to min: got %c", runes[0])
+	}
+	if runes[1] != '█' {
+		t.Errorf("over-100 not clamped to max: got %c", runes[1])
+	}
+}
+
+func TestRenderSparkline_MidValue(t *testing.T) {
+	t.Parallel()
+	got := tui.RenderSparkline([]float64{50})
+	runes := []rune(got)
+	// 50/100 * 7 = 3.5 -> index 3 -> '▄'
+	if runes[0] != '▄' {
+		t.Errorf("expected '▄' for 50%%, got %c", runes[0])
 	}
 }
