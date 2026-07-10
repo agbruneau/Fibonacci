@@ -228,7 +228,15 @@ func TestReleaseState_OverLimit_AliasesCleared(t *testing.T) {
 			"FK": s.FK, "FK1": s.FK1, "T1": s.T1, "T2": s.T2, "T3": s.T3,
 		}
 
-		ReleaseState(s)
+		// finalizeStateReleaseTo with a no-op sink, not ReleaseState: this is
+		// the nominal (non-overLimit) path, so the real ReleaseState would
+		// put s into the shared statePool, where any other parallel test's
+		// AcquireStateForN could legitimately Get() it and start mutating it
+		// while assertCleared below is still reading it -- a genuine data
+		// race under -race with t.Parallel() (caught 2026-07-10, same
+		// anti-pattern as TestStateBump_FollowsArenaDrop). The no-op sink
+		// exercises the identical teardown path without the pool re-entry.
+		finalizeStateReleaseTo(s, func(*CalculationState) {})
 		assertCleared(t, s, captured)
 	})
 }
