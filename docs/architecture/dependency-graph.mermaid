@@ -55,7 +55,10 @@ flowchart LR
     orch --> errors
     orch --> progress
     orch --> fibmem
-    orch --> format
+
+    config --> errors
+    config --> fibmem
+    config --> ui
 
     calib --> fib
     calib --> bigfft
@@ -66,6 +69,7 @@ flowchart LR
     calib --> progress
 
     fib --> bigfft
+    fib --> errors
     fib --> parallel
     fib --> progress
     fib --> fibmem
