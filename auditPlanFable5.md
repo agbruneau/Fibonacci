@@ -21,7 +21,46 @@ Mandat : corriger les 12 majeurs. Arbitrages mainteneur obtenus en séance : **D
 | DEAD-01 | ✅ corrigé (option A) | `23ab593` | −4 fichiers (~572 LOC prod + tests dédiés), tests miroirs excisés, CLAUDE.md + ADR-0004 §B1 + TESTING.md + CHANGELOG synchronisés. Gates : suite Windows verte, `wsl -race` bigfft+fibonacci vert, golden intact, **benchstat geomean sec/op −0,33 % / B/op −0,21 % / allocs +0,37 %** (bruit — Directive #1 satisfaite) |
 | DEAD-02 | ✅ clos par décision | — (aucun code) | conserver (R3) ; la clause de révision n'est pas déclenchée — journalisé §7 |
 
-**Bilan : 12/12 majeurs traités** (11 corrigés par commit, 1 clos par décision de conservation). Gate complet `check.ps1` passé post-exécution. Vagues mineures/infos (30 mineurs, 17 infos) : **non entamées**, à exécuter selon §3.
+**Bilan majeurs : 12/12 traités** (11 corrigés par commit, 1 clos par décision de conservation). Gate complet `check.ps1` passé post-exécution.
+
+### Vagues mineures/infos (exécution 2026-07-11, 2e passe)
+
+| ID | Vague | Statut | Commit | Note |
+|---|---|---|---|---|
+| CAL-01 | 1 | ✅ corrigé (option A) | `47c3b91` | `-calibrate` honore `--calibration-profile` ; test câblage + CALIBRATION.md alignée |
+| ERR-04 | 1 | ✅ corrigé | `9475395` | erreur `p.Run` sur errOut + seam de test `runProgram` |
+| ERR-05 | 1 | ✅ corrigé | `ab4c6e3` | warning jaune avec cause sur échec du repli terminal |
+| ERR-06 | 1 (rattaché) | ✅ corrigé | `3abf15e` | `-version`/`-h` listés dans l'aide (footer statique) |
+| ERR-07 | 1 (rattaché) | ✅ corrigé | `39ccc68` | cause racine préférée aux annulations de frères |
+| DOCS-05+12 | 2 | ✅ corrigés | `6b96638` | arith.go portable + cp config.json dashboard |
+| DOCS-06+07+10 | 2 | ✅ corrigés | `7b5792e` | 4 règles partout, ADR-0009 dans les tables, types morts purgés, rapport re-signé |
+| DOCS-08 | 2 | ✅ corrigé | `d596108` | ancres CHANGELOG v4.0.0 |
+| DOCS-09 | 2 | ✅ corrigé | `ac6bc87` | référence INNOVEPLAN retirée |
+| DOCS-11 | 2 | ✅ corrigé | `4f4fbb0` | convention : prochain ADR = 0011 |
+| CONC-03 (=ARCH-03) | 2 | ✅ corrigé | `4da9873` | commentaire ×15 → ×10 |
+| SEC-01 | 2 | ✅ corrigé | `fe334b9` | limite compgen -W documentée (bash.go + contrat E5) |
+| BUILD-05+06 | 2 | ✅ corrigés | `ce9a7d9` | décompte linters précisé, en-tête Makefile POSIX/WSL |
+| ERR-08 | 2 | ✅ corrigé | `277231e` | 6 commentaires traduits |
+| BUILD-02 | 3 | ✅ corrigé | `1er de la vague` (`chore(git)`) | `* text=auto eol=lf` + binaires ; renormalisation prouvée no-op ; WSL et Windows voient le même arbre |
+| BUILD-03+04+01 | 3 | ✅ corrigés | `chore(build)` | plancher 80 % single-source (`check.sh --coverage-only`, vérifié WSL 95,3 %) ; golangci épinglé v1.64.8 ; protocole bench noté (exécution différée à la prochaine régénération justifiée) |
+| SEC-02 | 3 | ✅ corrigé | `7ea55d3` | x/sys v0.43.0→v0.47.0, govulncheck : zéro vuln |
+| TEST-03 | 4 | ✅ corrigé | `6ee8708` | assertion arithmétique insensible au stall, `-count=20` vert |
+| TEST-04 | 4 | ✅ corrigé | `18967fe` | corpus golden épinglé (≥26 + F(50k/100k/200k)) |
+| TEST-02 | 4 | ✅ corrigé | `80e9a80` | branche `!ok` assertée (config inchangée + warning ERR-05) |
+| ARCH-02 | 4 | ✅ corrigé | `7170af5` | 5e règle arch_test : config ↛ {fibonacci racine, bigfft} |
+| TEST-05 | 4 | ✅ corrigé | `73e8491` | commentaires « Not parallel » sur les clusters non documentés |
+| TEST-06 | 4 | ✅ accepté | — (aucun code) | recommandation d'audit : acceptable en l'état (500 ms uniques) |
+| DEAD-03 | 5 | ✅ corrigé | `6573888` | re-coupe getVersionInfo/VersionData (diff 760064a rejoué) |
+| DEAD-05 | 5 | ✅ corrigé | `46010ce` | metrics/system inliné dans tui, mermaid+ARCH.md à jour |
+| DEAD-06 | 5 | ✅ corrigé | `849eed8` + suivi docs | coreStub absorbé dans contract_test.go, package supprimé |
+| DEAD-13 | 5 | ✅ corrigé | `13178f1` | setCurrentTheme dé-exporté |
+| DEAD-16 | 5 | ✅ corrigé | `619a0c9` | doc.go testutil réduit à 3 lignes |
+| DEAD-07 | 5 | ✅ corrigé (a minima) | `9683ace` | AsProgressCallback coupé ; **pattern Observer complet = décision mainteneur toujours ouverte (Directive #6/D-02)** |
+| ARCH-04 | 5 | ✅ corrigé | `4a84ebe` | 3 alias Default*Threshold supprimés, CLAUDE.md aligné |
+| DEAD-12 | 5 | ✅ accepté | — (aucun code) | indirection options conservée (branche LoadProfile testée) ; le vrai bug de câblage était CAL-01, corrigé |
+| DEAD-04/08/09/10/11, ARCH-05 | 6 | ⏳ | — | |
+| ARCH-06/07, DEAD-14/15 | 6 (constats) | ⏳ | — | recommandation d'audit = aucune action en bloc |
+| Vague 7 (clôture) | 7 | ⏳ | — | |
 
 Signalement hors périmètre (non corrigé, chip de suivi créé) : sous `-tags gmp`, l'algo « gmp » n'est enregistré que dans la fabrique privée du package fibonacci — probablement insélectionnable depuis le binaire (`app.go:75` n'appelle pas `RegisterGMPCalculator`). À vérifier dans une session dédiée.
 
