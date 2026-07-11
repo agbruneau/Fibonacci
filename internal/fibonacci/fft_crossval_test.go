@@ -46,7 +46,7 @@ func TestFFTRegimeCrossValidation(t *testing.T) {
 	// Independent modular oracle: the last 50 decimal digits must match.
 	mod := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 	want := new(big.Int).Mod(gotFD, mod)
-	gotMod, err := FastDoublingMod(n, mod)
+	gotMod, err := FastDoublingMod(context.Background(), n, mod)
 	if err != nil {
 		t.Fatalf("FastDoublingMod(%d) failed: %v", n, err)
 	}

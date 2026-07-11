@@ -1,6 +1,7 @@
 package fibonacci
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"math/bits"
@@ -10,11 +11,16 @@ import (
 // Memory usage is O(log(m)) regardless of n, making it suitable for
 // computing the last K digits of F(n) for arbitrarily large n.
 //
+// The context is checked at the top of each doubling iteration (at most 64,
+// so the check is free); with large moduli a single iteration multiplies
+// multi-megabit integers, so cancellation overshoot is bounded to one
+// iteration instead of the whole run.
+//
 // Uses the identities:
 //
 //	F(2k)   = F(k) * (2*F(k+1) - F(k))  mod m
 //	F(2k+1) = F(k+1)² + F(k)²            mod m
-func FastDoublingMod(n uint64, m *big.Int) (*big.Int, error) {
+func FastDoublingMod(ctx context.Context, n uint64, m *big.Int) (*big.Int, error) {
 	if m == nil || m.Sign() <= 0 {
 		return nil, fmt.Errorf("modulus must be positive")
 	}
@@ -31,6 +37,9 @@ func FastDoublingMod(n uint64, m *big.Int) (*big.Int, error) {
 	numBits := bits.Len64(n)
 
 	for i := numBits - 1; i >= 0; i-- {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("modular fast doubling canceled at bit %d/%d: %w", numBits-1-i, numBits, err)
+		}
 		// F(2k) = F(k) * (2*F(k+1) - F(k)) mod m
 		t1.Lsh(fk1, 1)
 		t1.Sub(t1, fk)

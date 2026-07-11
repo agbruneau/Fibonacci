@@ -25,10 +25,11 @@ type LastDigitsResult struct {
 // arithmetic. It uses O(k) memory regardless of n.
 //
 // The function is pure with respect to I/O: it performs no printing, no
-// signal handling and no logging. The provided context is checked once before
-// the computation begins so the caller can short-circuit on cancellation; the
-// underlying modular calculator (FastDoublingMod) takes no context and runs to
-// completion (it is O(k) memory and fast for realistic k).
+// signal handling and no logging. The provided context is checked before the
+// computation begins and propagated to the modular calculator
+// (FastDoublingMod), which re-checks it at each doubling iteration — timeout
+// and Ctrl-C therefore interrupt the computation with at most one iteration
+// of overshoot, even for large k.
 //
 // Returns:
 //   - LastDigitsResult: The result, including a pre-formatted zero-padded string.
@@ -47,7 +48,7 @@ func ComputeLastDigits(ctx context.Context, n uint64, k int) (LastDigitsResult, 
 	mod := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(k)), nil)
 
 	start := time.Now()
-	value, err := fibonacci.FastDoublingMod(n, mod)
+	value, err := fibonacci.FastDoublingMod(ctx, n, mod)
 	elapsed := time.Since(start)
 
 	if err != nil {

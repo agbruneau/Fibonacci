@@ -296,7 +296,7 @@ func FuzzFastDoublingMod(f *testing.F) {
 			t.Skip()
 		}
 		m := big.NewInt(modVal)
-		result, err := FastDoublingMod(n, m)
+		result, err := FastDoublingMod(context.Background(), n, m)
 		if err != nil {
 			t.Fatalf("error: %v", err)
 		}
