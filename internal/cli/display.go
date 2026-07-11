@@ -24,6 +24,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"math/big"
@@ -272,7 +273,7 @@ type OutputConfig struct {
 //
 // Returns:
 //   - error: An error if the file cannot be written.
-func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) error {
+func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) (err error) {
 	if config.OutputFile == "" {
 		return nil
 	}
@@ -289,21 +290,39 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		// Close flushes OS buffers; on a full disk this is where the
+		// failure often surfaces. Losing it would report a saved result
+		// that was never durably written.
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close output file: %w", cerr)
+		}
+	}()
+
+	return writeResult(file, result, n, duration, algo)
+}
+
+// writeResult writes the formatted result to w. Fprintf errors are sticky in
+// the bufio.Writer, so the single Flush check surfaces the first failure.
+func writeResult(w io.Writer, result *big.Int, n uint64, duration time.Duration, algo string) error {
+	bw := bufio.NewWriter(w)
 
 	// Write header
-	fmt.Fprintf(file, "# Fibonacci Calculation Result\n")
-	fmt.Fprintf(file, "# Generated: %s\n", time.Now().Format(time.RFC3339))
-	fmt.Fprintf(file, "# Algorithm: %s\n", algo)
-	fmt.Fprintf(file, "# Duration: %s\n", duration)
-	fmt.Fprintf(file, "# N: %d\n", n)
-	fmt.Fprintf(file, "# Bits: %d\n", result.BitLen())
-	fmt.Fprintf(file, "# Digits: %d\n", len(result.String()))
-	fmt.Fprintf(file, "\n")
+	fmt.Fprintf(bw, "# Fibonacci Calculation Result\n")
+	fmt.Fprintf(bw, "# Generated: %s\n", time.Now().Format(time.RFC3339))
+	fmt.Fprintf(bw, "# Algorithm: %s\n", algo)
+	fmt.Fprintf(bw, "# Duration: %s\n", duration)
+	fmt.Fprintf(bw, "# N: %d\n", n)
+	fmt.Fprintf(bw, "# Bits: %d\n", result.BitLen())
+	fmt.Fprintf(bw, "# Digits: %d\n", len(result.String()))
+	fmt.Fprintf(bw, "\n")
 
 	// Write result
-	fmt.Fprintf(file, "F(%d) =\n%s\n", n, result.String())
+	fmt.Fprintf(bw, "F(%d) =\n%s\n", n, result.String())
 
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("failed to write result: %w", err)
+	}
 	return nil
 }
 

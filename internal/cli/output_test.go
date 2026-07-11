@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -9,6 +10,19 @@ import (
 	"testing"
 	"time"
 )
+
+// errWriter fails every write; exercises the error path of writeResult.
+type errWriter struct{}
+
+func (errWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
+
+func TestWriteResult_FailingWriter(t *testing.T) {
+	t.Parallel()
+	err := writeResult(errWriter{}, big.NewInt(55), 10, 100*time.Millisecond, "fast")
+	if err == nil {
+		t.Fatal("writeResult must surface write errors, got nil")
+	}
+}
 
 func TestWriteResultToFile(t *testing.T) {
 	t.Parallel()
