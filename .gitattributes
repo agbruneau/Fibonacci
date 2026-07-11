@@ -1,3 +1,16 @@
+# Default: every file git auto-detects as text is normalized to LF in the
+# index AND checked out LF, whatever the local core.autocrlf. This closes the
+# Windows-git vs WSL-git divergence (the same bytes read as "clean" on one
+# side and "~45 modified" on the other after a CRLF smudge — audit Fable5
+# BUILD-02). Binary-looking files (e.g. docs/dashboard/index.html with its
+# inlined assets) keep git's auto-detection and are left untouched.
+* text=auto eol=lf
+
+# Explicit binaries — never normalized, never diffed as text.
+*.pgo binary
+*.ico binary
+*.png binary
+
 # Normalise les fins de ligne des sources Go en LF dans le depot (index),
 # quelle que soit la config core.autocrlf locale. Elimine les faux positifs
 # gofmt (86 fichiers signales en 1:1) cotes contributeurs Windows ou le
