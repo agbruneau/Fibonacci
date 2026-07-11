@@ -281,8 +281,8 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 	// Ensure directory exists
 	dir := filepath.Dir(config.OutputFile)
 	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return fmt.Errorf("failed to create directory: %w", err)
+		if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
+			return fmt.Errorf("failed to create directory: %w", mkErr)
 		}
 	}
 
