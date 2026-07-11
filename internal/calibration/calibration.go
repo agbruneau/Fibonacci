@@ -414,6 +414,16 @@ func tryFastThenEscalate(parentCtx context.Context, stratOpts StrategyOptions, p
 func runStrategy(parentCtx context.Context, strategy CalibrationStrategy, stratOpts StrategyOptions, profilePath string, announce bool) (config.AppConfig, bool) {
 	profile, _, err := strategy.Calibrate(parentCtx, stratOpts)
 	if err != nil || profile == nil {
+		// ERR-05: runStrategy is the terminal fallback of the escalation
+		// chain — the user explicitly asked for auto-calibration, so a
+		// silent return would leave them believing it happened.
+		if err != nil {
+			fmt.Fprintf(stratOpts.Out, "%sWarning: auto-calibration failed (%v), using default thresholds%s\n",
+				ui.ColorYellow(), err, ui.ColorReset())
+		} else {
+			fmt.Fprintf(stratOpts.Out, "%sWarning: auto-calibration failed (no usable profile), using default thresholds%s\n",
+				ui.ColorYellow(), ui.ColorReset())
+		}
 		return stratOpts.BaseConfig, false
 	}
 	return finalizeStrategyResult(stratOpts.BaseConfig, profile, profilePath, stratOpts.Out, announce), true

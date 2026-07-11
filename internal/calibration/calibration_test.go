@@ -365,6 +365,30 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 		}
 	})
 
+	t.Run("Failed auto-calibration warns the user", func(t *testing.T) {
+		t.Parallel()
+		registry := map[string]fibonacci.Calculator{
+			"fast": &MockCalculator{name: "fast"},
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // every strategy fails on the dead context
+
+		var outBuf bytes.Buffer
+		updated, ok := AutoCalibrateWithProfile(ctx, config.AppConfig{Threshold: 1234}, &outBuf, registry, filepath.Join(t.TempDir(), "p.json"))
+
+		if ok {
+			t.Fatal("expected auto-calibration to fail on a canceled context")
+		}
+		if updated.Threshold != 1234 {
+			t.Errorf("config must be returned unchanged on failure, got Threshold=%d", updated.Threshold)
+		}
+		// ERR-05: the user explicitly asked for --auto-calibrate; a silent
+		// fallback to defaults leaves them believing calibration happened.
+		if !strings.Contains(outBuf.String(), "auto-calibration failed") {
+			t.Errorf("failure must warn the user; output=%q", outBuf.String())
+		}
+	})
+
 	t.Run("No fast calculator", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
