@@ -11,7 +11,7 @@ func TestInitThemeWithNoColorFlag(t *testing.T) {
 	originalTheme := GetCurrentTheme()
 	originalNoColor := os.Getenv("NO_COLOR")
 	defer func() {
-		SetCurrentTheme(originalTheme)
+		setCurrentTheme(originalTheme)
 		if originalNoColor == "" {
 			os.Unsetenv("NO_COLOR")
 		} else {
@@ -48,7 +48,7 @@ func TestInitThemeWithNO_COLOREnv(t *testing.T) {
 	originalTheme := GetCurrentTheme()
 	originalNoColor := os.Getenv("NO_COLOR")
 	defer func() {
-		SetCurrentTheme(originalTheme)
+		setCurrentTheme(originalTheme)
 		if originalNoColor == "" {
 			os.Unsetenv("NO_COLOR")
 		} else {
@@ -121,10 +121,10 @@ func TestThemeColors(t *testing.T) {
 func TestColorFunctions(t *testing.T) {
 	// Save original theme to restore after test
 	originalTheme := GetCurrentTheme()
-	defer func() { SetCurrentTheme(originalTheme) }()
+	defer func() { setCurrentTheme(originalTheme) }()
 
 	t.Run("Color functions with DarkTheme", func(t *testing.T) {
-		SetCurrentTheme(DarkTheme)
+		setCurrentTheme(DarkTheme)
 		if ColorReset() != DarkTheme.Reset {
 			t.Errorf("ColorReset() = %q, want %q", ColorReset(), DarkTheme.Reset)
 		}
@@ -155,7 +155,7 @@ func TestColorFunctions(t *testing.T) {
 	})
 
 	t.Run("Color functions with NoColorTheme", func(t *testing.T) {
-		SetCurrentTheme(NoColorTheme)
+		setCurrentTheme(NoColorTheme)
 		if ColorReset() != "" {
 			t.Errorf("ColorReset() with none theme should be empty, got %q", ColorReset())
 		}
@@ -188,9 +188,9 @@ func TestColorFunctions(t *testing.T) {
 
 func TestGetCurrentTUITheme_HighContrastEnv(t *testing.T) {
 	orig := GetCurrentTheme()
-	t.Cleanup(func() { SetCurrentTheme(orig) })
+	t.Cleanup(func() { setCurrentTheme(orig) })
 
-	SetCurrentTheme(DarkTheme)
+	setCurrentTheme(DarkTheme)
 	t.Setenv("FIBCALC_TUI_THEME", "high-contrast")
 	ht := GetCurrentTUITheme()
 	if ht != HighContrastTUITheme {

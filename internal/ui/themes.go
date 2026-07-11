@@ -152,10 +152,10 @@ func GetCurrentTheme() Theme {
 	return currentTheme
 }
 
-// SetCurrentTheme sets the currently active theme in a thread-safe manner.
+// setCurrentTheme sets the currently active theme in a thread-safe manner.
 // Test-only: production selects a theme exclusively via InitTheme (dark or
 // no-color); this setter exists so tests can save/restore theme state.
-func SetCurrentTheme(t Theme) {
+func setCurrentTheme(t Theme) {
 	themeMutex.Lock()
 	defer themeMutex.Unlock()
 	currentTheme = t
