@@ -1,6 +1,29 @@
 # auditPlanFable5 — Plan d'exécution de l'audit auditFable5 (2026-07-11)
 
-> **Statut : FINAL** — vagues figées sur les findings d'auditFable5.md (passe réfutative close : 13/13 confirmés). Prêt pour exécution.
+> **Statut : EN EXÉCUTION** — les 12 findings majeurs sont en cours de traitement (mandat mainteneur du 2026-07-11). Avancement détaillé : [§8](#8-état-davancement-exécution-2026-07-11). Les vagues mineures/infos restent à exécuter.
+
+## 8. État d'avancement (exécution 2026-07-11)
+
+Mandat : corriger les 12 majeurs. Arbitrages mainteneur obtenus en séance : **DEAD-01 → option A (couper)** ; **DEAD-02 → conserver (ADR-0009 R3)**.
+
+| ID | Statut | Commit | Vérification |
+|---|---|---|---|
+| CONC-01 | ✅ corrigé | `9a0d538` | `wsl -race -run TestStateBump -count=10` vert |
+| CONC-02 | ✅ corrigé | `9267977` | `wsl -race -run TestReleaseState -count=10` vert |
+| ERR-01 | ✅ corrigé | `c32e85c` | test writer-en-échec rouge→vert ; suite cli verte |
+| ERR-03 | ✅ corrigé | `df5bf24` | repro CLI : exit 0 → **exit 2** (timeout honoré) |
+| ERR-02 | ✅ corrigé | `f22544b` | repro CLI : stderr peuplé, stdout propre, codes inchangés ; suites app/orch/tui/cli/e2e vertes |
+| DOCS-01 | ✅ corrigé | `b7190c0` | section Unreleased remplie (×10, gate GMP, LF, PGO/baseline + fixes de séance) |
+| ARCH-01/DOCS-02 | ✅ corrigé | `2f59ecb` | bijection mermaid ↔ `go list` vérifiée arête par arête |
+| DOCS-03 | ✅ corrigé | `7df46dc` | grep `GlobalFactory()\|RegisterCalculator` vide hors historiques |
+| DOCS-04 | ✅ corrigé | `333f15d` | grep artefacts fantômes vide dans BIGFFT.md |
+| TEST-01 | ✅ corrigé | `fb1ba06` | **mutation-validé** : salvage réintroduit → test rouge ; réel → vert |
+| DEAD-01 | ✅ corrigé (option A) | `23ab593` | −4 fichiers (~572 LOC prod + tests dédiés), tests miroirs excisés, CLAUDE.md + ADR-0004 §B1 + TESTING.md + CHANGELOG synchronisés. Gates : suite Windows verte, `wsl -race` bigfft+fibonacci vert, golden intact, **benchstat geomean sec/op −0,33 % / B/op −0,21 % / allocs +0,37 %** (bruit — Directive #1 satisfaite) |
+| DEAD-02 | ✅ clos par décision | — (aucun code) | conserver (R3) ; la clause de révision n'est pas déclenchée — journalisé §7 |
+
+**Bilan : 12/12 majeurs traités** (11 corrigés par commit, 1 clos par décision de conservation). Gate complet `check.ps1` passé post-exécution. Vagues mineures/infos (30 mineurs, 17 infos) : **non entamées**, à exécuter selon §3.
+
+Signalement hors périmètre (non corrigé, chip de suivi créé) : sous `-tags gmp`, l'algo « gmp » n'est enregistré que dans la fabrique privée du package fibonacci — probablement insélectionnable depuis le binaire (`app.go:75` n'appelle pas `RegisterGMPCalculator`). À vérifier dans une session dédiée.
 
 - **Exécutant prévu** : Claude Opus 4.8, mode **ultramode** (`ultracode` — orchestration Workflow multi-agents par défaut sur chaque vague substantielle).
 - **Source** : findings d'[`auditFable5.md`](auditFable5.md) exclusivement (IDs cités ci-dessous). Aucun élargissement de périmètre sans journalisation (§7).
@@ -147,4 +170,26 @@ Format, une entrée par déviation :
 Écart au plan : …
 Raison : …
 Alternative écartée : …
+```
+
+```
+[2026-07-11] exécution des 12 majeurs, internal/bigfft
+Écart au plan : DEAD-01 et DEAD-02 (items « DÉCISION MAINTENEUR », prévus
+vague 6) ont été arbitrés et traités dès la passe des majeurs, hors
+séquence de vagues.
+Raison : mandat mainteneur explicite « corriger les 12 majeurs » ;
+arbitrage obtenu en séance (DEAD-01 → option A couper ; DEAD-02 →
+conserver, position ADR-0009 R3 maintenue, clause de révision non
+déclenchée). L'ordre des vagues reste applicable aux mineurs/infos.
+Alternative écartée : attendre la vague 6 — rejeté, l'arbitrage était
+la seule dépendance et il était acquis.
+```
+
+```
+[2026-07-11] exécution des 12 majeurs, docs/algorithms/BIGFFT.md
+Écart au plan : l'agent DOCS-04 a retiré context.go/fft_recursion_ctx.go
+de la table Package Structure AVANT leur suppression effective (DEAD-01).
+Raison : les conserver aurait rendu la table fausse dès la fin de la
+session ; la suppression DEAD-01 était déjà arbitrée.
+Alternative écartée : mise à jour en deux temps — rejeté, churn inutile.
 ```
