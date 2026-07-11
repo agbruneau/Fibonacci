@@ -57,7 +57,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                             Domain Layer                              |
 |                                                                       |
-| internal/fibonacci  internal/progress  internal/bigfft  internal/parallel |
+| internal/fibonacci  internal/progress  internal/bigfft                    |
 | (algorithms)        (observer model)   (FFT arithmetic) (concurrency errs) |
 |   fibonacci/memory   fibonacci/threshold                                   |
 |   (arena, GC ctrl)   (dynamic tuning)                                      |
@@ -244,10 +244,6 @@ internal/
 - **Responsibility:** typed errors, wrappers, exit code mapping, standardized calculation-error handling.
 - **Key types:** `ConfigError`, `CalculationError`, `MemoryError` (timeout/cancellation are classified via `errors.Is` on context sentinels, not dedicated types — OVR-07).
 - **Key helpers:** `WrapError`, `IsContextError`, `HandleCalculationError`, `ColorProvider` interface.
-
-## `internal/parallel`
-- **Responsibility:** concurrency utility for safe first-error capture.
-- **Key type:** `ErrorCollector` — atomic-style first-error retention via `SetError`/`Err`.
 
 ## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`
 - **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers. Host CPU/memory sampling is inlined in `internal/tui` (its only consumer — audit Fable5 DEAD-05).

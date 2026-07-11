@@ -26,9 +26,9 @@ complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-
 ## Cross-cutting concerns
 
 - **Concurrency contract**: goroutines always have bounded lifecycle;
-  error propagation uses `parallel.ErrorCollector` (see
-  [`internal/parallel/doc.go`](../../../internal/parallel/doc.go)) or
-  `errgroup` depending on the call site.
+  error propagation uses `errgroup` (or the allocation-free
+  `parallel3Result` struct on the fastdoubling hot path — see
+  `internal/fibonacci/common.go`).
 - **Resource ownership**: every state acquisition is paired with a release
   in the same scope (`AcquireStateForN`/`ReleaseStateWithResult`, or the
   per-calculator `acquireStateForN`/`releaseStateWithResult`). Since commit

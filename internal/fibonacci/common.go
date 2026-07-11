@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/agbruneau/FibGo/internal/parallel"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,28 +84,30 @@ var taskLogger = zerolog.Nop()
 // Parallel Execution Helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-// runParallel3Op is the per-goroutine worker body for executeParallel3.
-// Taking wg/ec/sem/ctx/op explicitly as parameters (rather than closing
-// over them in a function literal) keeps the goroutine's closure empty
-// and eliminates the func-literal heap allocation per call.
-//
-// wg and ec are still heap-allocated in executeParallel3 itself because
-// they are shared across goroutines — Go's escape analysis cannot prove
-// they outlive the spawned goroutines — but the per-call closure
-// allocation disappears.
-//
-// See P2-03.
-func runParallel3Op(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, ec *parallel.ErrorCollector, op func() error) {
+// parallel3Result bundles the WaitGroup and three per-operation error slots
+// used by executeParallel3 so the whole call needs exactly one heap
+// allocation. Three separate escaping locals (a *sync.WaitGroup plus three
+// *error) would each be allocated independently by the compiler; grouping
+// them into one struct and taking its address once collapses that to one.
+// executeParallel3 runs once per non-FFT parallel doubling step on the
+// FastDoubling hot path — benchstat caught this on FastDoubling/1M.
+type parallel3Result struct {
+	wg               sync.WaitGroup
+	err1, err2, err3 error
+}
+
+// runParallel3Op is the per-goroutine worker body for executeParallel3. It
+// acquires a semaphore token, checks for context cancellation, then runs op,
+// storing the outcome in *errOut (a field of the caller's parallel3Result).
+func runParallel3Op(ctx context.Context, sem chan struct{}, r *parallel3Result, errOut *error, op func() error) { //nolint:gocritic // *error is deliberate: errOut is written from a different goroutine than the caller that reads it, a plain error return can't do that.
+	defer r.wg.Done()
 	sem <- struct{}{}
-	defer func() {
-		<-sem
-		wg.Done()
-	}()
+	defer func() { <-sem }()
 	if err := ctx.Err(); err != nil {
-		ec.SetError(fmt.Errorf("canceled before parallel operation: %w", err))
+		*errOut = fmt.Errorf("canceled before parallel operation: %w", err)
 		return
 	}
-	ec.SetError(op())
+	*errOut = op()
 }
 
 // executeParallel3 runs three operations concurrently, returning the first
@@ -113,13 +115,6 @@ func runParallel3Op(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, 
 // the global concurrency limit, then checks for context cancellation before
 // starting its operation. The caller is responsible for ensuring that the
 // three operations write to disjoint memory (no shared mutable state).
-//
-// P2-03: per-goroutine body is extracted to runParallel3Op so the
-// `go` statements do not need function literals capturing wg/ec/sem.
-// wg and ec still heap-allocate (they are shared across goroutines
-// that may outlive the stack frame under Go's current escape analysis)
-// but the three per-call closures no longer allocate. Verified with
-// `go build -gcflags="-m=2"`.
 //
 // Parameters:
 //   - ctx: The context for cancellation checking before each operation.
@@ -129,16 +124,21 @@ func runParallel3Op(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, 
 //   - error: The first error from any operation, or a context error.
 func executeParallel3(ctx context.Context, op1, op2, op3 func() error) error {
 	sem := getTaskSemaphore()
-	wg := &sync.WaitGroup{}
-	ec := &parallel.ErrorCollector{}
-	wg.Add(3)
+	r := &parallel3Result{}
+	r.wg.Add(3)
 
-	go runParallel3Op(ctx, sem, wg, ec, op1)
-	go runParallel3Op(ctx, sem, wg, ec, op2)
-	go runParallel3Op(ctx, sem, wg, ec, op3)
+	go runParallel3Op(ctx, sem, r, &r.err1, op1)
+	go runParallel3Op(ctx, sem, r, &r.err2, op2)
+	go runParallel3Op(ctx, sem, r, &r.err3, op3)
 
-	wg.Wait()
-	return ec.Err()
+	r.wg.Wait()
+	if r.err1 != nil {
+		return r.err1
+	}
+	if r.err2 != nil {
+		return r.err2
+	}
+	return r.err3
 }
 
 // task defines a common interface for executable tasks.
@@ -205,12 +205,10 @@ func executeTasks[T any, PT interface {
 		Msg("executing tasks")
 	if inParallel {
 		sem := getTaskSemaphore()
-		var wg sync.WaitGroup
-		var ec parallel.ErrorCollector
-		wg.Add(len(tasks))
+		var g errgroup.Group
 		for i := range tasks {
-			go func(t PT) {
-				defer wg.Done()
+			t := PT(&tasks[i])
+			g.Go(func() error {
 				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
 				defer func() { <-sem }()
@@ -220,14 +218,12 @@ func executeTasks[T any, PT interface {
 				// Skipping this check would execute expensive multiplications
 				// after the caller has already abandoned the computation.
 				if err := ctx.Err(); err != nil {
-					ec.SetError(err)
-					return
+					return err
 				}
-				ec.SetError(t.execute())
-			}(PT(&tasks[i]))
+				return t.execute()
+			})
 		}
-		wg.Wait()
-		return ec.Err()
+		return g.Wait()
 	}
 	for i := range tasks {
 		if err := PT(&tasks[i]).execute(); err != nil {
@@ -262,46 +258,41 @@ func executeMixedTasks(ctx context.Context, sqrTasks []squaringTask, mulTasks []
 		Msg("executing mixed tasks")
 	if inParallel {
 		sem := getTaskSemaphore()
-		var wg sync.WaitGroup
-		var ec parallel.ErrorCollector
-		wg.Add(totalTasks)
+		var g errgroup.Group
 
 		// Execute squaring tasks in parallel
 		for i := range sqrTasks {
-			go func(t *squaringTask) {
-				defer wg.Done()
+			t := &sqrTasks[i]
+			g.Go(func() error {
 				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				// Check for context cancellation after acquiring the semaphore
 				// (the token may have been held for a while during contention).
 				if err := ctx.Err(); err != nil {
-					ec.SetError(err)
-					return
+					return err
 				}
-				ec.SetError(t.execute())
-			}(&sqrTasks[i])
+				return t.execute()
+			})
 		}
 
 		// Execute multiplication tasks in parallel
 		for i := range mulTasks {
-			go func(t *multiplicationTask) {
-				defer wg.Done()
+			t := &mulTasks[i]
+			g.Go(func() error {
 				// Acquire semaphore token to limit concurrency.
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				// Check for context cancellation after acquiring the semaphore
 				// (the token may have been held for a while during contention).
 				if err := ctx.Err(); err != nil {
-					ec.SetError(err)
-					return
+					return err
 				}
-				ec.SetError(t.execute())
-			}(&mulTasks[i])
+				return t.execute()
+			})
 		}
 
-		wg.Wait()
-		return ec.Err()
+		return g.Wait()
 	}
 
 	// Sequential execution
