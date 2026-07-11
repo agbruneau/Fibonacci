@@ -66,14 +66,6 @@ type GCController struct {
 	endStats   runtime.MemStats
 }
 
-// GCStats holds GC statistics for a calculation.
-type GCStats struct {
-	HeapAlloc    uint64
-	TotalAlloc   uint64
-	NumGC        uint32
-	PauseTotalNs uint64
-}
-
 // NewGCController creates a GC controller for the given mode and N.
 func NewGCController(mode string, n uint64) *GCController {
 	gc := &GCController{mode: GCMode(mode), logger: zerolog.Nop()}
@@ -172,12 +164,3 @@ func (gc *GCController) End() {
 		Msg("gc re-enabled")
 }
 
-// stats returns GC statistics delta between Begin and End.
-func (gc *GCController) stats() GCStats {
-	return GCStats{
-		HeapAlloc:    gc.endStats.HeapAlloc,
-		TotalAlloc:   gc.endStats.TotalAlloc - gc.startStats.TotalAlloc,
-		NumGC:        gc.endStats.NumGC - gc.startStats.NumGC,
-		PauseTotalNs: gc.endStats.PauseTotalNs - gc.startStats.PauseTotalNs,
-	}
-}

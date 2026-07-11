@@ -56,31 +56,6 @@ func TestGCController_Aggressive(t *testing.T) {
 	defer gc.End()
 }
 
-func TestGCController_Stats_BeforeBegin(t *testing.T) {
-	t.Parallel()
-
-	gc := NewGCController("disabled", 100)
-	stats := gc.stats()
-	if stats.TotalAlloc != 0 {
-		t.Errorf("TotalAlloc before Begin should be 0, got %d", stats.TotalAlloc)
-	}
-}
-
-func TestGCController_Stats_AfterBeginEnd(t *testing.T) {
-	t.Parallel()
-
-	gc := NewGCController("aggressive", 2_000_000)
-	gc.Begin()
-	// Do some allocations
-	_ = make([]byte, 1024*1024)
-	gc.End()
-
-	stats := gc.stats()
-	// HeapAlloc should be non-zero after some allocations
-	// (we can't assert exact values due to runtime variability)
-	_ = stats
-}
-
 // TestGCController_WithGC_PanicRestoresGC verifies that WithGC restores the
 // GC settings even when fn panics. Without WithGC, a panic between Begin and
 // End would leave debug.SetGCPercent(-1) in place process-wide, silently
