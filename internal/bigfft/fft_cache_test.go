@@ -609,6 +609,7 @@ func TestComputeKeyDifferentParams(t *testing.T) {
 // Integration Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Not parallel: exercises the package-global transform cache.
 func TestCachedTransformIntegration(t *testing.T) {
 	// Verify that cached transforms produce correct results
 	x := new(big.Int).SetInt64(12345678901234567)

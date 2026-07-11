@@ -10,6 +10,7 @@ import (
 // via the Options struct. This test primarily ensures that the API change is correctly
 // reflected in the exposed types and that the configuration is accepted.
 // It also verifies that the calculation remains correct with custom thresholds.
+// Not parallel: mutates the package-level Strassen threshold knobs.
 func TestStrassenConfiguration(t *testing.T) {
 	// 1. Verify that Options struct has the new field.
 	// This part is implicit: if the code compiles, the field exists.
@@ -44,6 +45,7 @@ func TestStrassenConfiguration(t *testing.T) {
 // - Threshold = 0 (Force Default -> 256)
 // - Threshold = Huge (Force Classic)
 // Correctness should be maintained in both cases.
+// Not parallel: mutates the package-level Strassen threshold knobs.
 func TestStrassenThresholdEffect(t *testing.T) {
 	calc := &MatrixExponentiationCalculator{}
 	reporter := func(p float64) {}
@@ -74,6 +76,7 @@ func TestStrassenThresholdEffect(t *testing.T) {
 // TestStrassenOptionsPrecedence verifies that providing StrassenThreshold via Options
 // takes precedence over the global default. This ensures that we don't rely on
 // global state mutation (SetDefaultStrassenThreshold) which is considered a bad practice.
+// Not parallel: mutates the package-level Strassen threshold knobs.
 func TestStrassenOptionsPrecedence(t *testing.T) {
 	// 1. Save original global default and restore it after test
 	originalDefault := GetDefaultStrassenThreshold()
