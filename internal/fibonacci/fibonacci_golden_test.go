@@ -30,6 +30,26 @@ func TestCalculatorsAgainstGoldenFile(t *testing.T) {
 		t.Fatalf("Failed to decode golden file: %v", err)
 	}
 
+	// TEST-04: pin the corpus itself — a silently truncated golden file
+	// would otherwise turn the whole oracle green. The file is immutable
+	// (no -update flag exists); 26 entries incl. F(50k/100k/200k) is the
+	// ADR-0004 §B5 baseline.
+	if len(cases) < 26 {
+		t.Fatalf("golden corpus truncated: %d entries, want >= 26 (ADR-0004 §B5)", len(cases))
+	}
+	for _, requiredN := range []uint64{50_000, 100_000, 200_000} {
+		found := false
+		for _, tc := range cases {
+			if tc.N == requiredN {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("golden corpus missing the ADR-0004 §B5 entry N=%d", requiredN)
+		}
+	}
+
 	calculators := map[string]Calculator{
 		"FastDoubling": MustNewCalculator(&FastDoublingCalculator{}),
 		"MatrixExp":    MustNewCalculator(&MatrixExponentiationCalculator{}),
