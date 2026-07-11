@@ -2,6 +2,7 @@ package orchestration
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -136,7 +137,12 @@ func AnalyzeComparisonResults(results []CalculationResult, presOpts Presentation
 
 	for i := range results {
 		if results[i].Err != nil {
-			if firstError == nil {
+			// ERR-07: when one calculator fails for a real reason, errgroup
+			// cancels its siblings, which then finish with context.Canceled —
+			// often faster, hence sorted first. Prefer the first non-Canceled
+			// error as the root cause so the exit-code class is deterministic;
+			// fall back to the first error when all are cancellations.
+			if firstError == nil || (errors.Is(firstError, context.Canceled) && !errors.Is(results[i].Err, context.Canceled)) {
 				firstError = results[i].Err
 			}
 		} else {

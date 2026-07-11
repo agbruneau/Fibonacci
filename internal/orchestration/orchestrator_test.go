@@ -614,3 +614,25 @@ func TestAnalyzeComparisonResults_FailureGoesToErrOut(t *testing.T) {
 		t.Errorf("failure text must not reach out, got out:\n%s", out.String())
 	}
 }
+
+// TestAnalyzeComparisonResults_PrefersRootCauseOverCanceled pins ERR-07: when
+// one calculator fails for a real reason and its siblings are merely canceled
+// by errgroup, the reported error (hence the exit code) must be the root
+// cause, not whichever sorted first by duration.
+func TestAnalyzeComparisonResults_PrefersRootCauseOverCanceled(t *testing.T) {
+	t.Parallel()
+
+	rootErr := errors.New("boom")
+	results := []CalculationResult{
+		{Name: "canceled-sibling", Err: context.Canceled, Duration: time.Millisecond},
+		{Name: "root-cause", Err: rootErr, Duration: time.Second},
+	}
+
+	handler := &capturingErrorHandler{}
+	AnalyzeComparisonResults(results, PresentationOptions{},
+		MockResultPresenter{}, handler, &DiscardWriter{}, &DiscardWriter{})
+
+	if !errors.Is(handler.got, rootErr) {
+		t.Fatalf("firstError = %v, want the non-canceled root cause", handler.got)
+	}
+}
