@@ -51,32 +51,3 @@ func PrintVersion(out io.Writer) {
 	fmt.Fprintf(out, "  Go version: %s\n", runtime.Version())
 	fmt.Fprintf(out, "  OS/Arch:    %s/%s\n", runtime.GOOS, runtime.GOARCH)
 }
-
-// VersionInfo returns a struct containing all version information.
-// This is useful for programmatic access to version details.
-//
-// Returns:
-//   - VersionData: A struct containing version, commit, build date, and runtime info.
-type VersionData struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	BuildDate string `json:"build_date"`
-	GoVersion string `json:"go_version"`
-	OS        string `json:"os"`
-	Arch      string `json:"arch"`
-}
-
-// getVersionInfo returns the current version information as a struct.
-//
-// Returns:
-//   - VersionData: The version information.
-func getVersionInfo() VersionData {
-	return VersionData{
-		Version:   Version,
-		Commit:    Commit,
-		BuildDate: BuildDate,
-		GoVersion: runtime.Version(),
-		OS:        runtime.GOOS,
-		Arch:      runtime.GOARCH,
-	}
-}
