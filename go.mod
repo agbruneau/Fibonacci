@@ -13,7 +13,7 @@ require (
 	github.com/ncw/gmp v1.0.5
 	github.com/rs/zerolog v1.35.0
 	github.com/shirou/gopsutil/v4 v4.26.3
-	golang.org/x/sys v0.43.0
+	golang.org/x/sys v0.47.0
 )
 
 require (
