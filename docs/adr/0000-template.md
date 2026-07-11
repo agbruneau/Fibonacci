@@ -37,3 +37,8 @@ What is the chosen approach? Be specific — file paths, type names, contract ch
 - Implementation file(s) :
 - Test(s) :
 - Related ADR(s) :
+
+<!-- Numbering note: ADR-0010 was used by a reverted rewrite plan (deleted
+with the 6da3f3b restore, 2026-07-10) and is burned in git history — the
+next ADR takes 0011. Never reuse a number, even for a deleted ADR. -->
+
