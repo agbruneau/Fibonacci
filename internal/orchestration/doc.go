@@ -21,13 +21,11 @@
 //
 //	type Calculator = fibonacci.Calculator
 //	type Options    = fibonacci.Options
-//	var DefaultParallelThreshold = fibonacci.DefaultParallelThreshold
-//	var DefaultFFTThreshold      = fibonacci.DefaultFFTThreshold
-//	var DefaultStrassenThreshold = fibonacci.DefaultStrassenThreshold
 //
 // Presentation packages consume the aliases to avoid a direct
 // internal/fibonacci import. The arch_test.go gate keeps internal/tui
-// free of that direct arrow.
+// free of that direct arrow. (The former Default*Threshold mirrors had
+// zero consumers and were removed — audit Fable5 ARCH-04.)
 //
 // Dependencies (downward):
 //

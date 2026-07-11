@@ -23,15 +23,6 @@ type (
 	Options = fibonacci.Options
 )
 
-// Re-exported default thresholds. Mirrored from fibonacci so consumers
-// of orchestration do not need to import fibonacci directly for these
-// constants.
-var (
-	DefaultParallelThreshold = fibonacci.DefaultParallelThreshold
-	DefaultFFTThreshold      = fibonacci.DefaultFFTThreshold
-	DefaultStrassenThreshold = fibonacci.DefaultStrassenThreshold
-)
-
 // ExecutionConfig groups the parameters required to execute Fibonacci calculations.
 type ExecutionConfig struct {
 	// Calculators is a slice of calculators to execute.

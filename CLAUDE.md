@@ -97,7 +97,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 
 ### `tui/` (production), `tui/model.go`
 
-- N'importe **pas** `internal/fibonacci` directement → passer par les aliases `orchestration.Calculator`/`Options`/`Default*Threshold`. **Gardien** : `TestArchitectureLayering`.
+- N'importe **pas** `internal/fibonacci` directement → passer par les aliases `orchestration.Calculator`/`Options`. **Gardien** : `TestArchitectureLayering`.
 - `model.go` : routeur `Update` **pur** — aucun effet de bord dans le routage.
 - **APP-05** : `handleReset` incrémente `m.generation` et pose un budget de timeout **frais** par génération (`context.WithTimeout(m.parentCtx, ...)`) — un restart ne doit pas hériter du délai absolu de la session précédente. Tout message porteur d'un `Generation` périmé est ignoré par `Update`. **Gardiens** : `TestModel_HandleReset_FreshTimeoutBudget`, `TestModel_Update_ContextCancelledMsg_StaleGeneration`, `TestModel_Update_CalculationComplete_StaleGeneration`, `TestModel_Update_ErrorMsg_StaleGeneration`, `TestModel_Update_IndicatorsMsg_StaleGeneration` (`internal/tui/model_test.go`).
 
