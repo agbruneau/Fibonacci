@@ -57,8 +57,11 @@ type FFTParallelismConfig struct {
 }
 
 // SetFFTParallelismConfig updates the FFT parallelism thresholds atomically.
-// This allows runtime calibration of parallelism behavior; concurrent readers
-// observe either the pre- or post-update value, never a torn write.
+// Concurrent readers observe either the pre- or post-update value, never a
+// torn write. Test-only in practice (same status as SetFFTThreshold): no
+// production caller exists — the hot path reads the private atomics via
+// GetParallelFFTRecursionThreshold/GetMaxParallelFFTDepth, and calibration
+// never calls this (audit Fable5 DEAD-09).
 func SetFFTParallelismConfig(config FFTParallelismConfig) {
 	if config.RecursionThreshold > 0 {
 		parallelFFTRecursionThreshold.Store(uint64(config.RecursionThreshold))
@@ -69,6 +72,7 @@ func SetFFTParallelismConfig(config FFTParallelismConfig) {
 }
 
 // GetFFTParallelismConfig returns the current FFT parallelism configuration.
+// Test-only in practice, like its Set twin (audit Fable5 DEAD-09).
 func GetFFTParallelismConfig() FFTParallelismConfig {
 	return FFTParallelismConfig{
 		RecursionThreshold: GetParallelFFTRecursionThreshold(),
