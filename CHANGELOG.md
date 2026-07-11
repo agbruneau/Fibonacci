@@ -38,6 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zéro appelant de production, construite pour la migration classée WONT-FIX
   par ADR-0004 §B1. Décision mainteneur (audit Fable5 DEAD-01, addendum
   ADR-0004 §B1) ; récupérable de l'historique git si la migration renaît.
+- **Code mort et surface test-only** (vagues mineures audit Fable5) :
+  `internal/parallel` (errgroup + struct `parallel3Result` sur le hot path,
+  DEAD-04), `internal/metrics/system` (inliné dans tui, DEAD-05),
+  `internal/fibonacci/fibonaccitest` (stub absorbé par son unique test
+  appelant, DEAD-06), `getVersionInfo`/`VersionData` (DEAD-03),
+  `AsProgressCallback` (DEAD-07), `GCStats`/`stats()` (DEAD-11), alias
+  `orchestration.Default*Threshold` (ARCH-04) ; dé-exports :
+  `threshold.{setLogger,getThresholds,getFFTThreshold,getParallelThreshold,getStats,reset}`
+  + `thresholdStats` (DEAD-08), `bigfft.allocUnsafe` (DEAD-10),
+  `ui.setCurrentTheme` (DEAD-13).
 
 ### Fixed
 
@@ -53,6 +63,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Fable5 ERR-01).
 - Erreurs de calcul et de budget mémoire écrites sur stdout au lieu de stderr
   (audit Fable5 ERR-02).
+- `-calibrate` honore désormais `--calibration-profile` (audit Fable5 CAL-01) ;
+  l'échec d'`--auto-calibrate` émet un avertissement au lieu d'un repli muet
+  (ERR-05) ; l'erreur de `p.Run()` TUI est rapportée sur stderr (ERR-04) ;
+  `-version`/`-h` listés dans l'aide (ERR-06) ; le mode comparaison rapporte la
+  cause racine plutôt qu'une annulation de frère (ERR-07) ; en mode
+  comparaison tous en échec, le code de sortie reflète la classe d'erreur
+  réelle.
+- Outillage : `.gitattributes` épingle tout le texte en LF (BUILD-02, fin des
+  faux modifiés WSL/Windows) ; plancher de couverture single-source via
+  `check.sh --coverage-only` (BUILD-03) ; golangci-lint épinglé v1.64.8
+  (BUILD-04) ; `golang.org/x/sys` v0.47.0, govulncheck zéro vuln (SEC-02).
+- Tests durcis : invariant E1-R4 épinglé par assertion de pointeur
+  (mutation-validé, TEST-01) ; corpus golden épinglé (TEST-04) ;
+  `FreshTimeoutBudget` insensible au stall (TEST-03) ; branches d'échec
+  calibration assertées (TEST-02) ; 5e règle d'architecture
+  config ↛ {fibonacci, bigfft} (ARCH-02).
 
 ### Docs
 

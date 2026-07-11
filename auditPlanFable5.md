@@ -58,9 +58,26 @@ Mandat : corriger les 12 majeurs. Arbitrages mainteneur obtenus en séance : **D
 | DEAD-07 | 5 | ✅ corrigé (a minima) | `9683ace` | AsProgressCallback coupé ; **pattern Observer complet = décision mainteneur toujours ouverte (Directive #6/D-02)** |
 | ARCH-04 | 5 | ✅ corrigé | `4a84ebe` | 3 alias Default*Threshold supprimés, CLAUDE.md aligné |
 | DEAD-12 | 5 | ✅ accepté | — (aucun code) | indirection options conservée (branche LoadProfile testée) ; le vrai bug de câblage était CAL-01, corrigé |
-| DEAD-04/08/09/10/11, ARCH-05 | 6 | ⏳ | — | |
-| ARCH-06/07, DEAD-14/15 | 6 (constats) | ⏳ | — | recommandation d'audit = aucune action en bloc |
-| Vague 7 (clôture) | 7 | ⏳ | — | |
+| DEAD-04 | 6 | ✅ corrigé | `aa8ef4d` | internal/parallel supprimé (errgroup + `parallel3Result` du commit annulé da80099) ; benchstat 2 runs encadrant zéro (+7,1 %/−5,8 % CPU = bruit 1x documenté BUILD-01), allocs −1,0/−1,25 % stables ; `-race` + golden verts |
+| DEAD-08 | 6 | ✅ corrigé | `bc9f5a6` | 6 méthodes + thresholdStats dé-exportés, CLAUDE.md A2-04 synchronisé, `-race` threshold vert |
+| DEAD-09 | 6 | ✅ corrigé | `18b4b32` | trio FFTParallelismConfig documenté test-only (précédent SetFFTThreshold) |
+| DEAD-10 | 6 | ✅ corrigé | `762f7b7` | allocUnsafe dé-exporté |
+| DEAD-11 | 6 | ✅ corrigé (partiel par décision) | `63468c9` | GCStats/stats() coupés ; AllocBigInt/UsedWords **conservés** (précédent d89eb5c, aucun élément nouveau) |
+| ARCH-05 | 6 | ✅ assumé | `337af0f` | 3 dépassements gocyclo (1-2 pts) en exclusions documentées ; le 4e (fourierRecursiveCtx) a disparu avec DEAD-01 |
+| ARCH-06/07, DEAD-14/15 | 6 (constats) | ✅ acceptés | — (aucun code) | recommandation d'audit : aucune action en bloc (internal/ borne la visibilité ; découpage de fichiers = localité des invariants ; WithFactory = seam ADR-0008 R6 ; dé-exports cosmétiques à porter par un autre chantier) |
+| Vague 7 (clôture) | 7 | ✅ close | dernier commit de la série | CHANGELOG consolidé (Removed/Fixed) ; CLAUDE.md synchronisé au fil des vagues ; **G7 PASS** (`check.sh` WSL : build, vet, test `-race`, GMP 3b OK, couverture 95,2 %) ; arbres git Windows et WSL propres |
+
+### Bilan final (2026-07-11)
+
+**59/59 findings traités** : 12 majeurs (passe 1) + 30 mineurs + 17 infos (passe 2, vagues 1-7).
+- Corrigés par commit : 44 findings (~35 commits conventionnels, un par finding ou lot homogène).
+- Clos par décision/acceptation documentée : DEAD-02 (oracles R3), DEAD-12, DEAD-14, DEAD-15, TEST-06, ARCH-06, ARCH-07, DEAD-11 partiel (AllocBigInt/UsedWords), BUILD-01 (différé à la prochaine régénération, protocole noté dans le Makefile).
+- Décision restée ouverte (volontairement) : le sort du pattern Observer complet de `internal/progress` (Directive #6/D-02) — `AsProgressCallback` mort coupé a minima.
+- Signalement hors périmètre en suivi séparé : câblage GMP dans la fabrique `app.New` (chip de tâche créé).
+
+Critères de sortie §6 : (1) ✅ tous les findings non-décision traités ; (2) ✅ décisions présentées et arbitrées ou explicitement laissées ouvertes ; (3) ✅ G7 vert, benchstat sans régression reproductible, golden intact, arbres propres ; (4) ✅ CHANGELOG/CLAUDE.md synchronisés, journal des déviations complet (§7).
+
+Sort des fichiers d'audit (étape 4 de la vague 7) : **conservés à la racine** — la purge (précédent `d10299b`) reste au choix du mainteneur ; auditFable5.md documente l'état des findings au moment de l'audit, ce tableau §8 documente leur exécution.
 
 Signalement hors périmètre (non corrigé, chip de suivi créé) : sous `-tags gmp`, l'algo « gmp » n'est enregistré que dans la fabrique privée du package fibonacci — probablement insélectionnable depuis le binaire (`app.go:75` n'appelle pas `RegisterGMPCalculator`). À vérifier dans une session dédiée.
 
