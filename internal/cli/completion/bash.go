@@ -106,6 +106,14 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 
 	// Use escape-aware joiner: algorithms are interpolated into a
 	// bash double-quoted string, so special chars must be neutralized.
+	//
+	// SEC-01 limitation: the escaping only protects the assignment line.
+	// The generated script later runs `compgen -W "${algorithms}"`, and
+	// compgen -W RE-EXPANDS each word (command substitution included) —
+	// a name containing $(...) stored literally would execute there. Safe
+	// today because names come from the static compiled registry ONLY;
+	// never wire a dynamic source into this list without rethinking the
+	// compgen layer (or whitelisting names to [A-Za-z0-9_-] at the source).
 	algoList := formatAlgoListBash(algorithms)
 
 	script := fmt.Sprintf(`# Bash completion script for fibcalc

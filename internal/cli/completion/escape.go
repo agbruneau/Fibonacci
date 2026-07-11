@@ -18,6 +18,11 @@ import "strings"
 // is paired with an adversarial test in escape_test.go covering the
 // dangerous metacharacters: $(...), backticks, semicolons, spaces, quotes,
 // backslashes, newlines.
+//
+// CAVEAT (audit Fable5 SEC-01): for bash this escaping is NOT a complete
+// barrier — the generated script feeds the list through `compgen -W`,
+// which re-expands each word (see the note in bash.go). Escaping alone
+// therefore does not make dynamic sources safe for the bash generator.
 
 // escapeBashDoubleQuoted escapes s so it is safe to splice inside a
 // bash double-quoted string. Metacharacters expanded under "..." are
