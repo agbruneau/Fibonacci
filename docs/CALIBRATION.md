@@ -26,8 +26,11 @@ Three operational modes are supported:
 ## Quick Start
 
 ```bash
-# Run full calibration (saves profile to ~/.fibcalc_calibration.json)
+# Run full calibration (saves profile to ~/.fibcalc_calibration.json by default)
 fibcalc --calibrate
+
+# Full calibration saving to a custom profile path
+fibcalc --calibrate --calibration-profile /path/to/profile.json
 
 # Quick startup calibration with automatic fallback
 fibcalc --auto-calibrate
@@ -75,7 +78,7 @@ The process:
 3. Execution times are recorded in a `calibrationResult` slice.
 4. The threshold that produced the shortest duration is selected.
 5. FFT and Strassen thresholds are estimated via heuristics (`EstimateOptimalFFTThreshold()`, `EstimateOptimalStrassenThreshold()`).
-6. Results are printed as a formatted table and the profile is saved to `~/.fibcalc_calibration.json`.
+6. Results are printed as a formatted table and the profile is saved to the path given by `--calibration-profile` (default: `~/.fibcalc_calibration.json`).
 
 ```
 --- Calibration Summary ---

@@ -146,7 +146,7 @@ func (a *Application) runCompletion(out io.Writer) int {
 
 // runCalibration runs the full calibration mode.
 func (a *Application) runCalibration(ctx context.Context, out io.Writer) int {
-	return calibration.RunCalibration(ctx, out, a.Factory.GetAll(), cli.DisplayProgress, cli.CLIColorProvider{})
+	return calibration.RunCalibration(ctx, out, a.Factory.GetAll(), a.Config.CalibrationProfile, cli.DisplayProgress, cli.CLIColorProvider{})
 }
 
 // runAutoCalibrationIfEnabled runs auto-calibration if enabled.

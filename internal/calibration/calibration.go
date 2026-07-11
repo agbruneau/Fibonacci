@@ -91,13 +91,17 @@ type calibrationResult struct {
 //   - out: The io.Writer to which progress and results will be written.
 //   - calculatorRegistry: A map of available calculators, which must include
 //     the "fast" algorithm.
+//   - profilePath: destination of the saved profile; empty selects the
+//     default path (~/.fibcalc_calibration.json). Honors the CLI's
+//     --calibration-profile flag (audit Fable5 CAL-01).
 //
 // Returns:
 //   - int: The exit code (0 for success, non-zero for errors).
-func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) int {
+func RunCalibration(ctx context.Context, out io.Writer, calculatorRegistry map[string]fibonacci.Calculator, profilePath string, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) int {
 	return RunCalibrationWithOptions(ctx, out, calculatorRegistry, CalibrationOptions{
 		SaveProfile: true,
 		LoadProfile: false, // Full calibration should run fresh
+		ProfilePath: profilePath,
 	}, progressDisplay, colorProvider)
 }
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -122,10 +123,30 @@ func TestRunCalibration(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	exitCode := RunCalibration(ctx, io.Discard, registry, noopProgressDisplay, noopColorProvider{})
+	exitCode := RunCalibration(ctx, io.Discard, registry, filepath.Join(t.TempDir(), "profile.json"), noopProgressDisplay, noopColorProvider{})
 
 	if exitCode != 0 { // ExitSuccess
 		t.Errorf("RunCalibration failed with code %d", exitCode)
+	}
+}
+
+// TestRunCalibration_HonorsCustomProfilePath pins the --calibration-profile
+// wiring for the full -calibrate mode (audit Fable5 CAL-01): the profile must
+// be saved at the caller-provided path, not the default one.
+func TestRunCalibration_HonorsCustomProfilePath(t *testing.T) {
+	t.Parallel()
+	registry := map[string]fibonacci.Calculator{
+		"fast": &MockCalculator{name: "fast"},
+	}
+	profilePath := filepath.Join(t.TempDir(), "cal.json")
+
+	exitCode := RunCalibration(context.Background(), io.Discard, registry, profilePath, noopProgressDisplay, noopColorProvider{})
+
+	if exitCode != 0 {
+		t.Fatalf("RunCalibration failed with code %d", exitCode)
+	}
+	if _, err := os.Stat(profilePath); err != nil {
+		t.Fatalf("profile was not saved at the custom path: %v", err)
 	}
 }
 
@@ -134,7 +155,7 @@ func TestRunCalibrationMissingFast(t *testing.T) {
 	registry := map[string]fibonacci.Calculator{} // Empty
 
 	ctx := context.Background()
-	exitCode := RunCalibration(ctx, io.Discard, registry, noopProgressDisplay, noopColorProvider{})
+	exitCode := RunCalibration(ctx, io.Discard, registry, filepath.Join(t.TempDir(), "profile.json"), noopProgressDisplay, noopColorProvider{})
 
 	if exitCode == 0 {
 		t.Error("RunCalibration should fail if 'fast' calculator is missing")
