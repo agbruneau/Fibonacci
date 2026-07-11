@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   itération de doublement : `--last-digits` honore désormais `-timeout` et
   Ctrl-C avec un dépassement borné à une itération (audit Fable5 ERR-03).
 
+### Removed
+
+- **API opt-in `FFTContext`** (`internal/bigfft/context.go`,
+  `fft_recursion_ctx.go` : `NewFFTContext`, `Mul/MulTo/Sqr/SqrToWithContext`,
+  `fourierRecursiveCtx` et leur plomberie, ~572 LOC prod + ~530 LOC tests) :
+  zéro appelant de production, construite pour la migration classée WONT-FIX
+  par ADR-0004 §B1. Décision mainteneur (audit Fable5 DEAD-01, addendum
+  ADR-0004 §B1) ; récupérable de l'historique git si la migration renaît.
+
 ### Fixed
 
 - `.gitattributes` épingle `*.sh` en LF (checkout CRLF cassait `check.sh` sous

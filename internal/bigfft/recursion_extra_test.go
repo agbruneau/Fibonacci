@@ -199,44 +199,6 @@ func TestFourierRecursiveParallelErrorPropagation(t *testing.T) {
 	}
 }
 
-// TestFourierRecursiveCtxParallelErrorPropagation mirrors the test above for
-// the context-aware recursion; the context owns its semaphore, so the
-// parallel branch is deterministic without touching package globals.
-//
-// Not parallel: pins the package-level FFT recursion-threshold knobs.
-func TestFourierRecursiveCtxParallelErrorPropagation(t *testing.T) {
-	const n = 8
-
-	pinFFTParallelismConfig(t)
-
-	for _, tc := range []struct {
-		name   string
-		k      uint
-		badIdx int
-	}{
-		{"async half reports error", 4, 1},
-		{"sync half reports error", 4, 2},
-		{"sequential path reports error", 3, 2},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
-			K := 1 << tc.k
-			src := newFermatVec(K, n)
-			dst := newFermatVec(K, n)
-			src[tc.badIdx] = make(fermat, 3)
-
-			err := fourierRecursiveCtx(ctx, dst, src, false, n, tc.k, tc.k, 0,
-				make(fermat, n+1), make(fermat, n+1), GetPoolAllocator())
-			if err == nil {
-				t.Fatal("expected validation error to propagate from the ctx recursion")
-			}
-			if !strings.Contains(err.Error(), "validation failed") {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		})
-	}
-}
-
 // TestFourierRecursiveAsyncPanicPropagates plants a malformed dst element at
 // an odd index in the second (async) half. That index is the dst[1] of a
 // size-1 leaf, which the recursion's top-of-call validation never checks (it
@@ -267,35 +229,8 @@ func TestFourierRecursiveAsyncPanicPropagates(t *testing.T) {
 	t.Fatal("fourierRecursive returned normally despite a malformed async-half element")
 }
 
-// TestFourierRecursiveCtxAsyncPanicPropagates mirrors the above for the
-// context-aware recursion; the context owns its semaphore, so the async branch
-// is taken deterministically without touching package globals.
-//
-// Not parallel: pins the package-level FFT recursion-threshold knobs.
-func TestFourierRecursiveCtxAsyncPanicPropagates(t *testing.T) {
-	const (
-		k = 4
-		n = 511
-	)
-	pinFFTParallelismConfig(t)
-	ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
-	K := 1 << k
-	src := newFermatVec(K, n)
-	dst := newFermatVec(K, n)
-	dst[K/2+1] = make(fermat, 5)
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic from the ctx async recursion half to propagate to the caller")
-		}
-	}()
-	_ = fourierRecursiveCtx(ctx, dst, src, false, n, k, k, 0,
-		make(fermat, n+1), make(fermat, n+1), GetPoolAllocator())
-	t.Fatal("fourierRecursiveCtx returned normally despite a malformed async-half element")
-}
-
-// TestFourierRecursiveSizeZeroIsIdentity pins the size-0 base case of both
-// recursion variants: a 1-point FFT is the identity copy.
+// TestFourierRecursiveSizeZeroIsIdentity pins the size-0 base case of the
+// recursion: a 1-point FFT is the identity copy.
 func TestFourierRecursiveSizeZeroIsIdentity(t *testing.T) {
 	t.Parallel()
 	const n = 4
@@ -307,14 +242,6 @@ func TestFourierRecursiveSizeZeroIsIdentity(t *testing.T) {
 		t.Fatalf("fourierRecursive size 0 failed: %v", err)
 	}
 	assertFermatEqual(t, dst[0], src[0])
-
-	ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 1, DisableCache: true})
-	dstCtx := newFermatVec(1, n)
-	if err := fourierRecursiveCtx(ctx, dstCtx, src, false, n, 0, 0, 0,
-		make(fermat, n+1), make(fermat, n+1), GetPoolAllocator()); err != nil {
-		t.Fatalf("fourierRecursiveCtx size 0 failed: %v", err)
-	}
-	assertFermatEqual(t, dstCtx[0], src[0])
 }
 
 // TestRunPointwiseVisitsEveryIndexExactlyOnce drives the parallel pointwise
@@ -406,27 +333,6 @@ func TestFourierRecursiveUnifiedSyncPanicWaitsForWorker(t *testing.T) {
 
 	tokenReleasedBeforePanic(t, getSemaphore(), func() {
 		_ = fourierRecursive(dst, src, false, n, k, k, 0, make(fermat, n+1), make(fermat, n+1))
-	})
-}
-
-// TestFourierRecursiveCtxSyncPanicWaitsForWorker mirrors the above for the
-// FFTContext-aware recursion (fourierRecursiveCtx), which owns its own
-// semaphore instead of the package-global one.
-func TestFourierRecursiveCtxSyncPanicWaitsForWorker(t *testing.T) {
-	pinFFTParallelismConfig(t)
-	const (
-		k = 4
-		n = 4095
-	)
-	K := 1 << k
-	ctx := NewFFTContext(FFTContextOptions{SemaphoreSize: 2, DisableCache: true})
-	src := newFermatVec(K, n)
-	dst := newFermatVec(K, n)
-	dst[1] = make(fermat, 5)
-
-	tokenReleasedBeforePanic(t, ctx.Semaphore, func() {
-		_ = fourierRecursiveCtx(ctx, dst, src, false, n, k, k, 0,
-			make(fermat, n+1), make(fermat, n+1), GetPoolAllocator())
 	})
 }
 

@@ -35,6 +35,17 @@ Justification :
 concurrents avec configurations divergentes dans le même process) est
 ouvert dans l'issue tracker.
 
+> **Addendum (2026-07-11, audit Fable5 DEAD-01)** : l'API opt-in
+> `FFTContext` elle-même (`context.go`, `fft_recursion_ctx.go`, ~572 LOC
+> prod + ~530 LOC tests, **zéro appelant de production** vérifié par
+> passe réfutative) a été **supprimée de l'arbre** sur décision
+> mainteneur — l'abstraction avait été codée pour une migration que ce
+> B1 classe précisément WONT-FIX. Le WONT-FIX demeure ; si la migration
+> renaît un jour (clause « à revoir si » ci-dessus), le code se récupère
+> de l'historique git (`git log --diff-filter=D -- internal/bigfft/context.go`
+> donne le commit de suppression) plutôt que d'être maintenu mort dans
+> l'arbre.
+
 ### Item B2 — Simplification de `internal/calibration/` (1 686 LOC)
 
 **Statut : WONT-FIX (release actuelle).**

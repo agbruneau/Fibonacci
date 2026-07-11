@@ -48,8 +48,7 @@ func getFFTThreshold() int { return int(fftThreshold.Load()) }
 // SetFFTThreshold updates the FFT activation threshold (in words) atomically.
 // Test-only in practice: no production caller exists (internal/calibration's
 // only touchpoint with this package is bigfft.Mul, which reads the threshold
-// via getFFTThreshold but never calls this setter); production code should
-// prefer FFTContext-based configuration.
+// via getFFTThreshold but never calls this setter).
 func SetFFTThreshold(v int) { fftThreshold.Store(int64(v)) }
 
 // Mul computes the product x*y and returns z.
@@ -282,8 +281,8 @@ func isFermatPostConditionPanic(r any) bool {
 }
 
 // fermatPanicToError is the single implementation of the panic policy
-// (ADR-0002) shared by every public entry point — Mul/MulTo/Sqr/SqrTo and
-// their *WithContext variants. Post-condition sentinels from fermat.go are
+// (ADR-0002) shared by every public entry point — Mul/MulTo/Sqr/SqrTo.
+// Post-condition sentinels from fermat.go are
 // re-propagated so genuine bugs in the modular reduction surface as panics;
 // every other panic is converted to an error carrying the stack. r must be
 // the non-nil value obtained from recover().

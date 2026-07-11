@@ -37,19 +37,18 @@ func TestFermatPostConditionPanicClassifier(t *testing.T) {
 }
 
 // TestFermatPanicToError validates the shared panic-policy helper used by
-// all eight public entry points (Mul/MulTo/Sqr/SqrTo and the four
-// *WithContext variants). Sentinels re-propagate; everything else becomes
-// an error naming the entry point. ADR-0002.
+// the public entry points (Mul/MulTo/Sqr/SqrTo). Sentinels re-propagate;
+// everything else becomes an error naming the entry point. ADR-0002.
 func TestFermatPanicToError(t *testing.T) {
 	t.Parallel()
 
 	t.Run("non-sentinel panic becomes named error", func(t *testing.T) {
 		t.Parallel()
-		err := fermatPanicToError("Mul: len(x) != len(y)", "MulWithContext")
+		err := fermatPanicToError("Mul: len(x) != len(y)", "Mul")
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if want := "panic in bigfft.MulWithContext"; !strings.Contains(err.Error(), want) {
+		if want := "panic in bigfft.Mul"; !strings.Contains(err.Error(), want) {
 			t.Fatalf("error %q does not contain %q", err.Error(), want)
 		}
 	})
@@ -65,7 +64,7 @@ func TestFermatPanicToError(t *testing.T) {
 				t.Fatalf("expected post-condition sentinel, got %v", r)
 			}
 		}()
-		_ = fermatPanicToError("len(z) > 2n+1", "SqrWithContext")
+		_ = fermatPanicToError("len(z) > 2n+1", "Sqr")
 		t.Fatal("unreachable: helper must panic on sentinel")
 	})
 }

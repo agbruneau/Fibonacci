@@ -74,7 +74,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 ### `bigfft/pool.go`
 
 - Pools globaux par classe de taille (`wordSlicePools`, `fermatPools`, `natSlicePools`, `fermatSlicePools`). **Routage par capacité** critique : `releaseWordSlice` route sur `cap` (**pas** `len`) + compteur de miss. La machinerie `fftState`/`fftStatePool`/A2-05 (code mort, zéro appelant prod) a été supprimée en Phase 4 (FFT-05, audit 2026-07) — `fourier()` acquiert `tmp`/`tmp2` directement via `acquireFermat`/`releaseFermat`.
-- SA6002 (Put de slice valeur) = **décision alloc-neutre mesurée**, exclusion golangci ciblée `pool.go`/`pool_warming.go` ; le vrai fix = migration `FFTContext` — ADR-0007 (cf. ADR-0004 §B1).
+- SA6002 (Put de slice valeur) = **décision alloc-neutre mesurée**, exclusion golangci ciblée `pool.go`/`pool_warming.go` ; le vrai fix tracé (migration `FFTContext`, ADR-0007) reste WONT-FIX — l'API opt-in FFTContext a été **retirée de l'arbre** (2026-07-11, addendum ADR-0004 §B1), récupérable de l'historique git si la migration renaît.
 - `TestReleaseWordSliceResizedReturnsToBucket` valide le routage `cap`→bucket via le **compteur de miss uniquement** : ne **pas** y réintroduire d'assertion d'identité `sync.Pool` (canary / réapparition du backing) — non contractuelle et **flaky sous `-race`** (victim cache + timing GC), retirée 2026-06-21. **Gardien** du routage exhaustif : `TestReleaseWordSliceAllExactBuckets`.
 
 ### `bigfft/fft_cache.go`
@@ -89,7 +89,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 ### `bigfft/fft.go` (`Mul`/`MulTo`/`Sqr`/`SqrTo`), `fermat.go`
 
 - Récepteur `fermat` uniformisé sur `z`. Le `recover()` global re-propage les sentinels `isFermatPostConditionPanic` ; les panics post-condition de `fermat.go` ne doivent **pas** être masquées en `error` (re-route via classifier sentinel — ADR-0002). **Gardien** : `TestFermatPostConditionPanicClassifier`.
-- **Tous** les chemins parallèles capturent les panics worker via un `panicCh` bufferisé et les re-panic sur l'appelant après `wg.Wait()` — un panic sur goroutine nue crasherait le process en contournant ADR-0002. **Gardiens** : récursion async `fourierRecursiveUnified`/`fourierRecursiveCtx` (`TestFourierRecursiveAsyncPanicPropagates`/`...CtxAsyncPanicPropagates`), `executeReconstruction` (`TestExecuteReconstructionPanicPropagates`), `runPointwise` (`TestPointwiseWorkerPanicPropagates`).
+- **Tous** les chemins parallèles capturent les panics worker via un `panicCh` bufferisé et les re-panic sur l'appelant après `wg.Wait()` — un panic sur goroutine nue crasherait le process en contournant ADR-0002. **Gardiens** : récursion async `fourierRecursiveUnified` (`TestFourierRecursiveAsyncPanicPropagates`), `executeReconstruction` (`TestExecuteReconstructionPanicPropagates`), `runPointwise` (`TestPointwiseWorkerPanicPropagates`).
 
 ### `errors/errors.go`
 
@@ -173,7 +173,7 @@ Points d'attention :
 1. **Performance critique** — Modif dans `internal/fibonacci/` ou `internal/bigfft/` : benchmark `benchstat` avant + après (baseline `make bench-baseline`). **Régression > 5 % = blocage.**
 2. **Golden tests obligatoires** — Tout changement algorithmique passe `fibonacci_golden.json`. Fichier **immuable** sans approbation ADR (aucun `-update`).
 3. **Étanchéité des couches** — Hiérarchie `cmd → app → orchestration → fibonacci/bigfft → config/errors`. Quatre arrows remontants gardés par `arch_test.go` : `threshold → config`, `errors → format`, `tui → fibonacci`, `orchestration → format`.
-4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutine sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** : les trois existants sont en `atomic.*` privés avec accesseurs (ADR-0003). Migration `FFTContext` exclusive tracée en backlog (ADR-0004 §B1, won't-fix release courante).
+4. **Concurrence contrôlée** — `sync.Pool`, `errgroup`, sémaphores bornés. Pas de goroutine sans contrôle de cycle de vie. **Pas de nouveaux globals dans `bigfft/`** : les trois existants sont en `atomic.*` privés avec accesseurs (ADR-0003). Migration `FFTContext` : won't-fix maintenu et **API opt-in retirée de l'arbre** (addendum ADR-0004 §B1, 2026-07-11).
 5. **Modifications chirurgicales** — Diff minimal. Un refactoring d'envergure (> 50 LOC sur > 2 fichiers) se justifie dans le message de commit (raison, compromis, alternative écartée).
 6. **Pas de nouveaux fichiers `progress*` sans consultation** — Chemin de production : `Freeze`. Étendre un point existant après lecture de `internal/progress`.
 7. **Bug fix avant refactor** — Un défaut actif touché par hasard pendant un refactor se corrige d'abord dans un commit isolé (`fix(scope):`).

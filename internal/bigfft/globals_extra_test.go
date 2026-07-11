@@ -15,6 +15,18 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// makeBigInt builds a big.Int with the given word count and a deterministic
+// pattern so we can exercise the FFT path (>fftThreshold words).
+func makeBigInt(seed, numWords int) *big.Int {
+	z := new(big.Int)
+	words := make([]big.Word, numWords)
+	for i := range words {
+		words[i] = big.Word(uint64(seed)*0x9E3779B97F4A7C15 + uint64(i))
+	}
+	z.SetBits(words)
+	return z
+}
+
 // TestSetFFTThresholdRoundTrip verifies the atomic threshold setter/getter
 // pair and that a lowered threshold still yields correct products through
 // the FFT route.
