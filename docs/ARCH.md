@@ -127,7 +127,6 @@ internal/
 │   ├── fft_recursion.go         # Recursive FFT decomposition, parallelism config
 │   ├── fft_poly.go              # Polynomial operations
 │   ├── fft_cache.go             # FFT transform caching
-│   ├── scan.go                  # Fast base-10 string → big.Int (scanner)
 │   ├── memory_est.go            # Memory estimates for transforms
 │   ├── fermat.go                # Fermat ring arithmetic (Z/(2^k+1))
 │   ├── pool.go, pool_warming.go # Size-class pools, adaptive pre-warming
@@ -244,7 +243,7 @@ internal/
 
 ## `internal/errors`
 - **Responsibility:** typed errors, wrappers, exit code mapping, standardized calculation-error handling.
-- **Key types:** `ConfigError`, `CalculationError`, `TimeoutError`, `ValidationError`, `MemoryError`.
+- **Key types:** `ConfigError`, `CalculationError`, `MemoryError` (timeout/cancellation are classified via `errors.Is` on context sentinels, not dedicated types — OVR-07).
 - **Key helpers:** `WrapError`, `IsContextError`, `HandleCalculationError`, `ColorProvider` interface.
 
 ## `internal/parallel`
@@ -614,10 +613,12 @@ Also honors standard `NO_COLOR` behavior.
 | Type | Purpose |
 |---|---|
 | `ConfigError` | Invalid configuration/flags/parameters |
-| `TimeoutError` | Operation exceeded duration limit |
 | `MemoryError` | Requested memory exceeds available/configured constraints |
-| `ValidationError` | Structured field-level validation failures |
 | `CalculationError` | Wraps underlying computation failure cause (with `Unwrap()`) |
+
+Timeouts and cancellations carry no dedicated type: they are classified with
+`errors.Is` against `context.DeadlineExceeded`/`context.Canceled` (OVR-07
+removed the former `TimeoutError`/`ValidationError`).
 
 Additional helpers: `WrapError` (contextual wrapping with `%w`), `IsContextError` (checks `context.Canceled`/`context.DeadlineExceeded`).
 
@@ -728,7 +729,7 @@ From `go.mod`, direct dependencies are:
 
 ## 14) Architectural Decision Records (ADR)
 
-> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0008`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
+> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0009`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.

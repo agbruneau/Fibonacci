@@ -36,6 +36,9 @@ The four C4 / dependency Mermaid diagrams
 with the import graph above: edges flow inward, with no
 `orchestration → cli` / `orchestration → tui` back-edges, and
 `cli → orchestration` / `tui → orchestration` present.
+`dependency-graph.mermaid` was re-verified edge-by-edge against
+`go list` on 2026-07-11 (audit Fable5 ARCH-01: stale `orch → format`
+edge removed, four missing `config`/`fib` edges added).
 
 ## Interface & pattern claims
 

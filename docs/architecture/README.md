@@ -61,16 +61,18 @@ Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
 | [0006](../adr/0006-fft-recursion-cancellation.md) | Annulation récursion FFT — report au token par-appel (FFTContext) | Accepted |
 | [0007](../adr/0007-pool-pointer-vs-value.md) | SA6002 (`sync.Pool.Put` de slice) — décision mesurée | Accepted |
 | [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | Audit de refactorisation 2026-06 — candidats rejetés après vérification | Accepted |
+| [0009](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) | Audit 2026-07 — purge bigfft, rétention oracle, rejet puis adoption ×10 (addendum R4) | Accepted |
 
 L'historique granulaire des décisions héritées (heuristique CPU, backends
 de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
 
 ### Gate d'architecture
 
-`internal/arch_test.go` enforce trois invariants Clean Architecture :
-`threshold → config`, `errors → format`, `tui → fibonacci` sont
-interdits. Tout PR réintroduisant un de ces imports remontants fait
-échouer `make test` (ou `go test ./internal/`). Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
+`internal/arch_test.go` enforce quatre invariants Clean Architecture :
+`threshold → config`, `errors → format`, `tui → fibonacci` et
+`orchestration → format` (APP-10) sont interdits. Tout PR réintroduisant
+un de ces imports remontants fait échouer `make test` (ou
+`go test ./internal/`). Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 
 ---
 [← Retour à la vue d'ensemble (ARCH.md)](../ARCH.md)

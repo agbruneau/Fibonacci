@@ -160,13 +160,14 @@ Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoubl
 `internal/arch_test.go` is a runtime sentinel that fails the build if a
 forbidden upward import is reintroduced. It inspects each importer
 package via `go list -f '{{.Imports}}'` (production code only — `_test.go`
-files are excluded). Currently three rules :
+files are excluded). Currently four rules :
 
 | Importer | Forbidden direct import | Rationale |
 |---|---|---|
 | `internal/fibonacci/threshold` | `internal/config` | Would close a cycle through `config → fibonacci/memory`. The threshold package consumes `Tuning` via `SetTuning`. |
 | `internal/errors` | `internal/format` | Leaf utility ; uses local `formatBytesLocal` instead. |
 | `internal/tui` (production) | `internal/fibonacci` | UI must reach domain types through `orchestration.Calculator`/`Options` aliases. |
+| `internal/orchestration` | `internal/format` | APP-10 : `ProgressState` moved from `format` to `orchestration` ; the arrow must not come back. |
 
 Adding a new rule is a one-line append to `architectureRules`.
 
