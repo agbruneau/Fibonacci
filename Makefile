@@ -1,5 +1,7 @@
 # Makefile for Fibonacci Calculator
 # ===================================
+# POSIX/WSL only: every recipe uses a POSIX shell ([ -f ], mkdir -p, ...).
+# On Windows, run via WSL (`wsl make ...`); the native gate is scripts/check.ps1.
 
 # Variables
 BINARY_NAME=fibcalc

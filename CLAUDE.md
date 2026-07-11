@@ -139,7 +139,7 @@ Contexte « pourquoi » du hot path (détail mesuré : [`docs/PERFORMANCE.md`](d
 make all            # clean + build + test
 make test           # go test -v -race -cover ./...   (race : CGO/gcc requis — Linux/macOS/WSL)
 make test-win       # go test -v -cover ./...          (Windows sans gcc : pas de -race)
-make lint           # golangci-lint run ./...          (24 linters, advisory)
+make lint           # golangci-lint run ./...          (24 entrées de config = 23 linters + typecheck implicite, advisory)
 make coverage-check # plancher de couverture 80 %
 make benchmark      # go test -bench=. -benchmem ./internal/fibonacci/
 make bench-baseline # régénère docs/audits/bench-baseline.txt
@@ -211,4 +211,4 @@ Pratique effective : **trunk-based** (mainteneur solo). Une branche dédiée + P
 - [`docs/adr/`](docs/adr/) — décisions : 0001 DTM, 0002 recover, 0003 globaux atomic, 0004 backlog, 0005 contrôle GC concurrent par refcount, 0006 annulation récursion FFT, 0007 pool SA6002 pointeur vs valeur, 0008 candidats rejetés audit 2026-06, 0009 purge bigfft + FIB-05 (rejet initial, puis ×10 adopté par l'addendum R4).
 - [`docs/architecture/`](docs/architecture/) — diagrammes C4, dependency graph. [Dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/).
 - [`docs/algorithms/`](docs/algorithms/), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/PORTABILITY.md`](docs/PORTABILITY.md), [`docs/BUILD.md`](docs/BUILD.md), [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
-- [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), `.golangci.yml` (24 linters, `govet shadow`, exceptions documentées).
+- [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), `.golangci.yml` (24 entrées : 23 linters + `typecheck` implicite ; `govet shadow`, exceptions documentées).
