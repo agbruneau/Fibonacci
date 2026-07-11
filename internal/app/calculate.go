@@ -104,25 +104,27 @@ func (a *Application) validateMemoryBudget(out io.Writer) int {
 		return apperrors.ExitSuccess
 	}
 
+	// Error paths report on ErrWriter: stdout stays reserved for results so
+	// scripts capturing it never receive error text as data (ERR-02).
 	var parseErr config.MemoryLimitParseError
 	if errors.As(err, &parseErr) {
-		fmt.Fprintf(out, "Invalid --memory-limit: %v\n", parseErr.Cause)
+		fmt.Fprintf(a.ErrWriter, "Invalid --memory-limit: %v\n", parseErr.Cause)
 		return apperrors.ExitErrorConfig
 	}
 
 	var memErr apperrors.MemoryError
 	if errors.As(err, &memErr) {
-		fmt.Fprintf(out, "Estimated memory %s exceeds limit %s.\n",
+		fmt.Fprintf(a.ErrWriter, "Estimated memory %s exceeds limit %s.\n",
 			memory.FormatMemoryEstimate(report.Estimate),
 			report.LimitRaw)
 		if a.Config.LastDigits == 0 {
-			fmt.Fprintf(out, "Consider using --last-digits K for O(K) memory usage.\n")
+			fmt.Fprintf(a.ErrWriter, "Consider using --last-digits K for O(K) memory usage.\n")
 		}
 		return apperrors.ExitErrorConfig
 	}
 
 	// Unknown error type: surface it generically.
-	fmt.Fprintf(out, "Memory budget validation failed: %v\n", err)
+	fmt.Fprintf(a.ErrWriter, "Memory budget validation failed: %v\n", err)
 	return apperrors.ExitErrorConfig
 }
 
@@ -229,7 +231,7 @@ func (a *Application) present(
 		ShowValue: a.Config.ShowValue,
 	}
 	presenter := cli.CLIResultPresenter{MachineOutput: a.Config.MachineOutput}
-	return orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, out)
+	return orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, out, a.ErrWriter)
 }
 
 // save writes the result to disk if requested and prints a success notice

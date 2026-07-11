@@ -248,14 +248,14 @@ func TestValidateMemoryBudgetSuggestion(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var outBuf bytes.Buffer
+			var outBuf, errBuf bytes.Buffer
 			app := &Application{
 				Config: config.AppConfig{
 					N:           1_000_000_000,
 					MemoryLimit: "1K",
 					LastDigits:  tc.lastDigits,
 				},
-				ErrWriter: &bytes.Buffer{},
+				ErrWriter: &errBuf,
 			}
 
 			code := app.validateMemoryBudget(&outBuf)
@@ -263,13 +263,17 @@ func TestValidateMemoryBudgetSuggestion(t *testing.T) {
 			if code != apperrors.ExitErrorConfig {
 				t.Fatalf("Expected exit code %d (config), got %d", apperrors.ExitErrorConfig, code)
 			}
-			output := outBuf.String()
+			// ERR-02: error text goes to ErrWriter, stdout stays clean.
+			output := errBuf.String()
 			if !strings.Contains(output, "exceeds limit") {
-				t.Errorf("Output should mention exceeding the limit. Got:\n%s", output)
+				t.Errorf("ErrWriter should mention exceeding the limit. Got:\n%s", output)
 			}
 			if gotHint := strings.Contains(output, "last-digits"); gotHint != tc.wantHint {
-				t.Errorf("last-digits hint presence = %v, want %v. Output:\n%s",
+				t.Errorf("last-digits hint presence = %v, want %v. ErrWriter:\n%s",
 					gotHint, tc.wantHint, output)
+			}
+			if outBuf.Len() != 0 {
+				t.Errorf("stdout must stay clean on budget failure, got:\n%s", outBuf.String())
 			}
 		})
 	}
@@ -299,8 +303,9 @@ func TestRunTUI_RejectsOversizedMemoryBudget(t *testing.T) {
 	if exitCode != apperrors.ExitErrorConfig {
 		t.Fatalf("expected exit code %d (config), got %d", apperrors.ExitErrorConfig, exitCode)
 	}
-	if !strings.Contains(outBuf.String(), "exceeds limit") {
-		t.Errorf("expected the memory budget diagnostic on out, got:\n%s", outBuf.String())
+	// ERR-02: the diagnostic goes to ErrWriter, stdout stays clean.
+	if !strings.Contains(errBuf.String(), "exceeds limit") {
+		t.Errorf("expected the memory budget diagnostic on stderr, got:\n%s", errBuf.String())
 	}
 }
 

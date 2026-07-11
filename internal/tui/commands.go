@@ -65,7 +65,7 @@ func startCalculationCmd(ref *programRef, ctx context.Context, calculators []orc
 			Details:   cfg.Details,
 			ShowValue: cfg.ShowValue,
 		}
-		exitCode := orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, io.Discard)
+		exitCode := orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, io.Discard, io.Discard)
 
 		return CalculationCompleteMsg{ExitCode: exitCode, Generation: gen}
 	}

@@ -118,7 +118,11 @@ func wrapCalculationFailure(err error, n uint64, opts fibonacci.Options) error {
 //
 // Returns:
 //   - int: An exit code indicating success (0) or the type of failure.
-func AnalyzeComparisonResults(results []CalculationResult, presOpts PresentationOptions, presenter ResultPresenter, errHandler ErrorHandler, out io.Writer) int {
+//
+// Presentation output (comparison table, success status, result) goes to out;
+// failure statuses and diagnostics go to errOut so scripts capturing stdout
+// never receive error text as data.
+func AnalyzeComparisonResults(results []CalculationResult, presOpts PresentationOptions, presenter ResultPresenter, errHandler ErrorHandler, out, errOut io.Writer) int {
 	sort.Slice(results, func(i, j int) bool {
 		if (results[i].Err == nil) != (results[j].Err == nil) {
 			return results[i].Err == nil
@@ -147,18 +151,18 @@ func AnalyzeComparisonResults(results []CalculationResult, presOpts Presentation
 	presenter.PresentComparisonTable(results, out)
 
 	if successCount == 0 {
-		fmt.Fprintf(out, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")
+		fmt.Fprintf(errOut, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")
 		if firstError == nil {
 			// No calculator produced a result at all (e.g. none were constructed
 			// or selected): there is no error to classify, but this is still a
 			// failure — never report success.
 			return apperrors.ExitErrorGeneric
 		}
-		return errHandler.HandleError(firstError, 0, out)
+		return errHandler.HandleError(firstError, 0, errOut)
 	}
 
 	if HasResultMismatch(results) {
-		fmt.Fprintf(out, "\nGlobal Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.")
+		fmt.Fprintf(errOut, "\nGlobal Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.")
 		return apperrors.ExitErrorMismatch
 	}
 

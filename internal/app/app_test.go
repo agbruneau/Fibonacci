@@ -227,7 +227,7 @@ func TestApplicationRun(t *testing.T) {
 	})
 
 	t.Run("Timeout failure", func(t *testing.T) {
-		var outBuf bytes.Buffer
+		var outBuf, errBuf bytes.Buffer
 
 		// Mock blocking calculator to respect context timeout
 		mockCalc := &fibonacci.MockCalculator{
@@ -245,7 +245,7 @@ func TestApplicationRun(t *testing.T) {
 				Timeout: 1 * time.Millisecond,
 			},
 			Factory:   factory,
-			ErrWriter: &bytes.Buffer{},
+			ErrWriter: &errBuf,
 		}
 
 		exitCode := app.Run(context.Background(), &outBuf).Code()
@@ -253,9 +253,10 @@ func TestApplicationRun(t *testing.T) {
 		if exitCode != apperrors.ExitErrorTimeout {
 			t.Errorf("Expected exit code %d (timeout), got %d", apperrors.ExitErrorTimeout, exitCode)
 		}
-		output := testutil.StripAnsiCodes(outBuf.String())
+		// ERR-02: the failure status goes to stderr, not stdout.
+		output := testutil.StripAnsiCodes(errBuf.String())
 		if !strings.Contains(output, "Timeout") {
-			t.Errorf("Output should mention timeout. Output:\n%s", output)
+			t.Errorf("Stderr should mention timeout. Stderr:\n%s", output)
 		}
 	})
 
@@ -998,7 +999,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 
 	t.Run("Invalid memory limit format", func(t *testing.T) {
 		t.Parallel()
-		var outBuf bytes.Buffer
+		var outBuf, errBuf bytes.Buffer
 		factory := createMockFactory(big.NewInt(55), nil)
 
 		app := &Application{
@@ -1009,7 +1010,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 				MemoryLimit: "not-a-number",
 			},
 			Factory:   factory,
-			ErrWriter: &bytes.Buffer{},
+			ErrWriter: &errBuf,
 		}
 
 		exitCode := app.Run(context.Background(), &outBuf).Code()
@@ -1018,15 +1019,15 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 			t.Errorf("Expected exit code %d (config error), got %d",
 				apperrors.ExitErrorConfig, exitCode)
 		}
-		output := outBuf.String()
-		if !strings.Contains(output, "Invalid --memory-limit") {
-			t.Errorf("Expected output to mention invalid memory limit. Output:\n%s", output)
+		// ERR-02: error text goes to stderr, not stdout.
+		if output := errBuf.String(); !strings.Contains(output, "Invalid --memory-limit") {
+			t.Errorf("Expected stderr to mention invalid memory limit. Stderr:\n%s", output)
 		}
 	})
 
 	t.Run("Memory limit exceeded", func(t *testing.T) {
 		t.Parallel()
-		var outBuf bytes.Buffer
+		var outBuf, errBuf bytes.Buffer
 		factory := createMockFactory(big.NewInt(55), nil)
 
 		// Use a very large N to ensure estimated memory exceeds a tiny limit
@@ -1038,7 +1039,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 				MemoryLimit: "1K",
 			},
 			Factory:   factory,
-			ErrWriter: &bytes.Buffer{},
+			ErrWriter: &errBuf,
 		}
 
 		exitCode := app.Run(context.Background(), &outBuf).Code()
@@ -1047,13 +1048,14 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 			t.Errorf("Expected exit code %d (config error), got %d",
 				apperrors.ExitErrorConfig, exitCode)
 		}
-		output := outBuf.String()
+		// ERR-02: error text goes to stderr, not stdout.
+		output := errBuf.String()
 		if !strings.Contains(output, "exceeds limit") {
-			t.Errorf("Expected output to mention exceeding limit. Output:\n%s", output)
+			t.Errorf("Expected stderr to mention exceeding limit. Stderr:\n%s", output)
 		}
 		// Should suggest --last-digits
 		if !strings.Contains(output, "last-digits") {
-			t.Errorf("Expected output to suggest --last-digits. Output:\n%s", output)
+			t.Errorf("Expected stderr to suggest --last-digits. Stderr:\n%s", output)
 		}
 	})
 

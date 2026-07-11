@@ -1,8 +1,10 @@
 package orchestration
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"io"
 	"math/big"
 	"sync"
@@ -42,7 +44,7 @@ func (nilSuccessErrorHandler) HandleError(err error, _ time.Duration, _ io.Write
 // function must still report failure rather than delegate nil to HandleError.
 func TestAnalyzeComparisonResults_EmptyResultsNeverSucceeds(t *testing.T) {
 	t.Parallel()
-	got := AnalyzeComparisonResults(nil, PresentationOptions{N: 10}, MockResultPresenter{}, nilSuccessErrorHandler{}, io.Discard)
+	got := AnalyzeComparisonResults(nil, PresentationOptions{N: 10}, MockResultPresenter{}, nilSuccessErrorHandler{}, io.Discard, io.Discard)
 	if got == apperrors.ExitSuccess {
 		t.Fatalf("empty results must never return success, got %d", got)
 	}
@@ -186,7 +188,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			status := AnalyzeComparisonResults(tt.results, PresentationOptions{}, MockResultPresenter{}, MockResultPresenter{}, &DiscardWriter{})
+			status := AnalyzeComparisonResults(tt.results, PresentationOptions{}, MockResultPresenter{}, MockResultPresenter{}, &DiscardWriter{}, &DiscardWriter{})
 			if status != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, status)
 			}
@@ -478,7 +480,7 @@ func TestAnalyzeComparisonResults_SortsAndPresentsFastestSuccess(t *testing.T) {
 	}
 	pres := &capturingPresenter{}
 
-	status := AnalyzeComparisonResults(results, PresentationOptions{N: 7}, pres, &capturingErrorHandler{}, &DiscardWriter{})
+	status := AnalyzeComparisonResults(results, PresentationOptions{N: 7}, pres, &capturingErrorHandler{}, &DiscardWriter{}, &DiscardWriter{})
 
 	if status != apperrors.ExitSuccess {
 		t.Fatalf("status = %d, want %d", status, apperrors.ExitSuccess)
@@ -513,7 +515,7 @@ func TestAnalyzeComparisonResults_AllFailureDelegatesFirstError(t *testing.T) {
 	pres := &capturingPresenter{}
 	handler := &capturingErrorHandler{code: 42}
 
-	status := AnalyzeComparisonResults(results, PresentationOptions{}, pres, handler, &DiscardWriter{})
+	status := AnalyzeComparisonResults(results, PresentationOptions{}, pres, handler, &DiscardWriter{}, &DiscardWriter{})
 
 	if status != 42 {
 		t.Errorf("status = %d, want the error handler's code 42", status)
@@ -585,5 +587,30 @@ func TestExecuteCalculations_ContextCancellation(t *testing.T) {
 		if r.Err == nil {
 			t.Errorf("results[%d].Err = nil, want context error", i)
 		}
+	}
+}
+
+// TestAnalyzeComparisonResults_FailureGoesToErrOut pins the ERR-02 routing
+// contract: failure statuses and diagnostics go to errOut, never to out, so
+// scripts capturing stdout do not receive error text as data.
+func TestAnalyzeComparisonResults_FailureGoesToErrOut(t *testing.T) {
+	t.Parallel()
+
+	var out, errOut bytes.Buffer
+	results := []CalculationResult{
+		{Name: "fast", Err: context.DeadlineExceeded, Duration: time.Millisecond},
+	}
+
+	code := AnalyzeComparisonResults(results, PresentationOptions{},
+		MockResultPresenter{}, MockResultPresenter{}, &out, &errOut)
+
+	if code != apperrors.ExitErrorGeneric {
+		t.Fatalf("expected exit code %d (generic, MockResultPresenter), got %d", apperrors.ExitErrorGeneric, code)
+	}
+	if !strings.Contains(errOut.String(), "Global Status: Failure") {
+		t.Errorf("failure status must go to errOut, got errOut:\n%s", errOut.String())
+	}
+	if strings.Contains(out.String(), "Failure") {
+		t.Errorf("failure text must not reach out, got out:\n%s", out.String())
 	}
 }
