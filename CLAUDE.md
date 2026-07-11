@@ -57,7 +57,7 @@ Ces fichiers concentrent la complexité et des couplages cachés ; chacun porte 
 ### `fibonacci/threshold/manager.go`
 
 - Champs **par-instance** (`currentFFTThreshold`/`currentParallelThreshold`/`iterationCount` en `atomic.Int64`, `lastAdjustment` en `atomic.Pointer[time.Time]`) : l'ancien invariant single-writer par-instance (A-18) est **obsolète** — migrés atomic.
-- **A2-04 toujours actif** : single-writer-before-use sur les knobs **package-level** (`FFTSpeedupThreshold`, etc. — documenté en tête `manager.go:33-39`). Pas d'écrivain concurrent sur `ShouldAdjust`/`Reset`.
+- **A2-04 toujours actif** : single-writer-before-use sur les knobs **package-level** (`FFTSpeedupThreshold`, etc. — documenté en tête `manager.go:33-39`). Pas d'écrivain concurrent sur `ShouldAdjust`/`reset` (dé-exporté avec les 5 autres méthodes test-only du manager, audit Fable5 DEAD-08).
 - Le package n'importe **pas** `internal/config` : câblage `config.DefaultThresholdTuning → threshold.SetTuning` exécuté une fois par `app.New` (`wireThresholdTuning`, `sync.Once`). **Gardien** : `TestWireThresholdTuning`.
 - `MetricsBuffer` n'est **pas** goroutine-safe : tout accès (`Record`/`Count`/`RecentMetrics`) sous `mu`. **Gardien** : `TestConcurrentAccess` sous `-race`.
 

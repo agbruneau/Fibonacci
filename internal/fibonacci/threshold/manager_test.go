@@ -84,7 +84,7 @@ func TestNewDynamicThresholdManagerFromConfig(t *testing.T) {
 				t.Fatal("expected non-nil manager")
 			}
 
-			fft, par := mgr.GetThresholds()
+			fft, par := mgr.getThresholds()
 			if fft != tc.expectFFT {
 				t.Errorf("expected FFT %d, got %d", tc.expectFFT, fft)
 			}
@@ -105,7 +105,7 @@ func TestRecordIteration(t *testing.T) {
 		mgr.RecordIteration(1000+i*100, time.Millisecond, i%2 == 0, i%3 == 0)
 	}
 
-	stats := mgr.GetStats()
+	stats := mgr.getStats()
 	if stats.MetricsCollected != 5 {
 		t.Errorf("expected 5 metrics, got %d", stats.MetricsCollected)
 	}
@@ -123,7 +123,7 @@ func TestRecordIterationHistoryLimit(t *testing.T) {
 		mgr.RecordIteration(1000+i*10, time.Millisecond, true, false)
 	}
 
-	stats := mgr.GetStats()
+	stats := mgr.getStats()
 	if stats.MetricsCollected != MaxMetricsHistory {
 		t.Errorf("expected metrics capped at %d, got %d", MaxMetricsHistory, stats.MetricsCollected)
 	}
@@ -132,20 +132,20 @@ func TestRecordIterationHistoryLimit(t *testing.T) {
 	}
 }
 
-// TestGetFFTThreshold tests individual threshold getter.
+// TestgetFFTThreshold tests individual threshold getter.
 func TestGetFFTThreshold(t *testing.T) {
 	t.Parallel()
 	mgr := newTestManager(123456, 10000)
-	if got := mgr.GetFFTThreshold(); got != 123456 {
+	if got := mgr.getFFTThreshold(); got != 123456 {
 		t.Errorf("expected 123456, got %d", got)
 	}
 }
 
-// TestGetParallelThreshold tests individual threshold getter.
+// TestgetParallelThreshold tests individual threshold getter.
 func TestGetParallelThreshold(t *testing.T) {
 	t.Parallel()
 	mgr := newTestManager(500000, 7890)
-	if got := mgr.GetParallelThreshold(); got != 7890 {
+	if got := mgr.getParallelThreshold(); got != 7890 {
 		t.Errorf("expected 7890, got %d", got)
 	}
 }
@@ -240,13 +240,13 @@ func TestShouldAdjust(t *testing.T) {
 	})
 }
 
-// TestGetStats tests statistics retrieval.
+// TestgetStats tests statistics retrieval.
 func TestGetStats(t *testing.T) {
 	t.Parallel()
 	mgr := newTestManager(500000, 10000)
 
 	// Initial stats
-	stats := mgr.GetStats()
+	stats := mgr.getStats()
 	if stats.CurrentFFT != 500000 {
 		t.Errorf("expected current FFT 500000, got %d", stats.CurrentFFT)
 	}
@@ -268,7 +268,7 @@ func TestGetStats(t *testing.T) {
 
 	// After recording
 	mgr.RecordIteration(1000, time.Millisecond, true, false)
-	stats = mgr.GetStats()
+	stats = mgr.getStats()
 	if stats.MetricsCollected != 1 {
 		t.Errorf("expected 1 metric, got %d", stats.MetricsCollected)
 	}
@@ -284,15 +284,15 @@ func TestReset(t *testing.T) {
 		mgr.RecordIteration(1000, time.Millisecond, true, true)
 	}
 
-	stats := mgr.GetStats()
+	stats := mgr.getStats()
 	if stats.MetricsCollected == 0 {
 		t.Error("expected metrics before reset")
 	}
 
 	// Reset
-	mgr.Reset()
+	mgr.reset()
 
-	stats = mgr.GetStats()
+	stats = mgr.getStats()
 	if stats.MetricsCollected != 0 {
 		t.Errorf("expected 0 metrics after reset, got %d", stats.MetricsCollected)
 	}
@@ -326,10 +326,10 @@ func TestConcurrentAccess(t *testing.T) {
 	for j := 0; j < 5; j++ {
 		go func() {
 			for i := 0; i < 100; i++ {
-				mgr.GetThresholds()
-				mgr.GetFFTThreshold()
-				mgr.GetParallelThreshold()
-				mgr.GetStats()
+				mgr.getThresholds()
+				mgr.getFFTThreshold()
+				mgr.getParallelThreshold()
+				mgr.getStats()
 			}
 			done <- true
 		}()
@@ -349,7 +349,7 @@ func TestConcurrentAccess(t *testing.T) {
 	}
 
 	// Should complete without panic or race condition
-	stats := mgr.GetStats()
+	stats := mgr.getStats()
 	if stats.IterationsProcessed != 100 {
 		t.Errorf("expected 100 iterations, got %d", stats.IterationsProcessed)
 	}

@@ -14,8 +14,8 @@ type IterationMetric struct {
 	UsedParallel bool
 }
 
-// ThresholdStats returns statistics about the dynamic threshold manager's activity.
-type ThresholdStats struct {
+// thresholdStats returns statistics about the dynamic threshold manager's activity.
+type thresholdStats struct {
 	// CurrentFFT is the current FFT threshold
 	CurrentFFT int
 	// CurrentParallel is the current parallel threshold
