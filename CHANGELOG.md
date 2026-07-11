@@ -701,8 +701,8 @@ been purged ; the ADR series is the surviving source of truth.
 
 ---
 
-<!-- v3.0.0 (https://github.com/agbruneau/FibGo/releases/tag/v3.0.0) is the
-only release tag on the remote; no v1.0.0/v0.1.0 tags exist, so the 1.0.0
-and 0.1.0 sections above are intentionally unlinked. -->
+<!-- v4.0.0 and v3.0.0 are the release tags; no v1.0.0/v0.1.0 tags exist,
+so the 1.0.0 and 0.1.0 sections above are intentionally unlinked. -->
 
-[Unreleased]: https://github.com/agbruneau/FibGo/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/agbruneau/FibGo/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/agbruneau/FibGo/compare/v3.0.0...v4.0.0
