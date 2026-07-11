@@ -228,7 +228,10 @@ func TestReleaseState_OverLimit_AliasesCleared(t *testing.T) {
 			"FK": s.FK, "FK1": s.FK1, "T1": s.T1, "T2": s.T2, "T3": s.T3,
 		}
 
-		ReleaseState(s)
+		// No-op sink: on the nominal path ReleaseState publishes s into the
+		// shared statePool, and assertCleared below would then read slots
+		// concurrently mutated by AcquireStateForN in parallel tests.
+		finalizeStateReleaseTo(s, func(*CalculationState) {})
 		assertCleared(t, s, captured)
 	})
 }
