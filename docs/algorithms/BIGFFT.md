@@ -12,8 +12,8 @@ The `internal/bigfft` package implements **Schonhage-Strassen FFT multiplication
 Fermat rings for arbitrarily large integers. It is the computational backbone of all
 Fibonacci algorithms in this project once operand sizes exceed ~500,000 bits.
 
-The subsystem comprises ~18 non-test source files totalling approximately 4,200 lines of Go
-(run `make stats` for the canonical, up-to-date count), organized around four concerns:
+The subsystem's non-test source files (run `make stats` for the canonical, up-to-date
+count) are organized around four concerns:
 
 1. **Public API** -- panic-safe entry points for multiplication and squaring
 2. **FFT core** -- polynomial decomposition, forward/inverse transforms, pointwise operations
@@ -232,8 +232,7 @@ allocation overhead and are faster for the small operands common in early FFT re
 
 | Function | Description |
 |----------|-------------|
-| `fourier(dst, src, backward, n, k)` | Top-level FFT using pool-allocated temporaries |
-| `fourierWithState(dst, src, backward, n, k, state)` | FFT with pre-allocated `fftState` |
+| `fourier(dst, src, backward, n, k)` | Top-level FFT; acquires its `tmp`/`tmp2` temporaries via `acquireFermat`/`releaseFermat` |
 | `fourierWithBump(dst, src, backward, n, k, ba)` | FFT using bump allocator (best cache locality) |
 
 All entry points delegate to the recursive core.
@@ -449,27 +448,6 @@ func EstimateMemoryNeeds(n uint64) MemoryEstimate
 Returns estimated maximum sizes for each pool type based on the bit-length of F(n),
 computed from the approximation `bitLen(F(n)) ~ n * 0.69424`.
 
-### FFT State Pool
-
-**File**: `internal/bigfft/pool.go`
-
-```go
-type fftState struct {
-    tmp  fermat
-    tmp2 fermat
-    n    int
-    k    uint
-}
-```
-
-Bundles the two temporary fermat buffers needed by a single FFT pass. Managed via
-`sync.Pool` with `acquireFFTState(n, k)` / `releaseFFTState(state)`. Internal
-buffers are retained across acquisitions to avoid re-allocation when the size
-parameters match. **Anti-bloat (A2-05)**: `releaseFFTState` releases `tmp`/`tmp2`
-buffers whose capacity exceeds `maxPooledFFTTmpCap` (524,288 words, ~4 MB) so a
-single very large FFT does not pin multi-MB buffers in the pool for the rest of
-the process; common sizes stay pooled.
-
 ---
 
 ## FFT Transform Caching
@@ -549,25 +527,27 @@ flowchart TD
 
 ---
 
-## Low-Level Arithmetic (amd64)
+## Low-Level Arithmetic
 
 Word-level vector arithmetic is delegated to `math/big`'s internal assembly via
 `go:linkname`; bigfft performs no runtime CPU-feature detection of its own.
 
 ### Vector Arithmetic
 
-**Files**: `internal/bigfft/arith_amd64.go`, `internal/bigfft/arith_generic.go`
+**File**: `internal/bigfft/arith.go`
 
-Three exported functions (`AddVV`, `SubVV`, `AddMulVVW`) delegate to
-`math/big` internal functions via `go:linkname` (declared in `arith_decl.go`).
-On amd64 and non-amd64 platforms alike, these use the same `math/big` internals,
-which Go's standard library already optimizes with platform-appropriate assembly.
+A single portable file (no build tags) exports three functions (`AddVV`, `SubVV`,
+`AddMulVVW`) that wrap the `go:linkname` bindings declared in `arith_decl.go`.
+The exported wrappers serve as test-only oracles for `arith_test.go`; production
+code calls the lowercase linkname bindings directly. All platforms use the same
+`math/big` internals, which Go's standard library already optimizes with
+platform-appropriate assembly.
 
 ### go:linkname Declarations
 
 **File**: `internal/bigfft/arith_decl.go`
 
-Seven `go:linkname` directives bind directly to `math/big` internal functions:
+Six `go:linkname` directives bind directly to `math/big` internal functions:
 
 ```go
 //go:linkname addVV math/big.addVV
@@ -575,49 +555,29 @@ Seven `go:linkname` directives bind directly to `math/big` internal functions:
 //go:linkname addVW math/big.addVW
 //go:linkname subVW math/big.subVW
 //go:linkname shlVU math/big.shlVU
-//go:linkname mulAddVWW math/big.mulAddVWW
 //go:linkname addMulVVW math/big.addMulVVW
 ```
 
 ---
 
-## Subquadratic String Parsing
-
-**File**: `internal/bigfft/scan.go`
-
-```go
-func FromDecimalString(s string) (*big.Int, error)
-```
-
-Converts a decimal string to `*big.Int` in subquadratic time using a
-divide-and-conquer approach. Below `quadraticScanThreshold` (1,232 digits, ~4,096 bits),
-falls back to `big.Int.SetString`. Above the threshold, the string is split in half,
-each half parsed recursively, and the left half is multiplied by the appropriate power
-of 10 using the FFT multiplier.
-
----
-
 ## Package Structure
 
-| File | Lines | Responsibility |
-|------|-------|---------------|
-| `fft.go` | ~293 | Public API: `Mul`, `MulTo`, `Sqr`, `SqrTo`; FFT size selection |
-| `fft_core.go` | ~108 | Core FFT: `fftmulTo`, `fftsqrTo`, `fourier`, `fourierWithBump` |
-| `fft_recursion.go` | ~266 | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
-| `fft_recursion_ctx.go` | ~91 | Context-aware FFT recursion variant routing goroutine admission through an `FFTContext`-owned semaphore |
-| `context.go` | ~451 | `FFTContext`: opt-in isolation of cache/semaphore/allocator + context-aware `Mul`/`Sqr` variants (ADR-0004 §B1, ADR-0006) |
-| `fft_poly.go` | ~619 | `Poly` and `PolValues` types; transform, multiply, inverse |
-| `fft_cache.go` | ~642 | `TransformCache`: thread-safe LRU for FFT transforms |
-| `fermat.go` | ~386 | Fermat ring arithmetic: Z/(2^k+1) |
-| `pool.go` | ~517 | `sync.Pool` hierarchies (4 types, 33 size classes), `fftState` |
-| `pool_warming.go` | ~121 | `PreWarmPools`, `EnsurePoolsWarmed` |
-| `bump.go` | ~260 | `BumpAllocator`: O(1) bump allocation with capacity estimation |
-| `allocator.go` | ~90 | `TempAllocator` interface, `PoolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`) |
-| `memory_est.go` | ~79 | `EstimateMemoryNeeds` for pool pre-warming |
-| `scan.go` | ~98 | `FromDecimalString`: subquadratic decimal parsing |
-| `arith_amd64.go` | ~32 | amd64 vector arithmetic wrappers delegating to `math/big` internals |
-| `arith_generic.go` | ~36 | Non-amd64 vector arithmetic wrappers delegating to `math/big` internals |
-| `arith_decl.go` | ~60 | Architecture-independent `go:linkname` declarations to `math/big` |
+| File | Responsibility |
+|------|---------------|
+| `fft.go` | Public API: `Mul`, `MulTo`, `Sqr`, `SqrTo`; FFT size selection |
+| `fft_core.go` | Core FFT: `fftmulTo`, `fftsqrTo`, `fourier`, `fourierWithBump` |
+| `fft_recursion.go` | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
+| `fft_poly.go` | `Poly` and `PolValues` types; transform, multiply, inverse |
+| `fft_cache.go` | `TransformCache`: thread-safe LRU for FFT transforms |
+| `fermat.go` | Fermat ring arithmetic: Z/(2^k+1) |
+| `pool.go` | `sync.Pool` hierarchies (4 types, 33 size classes) |
+| `pool_warming.go` | `PreWarmPools`, `EnsurePoolsWarmed` |
+| `bump.go` | `BumpAllocator`: O(1) bump allocation with capacity estimation |
+| `allocator.go` | `TempAllocator` interface, `PoolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`) |
+| `memory_est.go` | `EstimateMemoryNeeds` for pool pre-warming |
+| `arith.go` | Portable vector arithmetic wrappers (test-only oracles) delegating to `math/big` internals |
+| `arith_decl.go` | Architecture-independent `go:linkname` declarations to `math/big` |
+| `doc.go` | Package documentation |
 
 ---
 
