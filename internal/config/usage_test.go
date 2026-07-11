@@ -34,6 +34,10 @@ func TestSetCustomUsage_NoColor(t *testing.T) {
 		"-algo",
 		"(default all)",
 		"(default 5m0s)",
+		// ERR-06: -version/-V and -h are handled outside the FlagSet
+		// (HasVersionFlag / flag.ErrHelp) and must still appear in the help.
+		"-version",
+		"-h",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("usage output missing %q\noutput:\n%s", want, out)

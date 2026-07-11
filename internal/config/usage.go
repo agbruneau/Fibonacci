@@ -40,6 +40,11 @@ func setCustomUsage(fs *flag.FlagSet) {
 			}
 			fmt.Fprintln(out)
 		})
+
+		// Flags handled outside the FlagSet (HasVersionFlag, flag.ErrHelp)
+		// would otherwise be invisible in the help (ERR-06).
+		fmt.Fprintf(out, "  %s%-25s%s %s\n", t.Primary, "-version, -V", t.Reset, "Print version information and exit.")
+		fmt.Fprintf(out, "  %s%-25s%s %s\n", t.Primary, "-h, --help", t.Reset, "Show this help and exit.")
 		fmt.Fprintln(out)
 	}
 }
