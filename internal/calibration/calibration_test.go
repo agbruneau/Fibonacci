@@ -325,14 +325,21 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 
 		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
 
-		// Quick calibration may succeed or timeout
+		// Quick calibration may succeed or timeout; both paths must assert
+		// something (TEST-02: no silent-green branch).
 		if ok {
 			if updated.Threshold == 0 {
 				t.Error("Threshold should be set after quick calibration")
 			}
-			output := outBuf.String()
-			if !strings.Contains(output, "Quick calibration") && !strings.Contains(output, "calibration") {
+			if output := outBuf.String(); !strings.Contains(output, "calibration") {
 				t.Errorf("Output should mention calibration. Got: %s", output)
+			}
+		} else {
+			if updated != cfg {
+				t.Errorf("config must be returned unchanged on failure, got %+v", updated)
+			}
+			if !strings.Contains(outBuf.String(), "auto-calibration failed") {
+				t.Errorf("failure path must warn the user (ERR-05), got: %q", outBuf.String())
 			}
 		}
 	})
@@ -357,10 +364,18 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 
 		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
 
-		// Full calibration may succeed or timeout
+		// Full calibration may succeed or timeout; both paths must assert
+		// something (TEST-02: no silent-green branch).
 		if ok {
 			if updated.Threshold == 0 {
 				t.Error("Threshold should be set after full calibration")
+			}
+		} else {
+			if updated != cfg {
+				t.Errorf("config must be returned unchanged on failure, got %+v", updated)
+			}
+			if !strings.Contains(outBuf.String(), "auto-calibration failed") {
+				t.Errorf("failure path must warn the user (ERR-05), got: %q", outBuf.String())
 			}
 		}
 	})
