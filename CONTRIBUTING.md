@@ -267,7 +267,7 @@ internal/
 
 ### Testing `CoreCalculator` in isolation
 
-For tests that need a tiny algorithm implementation without registering a global factory type, use [`internal/fibonacci/fibonaccitest`](internal/fibonacci/fibonaccitest) (`CoreStub`). Wrap with [`fibonacci.NewCalculator`](internal/fibonacci/calculator.go) to obtain a [`fibonacci.Calculator`](internal/fibonacci/calculator.go) for orchestration or integration tests.
+For tests that need a tiny algorithm implementation, implement [`fibonacci.CoreCalculator`](internal/fibonacci/calculator.go) directly (a configurable stub is ~30 lines — see `coreStub` in `internal/orchestration/contract_test.go`). Wrap with [`fibonacci.NewCalculator`](internal/fibonacci/calculator.go) to obtain a [`fibonacci.Calculator`](internal/fibonacci/calculator.go) for orchestration or integration tests.
 
 ### Writing Tests
 

@@ -240,7 +240,7 @@ make build-all       # cross-compilation linux/windows/darwin (amd64 + arm64)
 make stats           # décompte canonique packages/LOC
 ```
 
-Stratégie de test (table-driven, `t.Parallel()`, doubles `fibonaccitest`, fuzzing, golden, property-based) :
+Stratégie de test (table-driven, `t.Parallel()`, doubles de test, fuzzing, golden, property-based) :
 [`docs/TESTING.md`](docs/TESTING.md). Portabilité (matrice OS/arch, fallbacks) :
 [`docs/PORTABILITY.md`](docs/PORTABILITY.md). Build avancé (PGO, cross-compilation, Docker) :
 [`docs/BUILD.md`](docs/BUILD.md).
