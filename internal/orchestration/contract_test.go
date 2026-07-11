@@ -12,8 +12,8 @@ import (
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
-// Contract tests: invariants that should hold for orchestration + Calculator implementations
-// (modest N, fast CI). See docs/INNOVEPLAN.md P2-b.
+// Contract tests: invariants that should hold for orchestration + Calculator
+// implementations (modest N, fast to run). See docs/TESTING.md.
 
 func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 	t.Parallel()
