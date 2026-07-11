@@ -182,7 +182,10 @@ func TestStateBump_FollowsArenaDrop(t *testing.T) {
 	}
 	s.arenaCapWords = maxArenaPoolWords + 1 // force the anti-bloat drop branch
 	s.bump = bigfft.AcquireBumpAllocator(64)
-	ReleaseState(s)
+	// No-op sink: the drop logic under test lives in finalizeStateReleaseTo.
+	// ReleaseState would publish s into the shared statePool, and the reads
+	// below would race with a concurrent AcquireStateForN from parallel tests.
+	finalizeStateReleaseTo(s, func(*CalculationState) {})
 	if s.arena != nil {
 		t.Error("oversized arena must be dropped")
 	}
