@@ -44,7 +44,7 @@ func DefaultTransformCacheConfig() TransformCacheConfig {
 type cacheEntry struct {
 	key     uint64     // FNV-1a hash of input
 	values  []fermat   // cached polValues.values (sub-slices of backing)
-	backing []big.Word // contiguous storage for values; recycled on eviction
+	backing []big.Word // contiguous storage for values; never recycled on eviction (E1-R4)
 	k       uint       // FFT size parameter
 	n       int        // coefficient length
 }

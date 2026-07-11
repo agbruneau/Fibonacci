@@ -223,15 +223,15 @@ func TestTransformCacheEviction(t *testing.T) {
 	}
 }
 
-// TestTransformCacheEvictionRecyclesBacking historically verified the
-// [R1.5] backing-recycle optimisation. Per Audit-PRD E1-R4, the recycle
-// was removed because it opened a use-after-free window for callers still
-// holding a PolValues returned by a previous Get(). The test is retained
-// as a *steady-state allocation upper bound*: at cache capacity the put
-// path should still keep allocations bounded, just not recycle.
+// TestTransformCacheEvictionBackingNotRecycled pins the Audit-PRD E1-R4
+// contract: putByKey NEVER salvages an evicted entry's backing buffer (a
+// prior [R1.5] recycle optimisation opened a use-after-free window for
+// callers still holding a PolValues returned by a previous Get()). The
+// test asserts the invariant directly (evicted backing aliased by no live
+// entry) and keeps a steady-state allocation upper bound on the put path.
 //
 // Not marked t.Parallel(): testing.AllocsPerRun panics in parallel tests.
-func TestTransformCacheEvictionRecyclesBacking(t *testing.T) {
+func TestTransformCacheEvictionBackingNotRecycled(t *testing.T) {
 	const maxEntries = 4
 	config := TransformCacheConfig{
 		MaxEntries: maxEntries,
@@ -279,46 +279,50 @@ func TestTransformCacheEvictionRecyclesBacking(t *testing.T) {
 	//   1) the data slice we build outside cache.Put (counted by AllocsPerRun)
 	//   2) PolValues.Values slice + each fermat backing (counted; built outside
 	//      cache.Put as test fixture)
-	//   3) cache-internal: cacheEntry struct, valuesCopy []fermat header
-	//
-	// Crucially, the K*(n+1) big.Word backing buffer must NOT be reallocated
-	// because the recycled evicted buffer fits. Without the [R1.5] fix, a
-	// fresh `make([]big.Word, 264)` would add ~1 alloc per call. With it,
-	// allocations stay below an empirical bound.
+	//   3) cache-internal: cacheEntry struct, valuesCopy []fermat header, list
+	//      element, and the fresh K*(n+1) big.Word backing mandated by E1-R4
+	//      (evicted backings are never salvaged).
 	//
 	// Test fixture allocs (data + PolValues.Values + K fermats) = 1 + 1 + K = 10.
-	// Cache-internal allocs (cacheEntry + valuesCopy header + list element) ~= 3.
-	// Conservative ceiling: 16 allocs. Without recycling, we'd see ~14+1=15
-	// PLUS the salient 264-word backing alloc, but the count alone wouldn't
-	// catch it; we therefore also probe the cap of evicted backings via a
-	// direct check below.
+	// Cache-internal allocs ~= 4. Conservative ceiling: 16 allocs — an upper
+	// bound on put-path cost, not a recycling probe (the E1-R4 invariant is
+	// pinned directly below).
 	const allocCeiling = 16.0
 	if avg > allocCeiling {
-		t.Errorf("Put at steady state: avg allocs/op = %.1f, want <= %.1f "+
-			"(R1.5 backing recycling regressed?)", avg, allocCeiling)
+		t.Errorf("Put at steady state: avg allocs/op = %.1f, want <= %.1f", avg, allocCeiling)
 	}
 
-	// Direct invariant check: after several evictions, every live entry's
-	// backing buffer must have capacity exactly K*(N+1) and must be one of
-	// the originals. We probe by inserting one more entry and confirming the
-	// new entry's backing capacity equals the recycled buffer's capacity.
+	// E1-R4 pinning: the LRU-tail backing about to be evicted must NOT be
+	// salvaged into the next entry — a caller still iterating over a
+	// PolValues from a previous Get() would otherwise observe its words
+	// being overwritten. Capture the doomed backing's address, insert one
+	// more same-shape entry, then assert no live entry aliases it.
 	cache.mu.Lock()
-	var seenCap int
+	oldest := cache.lru.Back()
+	if oldest == nil {
+		cache.mu.Unlock()
+		t.Fatal("expected a full cache with an LRU tail")
+	}
+	evictedPtr := &oldest.Value.(*cacheEntry).backing[0]
+	cache.mu.Unlock()
+
+	probe := make(nat, 10)
+	probe[0] = big.Word(0xC0DE)
+	cache.Put(probe, makeValues(0xC0DE))
+
+	cache.mu.Lock()
 	for _, elem := range cache.entries {
 		e := elem.Value.(*cacheEntry)
-		if seenCap == 0 {
-			seenCap = cap(e.backing)
-		} else if cap(e.backing) != seenCap {
+		if len(e.backing) > 0 && &e.backing[0] == evictedPtr {
 			cache.mu.Unlock()
-			t.Fatalf("entries have heterogeneous backing capacities: %d vs %d",
-				seenCap, cap(e.backing))
+			t.Fatal("evicted backing recycled into a live entry (E1-R4 regression)")
+		}
+		if got := cap(e.backing); got != K*(N+1) {
+			cache.mu.Unlock()
+			t.Fatalf("expected backing cap = %d, got %d", K*(N+1), got)
 		}
 	}
 	cache.mu.Unlock()
-
-	if seenCap != K*(N+1) {
-		t.Errorf("expected backing cap = %d, got %d", K*(N+1), seenCap)
-	}
 
 	// Sanity: evictions actually occurred.
 	if ev := cache.Stats().Evictions; ev == 0 {
@@ -326,9 +330,10 @@ func TestTransformCacheEvictionRecyclesBacking(t *testing.T) {
 	}
 }
 
-// TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall verifies the fallback
-// path: if the evicted backing is too small for the new entry, putByKey must
-// allocate fresh storage (and the new entry's cap must reflect the new size).
+// TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall verifies that a Put
+// whose shape differs from the evicted entry gets a correctly-sized fresh
+// backing (putByKey always allocates fresh — E1-R4; the cap must reflect the
+// new entry's own K*(n+1), never an evicted buffer's).
 func TestTransformCacheEvictionAllocsFreshAllocWhenTooSmall(t *testing.T) {
 	t.Parallel()
 	config := TransformCacheConfig{
