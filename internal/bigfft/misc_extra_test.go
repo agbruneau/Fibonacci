@@ -103,7 +103,7 @@ func TestBumpAllocatorEdgeCases(t *testing.T) {
 		ba := AcquireBumpAllocator(8)
 		defer ReleaseBumpAllocator(ba)
 		used := ba.Used()
-		s := ba.AllocUnsafe(64)
+		s := ba.allocUnsafe(64)
 		if len(s) != 64 {
 			t.Fatalf("fallback slice has len %d, want 64", len(s))
 		}

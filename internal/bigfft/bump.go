@@ -116,7 +116,7 @@ func (ba *BumpAllocator) Alloc(n int) []big.Word {
 	return slice
 }
 
-// AllocUnsafe allocates n words without zeroing.
+// allocUnsafe allocates n words without zeroing.
 // Use only when you're certain the caller will overwrite all values.
 //
 // Parameters:
@@ -124,7 +124,7 @@ func (ba *BumpAllocator) Alloc(n int) []big.Word {
 //
 // Returns:
 //   - []big.Word: A slice of n words (may contain stale data).
-func (ba *BumpAllocator) AllocUnsafe(n int) []big.Word {
+func (ba *BumpAllocator) allocUnsafe(n int) []big.Word {
 	if ba.offset+n > len(ba.buffer) {
 		return make([]big.Word, n)
 	}
