@@ -8,21 +8,46 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci"
-	"github.com/agbruneau/FibGo/internal/fibonacci/fibonaccitest"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
 // Contract tests: invariants that should hold for orchestration + Calculator
 // implementations (modest N, fast to run). See docs/TESTING.md.
 
+// coreStub is a configurable fibonacci.CoreCalculator for these contract
+// tests. Moved here from the former internal/fibonacci/fibonaccitest package,
+// whose only consumer was this file (audit Fable5 DEAD-06).
+type coreStub struct {
+	// nameVal is returned by Name when non-empty.
+	nameVal string
+	// coreFunc implements CalculateCore when set.
+	coreFunc func(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error)
+}
+
+// Name returns nameVal or "stub" if empty.
+func (s *coreStub) Name() string {
+	if s.nameVal != "" {
+		return s.nameVal
+	}
+	return "stub"
+}
+
+// CalculateCore delegates to coreFunc or returns 0, nil.
+func (s *coreStub) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts fibonacci.Options) (*big.Int, error) {
+	if s.coreFunc != nil {
+		return s.coreFunc(ctx, reporter, n, opts)
+	}
+	return big.NewInt(0), nil
+}
+
 func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	core := &fibonaccitest.CoreStub{
-		NameVal: "slow",
-		CoreFunc: func(ctx context.Context, _ progress.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
+	core := &coreStub{
+		nameVal: "slow",
+		coreFunc: func(ctx context.Context, _ progress.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		},
@@ -52,8 +77,8 @@ func TestExecuteCalculations_contextCancelBeforeCompletion(t *testing.T) {
 
 func TestExecuteCalculations_progressChannelClosedAndDrained(t *testing.T) {
 	t.Parallel()
-	core := &fibonaccitest.CoreStub{
-		CoreFunc: func(ctx context.Context, reporter progress.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
+	core := &coreStub{
+		coreFunc: func(ctx context.Context, reporter progress.ProgressCallback, n uint64, _ fibonacci.Options) (*big.Int, error) {
 			reporter(0.5)
 			return big.NewInt(1), nil
 		},
@@ -84,8 +109,8 @@ func TestExecuteCalculations_progressChannelClosedAndDrained(t *testing.T) {
 
 func TestExecuteCalculations_noPanicFromCalculatorError(t *testing.T) {
 	t.Parallel()
-	core := &fibonaccitest.CoreStub{
-		CoreFunc: func(context.Context, progress.ProgressCallback, uint64, fibonacci.Options) (*big.Int, error) {
+	core := &coreStub{
+		coreFunc: func(context.Context, progress.ProgressCallback, uint64, fibonacci.Options) (*big.Int, error) {
 			return nil, errors.New("expected failure")
 		},
 	}
