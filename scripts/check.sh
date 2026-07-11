@@ -13,6 +13,9 @@
 #   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
 #   5. coverage floor (>= 80% on the module total)
 #
+# --coverage-only: skip to a no-race test run + the coverage floor (used by
+# `make coverage-check` so the floor has a single source of truth).
+#
 # Lint behaviour: golangci-lint is ADVISORY. Residual findings are documented
 # intentional exceptions (A4-11 math annotations, A4-12 benign shadow/prealloc,
 # errcheck in tests). Lint output is shown for review but does NOT fail this
@@ -32,6 +35,32 @@ cd "${REPO_ROOT}"
 step() {
     printf '\n==> %s\n' "$1"
 }
+
+check_coverage_floor() {
+    step "coverage floor (>= ${COVERAGE_FLOOR}%)"
+    total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')"
+    if [ -z "${total}" ]; then
+        echo "FAIL: could not parse total coverage from coverage.out"
+        exit 1
+    fi
+    printf 'Total coverage: %s%%\n' "${total}"
+    if awk -v t="${total}" -v f="${COVERAGE_FLOOR}" 'BEGIN { exit (t+0 < f+0) }'; then
+        printf 'OK: coverage %s%% >= %s%%\n' "${total}" "${COVERAGE_FLOOR}"
+    else
+        printf 'FAIL: coverage %s%% < %s%%\n' "${total}" "${COVERAGE_FLOOR}"
+        exit 1
+    fi
+}
+
+# --coverage-only: single-source entry point for `make coverage-check`
+# (BUILD-03) — regenerate the profile (no -race: works on no-CGO hosts too)
+# and apply the same floor as the full gate, nothing else.
+if [ "${1:-}" = "--coverage-only" ]; then
+    step "go test -coverprofile=coverage.out ./... (coverage-only mode)"
+    go test -coverprofile=coverage.out ./... >/dev/null
+    check_coverage_floor
+    exit 0
+fi
 
 # 1. Build
 step "go build ./..."
@@ -79,19 +108,7 @@ else
 fi
 
 # 5. Coverage floor (>= 80% on the module total) — derived from the profile above
-step "coverage floor (>= ${COVERAGE_FLOOR}%)"
-total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')"
-if [ -z "${total}" ]; then
-    echo "FAIL: could not parse total coverage from coverage.out"
-    exit 1
-fi
-printf 'Total coverage: %s%%\n' "${total}"
-if awk -v t="${total}" -v f="${COVERAGE_FLOOR}" 'BEGIN { exit (t+0 < f+0) }'; then
-    printf 'OK: coverage %s%% >= %s%%\n' "${total}" "${COVERAGE_FLOOR}"
-else
-    printf 'FAIL: coverage %s%% < %s%%\n' "${total}" "${COVERAGE_FLOOR}"
-    exit 1
-fi
+check_coverage_floor
 
 # Summary
 echo ""

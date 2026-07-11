@@ -181,13 +181,9 @@ coverage:
 	@echo "Coverage report generated: coverage.html"
 
 # POSIX-only (requires awk)
-## coverage-check: Fail if total coverage drops below 80%
+## coverage-check: Fail if total coverage drops below the floor (single source: scripts/check.sh step 4)
 coverage-check:
-	@echo "Checking coverage floor (>= 80%)..."
-	@$(GO) test -coverprofile=coverage.out ./... >/dev/null
-	@total=$$($(GO) tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
-	  echo "Total coverage: $$total%"; \
-	  awk -v t="$$total" 'BEGIN { exit (t+0 < 80.0) }' || { echo "FAIL: coverage $$total% < 80%"; exit 1; }
+	@bash scripts/check.sh --coverage-only
 
 ## benchmark: Run benchmarks
 benchmark:
@@ -219,6 +215,11 @@ stats:
 
 # POSIX-only (requires bash/date/tee)
 ## bench-baseline: Refresh docs/audits/bench-baseline.txt regression baseline
+# Protocol note (audit Fable5 BUILD-01): -benchtime=1x keeps the pool/arena
+# warm-up outlier in the samples (~46% intra-sample scatter observed), which
+# widens benchstat CIs and desensitizes the 5% gate. At the NEXT justified
+# regeneration, prefer -benchtime=3x (or -count=6 and drop the first sample).
+# Do not regenerate without a cause (CLAUDE.md).
 ##
 ## Use benchstat locally to compare new runs against this baseline at the
 ## documented 5% threshold (see docs/PERFORMANCE.md). Run this target on a
@@ -283,7 +284,7 @@ security:
 ## install-tools: Install development tools (golangci-lint, gosec)
 install-tools:
 	@echo "Installing tools..."
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 # pinned: .golangci.yml is written for v1 (schema v1, last v1 tag)
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 ## format: Format Go code
