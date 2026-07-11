@@ -71,6 +71,20 @@ var architectureRules = []forbiddenImport{
 			"github.com/agbruneau/FibGo/internal/format",
 		},
 	},
+	{
+		// internal/config already carries two documented lateral imports
+		// (fibonacci/memory for budget estimation, ui for colored usage —
+		// see config/doc.go). This rule freezes that tolerance where it
+		// stands: reaching into fibonacci's root or bigfft would close an
+		// import cycle (fibonacci → threshold ← tuning ← config) and pull
+		// the whole computation core into flag parsing (audit Fable5
+		// ARCH-02).
+		importer: "github.com/agbruneau/FibGo/internal/config",
+		forbid: []string{
+			"github.com/agbruneau/FibGo/internal/fibonacci",
+			"github.com/agbruneau/FibGo/internal/bigfft",
+		},
+	},
 }
 
 func TestArchitectureLayering(t *testing.T) {
