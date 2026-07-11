@@ -9,7 +9,7 @@ const fibonacciGrowthFactor = 0.69424
 
 // maxReasonableWords caps the arena sizing well above any computable F(n)
 // (≈1.15e18 words ≈ 9 EB). It exists only to keep the float->int conversion
-// and the ×15 multiplication below from invoking impl-defined behavior /
+// and the ×10 multiplication below from invoking impl-defined behavior /
 // integer overflow on a physically impossible n — defense-in-depth.
 const maxReasonableWords = 1 << 60
 
