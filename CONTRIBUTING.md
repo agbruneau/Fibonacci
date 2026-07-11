@@ -184,9 +184,10 @@ The project uses the Decorator pattern. To add a new algorithm, you only need to
        return "My Algorithm Name"
    }
    ```
-2. Register your algorithm in the global factory inside an `init` function (if internal) or explicitly in your main application:
+2. Register your algorithm on the factory your application builds (there is no global registry; `app.New` creates one via `fibonacci.NewDefaultFactory()`):
    ```go
-   fibonacci.RegisterCalculator("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} })
+   factory := fibonacci.NewDefaultFactory()
+   factory.Register("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} })
    ```
 
 ## Coding Standards

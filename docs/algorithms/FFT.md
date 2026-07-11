@@ -200,7 +200,7 @@ FFT overhead comes from:
 ### Go API
 
 ```go
-factory := fibonacci.GlobalFactory()
+factory := fibonacci.NewDefaultFactory()
 calc, _ := factory.Get("fft")
 result, _ := calc.Calculate(ctx, progressChan, 0, 100_000_000, fibonacci.Options{})
 ```

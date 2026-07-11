@@ -296,7 +296,7 @@ The cost of each multiplication depends on the operand size:
 ### Go API
 
 ```go
-factory := fibonacci.GlobalFactory()
+factory := fibonacci.NewDefaultFactory()
 calc, _ := factory.Get("fast")
 result, _ := calc.Calculate(ctx, progressChan, 0, n, fibonacci.Options{
     ParallelThreshold: 4096,

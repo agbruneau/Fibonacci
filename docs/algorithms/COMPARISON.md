@@ -163,7 +163,7 @@ Time (log)
 **Recommended for**: General usage (default), maximum performance, all orders of magnitude of N.
 
 ```go
-factory := fibonacci.GlobalFactory()
+factory := fibonacci.NewDefaultFactory()
 calc, _ := factory.Get("fast")
 result, _ := calc.Calculate(ctx, progressChan, 0, 10_000_000, fibonacci.Options{
     ParallelThreshold: 4096,
@@ -176,7 +176,7 @@ result, _ := calc.Calculate(ctx, progressChan, 0, 10_000_000, fibonacci.Options{
 **Recommended for**: Educational understanding, cross-verification of results, testing Strassen algorithm.
 
 ```go
-factory := fibonacci.GlobalFactory()
+factory := fibonacci.NewDefaultFactory()
 calc, _ := factory.Get("matrix")
 result, _ := calc.Calculate(ctx, progressChan, 0, 10_000_000, fibonacci.Options{
     StrassenThreshold: 3072,
@@ -188,7 +188,7 @@ result, _ := calc.Calculate(ctx, progressChan, 0, 10_000_000, fibonacci.Options{
 **Recommended for**: FFT multiplication benchmarking, very large number tests (N > 100M), FFT vs standard math/big performance comparison.
 
 ```go
-factory := fibonacci.GlobalFactory()
+factory := fibonacci.NewDefaultFactory()
 calc, _ := factory.Get("fft")
 result, _ := calc.Calculate(ctx, progressChan, 0, 100_000_000, fibonacci.Options{
     FFTThreshold: 500_000,

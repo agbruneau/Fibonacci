@@ -57,18 +57,19 @@ func init() {
 }
 ```
 
-This means no manual registration is needed — the `"gmp"` algorithm becomes available in `GlobalFactory()` automatically.
+The `init()` only targets the package-private `globalFactory` kept for gmp builds. A factory you build yourself with `fibonacci.NewDefaultFactory()` pre-registers `"fast"`, `"matrix"` and `"fft"` only; add the `"gmp"` algorithm to it explicitly with `fibonacci.RegisterGMPCalculator(factory)`.
 
 ## Usage
 
 ### Go API
 
 ```go
-// GMP auto-registers when built with -tags=gmp
-factory := fibonacci.GlobalFactory()
-calc, err := factory.Get("gmp")  // available only with gmp build tag
+// RegisterGMPCalculator only exists when built with -tags=gmp
+factory := fibonacci.NewDefaultFactory()
+fibonacci.RegisterGMPCalculator(factory)
+calc, err := factory.Get("gmp")
 if err != nil {
-    // GMP not available (built without -tags=gmp)
+    // "gmp" not registered in this factory
 }
 // nil progress channel disables progress reporting; to receive updates,
 // pass a chan<- progress.ProgressUpdate (package internal/progress)
@@ -112,5 +113,5 @@ Each call to a GMP function incurs CGO overhead (typically 50-100ns per call). F
 FibCalc may cite **FLINT**, other LGPL/GPL C libraries, or experimental arbitrary-precision stacks as *research comparisons*. The current design constraints:
 
 - **No additional mandatory C/C++ backend:** only `math/big` and optional GMP are integrated. Adding another requires a reproducible build matrix, license review, and golden-style equivalence tests on a bounded set of indices — see **ADR-010** in [ARCH.md](../ARCH.md).
-- **Extension point:** new calculators register through `fibonacci.RegisterCalculator` (same pattern as the `gmp` build tag). Prototypes should live on a dedicated branch or fork until quality and legal criteria are met.
+- **Extension point:** new calculators register through `Register` on a factory built with `fibonacci.NewDefaultFactory()` (same pattern as `RegisterGMPCalculator` under the `gmp` build tag). Prototypes should live on a dedicated branch or fork until quality and legal criteria are met.
 - **Equivalence:** when evaluating a candidate backend, compare against `"fast"` / `"gmp"` on shared `N` values and existing `testdata` where applicable.

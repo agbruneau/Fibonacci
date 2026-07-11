@@ -778,7 +778,7 @@ From `go.mod`, direct dependencies are:
 
 ### ADR-010: Backends arithmétiques hors GMP (décision recherche)
 - **Context:** des bibliothèques externes (FLINT et autres) pourraient être évaluées pour comparaison recherche ; charge de build, licences et CI hétérogène.
-- **Decision:** Pas d’intégration C/C++ supplémentaire dans la branche `main` tant qu’une matrice de build reproductible, une revue de licence et des tests d’équivalence sur un sous-ensemble de `N` ne sont pas bouclés. Point d’extension supporté : `fibonacci.RegisterCalculator` (même modèle que le tag `gmp`).
+- **Decision:** Pas d’intégration C/C++ supplémentaire dans la branche `main` tant qu’une matrice de build reproductible, une revue de licence et des tests d’équivalence sur un sous-ensemble de `N` ne sont pas bouclés. Point d’extension supporté : `Register` sur une fabrique construite via `fibonacci.NewDefaultFactory()` (même modèle que `RegisterGMPCalculator` sous le tag `gmp`).
 - **Results:** Décision **no-go** pour un second backend obligatoire ; expérimentations possibles sur branche dédiée ou fork en suivant [docs/algorithms/GMP.md](algorithms/GMP.md) (section recherche).
 
 ---

@@ -370,7 +370,7 @@ Independent multiplications within Strassen's algorithm (P1-P7) can be paralleli
 ### Go API
 
 ```go
-factory := fibonacci.GlobalFactory()
+factory := fibonacci.NewDefaultFactory()
 calc, _ := factory.Get("matrix")
 result, _ := calc.Calculate(ctx, progressChan, 0, n, fibonacci.Options{
     StrassenThreshold: 3072,
