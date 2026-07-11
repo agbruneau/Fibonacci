@@ -7,7 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Rien pour l'instant._
+### Changed
+
+- **Multiplicateur d'arène ×15 → ×10** (`acquireSizingForN`, `arenaTotalWords`) :
+  adopté après balayage complet {12, 10, 8, 6} sur la machine de référence Intel
+  (≈ −16 % B/op FFT 10M order-stable, CPU dans le bruit) — voir
+  [addendum ADR-0009 R4](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md).
+  Ceci remplace la conclusion « ×15 = charge utile intentionnelle » de la section
+  Rejected de 4.0.0, vraie sur le Ryzen d'origine seulement (valeur
+  microarchitecture-dépendante). Profil PGO (`cmd/fibcalc/default.pgo`) et
+  baseline benchstat (`docs/audits/bench-baseline.txt`) régénérés (2026-07-07).
+- `AnalyzeComparisonResults` écrit désormais les statuts d'échec et diagnostics
+  sur un writer d'erreur dédié (stderr côté CLI) ; la table de comparaison reste
+  sur stdout. Codes de sortie inchangés (audit Fable5 ERR-02).
+
+### Added
+
+- Gate GMP dans `scripts/check.sh` (étape 3b) : build + vet + test
+  `-tags gmp -race`, dur quand les headers libgmp sont présents, SKIP sinon
+  (2026-07-07).
+- `FastDoublingMod` prend un `context.Context` et le re-vérifie à chaque
+  itération de doublement : `--last-digits` honore désormais `-timeout` et
+  Ctrl-C avec un dépassement borné à une itération (audit Fable5 ERR-03).
+
+### Fixed
+
+- `.gitattributes` épingle `*.sh` en LF (checkout CRLF cassait `check.sh` sous
+  WSL avec `core.autocrlf=true`) (2026-07-07).
+- Deux use-after-release dans les tests de pool de `internal/fibonacci`
+  (`TestStateBump_FollowsArenaDrop`, sous-cas nominal de
+  `TestReleaseState_OverLimit_AliasesCleared`) : l'état était publié dans le
+  `statePool` partagé puis relu — re-correction des fixes de vague annulés par
+  la restauration `6da3f3b` (audit Fable5 CONC-01/02).
+- `WriteResultToFile` remonte désormais les erreurs d'écriture et de `Close` :
+  sur disque plein, le CLI n'affiche plus « Result saved » avec exit 0 (audit
+  Fable5 ERR-01).
+- Erreurs de calcul et de budget mémoire écrites sur stdout au lieu de stderr
+  (audit Fable5 ERR-02).
+
+### Docs
+
+- Exemples migrés de l'API supprimée `GlobalFactory`/`RegisterCalculator` vers
+  `NewDefaultFactory` (7 documents) ; `BIGFFT.md` purgé des artefacts supprimés
+  (`scan.go`, `fftState`, split arith) ; `dependency-graph.mermaid` resynchronisé
+  avec le graphe d'imports réel (audit Fable5 DOCS-03/04, ARCH-01).
 
 ## [4.0.0] - 2026-07-07
 
