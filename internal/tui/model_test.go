@@ -417,6 +417,7 @@ func TestModel_HandleReset_FreshTimeoutBudget(t *testing.T) {
 		t.Fatalf("expected first generation to expire via deadline, got %v", m.ctx.Err())
 	}
 
+	before := time.Now()
 	updated, _ := m.handleReset()
 	result := updated.(Model)
 	t.Cleanup(result.cancel)
@@ -425,17 +426,15 @@ func TestModel_HandleReset_FreshTimeoutBudget(t *testing.T) {
 	if !ok {
 		t.Fatal("expected the restarted generation's context to carry a deadline")
 	}
-	remaining := time.Until(deadline)
-	if remaining < cfg.Timeout/2 {
-		t.Fatalf("expected a fresh ~%v budget after restart, got only %v remaining", cfg.Timeout, remaining)
-	}
-
-	select {
-	case <-result.ctx.Done():
-		t.Fatalf("expected fresh per-generation context to still be alive, got error: %v", result.ctx.Err())
-	default:
-		// Context is alive: restart got a fresh budget, not the expired
-		// original deadline.
+	// Stall-insensitive freshness proof (TEST-03): the fresh context is
+	// created inside handleReset, i.e. after `before`, so its deadline must
+	// sit at least a full Timeout past `before`. An inherited (already
+	// expired) deadline would sit in the past and fail this check, while a
+	// scheduler stall between handleReset and now cannot — unlike the
+	// previous time.Until(deadline) assertion (~10 ms flake window under
+	// load, observed 2026-07-10).
+	if got := deadline.Sub(before); got < cfg.Timeout {
+		t.Fatalf("expected a fresh >=%v budget measured from before the reset, got %v", cfg.Timeout, got)
 	}
 }
 
