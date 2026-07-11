@@ -181,7 +181,7 @@ func (a *Application) runTUI(ctx context.Context, out io.Writer) int {
 	defer stopSignals()
 
 	calculatorsToRun := orchestration.GetCalculatorsToRun(a.Config.Algo, a.Factory)
-	return tui.Run(ctx, calculatorsToRun, a.Config, Version)
+	return tui.Run(ctx, calculatorsToRun, a.Config, Version, a.ErrWriter)
 }
 
 // IsHelpError checks if the error is a help flag error (--help was used).

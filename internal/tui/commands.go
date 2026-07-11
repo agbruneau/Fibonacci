@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"runtime"
 	"time"
@@ -15,9 +16,14 @@ import (
 	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
+// runProgram is a seam so tests can inject p.Run failures (ERR-04) without
+// needing a real TTY.
+var runProgram = func(p *tea.Program) (tea.Model, error) { return p.Run() }
+
 // Run is the public entry point for the TUI mode.
 // It creates the bubbletea program, runs it, and returns the exit code.
-func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string) int {
+// Program-level failures (e.g. TTY unavailable) are reported on errOut.
+func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, errOut io.Writer) int {
 	// Rebuild styles from the current ui theme (set by app.Run via InitTheme).
 	initTUIStyles()
 
@@ -28,8 +34,9 @@ func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config
 	// Inject the program reference before running so bridge goroutines can Send.
 	model.ref.SetProgram(p)
 
-	finalModel, err := p.Run()
+	finalModel, err := runProgram(p)
 	if err != nil {
+		fmt.Fprintf(errOut, "TUI error: %v\n", err)
 		return apperrors.ExitErrorGeneric
 	}
 
