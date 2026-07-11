@@ -140,6 +140,24 @@ issues:
         - staticcheck
       text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
 
+    # gocyclo: three production functions sit 1-2 points over the 15 ceiling
+    # (audit Fable5 ARCH-05, assumed rather than refactored):
+    # - fourierRecursiveUnified (17): FFT recursion dispatch; splitting would
+    #   obscure the hot path (see its nolint:gocognit rationale) and costs a
+    #   Directive #1 benchstat cycle for zero behavior change.
+    # - Model.Update (16): pure message router, one point over from its
+    #   13-branch switch; splitting the switch hurts readability.
+    # - AppConfig.Validate (16): flat field-validation sequence.
+    - path: internal/bigfft/fft_recursion\.go
+      linters: [gocyclo]
+      text: "fourierRecursiveUnified"
+    - path: internal/tui/model\.go
+      linters: [gocyclo]
+      text: "Update"
+    - path: internal/config/config\.go
+      linters: [gocyclo]
+      text: "Validate"
+
     # revive "exported stutter" (format.FormatBytes, progress.ProgressUpdate,
     # calibration.CalibrationOptions, threshold.ThresholdAnalyzer, ...):
     # convention preservee pour la stabilite des call-sites de l'API internal/
