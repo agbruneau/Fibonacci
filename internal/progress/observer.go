@@ -119,21 +119,6 @@ func (s *ProgressSubject) ObserverCount() int {
 	return len(s.observers)
 }
 
-// AsProgressCallback returns a ProgressCallback function that notifies all observers.
-// This provides backward compatibility with existing calculator implementations that
-// use the functional ProgressCallback type.
-//
-// Parameters:
-//   - calcIndex: The calculator instance identifier to include in notifications.
-//
-// Returns:
-//   - ProgressCallback: A function that can be passed to core calculators.
-func (s *ProgressSubject) AsProgressCallback(calcIndex int) ProgressCallback {
-	return func(progress float64) {
-		s.Notify(calcIndex, progress)
-	}
-}
-
 // Freeze creates a snapshot of the current observers and returns a ProgressCallback
 // that notifies the snapshot without acquiring any locks. This is useful in
 // performance-critical paths where observer registration is complete and won't change.

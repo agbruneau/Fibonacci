@@ -193,30 +193,6 @@ func TestProgressSubject_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-// TestProgressSubject_AsProgressCallback verifies adapter function.
-func TestProgressSubject_AsProgressCallback(t *testing.T) {
-	t.Parallel()
-
-	subject := NewProgressSubject()
-	mock := newMockObserver()
-	subject.Register(mock)
-
-	// Get reporter for calcIndex 5
-	reporter := subject.AsProgressCallback(5)
-
-	// Call reporter
-	reporter(0.25)
-	reporter(0.75)
-
-	// Verify updates received
-	if mock.updateCount() != 2 {
-		t.Errorf("expected 2 updates, got %d", mock.updateCount())
-	}
-	if mock.updates[0].calcIndex != 5 || mock.updates[0].progress != 0.25 {
-		t.Errorf("unexpected update: %+v", mock.updates[0])
-	}
-}
-
 // TestProgressSubject_FreezeSnapshot verifies Freeze creates an isolated snapshot.
 func TestProgressSubject_FreezeSnapshot(t *testing.T) {
 	t.Parallel()
