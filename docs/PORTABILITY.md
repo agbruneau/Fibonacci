@@ -18,17 +18,16 @@ E10-R5 / Sprint S4-T5.
 
 ## 2. Fallbacks plate-forme
 
-### 2.1 `internal/bigfft/arith_*.go`
+### 2.1 `internal/bigfft/arith.go`
 
-- `arith_amd64.go` (`//go:build amd64`) : wrappers exportés `AddVV`, `SubVV`,
-  `AddMulVVW`, qui délèguent aux routines internes de `math/big` via
-  `go:linkname`. Les déclarations `go:linkname` vivent dans `arith_decl.go`
-  (commun à toutes les architectures), qui couvre aussi `addVW`, `subVW`,
-  `shlVU`. Aucun assembleur original dans ce dépôt : l'assembleur optimisé
-  exploité est celui de `math/big`.
-- `arith_generic.go` (`//go:build !amd64`) : mêmes wrappers exportés pour
-  toute autre architecture (arm64, riscv64, ppc64le, etc.), même délégation
-  `go:linkname` vers `math/big`.
+- `arith.go` (portable, sans build tag — fusion de l'ancien split
+  `arith_amd64.go`/`arith_generic.go`, audit FFT-06) : wrappers exportés
+  `AddVV`, `SubVV`, `AddMulVVW`, qui délèguent aux routines internes de
+  `math/big` via `go:linkname`. Les déclarations `go:linkname` vivent dans
+  `arith_decl.go` (commun à toutes les architectures), qui couvre aussi
+  `addVW`, `subVW`, `shlVU`. Aucun assembleur original dans ce dépôt :
+  l'assembleur optimisé exploité est celui de `math/big`, pour toutes les
+  architectures (amd64, arm64, riscv64, ppc64le, etc.).
 
 **Conséquence** : le binaire compilé pour `linux/arm64` ou `darwin/arm64`
 est fonctionnellement équivalent ; la performance arithmétique pure est

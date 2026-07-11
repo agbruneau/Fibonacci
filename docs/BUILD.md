@@ -85,13 +85,12 @@ make pgo-rebuild
 
 ## Vector Arithmetic
 
-The `internal/bigfft` package uses `go:linkname` to access `math/big` internal vector arithmetic functions (`addVV`, `subVV`, `addMulVVW`, etc.) for performance. These are declared in `arith_decl.go` and wrapped by platform-specific files:
+The `internal/bigfft` package uses `go:linkname` to access `math/big` internal vector arithmetic functions (`addVV`, `subVV`, `addMulVVW`, etc.) for performance. These are declared in `arith_decl.go` and wrapped by a single portable file (the former `arith_amd64.go`/`arith_generic.go` build-tag split was merged by audit FFT-06):
 
 | File | Responsibility |
 |------|---------------|
 | `internal/bigfft/arith_decl.go` | `go:linkname` declarations to `math/big` internals (all platforms) |
-| `internal/bigfft/arith_amd64.go` | Exported wrappers for amd64 |
-| `internal/bigfft/arith_generic.go` | Exported wrappers for non-amd64 platforms |
+| `internal/bigfft/arith.go` | Exported wrappers, portable — no build tags |
 
 Go's `math/big` package already includes platform-optimized assembly for these operations, so the `go:linkname` approach provides the best available performance on all architectures without maintaining separate assembly code. Runtime CPU feature detection (`golang.org/x/sys/cpu`) lives separately in `internal/config/hardware.go`, used for adaptive threshold heuristics — not by the `bigfft` vector arithmetic above.
 
@@ -125,13 +124,13 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 
 | Target | GOOS | GOARCH | Notes |
 |--------|------|--------|-------|
-| `build-linux` | linux | amd64 | Full SIMD support |
-| `build-linux-arm64` | linux | arm64 | `arith_generic.go` fallback |
-| `build-windows` | windows | amd64 | Full SIMD support |
-| `build-windows-arm64` | windows | arm64 | `arith_generic.go` fallback |
-| `build-darwin` | darwin | amd64 + arm64 | SIMD on amd64 only |
+| `build-linux` | linux | amd64 | `math/big` assembly (amd64) |
+| `build-linux-arm64` | linux | arm64 | `math/big` assembly (arm64) |
+| `build-windows` | windows | amd64 | `math/big` assembly (amd64) |
+| `build-windows-arm64` | windows | arm64 | `math/big` assembly (arm64) |
+| `build-darwin` | darwin | amd64 + arm64 | `math/big` assembly per arch |
 
-Assembly-optimized routines are amd64-only. All other architectures use the `arith_generic.go` fallback automatically. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent amd64-only import surfaces immediately. Full matrix and fallback contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
+The wrappers in `arith.go` are portable (no build tags): every architecture delegates to `math/big`'s own platform-optimized assembly via `go:linkname`. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent platform-specific import surfaces immediately. Full matrix and portability contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
 
 ## Reproducible Build (Docker / devcontainer)
 
@@ -396,6 +395,7 @@ rm -rf "$TARGET"/*
 cp -r dist/* "$TARGET/"
 cp <FibGo>/.understand-anything/knowledge-graph.json "$TARGET/"
 cp <FibGo>/.understand-anything/meta.json "$TARGET/"
+cp <FibGo>/.understand-anything/config.json "$TARGET/"   # baked as VITE_CONFIG_URL=./config.json above
 touch "$TARGET/.nojekyll"
 ```
 
