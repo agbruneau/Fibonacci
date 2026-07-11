@@ -52,7 +52,7 @@ func run() (err error) {
 	}
 
 	filename := filepath.Join(*outputDir, "fibonacci_golden.json")
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- chemin issu du flag -out (outil de build mono-utilisateur)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- path comes from the -out flag (single-user build tool)
 	if err != nil {
 		return fmt.Errorf("creating output file: %w", err)
 	}

@@ -14,7 +14,7 @@ import (
 // (e.g. internal/tui) should consume these aliases via the orchestration
 // import rather than reaching into internal/fibonacci directly — this keeps
 // the dependency arrow ui → orchestration → fibonacci, matching the
-// hierarchy revendiquée dans CLAUDE.md.
+// hierarchy claimed in CLAUDE.md.
 type (
 	// Calculator aliases fibonacci.Calculator for downstream packages.
 	Calculator = fibonacci.Calculator

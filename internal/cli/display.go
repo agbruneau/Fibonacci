@@ -41,7 +41,7 @@ import (
 	"github.com/briandowns/spinner"
 )
 
-// === Rendu UI ===
+// === UI rendering ===
 
 // DisplayProgress manages the asynchronous display of a spinner and progress bar.
 // It is designed to run in a dedicated goroutine and orchestrates the UI updates
@@ -326,7 +326,7 @@ func writeResult(w io.Writer, result *big.Int, n uint64, duration time.Duration,
 	return nil
 }
 
-// === Modes spéciaux ===
+// === Special modes ===
 
 // FormatQuietResult formats a result for quiet mode output.
 // Returns a single-line result suitable for scripting.

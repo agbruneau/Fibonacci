@@ -91,7 +91,7 @@ func GetFFTParallelismConfig() FFTParallelismConfig {
 //   - tmp, tmp2: temporary buffers for this goroutine
 //   - alloc: allocator for creating new temp buffers in parallel goroutines
 //
-//nolint:gocognit // dispatch récursion FFT : branche séquentielle + branche parallèle (token non bloquant) avec capture/re-propagation des panics worker (ADR-0002) ; la scinder masquerait le hot path, comportement épinglé par TestFourierRecursive*/golden.
+//nolint:gocognit // FFT recursion dispatch: sequential branch + parallel branch (non-blocking token) with worker panic capture/re-propagation (ADR-0002); splitting it would obscure the hot path. Behavior pinned by TestFourierRecursive*/golden.
 func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc TempAllocator) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
