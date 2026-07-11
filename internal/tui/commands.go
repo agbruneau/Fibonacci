@@ -8,11 +8,12 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 
 	"github.com/agbruneau/FibGo/internal/config"
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/metrics"
-	"github.com/agbruneau/FibGo/internal/metrics/system"
 	"github.com/agbruneau/FibGo/internal/orchestration"
 )
 
@@ -100,14 +101,20 @@ func sampleMemStatsCmd() tea.Cmd {
 	}
 }
 
-// sampleSysStatsCmd reads system-wide CPU and memory stats and returns a SysStatsMsg.
+// sampleSysStatsCmd reads system-wide CPU and memory stats and returns a
+// SysStatsMsg. CPU uses interval=0 (delta since last call); zero values on
+// error. Inlined from the former internal/metrics/system package — tui was
+// its only caller (audit Fable5 DEAD-05).
 func sampleSysStatsCmd() tea.Cmd {
 	return func() tea.Msg {
-		s := system.Sample()
-		return SysStatsMsg{
-			CPUPercent: s.CPUPercent,
-			MemPercent: s.MemPercent,
+		var msg SysStatsMsg
+		if cpuPcts, err := cpu.Percent(0, false); err == nil && len(cpuPcts) > 0 {
+			msg.CPUPercent = cpuPcts[0]
 		}
+		if vmem, err := mem.VirtualMemory(); err == nil && vmem != nil {
+			msg.MemPercent = vmem.UsedPercent
+		}
+		return msg
 	}
 }
 

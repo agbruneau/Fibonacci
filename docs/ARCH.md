@@ -67,7 +67,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 |                          Infrastructure Helpers                       |
 |                                                                       |
-| internal/metrics  metrics/system  internal/format  test/e2e, docs     |
+| internal/metrics  internal/format  test/e2e, docs                     |
 +-----------------------------------------------------------------------+
 ```
 
@@ -250,8 +250,8 @@ internal/
 - **Responsibility:** concurrency utility for safe first-error capture.
 - **Key type:** `ErrorCollector` — atomic-style first-error retention via `SetError`/`Err`.
 
-## `internal/metrics`, `internal/metrics/system`, `internal/format`, `internal/ui`, `internal/testutil`
-- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), host CPU/memory sampling (`internal/metrics/system`, formerly `internal/sysmon`), theming/color controls (`NO_COLOR` support), test helpers.
+## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`
+- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers. Host CPU/memory sampling is inlined in `internal/tui` (its only consumer — audit Fable5 DEAD-05).
 
 ---
 
