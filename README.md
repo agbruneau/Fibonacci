@@ -222,7 +222,7 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
-- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0009). Guide agents IA : [`CLAUDE.md`](CLAUDE.md).
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0009).
   Dernier audit (2026-07) : exécuté puis purgé — voir [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) et [`CHANGELOG.md`](CHANGELOG.md).
 
 Commandes principales (équivalents `go` pour Windows sans GNU make) :
@@ -264,7 +264,7 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles de test, fuzzing, gold
 
 - Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer — release courante : `v4.0.0`).
 - Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — test rouge → fix → vert,
-  validation locale complète avant chaque commit (directive 8 de [`CLAUDE.md`](CLAUDE.md)).
+  validation locale complète avant chaque commit.
 - Licence : **Apache 2.0** — voir [`LICENSE`](LICENSE).
 
 ### Remerciements
