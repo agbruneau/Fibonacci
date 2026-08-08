@@ -29,9 +29,9 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // smallMulThreshold is the number of words below which basicMul is used
-// instead of big.Int.Mul for fermat multiplication. This value was determined
-// empirically to balance the overhead of big.Int operations against the
-// simplicity of basicMul for small operands.
+// instead of big.Int.Mul for fermat multiplication. It trades big.Int's
+// setup overhead against basicMul's O(n²) inner loop; 30 words is a setting,
+// with no benchmark in the repo pinning it against a nearby value.
 const smallMulThreshold = 30
 
 // Arithmetic modulo 2^n+1.
@@ -105,9 +105,11 @@ func (z fermat) Shift(x fermat, k int) {
 		for i := kw + 1; i < n; i++ {
 			z[i] = 0
 		}
-		// Shift left and negate, by kw words.
-		copy(z[:kw+1], x[n-kw:n+1])            // z_low = x_high
-		b := subVV(z[kw:n], z[kw:n], x[:n-kw]) // z_high -= x_low
+		// Shift left and negate, by kw words: the low part of z receives the
+		// high part of x, then the high part of z has the low part of x
+		// subtracted from it.
+		copy(z[:kw+1], x[n-kw:n+1])
+		b := subVV(z[kw:n], z[kw:n], x[:n-kw])
 		z[n] -= b
 	}
 	// Add back 1.
@@ -119,9 +121,8 @@ func (z fermat) Shift(x fermat, k int) {
 	default:
 		addVW(z, z, 1)
 	}
-	// Shift left by kb bits. kb = k%_W is in [0, _W-1] by construction
-	// so it always fits positively in uint. #nosec G115
-	shlVU(z, z, uint(kb))
+	// Shift left by kb bits.
+	shlVU(z, z, uint(kb)) // #nosec G115 -- kb = k%_W is in [0, _W-1] by construction, so it always fits positively in uint
 	z.norm()
 }
 

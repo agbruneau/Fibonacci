@@ -55,9 +55,10 @@ linters-settings:
     enable-all: true
     disable:
       - fieldalignment # Too strict for general use, can hurt readability. Enable manually if memory is critical.
-    # shadow is now ENABLED per Audit-PRD E10-R3 (Sprint S4-T3).
-    # The known-shadowing sites (bigfft/pool.go cap := cap(...)) have
-    # been renamed; new occurrences will surface as warnings on PRs.
+    # shadow stays ENABLED (enable-all leaves it on). The known-shadowing
+    # sites in bigfft/pool.go were renamed. There is no remote CI, so new
+    # occurrences surface only in the local gate: scripts/check.sh (step 4)
+    # or scripts/check.ps1.
 
   gocyclo:
     min-complexity: 15 # Allow slightly complex functions (algorithms)
@@ -118,10 +119,9 @@ linters-settings:
     for-loops: true
 
   misspell:
-    # A4-09: verification a infirme la premisse de l'audit ("orthographe
-    # britannique coherente"). Mesure reelle: ~339 graphies US vs ~50 UK ->
-    # le code est majoritairement US. On garde locale:US (meilleur signal) et
-    # on normalise les ~50 graphies britanniques residuelles vers US.
+    # Le code est majoritairement en orthographe US; locale:US est donc la
+    # convention retenue et les graphies britanniques residuelles sont
+    # normalisees vers US au fur et a mesure que misspell les signale.
     locale: US
 
 issues:
@@ -140,14 +140,16 @@ issues:
         - staticcheck
       text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
 
-    # gocyclo: three production functions sit 1-2 points over the 15 ceiling
-    # (audit Fable5 ARCH-05, assumed rather than refactored):
+    # gocyclo: production functions assumed over the 15 ceiling rather than
+    # refactored. Measured with these three rules removed (min-complexity 15):
     # - fourierRecursiveUnified (17): FFT recursion dispatch; splitting would
     #   obscure the hot path (see its nolint:gocognit rationale) and costs a
-    #   Directive #1 benchstat cycle for zero behavior change.
+    #   benchstat cycle for zero behavior change.
     # - Model.Update (16): pure message router, one point over from its
     #   13-branch switch; splitting the switch hurts readability.
-    # - AppConfig.Validate (16): flat field-validation sequence.
+    # - AppConfig.Validate (16): flat field-validation sequence, one point over
+    #   the ceiling; splitting it would scatter the field checks across helpers
+    #   without removing a single branch.
     - path: internal/bigfft/fft_recursion\.go
       linters: [gocyclo]
       text: "fourierRecursiveUnified"
@@ -174,8 +176,10 @@ issues:
     # Measured (ADR-0007, micro-benchmark): the signature-preserving Put(&s) is
     # allocation-NEUTRAL (&s escapes -> 24 B / 1 alloc, identical to value-Put);
     # only Get/Put of a reused *[]T box is zero-alloc, which requires threading
-    # *[]T through the FFT acquire/release API + fftState (the FFTContext
+    # *[]T through the FFT acquire/release API and every caller (the FFTContext
     # migration deferred under ADR-0004 B1). Excluded until that refactor lands.
+    # (The fftState type this comment used to name was deleted with the FFT-05
+    # machinery — see ADR-0009 R2; it no longer exists anywhere in the tree.)
     - path: internal/bigfft/(pool|pool_warming)\.go
       linters:
         - staticcheck

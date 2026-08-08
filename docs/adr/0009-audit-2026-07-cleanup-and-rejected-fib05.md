@@ -150,3 +150,12 @@ sont régénérés post-adoption.
 À revoir si : un mainteneur travaille sur une microarchitecture où le
 sur-dimensionnement d'arène redevient favorable (re-balayer alors selon ce même
 protocole avant de changer la valeur).
+
+## Status note (2026-08-07)
+
+- `CLAUDE.md` (cité en R2 et en Consequences comme porteur de l'invariant
+  `bigfft/pool.go` et de la justification du multiplicateur d'arène) a été retiré
+  du dépôt le 2026-07-31 (commit `869bd6a`). Ces renvois sont des citations
+  historiques ; les invariants correspondants vivent désormais dans les
+  doc-comments de `internal/bigfft/pool.go` et
+  `internal/fibonacci/fastdoubling.go`.

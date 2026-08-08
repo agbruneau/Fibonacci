@@ -14,7 +14,23 @@ E10-R5 / Sprint S4-T5.
 | Windows | arm64 | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-windows-arm64` (build only) |
 | macOS | amd64 | ✅ pour `-race` | ✅ via clang | `make test` (race natif) |
 | macOS | arm64 (Apple Silicon) | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-all` (build only) |
-| WASI / js | — | — | — | non supporté (`unsafe.Pointer`, `runtime/debug`) |
+| WASI / js | — | — | — | non supporté (`runtime/debug`, assertions de post-condition) |
+
+**64 bits uniquement.** Aucune cible 32 bits n'est supportée et aucune n'est
+construite par `make build-all`. La compilation **échoue sur toute cible où
+`int` fait 32 bits** — `386`, `arm`, `mips`, `mipsle` — et l'échec est le même
+dans tous les cas : `maxReasonableWords = 1 << 60` (déclaré
+`internal/fibonacci/memory/arena.go:maxReasonableWords`, utilisé trois fois dans
+`arenaTotalWords`) déborde un `int` 32 bits. Vérifié le 2026-08-07 :
+`GOOS=linux GOARCH=386 go build ./...` et `GOOS=linux GOARCH=arm go build ./...`
+produisent tous deux, mot pour mot, `cannot use maxReasonableWords … (overflows)`
+en `arena.go:26,30` et `maxReasonableWords / 10 … overflows int` en
+`arena.go:29`. Ces trois numéros sont la **sortie citée du compilateur**, pas un
+renvoi de lecture : ils doivent rester exacts et être revérifiés en relançant les
+deux commandes ci-dessus, pas corrigés par recherche de symbole. La mention `386` en
+§2.2 décrit uniquement la branche
+`runtime.GOARCH` de `DetectHardwareHeuristic()` ; elle ne constitue pas une
+déclaration de support.
 
 ## 2. Fallbacks plate-forme
 
@@ -39,10 +55,20 @@ non profilé formellement à ce jour).
 - Sans `//go:build` : `DetectHardwareHeuristic()` branche à l'exécution sur
   `runtime.GOARCH` et ne consulte `golang.org/x/sys/cpu` (`HasAVX512F`,
   `HasAVX2`) que pour `amd64`/`386` ; toute autre architecture reste en
-  `SIMDNone`. Aucun dispatch FFT n'en dépend — le résultat (`SIMDKind`) sert
-  uniquement à `HeuristicKey()`/`CurrentHardwareHeuristicKey()`, consommés
-  par les heuristiques de seuils adaptatifs et l'invalidation de profil de
-  calibration (un profil calibré sur une classe SIMD différente est rejeté).
+  `SIMDNone`. **Aucun chemin de code de `internal/bigfft` n'en dépend** : le
+  dispatch FFT ne consulte jamais `SIMDKind`. Le résultat a deux
+  consommateurs, tous deux dans `internal/config` :
+  - `HeuristicKey()` (`hardware.go:HardwareHeuristic.HeuristicKey`) /
+    `CurrentHardwareHeuristicKey()` (`hardware.go:CurrentHardwareHeuristicKey`) —
+    invalidation de profil de calibration (un profil calibré sur une classe
+    SIMD différente est rejeté) ;
+  - **les trois estimateurs de seuils adaptatifs**, qui branchent directement
+    sur `h.SIMD` : `thresholds.go:estimateParallelThresholdForHeuristic`
+    (parallèle : −512 / −256 bits si NumCPU ≥ 8),
+    `thresholds.go:estimateFFTThresholdForHeuristic` (FFT : 460 000 / 480 000 /
+    500 000 bits selon AVX512 / AVX2 / autre),
+    `thresholds.go:estimateStrassenThresholdForHeuristic` (Strassen : 224 / 240 /
+    256 bits si NumCPU ≥ 4).
 - Sur les architectures non-amd64/386, aucune détection SIMD avancée ;
   seule la classification `NumCPU`/`GOARCH` s'applique.
 
@@ -139,6 +165,13 @@ Une régression introduisant une dépendance amd64-exclusive non gardée par
   benchmark arm64 demande un poste Apple Silicon ou ARM Linux.
 - **GMP non testé en cross-compile** : `gmp` build tag requiert CGO,
   donc seul `linux/amd64` exerce cette branche.
-- **WebAssembly** : non supporté. La codebase utilise `unsafe.Pointer`,
-  `runtime/debug.Stack`, et des assertions de panic post-condition qui
-  rendent un portage non trivial.
+- **WebAssembly** : non supporté. La codebase importe `runtime/debug`
+  (blocs `import` de `internal/bigfft/fft.go` et de
+  `internal/fibonacci/memory/gc_control.go`) et
+  s'appuie sur des assertions de panic post-condition, ce qui rend un portage
+  non trivial. Le code de production n'utilise **pas** `unsafe.Pointer` : le
+  seul usage de `unsafe` est `unsafe.Sizeof` (`internal/bigfft/fft.go:_W`), plus
+  l'import muet requis par `go:linkname` (bloc `import` de `internal/bigfft/arith_decl.go`) ;
+  l'unique `unsafe.Pointer` du dépôt est dans un test
+  (`internal/fibonacci/memory/arena_test.go`, `TestCalculationArena_MultipleAllocs_NoAliasing`).
+- **32 bits** : non supporté, voir §1.

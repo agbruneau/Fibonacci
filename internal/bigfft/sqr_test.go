@@ -369,7 +369,7 @@ func BenchmarkSqrSmall(b *testing.B) {
 func BenchmarkSqrMedium(b *testing.B) {
 	b.ReportAllocs()
 	xBytes := make([]byte, 1000)
-	rand.Read(xBytes)
+	_, _ = rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
 
 	b.ResetTimer()
@@ -386,7 +386,7 @@ func BenchmarkSqrLarge(b *testing.B) {
 	}
 
 	xBytes := make([]byte, 10000)
-	rand.Read(xBytes)
+	_, _ = rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
 
 	b.ResetTimer()
@@ -412,7 +412,7 @@ func BenchmarkSqrToReuse(b *testing.B) {
 func BenchmarkSqrVsMul(b *testing.B) {
 	b.ReportAllocs()
 	xBytes := make([]byte, 5000)
-	rand.Read(xBytes)
+	_, _ = rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
 
 	b.Run("Sqr", func(b *testing.B) {
@@ -423,7 +423,7 @@ func BenchmarkSqrVsMul(b *testing.B) {
 
 	b.Run("Mul", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			Mul(x, x)
+			_, _ = Mul(x, x)
 		}
 	})
 }

@@ -606,7 +606,7 @@ func BenchmarkMulToWithReuse(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MulTo(z, x, y)
+		_, _ = MulTo(z, x, y)
 	}
 }
 
@@ -618,7 +618,7 @@ func BenchmarkMulToWithoutReuse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Fresh z each time - no buffer to reuse
 		z := new(big.Int)
-		MulTo(z, x, y)
+		_, _ = MulTo(z, x, y)
 	}
 }
 
@@ -628,14 +628,14 @@ func BenchmarkMulVsMulTo(b *testing.B) {
 
 	b.Run("Mul", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			Mul(x, y)
+			_, _ = Mul(x, y)
 		}
 	})
 
 	b.Run("MulTo_fresh", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			z := new(big.Int)
-			MulTo(z, x, y)
+			_, _ = MulTo(z, x, y)
 		}
 	})
 
@@ -643,7 +643,7 @@ func BenchmarkMulVsMulTo(b *testing.B) {
 		z := new(big.Int).Exp(big.NewInt(2), big.NewInt(200000), nil)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			MulTo(z, x, y)
+			_, _ = MulTo(z, x, y)
 		}
 	})
 }

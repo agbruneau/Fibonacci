@@ -55,7 +55,7 @@ func TestPrintCalibrationOutput(t *testing.T) {
 			t.Error("Output should contain 'Auto-calibration'")
 		}
 		// Should still print even with zero values
-		if len(output) == 0 {
+		if output == "" {
 			t.Error("Output should not be empty")
 		}
 	})

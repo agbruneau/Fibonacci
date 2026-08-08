@@ -209,7 +209,7 @@ func TestModel_View_WithSize(t *testing.T) {
 	if view == "Initializing..." {
 		t.Error("expected rendered dashboard, got 'Initializing...'")
 	}
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view")
 	}
 }
@@ -740,7 +740,7 @@ func TestModel_LayoutPanels_VerySmallTerminal(t *testing.T) {
 
 	// Should not panic and should render something
 	view := result.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view for small terminal")
 	}
 }
@@ -886,7 +886,7 @@ func TestModel_View_ContainsAllComponents(t *testing.T) {
 	m := newTestModelWithSize(t, 120, 40)
 
 	view := m.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Fatal("expected non-empty view")
 	}
 	// The view should contain the FibGo title from header
@@ -909,7 +909,7 @@ func TestModel_Update_VeryWideTerminal(t *testing.T) {
 
 	// Should not panic
 	view := m.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view for wide terminal")
 	}
 }
@@ -942,7 +942,7 @@ func TestStartCalculationCmd_ReturnsCompleteMsg(t *testing.T) {
 	defer cancel()
 	calcs := []fibonacci.Calculator{mockCalculator{name: "Fast"}}
 	cfg := config.AppConfig{N: 10, Timeout: 10 * time.Second}
-	cmd := startCalculationCmd(ref, ctx, calcs, cfg, 0)
+	cmd := startCalculationCmd(ctx, ref, calcs, cfg, 0)
 	if cmd == nil {
 		t.Fatal("expected non-nil command from startCalculationCmd")
 	}
@@ -1138,7 +1138,7 @@ func TestModel_AdaptiveLayout_ShortOnly(t *testing.T) {
 		t.Errorf("expected positive panel heights, got metrics=%d chart=%d", m.metrics.height, m.chart.height)
 	}
 	view := m.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view for short terminal")
 	}
 }

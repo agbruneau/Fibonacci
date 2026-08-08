@@ -479,8 +479,8 @@ func BenchmarkMulMedium(b *testing.B) {
 	b.ReportAllocs()
 	aBytes := make([]byte, 1000)
 	bBytes := make([]byte, 1000)
-	rand.Read(aBytes)
-	rand.Read(bBytes)
+	_, _ = rand.Read(aBytes)
+	_, _ = rand.Read(bBytes)
 
 	a := new(big.Int).SetBytes(aBytes)
 	bInt := new(big.Int).SetBytes(bBytes)
@@ -500,8 +500,8 @@ func BenchmarkMulLarge(b *testing.B) {
 
 	aBytes := make([]byte, 10000)
 	bBytes := make([]byte, 10000)
-	rand.Read(aBytes)
-	rand.Read(bBytes)
+	_, _ = rand.Read(aBytes)
+	_, _ = rand.Read(bBytes)
 
 	a := new(big.Int).SetBytes(aBytes)
 	bInt := new(big.Int).SetBytes(bBytes)

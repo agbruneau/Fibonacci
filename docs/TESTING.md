@@ -111,11 +111,15 @@ The golden file is a JSON array of `{"n": <uint64>, "result": "<decimal string>"
 go run ./cmd/generate-golden/
 ```
 
-This rebuilds `fibonacci_golden.json` using Fast Doubling as the reference implementation.
+This rebuilds `fibonacci_golden.json` from `fibBig` — a standalone iterative
+`math/big` oracle carried by `cmd/generate-golden/main.go`, deliberately **not**
+the library's own calculators. `cmd/generate-golden/doc.go` spells out why:
+regenerating the ground truth with the code under test would make every golden
+assertion a tautology. Do not collapse `fibBig` into `fibonacci.calculateSmall`.
 
 ### CLI Output Goldens
 
-The CLI package has separate golden tests (`goldens_test.go`) that validate exact output formatting. These disable color output with `ui.InitTheme(false)` and use `testutil.StripAnsiCodes()` for deterministic comparison.
+The CLI package has separate golden tests (`goldens_test.go`) that validate exact output formatting. They call `ui.InitTheme(false)` and strip escape codes with `testutil.StripAnsiCodes()`. Note that `false` does **not** disable colors: `InitTheme` returns the no-color theme only when its argument is `true` or when `NO_COLOR` is set in the environment; otherwise it installs `DarkTheme` (`internal/ui/themes.go:InitTheme`). Determinism here comes from `StripAnsiCodes`, not from the `false`. Pass `true` if you actually want an uncolored theme.
 
 ## Fuzz Testing
 
@@ -159,8 +163,8 @@ Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoubl
 
 `internal/arch_test.go` is a runtime sentinel that fails the build if a
 forbidden upward import is reintroduced. It inspects each importer
-package via `go list -f '{{.Imports}}'` (production code only — `_test.go`
-files are excluded). Currently four rules :
+package via `go list -f '{{range .Imports}}{{.}}\n{{end}}'` (production code only — `_test.go`
+files are excluded). Currently five rules :
 
 | Importer | Forbidden direct import | Rationale |
 |---|---|---|
@@ -168,6 +172,7 @@ files are excluded). Currently four rules :
 | `internal/errors` | `internal/format` | Leaf utility ; uses local `formatBytesLocal` instead. |
 | `internal/tui` (production) | `internal/fibonacci` | UI must reach domain types through `orchestration.Calculator`/`Options` aliases. |
 | `internal/orchestration` | `internal/format` | APP-10 : `ProgressState` moved from `format` to `orchestration` ; the arrow must not come back. |
+| `internal/config` | `internal/fibonacci`, `internal/bigfft` | ARCH-02 : freezes the two documented lateral imports (`fibonacci/memory`, `ui`) where they stand ; reaching the computation core would close a cycle. |
 
 Adding a new rule is a one-line append to `architectureRules`.
 
@@ -244,12 +249,27 @@ go test -bench=BenchmarkFibonacci -benchtime=5x ./internal/fibonacci/
 go test -bench=BenchmarkCacheImpact -benchmem ./internal/fibonacci/
 ```
 
-Benchmark functions are `BenchmarkFibonacci` (subtests `FastDoubling`,
-`MatrixExp`, `FFTBased`), `BenchmarkFibonacciDTM`, `BenchmarkCacheImpact`,
-and `BenchmarkCacheHitRate` — there is no `BenchmarkFastDoubling` function;
-target subtests via the `BenchmarkFibonacci/...` patterns above. For
-benchstat-comparable runs against `docs/audits/bench-baseline.txt`, use
-`make bench-baseline`.
+`internal/fibonacci` defines nine benchmark functions: `BenchmarkFibonacci`
+(subtests `FastDoubling`, `MatrixExp`, `FFTBased`), `BenchmarkFibonacciDTM`,
+`BenchmarkCacheImpact`, `BenchmarkCacheHitRate`, `BenchmarkSmartSquareSmall` /
+`Medium` / `Large`, `BenchmarkSmartSquareVsSmartMultiply`, and
+`BenchmarkGMPCalculator` (build tag `gmp`) — there is no `BenchmarkFastDoubling`
+function; target subtests via the `BenchmarkFibonacci/...` patterns above. For
+a benchstat-comparable run against `docs/audits/bench-baseline.txt`, reuse the
+baseline's own flags and write elsewhere:
+
+```bash
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
+    -benchmem -run='^$' -count=5 -benchtime=1x ./internal/fibonacci/ > new.txt
+benchstat docs/audits/bench-baseline.txt new.txt
+```
+
+Do **not** use `make bench-baseline` for this: that target *overwrites*
+`docs/audits/bench-baseline.txt` (`Makefile`, cible `bench-baseline`), destroying the reference
+you meant to compare against. Run it only when deliberately refreshing the
+baseline. `make bench-versioned` is the non-destructive snapshot target — it
+writes to `build/bench/snapshot-*.txt` (`Makefile`, cible `bench-versioned`), though with
+`-count=3 -benchtime=2s` it is not flag-comparable to the baseline.
 
 Benchmarks are organized as nested subtests (`Calculator/Size`), testing F(1M) and F(10M) across all three calculators. Each uses `b.ReportAllocs()` and `b.ResetTimer()` for accurate measurement.
 
@@ -298,7 +318,7 @@ This pattern in `orchestration_spy_test.go` verifies that configuration values (
 
 ## Coverage
 
-The project targets a minimum total coverage of 80 % verified locally via `make coverage`; the suite currently sits well above that floor.
+The project targets a minimum total coverage of 80 %. `make coverage` only renders the HTML report and asserts nothing; the floor is asserted by `make coverage-check` (which delegates to `scripts/check.sh --coverage-only`). The repo pins no current figure — run `make coverage-check` for the value of the day.
 
 ```bash
 go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
@@ -320,34 +340,37 @@ Two categories of code are intentionally not reflected in the standard `coverage
 
 ### generate-golden is sparsely covered (A5-09)
 
-`cmd/generate-golden` is the **dev-time** oracle that regenerates the golden corpus; it is outside the production execution path. Its `main` is deliberately left uncovered (~29 %). **Exclude it from any per-package coverage floor** — the floor applies to the **module total** only (see `make coverage-check`, A5-10).
+`cmd/generate-golden` is the **dev-time** oracle that regenerates the golden corpus; it is outside the production execution path. Its `main` is deliberately left uncovered, so the package sits far below the module total (no frozen percentage here — measure with `go test -cover ./cmd/generate-golden/`). **Exclude it from any per-package coverage floor** — the floor applies to the **module total** only (see `make coverage-check`, A5-10).
 
 ## End-to-End Testing
 
 Files: `test/e2e/cli_e2e_test.go`, `test/e2e/extended_e2e_test.go`
 
-E2E tests build the actual binary into a temporary directory and execute it as a subprocess, verifying complete program behavior including flag parsing, output formatting, and exit codes. Tests set `NO_COLOR=1` for deterministic output.
+E2E tests build the actual binary and execute it as a subprocess, verifying complete program behavior including flag parsing, output formatting, and exit codes. Tests set `NO_COLOR=1` for deterministic output.
+
+The binary is built **once per package** by `buildBinary(t)`, guarded by a
+`sync.Once`, into `os.TempDir()` under the fixed name `fibcalc_e2e_test`
+(`.exe` on Windows) — not into a per-test `t.TempDir()`. Individual tests only
+call `buildBinary(t)`:
 
 ```go
 func TestCLI_E2E(t *testing.T) {
-    tmpDir := t.TempDir()
-    binPath := filepath.Join(tmpDir, "fibcalc")
-    cmd := exec.Command("go", "build", "-o", binPath, "./cmd/fibcalc")
-    cmd.Dir = "../.."
-    if err := cmd.Run(); err != nil {
-        t.Fatalf("Failed to build fibcalc: %v", err)
-    }
+    t.Parallel()
+    skipShortE2E(t)          // heavy build+subprocess test: skipped under -short
+    binPath := buildBinary(t) // sync.Once; shared across the package
 
     tests := []struct {
         name     string
         args     []string
-        wantOut  string
+        wantOut  string // substring match (case-insensitive)
         wantCode int
     }{
         {"Basic Calculation", []string{"-n", "10", "-c"}, "F(10) = 55", 0},
         {"Help", []string{"--help"}, "usage", 0},
+        // ... "All Algorithms Comparison", "Quiet Mode", "Very Short Timeout",
+        //     "Invalid N Zero", "Large N", "Version Flag"
     }
-    // Execute binary for each test case, validate output and exit code
+    // Execute binary for each case with NO_COLOR=1, validate output and exit code
 }
 ```
 
@@ -361,18 +384,18 @@ There is **no remote CI** for this project (an assumed decision). Pre-commit val
 
 | Guardrail | Role |
 |---|---|
-| `scripts/check.ps1` / `scripts/check.sh` | One-shot pre-commit aggregator (lint + tests + coverage floor), Windows (PowerShell) and POSIX (sh) variants |
+| `scripts/check.ps1` / `scripts/check.sh` | One-shot pre-commit aggregator (lint + tests + coverage floor). `check.ps1` targets PowerShell 7; `check.sh` requires **bash**, not plain POSIX `sh` (its shebang is `#!/usr/bin/env bash`, and it uses `${BASH_SOURCE[0]}` to resolve `SCRIPT_DIR`). `check.sh` additionally runs a `-tags gmp` step and `-race`; `check.ps1` does neither |
 | `make coverage-check` | Fails the run if **total** module coverage drops below 80 % (A5-10) |
 | `make test-win` | Full test run **without** `-race` (Windows / no-CGO hosts) |
 | `make test` | Full test run **with** `-race`, requires CGO/gcc (run via WSL or a Linux/macOS host on Windows) |
 
 Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
 
-On Windows hosts without gcc, the `-race` run is executable via WSL; complete `-race` passes of the suite were last run successfully on 2026-06-21.
+On Windows hosts without gcc, the `-race` run is executable via WSL (`wsl go test -race ./...`). The repo records no result of any past `-race` pass — there is no CI log and no artifact to point at, so run it yourself before relying on it.
 
 ## Test Organization
 
-The table lists key test files per package; it is **not exhaustive** (`internal/fibonacci` alone contains 35 `_test.go` files as of 2026-06-10).
+The table lists key test files per package; it is **not exhaustive** (`internal/fibonacci` alone contains 36 `_test.go` files as of 2026-08-07 — recount with `ls internal/fibonacci/*_test.go | wc -l` rather than trusting this figure).
 
 | Package | Key Test Files | Testing Approach |
 |---------|---------------|-----------------|
@@ -386,7 +409,7 @@ The table lists key test files per package; it is **not exhaustive** (`internal/
 | `internal/calibration` | `calibration_test.go`, `calibration_advanced_test.go`, `adaptive_test.go`, `microbench_test.go`, `profile_test.go`, `io_test.go` | Unit, advanced calibration, micro-benchmark validation, profile I/O |
 | `internal/config` | `config_test.go`, `config_exhaustive_test.go`, `env_test.go` | Unit, exhaustive flag combinations, env vars |
 | `internal/errors` | `errors_test.go`, `handler_test.go` | Unit, exit code mapping |
-| `internal/metrics` | `indicators_test.go`, `system/system_test.go` | Performance indicators (throughput, O(1) properties), CPU/memory sampling |
+| `internal/metrics` | `indicators_test.go` | Performance indicators (throughput, O(1) properties) |
 | `internal/app` | `app_test.go`, `version_test.go`, `app_tuning_test.go` | Unit, lifecycle, threshold-tuning wiring (A2-04, `TestWireThresholdTuning`) |
 | `test/e2e` | `cli_e2e_test.go`, `extended_e2e_test.go` | End-to-end binary testing |
 | `cmd/fibcalc` | `main_test.go` | Entry point smoke test |
@@ -428,7 +451,7 @@ go test -v -run TestFermat ./internal/bigfft/
 Several tests specifically target concurrent behavior:
 
 - **Race detector**: Local `make test` runs `-race` to detect data races (requires CGO)
-- **Context cancellation**: `TestContextCancellation` verifies algorithms respond to `context.WithTimeout` within 50ms for N=100M. Cancellation is **coarse-grained** (checked between doubling steps and between the 3 FFT products); fine-grained cancellation *inside* a single giant FFT multiplication remains deferred — see [`docs/adr/0006-fft-recursion-cancellation.md`](adr/0006-fft-recursion-cancellation.md) (the `FFTContext` opt-in API that carried this trajectory was removed from the tree on 2026-07-11, addendum ADR-0004 §B1).
+- **Context cancellation**: `TestContextCancellation` verifies that `FastDoubling` and `MatrixExp` respond to `context.WithTimeout` within 50ms for N=100M (`FFTBased` is not in the test's calculator map). Cancellation is **coarse-grained** (checked between doubling steps and between the 3 FFT products); fine-grained cancellation *inside* a single giant FFT multiplication remains deferred — see [`docs/adr/0006-fft-recursion-cancellation.md`](adr/0006-fft-recursion-cancellation.md) (the `FFTContext` opt-in API that carried this trajectory was removed from the tree on 2026-07-11, addendum ADR-0004 §B1).
 - **Concurrent GC control**: `TestGCController_ConcurrentBeginEnd_RestoresOriginal` (`internal/fibonacci/memory/gc_control_test.go`) verifies the package-level refcount (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`) keeps GC disabled while any sibling calculator runs and restores the real `GOGC` exactly once — see [`docs/adr/0005-gc-control-concurrent.md`](adr/0005-gc-control-concurrent.md).
 - **Progress monotonicity**: `FuzzProgressMonotonicity` (`internal/fibonacci/fibonacci_fuzz_test.go`) and `TestProgress_MonotonicLargeN` (`internal/progress/progress_test.go`) validate that reported progress never decreases
 - **Parallel FFT tests**: `fft_parallel_test.go` validates thread safety of the FFT subsystem under concurrent load
@@ -464,7 +487,7 @@ Each sub-model (header, chart, metrics, logs, footer) has its own test file vali
 
 ### Adding a New Algorithm Test
 
-When implementing a new `coreCalculator`:
+When implementing a new `CoreCalculator` (the exported interface in `internal/fibonacci/calculator.go`):
 
 1. Add the calculator to `knownFibResults` tests in `fibonacci_test.go`
 2. Add it to the golden file test in `fibonacci_golden_test.go`

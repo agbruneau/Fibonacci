@@ -8,7 +8,7 @@
 
 Le projet maintient **deux** mécanismes adaptatifs pour les seuils FFT/parallèle :
 
-1. `internal/calibration/` (~1 686 LOC) produit `OptimalFFTThreshold`/`OptimalParallelThreshold` *au démarrage* via micro-benchmarks (`internal/calibration/profile.go:30-31` ; `:32` = `OptimalStrassenThreshold`, hors sujet ici).
+1. `internal/calibration/` (~1 686 LOC) produit `OptimalFFTThreshold`/`OptimalParallelThreshold` *au démarrage* via micro-benchmarks (champs `OptimalParallelThreshold` / `OptimalFFTThreshold` de `internal/calibration/profile.go:CalibrationProfile` ; le champ voisin `OptimalStrassenThreshold` est hors sujet ici).
 2. `internal/fibonacci/threshold/manager.go` (~283 L) ajuste ces seuils *en cours de calcul* via une fenêtre glissante de 20 métriques avec hystérésis.
 
 L'audit a relevé que cette redondance n'est appuyée par aucun benchmark publié dans `docs/audits/`, et que l'invariant single-writer du DTM (A-18, lignes 167-174) est fragile sans `atomic`.
@@ -56,7 +56,7 @@ Trois raisons :
 ## Alternatives Considered
 
 - **Conserver les deux sans benchmark** : rejeté, contredit la directive 1 du `CLAUDE.md`.
-- **Supprimer la calibration au lieu du DTM** : rejeté, la calibration au démarrage est bien plus testée et a une justification chiffrée (`internal/calibration/profile.go:196-224`).
+- **Supprimer la calibration au lieu du DTM** : rejeté, la calibration au démarrage est bien plus testée et a une justification chiffrée (`internal/calibration/profile.go:CalibrationProfile.IsValid`).
 
 ## References
 
@@ -68,16 +68,22 @@ Trois raisons :
 Précisions factuelles issues de l'audit documentaire 2026-06 ; le corps
 historique ci-dessus est conservé tel quel et la décision KEEP reste inchangée.
 
-- `internal/fibonacci/threshold/manager.go` compte 353 lignes à HEAD
-  (2026-06-10), contre ~283 à la rédaction : extensions de l'audit 2026-06,
-  dont le mutex qui sérialise désormais `Reset` et tout accès au
-  `MetricsBuffer` (fix de data race, commit `a2e4eee`).
-- La référence « justification chiffrée (`internal/calibration/profile.go:196-224`) »
-  a dérivé : ce range couvre la fin de `renameAtomic`. La cible visée est la
-  validation de profil `CalibrationProfile.IsValid` (référence symbolique
-  `profile.go:IsValid` ; lignes 205-234 à HEAD).
+- `internal/fibonacci/threshold/manager.go` compte **328 lignes** (recompté le
+  2026-08-07 ; le « 353 » noté ici en 2026-06-10 a dérivé), contre ~283 à la
+  rédaction : extensions de l'audit 2026-06, dont le mutex qui sérialise
+  désormais `Reset` et tout accès au `MetricsBuffer` (fix de data race,
+  commit `a2e4eee`).
+- La référence « justification chiffrée » pointait un `file:line`
+  (`profile.go:196-224`) qui a dérivé deux fois et désignait en réalité la fin
+  de `renameAtomic`. La cible visée est la validation de profil, désormais
+  ancrée sur le symbole : `profile.go:CalibrationProfile.IsValid`. Aucun
+  numéro de ligne n'est conservé — c'est précisément ce qui rendait la
+  référence fausse.
 - Les artefacts `docs/audits/bench-dtm-{on,off}.txt` (Decision §2, References)
   ont été purgés avec le reste de `docs/audits/` (CHANGELOG, Housekeeping
   2026-06-10) ; ils restent régénérables à la demande via `BenchmarkFibonacciDTM`
   (`internal/fibonacci/dtm_bench_test.go`). Les résultats chiffrés restent inline
   dans la table ci-dessus, donc la décision KEEP n'en dépend pas.
+- `CLAUDE.md` (renvois « directive 1 » ci-dessus) a été retiré du dépôt le
+  2026-07-31 (commit `869bd6a`) : ces renvois sont des citations historiques, il
+  n'existe plus de fichier de directives dans l'arbre.

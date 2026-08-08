@@ -134,7 +134,7 @@ func (ba *BumpAllocator) allocUnsafe(n int) []big.Word {
 	return slice
 }
 
-// AllocFermat allocates a fermat number buffer of the given size.
+// allocFermat allocates a fermat number buffer of the given size.
 // Fermat numbers need n+1 words (the extra word for overflow handling).
 //
 // Parameters:
@@ -142,43 +142,43 @@ func (ba *BumpAllocator) allocUnsafe(n int) []big.Word {
 //
 // Returns:
 //   - fermat: A zeroed fermat slice.
-func (ba *BumpAllocator) AllocFermat(n int) fermat {
+func (ba *BumpAllocator) allocFermat(n int) fermat {
 	return fermat(ba.Alloc(n + 1))
 }
 
-// AllocFermatTemp implements TempAllocator. It allocates a fermat buffer of
+// allocFermatTemp implements tempAllocator. It allocates a fermat buffer of
 // size n+1 from the bump allocator. The cleanup function is a no-op since the
 // bump allocator releases all memory at once when ReleaseBumpAllocator is called.
-func (ba *BumpAllocator) AllocFermatTemp(n int) (fermat, func()) {
-	return ba.AllocFermat(n), noopCleanup
+func (ba *BumpAllocator) allocFermatTemp(n int) (buf fermat, cleanup func()) {
+	return ba.allocFermat(n), noopCleanup
 }
 
-// AllocFermatSlice allocates K fermat numbers, each of size n+1.
+// allocFermatSlice allocates count fermat numbers, each of size n+1.
 // Returns the slice of fermat references, the backing word buffer, and a
 // cleanup function. The cleanup function is a no-op since the bump allocator
 // releases all memory at once when ReleaseBumpAllocator is called.
 //
-// This signature satisfies the TempAllocator interface, so *BumpAllocator can
-// be passed wherever a TempAllocator is expected.
+// This signature satisfies the tempAllocator interface, so *BumpAllocator can
+// be passed wherever a tempAllocator is expected.
 //
 // This is optimized for FFT where we need K coefficient buffers that are
 // accessed sequentially, benefiting from cache locality.
 //
 // Parameters:
-//   - K: Number of fermat slices to allocate.
+//   - count: Number of fermat slices to allocate.
 //   - n: The n parameter for each fermat (each slice has n+1 elements).
 //
 // Returns:
-//   - []fermat: Slice of K fermat references.
+//   - []fermat: Slice of count fermat references.
 //   - []big.Word: The backing buffer (for potential release tracking).
 //   - func(): No-op cleanup (bulk release via ReleaseBumpAllocator).
-func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
-	wordCount := K * (n + 1)
-	bits := ba.Alloc(wordCount)
+func (ba *BumpAllocator) allocFermatSlice(count, n int) (fermats []fermat, bits []big.Word, cleanup func()) {
+	wordCount := count * (n + 1)
+	bits = ba.Alloc(wordCount)
 
 	// Slice headers are small, regular allocation is fine
-	fermats := make([]fermat, K)
-	for i := 0; i < K; i++ {
+	fermats = make([]fermat, count)
+	for i := 0; i < count; i++ {
 		fermats[i] = fermat(bits[i*(n+1) : (i+1)*(n+1)])
 	}
 
@@ -186,7 +186,7 @@ func (ba *BumpAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func(
 }
 
 // noopCleanup is a shared no-op cleanup closure used by BumpAllocator's
-// TempAllocator methods. The bump allocator releases all memory at once via
+// tempAllocator methods. The bump allocator releases all memory at once via
 // ReleaseBumpAllocator, so per-allocation cleanup is unnecessary.
 var noopCleanup = func() {}
 
@@ -252,8 +252,10 @@ func EstimateBumpCapacity(wordLen int) int {
 	transformTemp := K * (n + 1)
 	multiplyTemp := 8 * n
 
-	// Add 10% safety margin (reduced from 20% based on profiling data
-	// showing the estimate is typically sufficient)
+	// 10% headroom over the analytic estimate above. Undershooting is not a
+	// correctness problem — allocFermat falls back to the heap when the bump
+	// arena is exhausted — so the margin is a tuning choice, and no benchmark
+	// in the repo pins 10% over any other value.
 	total := (2*transformTemp + multiplyTemp) * 11 / 10
 
 	return total

@@ -11,32 +11,34 @@ import (
 	"testing"
 )
 
-// badFermatSliceAllocator is a TempAllocator test double whose
-// AllocFermatSlice returns a slice with element 0 short by one word,
+// badFermatSliceAllocator is a tempAllocator test double whose
+// allocFermatSlice returns a slice with element 0 short by one word,
 // deterministically tripping the "FFT recursion validation failed" error
 // inside fourier/fourierRecursive without touching any package globals.
 type badFermatSliceAllocator struct{}
 
-func (badFermatSliceAllocator) AllocFermatTemp(n int) (fermat, func()) {
+func (badFermatSliceAllocator) allocFermatTemp(n int) (buf fermat, cleanup func()) {
 	f := acquireFermat(n + 1)
 	return f, func() { releaseFermat(f) }
 }
 
-func (badFermatSliceAllocator) AllocFermatSlice(K, n int) ([]fermat, []big.Word, func()) {
-	wordCount := K * (n + 1)
-	bits := acquireWordSlice(wordCount)
-	fermats := acquireFermatSlice(K)
-	for i := 0; i < K; i++ {
-		fermats[i] = fermat(bits[i*(n+1) : (i+1)*(n+1)])
+// Like poolAllocator.allocFermatSlice, the buffers stay in locals so the
+// cleanup closure captures them by value: the allocation counts asserted
+// below are measured on that shape.
+func (badFermatSliceAllocator) allocFermatSlice(count, n int) (fermats []fermat, bits []big.Word, cleanup func()) {
+	wordCount := count * (n + 1)
+	words := acquireWordSlice(wordCount)
+	bufs := acquireFermatSlice(count)
+	for i := 0; i < count; i++ {
+		bufs[i] = fermat(words[i*(n+1) : (i+1)*(n+1)])
 	}
 	// Corrupt element 0 so len(input[0]) != n+1, tripping the recursion's
 	// validation check.
-	fermats[0] = fermats[0][:n]
-	cleanup := func() {
-		releaseWordSlice(bits)
-		releaseFermatSlice(fermats)
+	bufs[0] = bufs[0][:n]
+	return bufs, words, func() {
+		releaseWordSlice(words)
+		releaseFermatSlice(bufs)
 	}
-	return fermats, bits, cleanup
 }
 
 // These tests reproduce audit finding FFT-08 (pool buffers not released on
@@ -112,13 +114,13 @@ func TestInvTransformReleasesBuffersOnError(t *testing.T) {
 	}
 
 	v := makeCorruptValues()
-	if _, err := v.invTransform(GetPoolAllocator()); err == nil {
+	if _, err := v.invTransform(defaultPoolAllocator); err == nil {
 		t.Fatal("expected validation error from corrupted Values[0]")
 	}
 
 	avg := testing.AllocsPerRun(20, func() {
 		v := makeCorruptValues()
-		if _, err := v.invTransform(GetPoolAllocator()); err == nil {
+		if _, err := v.invTransform(defaultPoolAllocator); err == nil {
 			t.Fatal("expected validation error from corrupted Values[0]")
 		}
 	})
@@ -130,5 +132,48 @@ func TestInvTransformReleasesBuffersOnError(t *testing.T) {
 	if avg > maxAllocsPerRun {
 		t.Fatalf("invTransform leaked its pbits buffer on the error path (FFT-08): "+
 			"avg allocs/run = %.1f (want <= %d)", avg, maxAllocsPerRun)
+	}
+}
+
+// TestPoolAllocatorSliceAllocsSteadyState pins the steady-state allocation
+// count of the PRODUCTION allocator, poolAllocator.allocFermatSlice — the two
+// tests above measure a test double and invTransform respectively, so neither
+// constrains it.
+//
+// What it guards: allocFermatSlice keeps its buffers in locals and returns
+// them, so the cleanup closure captures the two slice headers by value and
+// only the closure itself escapes. Assigning to the named results instead
+// makes each captured header escape on its own, adding 2 allocs per call.
+// The ceiling below sits between the two, with one alloc of headroom so
+// unrelated pool-internal jitter does not turn this into a flaky gate.
+//
+// Not marked t.Parallel(): testing.AllocsPerRun panics in parallel tests.
+func TestPoolAllocatorSliceAllocsSteadyState(t *testing.T) {
+	const (
+		count = 8
+		n     = 4
+	)
+	p := &poolAllocator{}
+
+	// Warm the pools so the measured window sees steady state, not the
+	// one-time New() calls.
+	_, _, cleanup := p.allocFermatSlice(count, n)
+	cleanup()
+
+	avg := testing.AllocsPerRun(20, func() {
+		_, _, cleanup := p.allocFermatSlice(count, n)
+		cleanup()
+	})
+
+	// Measured on these exact inputs: 3 allocs/run as written, 5 when the
+	// buffers are assigned to the named results. The ceiling carries one
+	// allocation of slack for escape-analysis differences across toolchains
+	// and architectures, so it pins the +2 regression above and would miss
+	// a +1 one.
+	const maxAllocsPerRun = 4
+	if avg > maxAllocsPerRun {
+		t.Fatalf("poolAllocator.allocFermatSlice allocates more than its steady state: "+
+			"avg allocs/run = %.1f (want <= %d); the buffers must stay in locals "+
+			"so the cleanup closure captures them by value", avg, maxAllocsPerRun)
 	}
 }

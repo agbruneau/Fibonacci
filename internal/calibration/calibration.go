@@ -117,10 +117,8 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 	fmt.Fprintf(out, "--- Calibration Mode: Finding the Optimal Parallelism Threshold ---\n")
 
 	// Try to load existing profile if requested
-	if opts.LoadProfile {
-		if code, handled := tryUseCachedCalibrationProfile(opts.ProfilePath, out); handled {
-			return code
-		}
+	if opts.LoadProfile && tryUseCachedCalibrationProfile(opts.ProfilePath, out) {
+		return apperrors.ExitSuccess
 	}
 
 	calculator, thresholdsToTest, code := configureHardwareDetection(out, calculatorRegistry)
@@ -157,20 +155,20 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 }
 
 // tryUseCachedCalibrationProfile attempts to short-circuit calibration by
-// loading an existing valid profile. Returns (exitCode, true) if the caller
-// should return early with that code; (0, false) if no valid profile exists
-// and the caller must run a fresh calibration.
-func tryUseCachedCalibrationProfile(profilePath string, out io.Writer) (int, bool) {
+// loading an existing valid profile. Returns true if a valid profile was found
+// and reported, in which case the caller returns ExitSuccess without running a
+// fresh calibration; false when the caller must calibrate.
+func tryUseCachedCalibrationProfile(profilePath string, out io.Writer) bool {
 	profile, loaded := LoadOrCreateProfile(profilePath)
 	if !loaded || !profile.IsValid() {
-		return 0, false
+		return false
 	}
 	fmt.Fprintf(out, "%sLoaded existing calibration profile from %s%s\n",
 		ui.ColorGreen(), effectiveProfilePath(profilePath), ui.ColorReset())
 	fmt.Fprintf(out, "Profile: %s\n", profile.String())
 	fmt.Fprintf(out, "\n%s✅ Using cached calibration: %s--threshold %d%s\n",
 		ui.ColorGreen(), ui.ColorYellow(), profile.OptimalParallelThreshold, ui.ColorReset())
-	return apperrors.ExitSuccess, true
+	return true
 }
 
 // configureHardwareDetection resolves the calculator used for calibration
@@ -178,13 +176,13 @@ func tryUseCachedCalibrationProfile(profilePath string, out io.Writer) (int, boo
 // calculator) it returns (nil, nil, ExitErrorGeneric); the caller must
 // return that code. On success it returns the calculator, the ordered
 // threshold list to test, and ExitSuccess.
-func configureHardwareDetection(out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (fibonacci.Calculator, []int, int) {
-	calculator := calculatorRegistry["fast"]
+func configureHardwareDetection(out io.Writer, calculatorRegistry map[string]fibonacci.Calculator) (calculator fibonacci.Calculator, thresholdsToTest []int, code int) {
+	calculator = calculatorRegistry["fast"]
 	if calculator == nil {
 		fmt.Fprintf(out, "%sCritical error: the 'fast' algorithm is required for calibration but was not found.%s\n", ui.ColorRed(), ui.ColorReset())
 		return nil, nil, apperrors.ExitErrorGeneric
 	}
-	thresholdsToTest := GenerateParallelThresholds()
+	thresholdsToTest = GenerateParallelThresholds()
 	fmt.Fprintf(out, "%sUsing adaptive thresholds for %d CPU cores%s\n",
 		ui.ColorCyan(), runtime.NumCPU(), ui.ColorReset())
 	return calculator, thresholdsToTest, apperrors.ExitSuccess
@@ -201,10 +199,9 @@ func configureHardwareDetection(out io.Writer, calculatorRegistry map[string]fib
 //     ExitErrorCanceled on context cancellation mid-loop;
 //     ExitErrorGeneric when every pass failed to produce a valid result;
 //     HandleCalculationError's return code on unrecoverable calc error.
-func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Calculator, thresholdsToTest []int, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) (int, []calibrationResult, int) {
-	results := make([]calibrationResult, 0, len(thresholdsToTest))
+func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Calculator, thresholdsToTest []int, progressDisplay ProgressDisplayFunc, colorProvider apperrors.ColorProvider) (bestThreshold int, results []calibrationResult, code int) {
+	results = make([]calibrationResult, 0, len(thresholdsToTest))
 	bestDuration := time.Duration(1<<63 - 1)
-	bestThreshold := 0
 
 	var wg sync.WaitGroup
 	progressChan := make(chan progress.ProgressUpdate, 5)

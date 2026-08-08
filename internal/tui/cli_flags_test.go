@@ -141,7 +141,6 @@ func TestNewModel_ConfigPropagation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			m := NewModel(context.Background(), nil, tt.cfg, "v1.0.0")
@@ -312,7 +311,6 @@ func TestModel_CalculatorSelection(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			m := NewModel(context.Background(), tt.calcs, cfg, "v1.0.0")
@@ -398,7 +396,6 @@ func TestStartCalculationCmd_ConfigPassthrough(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			capture := &capturingCalculator{result: big.NewInt(55)}
@@ -412,7 +409,7 @@ func TestStartCalculationCmd_ConfigPassthrough(t *testing.T) {
 				StrassenThreshold: tt.strassenThreshold,
 			}
 
-			cmd := startCalculationCmd(ref, ctx, []fibonacci.Calculator{capture}, cfg, 0)
+			cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{capture}, cfg, 0)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -447,7 +444,7 @@ func TestStartCalculationCmd_ExitCodes(t *testing.T) {
 		calc := mockCalculator{name: "Fast"}
 		cfg := config.AppConfig{N: 10, Timeout: time.Minute}
 
-		cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{calc}, cfg, 0)
+		cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, 0)
 		msg := cmd()
 
 		complete, ok := msg.(CalculationCompleteMsg)
@@ -468,7 +465,7 @@ func TestStartCalculationCmd_ExitCodes(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 		defer cancel()
 
-		cmd := startCalculationCmd(ref, ctx, []fibonacci.Calculator{calc}, cfg, 0)
+		cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{calc}, cfg, 0)
 		msg := cmd()
 
 		complete, ok := msg.(CalculationCompleteMsg)
@@ -494,14 +491,13 @@ func TestStartCalculationCmd_Generation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := &programRef{}
 			calc := mockCalculator{name: "Fast"}
 			cfg := config.AppConfig{N: 10, Timeout: time.Minute}
 
-			cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{calc}, cfg, tt.generation)
+			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, tt.generation)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -520,7 +516,7 @@ func TestStartCalculationCmd_NoCalculators(t *testing.T) {
 	ref := &programRef{}
 	cfg := config.AppConfig{N: 10, Timeout: time.Minute}
 
-	cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{}, cfg, 0)
+	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{}, cfg, 0)
 	msg := cmd()
 
 	_, ok := msg.(CalculationCompleteMsg)
@@ -550,7 +546,6 @@ func TestStartCalculationCmd_DisplayFlagsInConfig(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := &programRef{}
@@ -563,7 +558,7 @@ func TestStartCalculationCmd_DisplayFlagsInConfig(t *testing.T) {
 				ShowValue: tt.showValue,
 			}
 
-			cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{calc}, cfg, 0)
+			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, 0)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -592,7 +587,6 @@ func TestFinalResultMsg_DisplayFlags(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			cfg := config.AppConfig{N: 10, Timeout: time.Minute}
@@ -650,7 +644,7 @@ func TestStartCalculationCmd_Timeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
-	cmd := startCalculationCmd(ref, ctx, []fibonacci.Calculator{calc}, cfg, 0)
+	cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{calc}, cfg, 0)
 	msg := cmd()
 
 	complete, ok := msg.(CalculationCompleteMsg)
@@ -709,14 +703,13 @@ func TestStartCalculationCmd_SmallN(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			capture := &capturingCalculator{result: tt.result}
 			ref := &programRef{}
 			cfg := config.AppConfig{N: tt.n, Timeout: time.Minute}
 
-			cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{capture}, cfg, 0)
+			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -746,7 +739,7 @@ func TestStartCalculationCmd_WiresGCControl(t *testing.T) {
 		GCControl: "disabled",
 	}
 
-	cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{capture}, cfg, 0)
+	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0)
 	cmd()
 
 	if capture.capturedOpts.GCMode != "disabled" {
@@ -766,7 +759,7 @@ func TestStartCalculationCmd_ZeroThresholds(t *testing.T) {
 		StrassenThreshold: 0,
 	}
 
-	cmd := startCalculationCmd(ref, context.Background(), []fibonacci.Calculator{capture}, cfg, 0)
+	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0)
 	msg := cmd()
 
 	complete, ok := msg.(CalculationCompleteMsg)
@@ -800,7 +793,6 @@ func TestNewModel_AlgoConfigStored(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.algo, func(t *testing.T) {
 			t.Parallel()
 			cfg := config.AppConfig{

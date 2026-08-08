@@ -19,10 +19,10 @@ type MemoryEstimate struct {
 // EstimateMemoryUsage estimates the memory needed to compute F(n).
 func EstimateMemoryUsage(n uint64) MemoryEstimate {
 	bitsPerFib := float64(n) * 0.69424
-	wordsPerFib := int(bitsPerFib/64) + 1
-	// wordsPerFib is derived from a positive uint64 (n) scaled down by 64,
-	// so it is always non-negative and fits comfortably in uint64. #nosec G115
-	bytesPerFib := satMul(uint64(wordsPerFib), 8)
+	// bitsPerFib is non-negative (n is uint64) and at most ~1.3e19/64, so the
+	// uint64 conversion is exact and cannot overflow — no intermediate int.
+	wordsPerFib := uint64(bitsPerFib/64) + 1
+	bytesPerFib := satMul(wordsPerFib, 8)
 
 	// Saturating arithmetic: a silent uint64 wrap of total toward a small
 	// value would let CanCalculate pass for a physically uncomputable n.
@@ -45,7 +45,7 @@ func EstimateMemoryUsage(n uint64) MemoryEstimate {
 // ParseMemoryLimit parses a human-readable memory limit (e.g., "8G", "512M").
 func ParseMemoryLimit(s string) (uint64, error) {
 	s = strings.TrimSpace(s)
-	if len(s) == 0 {
+	if s == "" {
 		return 0, fmt.Errorf("empty memory limit")
 	}
 

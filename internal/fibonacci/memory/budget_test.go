@@ -20,7 +20,6 @@ func TestEstimateMemoryUsage(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		t.Run(fmt.Sprintf("N=%d", tc.n), func(t *testing.T) {
 			t.Parallel()
 			est := EstimateMemoryUsage(tc.n)
@@ -60,7 +59,6 @@ func TestParseMemoryLimit(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 			got, err := ParseMemoryLimit(tc.input)
@@ -97,7 +95,6 @@ func TestParseMemoryLimit_Errors(t *testing.T) {
 
 	cases := []string{"", "abc", "-5G", "0x10M"}
 	for _, input := range cases {
-
 		t.Run(input, func(t *testing.T) {
 			t.Parallel()
 			_, err := ParseMemoryLimit(input)

@@ -109,14 +109,14 @@ func executeDoublingStepMultiplications(ctx context.Context, strategy Multiplier
 	if err != nil {
 		return fmt.Errorf("multiply FK * FK1 failed: %w", err)
 	}
-	if err := ctx.Err(); err != nil {
+	if err = ctx.Err(); err != nil {
 		return fmt.Errorf("canceled after multiply: %w", err)
 	}
 	s.T1, err = strategy.Square(s.T1, s.FK1, opts)
 	if err != nil {
 		return fmt.Errorf("square FK1 failed: %w", err)
 	}
-	if err := ctx.Err(); err != nil {
+	if err = ctx.Err(); err != nil {
 		return fmt.Errorf("canceled after square FK1: %w", err)
 	}
 	s.T2, err = strategy.Square(s.T2, s.FK, opts)
@@ -199,8 +199,9 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 		s.FK, s.FK1, s.T2, s.T3, s.T1 = s.T3, s.T1, s.FK, s.FK1, s.T2
 
 		// Addition Step: if bit i of n is set, advance one extra index.
-		// i is a bit index in [0, bits.Len64(n)-1] ⊂ [0, 63], uint conversion safe. #nosec G115
-		if (n>>uint(i))&1 == 1 {
+		// i is a bit index in [0, bits.Len64(n)-1] ⊂ [0, 63]; Go accepts a
+		// signed shift count, so no uint conversion is needed.
+		if (n>>i)&1 == 1 {
 			s.T1.Add(s.FK, s.FK1)
 			s.FK, s.FK1, s.T1 = s.FK1, s.T1, s.FK
 		}
@@ -234,8 +235,11 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 	// pooled state retains — the next AcquireStateForN that reuses the
 	// arena would Reset() its offset and the next allocation would silently
 	// overwrite this result. ReleaseStateWithResult at the call site
-	// performs the necessary deep-copy out of the arena (a single ~850 KB
-	// memcpy for F(10M), <0.01% of the total runtime, far cheaper than the
-	// race conditions documented in P1-04-SKIPPED.md).
+	// performs the necessary deep-copy out of the arena. That copy is one
+	// linear pass over the result (≈ 850 KB for F(10M): n*0.69424 bits), i.e.
+	// O(n) against the loop's O(log n) multiplications of O(n)-bit operands —
+	// asymptotically dominated, but its share of runtime has not been measured
+	// here, so none is claimed. The alternative (returning s.FK directly) is
+	// not a speed/safety trade at all: it is the aliasing bug described above.
 	return s.FK, nil
 }

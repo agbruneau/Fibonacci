@@ -1,11 +1,27 @@
 package config
 
-// Threshold resolution chain (highest priority first):
-//   1. CLI flags (--threshold, --fft-threshold, --strassen-threshold)
-//   2. Environment variables (FIBCALC_THRESHOLD, etc.)
-//   3. Cached calibration profile (~/.fibcalc_calibration.json)
-//   4. Adaptive hardware estimation (this file)
-//   5. Static defaults in fibonacci/constants.go
+// Threshold resolution chain as implemented, highest priority first:
+//
+//  1. Cached calibration profile (~/.fibcalc_calibration.json), when it loads
+//     and validates. calibration.LoadCachedCalibration overwrites Threshold,
+//     FFTThreshold and StrassenThreshold unconditionally — it reads neither
+//     flag nor environment — and app.New applies it AFTER config.ParseConfig
+//     has already merged both. KNOWN SURPRISE: a cached profile therefore
+//     overrides an explicit --threshold / --fft-threshold /
+//     --strassen-threshold. That is the behavior, not an aspiration; pinned by
+//     TestNewCachedProfileOverridesExplicitFlags (internal/app). Whether it
+//     SHOULD win is an open behavior decision, deliberately not settled here.
+//  2. CLI flags (--threshold, --fft-threshold, --strassen-threshold), reached
+//     only when no valid cached profile was loaded.
+//  3. Environment variables (FIBCALC_THRESHOLD, FIBCALC_FFT_THRESHOLD,
+//     FIBCALC_STRASSEN_THRESHOLD), applied by applyEnvOverrides to any flag
+//     not set explicitly on the command line.
+//  4. Adaptive hardware estimation (ApplyAdaptiveThresholds, this file). It
+//     runs only on the no-cached-profile branch and fills only the values
+//     still left at 0.
+//  5. Static defaults in fibonacci/constants.go, applied by
+//     fibonacci.normalizeOptions to anything still 0 at the calculator
+//     boundary (e.g. the single-CPU case, where the estimator returns 0).
 
 // ApplyAdaptiveThresholds adjusts the configuration thresholds based on
 // hardware characteristics (CPU cores, architecture) when default values

@@ -156,11 +156,6 @@ func NewDynamicThresholdManagerFromConfig(cfg DynamicThresholdConfig) *DynamicTh
 	return m
 }
 
-// setLogger configures the logger for threshold adjustment events.
-func (m *DynamicThresholdManager) setLogger(l zerolog.Logger) {
-	m.logger = l
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Metric Recording
 // ─────────────────────────────────────────────────────────────────────────────

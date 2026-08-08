@@ -233,7 +233,7 @@ func TestCLI_OutputFile(t *testing.T) {
 	}
 	contentStr := string(content)
 
-	// F(50) = 12586269025
+	// F(50) is 12586269025
 	if !strings.Contains(contentStr, "12586269025") {
 		t.Errorf("Output file does not contain expected result.\nGot:\n%s", contentStr)
 	}
@@ -312,7 +312,7 @@ func TestCLI_Completion(t *testing.T) {
 				return
 			}
 
-			if len(strings.TrimSpace(outStr)) == 0 {
+			if strings.TrimSpace(outStr) == "" {
 				t.Errorf("Completion output for %s is empty", tt.shell)
 				return
 			}

@@ -6,11 +6,11 @@
 
 ## Context
 
-`internal/bigfft/fft.go:41-101` installe quatre `recover()` indistincts dans les fonctions publiques `Mul`, `MulTo`, `Sqr`, `SqrTo`. Ces `recover` capturent *toute* panic, y compris les violations de post-conditions algorithmiques internes émises par `internal/bigfft/fermat.go` (`panic("len(z) > 2n+1")`, `panic("unexpected carry after normalization")`).
+`internal/bigfft/fft.go` installe quatre `recover()` indistincts dans les fonctions publiques `Mul`, `MulTo`, `Sqr`, `SqrTo`. Ces `recover` capturent *toute* panic, y compris les violations de post-conditions algorithmiques internes émises par `internal/bigfft/fermat.go` (`panic("len(z) > 2n+1")`, `panic("unexpected carry after normalization")`).
 
 Conséquence : un bug authentique dans la réduction modulaire de Fermat ressort comme un `error` opaque indistinguable d'une erreur d'arité, et passe silencieusement tout test qui n'inspecte que `err != nil`.
 
-L'intention initiale (visible dans 48 LOC de wrappers `*Safe` à `bigfft/fermat.go:291-339`) distinguait théoriquement :
+L'intention initiale (visible dans les wrappers `*Safe` de `bigfft/fermat.go` — `MulSafe`, `SqrSafe`, `ShiftSafe`, `AddSafe`, `SubSafe`) distinguait théoriquement :
 - **pré-conditions externes** (arité, taille) → à transformer en `error` retourné.
 - **post-conditions internes** (invariants algorithmiques) → à laisser propager (panic).
 
@@ -40,7 +40,7 @@ Mais aucun consommateur de production n'utilise les wrappers `*Safe`.
 
 ### Risks and Mitigations
 
-- **Risque** : régression performance par le check supplémentaire `bigfftPanic`. **Mitigation** : la branche `recover` est froide (seulement en cas de panic), donc impact ~0. Vérification par `benchstat`.
+- **Risque** : régression performance par le check supplémentaire `isFermatPostConditionPanic` (lookup dans `fermatPostConditionPanics`). **Mitigation** : la branche `recover` est froide (seulement en cas de panic), donc impact ~0. Vérification par `benchstat`.
 
 ## Alternatives Considered
 
@@ -54,8 +54,19 @@ Mais aucun consommateur de production n'utilise les wrappers `*Safe`.
 
 ## Status note (2026-06-10)
 
-Le range cité en Context (`fft.go:41-101`) a dérivé : à HEAD (2026-06-10),
-les quatre entry-points `Mul`/`MulTo`/`Sqr`/`SqrTo` et leurs `recover()`
-occupent `internal/bigfft/fft.go:63-144`. La politique sentinelle décrite ici
-reste en place (`isFermatPostConditionPanic`, `fft.go:273` à HEAD), gardée par
-`TestFermatPostConditionPanicClassifier`.
+Les deux `file:line` cités en Context ont dérivé deux fois (2026-06-10, puis
+2026-08-07) sans que le code change. Ils sont remplacés par des ancres de
+symbole, et cette note ne conserve que ce qui est réellement un fait :
+
+- Les quatre entry-points `Mul`/`MulTo`/`Sqr`/`SqrTo` de
+  `internal/bigfft/fft.go` portent chacun leur `defer`/`recover()` ; le bloc
+  va de `func Mul` à l'accolade fermante de `SqrTo`.
+- La politique sentinelle décrite ici reste en place
+  (`internal/bigfft/fft.go:isFermatPostConditionPanic`, appelée depuis
+  `internal/bigfft/fft.go:fermatPanicToError`), gardée par
+  `TestFermatPostConditionPanicClassifier`.
+- Le décompte « 48 LOC » de wrappers `*Safe` était faux : de la première ligne
+  de commentaire de `MulSafe` à l'accolade fermante de `SubSafe`,
+  `internal/bigfft/fermat.go` en contient **53 lignes dont 37 de code**
+  (recompté le 2026-08-07). Le constat de fond est inchangé : aucun
+  consommateur de production ne les appelle.

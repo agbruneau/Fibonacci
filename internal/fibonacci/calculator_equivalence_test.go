@@ -43,7 +43,7 @@ func independentFib(k uint64) *big.Int {
 	curr := big.NewInt(1) // F(1)
 	next := new(big.Int)
 	for i := uint64(2); i <= k; i++ {
-		next.Add(prev, curr) // F(i) = F(i-2) + F(i-1)
+		next.Add(prev, curr) // next: F(i-2) + F(i-1)
 		prev.Set(curr)
 		curr.Set(next)
 	}

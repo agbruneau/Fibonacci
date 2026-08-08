@@ -92,7 +92,7 @@ func TestLogsModel_ViewContentStableAfterPushes(t *testing.T) {
 	}
 
 	// View() must materialize without panicking and produce non-empty output.
-	if got := logs.View(); len(got) == 0 {
+	if got := logs.View(); got == "" {
 		t.Fatal("View() produced empty output after pushes")
 	}
 

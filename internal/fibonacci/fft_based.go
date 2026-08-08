@@ -13,11 +13,15 @@ import (
 //
 // Unlike the FastDoublingCalculator calculator, which adaptively switches
 // between standard and FFT-based multiplication, this implementation uses
-// mulFFT for every multiplication, regardless of the numbers' size. This makes
-// it an excellent tool for benchmarking the performance of FFT-based
-// multiplication in Fibonacci calculations. It is also particularly effective
-// for computing exceptionally large Fibonacci numbers, where FFT-based methods
-// are consistently faster.
+// the FFT doubling step for every multiplication, regardless of the numbers'
+// size. This makes it a tool for benchmarking the FFT path in isolation.
+//
+// It is NOT the faster calculator at the sizes the repo measures: in
+// docs/audits/bench-baseline.txt the medians are FFTBased 5.13 ms vs
+// FastDoubling 3.15 ms at F(1M), and 29.1 ms vs 23.9 ms at F(10M). Any
+// crossover where forcing FFT at every size pays off lies beyond F(10M) and
+// is unmeasured here — so "use this for very large n" is a hypothesis, not a
+// result.
 type FFTBasedCalculator struct{}
 
 // Name returns the name of the algorithm, indicating its reliance on FFT.
@@ -33,9 +37,9 @@ func (c *FFTBasedCalculator) Name() string {
 //
 // This implementation uses the DoublingFramework with FFTOnlyStrategy to
 // consistently use FFT-based multiplication for all operations, regardless
-// of operand size. This design makes it ideal for scenarios where FFT is
-// expected to be the most performant option, such as with extremely large
-// numbers.
+// of operand size. That makes it a way to exercise the FFT path in isolation;
+// it is not the faster calculator at any size the repo measures (see the type
+// doc above).
 //
 // Parameters:
 //   - ctx: The context for managing cancellation and deadlines.

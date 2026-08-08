@@ -14,7 +14,8 @@ var concurrencyOnce sync.Once
 
 // getSemaphore returns the global concurrency semaphore for FFT recursion,
 // initializing it to runtime.NumCPU() on the first call. This is independent
-// from the Fibonacci-level task semaphore (fibonacci/common.go, NumCPU).
+// from the Fibonacci-level task semaphore (fibonacci/common.go), which is
+// sized runtime.GOMAXPROCS(0), not NumCPU.
 // See getTaskSemaphore documentation for interaction details.
 func getSemaphore() chan struct{} {
 	concurrencyOnce.Do(func() {
@@ -81,7 +82,7 @@ func GetFFTParallelismConfig() FFTParallelismConfig {
 }
 
 // fourierRecursiveUnified is the unified recursive FFT function that works with
-// any TempAllocator implementation. This eliminates code duplication between
+// any tempAllocator implementation. This eliminates code duplication between
 // pool-based and bump-allocator-based variants.
 //
 // Parameters:
@@ -96,7 +97,7 @@ func GetFFTParallelismConfig() FFTParallelismConfig {
 //   - alloc: allocator for creating new temp buffers in parallel goroutines
 //
 //nolint:gocognit // FFT recursion dispatch: sequential branch + parallel branch (non-blocking token) with worker panic capture/re-propagation (ADR-0002); splitting it would obscure the hot path. Behavior pinned by TestFourierRecursive*/golden.
-func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc TempAllocator) error {
+func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc tempAllocator) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
 	if backward {
@@ -149,8 +150,8 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 				// Allocate new temps for this branch using the allocator
 				// For parallel goroutines, we always use pool to avoid race conditions
 				// on non-thread-safe bump allocators
-				t1, cleanup1 := GetPoolAllocator().AllocFermatTemp(n)
-				t2, cleanup2 := GetPoolAllocator().AllocFermatTemp(n)
+				t1, cleanup1 := defaultPoolAllocator.allocFermatTemp(n)
+				t2, cleanup2 := defaultPoolAllocator.allocFermatTemp(n)
 				defer cleanup1()
 				defer cleanup2()
 
@@ -265,8 +266,8 @@ func executeReconstruction(dst1, dst2 []fermat, ω2shift int, tmp, tmp2 fermat) 
 						}
 					}
 				}()
-				t1, cleanup1 := GetPoolAllocator().AllocFermatTemp(n)
-				t2, cleanup2 := GetPoolAllocator().AllocFermatTemp(n)
+				t1, cleanup1 := defaultPoolAllocator.allocFermatTemp(n)
+				t2, cleanup2 := defaultPoolAllocator.allocFermatTemp(n)
 				defer cleanup1()
 				defer cleanup2()
 				body(lo, hi, t1, t2)
@@ -302,7 +303,8 @@ func executeReconstruction(dst1, dst2 []fermat, ω2shift int, tmp, tmp2 fermat) 
 }
 
 // fourierRecursive is a convenience wrapper that uses pool allocation.
-// Kept for backward compatibility.
-func fourierRecursive(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) error {
-	return fourierRecursiveUnified(dst, src, backward, n, k, size, depth, tmp, tmp2, GetPoolAllocator())
+// It always enters the recursion at depth 0; the recursive descent itself is
+// handled by fourierRecursiveUnified.
+func fourierRecursive(dst, src []fermat, backward bool, n int, k, size uint, tmp, tmp2 fermat) error {
+	return fourierRecursiveUnified(dst, src, backward, n, k, size, 0, tmp, tmp2, defaultPoolAllocator)
 }

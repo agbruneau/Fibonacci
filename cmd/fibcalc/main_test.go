@@ -302,11 +302,10 @@ func testBinaryPath(t *testing.T) string {
 
 // runBinary executes the built binary with the given args and returns
 // combined stdout+stderr output and the exit code.
-func runBinary(t *testing.T, binPath string, args ...string) (string, int) {
+func runBinary(t *testing.T, binPath string, args ...string) (output string, exitCode int) {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
 	out, err := cmd.CombinedOutput()
-	exitCode := 0
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()

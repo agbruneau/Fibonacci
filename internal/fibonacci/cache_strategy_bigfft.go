@@ -19,7 +19,7 @@ import (
 // A nil error means "nothing to report"; non-nil errors are propagated up
 // the call stack and abort the calculation.
 type CacheStrategy interface {
-	Sample(iter int, totalIters int) error
+	Sample(iter, totalIters int) error
 }
 
 // bigfftCacheStrategy is the default CacheStrategy: it preserves the historical
@@ -56,7 +56,7 @@ func NewBigFFTCacheStrategy() CacheStrategy {
 // Sample inspects the bigfft global cache and adjusts MaxEntries / MinBitLen
 // based on current hit-rate / eviction signals. It is a no-op unless iter is
 // a multiple of cacheSampleInterval or this is the final iteration.
-func (bigfftCacheStrategy) Sample(iter int, totalIters int) error {
+func (bigfftCacheStrategy) Sample(iter, totalIters int) error {
 	// Throttle: only sample every cacheSampleInterval iterations, and always
 	// on the final iteration.
 	if iter%cacheSampleInterval != 0 && iter != totalIters {

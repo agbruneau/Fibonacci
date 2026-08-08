@@ -27,7 +27,7 @@ func setCustomUsage(fs *flag.FlagSet) {
 		fs.VisitAll(func(f *flag.Flag) {
 			name, usage := flag.UnquoteUsage(f)
 			flagSig := fmt.Sprintf("-%s", f.Name)
-			if len(name) > 0 {
+			if name != "" {
 				flagSig += " " + name
 			}
 

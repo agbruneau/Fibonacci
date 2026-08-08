@@ -144,8 +144,12 @@ func TestGenerateTestNumber(t *testing.T) {
 	if num == nil {
 		t.Fatal("Expected non-nil big.Int")
 	}
+	// For words = 10 the most significant word (0xAAAA… ^ 9*0x1234567) is
+	// non-zero on both 32- and 64-bit big.Word, so SetBits cannot trim it.
+	// The pattern is NOT zero-free in general: 0x1234567 is odd, hence
+	// invertible mod 2^W, so exactly one index per 2^W zeroes its word
+	// (i = 3549559750 for W = 32) — far above any count used here.
 	if len(num.Bits()) != words {
-		// Matches or trimmed? generateTestNumber uses random bits so it should usually be full
-		// but leading zeros are possible.
+		t.Errorf("len(num.Bits()) = %d, want %d", len(num.Bits()), words)
 	}
 }

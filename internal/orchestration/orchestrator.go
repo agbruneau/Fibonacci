@@ -52,12 +52,12 @@ func ExecuteCalculations(ctx context.Context, cfg ExecutionConfig) []Calculation
 			Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),
 		}
 	} else {
-		g, ctx := errgroup.WithContext(ctx)
+		g, groupCtx := errgroup.WithContext(ctx)
 		for i, calc := range cfg.Calculators {
 			idx, calculator := i, calc
 			g.Go(func() error {
 				startTime := time.Now()
-				res, err := calculator.Calculate(ctx, progressChan, idx, cfg.N, cfg.Opts)
+				res, err := calculator.Calculate(groupCtx, progressChan, idx, cfg.N, cfg.Opts)
 				results[idx] = CalculationResult{
 					Name: calculator.Name(), Result: res, Duration: time.Since(startTime),
 					Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),

@@ -29,7 +29,6 @@ func TestExecuteMatrixLoop_ParallelGateMatchesGOMAXPROCS(t *testing.T) {
 	state := acquireMatrixState()
 	defer releaseMatrixState(state)
 
-	noopReporter := func(float64) {}
 	opts := Options{ParallelThreshold: 1} // lowest possible threshold: any nonzero matrix bit length qualifies
 
 	_, err := framework.ExecuteMatrixLoop(context.Background(), noopReporter, 100, opts, state)

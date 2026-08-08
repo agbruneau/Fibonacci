@@ -68,11 +68,11 @@ classDiagram
 
     %% ── Allocation Interfaces ──
 
-    class TempAllocator {
+    class tempAllocator {
         <<interface>>
         allocator.go
-        +AllocFermatTemp(n) fermat, func()
-        +AllocFermatSlice(K, n) []fermat, []big.Word, func()
+        -allocFermatTemp(n) fermat, func()
+        -allocFermatSlice(count, n) []fermat, []big.Word, func()
     }
 
     %% ── Interface Segregation ──
@@ -114,12 +114,12 @@ classDiagram
     class BumpAllocator {
         bump.go
     }
-    class PoolAllocator {
+    class poolAllocator {
         allocator.go
     }
 
     Calculator <|.. FibCalculator
-    CoreCalculator <|.. FibCalculator : wraps
+    FibCalculator o-- CoreCalculator : wraps (Decorator)
     CalculatorFactory <|.. DefaultFactory
     DoublingStepExecutor <|.. AdaptiveStrategy
     DoublingStepExecutor <|.. FFTOnlyStrategy
@@ -129,5 +129,7 @@ classDiagram
     ProgressReporter <|.. ProgressReporterFunc : adapts cli.DisplayProgress
     ProgressReporter <|.. TUIProgressReporter
     ProgressReporter <|.. NullProgressReporter
-    TempAllocator <|.. BumpAllocator
-    TempAllocator <|.. PoolAllocator
+    tempAllocator <|.. BumpAllocator
+    tempAllocator <|.. poolAllocator
+
+    note for FibCalculator "*FibCalculator implements Calculator (Calculate, Name) plus CalculateWithObservers. It has no CalculateCore, so it does NOT implement CoreCalculator - it composes one through the private core field (Decorator)."

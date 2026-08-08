@@ -89,7 +89,7 @@ func TestAdaptiveStrategyNilZ(t *testing.T) {
 	t.Run("Multiply", func(t *testing.T) {
 		x := big.NewInt(999)
 		y := big.NewInt(1001)
-		expected := new(big.Int).Mul(x, y) // 999 * 1001 = 999999
+		expected := new(big.Int).Mul(x, y) // 999 * 1001 == 999999
 
 		result, err := strategy.Multiply(nil, x, y, opts)
 		if err != nil {
@@ -105,7 +105,7 @@ func TestAdaptiveStrategyNilZ(t *testing.T) {
 
 	t.Run("Square", func(t *testing.T) {
 		x := big.NewInt(999)
-		expected := new(big.Int).Mul(x, x) // 999^2 = 998001
+		expected := new(big.Int).Mul(x, x) // 999 squared == 998001
 
 		result, err := strategy.Square(nil, x, opts)
 		if err != nil {

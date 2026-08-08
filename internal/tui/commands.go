@@ -49,7 +49,7 @@ func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config
 }
 
 // startCalculationCmd returns a tea.Cmd that launches the orchestration.
-func startCalculationCmd(ref *programRef, ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
+func startCalculationCmd(ctx context.Context, ref *programRef, calculators []orchestration.Calculator, cfg config.AppConfig, gen uint64) tea.Cmd {
 	return func() tea.Msg {
 		progressReporter := &TUIProgressReporter{ref: ref, gen: gen}
 		presenter := &TUIResultPresenter{ref: ref, gen: gen}

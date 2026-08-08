@@ -8,7 +8,7 @@
 
 `GCController` (`internal/fibonacci/memory/gc_control.go`) désactive le GC pendant un calcul (`debug.SetGCPercent(-1)`) et installe un garde-fou OOM (`debug.SetMemoryLimit`), puis restaure à la fin. Ces deux réglages sont **globaux au processus**.
 
-En mode comparaison (`--algo all`, `N >= GCAutoThreshold = 1_000_000`), l'orchestrateur lance **plusieurs calculateurs en parallèle** (`internal/orchestration/orchestrator.go:53-79`, `errgroup.Go`). Chaque calculateur crée son propre `GCController` (`calculator.go:218,260`) et l'exécute via `WithGC`. La sauvegarde/restauration **par contrôleur** était alors incorrecte :
+En mode comparaison (`--algo all`, `N >= GCAutoThreshold = 1_000_000`), l'orchestrateur lance **plusieurs calculateurs en parallèle** (`internal/orchestration/orchestrator.go:ExecuteCalculations`, `errgroup.Go`). Chaque calculateur crée son propre `GCController` (`calculator.go:FibCalculator.CalculateWithObservers`) et l'exécute via `WithGC`. La sauvegarde/restauration **par contrôleur** était alors incorrecte :
 
 1. Le 1ᵉʳ `Begin` capture l'original (ex. 100) et pose `-1`.
 2. Le 2ᵉ `Begin` capture **`-1`** comme « original ».
@@ -24,7 +24,7 @@ Vérifié par lecture de code (orchestrateur + calculateur + `gc_control.go`). L
 - Ajout de `var (gcGlobalMu sync.Mutex; gcActiveDepth int; gcSavedPercent int)`.
 - `Begin()` : sous `gcGlobalMu`, **seul le premier entrant actif** (`gcActiveDepth == 0`) appelle `debug.SetGCPercent(-1)` (et mémorise le **vrai** original dans `gcSavedPercent`) puis installe la limite mémoire ; les suivants ne font qu'incrémenter `gcActiveDepth`.
 - `End()` : sous `gcGlobalMu`, décrémente ; **seul le dernier sortant** (`gcActiveDepth == 0`) restaure `gcSavedPercent`, remet `SetMemoryLimit(MaxInt64)` et déclenche `runtime.GC()`.
-- `gc.startStats` / `gc.endStats` restent **par instance** (utilisés par `Stats()`). Le champ `originalGCPercent` par instance est **supprimé** (la source de vérité de restauration est désormais `gcSavedPercent`).
+- `gc.startStats` / `gc.endStats` restent **par instance**. Le champ `originalGCPercent` par instance est **supprimé** (la source de vérité de restauration est désormais `gcSavedPercent`).
 
 L'invariant `WithGC` panic-safe (`defer End()`) est **préservé** : un panic entre `Begin` et `End` décrémente correctement le refcount via le defer.
 
@@ -70,3 +70,11 @@ ce GC forcé et conserve le state entre deux appels. Voir
 `internal/fibonacci/fastdoubling.go` (commentaires
 `cachedState`/`maxCachedArenaWords`) et
 `internal/fibonacci/state_cache_test.go`.
+
+## Status note (2026-08-07)
+
+L'accesseur d'observabilité `GCController.Stats()` (et le type `GCStats`) a
+été supprimé : sans appelant de production, c'était un stub mort. Les champs
+`gc.startStats` / `gc.endStats` subsistent, désormais consommés uniquement par
+les logs de `Begin()`/`End()`. La décision de sérialisation par refcount
+ci-dessus est inchangée.

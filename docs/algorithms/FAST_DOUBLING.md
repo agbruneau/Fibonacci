@@ -187,9 +187,23 @@ type CalculationState struct {
 }
 
 // Acquire a state from the pool sized for n (resets FK=0, FK1=1)
-state := AcquireStateForN(n)
-defer ReleaseState(state)
+s := AcquireStateForN(n)
+raw, err := framework.ExecuteDoublingLoop(ctx, reporter, n, opts, s, false)
+if err != nil {
+    ReleaseState(s)          // error path only
+    return nil, err
+}
+return ReleaseStateWithResult(s, raw), nil  // success path: deep-copies out
 ```
+
+`defer ReleaseState(state)` is **not** the production pattern and no caller uses
+it. The two releases are not interchangeable: `ReleaseState` is the error path,
+`ReleaseStateWithResult` is the success path and deep-copies the result out of the
+arena before the state goes back to the pool — deferring the former would return
+the arena while the result still aliases it. See
+`internal/fibonacci/fft_based.go:FFTBasedCalculator.CalculateCore` for the only
+production shape — `AcquireStateForN`, then either `ReleaseState` on the error
+path or `ReleaseStateWithResult` on success.
 
 Objects exceeding `MaxPooledBitLen` (50M bits) are left for GC rather than returned to the pool.
 
@@ -203,7 +217,7 @@ s := AcquireStateForN(n)         // reuses or grows the bound arena
 result := ReleaseStateWithResult(s, s.FK)  // deep-copies result OUT of arena, resets, returns to pool
 ```
 
-If the arena is exhausted, allocation falls back to the standard heap. Past `maxArenaPoolWords` (~50M words / ~400 MB), the arena is dropped rather than pooled. A "steal `s.FK`" zero-copy trick is incompatible with arena reuse: stealing the slice would leave the released result aliasing pooled memory that the next tenant's `Reset()` overwrites. Instead, `ReleaseStateWithResult` performs a single deep-copy of the result out of the arena (one `~850 KB` memcpy for F(10M), <0.01 % of runtime).
+If the arena is exhausted, allocation falls back to the standard heap. Past `maxArenaPoolWords` (~50M words / ~400 MB), the arena is dropped rather than pooled. A "steal `s.FK`" zero-copy trick is incompatible with arena reuse: stealing the slice would leave the released result aliasing pooled memory that the next tenant's `Reset()` overwrites. Instead, `ReleaseStateWithResult` performs a single deep-copy of the result out of the arena: one linear pass, `~850 KB` for F(10M). Its share of total runtime is not measured by any artifact in this repo and is therefore not claimed here.
 
 Since the 2026-06 audit loop, the default `FastDoublingCalculator` layers two refinements on top of the pool (the public `AcquireStateForN`/`ReleaseStateWithResult` pair above remains the mechanism used by `FFTBasedCalculator`):
 
@@ -214,7 +228,7 @@ Measured 2026-06-10 for the two changes combined (see [`CHANGELOG.md`](../../CHA
 
 ### 3. Parallel Multiplication via Strategy
 
-The `DoublingStepExecutor.ExecuteStep` method performs the three multiplications required for a doubling step. The strategy decides whether to parallelize based on the `ParallelThreshold` in `Options`:
+The `DoublingStepExecutor.ExecuteStep` method performs the three multiplications required for a doubling step. The strategy does **not** decide whether to parallelize: `DoublingFramework.ExecuteDoublingLoop` (`doubling_framework.go`) calls `shouldParallelizeMultiplicationCached(opts, fkBitLen, fk1BitLen)` and passes the verdict in as `inParallel`. That decision reads three thresholds, not just `ParallelThreshold` — when the operand exceeds `FFTThreshold`, parallelism is suppressed unless it also exceeds `ParallelFFTThreshold` (`fastdoubling.go`):
 
 ```go
 // Narrow interface for basic operations
@@ -236,7 +250,7 @@ Parallelism considerations:
 - **Disabled with FFT**: FFT already saturates CPU cores
 - **Re-enabled for very large numbers**: Above `ParallelFFTThreshold` (5,000,000 bits)
 
-### 4. 3-Tier Adaptive Multiplication
+### 4. 2-Tier Adaptive Multiplication
 
 The `smartMultiply` function selects the optimal multiplication algorithm based on operand size:
 

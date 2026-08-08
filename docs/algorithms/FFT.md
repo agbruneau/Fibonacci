@@ -92,7 +92,9 @@ opts := fibonacci.Options{
 }
 ```
 
-Setting `FFTThreshold` to 0 disables FFT multiplication entirely.
+Setting `FFTThreshold` to 0 does **not** disable FFT: `normalizeOptions()` rewrites a
+zero threshold to `DefaultFFTThreshold` (500,000) on every calculation path. To keep
+FFT off, set the threshold above the largest operand you expect.
 
 ### Threshold Selection
 
@@ -114,7 +116,7 @@ The FFT algorithm tends to **saturate CPU resources** as it performs many parall
 
 ### Implemented Solution
 
-`ShouldParallelizeMultiplication` (in `internal/fibonacci/fastdoubling.go`) disables external parallelism when FFT is active, except for very large numbers. The decision uses `maxBitLen` (the larger of the two operands' bit lengths), because the squaring operations trigger FFT as soon as a single operand exceeds the threshold:
+`shouldParallelizeMultiplicationCached` (in `internal/fibonacci/fastdoubling.go`) disables external parallelism when FFT is active, except for very large numbers. The decision uses `maxBitLen` (the larger of the two operands' bit lengths), because the squaring operations trigger FFT as soon as a single operand exceeds the threshold:
 
 ```go
 // shouldParallelizeMultiplicationCached, internal/fibonacci/fastdoubling.go

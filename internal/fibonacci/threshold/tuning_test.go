@@ -5,7 +5,7 @@ import "testing"
 // TestSetTuning covers the threshold -> config seam (manager.go SetTuning),
 // which had 0% coverage (audit F-007). SetTuning writes package-level tuning
 // globals, so this test is deliberately NOT parallel and restores the originals
-// via defer, honouring the A2-04 single-writer-before-use invariant documented
+// via defer, honoring the A2-04 single-writer-before-use invariant documented
 // at manager.go:33-39 (no concurrent reader runs during the sequential phase).
 func TestSetTuning(t *testing.T) {
 	origFFT := FFTSpeedupThreshold

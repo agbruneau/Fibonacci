@@ -84,7 +84,8 @@ si un runner self-hosted ARM64 devient disponible.
 répertoire `.github/` (et le job `cross-compile` d'E10-R5 cité ci-dessus)
 a été supprimé (cf. `CHANGELOG.md`). La compilabilité cross-arch est
 désormais vérifiée **localement** via `make build-all` /
-`make build-windows-arm64` (`docs/PORTABILITY.md` §6). Le statut WONT-FIX
+`make build-windows-arm64` (`docs/PORTABILITY.md` §5 « Vérification locale » ;
+§6 est « Limitations connues »). Le statut WONT-FIX
 (bench cross-arch) reste valide ; seule la justification s'appuyant sur la
 CI est caduque.
 
@@ -101,8 +102,10 @@ Justification :
 
 **Mise à jour (2026-06-21) :** exécuté. Le fichier (déplacé en
 `docs/external-reviews/2026-02-08-jules-self-evaluation.md`) a été purgé
-au commit `7ab9098` ; `docs/external-reviews/` est désormais vide. La
-décision de report n'a plus d'objet.
+au commit `7ab9098` ; `docs/external-reviews/` n'existe plus dans l'arbre
+(vérifié le 2026-08-07 : `docs/` contient `adr/`, `algorithms/`,
+`architecture/`, `audits/`, `dashboard/` et les sept fichiers `.md` de tête).
+La décision de report n'a plus d'objet.
 
 ### Item B5 — Extension du golden au-delà de F(10 000)
 
@@ -142,3 +145,10 @@ l'annonçait l'action concrète ci-dessus (vérifié sur
 `internal/fibonacci/testdata/fibonacci_golden.json` à HEAD). Le fichier golden
 reste immuable sans nouvel accord ADR ; toute extension future requiert le
 même protocole.
+
+## Status note (2026-08-07)
+
+- `CLAUDE.md` (cité en B5 comme source du statut « immuable » du golden) a été
+  retiré du dépôt le 2026-07-31 (commit `869bd6a`). Le statut immuable tient
+  désormais de cet ADR seul ; il n'existe plus de fichier de directives dans
+  l'arbre.

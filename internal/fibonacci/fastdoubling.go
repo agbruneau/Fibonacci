@@ -25,11 +25,15 @@ const maxArenaPoolWords = 50_000_000
 // GC-immune, unlike statePool: the GC-disable pattern of large calculations
 // (memory.GCController) re-enables GC right after every call, and the
 // resulting collection keeps flushing sync.Pool, so repeated calls paid a
-// full arena reallocation each time (measured: ~46 % of all allocations at
-// F(10M)). Because the slot pins its arena until the next call (or the
-// calculator is dropped), the cap is deliberately much tighter than
-// maxArenaPoolWords: ~32 MB, covering n up to roughly 20M. Larger arenas
-// keep the historical pool-only behavior.
+// full arena reallocation each time (~46 % of all allocations at F(10M) —
+// CHANGELOG.md, entry `fa13bfd` of 2026-06-10). Because the slot pins its
+// arena until the next call (or the calculator is dropped), the cap is
+// deliberately much tighter than maxArenaPoolWords: 4M words = 32 MB on a
+// 64-bit word. With the ADR-0009 R4 arena factor of 10 —
+// arenaTotalWords(n) = (⌊n*0.69424/64⌋+1)*10, memory/arena.go — that covers
+// n up to ≈ 36.9M. (The previous "roughly 20M" here was computed against the
+// pre-ADR-0009 ×15 factor and was never updated.) Larger arenas keep the
+// historical pool-only behavior.
 const maxCachedArenaWords = 4_000_000
 
 // FastDoublingCalculator provides a high-performance implementation of the "Fast
@@ -76,14 +80,13 @@ const maxCachedArenaWords = 4_000_000
 //     and garbage collector overhead during the main loop.
 //   - Multi-core Parallelism: For very large numbers (exceeding a configurable
 //     `threshold`), the algorithm parallelizes the three core multiplications
-//     in the doubling step. This threshold defaults to 4096 bits, a value
-//     determined empirically to balance the overhead of goroutine creation
-//     against the gains of parallel computation.
+//     in the doubling step. The threshold defaults to 4096 bits — a starting
+//     point, not a measured optimum; see constants.go.
 //   - Adaptive Multiplication: To handle extremely large numbers efficiently,
 //     the calculator dynamically switches to an FFT-based multiplication method
-//     when the numbers exceed a specified `fftThreshold`. This threshold
-//     defaults to 500,000 bits, a conservative value where FFT's superior
-//     asymptotic complexity reliably outperforms standard multiplication.
+//     when the numbers exceed a specified `fftThreshold`, defaulting to
+//     500,000 bits. That default is deliberately conservative rather than
+//     measured; calibration is what locates the real crossover on a host.
 type FastDoublingCalculator struct {
 	// cachedState is a single-slot, GC-immune cache of the last released
 	// CalculationState (and its bound arena). It exists because statePool
@@ -183,9 +186,10 @@ func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter pr
 //     numbers (> ParallelFFTThreshold bits) to overcome concurrency overhead.
 //
 // It accepts pre-computed BitLen() values (rather than a *CalculationState)
-// to avoid redundant calls; BitLen() traverses the internal representation
-// of big.Int, so caching these values provides a measurable performance
-// improvement (2-5%).
+// so the caller can read FK/FK1 bit lengths once per doubling step instead of
+// once per predicate. The saving is a handful of big.Int header reads per
+// iteration; the repo carries no benchmark isolating it, so no figure is
+// claimed (the previous "2-5%" was unsourced).
 //
 // Parameters:
 //   - opts: Configuration options including thresholds.
@@ -212,8 +216,9 @@ func shouldParallelizeMultiplicationCached(opts Options, fkBitLen, fk1BitLen int
 	// multiplication will use FFT and cause CPU saturation.
 	//
 	// We only re-enable parallelism for extremely large numbers
-	// (> ParallelFFTThreshold bits) where the benefit outweighs contention.
-	// See constants.go for empirical benchmark results.
+	// (> ParallelFFTThreshold bits) where the benefit is expected to outweigh
+	// contention. See constants.go for the provenance of that value — it is a
+	// setting, not a measured crossover.
 	// Note: opts should already be normalized, but we check for safety
 	if opts.FFTThreshold > 0 && maxBitLen > opts.FFTThreshold {
 		return maxBitLen > ParallelFFTThreshold

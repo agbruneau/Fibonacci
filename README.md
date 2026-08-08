@@ -20,7 +20,7 @@ Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de
 
 | Date | Portée | Résultats clés |
 |---|---|---|
-| **2026-06** | Audit complet, refactorisation et optimisation — [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) (Anthropic), effort Max | Temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M), couverture 88,9 % → **95,0 %**, une data race réelle corrigée, 1 019 affirmations documentaires vérifiées — [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-06** | Audit complet, refactorisation et optimisation — [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) (Anthropic), effort Max | Temps de calcul geomean **−12 %** (FastDoubling/10M −15,3 %), allocations **~−70 %** B/op à F(10M), couverture 88,9 % → **95,0 %**, une data race réelle corrigée — [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-06-24** | Revue Go exhaustive — Claude Opus 4.8, orchestration multi-agents, vérification adversariale | Trois défauts de correctness corrigés (panic de la récursion FFT parallèle re-propagée au lieu de crasher — ADR-0002 ; `--algo all --quiet` ne masque plus une divergence — exit 3 ; messages TUI obsolètes ignorés après *Restart*), durcissements (`GOMEMLIMIT`, troncature UTF-8, complétion shell, codes de sortie), purge de code mort. Chemin critique validé sans régression (`benchstat`) — [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Opus 4.8 pilote, exécuteurs Sonnet, vérification adversariale — **exécuté** (6 phases, ~30 commits) | ~40 findings corrigés (dont panic pointeur/tri, `--gc-control` inerte, complétions shell, data race spinner, correctifs calibration + re-validation profil forgé SEC-01, `bigfft` alloc pool non initialisée + ordonnancement panic FFT-02), ~500 LOC de code mort retiré, couverture 95,0 % → **95,2 %**, build `gmp` réparé, `benchstat` global **sans régression réelle**. FIB-05 (réduction du multiplicateur d'arène) initialement **rejetée sur preuve Ryzen** (+18 à +34 % à F(10M)) → [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) / [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07-07** | Suivi post-audit — exécution des 5 tâches à plus fort levier + **release v4.0.0** | Tag `v4.0.0` (première coupe CHANGELOG depuis 1.0.0) ; backend **GMP branché au gate local** (`check.sh` étape 3b, libgmp dans WSL) ; profil **PGO régénéré** ; **balayage complet du multiplicateur d'arène** (protocole ADR-0009 R4) → **×15 → ×10 adopté** : mémoire FFT 10M **−16 % B/op** à coût CPU nul, confirmé en ordre inversé (addendum [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) |
@@ -90,7 +90,8 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Allocateur bump** O(1) sans fragmentation pour les tampons FFT.
 - **GC désactivé** pendant les grands calculs (N ≥ 1M), panic-safe (`WithGC`), refcount concurrent (ADR-0005).
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
-  acquisition non bloquante) — mesuré −23 à −35 % sur F(10M) en 2026-06.
+  acquisition non bloquante) — **−14 % à −35 %** sur F(10M) selon l'algorithme (2026-06-09, chiffres
+  consignés dans [`CHANGELOG.md`](CHANGELOG.md) ; le rapport de mesure a été purgé, pas de sortie archivée).
 - **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées (ADR-0001).
 - **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
   stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
@@ -110,8 +111,10 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 
 ## Architecture
 
-Clean Architecture en quatre couches — `cmd → app → orchestration → fibonacci/bigfft → config/errors`,
-étanchéité gardée par `internal/arch_test.go`. Source de vérité : [`docs/architecture/`](docs/architecture/)
+Clean Architecture — `cmd → app → orchestration → fibonacci → bigfft`, `internal/config` étant un *frère* de
+`orchestration` et non une couche sous `fibonacci` (commentaire de paquet de `internal/arch_test.go`) ; `internal/bigfft` est le noyau
+et n'importe aucun package interne. Étanchéité gardée par `internal/arch_test.go`
+(cinq arêtes montantes interdites). Source de vérité : [`docs/architecture/`](docs/architecture/)
 (diagrammes C4, [graphe de dépendances](docs/architecture/dependency-graph.mermaid)) et le
 [dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/) (généré, servi par GitHub Pages depuis
 [`docs/dashboard/`](docs/dashboard/)).
@@ -128,22 +131,25 @@ Clean Architecture en quatre couches — `cmd → app → orchestration → fibo
 | `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) ; sous-package `cli/completion` (génération complétion shell) |
 | `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
 | `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
-| `internal/{errors,format,metrics,parallel,ui,testutil}` | Packages de support (feuilles) |
+| `internal/{errors,format,metrics,ui,testutil}` | Packages de support (feuilles) |
 
 ---
 
 ## Performance
 
-Mesures du **2026-07-07** (Intel Core Ultra 9 275HX, 24 threads, WSL2 Ubuntu, Go 1.26.0, arène ×10 ;
-Fast Doubling et FFT : `benchstat` n=10 issus du balayage ADR-0009 R4 ; MatrixExp : session PGO du même jour) :
+Médianes recalculées à partir du **seul artefact de mesure du dépôt**,
+[`docs/audits/bench-baseline.txt`](docs/audits/bench-baseline.txt) (linux/amd64, 24 threads,
+`-count=5 -benchtime=1x`, estampille `baseline-2026-07-07`, arène ×10) :
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
 |---|---|---|---|---|
-| 1 000 000 | **3,4 ms** | ~6,5 ms | 5,0 ms | 208 988 |
-| 10 000 000 | **22,3 ms** | ~32 ms | 24,4 ms | 2 089 877 |
-| 100 000 000 | ~0,2 s (calcul seul, 2026-06-09¹) | — | — | 20 898 764 |
+| 1 000 000 | **3,15 ms** / 1,32 Mo par op | 6,03 ms / 6,33 Mo | 5,13 ms / 5,38 Mo | 208 988 |
+| 10 000 000 | **23,87 ms** / 17,38 Mo par op | 30,84 ms / 92,25 Mo | 29,08 ms / 30,88 Mo | 2 089 877 |
 
-¹ binaire `-algo fast` sans conversion décimale, médiane de 4 runs.
+`-benchtime=1x` : une itération par échantillon, rodage compris. Aucune autre valeur de N n'est
+mesurée dans le dépôt. Pour F(100 000 000), le seul chiffre traçable est le **0,204 s** de calcul seul
+(sans conversion décimale) consigné dans [`CHANGELOG.md`](CHANGELOG.md) au 2026-06-09 ; il n'a pas
+d'artefact de sortie archivé.
 
 Côté mémoire, l'adoption du multiplicateur d'arène ×10 (2026-07-07) réduit les B/op FFT à F(10M) de **−16 %**
 vs ×15, allocations inchangées — gain confirmé en ordre d'exécution inversé (addendum
@@ -197,11 +203,24 @@ Exemples :
 
 ## Configuration
 
-Les variables d'environnement surchargent les défauts (les flags CLI gagnent toujours).
-Priorité : **flags CLI > variables d'environnement > estimation adaptative > défauts statiques**.
+Une variable `FIBCALC_*` n'est lue que si le flag correspondant est absent de la ligne de commande
+(`internal/config/env.go:applyEnvOverrides`). Priorité générale :
+**flags CLI > variables d'environnement > défauts statiques**.
+
+> **Exception — les trois seuils.** Un profil de calibration en cache **valide** écrase `--threshold`,
+> `--fft-threshold` et `--strassen-threshold`, ainsi que leurs variables d'environnement.
+> `app.New` appelle `calibration.LoadCachedCalibration` *après* `ParseConfig`
+> (`internal/app/app.go:New`) et celle-ci réécrit les trois champs sans consulter ni le flag ni la variable
+> (`internal/calibration/calibration.go:LoadCachedCalibration`). Le profil est lu à `--calibration-profile`, ou à
+> `~/.fibcalc_calibration.json` par défaut ; il n'est retenu que si `IsValid()` passe (version de profil,
+> nombre de CPU, `GOARCH`, taille de mot, clé heuristique SIMD) et si la config résultante valide encore.
+> Sans profil valide, `ApplyAdaptiveThresholds` ne remplit que les seuils laissés à 0 (estimation adaptative,
+> `internal/config/thresholds.go`), les autres gardent la valeur du flag ou de la variable. Pour qu'un seuil
+> explicite soit respecté, supprimer le profil ou pointer `--calibration-profile` sur un chemin inexistant.
+
 Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FIBCALC_ALGO`, `FIBCALC_TIMEOUT`,
-`FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`,
-`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, et
+`FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`, `FIBCALC_LAST_DIGITS`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`,
+`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`, et
 [`NO_COLOR`](https://no-color.org/).
 
 ---
@@ -232,8 +251,8 @@ make all             # clean + build + test     (équiv. : go build ./... && go 
 make test            # go test -v -race -cover ./...   (CGO requis ; Linux/macOS/WSL)
 make test-win        # go test -v -cover ./...         (Windows sans gcc, sans -race)
 make lint            # golangci-lint run ./...  (24 linters)
-make coverage        # rapport HTML            (équiv. : go test ./... -coverprofile=coverage.out)
-make benchmark       # benchmarks fibonacci    (équiv. : go test -bench=BenchmarkFibonacci -benchmem -run=^$ ./internal/fibonacci/)
+make coverage        # rapport HTML            (équiv. : go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html)
+make benchmark       # benchmarks fibonacci    (équiv. : go test -bench=. -benchmem ./internal/fibonacci/)
 make bench-baseline  # rafraîchit la baseline de non-régression docs/audits/
 make build-pgo       # build avec PGO
 make build-all       # cross-compilation linux/windows/darwin (amd64 + arm64)

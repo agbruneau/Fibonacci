@@ -31,7 +31,7 @@ func TestComputeLastDigits(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		// F(100) = 354224848179261915075
+		// F(100) is 354224848179261915075
 		if got.Digits != "15075" {
 			t.Errorf("expected digits %q, got %q", "15075", got.Digits)
 		}

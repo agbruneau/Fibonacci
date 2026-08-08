@@ -174,7 +174,6 @@ func TestFormatBytes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := format.FormatBytes(tt.input)
@@ -201,7 +200,6 @@ func TestFormatBytes_Boundaries(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := format.FormatBytes(tt.input)

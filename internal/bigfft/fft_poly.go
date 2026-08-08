@@ -78,8 +78,9 @@ func (p *Poly) IntToBigInt(z *big.Int) *big.Int {
 	return z
 }
 
-// Int evaluates back a Poly to its integer value.
-func (p *Poly) Int() nat {
+// Int evaluates back a Poly to its integer value, as a big.Word magnitude
+// slice in the layout expected by big.Int.SetBits.
+func (p *Poly) Int() []big.Word {
 	return p.IntTo(nil)
 }
 
@@ -90,7 +91,7 @@ func (p *Poly) Int() nat {
 // This optimization reduces memory allocations when the caller already has
 // a buffer that can be reused, which is common in iterative multiplication
 // scenarios like Fibonacci calculations.
-func (p *Poly) IntTo(dst nat) nat {
+func (p *Poly) IntTo(dst []big.Word) []big.Word {
 	length := len(p.A)*p.M + 1
 	if na := len(p.A); na > 0 {
 		length += len(p.A[na-1])
@@ -136,7 +137,7 @@ func trim(n nat) nat {
 // Test oracle: no production caller; cross-validated by fuzz/precision tests
 // against MulWithBump and other multiplication paths (audit OVR-10). Kept.
 func (p *Poly) Mul(q *Poly) (Poly, error) {
-	return p.mul(q, GetPoolAllocator())
+	return p.mul(q, defaultPoolAllocator)
 }
 
 // MulWithBump multiplies p and q using a bump allocator for temporary allocations.
@@ -145,7 +146,7 @@ func (p *Poly) MulWithBump(q *Poly, ba *BumpAllocator) (Poly, error) {
 	return p.mul(q, ba)
 }
 
-func (p *Poly) mul(q *Poly, alloc TempAllocator) (Poly, error) {
+func (p *Poly) mul(q *Poly, alloc tempAllocator) (Poly, error) {
 	// extra=2 because:
 	// * some power of 2 is a K-th root of unity when n is a multiple of K/2
 	// * 2 itself is a square (see fermat.ShiftHalf)
@@ -228,7 +229,7 @@ func (v *PolValues) Release() {
 // pool-backed variant is retained as the reference for cross-validation
 // (audit OVR-10).
 func (p *Poly) Transform(n int) (PolValues, error) {
-	return p.transform(n, GetPoolAllocator())
+	return p.transform(n, defaultPoolAllocator)
 }
 
 // TransformWithBump evaluates p at θ^i for i = 0...K-1, using a bump allocator
@@ -238,13 +239,13 @@ func (p *Poly) TransformWithBump(n int, ba *BumpAllocator) (PolValues, error) {
 	return p.transform(n, ba)
 }
 
-func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
+func (p *Poly) transform(n int, alloc tempAllocator) (PolValues, error) {
 	k := p.K
 	K := 1 << k
 	wordCount := (n + 1) * K
 
 	// Use allocator for temporary input buffers
-	input, _, cleanup := alloc.AllocFermatSlice(K, n)
+	input, _, cleanup := alloc.allocFermatSlice(K, n)
 	defer cleanup()
 
 	// Use pooled allocation for output buffers (contiguous backing array)
@@ -285,7 +286,7 @@ func (p *Poly) transform(n int, alloc TempAllocator) (PolValues, error) {
 // InvTransform reconstructs p (modulo X^K - 1) from its
 // values at θ^i for i = 0..K-1.
 func (v *PolValues) InvTransform() (Poly, error) {
-	return v.invTransform(GetPoolAllocator())
+	return v.invTransform(defaultPoolAllocator)
 }
 
 // InvTransformWithBump reconstructs p (modulo X^K - 1) from its values,
@@ -294,7 +295,7 @@ func (v *PolValues) InvTransformWithBump(ba *BumpAllocator) (Poly, error) {
 	return v.invTransform(ba)
 }
 
-func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
+func (v *PolValues) invTransform(alloc tempAllocator) (Poly, error) {
 	k, n := v.K, v.N
 	K := 1 << k
 	wordCount := (n + 1) * K
@@ -327,14 +328,13 @@ func (v *PolValues) invTransform(alloc TempAllocator) (Poly, error) {
 
 	// Divide by K, and untwist q to recover p.
 	// Use allocator for temporary u
-	u, cleanup := alloc.AllocFermatTemp(n)
+	u, cleanup := alloc.allocFermatTemp(n)
 	defer cleanup()
 
 	// Use pooled allocation for a
 	a := acquireNatSlice(K)
 	for i := 0; i < K; i++ {
-		// k is the FFT level (small: typically < 32), so int(k) is safe. #nosec G115
-		u.Shift(p[i], -int(k))
+		u.Shift(p[i], -int(k)) // #nosec G115 -- k is an FFT level (< 64 by construction), so int(k) cannot overflow
 		copy(p[i], u)
 		a[i] = nat(p[i])
 	}
@@ -434,8 +434,7 @@ func (v *PolValues) InvNTransform() (Poly, error) {
 	u := make(fermat, n+1)
 	a := make([]nat, 1<<k)
 	for i := range q {
-		// k is the FFT level (small: typically < 32), so int(k) is safe. #nosec G115
-		u.Shift(q[i], -int(k)-i*θshift)
+		u.Shift(q[i], -int(k)-i*θshift) // #nosec G115 -- k is an FFT level (< 64 by construction), so int(k) cannot overflow
 		copy(q[i], u)
 		a[i] = nat(q[i])
 	}
@@ -449,11 +448,11 @@ func (v *PolValues) InvNTransform() (Poly, error) {
 // inputs (~245k words) engage it, matrix-path coefficients stay far below.
 const pointwiseMinParallelWords = 1 << 16
 
-// runPointwise executes body(i, buf) for every i in [0, K). Each invocation
+// runPointwise executes body(i, buf) for every i in [0, count). Each invocation
 // must write only to destination index i (disjoint writes); buf is an
 // 8*n-word fermat scratch reserved for the invocation's exclusive use.
 //
-// When the total output (K*(n+1) words) reaches pointwiseMinParallelWords,
+// When the total output (count*(n+1) words) reaches pointwiseMinParallelWords,
 // chunks of the index space run on extra goroutines bounded by the global
 // FFT semaphore with a non-blocking acquire — the same contract as
 // fourierRecursiveUnified: when no token is available the chunk simply runs
@@ -463,28 +462,28 @@ const pointwiseMinParallelWords = 1 << 16
 // the parallel recursion). Worker panics are captured and re-panicked in
 // the calling goroutine so the public entry points' recover policy
 // (ADR-0002 sentinel re-propagation) keeps applying unchanged.
-func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
-	if K*(n+1) < pointwiseMinParallelWords || runtime.NumCPU() == 1 {
-		buf, cleanup := alloc.AllocFermatTemp(8 * n)
+func runPointwise(count, n int, alloc tempAllocator, body func(i int, buf fermat)) {
+	if count*(n+1) < pointwiseMinParallelWords || runtime.NumCPU() == 1 {
+		buf, cleanup := alloc.allocFermatTemp(8 * n)
 		defer cleanup()
-		for i := 0; i < K; i++ {
+		for i := 0; i < count; i++ {
 			body(i, buf)
 		}
 		return
 	}
 
 	workers := runtime.NumCPU()
-	if workers > K {
-		workers = K
+	if workers > count {
+		workers = count
 	}
-	chunk := (K + workers - 1) / workers
+	chunk := (count + workers - 1) / workers
 
 	sem := getSemaphore()
 	var wg sync.WaitGroup
 	panicCh := make(chan any, 1)
 
 	runChunk := func(lo, hi int) {
-		buf, cleanup := GetPoolAllocator().AllocFermatTemp(8 * n)
+		buf, cleanup := defaultPoolAllocator.allocFermatTemp(8 * n)
 		defer cleanup()
 		for i := lo; i < hi; i++ {
 			body(i, buf)
@@ -493,10 +492,10 @@ func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
 
 	// Chunk 0 is reserved for the calling goroutine (processed below with
 	// the caller-provided allocator); the rest spawn when a token is free.
-	for lo := chunk; lo < K; lo += chunk {
+	for lo := chunk; lo < count; lo += chunk {
 		hi := lo + chunk
-		if hi > K {
-			hi = K
+		if hi > count {
+			hi = count
 		}
 		select {
 		case sem <- struct{}{}:
@@ -525,11 +524,11 @@ func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
 	var rSync any
 	func() {
 		defer func() { rSync = recover() }()
-		buf, cleanup := alloc.AllocFermatTemp(8 * n)
+		buf, cleanup := alloc.allocFermatTemp(8 * n)
 		defer cleanup()
 		hi := chunk
-		if hi > K {
-			hi = K
+		if hi > count {
+			hi = count
 		}
 		for i := 0; i < hi; i++ {
 			body(i, buf)
@@ -547,22 +546,22 @@ func runPointwise(K, n int, alloc TempAllocator, body func(i int, buf fermat)) {
 	}
 }
 
-// Mul returns the pointwise product of p and q.
-func (p *PolValues) Mul(q *PolValues) (PolValues, error) {
-	return p.mul(q, GetPoolAllocator())
+// Mul returns the pointwise product of v and q.
+func (v *PolValues) Mul(q *PolValues) (PolValues, error) {
+	return v.mul(q, defaultPoolAllocator)
 }
 
-// MulWithBump returns the pointwise product of p and q, using a bump allocator
+// MulWithBump returns the pointwise product of v and q, using a bump allocator
 // for temporary buffers.
-func (p *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, error) {
-	return p.mul(q, ba)
+func (v *PolValues) MulWithBump(q *PolValues, ba *BumpAllocator) (PolValues, error) {
+	return v.mul(q, ba)
 }
 
-func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
-	n := p.N
-	K := len(p.Values)
+func (v *PolValues) mul(q *PolValues, alloc tempAllocator) (PolValues, error) {
+	n := v.N
+	K := len(v.Values)
 	var r PolValues
-	r.K, r.N = p.K, p.N
+	r.K, r.N = v.K, v.N
 
 	// Use pooled allocation for returned data (contiguous backing array)
 	r.Values = acquireFermatSlice(K)
@@ -576,7 +575,7 @@ func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
 	// runPointwise spreads them across cores for large transforms. The
 	// scratch buffer needs 8*n words, consistent with the historical code.
 	runPointwise(K, n, alloc, func(i int, buf fermat) {
-		z := buf.Mul(p.Values[i], q.Values[i])
+		z := buf.Mul(v.Values[i], q.Values[i])
 		copy(r.Values[i], z)
 	})
 
@@ -585,23 +584,23 @@ func (p *PolValues) mul(q *PolValues, alloc TempAllocator) (PolValues, error) {
 	return r, nil
 }
 
-// Sqr returns the pointwise square of p (p[i] * p[i] for each i).
+// Sqr returns the pointwise square of v (v[i] * v[i] for each i).
 // This is optimized for squaring as we don't need a second set of values.
-func (p *PolValues) Sqr() (PolValues, error) {
-	return p.sqr(GetPoolAllocator())
+func (v *PolValues) Sqr() (PolValues, error) {
+	return v.sqr(defaultPoolAllocator)
 }
 
-// SqrWithBump returns the pointwise square of p, using a bump allocator
+// SqrWithBump returns the pointwise square of v, using a bump allocator
 // for temporary buffers.
-func (p *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
-	return p.sqr(ba)
+func (v *PolValues) SqrWithBump(ba *BumpAllocator) (PolValues, error) {
+	return v.sqr(ba)
 }
 
-func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
-	n := p.N
-	K := len(p.Values)
+func (v *PolValues) sqr(alloc tempAllocator) (PolValues, error) {
+	n := v.N
+	K := len(v.Values)
 	var r PolValues
-	r.K, r.N = p.K, p.N
+	r.K, r.N = v.K, v.N
 
 	// Use pooled allocation for returned data (contiguous backing array)
 	r.Values = acquireFermatSlice(K)
@@ -613,7 +612,7 @@ func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 
 	// Same parallel dispatch as mul; Sqr is the specialized squaring.
 	runPointwise(K, n, alloc, func(i int, buf fermat) {
-		z := buf.Sqr(p.Values[i])
+		z := buf.Sqr(v.Values[i])
 		copy(r.Values[i], z)
 	})
 
@@ -629,9 +628,9 @@ func (p *PolValues) sqr(alloc TempAllocator) (PolValues, error) {
 // Test oracle: no production caller today; retained for tests that need an
 // independent, aliasing-free copy to diff against a mutated original
 // (audit OVR-10).
-func (p *PolValues) Clone() PolValues {
-	K := len(p.Values)
-	n := p.N
+func (v *PolValues) Clone() PolValues {
+	K := len(v.Values)
+	n := v.N
 	wordCount := K * (n + 1)
 
 	// Allocate new backing array and values slice
@@ -640,12 +639,12 @@ func (p *PolValues) Clone() PolValues {
 
 	for i := 0; i < K; i++ {
 		values[i] = fermat(bits[i*(n+1) : (i+1)*(n+1)])
-		copy(values[i], p.Values[i])
+		copy(values[i], v.Values[i])
 	}
 
 	return PolValues{
-		K:      p.K,
-		N:      p.N,
+		K:      v.K,
+		N:      v.N,
 		Values: values,
 	}
 }

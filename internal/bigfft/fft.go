@@ -104,8 +104,10 @@ func MulTo(z, x, y *big.Int) (res *big.Int, err error) {
 }
 
 // Sqr computes x*x and returns the result as a new *big.Int.
-// Squaring is optimized because we only need to transform x once,
-// which saves approximately 33% of the FFT computation compared to Mul.
+// Squaring is optimized because x is transformed once: two transforms
+// (1 forward + 1 inverse) instead of the three Mul needs (2 forward +
+// 1 inverse). The saving is one transform out of three, not a measured
+// fraction of wall time.
 //
 // Panic policy: see Mul.
 func Sqr(x *big.Int) (res *big.Int, err error) {
@@ -239,15 +241,25 @@ func fftSize(x, y nat) (k uint, m int) {
 
 // ValueSize returns the length (in words) to use for polynomial
 // coefficients. The chosen length must be a multiple of 1 << (k-extra).
+//
+// k must be a valid FFT level, i.e. k <= len(fftSizeThreshold); valueSize
+// panics otherwise.
 func ValueSize(k uint, m int, extra uint) int {
 	return valueSize(k, m, extra)
 }
 
 func valueSize(k uint, m int, extra uint) int {
+	// fftSize/fftSizeSqr/GetFFTParams cap k at len(fftSizeThreshold); the
+	// exported ValueSize takes k straight from its caller, so the bound is
+	// enforced here — the single point every caller routes through — rather
+	// than assumed. It also makes int(k) below provably non-overflowing.
+	if k > uint(len(fftSizeThreshold)) {
+		panic("bigfft.valueSize: k is not a valid FFT level")
+	}
 	// The coefficients of P*Q are less than b^(2m)*K
 	// so we need W * valueSize >= 2*m*W+K.
-	// k is the FFT level (small: typically < 32), so int(k) is safe. #nosec G115
-	n := 2*m*_W + int(k) // necessary bits
+	// n is the number of necessary bits.
+	n := 2*m*_W + int(k)
 	K := 1 << (k - extra)
 	if K < _W {
 		K = _W

@@ -221,13 +221,15 @@ func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFF
 
 // generateTestNumber creates a random-ish big.Int with the specified word count.
 func generateTestNumber(words int) *big.Int {
-	// Use a deterministic pattern for reproducibility
+	// Deterministic pattern that exercises all bits without being uniform:
+	// word i is 0xAAAA… ^ (i * 0x1234567). The step is accumulated in uint64
+	// rather than derived from the loop index, so no signed→unsigned
+	// conversion appears; both forms wrap mod 2^64 and yield the same words.
 	bits := make([]big.Word, words)
+	var delta uint64
 	for i := range bits {
-		// Pattern that exercises all bits without being uniform.
-		// i is a loop index over make([]big.Word, words) with words >= 0,
-		// so uint64(i*0x1234567) never overflows meaningfully here. #nosec G115
-		bits[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ uint64(i*0x1234567))
+		bits[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ delta)
+		delta += 0x1234567
 	}
 	z := new(big.Int)
 	z.SetBits(bits)

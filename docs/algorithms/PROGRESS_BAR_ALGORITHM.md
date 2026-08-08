@@ -255,7 +255,7 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
 1. **Monotonicity**: Progress is always increasing (or stable), never decreasing
 2. **Valid range**: Progress values are always in [0.0, 1.0]
 3. **Finalization**: Final progress is always close to 1.0 (>= 0.99)
-4. **Performance**: No exponentiation calculations in the loop (precomputed)
+4. **Performance**: bounded, allocation-free work per iteration — but **not** exponentiation-free. `ReportStepProgress` calls `stepProgress` (`internal/progress/progress.go:ReportStepProgress`), which evaluates two `math.Pow` per iteration: `math.Pow(4, -i)` and `math.Pow(4, -numBits)` (`progress.go:stepProgress`). The precomputed `powers` array is still consulted, but only for the cumulative `workDone` total that the function threads through; the reported ratio no longer divides by it.
 
 ## Progression Behavior
 
@@ -263,7 +263,7 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
 
 - **Slow progress at the start**: The first steps (most significant bits) represent little work
 - **Acceleration toward the end**: The last steps (least significant bits) represent the majority of work
-- **Distribution**: For 20 bits, approximately 50% of the work is done in the last 2-3 steps
+- **Distribution**: the geometric 4^i model puts the last step's share at `3·4^(numBits−1) / (4^numBits − 1)`. That is 100 % for `numBits = 1`, 80 % for 2, 76.19 % for 3, and converges to 75 % from above — it is **not** independent of `numBits`, only asymptotically constant. For any realistic `numBits` (≥ 10) the ~75 % / ~94 % figures for the last one and last two steps hold to two decimals.
 
 ### Numerical Example
 
@@ -334,13 +334,14 @@ func TestProgressMonotonic(t *testing.T) {
 
 ### Performance
 
-1. **Precomputed powers**: Global `[64]float64` array avoids `math.Pow(4, x)` in the loop (O(1) vs O(log x))
+1. **Precomputed powers**: Global `[64]float64` array supplies the per-step work unit by lookup, avoiding a `math.Pow(4, stepIndex)` for the cumulative total
 2. **Zero-allocation lookup**: `PrecomputePowers4` returns a slice of the global array for numBits <= 64
 3. **Report threshold**: Reduces the number of callbacks (less I/O overhead)
+4. **Not** exponentiation-free: the reported *ratio* comes from `stepProgress`, which pays two `math.Pow` calls per iteration (`internal/progress/progress.go:stepProgress`). That is the deliberate price of the closed form, which stays finite for `numBits >= 512` where the raw geometric sum overflows to `+Inf` (A-10)
 
 ### Complexity
 
-- **Time**: O(1) per iteration (lookup from precomputed array)
+- **Time**: O(1) per iteration — one array lookup plus two `math.Pow` calls, no loop over bits
 - **Space**: O(1) — global array, no per-call allocation for typical inputs
 
 ## Adaptation for Other Algorithms

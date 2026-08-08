@@ -16,7 +16,7 @@ var zshHelpOverrides = map[string]string{
 // GenerateZsh generates a Zsh completion script.
 func GenerateZsh(out io.Writer, algorithms []string) error {
 	// Build _arguments entries from registry
-	var args []string
+	args := make([]string, 0, len(flagRegistry))
 	for _, f := range flagRegistry {
 		args = append(args, zshArgEntry(f))
 	}

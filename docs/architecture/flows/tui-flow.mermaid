@@ -1,13 +1,13 @@
 flowchart LR
     subgraph Init["TUI Initialization"]
-        A1[app.Run] --> A2[tea.NewProgram]
-        A2 --> A3[Model.Init]
+        A1[app.runTUI] --> A1a["tui.Run: NewModel, then tea.NewProgram,<br/>then ref.SetProgram(p)"]
+        A1a --> A3[Model.Init]
         A3 --> A4[tickCmd 500ms]
         A3 --> A5[startCalculationCmd]
         A3 --> A6[watchContextCmd]
     end
 
-    subgraph Bridge["Bridge Layer"]
+    subgraph Bridge["Bridge Layer (programRef.sendOrLog)"]
         B1[TUIProgressReporter] --> B2[programRef]
         B3[TUIResultPresenter] --> B2
         B2 --> B4[tea.Program.Send]
@@ -15,43 +15,56 @@ flowchart LR
 
     subgraph Messages["Message Types"]
         B4 --> M1[ProgressMsg]
+        B4 --> M0[ProgressDoneMsg]
         B4 --> M2[ComparisonResultsMsg]
         B4 --> M3[FinalResultMsg]
         B4 --> M4[ErrorMsg]
-        B4 --> M5[CalculationCompleteMsg]
+        A5 -->|"returned by the tea.Cmd itself,<br/>NOT sent through the bridge"| M5[CalculationCompleteMsg]
         A4 --> M6[TickMsg]
-        M6 --> M7[MemStatsMsg]
+        M6 -->|"handleTick — sampling only when<br/>neither done nor paused"| M7[MemStatsMsg]
         M6 --> M8[SysStatsMsg]
-        M6 --> M9[IndicatorsMsg]
+        M6 -->|"re-arms tickCmd unless done<br/>(paused still re-arms)"| M6
+        M3 -->|"handleFinalResult -> computeIndicatorsCmd,<br/>only when Result.Result != nil"| M9[IndicatorsMsg]
         A6 --> M10[ContextCancelledMsg]
     end
 
     subgraph Update["Model.Update (Elm Architecture)"]
-        M1 --> U1[Update Progress State]
-        M2 --> U2[Store Comparison Results]
-        M3 --> U3[Store Final Result]
-        M4 --> U4[Store Error]
-        M5 --> U5[Mark Complete]
-        M6 --> U6[Refresh Metrics]
-        M10 --> U7[Handle Cancellation]
-        U1 --> U8{Generation Guard}
-        U8 -->|Stale| U9[Reject Message]
+        M1 --> U8
+        M2 --> U8
+        M3 --> U8
+        M4 --> U8
+        M5 --> U8
+        M9 --> U8
+        M10 --> U8
+        U8{"Generation Guard — FIRST statement of every<br/>generation-tagged handler, before any state change"}
+        U8 -->|Stale| U9[return, message dropped]
         U8 -->|Current| U10[Apply Update]
+        U10 --> U1[ProgressMsg: logs + chart + metrics<br/>skipped again when paused]
+        U10 --> U2[ComparisonResultsMsg: logs.AddResults]
+        U10 --> U3[FinalResultMsg: logs.AddFinalResult]
+        U10 --> U4[ErrorMsg: logs.AddError, done = true]
+        U10 --> U5[CalculationCompleteMsg: done, exitCode]
+        U10 --> U6[IndicatorsMsg: metrics.UpdateIndicators]
+        U10 --> U7[ContextCancelledMsg: exit code + tea.Quit]
+        M6 --> U11[TickMsg: no generation tag —<br/>fires the sampling cmds only]
+        M7 --> U12[MemStatsMsg: metrics.UpdateMemStats]
+        M8 --> U13[SysStatsMsg: chart.UpdateSysStats]
+        M0 --> U14[ProgressDoneMsg: explicit no-op sink]
     end
 
-    subgraph View["Model.View (Panel Layout)"]
+    subgraph View["Model.View (Panel Layout) — re-rendered after every Update"]
         U10 --> V1[Header Panel<br/>1 row: title + elapsed]
         U10 --> V2[Footer Panel<br/>1 row: keys + status]
-        U10 --> V3[Logs Panel<br/>60% left: scrollable log]
-        U10 --> V4[Metrics Panel<br/>7 rows right top: mem/GC/goroutines]
+        U10 --> V3["Logs Panel — 60% left when width >= 80;<br/>full width, panels stacked below, when narrower"]
+        U10 --> V4["Metrics Panel — 7 rows right top (3 when height &lt; 20),<br/>clamped to half the right column: mem/GC/goroutines"]
         U10 --> V5[Chart Panel<br/>remaining right: progress sparkline]
     end
 
-    subgraph KeyBindings["Key Bindings"]
-        K1[q / Ctrl+C] --> K2[Quit]
+    subgraph KeyBindings["Key Bindings (DefaultKeyMap — complete)"]
+        K1[q / Ctrl+C] --> K2[cancel then tea.Quit]
         K3[Space] --> K4[Pause/Resume]
-        K5[r] --> K6[Restart Calculation]
-        K7[Up/Down] --> K8[Scroll Logs]
+        K5[r] --> K6[handleReset: new generation,<br/>fresh timeout budget, restart cmds]
+        K7["Up / k, Down / j, PgUp, PgDn"] --> K8[logs.Update — scroll]
     end
 
     style Init fill:#e1f5fe

@@ -25,7 +25,7 @@ func GeneratePowerShell(out io.Writer, algorithms []string) error {
 	// Only algo and non-grouped flags with static values get context-aware completion.
 	// Grouped flags (e.g., threshold variants) are omitted to match original behavior.
 	// Order: algo, then non-algo value flags in reverse registry order (completion before timeout).
-	var switchEntries []string
+	switchEntries := make([]string, 0, len(flagRegistry))
 
 	// Algo flags first
 	for _, f := range flagRegistry {
@@ -88,7 +88,7 @@ Register-ArgumentCompleter -CommandName 'fibcalc' -Native -ScriptBlock {
 
 // psSwitchEntry builds a single PowerShell switch entry for a flag with static values.
 func psSwitchEntry(f FlagCompletion) string {
-	var quotedVals []string
+	quotedVals := make([]string, 0, len(f.Values))
 	for _, v := range f.Values {
 		quotedVals = append(quotedVals, fmt.Sprintf("'%s'", escapePowerShellSingleQuoted(v)))
 	}

@@ -13,8 +13,10 @@ import (
 // Re-exported aliases of fibonacci package types. UI/presentation packages
 // (e.g. internal/tui) should consume these aliases via the orchestration
 // import rather than reaching into internal/fibonacci directly — this keeps
-// the dependency arrow ui → orchestration → fibonacci, matching the
-// hierarchy claimed in CLAUDE.md.
+// the dependency arrow ui → orchestration → fibonacci. That hierarchy used to
+// be asserted in CLAUDE.md, which was removed from the repo on 2026-07-31
+// (ADR-0009 status note); what enforces it now is TestArchitectureLayering in
+// internal/arch_test.go, not a document.
 type (
 	// Calculator aliases fibonacci.Calculator for downstream packages.
 	Calculator = fibonacci.Calculator

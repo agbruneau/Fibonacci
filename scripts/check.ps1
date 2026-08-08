@@ -1,9 +1,13 @@
 #!/usr/bin/env pwsh
 # check.ps1 - Local pre-commit gate for FibGo (Windows / no-CGO hosts).
 #
-# Runs the same sequence as check.sh but adapted to PowerShell 7 and a
-# Windows/no-CGO environment: tests run WITHOUT the race detector because the
-# race detector requires a C toolchain (CGO) that is typically unavailable here.
+# Runs a REDUCED version of check.sh, adapted to PowerShell 7 and a
+# Windows/no-CGO environment. Two deliberate differences from check.sh:
+#   - tests run WITHOUT the race detector, which requires a C toolchain (CGO)
+#     that is typically unavailable here;
+#   - there is no step 3b: the `-tags gmp` build/vet/test that check.sh runs
+#     when the libgmp headers are present has no counterpart here.
+# The two scripts are therefore NOT equivalent gates.
 #
 # Steps (stop at first hard failure):
 #   1. go build ./...
@@ -12,12 +16,26 @@
 #   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
 #   5. coverage floor (>= 80% on the module total)
 #
-# Lint behaviour: golangci-lint is ADVISORY. On a CRLF Windows working tree
-# gofmt flags every file (a known artifact; see .gitattributes), and the
-# residual findings are documented intentional exceptions (A4-11 math
-# annotations, A4-12 benign shadow/prealloc, errcheck in tests). Lint output is
-# shown for review but does NOT fail this script; the hard gate is
-# build/vet/test/coverage.
+# Lint behaviour: golangci-lint is reported separately from the hard gate. Its
+# output is shown and its status appears in the summary, but it does NOT fail
+# this script; the hard gate is build/vet/test/coverage. The expected state is
+# zero findings. Tolerated cases live in TWO places, not one:
+#   1. .golangci.yml, in two distinct sections:
+#      - issues.exclude-rules (revive stutter, staticcheck SA1019, SA6002 in
+#        bigfft pools, three named gocyclo overages, and the _test.go
+#        relaxations);
+#      - linters-settings.gosec.excludes, which is where G104 and G115 live —
+#        NOT in exclude-rules;
+#   2. in-source annotations, which .golangci.yml does not list at all —
+#      four inline //nolint directives (gocognit in bigfft/fft_recursion.go,
+#      gocritic in cli/completion/bash.go and fibonacci/common.go, unparam in
+#      fibonacci/fft.go) plus the #nosec G115 / G304 annotations across
+#      internal/bigfft, internal/calibration/profile.go and
+#      cmd/generate-golden/main.go.
+# Anything golangci-lint still reports outside those two sets is a real finding
+# to fix, not a pre-approved exception. Note: `.gitattributes` pins *.go to LF
+# in the working tree, so the old Windows-CRLF gofmt false positives no longer
+# occur.
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

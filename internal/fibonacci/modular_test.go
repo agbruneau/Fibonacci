@@ -36,7 +36,6 @@ func TestFastDoublingMod_KnownValues(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		t.Run(fmt.Sprintf("N=%d_mod_%d", tc.n, tc.mod), func(t *testing.T) {
 			t.Parallel()
 			m := big.NewInt(tc.mod)

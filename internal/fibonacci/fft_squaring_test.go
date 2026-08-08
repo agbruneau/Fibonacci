@@ -319,20 +319,21 @@ func BenchmarkSmartSquareSmall(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		smartSquare(z, x, 0)
+		_, _ = smartSquare(z, x, 0)
 	}
 }
 
 // BenchmarkSmartSquareMedium benchmarks smartSquare for medium numbers.
 func BenchmarkSmartSquareMedium(b *testing.B) {
 	xBytes := make([]byte, 1000)
-	rand.Read(xBytes)
+	// crypto/rand.Read never returns an error (it panics on entropy failure).
+	_, _ = rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
 	z := new(big.Int)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		smartSquare(z, x, 0)
+		_, _ = smartSquare(z, x, 0)
 	}
 }
 
@@ -343,33 +344,33 @@ func BenchmarkSmartSquareLarge(b *testing.B) {
 	}
 
 	xBytes := make([]byte, 10000)
-	rand.Read(xBytes)
+	_, _ = rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
 	z := new(big.Int)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		smartSquare(z, x, 1000)
+		_, _ = smartSquare(z, x, 1000)
 	}
 }
 
 // BenchmarkSmartSquareVsSmartMultiply compares smartSquare performance against smartMultiply(x,x).
 func BenchmarkSmartSquareVsSmartMultiply(b *testing.B) {
 	xBytes := make([]byte, 5000)
-	rand.Read(xBytes)
+	_, _ = rand.Read(xBytes)
 	x := new(big.Int).SetBytes(xBytes)
 
 	b.Run("smartSquare", func(b *testing.B) {
 		z := new(big.Int)
 		for i := 0; i < b.N; i++ {
-			smartSquare(z, x, 1000)
+			_, _ = smartSquare(z, x, 1000)
 		}
 	})
 
 	b.Run("smartMultiply", func(b *testing.B) {
 		z := new(big.Int)
 		for i := 0; i < b.N; i++ {
-			smartMultiply(z, x, x, 1000)
+			_, _ = smartMultiply(z, x, x, 1000)
 		}
 	})
 }

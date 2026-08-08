@@ -61,7 +61,7 @@ opts := fibonacci.Options{
 }
 ```
 
-When operand bit sizes exceed a threshold, the corresponding optimization is activated. Setting a threshold to `0` disables parallelism (sequential execution); higher values delay activation to larger operand sizes.
+When operand bit sizes exceed a threshold, the corresponding optimization is activated. Setting a threshold to `0` means "use the package default" — `normalizeOptions()` rewrites `0` to `DefaultParallelThreshold`/`DefaultFFTThreshold`/`DefaultStrassenThreshold`. The genuine sequential sentinel is `-1` (FIB-02). Higher values delay activation to larger operand sizes.
 
 ## Calibration Modes
 
@@ -99,7 +99,13 @@ Auto-calibration uses a 3-tier fallback strategy to minimize startup latency whi
 
 **Tier 1 -- Cached profile (instant)**
 
-`LoadOrCreateProfile()` attempts to load a saved profile from disk. If the profile exists and `IsValid()` returns true (matching CPU count, architecture, and word size), the cached thresholds are applied immediately. No benchmarks are executed.
+`LoadOrCreateProfile()` attempts to load a saved profile from disk. If the profile exists and `IsValid()` returns true, the cached thresholds are applied immediately and no benchmarks are executed. `IsValid()` checks **five** conditions, all of which must hold (`internal/calibration/profile.go:CalibrationProfile.IsValid`):
+
+1. `ProfileVersion == CurrentProfileVersion` (3)
+2. `NumCPU == runtime.NumCPU()`
+3. `GOARCH == runtime.GOARCH`
+4. `WordSize` matches the host's (32 or 64)
+5. `CPUHeuristicKey == config.CurrentHardwareHeuristicKey()` — the `GOARCH`-plus-SIMD-class tag, e.g. `amd64-avx2`
 
 **Tier 2 -- Quick micro-benchmarks (~100ms)**
 
@@ -131,10 +137,7 @@ The micro-benchmarking engine provides rapid threshold estimation by testing raw
 ### Configuration
 
 ```go
-const (
-    MicroBenchIterations     = 3
-    MicroBenchPerTestTimeout = 30 * time.Millisecond // per individual test
-)
+const MicroBenchIterations = 3 // there is no per-test timeout constant
 
 // MicroBenchTimeout is a var (not a const) sourced from
 // config.DefaultThresholdTuning — the canonical value lives alongside the
@@ -168,18 +171,21 @@ Tests run in parallel with a semaphore limiting concurrency to `runtime.NumCPU()
 
 After all tests complete, the engine analyzes results:
 
-- `findFFTCrossover()`: Identifies the smallest bit size where FFT multiplication is faster than standard `math/big`. Applies a 10% margin (multiplies the crossover by 9/10) to ensure FFT is clearly beneficial. Falls back to 1,000,000 bits if no crossover is found.
+- `findFFTCrossover()`: Identifies the smallest bit size where FFT multiplication is faster than standard `math/big`. Applies a 10% margin (multiplies the crossover by 9/10) to ensure FFT is clearly beneficial. Returns `0` when no crossover is observed — the conservative default (`FFTThreshold: 500000`) is owned by `analyzeResults()`, not by this function (FIB-03: a fallback is not a measurement).
 
-- `findParallelCrossover()`: Identifies the smallest bit size where parallel multiplication is at least 10% faster than sequential. Returns 0 on single-core systems. Falls back to 4,096 bits if no crossover is found.
+- `findParallelCrossover()`: Identifies the smallest bit size where parallel multiplication is at least 10% faster than sequential. Returns `0` on single-core systems and when no crossover is observed; the conservative default (`ParallelThreshold: 4096`) is owned by `analyzeResults()`.
 
 ### Confidence Scoring
 
 The `ThresholdResults` struct includes a confidence score (0.0 to 1.0):
 
 - Base confidence: 0.5 (conservative defaults assumed valid)
+- 0.0 if no result at all was collected (timeout, or every test errored)
 - +0.2 if an FFT crossover point was found
-- +0.2 if a parallel crossover point was found
 - Capped at 1.0
+
+There is **no** parallel-crossover bonus: `runSingleTest` does not branch on the
+`parallel` flag, so `findParallelCrossover`'s result is discarded (`_ = ...`).
 
 A confidence of >= 0.5 is required for auto-calibration to accept micro-benchmark results.
 
@@ -237,7 +243,7 @@ File: `internal/calibration/profile.go` (save/load methods) and `internal/calibr
 
 - `SaveProfile(path)`: Serializes to JSON with `json.MarshalIndent` and writes with `0600` permissions. If `path` is empty, uses the default path.
 - `loadProfile(path)`: Reads and deserializes. Returns an error if the file is missing or malformed.
-- `LoadOrCreateProfile(path)`: Loads an existing valid profile or returns a new empty profile with `false`.
+- `LoadOrCreateProfile(path)`: Loads an existing valid profile, or returns `NewProfile(), false`. That fallback profile is **not empty** — `NewProfile()` populates nine fields from the running host (`CPUModel`, `NumCPU`, `GOARCH`, `GOOS`, `GoVersion`, `WordSize`, `CPUHeuristicKey`, `CalibratedAt`, `ProfileVersion` — `internal/calibration/profile.go:NewProfile`). Only the three `Optimal*Threshold` values and `Confidence` are left at zero.
 - `GetDefaultProfilePath()`: Returns `~/.fibcalc_calibration.json` (falls back to the current directory if `$HOME` is unavailable).
 
 Example profile on disk:
@@ -271,27 +277,32 @@ Les **estimations sans benchmark** (`EstimateOptimal*`, utilisées quand les seu
 
 `GenerateParallelThresholds()` produces a CPU-adaptive candidate list:
 
+The baseline element is `-1` (the genuine sequential sentinel), not `0` — `0`
+would be rewritten to the package default by `normalizeOptions()` and the
+no-parallelism run would never be measured (FIB-02).
+
 | Core Count | Candidates |
 |-----------|------------|
-| 1 | `[0]` |
-| 2-4 | `[0, 512, 1024, 2048, 4096]` |
-| 5-8 | `[0, 256, 512, 1024, 2048, 4096, 8192]` |
-| 9-16 | `[0, 256, 512, 1024, 2048, 4096, 8192, 16384]` |
-| 17+ | `[0, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]` |
+| 1 | `[-1]` |
+| 2-4 | `[-1, 512, 1024, 2048, 4096]` |
+| 5-8 | `[-1, 256, 512, 1024, 2048, 4096, 8192]` |
+| 9-16 | `[-1, 256, 512, 1024, 2048, 4096, 8192, 16384]` |
+| 17+ | `[-1, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]` |
 
 `GenerateQuickParallelThresholds()` returns a reduced set for auto-calibration (Tier 3 fallback):
 
 | Core Count | Candidates |
 |-----------|------------|
-| 1 | `[0]` |
-| 2-4 | `[0, 2048, 4096]` |
-| 5-8 | `[0, 2048, 4096, 8192]` |
-| 9+ | `[0, 2048, 4096, 8192, 16384]` |
+| 1 | `[-1]` |
+| 2-4 | `[-1, 2048, 4096]` |
+| 5-8 | `[-1, 2048, 4096, 8192]` |
+| 9+ | `[-1, 2048, 4096, 8192, 16384]` |
 
 ### FFT and Strassen Candidates
 
-- `GenerateQuickFFTThresholds()`: `[0, 750000, 1000000, 1500000]`
-- `GenerateQuickStrassenThresholds()`: `[192, 256, 384, 512]`
+- `GenerateFFTThresholds()` (exported, `adaptive.go:GenerateFFTThresholds`): `[-1]` plus 200 000 → 1 000 000 in steps of 50 000 — 18 candidates. **This is the list the full runner actually sweeps** (`runner.go:findBestFFTThreshold`).
+- `generateQuickFFTThresholds()` (unexported, `adaptive.go:generateQuickFFTThresholds`): `[-1, 750000, 1000000, 1500000]` — used by the quick micro-benchmark tier, not by the runner.
+- `GenerateQuickStrassenThresholds()` (`adaptive.go:GenerateQuickStrassenThresholds`): `[192, 256, 384, 512]` — used by `runner.go:findBestStrassenThreshold`.
 
 ### Heuristic Estimation (No Benchmarks)
 
@@ -301,12 +312,18 @@ When benchmarks cannot run (e.g., timeout or missing calculator), heuristic func
 
 | Core Count | Estimated Threshold |
 |-----------|-------------------|
-| 1 | 0 (disabled) |
+| 1 | 0 |
 | 2 | 8192 |
 | 3-4 | 4096 |
 | 5-8 | 2048 |
 | 9-16 | 1024 |
 | 17+ | 512 |
+
+> A returned `0` does **not** disable parallelism by itself: `normalizeOptions`
+> (`internal/fibonacci/options.go`) rewrites a zero `ParallelThreshold` to
+> `DefaultParallelThreshold` (4096). What actually disables parallelism on a
+> single-core host is the `runtime.GOMAXPROCS(0) > 1` gate in
+> `internal/fibonacci/fastdoubling.go`.
 
 > **SIMD adjustment** — on hosts with 8+ cores and a table value above 512,
 > `estimateParallelThresholdForHeuristic()` (`internal/config/thresholds.go`)
@@ -382,7 +399,7 @@ These environment variables follow the `FIBCALC_*` convention and have lower pri
 
 ## Cross-References
 
-- [PERFORMANCE.md](PERFORMANCE.md) -- Threshold impact on the 3-tier multiplication system
+- [PERFORMANCE.md](PERFORMANCE.md) -- Threshold impact on the 2-tier multiplication system
 - [BUILD.md](BUILD.md) -- `make run-calibrate` target
 - [Architecture](architecture/README.md) -- Calibration package placement (Business Logic layer, wired in at the app layer via `internal/app`)
 - [algorithms/FFT.md](algorithms/FFT.md) -- FFT threshold context and algorithm details

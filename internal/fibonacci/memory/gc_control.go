@@ -26,9 +26,11 @@ const GCAutoThreshold uint64 = 1_000_000
 // trigger emergency GC instead of letting the process consume unbounded
 // memory.
 //
-// The value (3.0) was chosen empirically — see audit R4.2 — to leave room
-// for the doubling-loop working set (a + b + temp + arena) without giving
-// up the OOM guard. The same value is mirrored in
+// The value (3.0) is a headroom setting, not a measured one: it is meant to
+// leave room for the doubling-loop working set (a + b + temp + arena)
+// without giving up the OOM guard. Audit R4.2 named the constant and moved
+// it here; it did not measure it, and no artifact in the repo pins 3.0
+// against any other factor. The same value is mirrored in
 // config.DefaultThresholdTuning.MemoryLimitMultiplier; this package owns
 // the canonical value because internal/config already imports
 // internal/fibonacci/memory, so the reverse direction would be an import
@@ -163,4 +165,3 @@ func (gc *GCController) End() {
 		Uint32("gc_cycles", gc.endStats.NumGC-gc.startStats.NumGC).
 		Msg("gc re-enabled")
 }
-

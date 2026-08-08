@@ -74,12 +74,12 @@ func TestProfileSaveLoad(t *testing.T) {
 	original.CalibrationN = 10000000
 	original.CalibrationTime = "1m30s"
 
-	if err := original.SaveProfile(profilePath); err != nil {
+	if err = original.SaveProfile(profilePath); err != nil {
 		t.Fatalf("SaveProfile failed: %v", err)
 	}
 
 	// Verify file exists
-	if _, err := os.Stat(profilePath); os.IsNotExist(err) {
+	if _, err = os.Stat(profilePath); os.IsNotExist(err) {
 		t.Fatal("Profile file was not created")
 	}
 
@@ -408,7 +408,7 @@ func TestLoadInvalidJSON(t *testing.T) {
 
 	// Create file with invalid JSON
 	invalidPath := filepath.Join(tmpDir, "invalid.json")
-	if err := os.WriteFile(invalidPath, []byte("not valid json"), 0644); err != nil {
+	if err = os.WriteFile(invalidPath, []byte("not valid json"), 0o644); err != nil {
 		t.Fatalf("Failed to write invalid file: %v", err)
 	}
 

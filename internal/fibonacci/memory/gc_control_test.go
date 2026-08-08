@@ -42,7 +42,15 @@ func TestGCController_Auto_LargeN(t *testing.T) {
 		t.Error("GC controller should be active for N >= 1M in auto mode")
 	}
 	gc.Begin()
-	defer gc.End()
+	// Cleanup, not a bare End: this controller is ACTIVE, so End is what
+	// restores the process-global SetGCPercent/SetMemoryLimit (gc_control.go
+	// warns a bare Begin/End pair leaks them if anything escapes between the
+	// two). What matters is that the restore is registered rather than
+	// written as a trailing statement an early exit would skip; `defer
+	// gc.End()` would be exactly equivalent (t.Fatal calls runtime.Goexit
+	// and panic unwinds, and both run deferred functions). Either form is
+	// correct here, and this file uses both.
+	t.Cleanup(gc.End)
 }
 
 func TestGCController_Aggressive(t *testing.T) {
@@ -53,7 +61,7 @@ func TestGCController_Aggressive(t *testing.T) {
 		t.Error("GC controller should be active in aggressive mode regardless of N")
 	}
 	gc.Begin()
-	defer gc.End()
+	t.Cleanup(gc.End) // active controller: see TestGCController_Auto_LargeN
 }
 
 // TestGCController_WithGC_PanicRestoresGC verifies that WithGC restores the

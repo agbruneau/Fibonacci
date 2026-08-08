@@ -193,7 +193,7 @@ func TestLogsModel_View(t *testing.T) {
 	logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: 0.5})
 
 	view := logs.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view")
 	}
 }

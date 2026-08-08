@@ -88,7 +88,7 @@ func TestBumpAllocatorAllocFermat(t *testing.T) {
 	ba := AcquireBumpAllocator(1000)
 	defer ReleaseBumpAllocator(ba)
 
-	f := ba.AllocFermat(99) // Should allocate 100 words
+	f := ba.allocFermat(99) // Should allocate 100 words
 	if len(f) != 100 {
 		t.Errorf("Expected fermat of length 100, got %d", len(f))
 	}
@@ -109,7 +109,7 @@ func TestBumpAllocatorAllocFermatSlice(t *testing.T) {
 	K := 8
 	n := 15 // fermat size = 16
 
-	fermats, bits, _ := ba.AllocFermatSlice(K, n)
+	fermats, bits, _ := ba.allocFermatSlice(K, n)
 
 	if len(fermats) != K {
 		t.Errorf("Expected %d fermats, got %d", K, len(fermats))
@@ -159,9 +159,9 @@ func TestEstimateBumpCapacity(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("Words=%d", tc.wordLen), func(t *testing.T) {
 			t.Parallel()
-			cap := EstimateBumpCapacity(tc.wordLen)
-			if cap < tc.minCap {
-				t.Errorf("EstimateBumpCapacity(%d) = %d, expected at least %d", tc.wordLen, cap, tc.minCap)
+			gotCap := EstimateBumpCapacity(tc.wordLen)
+			if gotCap < tc.minCap {
+				t.Errorf("EstimateBumpCapacity(%d) = %d, expected at least %d", tc.wordLen, gotCap, tc.minCap)
 			}
 		})
 	}

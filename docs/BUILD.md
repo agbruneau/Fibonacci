@@ -13,8 +13,16 @@ This document covers the build system, compilation options, cross-compilation, a
 go build -o fibcalc ./cmd/fibcalc
 
 # Build and run with arguments
-go run ./cmd/fibcalc -- -n 1000 -algo fast
+go run ./cmd/fibcalc -n 1000 -algo fast
 ```
+
+Do **not** insert `--` before the program's own flags. `--` terminates Go's
+flag parsing *and* `fibcalc`'s: everything after it becomes a positional
+argument that the program ignores. Verified 2026-08-07 — `fibcalc -- -n 100
+-algo bogus` **exits 0** having computed the default `-n 100000000` with
+`-algo all`, while `fibcalc -n 100 -algo bogus` prints the usage and
+**exits 4** (`internal/config/config.go:AppConfig.Validate`;
+`ExitErrorConfig = 4`, `internal/errors/errors.go:ExitErrorConfig`).
 
 The default build produces a statically linked binary for the current platform. No external dependencies are required unless building with GMP support.
 
@@ -221,7 +229,7 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 | `lint` | `golangci-lint run ./...` |
 | `security` | `gosec ./...` |
 | `format` | `go fmt` + `gofmt` |
-| `check` | Format, lint, and test |
+| `check` | Run the canonical pre-commit gate (`bash scripts/check.sh`): build, vet, `go test -race` + coverage profile, `-tags gmp` step, lint report, 80% coverage floor. No formatting step — run `make format` separately |
 
 ### Run Targets
 
@@ -244,7 +252,7 @@ The Makefile provides targets for building, testing, linting, and maintenance. R
 
 | Target | Description |
 |--------|-------------|
-| `stats` | Print package and LOC counts (canonical source for the counts quoted in CLAUDE.md / ARCH.md) |
+| `stats` | Print package and LOC counts (canonical source for the counts quoted in `docs/ARCH.md`) |
 | `bench-baseline` | Refresh `docs/audits/bench-baseline.txt` (regression baseline; fixed flags, benchstat-comparable) |
 | `bench-versioned` | Record a benchmark snapshot with Go version and Git revision to `build/bench/` |
 | `version` | Display version info |
@@ -275,8 +283,12 @@ These limits are relaxed in `_test.go` files to accommodate table-driven test pa
 ## Local Pre-Commit Checks
 
 There is no remote CI; validation is a deliberately local-only responsibility. Two
-equivalent gate scripts run the same sequence (build, vet, test, lint, 80% coverage
-floor):
+gate scripts run the same core sequence (build, vet, test, lint, 80% coverage
+floor). They are **not** equivalent: `check.sh` has a step 3b that builds, vets
+and tests under `-tags gmp` when the libgmp headers are present
+(`scripts/check.sh`, the block headed `step "gmp build tag (-tags gmp)"`);
+`check.ps1` has no such step (its header comment lists five steps, not six). `check.sh` also runs its
+tests with `-race`, which `check.ps1` cannot on a no-CGO host.
 
 ```bash
 # CGO / Linux / macOS hosts (tests run WITH the race detector)
@@ -312,7 +324,7 @@ The implementation lives in the `internal/cli/completion/` package (shared `regi
 
 ## Environment Variables
 
-All environment variables use the `FIBCALC_` prefix. Configuration priority is: CLI flags > Environment variables > Adaptive hardware estimation > Static defaults.
+All environment variables use the `FIBCALC_` prefix (except the standard `NO_COLOR`). A `FIBCALC_*` variable is read only when the matching flag is absent from the command line, so the priority is **CLI flags > environment variables > static defaults** — *except* for the three thresholds, where a valid cached calibration profile overrides both (see [Threshold Tuning](#threshold-tuning) below).
 
 ### Calculation Parameters
 
@@ -330,22 +342,33 @@ All environment variables use the `FIBCALC_` prefix. Configuration priority is: 
 | `FIBCALC_FFT_THRESHOLD` | FFT multiplication threshold (bits) | `0` (auto: hardware-adaptive) |
 | `FIBCALC_STRASSEN_THRESHOLD` | Strassen algorithm threshold (bits) | `0` (auto: hardware-adaptive) |
 
-When set to `0` (the default), thresholds are resolved via: calibration profile > hardware-adaptive estimation > static defaults (parallelism=4,096, FFT=500,000, Strassen=3,072).
+A **valid cached calibration profile overwrites all three**, whatever the flag or
+the variable says. `app.New` runs `calibration.LoadCachedCalibration` after
+`ParseConfig` (`internal/app/app.go:New`) and it assigns
+`Threshold`/`FFTThreshold`/`StrassenThreshold` from the profile without consulting
+the flag set or the environment (`internal/calibration/calibration.go:LoadCachedCalibration`).
+Only when no valid profile loads does `ApplyAdaptiveThresholds` run, and it fills
+in just the thresholds still left at `0`: hardware-adaptive estimation, then the
+static defaults (parallelism=4,096, FFT=500,000, Strassen=3,072). Delete the
+profile, or point `--calibration-profile` at a path that does not exist, to make
+an explicit threshold stick.
 
 ### Output Control
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `FIBCALC_VERBOSE` | Enable verbose output | `false` |
+| `FIBCALC_VERBOSE` | Print the full result value (backs `-v`/`-verbose`; not a log-verbosity switch) | `false` |
 | `FIBCALC_DETAILS` | Show performance details | `false` |
 | `FIBCALC_QUIET` | Suppress all non-essential output | `false` |
 | `FIBCALC_CALCULATE` | Display the computed Fibonacci value | `false` |
 | `FIBCALC_OUTPUT` | Write result to file path | (none) |
+| `FIBCALC_LAST_DIGITS` | Compute only the last K decimal digits (O(K) memory); `0` computes the full value | `0` |
 | `FIBCALC_TUI` | Launch interactive TUI dashboard | `false` |
 | `FIBCALC_TUI_THEME` | TUI palette; `high-contrast` for the accessible variant, empty for the dark default | (dark) |
 | `FIBCALC_MACHINE_OUTPUT` | Emit machine-readable output (same as `--machine`) | `false` |
-| `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling (e.g. `4GB`); pre-flight estimator aborts if exceeded | (unbounded) |
-| `NO_COLOR` | Disable ANSI color output (standard) | (unset) |
+| `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling; pre-flight estimator aborts if exceeded. Suffix is a **single letter** `K`/`M`/`G` (case-insensitive), e.g. `4G`, `512M` — `4GB` is rejected | (unbounded) |
+| `FIBCALC_GC_CONTROL` | GC control during calculation: `auto`, `aggressive`, `disabled` | `auto` |
+| `NO_COLOR` | Disable ANSI color output (standard; no `FIBCALC_` prefix) | (unset) |
 
 ### Calibration
 
@@ -354,8 +377,11 @@ When set to `0` (the default), thresholds are resolved via: calibration profile 
 | `FIBCALC_CALIBRATE` | Run full calibration mode | `false` |
 | `FIBCALC_AUTO_CALIBRATE` | Run quick startup calibration | `false` |
 | `FIBCALC_CALIBRATION_PROFILE` | Path to calibration profile file | (none) |
+| `FIBCALC_PROFILE_MAX_AGE` | Freshness window for a cached profile; beyond it, re-calibration runs (`calibration.ProfileMaxAgeEnv`) | `168h` (7 d) |
 
-See `.env.example` for a complete reference.
+See `.env.example` for a complete reference. The `FIBCALC_*` table above mirrors
+`envOverrides` in `internal/config/env.go`, plus `FIBCALC_TUI_THEME` (read by
+`internal/ui`) and `FIBCALC_PROFILE_MAX_AGE` (read by `internal/calibration`).
 
 ## Dashboard statique (GitHub Pages)
 

@@ -101,6 +101,14 @@ func TestExecuteDoublingStepFFT_ConcurrentCalls(t *testing.T) {
 // Doubling implementation. It shares no code with the package under test and
 // is not derived from the golden JSON, so it is a valid independent oracle for
 // the FFT-parallel result.
+//
+// Independence extends to the bit test that drives the addition step: the
+// production loop (doubling_framework.go) selects bit i with the logical
+// shift `(n>>i)&1` — n is a uint64, so `>>` shifts in zeros — and this oracle
+// deliberately asks big.Int.Bit instead. A
+// rewrite of one shift form into another cannot be applied identically to both
+// sides, which is what makes the Cmp assertions below load-bearing rather than
+// self-confirming.
 func independentFastDoubling(n uint64) *big.Int {
 	if n == 0 {
 		return big.NewInt(0)
@@ -110,8 +118,9 @@ func independentFastDoubling(n uint64) *big.Int {
 	t1 := new(big.Int)
 	t2 := new(big.Int)
 	t3 := new(big.Int)
+	nBig := new(big.Int).SetUint64(n) // bit source: Bit(i), never a shift
 	for bit := 63; bit >= 0; bit-- {
-		// t1 = a*(2*b - a)  ; t2 = a*a ; t3 = b*b
+		// Doubling step: t1 takes a*(2*b - a), t2 the square of a, t3 that of b.
 		t1.Lsh(b, 1)
 		t1.Sub(t1, a)
 		t1.Mul(t1, a) // F(2k)
@@ -120,7 +129,7 @@ func independentFastDoubling(n uint64) *big.Int {
 		t2.Add(t2, t3) // F(2k+1)
 		a.Set(t1)
 		b.Set(t2)
-		if (n>>uint(bit))&1 == 1 {
+		if nBig.Bit(bit) == 1 {
 			t3.Add(a, b)
 			a.Set(b)
 			b.Set(t3)

@@ -8,14 +8,14 @@ import (
 
 // GenerateFish generates a Fish completion script.
 func GenerateFish(out io.Writer, algorithms []string) error {
-	var lines []string
-
-	lines = append(lines, "# Fish completion script for fibcalc")
-	lines = append(lines, "# Add this to ~/.config/fish/completions/fibcalc.fish")
-	lines = append(lines, "")
-	lines = append(lines, "# Disable file completion by default")
-	lines = append(lines, "complete -c fibcalc -f")
-	lines = append(lines, "")
+	lines := []string{
+		"# Fish completion script for fibcalc",
+		"# Add this to ~/.config/fish/completions/fibcalc.fish",
+		"",
+		"# Disable file completion by default",
+		"complete -c fibcalc -f",
+		"",
+	}
 
 	// Group flags into sections for comments.
 	// The sections mirror the original fish completion output. Any registry

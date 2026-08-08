@@ -23,15 +23,22 @@ type Options struct {
 	// Smaller values don't benefit from caching. If 0, uses the default (100,000 bits).
 	//
 	// P2-01 warning: lowering this below the default (e.g. 50,000) is a
-	// pessimisation for typical Fibonacci workloads — operand values
-	// change every iteration so the hit rate collapses (~4.55% measured
-	// at MinBitLen=50000) and hashing + deep-copy cost dominates. Raise
-	// this, don't lower it, unless profiling on your exact workload
-	// confirms a win.
+	// pessimisation for typical Fibonacci workloads — operand values change
+	// every iteration, so most transforms are cached and never read back
+	// while hashing and the deep copy are paid on every put. Raise this,
+	// don't lower it, unless profiling on your exact workload confirms a
+	// win. The hit-rate and slowdown percentages this comment used to quote
+	// came from an audit document (bench/TEAM_A_PERFORMANCE.md) that is no
+	// longer in the repo, and nothing replaced them: BenchmarkCacheImpact
+	// and BenchmarkCacheHitRate configure the cache but drive a
+	// FastDoublingCalculator, whose FFT step never consults it, so they
+	// report a 0% hit rate whatever this value is set to.
 	FFTCacheMinBitLen int
 	// FFTCacheMaxEntries is the maximum number of cached FFT transforms.
-	// If 0, uses the default (128 entries). Larger values improve hit rates
-	// but consume more memory.
+	// If 0, configureFFTCache sizes it from n as clamp(2*bits.Len64(n), 64,
+	// 4096), which is 64..128 in practice since bits.Len64 caps at 64; the
+	// package default of 256 only applies when n is 0. Larger values improve
+	// hit rates but consume more memory.
 	FFTCacheMaxEntries int
 	// FFTCacheEnabled controls whether FFT transform caching is active.
 	// Default is true. Set to false to disable caching (useful for memory-constrained scenarios).
@@ -82,10 +89,22 @@ func normalizeOptions(opts Options) Options {
 	return normalized
 }
 
-// configureFFTCache configures the FFT transform cache based on the provided options.
-// This optimization allows reusing expensive FFT transforms across iterations,
-// providing 15-30% speedup for large calculations where FFT is used.
-// It sizes the cache dynamically based on the Fibonacci number n to be computed.
+// configureFFTCache installs the process-global bigfft transform cache
+// configuration derived from opts, sizing MaxEntries from n when the caller
+// did not pin it.
+//
+// Scope of what this actually affects: the cache is only consulted by
+// bigfft.Mul/MulTo/Sqr/SqrTo (fft_core.go fftmulTo/fftsqrTo). The default Fast
+// Doubling FFT step goes through executeDoublingStepFFT, which transforms with
+// TransformWithBump and never reads the cache — so tuning these knobs does not
+// touch that path. The production callers it does reach are the
+// matrix-exponentiation calculator (matrix_ops.go, which calls smartMultiply
+// and smartSquare from fft.go) and internal/calibration/microbench.go.
+//
+// No figure for the cache's effect is asserted here: the repo carries no
+// artifact measuring it, and no benchmark that would produce one —
+// BenchmarkCacheImpact drives a FastDoublingCalculator, which by the paragraph
+// above never reaches the cache.
 func configureFFTCache(opts Options, n uint64) {
 	// Get default config to use as base
 	defaultConfig := bigfft.DefaultTransformCacheConfig()

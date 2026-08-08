@@ -181,7 +181,7 @@ coverage:
 	@echo "Coverage report generated: coverage.html"
 
 # POSIX-only (requires awk)
-## coverage-check: Fail if total coverage drops below the floor (single source: scripts/check.sh step 4)
+## coverage-check: Fail if total coverage drops below the floor (single source: scripts/check.sh step 5)
 coverage-check:
 	@bash scripts/check.sh --coverage-only
 
@@ -191,11 +191,10 @@ benchmark:
 	$(GO) test -bench=. -benchmem ./internal/fibonacci/
 
 # POSIX-only (requires find/xargs/wc/awk)
-## stats: Print package and LOC counts (canonical source for CLAUDE.md / ARCH.md)
+## stats: Print package and LOC counts (canonical source for docs/ARCH.md)
 ##
-## Audit-PRD P2-05 / Sprint S4 — replaces the hardcoded "23 packages" /
-## "35 500 LOC" numbers that drift each refactor. Run this before
-## refreshing the documentation if the counts look stale.
+## Replaces the hardcoded package/LOC numbers that drift on each refactor.
+## Run this before refreshing the documentation if the counts look stale.
 stats:
 	@echo "── Package count ──"
 	@printf "Total Go packages:   "; $(GO) list ./... | wc -l
@@ -215,11 +214,11 @@ stats:
 
 # POSIX-only (requires bash/date/tee)
 ## bench-baseline: Refresh docs/audits/bench-baseline.txt regression baseline
-# Protocol note (audit Fable5 BUILD-01): -benchtime=1x keeps the pool/arena
-# warm-up outlier in the samples (~46% intra-sample scatter observed), which
-# widens benchstat CIs and desensitizes the 5% gate. At the NEXT justified
-# regeneration, prefer -benchtime=3x (or -count=6 and drop the first sample).
-# Do not regenerate without a cause (CLAUDE.md).
+# Protocol note: -benchtime=1x keeps the pool/arena warm-up outlier in the
+# samples (~46% intra-sample scatter observed), which widens benchstat CIs and
+# desensitizes the 5% gate. At the NEXT justified regeneration, prefer
+# -benchtime=3x (or -count=6 and drop the first sample). Do not regenerate the
+# baseline without a cause: it is the reference the 5% perf gate compares to.
 ##
 ## Use benchstat locally to compare new runs against this baseline at the
 ## documented 5% threshold (see docs/PERFORMANCE.md). Run this target on a

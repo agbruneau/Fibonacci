@@ -228,7 +228,7 @@ func TestGCDIdentity_PropertyBased(t *testing.T) {
 				return false
 			}
 
-			// GCD(F(m), F(n))
+			// GCD of F(m) and F(n)
 			gcdResult := new(big.Int).GCD(nil, nil, fm, fn)
 
 			return gcdResult.Cmp(fGCD) == 0

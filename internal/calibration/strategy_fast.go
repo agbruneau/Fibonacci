@@ -14,7 +14,10 @@ import (
 )
 
 // FastStrategy estimates thresholds via the in-process micro-benchmarks
-// in microbench.go (~100 ms wall time). It does not touch any
+// in microbench.go. Its wall time is whatever those micro-benchmarks cost
+// on the host — sub-second by construction (fixed, small candidate sets),
+// but no figure is recorded in the repo; the actual duration of each run is
+// reported in CalibrationProfile.CalibrationTime. It does not touch any
 // fibonacci.Calculator: the multiplications it times go straight
 // through bigfft, which is sufficient to derive the FFT crossover and
 // the parallel crossover used as fallback when no cached profile is

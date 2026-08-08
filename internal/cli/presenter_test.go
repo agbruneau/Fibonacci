@@ -79,7 +79,6 @@ func TestCLIResultPresenter_HandleError(t *testing.T) {
 		{"machine", true},
 	}
 	for _, tc := range cases {
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
@@ -125,7 +124,6 @@ func TestDisplayMemoryStats(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer

@@ -215,7 +215,7 @@ func TestLoadCachedCalibration(t *testing.T) {
 		profilePath := tmpDir + "/invalid.json"
 
 		// Create an invalid profile (empty file)
-		if err := os.WriteFile(profilePath, []byte("{}"), 0600); err != nil {
+		if err := os.WriteFile(profilePath, []byte("{}"), 0o600); err != nil {
 			t.Fatalf("Failed to write invalid profile: %v", err)
 		}
 

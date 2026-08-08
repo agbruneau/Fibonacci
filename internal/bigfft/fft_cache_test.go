@@ -807,7 +807,7 @@ func BenchmarkCachePut(b *testing.B) {
 
 // referenceFnvWriteUint64 is a verbatim copy of the pre-R2.10 fnvWriteUint64
 // helper. It serves as the oracle for the consolidated implementation.
-func referenceFnvWriteUint64(h uint64, x uint64) uint64 {
+func referenceFnvWriteUint64(h, x uint64) uint64 {
 	h ^= x & 0xff
 	h *= prime64
 	h ^= (x >> 8) & 0xff

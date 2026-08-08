@@ -46,7 +46,7 @@ func TestHeaderModel_View_NarrowWidth(t *testing.T) {
 
 	// Should not panic even with very narrow width
 	view := h.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view even with narrow width")
 	}
 }

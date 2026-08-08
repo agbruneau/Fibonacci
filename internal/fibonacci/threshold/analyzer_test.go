@@ -116,7 +116,7 @@ func TestThresholdAnalyzer_ApplyThresholdAdjustment(t *testing.T) {
 
 	t.Run("optimized faster lowers threshold", func(t *testing.T) {
 		got := a.ApplyThresholdAdjustment(2.0, baseParams)
-		// 1000 * 9 / 10 = 900
+		// 1000 * 9 / 10 == 900
 		if got != 900 {
 			t.Errorf("expected 900, got %d", got)
 		}
@@ -124,7 +124,7 @@ func TestThresholdAnalyzer_ApplyThresholdAdjustment(t *testing.T) {
 
 	t.Run("optimized slower raises threshold", func(t *testing.T) {
 		got := a.ApplyThresholdAdjustment(0.5, baseParams)
-		// 1000 * 11 / 10 = 1100
+		// 1000 * 11 / 10 == 1100
 		if got != 1100 {
 			t.Errorf("expected 1100, got %d", got)
 		}

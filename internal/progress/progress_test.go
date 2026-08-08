@@ -89,7 +89,6 @@ func TestProgress_MonotonicLargeN(t *testing.T) {
 	t.Parallel()
 
 	for _, numBits := range []int{64, 512, 2000, 100000} {
-
 		t.Run("", func(t *testing.T) {
 			t.Parallel()
 
@@ -235,10 +234,14 @@ func TestReportStepProgress(t *testing.T) {
 		var lastReported float64
 		powers := PrecomputePowers4(5)
 
-		// Should not panic with zero total work
+		// Should not panic with zero total work: nothing is reported, but the
+		// step's own work (powers[numBits-1-i] = powers[4]) is still accumulated.
 		result := ReportStepProgress(func(float64) {}, &lastReported, 0, 0, 0, 5, powers)
-		if result == 0 {
-			// Expected: work of step should still be calculated
+		if result != powers[4] {
+			t.Errorf("result = %f, want %f (work of step must still be calculated)", result, powers[4])
+		}
+		if lastReported != 0 {
+			t.Errorf("lastReported = %f, want 0 (nothing may be reported when totalWork is 0)", lastReported)
 		}
 	})
 }

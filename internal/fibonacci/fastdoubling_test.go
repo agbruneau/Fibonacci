@@ -156,7 +156,6 @@ func TestFastDoubling_ReducedState_Correctness(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		t.Run(fmt.Sprintf("N=%d", tc.n), func(t *testing.T) {
 			t.Parallel()
 			result, err := calc.Calculate(ctx, nil, 0, tc.n, Options{})
@@ -189,7 +188,6 @@ func TestFFTBased_ReducedState_Correctness(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		t.Run(fmt.Sprintf("N=%d", tc.n), func(t *testing.T) {
 			t.Parallel()
 			result, err := calc.Calculate(ctx, nil, 0, tc.n, Options{})

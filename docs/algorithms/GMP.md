@@ -91,13 +91,26 @@ go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$
 
 ## Performance
 
-> **Status (2026-06-10)**: the figures in this section (CGO overhead per call, crossover around N = 1,000,000, net advantage for N > 100,000,000) are unverified approximations to date — no dated GMP benchmark exists in `docs/audits/`. A measurement was attempted on 2026-06-10 under WSL but could not run: the `libgmp-dev` headers are not installed there (`gmp.h: No such file or directory`). Once installed (`sudo apt-get install libgmp-dev`), run `go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/` and archive the output in `docs/audits/` to replace these estimates.
+**This repo contains no GMP measurement.** `docs/audits/bench-baseline.txt` is the
+only benchmark artifact tracked, and it covers `FastDoubling`, `MatrixExp` and
+`FFTBased` only — `BenchmarkGMPCalculator` is behind the `gmp` build tag and its
+output has never been archived here. Earlier revisions of this page carried
+figures for CGO call overhead, a crossover around N = 1,000,000 and a net GMP
+advantage above N = 100,000,000; none of them was ever backed by a run in this
+repo, so they were removed on 2026-08-07 rather than restated more cautiously.
 
-GMP excels at extremely high precision. For inputs N < 1,000,000, Go's native `math/big` (and especially the optimized `bigfft` implementation used in the `"fast"` strategy) is often competitive or even faster due to CGO overhead. However, for N > 100,000,000, GMP's hand-tuned assembly loops typically provide a significant speed advantage.
+What is structurally true and checkable in the source: every arithmetic operation
+crosses the CGO boundary (`internal/fibonacci/calculator_gmp.go`), so a per-call
+cost exists — its size, and where it stops mattering, are unmeasured here.
 
-### CGO Overhead
+To produce a real number, install the headers (`sudo apt-get install libgmp-dev`),
+run
 
-Each call to a GMP function incurs CGO overhead (typically 50-100ns per call). For small numbers, this overhead dominates the actual computation time, making native Go faster. The crossover point where GMP becomes faster depends on the specific hardware and operation, but is generally around N = 1,000,000.
+```bash
+go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/
+```
+
+and archive the output under `docs/audits/` before quoting anything from it.
 
 ## Implementation Details
 
@@ -106,7 +119,7 @@ Each call to a GMP function incurs CGO overhead (typically 50-100ns per call). F
 - **Memory Management**: Reuses `gmp.Int` instances to minimize allocation overhead
 - **File**: `internal/fibonacci/calculator_gmp.go`
 - **Name()**: Returns `"GMP (Fast Doubling)"`
-- **Registration**: `"gmp"` key in the calculator factory
+- **Registration**: `"gmp"` key, but only in a factory you register it into yourself. `init()` registers into the package-private `globalFactory` (`calculator_gmp.go`, its `globalFactory` var and `init`), which no caller reads; `app.New` builds its own via `NewDefaultFactory()` (`internal/app/app.go:New`, `registry.go:NewDefaultFactory` — `fast`/`matrix`/`fft`). `fibcalc -algo gmp` is therefore rejected even in a `-tags gmp` build.
 
 ## Research backends beyond GMP
 

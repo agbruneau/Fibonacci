@@ -2,6 +2,7 @@ package fibonacci
 
 import (
 	"context"
+	"math"
 	"sync/atomic"
 )
 
@@ -27,9 +28,20 @@ func init() {
 // which always carry a non-zero Options.StrassenThreshold. This function is
 // thread-safe. The caller is expected to pass a non-negative threshold that
 // fits in int32 (practical values are < 10^6).
+//
+// Out-of-range handling: the guard below can only fire where int is wider than
+// int32. Every target this project builds is 64-bit (amd64/arm64), so there a
+// value outside the int32 range is silently ignored — the stored threshold
+// keeps its previous value rather than wrapping to an unrelated one. How the
+// guard behaves on a 32-bit GOARCH is deliberately NOT asserted here: no build
+// and no test in this tree targets one, so such a claim could never be
+// contradicted by anything in the project and would be documentation no gate
+// backs. The invariant to rely on holds at any int width and is the whole
+// point of the guard: the stored threshold is never a wrapped value.
 func SetDefaultStrassenThreshold(bits int) {
-	// Threshold values are configuration knobs in practice always <= 10^6,
-	// well within int32 range. #nosec G115
+	if bits < math.MinInt32 || bits > math.MaxInt32 {
+		return
+	}
 	defaultStrassenThresholdBits.Store(int32(bits))
 }
 
@@ -130,14 +142,14 @@ func computeStrassenIntermediates(state *matrixState, m1, m2 *matrix) {
 	s5, s6, s7, s8 := state.s5, state.s6, state.s7, state.s8
 
 	// Pre-computations
-	s1.Add(m1.c, m1.d) // S1 = A21 + A22
-	s2.Sub(s1, m1.a)   // S2 = S1 - A11
-	s3.Sub(m1.a, m1.c) // S3 = A11 - A21
-	s4.Sub(m1.b, s2)   // S4 = A12 - S2
-	s5.Sub(m2.b, m2.a) // S5 = B12 - B11
-	s6.Sub(m2.d, s5)   // S6 = B22 - S5
-	s7.Sub(m2.d, m2.b) // S7 = B22 - B12
-	s8.Sub(s6, m2.c)   // S8 = S6 - B21
+	s1.Add(m1.c, m1.d) // S1: A21 + A22
+	s2.Sub(s1, m1.a)   // S2: S1 - A11
+	s3.Sub(m1.a, m1.c) // S3: A11 - A21
+	s4.Sub(m1.b, s2)   // S4: A12 - S2
+	s5.Sub(m2.b, m2.a) // S5: B12 - B11
+	s6.Sub(m2.d, s5)   // S6: B22 - S5
+	s7.Sub(m2.d, m2.b) // S7: B22 - B12
+	s8.Sub(s6, m2.c)   // S8: S6 - B21
 }
 
 // assembleStrassenResult performs the post-computations (T1, T2) and
@@ -153,21 +165,21 @@ func assembleStrassenResult(dest *matrix, state *matrixState) {
 	t1, t2 := state.t1, state.t2
 
 	// Post-computations
-	t1.Add(p1, p2) // T1 = P1 + P2
-	t2.Add(t1, p4) // T2 = T1 + P4
+	t1.Add(p1, p2) // T1: P1 + P2
+	t2.Add(t1, p4) // T2: T1 + P4
 
 	// Calculate final matrix elements
-	// C11 = P2 + P3
+	// C11: P2 + P3
 	dest.a.Add(p2, p3)
 
-	// C12 = T1 + P5 + P6
+	// C12: T1 + P5 + P6
 	dest.b.Add(t1, p5)
 	dest.b.Add(dest.b, p6)
 
-	// C21 = T2 - P7
+	// C21: T2 - P7
 	dest.c.Sub(t2, p7)
 
-	// C22 = T2 + P5
+	// C22: T2 + P5
 	dest.d.Add(t2, p5)
 }
 
@@ -178,8 +190,8 @@ func assembleStrassenResult(dest *matrix, state *matrixState) {
 // b equals c, some calculations become redundant. This method avoids those
 // redundancies, resulting in a faster computation.
 //
-// The three squaring operations (a², b², d²) use optimized smartSquare which
-// saves approximately 33% of FFT computation time compared to general multiplication.
+// The three squaring operations (a², b², d²) use smartSquare, which on the
+// FFT path needs one forward transform instead of two (see sqrFFT).
 //
 // Parameters:
 //   - dest: The destination matrix.

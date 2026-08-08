@@ -44,8 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `internal/fibonacci/fibonaccitest` (stub absorbé par son unique test
   appelant, DEAD-06), `getVersionInfo`/`VersionData` (DEAD-03),
   `AsProgressCallback` (DEAD-07), `GCStats`/`stats()` (DEAD-11), alias
-  `orchestration.Default*Threshold` (ARCH-04) ; dé-exports :
-  `threshold.{setLogger,getThresholds,getFFTThreshold,getParallelThreshold,getStats,reset}`
+  `orchestration.Default*Threshold` (ARCH-04), `threshold.setLogger` (dé-exporté
+  puis supprimé, sans appelant) ; dé-exports :
+  `threshold.{getThresholds,getFFTThreshold,getParallelThreshold,getStats,reset}`
   + `thresholdStats` (DEAD-08), `bigfft.allocUnsafe` (DEAD-10),
   `ui.setCurrentTheme` (DEAD-13).
 
@@ -247,12 +248,18 @@ baseline is regenerated on demand via `make bench-baseline`.
 
 #### Housekeeping
 
-- **Purge des artefacts d'audit** — suppression de `promptAudit.md`, du
-  répertoire `docs/audits/` (rapports et baselines datées, régénérables via
+- **Purge des artefacts d'audit** — suppression de `promptAudit.md`, du contenu
+  du répertoire `docs/audits/` (rapports et baselines datées, régénérables via
   `make bench-baseline` / `BenchmarkFibonacciDTM`) et de
   `docs/external-reviews/`, ainsi que des snapshots de travail non suivis à la
   racine (logs, profils, `*.out`, `*.test`, `ruvector.db`). Les références
   documentaires correspondantes ont été redirigées vers ce CHANGELOG.
+  **Précision (recomptée le 2026-08-07)** : le répertoire lui-même n'a pas
+  disparu. `docs/audits/bench-baseline.txt` est le seul fichier qui subsiste, il
+  est suivi par git, et la même entrée 4.0.0 le cite comme vivant plus haut
+  (« `docs/audits/bench-baseline.txt` régénérée et committée », TOOL-01) comme
+  plus bas (gate de perf à 5 %). C'est aujourd'hui le seul artefact de mesure du
+  dépôt.
 
 #### Performance
 
@@ -323,8 +330,9 @@ baseline is regenerated on demand via `make bench-baseline`.
 - **Rejected optimization candidates** (`cfb4ff2`, Phase 1 close) — documented
   with evidence: `fermat.Shift` `shlVU` guard refuted by reading `math/big`;
   forward-transform parallelization set aside. The dated benchmark baseline
-  that backed them (`docs/audits/bench-audit-loop-2026-06.md`) was purged with
-  the rest of `docs/audits/` (see Housekeeping above); regenerate via
+  that backed them (`docs/audits/bench-audit-loop-2026-06.md`) was purged in the
+  Housekeeping wave above; `docs/audits/bench-baseline.txt` survived that purge
+  and is still the tracked reference. Regenerate the deleted report via
   `make bench-baseline`.
 - **`internal/cli/completion`** (`ed6c334`) — dedicated `doc.go` per project
   convention (package comment moved out of `registry.go`, enriched with the
@@ -589,12 +597,12 @@ been purged ; the ADR series is the surviving source of truth.
 ### Removed (CI/CD retirement)
 
 - **GitHub Actions workflows deleted** : `.github/workflows/ci.yml` (vet + golangci-lint + 3-OS race matrix + cross-compile + bench gate) and `.github/workflows/coverage.yml` (PR/push coverage with `MIN_COVERAGE=80%` floor). The accompanying regression-gate engine `.github/scripts/bench_gate.py` and the now-empty `.github/` tree are gone as well.
-- **Consequence for contributors** : every gate that used to run on push/PR is now the contributor's local responsibility — `make test` (race, requires CGO/gcc), `make lint`, `make coverage`, `make build-all` for cross-compile, and `benchstat` against `docs/audits/bench-baseline.txt` for perf-sensitive changes. CLAUDE.md directive #8 is the canonical checklist.
+- **Consequence for contributors** : every gate that used to run on push/PR is now the contributor's local responsibility — `make test` (race, requires CGO/gcc), `make lint`, `make coverage`, `make build-all` for cross-compile, and `benchstat` against `docs/audits/bench-baseline.txt` for perf-sensitive changes. `CONTRIBUTING.md` carries the canonical checklist (the `CLAUDE.md` originally cited here was removed from the repo on 2026-07-31, commit `869bd6a`).
 - **Documentation refresh** : README/CLAUDE/PORTABILITY/PERFORMANCE/TESTING/BUILD/architecture docs reworded to drop references to `ci.yml`/`coverage.yml` and to reframe gates as local-discipline conventions (no behavioural change to the Go code).
 
 ### Added
 
-- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/FibGo/dashboard/>. 797 nodes / 3 533 edges / 8 architectural layers / 13-step guided tour (figures from the 2026-06 regeneration, verified against the tracked `docs/dashboard/knowledge-graph.json`), generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build — the `.understand-anything/` source JSON is not tracked in git; only the `docs/dashboard/` bundle is. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages).
+- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/FibGo/dashboard/>. 1128 nodes / 4782 edges / 9 architectural layers / 12-step guided tour (counted in the tracked `docs/dashboard/knowledge-graph.json`, regenerated 2026-07-06), generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build — the `.understand-anything/` source JSON is not tracked in git; only the `docs/dashboard/` bundle is. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages).
 - **Interactive TUI mode**: btop-style dashboard built with Bubble Tea (Elm architecture), featuring real-time progress charts, algorithm comparison, and keyboard navigation
 - Portable arithmetic fallback for non-amd64 architectures (`arith_generic.go`)
 - Godoc example functions for `Calculator`, `DefaultFactory`, and `CalculateWithObservers`
@@ -607,7 +615,7 @@ been purged ; the ADR series is the surviving source of truth.
 
 ### Changed
 
-- **Go toolchain**: bumped `go.mod` to Go 1.25 (toolchain go1.26.2) — audit P0-02
+- **Go toolchain**: bumped the `go.mod` language version — audit P0-02. The "Go 1.25 (toolchain go1.26.2)" originally written here contradicts two later entries in this same 4.0.0 section (A5-03 "versions Go 1.26.0/toolchain 1.26.3", and the version note "exigence Go 1.26"). What `go.mod` actually declares, checked 2026-08-07: `go 1.26.0`, with **no** `toolchain` directive at all.
 - **Dependencies**: minor/patch upgrades for `golang.org/x/sync`, `x/sys`, `x/term`, `x/text`, `github.com/rs/zerolog`, and `gopsutil` (audit P1-24)
 - **Dependencies (major)**: bumped `github.com/charmbracelet/bubbles` from `v0.21.1` to `v1.0.0`. The bubbles v1.0 release preserved the `key` and `viewport` sub-package surfaces actually used by the TUI; zero source changes were required (audit P0-03)
 - **Package restructuring**: Extracted `internal/progress/` package from `internal/fibonacci/` (observer pattern, progress types); backward-compatible type aliases in `progress_aliases.go`
@@ -634,7 +642,7 @@ been purged ; the ADR series is the surviving source of truth.
 - **bigfft / io**: handle `Flush()` and `fourier()` errors explicitly (audit P2-11, P2-12)
 - Documentation links: fixed 20+ broken cross-references across `README.md`, `docs/ARCH.md`, `docs/TESTING.md`, architecture/ hub (audit P0-04 through P0-07, P1-16)
 - `docs/TESTING.md` Test Organization table: paths updated for extracted sub-packages (audit P1-15)
-- `docs/PERFORMANCE.md`: removed phantom `FIBCALC_GC_CONTROL` reference; GC control is automatic (audit P1-12)
+- `docs/PERFORMANCE.md`: removed the `FIBCALC_GC_CONTROL` reference, which at the time named a variable the code did not read (audit P1-12). **Superseded within this same 4.0.0 entry**: the later APP-08/09/14 wave added the `GC_CONTROL` env override (see "config — env `LAST_DIGITS`/`GC_CONTROL`" above). `FIBCALC_GC_CONTROL` is implemented today by the `GC_CONTROL` entry of `internal/config/env.go:envOverrides` and documented in `.env.example` and `docs/PERFORMANCE.md`.
 - `CONTRIBUTING.md` vs `docs/TESTING.md` mockgen divergence: `TESTING.md` is now the single source of truth (audit P2-17)
 - Formatting: applied `gofmt -s` and `goimports` across the tree (audit P1-09)
 - **Documentation realignment (audit A-04/A-21/A-23)**: `Claude.md` rewritten to reflect post-refactoring reality (CI exists; R1.1–R1.5 resolved; removed dead `ultrareview.md`/`ultrareviewplan.md` references; `parallel` is alive; pointers now to `audit.md`/`AuditPlanning.md`). `README.md`: linter count 22→24, `sysmon`→`metrics/system`, added `FIBCALC_PROFILE_MAX_AGE`. `docs/CALIBRATION.md`: added `Confidence` field, Strategy-pattern note, `MicroBenchTimeout` var correction, env var documented. `.env.example`: added `FIBCALC_PROFILE_MAX_AGE`
@@ -661,7 +669,7 @@ been purged ; the ADR series is the surviving source of truth.
 ### Removed
 
 - **Audit scaffolding documents**: deleted `audit.md`, `AuditPlanning.md`, and `audit-prompt.md` from the repository. These tracked the now-closed post-audit remediation effort and are intentionally not restored; outstanding follow-ups are carried as normal issues, not audit findings.
-- Phantom `FIBCALC_GC_CONTROL` environment variable reference from `docs/PERFORMANCE.md` (never implemented)
+- `FIBCALC_GC_CONTROL` environment variable reference from `docs/PERFORMANCE.md` — unimplemented at that point in the 4.0.0 cycle. It was implemented later in the same cycle (APP-08/09/14) and is live today (the `GC_CONTROL` entry of `internal/config/env.go:envOverrides`); the original wording "never implemented" was already false by the time 4.0.0 shipped.
 - Tracked development log artifacts and stale files (audit P1-20)
 
 ---

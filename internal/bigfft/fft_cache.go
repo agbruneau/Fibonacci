@@ -249,8 +249,9 @@ func (tc *TransformCache) Get(data nat, k uint, n int) (PolValues, bool) {
 // (a MoveToFront on the front is a documented no-op, so LRU order is
 // strictly preserved). Otherwise we acquire a brief Lock for MoveToFront.
 // On a very hot cache (entries that stay near the front), this eliminates
-// most exclusive Lock acquisitions, removing the contention measured at
-// 10k+ accesses/s. Cache entries are immutable after insertion, so reading
+// the exclusive Lock on every such hit, leaving only RLock on the common
+// path — a structural reduction in writer contention; the repo records no
+// measurement of it. Cache entries are immutable after insertion, so reading
 // k/n/values via the snapshot under RLock is safe even if the element is
 // later evicted concurrently.
 func (tc *TransformCache) getByKey(key uint64) (PolValues, bool) {
@@ -348,8 +349,12 @@ func (tc *TransformCache) Put(data nat, pv PolValues) {
 // risk to close before any library-style multi-tenant exposure. The
 // salvage was removed; each putByKey at capacity therefore allocates a
 // fresh wordCount-sized backing and lets GC reclaim the evicted ones.
-// Net cost: at most one extra allocation per put-on-full-cache; this is
-// negligible on the FFT cache hot path (puts are rare relative to hits).
+// Net cost: at most one extra wordCount-sized allocation per
+// put-on-full-cache. Whether that matters depends entirely on the hit/miss
+// ratio of the workload — it is bounded by the miss rate, and a low
+// MinBitLen makes misses the common case (see fibonacci.Options
+// FFTCacheMinBitLen). Correctness was preferred over the salvage regardless;
+// no measurement of the cost is recorded here.
 func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()

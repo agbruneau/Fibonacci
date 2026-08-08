@@ -188,7 +188,7 @@ func TestFourierRecursiveParallelErrorPropagation(t *testing.T) {
 			dst := newFermatVec(K, n)
 			src[tc.badIdx] = make(fermat, 3) // breaks the n+1 contract deeper in
 
-			err := fourierRecursive(dst, src, false, n, tc.k, tc.k, 0, make(fermat, n+1), make(fermat, n+1))
+			err := fourierRecursive(dst, src, false, n, tc.k, tc.k, make(fermat, n+1), make(fermat, n+1))
 			if err == nil {
 				t.Fatal("expected validation error to propagate from the recursion")
 			}
@@ -225,7 +225,7 @@ func TestFourierRecursiveAsyncPanicPropagates(t *testing.T) {
 			t.Fatal("expected panic from the async recursion half to propagate to the caller")
 		}
 	}()
-	_ = fourierRecursive(dst, src, false, n, k, k, 0, make(fermat, n+1), make(fermat, n+1))
+	_ = fourierRecursive(dst, src, false, n, k, k, make(fermat, n+1), make(fermat, n+1))
 	t.Fatal("fourierRecursive returned normally despite a malformed async-half element")
 }
 
@@ -238,7 +238,7 @@ func TestFourierRecursiveSizeZeroIsIdentity(t *testing.T) {
 	fillFermatVec(src, 3)
 
 	dst := newFermatVec(1, n)
-	if err := fourierRecursive(dst, src, false, n, 0, 0, 0, make(fermat, n+1), make(fermat, n+1)); err != nil {
+	if err := fourierRecursive(dst, src, false, n, 0, 0, make(fermat, n+1), make(fermat, n+1)); err != nil {
 		t.Fatalf("fourierRecursive size 0 failed: %v", err)
 	}
 	assertFermatEqual(t, dst[0], src[0])
@@ -255,7 +255,7 @@ func TestRunPointwiseVisitsEveryIndexExactlyOnce(t *testing.T) {
 		n = 16383 // K*(n+1) == pointwiseMinParallelWords
 	)
 	visits := make([]atomic.Int32, K)
-	runPointwise(K, n, GetPoolAllocator(), func(i int, buf fermat) {
+	runPointwise(K, n, defaultPoolAllocator, func(i int, buf fermat) {
 		if len(buf) != 8*n+1 {
 			panic("pointwise scratch buffer has wrong length")
 		}
@@ -332,7 +332,7 @@ func TestFourierRecursiveUnifiedSyncPanicWaitsForWorker(t *testing.T) {
 	dst[1] = make(fermat, 5) // dst[1] of the first leaf in the sync half (dst1): panics almost immediately
 
 	tokenReleasedBeforePanic(t, getSemaphore(), func() {
-		_ = fourierRecursive(dst, src, false, n, k, k, 0, make(fermat, n+1), make(fermat, n+1))
+		_ = fourierRecursive(dst, src, false, n, k, k, make(fermat, n+1), make(fermat, n+1))
 	})
 }
 

@@ -48,8 +48,7 @@ func getWordSlicePoolIndex(size int) int {
 	// bits.Len(uint(size-1)) gives the number of bits needed to represent size-1.
 	// For size <= 64 (4^3), this is <= 6, yielding idx <= 0 after the formula.
 	// For size <= 256 (4^4), bits.Len is <= 8, yielding idx = 1. Etc.
-	// size > 0 by guard above, so size-1 >= 0, uint cast is safe. #nosec G115
-	idx := (bits.Len(uint(size-1)) - 5) / 2
+	idx := (bits.Len(uint(size-1)) - 5) / 2 // #nosec G115 -- size > 0 by the guard above, so size-1 >= 0 and the uint cast cannot wrap
 	if idx < 0 {
 		idx = 0
 	}
@@ -188,8 +187,7 @@ func getFermatPoolIndex(size int) int {
 	if size > fermatSizes[len(fermatSizes)-1] {
 		return -1
 	}
-	// size > 0 by guard above, so size-1 >= 0, uint cast is safe. #nosec G115
-	idx := (bits.Len(uint(size-1)) - 4) / 2
+	idx := (bits.Len(uint(size-1)) - 4) / 2 // #nosec G115 -- size > 0 by the guard above, so size-1 >= 0 and the uint cast cannot wrap
 	if idx < 0 {
 		idx = 0
 	}
@@ -277,8 +275,7 @@ func getNatSlicePoolIndex(size int) int {
 	if size > natSliceSizes[len(natSliceSizes)-1] {
 		return -1
 	}
-	// size > 0 by guard above, so size-1 >= 0, uint cast is safe. #nosec G115
-	idx := (bits.Len(uint(size-1)) - 2) / 2
+	idx := (bits.Len(uint(size-1)) - 2) / 2 // #nosec G115 -- size > 0 by the guard above, so size-1 >= 0 and the uint cast cannot wrap
 	if idx < 0 {
 		idx = 0
 	}
@@ -365,8 +362,7 @@ func getFermatSlicePoolIndex(size int) int {
 	if size > fermatSliceSizes[len(fermatSliceSizes)-1] {
 		return -1
 	}
-	// size > 0 by guard above, so size-1 >= 0, uint cast is safe. #nosec G115
-	idx := (bits.Len(uint(size-1)) - 2) / 2
+	idx := (bits.Len(uint(size-1)) - 2) / 2 // #nosec G115 -- size > 0 by the guard above, so size-1 >= 0 and the uint cast cannot wrap
 	if idx < 0 {
 		idx = 0
 	}

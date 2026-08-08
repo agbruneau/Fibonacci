@@ -295,7 +295,12 @@ fibonacci.SetDefaultStrassenThreshold(512)
 current := fibonacci.GetDefaultStrassenThreshold()
 ```
 
-This is primarily used by the calibration system to tune the threshold based on hardware benchmarks.
+This is a **test-only safety net**, not a production tuning path: `normalizeOptions`
+(`internal/fibonacci/options.go`) rewrites a zero `Options.StrassenThreshold` to
+`DefaultStrassenThreshold` (3072) before any matrix multiply, so `multiplyMatrices`
+never falls back to this atomic in production. `internal/calibration` does not call
+it; the only callers outside `matrix_ops.go` are in
+`internal/fibonacci/fibonacci_strassen_test.go`.
 
 #### Implementation Details
 
@@ -342,7 +347,7 @@ Independent multiplications within Strassen's algorithm (P1-P7) can be paralleli
 | Operation | Classic | Strassen* | Symmetric Square |
 |-----------|---------|-----------|------------------|
 | Multiplications | 8 | 7 | 4 |
-| Additions | 4 | 15 | 4 |
+| Additions | 4 | 15 | 3 |
 
 \* Strassen-Winograd variant as implemented in `matrix_ops.go` (15 additions/subtractions; the classical Strassen formulation requires 18).
 

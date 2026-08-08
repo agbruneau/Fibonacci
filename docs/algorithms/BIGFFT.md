@@ -33,9 +33,15 @@ func Sqr(x *big.Int) (res *big.Int, err error)
 func SqrTo(z, x *big.Int) (res *big.Int, err error)
 ```
 
-All four functions wrap their core logic in `defer/recover` to convert panics into
-returned errors. This guarantees that a malformed input or internal bug never crashes
-the caller.
+All four functions wrap their core logic in `defer/recover`, but the recovered value
+is **not** unconditionally converted to an error. `fermatPanicToError`
+(`internal/bigfft/fft.go:fermatPanicToError`) re-`panic`s the three internal
+post-condition sentinels — `"len(z) > 2n+1"`, `"fermat.Mul: unexpected carry after normalization"`,
+`"fermat.Sqr: unexpected carry after normalization"`, the three entries of
+`fft.go:fermatPostConditionPanics` — so a genuine
+bug in the modular reduction still crashes the caller by design (ADR-0002). Only
+pre-condition panics (operand-size mismatches) and other unexpected panics become
+returned errors.
 
 **Threshold gating**: `Mul`/`MulTo` and `Sqr`/`SqrTo` compare the operand word count
 against `fftThreshold` (default 1800 words, ~115 Kbits on 64-bit). Operands below the
@@ -90,7 +96,7 @@ flowchart LR
 |-------|---------------|
 | `fftSize` | Select FFT length K=2^k and chunk size m from `fftSizeThreshold` table |
 | `BumpAllocator` | Pre-allocate a contiguous word buffer for all temporaries |
-| `polyFromNat` | Split the input `nat` into a polynomial of K chunks of m words |
+| `polyFromNat` | Split the input `nat` into a polynomial of `ceil(len(x)/m)` chunks of m words (at most K) |
 | `MulCachedWithBump` | Forward FFT, pointwise multiply, inverse FFT (with transform caching) |
 | `IntTo` | Reassemble polynomial back into a single `nat` with carry propagation |
 
@@ -155,14 +161,22 @@ type Poly struct {
     K uint   // 1<<K is the FFT length
     M int    // words per chunk: P(b^M) recovers the original number
     A []nat  // up to 1<<K coefficients, each M words
+
+    pooledBacking []big.Word // backing to return to the word-slice pool on Release()
+    pooledA       bool       // A itself came from the []nat pool
 }
 ```
+
+The two unexported fields carry the `Release()` contract: `Release()` returns
+`pooledBacking` to the word-slice pool and, when `pooledA` is set, `A` to the
+`[]nat` pool. They are left zero when the `Poly` was built outside the pools
+(e.g. `polyFromNat`), which makes `Release()` a safe no-op there.
 
 ### Key Operations
 
 | Function | Purpose |
 |----------|---------|
-| `polyFromNat(x, k, m)` | Slice a `nat` into a polynomial with 2^k coefficients of m words |
+| `polyFromNat(x, k, m)` | Slice a `nat` into a polynomial of m-word coefficients; the count is `ceil(len(x)/m)` (at least 1), i.e. **at most** 2^k |
 | `IntTo(dst)` | Reassemble polynomial back to `nat` via carry-propagating addition |
 | `Transform(n)` / `TransformWithBump(n, ba)` | Forward FFT: evaluate at K-th roots of unity |
 | `InvTransform()` / `InvTransformWithBump(ba)` | Inverse FFT: reconstruct from point values |
@@ -176,8 +190,15 @@ type PolValues struct {
     K      uint     // log2 of FFT length
     N      int      // coefficient word length
     Values []fermat // 1<<K evaluated points
+
+    pooledBacking []big.Word // backing to return to the word-slice pool on Release()
+    pooledValues  bool       // Values itself came from the []fermat pool
 }
 ```
+
+Same `Release()` contract as `Poly`. `pooledBacking` is deliberately left nil on
+transform-cache hits (`TransformCache.getByKey`), so a caller that releases a
+cache-shared `PolValues` cannot poison the pool.
 
 `PolValues` represents a polynomial evaluated at K-th roots of unity. Pointwise
 multiplication (`Mul`) and squaring (`Sqr`) operate on this type. The `Clone()`
@@ -243,7 +264,7 @@ All entry points delegate to the recursive core.
 
 ```go
 func fourierRecursiveUnified(dst, src []fermat, backward bool, n int,
-    k, size, depth uint, tmp, tmp2 fermat, alloc TempAllocator) error
+    k, size, depth uint, tmp, tmp2 fermat, alloc tempAllocator) error
 ```
 
 The FFT uses a **Cooley-Tukey radix-2 decimation-in-frequency** decomposition:
@@ -256,10 +277,14 @@ The FFT uses a **Cooley-Tukey radix-2 decimation-in-frequency** decomposition:
 
 FFT parallelism is controlled by two **runtime-configurable** variables (default values shown):
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `ParallelFFTRecursionThreshold` | 4 | Minimum k for parallel recursion |
-| `MaxParallelFFTDepth` | 3 | Maximum parallel recursion depth |
+Both are unexported `atomic.Uint64` package variables seeded in `init()`; the
+exported surface is the getter pair plus `GetFFTParallelismConfig` /
+`SetFFTParallelismConfig`.
+
+| Variable | Accessor | Default | Purpose |
+|----------|----------|---------|---------|
+| `parallelFFTRecursionThreshold` | `GetParallelFFTRecursionThreshold()` | 4 | Minimum k for parallel recursion |
+| `maxParallelFFTDepth` | `GetMaxParallelFFTDepth()` | 3 | Maximum parallel recursion depth |
 
 These can be adjusted at runtime via the `FFTParallelismConfig` struct:
 
@@ -321,12 +346,19 @@ defer releaseWordSlice(slice)
 smallest size class >= the requested size. If no class is large enough, allocation
 bypasses the pool entirely (`make()` direct).
 
-**Clearing**: All acquired slices are zeroed using Go's `clear()` builtin before
-return to prevent stale data leakage.
+**Clearing**: `acquireWordSlice` zeroes the slice with Go's `clear()` builtin before
+returning it. The companion `acquireWordSliceUnsafe` deliberately skips the clear and
+is reserved for callers that immediately overwrite every element (e.g. via `copy`).
 
-**Release safety**: Release functions check that the slice capacity matches a known
-size class before returning to the pool. Mismatched or directly-allocated slices are
-silently left for the garbage collector.
+**Release safety**: all four release functions (`releaseWordSlice`,
+`releaseFermat`, `releaseNatSlice`, `releaseFermatSlice` in
+`internal/bigfft/pool.go`) check that the slice capacity matches a
+known size class before returning to the pool; mismatched or directly-allocated
+slices are left for the garbage collector. Only `releaseWordSlice` *counts* those
+misses — the single `wordSlicePoolMissCount.Add(1)` lives in `pool.go:releaseWordSlice`. The
+counter is readable through the exported `WordSlicePoolMissCount()` and a steadily
+growing value signals `[]big.Word` pool churn specifically (a caller reshaped a
+pooled slice before releasing it); the other three sinks are not instrumented.
 
 ### Bump Allocator
 
@@ -368,21 +400,21 @@ was too small.
 | Method | Description |
 |--------|-------------|
 | `Alloc(n)` | Allocate n zeroed words |
-| `AllocUnsafe(n)` | Allocate n words without zeroing (caller overwrites) |
-| `AllocFermat(n)` | Allocate a fermat of n+1 words |
-| `AllocFermatSlice(K, n)` | Allocate K contiguous fermat buffers |
+| `allocUnsafe(n)` | Allocate n words without zeroing (caller overwrites) — package-internal |
+| `allocFermat(n)` | Allocate a fermat of n+1 words — package-internal |
+| `allocFermatSlice(count, n)` | Allocate `count` contiguous fermat buffers — package-internal |
 | `Reset()` | Invalidate all allocations, reuse from start |
 
 ### Allocator Abstraction
 
 **File**: `internal/bigfft/allocator.go`
 
-The `TempAllocator` interface decouples the FFT algorithm from its allocation strategy:
+The `tempAllocator` interface (unexported) decouples the FFT algorithm from its allocation strategy:
 
 ```go
-type TempAllocator interface {
-    AllocFermatTemp(n int) (fermat, func())
-    AllocFermatSlice(K, n int) ([]fermat, []big.Word, func())
+type tempAllocator interface {
+    allocFermatTemp(n int) (fermat, func())
+    allocFermatSlice(count, n int) ([]fermat, []big.Word, func())
 }
 ```
 
@@ -390,8 +422,8 @@ Two implementations:
 
 | Type | Strategy | Cleanup |
 |------|----------|---------|
-| `PoolAllocator` | `sync.Pool` acquire/release | Returns buffers to pool |
-| `*BumpAllocator` | Bump allocation from contiguous buffer (implements `TempAllocator` directly via `AllocFermatTemp`/`AllocFermatSlice`) | No-op (bulk release via `ReleaseBumpAllocator`) |
+| `poolAllocator` | `sync.Pool` acquire/release | Returns buffers to pool |
+| `*BumpAllocator` | Bump allocation from contiguous buffer (implements `tempAllocator` directly via `allocFermatTemp`/`allocFermatSlice`) | No-op (bulk release via `ReleaseBumpAllocator`) |
 
 This abstraction allows the same FFT recursion code (`fourierRecursiveUnified`) to
 work with either allocator without duplication.
@@ -461,7 +493,7 @@ type TransformCache struct {
     entries   map[uint64]*list.Element
     lru       *list.List
     hits, misses, evictions, accesses atomic.Uint64
-    // atomic.Pointer so SetCacheLogger does not race with the hot-path read
+    // atomic.Pointer so setCacheLogger does not race with the hot-path read
     // in logPeriodicStats (A2-02).
     logger    atomic.Pointer[zerolog.Logger]
 }
@@ -480,8 +512,12 @@ type TransformCache struct {
 ### Why Cache?
 
 When the same big integer is transformed more than once, the cached forward FFT
-transform avoids redundant computation, yielding **15--30% speedup** on the paths
-that consult it.
+transform avoids recomputing it. The repo carries **no measurement of a speedup**
+from this on any path — the only benchmark artifact tracked is
+`docs/audits/bench-baseline.txt`, which measures whole calculators, and the one
+cache-specific benchmark that exists (`BenchmarkCacheImpact`) has no recorded
+result in the repo. Treat the saving as "one forward transform per hit", not as a
+percentage.
 
 > **Scope (A3-01)**: The cache is only consulted by the `bigfft.Mul`/`MulTo`/`Sqr`/`SqrTo`
 > entry points (via `fftmulTo`/`fftsqrTo` → `MulCachedWithBump`/`SqrCachedWithBump`).
@@ -573,7 +609,7 @@ Six `go:linkname` directives bind directly to `math/big` internal functions:
 | `pool.go` | `sync.Pool` hierarchies (4 types, 33 size classes) |
 | `pool_warming.go` | `PreWarmPools`, `EnsurePoolsWarmed` |
 | `bump.go` | `BumpAllocator`: O(1) bump allocation with capacity estimation |
-| `allocator.go` | `TempAllocator` interface, `PoolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`) |
+| `allocator.go` | `tempAllocator` interface, `poolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`) |
 | `memory_est.go` | `EstimateMemoryNeeds` for pool pre-warming |
 | `arith.go` | Portable vector arithmetic wrappers (test-only oracles) delegating to `math/big` internals |
 | `arith_decl.go` | Architecture-independent `go:linkname` declarations to `math/big` |
@@ -629,8 +665,16 @@ flowchart TD
 
 ### Called From
 
-- `internal/fibonacci/fft.go` -- `smartMultiply()` dispatches to `bigfft.MulTo` (and `smartSquare()` to `bigfft.SqrTo`), or both fall back to `math/big`
+Seven production files outside `internal/bigfft` import it (verified 2026-08-07 with
+`grep -rn "bigfft\." internal/ cmd/ --include=*.go | grep -v _test.go`):
+
+- `internal/fibonacci/fft.go` -- `smartMultiply()` dispatches to `bigfft.MulTo` (and `smartSquare()` to `bigfft.SqrTo`), or both fall back to `math/big`; `executeDoublingStepFFT` also uses `PolyFromInt`, `TransformWithBump`, `GetFFTParams`, `ValueSize`, `Acquire`/`ReleaseBumpAllocator`, `EstimateBumpCapacity`
 - `internal/fibonacci/calculator.go` -- `FibCalculator.CalculateWithObservers()` calls `bigfft.EnsurePoolsWarmed()` before calculation
+- `internal/fibonacci/strategy.go` -- `FFTOnlyStrategy.Multiply`/`Square` call `bigfft.MulTo`/`SqrTo` directly (`strategy.go:FFTOnlyStrategy.Multiply`, `strategy.go:FFTOnlyStrategy.Square`)
+- `internal/fibonacci/options.go` -- `configureFFTCache` calls `DefaultTransformCacheConfig` + `SetTransformCacheConfig` (`options.go:configureFFTCache`)
+- `internal/fibonacci/cache_strategy_bigfft.go` -- `Sample` calls `GetTransformCache` + `SetTransformCacheConfig` (`cache_strategy_bigfft.go:bigfftCacheStrategy.Sample`)
+- `internal/fibonacci/fastdoubling.go` -- holds a `*bigfft.BumpAllocator` on the state; `EstimateBumpCapacity`, `ReleaseBumpAllocator`
+- `internal/calibration/microbench.go` -- `bigfft.Mul` in the micro-benchmark (`microbench.go:multiplyTest`)
 
 ### Configuration
 

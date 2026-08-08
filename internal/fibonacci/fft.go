@@ -31,9 +31,10 @@ func mulFFT(x, y *big.Int) (*big.Int, error) {
 }
 
 // sqrFFT performs optimized squaring of a *big.Int using FFT.
-// Squaring is more efficient than general multiplication because
-// we only need to transform x once, saving approximately 33% of
-// the FFT computation time for large numbers.
+// Squaring is cheaper than general multiplication because x is transformed
+// once: two transforms (1 forward + 1 inverse) instead of the three a
+// general Mul needs. That is one transform out of three saved — an
+// operation count, not a measured wall-time fraction.
 //
 // Parameters:
 //   - x: The operand to square.

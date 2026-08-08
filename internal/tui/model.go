@@ -84,7 +84,7 @@ func NewModel(parentCtx context.Context, calculators []orchestration.Calculator,
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		tickCmd(),
-		startCalculationCmd(m.ref, m.ctx, m.calculators, m.config, m.generation),
+		startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation),
 		watchContextCmd(m.ctx, m.generation),
 	)
 }
@@ -121,7 +121,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case FinalResultMsg:
-		return m, m.handleFinalResult(msg)
+		cmd := m.handleFinalResult(msg)
+		return m, cmd
 
 	case IndicatorsMsg:
 		if msg.Generation == m.generation {
@@ -134,7 +135,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case TickMsg:
-		return m, m.handleTick()
+		cmd := m.handleTick()
+		return m, cmd
 
 	case MemStatsMsg:
 		m.metrics.UpdateMemStats(msg)
@@ -149,7 +151,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ContextCancelledMsg:
-		return m, m.handleContextCancelled(msg)
+		cmd := m.handleContextCancelled(msg)
+		return m, cmd
 	}
 
 	return m, nil

@@ -290,7 +290,7 @@ func TestFFTUtilities(t *testing.T) {
 		n2[i] = big.Word(i)
 	}
 	p := polyFromNat(n2, 5, 10)
-	if len(p.A) != 3 { // ceil(25/10) = 3
+	if len(p.A) != 3 { // want ceil of 25 over 10, i.e. three coefficients
 		t.Errorf("polyFromNat failed: expected 3 coefficients, got %d", len(p.A))
 	}
 
@@ -476,6 +476,26 @@ func TestValueSize(t *testing.T) {
 		if size <= 0 {
 			t.Errorf("ValueSize should return positive value, got %d", size)
 		}
+	})
+
+	// valueSize converts k to int; the level bound is what makes that
+	// conversion safe, so pin both sides of it. fftSize/fftSizeSqr/GetFFTParams
+	// can return exactly len(fftSizeThreshold), which must stay accepted.
+	t.Run("ValueSize accepts the highest FFT level", func(t *testing.T) {
+		t.Parallel()
+		if size := ValueSize(uint(len(fftSizeThreshold)), 1, 2); size <= 0 {
+			t.Errorf("ValueSize should accept k = len(fftSizeThreshold), got %d", size)
+		}
+	})
+
+	t.Run("ValueSize rejects a k above the highest FFT level", func(t *testing.T) {
+		t.Parallel()
+		defer func() {
+			if recover() == nil {
+				t.Error("ValueSize should panic for k > len(fftSizeThreshold)")
+			}
+		}()
+		ValueSize(uint(len(fftSizeThreshold))+1, 1, 2)
 	})
 }
 

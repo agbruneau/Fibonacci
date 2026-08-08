@@ -15,9 +15,9 @@ This document compares the three Fibonacci calculation algorithms implemented in
 | FFT-Based | `"fft"` | "FFT-Based Doubling" |
 | Modular Fast Doubling | `--last-digits` mode | n/a — free function, not a registered calculator |
 
-An optional GMP-based calculator (`"gmp"`) is available when built with `-tags=gmp`.
+An optional GMP-based calculator (`"gmp"`) is compiled in with `-tags=gmp`. The tag alone does **not** make it reachable from the CLI: its `init()` registers it only into a package-private factory, while `app.New` builds a fresh `fibonacci.NewDefaultFactory()` that pre-registers `"fast"`, `"matrix"` and `"fft"` only. A caller must add it explicitly with `fibonacci.RegisterGMPCalculator(factory)` — see [`GMP.md`](GMP.md).
 
-> **Note on Modular Fast Doubling**: unlike the three rows above, this is **not** a registered `CoreCalculator` and has no `Name()` method. It is the free function `FastDoublingMod(n uint64, m *big.Int) (*big.Int, error)` in `internal/fibonacci/modular.go`, reached only through the `--last-digits` CLI mode (which computes F(n) mod 10^K).
+> **Note on Modular Fast Doubling**: unlike the three rows above, this is **not** a registered `CoreCalculator` and has no `Name()` method. It is the free function `FastDoublingMod(ctx context.Context, n uint64, m *big.Int) (*big.Int, error)` in `internal/fibonacci/modular.go`, reached only through the `--last-digits` CLI mode (which computes F(n) mod 10^K).
 
 ## Theoretical Comparison
 
@@ -37,7 +37,7 @@ Where M(n) is the cost of multiplying numbers of n bits.
 |-----------|--------------|-------------|-------------|-----------|
 | **Fast Doubling** | **3** | 1 | 1 | **5** |
 | Matrix Exp. (Classic) | 8 | 4 | 0 | 12 |
-| Matrix Exp. (Symmetric) | 4 | 4 | 0 | 8 |
+| Matrix Exp. (Symmetric) | 4 | 3 | 0 | 7 |
 | Matrix Exp. (Strassen-Winograd) | 7 | 7 | 8 | 22 |
 
 > **Note**: The implemented Strassen-Winograd variant (`internal/fibonacci/matrix_ops.go`) keeps 7 multiplications and uses 15 additions/subtractions total (7 adds + 8 subs) — fewer than the textbook Strassen (18 add/sub). It still trades more add/sub for fewer multiplications, so it only pays off for extremely large numbers where M(n) >> A(n).
@@ -65,7 +65,7 @@ The constant k represents the "multiplicative density" of the algorithm.
    - Symmetric optimization (B=C) reduces this to 4 mults (k=4)
    - Even with optimization, it performs slightly more auxiliary work than Fast Doubling
 
-**Conclusion**: Fast Doubling is consistently faster because its constant factor k is strictly smaller (3 vs 4+).
+**Conclusion**: Fast Doubling's constant factor k is strictly smaller (3 vs 4+). The one measurement artifact the repo carries, `docs/audits/bench-baseline.txt` (linux/amd64, 24 threads, `-count=5 -benchtime=1x`, 2026-07-07), agrees at the two sizes it covers — medians 3.15 ms vs 6.03 ms (Matrix) and 5.13 ms (FFT) at N=1M; 23.87 ms vs 30.84 ms and 29.08 ms at N=10M. Nothing in the repo measures any other N.
 
 ### Memory
 
@@ -214,10 +214,13 @@ go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem 
 All thresholds are configured via the `fibonacci.Options` struct:
 
 ```go
-// Small calculations (N < 100,000): disable parallelism and FFT
+// Small calculations (N < 100,000): keep parallelism and FFT out of the way.
+// Note: 0 is NOT "off" — normalizeOptions() rewrites 0 to the package default
+// (4096 / 500,000). Use -1 for the genuine sequential path, or set the FFT
+// threshold above any operand you expect.
 opts := fibonacci.Options{
-    ParallelThreshold: 0,  // disable parallelism (overhead > gains)
-    FFTThreshold:      0,  // disable FFT (too small)
+    ParallelThreshold: -1,        // sequential (the real "off" sentinel)
+    FFTThreshold:      1 << 30,   // effectively never reached at this size
 }
 
 // Medium calculations (100,000 < N < 10,000,000)
@@ -236,8 +239,8 @@ opts := fibonacci.Options{
 
 ## Conclusion
 
-**Fast Doubling** is the recommended algorithm for all general use cases. It has the best performance across all input sizes due to requiring only 3 multiplications per iteration (the theoretical minimum for doubling-based methods). It also has the lowest memory footprint.
+**Fast Doubling** is the recommended algorithm for all general use cases: it requires only 3 multiplications per iteration (the theoretical minimum for doubling-based methods) and allocates the least. `docs/audits/bench-baseline.txt` — the repo's only measurement artifact — shows it fastest and smallest at the two sizes it covers: medians of 3.15 ms / 1.32 MB per op at N=1M (vs Matrix 6.03 ms / 6.33 MB and FFT 5.13 ms / 5.38 MB) and 23.87 ms / 17.38 MB at N=10M (vs Matrix 30.84 ms / 92.25 MB and FFT 29.08 ms / 30.88 MB). It is not measured anywhere else in the repo.
 
-**Matrix Exponentiation** is valuable for educational purposes and result verification. Its elegant mathematical foundation (Q-matrix) makes it ideal for understanding the theory, and the Strassen optimization demonstrates practical algorithm design. However, it is consistently 30-50% slower than Fast Doubling.
+**Matrix Exponentiation** is valuable for educational purposes and result verification. Its elegant mathematical foundation (Q-matrix) makes it ideal for understanding the theory, and the Strassen optimization demonstrates practical algorithm design. In `docs/audits/bench-baseline.txt` it is slower than Fast Doubling by **+91 %** at N=1M and **+29 %** at N=10M — the gap narrows with N and is not a stable 30–50 % band. [`../PERFORMANCE.md`](../PERFORMANCE.md) additionally warns that the Fast Doubling / Matrix ordering can invert at N ≥ 10M on some CPUs.
 
 **FFT-Based** is a specialized variant that forces FFT multiplication for all operations. It approaches Fast Doubling's performance for very large N (> 100M) where FFT's O(n log n) multiplication dominates, but carries unnecessary overhead for smaller inputs. Its primary use is benchmarking the FFT subsystem.

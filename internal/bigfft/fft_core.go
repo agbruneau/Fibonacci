@@ -3,23 +3,23 @@ package bigfft
 // fourier performs an unnormalized Fourier transform
 // of src, a length 1<<k vector of numbers modulo b^n+1
 // where b = 1<<_W.
-func fourier(dst []fermat, src []fermat, backward bool, n int, k uint) error {
+func fourier(dst, src []fermat, backward bool, n int, k uint) error {
 	tmp := acquireFermat(n + 1)
 	tmp2 := acquireFermat(n + 1)
 	defer releaseFermat(tmp)
 	defer releaseFermat(tmp2)
 
-	return fourierRecursive(dst, src, backward, n, k, k, 0, tmp, tmp2)
+	return fourierRecursive(dst, src, backward, n, k, k, tmp, tmp2)
 }
 
 // fourierWithBump performs the Fourier transform using a bump allocator for
 // temporary buffers, giving better cache locality than the pooled-buffer path
 // in fourier() (which acquires tmp/tmp2 via acquireFermat/releaseFermat).
-func fourierWithBump(dst []fermat, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
-	tmp := ba.AllocFermat(n)
-	tmp2 := ba.AllocFermat(n)
+func fourierWithBump(dst, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
+	tmp := ba.allocFermat(n)
+	tmp2 := ba.allocFermat(n)
 
-	// *BumpAllocator implements TempAllocator directly (see bump.go).
+	// *BumpAllocator implements tempAllocator directly (see bump.go).
 	return fourierRecursiveUnified(dst, src, backward, n, k, k, 0, tmp, tmp2, ba)
 }
 
@@ -34,9 +34,23 @@ func fftmul(x, y nat) (nat, error) {
 // Uses a bump allocator for temporary allocations to minimize GC pressure
 // and improve cache locality during the FFT computation.
 //
-// Transform caching: When the global TransformCache is enabled, FFT transforms
-// are cached and reused for repeated multiplications of the same values,
-// providing 15-30% speedup in iterative algorithms like Fibonacci.
+// Transform caching: this is one of the two places the global TransformCache is
+// consulted (via MulCachedWithBump; the other is fftsqrTo). A hit requires the
+// cache to be Enabled, the operand's polyBitLen to reach MinBitLen, and the
+// exact coefficient values to have been transformed before under the same
+// (K, n) shape — see TransformCachedWithBump in fft_cache.go.
+//
+// It is NOT on the Fast Doubling FFT path: executeDoublingStepFFT
+// (internal/fibonacci/fft.go) transforms its operands with TransformWithBump
+// and never consults the cache. Production reaches here through
+// bigfft.Mul/MulTo, i.e. the matrix-exponentiation calculator (which reaches
+// smartMultiply, defined in fibonacci/fft.go, from matrix_ops.go) and
+// calibration/microbench.go.
+//
+// The repo records no measurement of the cache's effect, and carries no
+// benchmark that produces one: BenchmarkCacheImpact drives a
+// FastDoublingCalculator, which by the paragraph above never reaches this
+// code, so it reports a 0% hit rate whatever the cache is configured to do.
 func fftmulTo(dst, x, y nat) (nat, error) {
 	k, m := fftSize(x, y)
 
@@ -70,9 +84,9 @@ func fftsqr(x nat) (nat, error) {
 // Uses a bump allocator for temporary allocations to minimize GC pressure
 // and improve cache locality during the FFT computation.
 //
-// Transform caching: When the global TransformCache is enabled, FFT transforms
-// are cached and reused for repeated squaring of the same values,
-// providing significant speedup in iterative algorithms like Fibonacci.
+// Transform caching: same gating and same reachability caveat as fftmulTo —
+// the cache is consulted here (via SqrCachedWithBump) but not on the Fast
+// Doubling FFT path, and the repo records no measurement of its effect.
 func fftsqrTo(dst, x nat) (nat, error) {
 	k, m := fftSizeSqr(x)
 

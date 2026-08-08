@@ -112,19 +112,9 @@ func TestCLI_ModesCombination(t *testing.T) {
 	}
 
 	got := strings.TrimSpace(string(output))
-	want := "228875" // Last digits of F(1000) are ...228875, padded to 10?
-	// Wait, F(1000) result ends in 228875. Padded to 10 digits would be 166849228875?
-	// No, let's see. F(1000) = ...298969649928516003704476137795166849228875
-	// Last 10 digits: 166849228875? No, 66849228875 is 11 digits.
-	// 5166849228875 -> 13 digits.
-	// ...166849228875
-
-	// Let's check exactly.
-	// Last 10: 66849228875? No.
-	// 1 6 6 8 4 9 2 2 8 8 7 5
-	// counts from right: 5(1) 7(2) 8(3) 8(4) 2(5) 2(6) 9(7) 4(8) 8(9) 6(10)
-	// So 6849228875.
-	want = "6849228875"
+	// F(1000) ends in ...166849228875, so its last 10 decimal digits are
+	// 6849228875.
+	want := "6849228875"
 
 	if got != want {
 		t.Errorf("Combined mode mismatch.\nWant: %s\nGot:  %s", want, got)
@@ -147,7 +137,7 @@ func TestCLI_Formatting(t *testing.T) {
 	}
 
 	outStr := string(output)
-	// F(70) = 190,392,490,709,135
+	// F(70) is 190,392,490,709,135 once grouped with thousands separators.
 	if !strings.Contains(outStr, "190,392,490,709,135") {
 		t.Errorf("Result not correctly formatted with commas.\nGot:\n%s", outStr)
 	}

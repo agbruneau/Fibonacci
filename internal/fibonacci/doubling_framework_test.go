@@ -69,7 +69,7 @@ type mockCacheStrategy struct {
 	returnError error
 }
 
-func (m *mockCacheStrategy) Sample(iter int, totalIters int) error {
+func (m *mockCacheStrategy) Sample(iter, totalIters int) error {
 	m.calls.Add(1)
 	m.lastIter.Store(int64(iter))
 	m.lastTotal.Store(int64(totalIters))
@@ -97,7 +97,7 @@ func TestDoublingFramework_CacheStrategyInjected(t *testing.T) {
 	}
 	result := ReleaseStateWithResult(s, raw)
 
-	// F(64) = 10610209857723.
+	// want: F(64) == 10610209857723
 	if result.Uint64() != 10610209857723 {
 		t.Errorf("F(64) = %s, want 10610209857723", result.String())
 	}

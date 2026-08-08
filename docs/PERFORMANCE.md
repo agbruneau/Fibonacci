@@ -8,14 +8,37 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 
 ## Reference Benchmarks
 
-### Test Configuration
+### The only measurement this repo carries
+
+`docs/audits/bench-baseline.txt` is the sole benchmark artifact tracked in the
+repository. Everything else in this section is an unbacked historical note (see
+the Provenance warning below). Medians of the 5 samples per row, computed from
+that file — linux/amd64, 24 threads, `-count=5 -benchtime=1x`, header stamp
+`baseline-2026-07-07`:
+
+| N | Fast Doubling | Matrix Exp. | FFT-Based |
+|---|---|---|---|
+| 1,000,000 | **3.15 ms** / 1.32 MB per op | 6.03 ms / 6.33 MB | 5.13 ms / 5.38 MB |
+| 10,000,000 | **23.87 ms** / 17.38 MB per op | 30.84 ms / 92.25 MB | 29.08 ms / 30.88 MB |
+
+`-benchtime=1x` means one iteration per sample, so each row includes first-call
+warm-up. That warm-up shows up as a high first sample in four of the six groups —
+FastDoubling/1M, FastDoubling/10M, MatrixExp/10M and FFTBased/10M, where sample 1
+is the slowest of the five — but **not** in the other two: in MatrixExp/1M the
+first sample (5,781,043 ns) is the second *lowest* of its five, and in FFTBased/1M
+the first sample (5,134,173 ns) is exactly the median. Counted from
+[`docs/audits/bench-baseline.txt`](audits/bench-baseline.txt). These
+are the numbers `benchstat` compares against, and the only ones in this document
+you can re-derive from a file in the tree.
+
+### Test Configuration (historical, no archived output)
 
 - **CPU**: AMD Ryzen 9 5900X (12 cores, 24 threads)
 - **RAM**: 32 GB DDR4-3600
 - **OS**: Linux 6.1
 - **Go**: 1.25.0
 
-> **Provenance.** The figures in this section are **historical measurements** taken under the environment above (Go 1.25.0). The project now targets Go 1.26.0+ (see `go.mod`); these numbers are intentionally *not* re-stamped to the current toolchain. Re-run `make benchmark` for up-to-date figures on your own runner.
+> **Provenance — read before quoting any number below.** The two tables that follow are **historical figures with no backing artifact in this repository**: no benchmark output for them was ever archived, on this hardware or any other, and nothing in the tree can confirm them. They are kept only as a record of *relative ordering* between the three algorithms. Do not cite them as measurements. The project now targets Go 1.26.0+ (see `go.mod`) while these predate it. For a number you can defend, use the baseline table above or re-run `make benchmark` on your own runner.
 >
 > **Current dated references.** Two later optimization rounds make HEAD measurably faster than these historical numbers: the 2026-06-09 parallel pointwise/butterfly work (FastDoubling/10M −27.6 %; [`CHANGELOG.md`](../CHANGELOG.md)) and the 2026-06-10 audit loop (commits `4e34b82` TestMain, `fa13bfd` state+arena cache, `7999c39` bump F-012: geomean sec/op −12.0 % vs the same-day baseline, FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %; [`CHANGELOG.md`](../CHANGELOG.md)).
 
@@ -29,7 +52,7 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 | 1,000,000 | 85ms | 110ms | 95ms | 208,988 |
 | 10,000,000 | 2.1s | 2.8s | 2.3s | 2,089,877 |
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
-| 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,909 |
+| 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,910 |
 
 > Current dated reference for the N=10M row: `BenchmarkFibonacci/FastDoubling/10M` measures 28.20 ms (calculation only, no decimal conversion; 2026-06-10, Intel Core Ultra 9 275HX — see [`CHANGELOG.md`](../CHANGELOG.md)).
 
@@ -45,7 +68,7 @@ Informative only; kept for cross-architecture comparison. Ryzen remains the cano
 | 1,000,000    | ~3ms   | 55ms   | 45ms   | 208,988    |
 | 10,000,000   | ~60ms  | 750ms  | 600ms  | 2,089,877  |
 | 100,000,000  | 30s    | 42s    | 33s    | 20,898,764 |
-| 250,000,000  | 2m10s  | 3m05s  | 2m25s  | 52,246,909 |
+| 250,000,000  | 2m10s  | 3m05s  | 2m25s  | 52,246,910 |
 
 Intel figures reflect a mobile workstation profile with higher single-thread performance; absolute ordering of algorithms (Fast Doubling < FFT < Matrix for medium N) is consistent across both platforms.
 
@@ -146,13 +169,17 @@ var statePool = sync.Pool{
 ```
 
 #### Impact
-- 95%+ reduction in allocations
-- 20-30% performance improvement (historical, unsourced figure; for current dated measurements see [`CHANGELOG.md`](../CHANGELOG.md))
+- Fewer allocations per calculation. The one figure the repo can show for the
+  combined pooling work is `docs/audits/bench-baseline.txt`: 1.32 MB per op at
+  F(1M) and 17.38 MB at F(10M) for Fast Doubling, against 6.33 MB / 92.25 MB for
+  Matrix Exponentiation. No before/after measurement of pooling in isolation
+  exists here; the "95 %+ / 20-30 %" figures this section used to carry had no
+  backing artifact and were removed on 2026-08-07.
 - Reduced GC pause times
 
 **Calculation Arena (state-bound)**: For N > 1,000 a contiguous `CalculationArena` pre-allocates all 5 `big.Int` backing arrays from a single `[]big.Word` block, reducing GC tracking overhead and memory fragmentation. The arena is owned by `CalculationState` and travels through the same `sync.Pool`: `AcquireStateForN(n)` reuses the existing arena (`Reset()` only) when the previous tenancy was large enough, otherwise it reallocates. `ReleaseStateWithResult(s, src)` deep-copies the result out of the arena before resetting it and detaches every state slot before pool return, so a subsequent acquisition cannot alias another caller's result. The arena falls back to heap allocation when exhausted, and is dropped (not pooled) past `maxArenaPoolWords` (~50M words ≈ 400 MB) to bound resident memory.
 
-**GC-immune state cache and per-state FFT scratch (2026-06-10)**: `sync.Pool` alone cannot retain the arena across calls — the GC-disable pattern of large calculations (`GCController`) re-enables GC right after every call, and that collection flushes the pool, so each repeated call paid a full arena reallocation (~46 % of all allocations at F(10M)). Since commit `fa13bfd`, each `FastDoublingCalculator` keeps a single-slot, **GC-immune** cache of its last released state (`cachedState`, an `atomic.Pointer[CalculationState]`), capped at `maxCachedArenaWords` (4M words ≈ 32 MB, covering n up to roughly 20M); larger arenas keep the historical pool-only behavior. Since commit `7999c39` (F-012), the FFT forward-transform `BumpAllocator` is also carried by the `CalculationState`: it is acquired once per calculation at final-operand size and only `Reset()` between doubling steps, instead of being re-acquired and re-grown at every step. Cumulative effect measured 2026-06-10: FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %, geomean sec/op −12.0 % ([`CHANGELOG.md`](../CHANGELOG.md)).
+**GC-immune state cache and per-state FFT scratch (2026-06-10)**: `sync.Pool` alone cannot retain the arena across calls — the GC-disable pattern of large calculations (`GCController`) re-enables GC right after every call, and that collection flushes the pool, so each repeated call paid a full arena reallocation (~46 % of all allocations at F(10M)). Since commit `fa13bfd`, each `FastDoublingCalculator` keeps a single-slot, **GC-immune** cache of its last released state (`cachedState`, an `atomic.Pointer[CalculationState]`), capped at `maxCachedArenaWords` (4M words ≈ 32 MB — which covers **n up to ≈ 36.9M**, since `arenaTotalWords(n) = (⌊n × 0.69424 / 64⌋ + 1) × 10` after the ADR-0009 R4 ×15 → ×10 change; the "roughly 20M" figure that used to appear here was computed against the old ×15 factor); larger arenas keep the historical pool-only behavior. Since commit `7999c39` (F-012), the FFT forward-transform `BumpAllocator` is also carried by the `CalculationState`: it is acquired once per calculation at final-operand size and only `Reset()` between doubling steps, instead of being re-acquired and re-grown at every step. Cumulative effect measured 2026-06-10: FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %, geomean sec/op −12.0 % ([`CHANGELOG.md`](../CHANGELOG.md)).
 
 ### 2. 2-Tier Adaptive Multiplication
 
@@ -178,11 +205,11 @@ func smartMultiply(z, x, y *big.Int, fftThreshold int) (*big.Int, error) {
 | 1 | FFT (Schonhage-Strassen) | O(n log n) | > 500,000 bits |
 | 2 | Standard `math/big` | O(n^2) / O(n^1.585) | Below FFT threshold |
 
-> **Note — sub-threshold cost is library-bound.** For 500K < bits < a few M (below `DefaultFFTThreshold` = 500,000), wall time is dominated by `math/big`'s Karatsuba multiplication and `sync.Pool` P-pinning, not by project code. This is the expected behavior under the FFT threshold and is not a regression of the calculator itself.
+> **Note — sub-threshold cost is library-bound.** Below `DefaultFFTThreshold` (500,000 bits), wall time is dominated by `math/big`'s Karatsuba multiplication and `sync.Pool` P-pinning, not by project code. This is the expected behavior under the FFT threshold and is not a regression of the calculator itself.
 
 ### 3. Multi-core Parallelism
 
-The three main multiplications in the Fast Doubling algorithm can be parallelized via the `DoublingStepExecutor.ExecuteStep` method. The strategy dispatches multiplication work across goroutines when the operand size exceeds the parallel threshold.
+The three main multiplications in the Fast Doubling algorithm can be parallelized via the `DoublingStepExecutor.ExecuteStep` method. The caller decides: `DoublingFramework.ExecuteDoublingLoop` evaluates `shouldParallelizeMultiplicationCached` per iteration and passes the verdict as `ExecuteStep`'s `inParallel` argument.
 
 #### Considerations
 
@@ -196,10 +223,11 @@ For matrix exponentiation, the Strassen algorithm reduces the number of multipli
 
 ```
 Classic 2x2 multiplication: 8 multiplications
-Strassen 2x2: 7 multiplications + 18 additions
+Strassen-Winograd 2x2 (implemented): 7 multiplications + 15 additions/subtractions
+  (the classical Strassen formulation needs 18)
 ```
 
-Enabled via `StrassenThreshold` (default: 3,072 bits via config; internal default: 256 bits) when matrix elements are large enough for the multiplication savings to compensate for additional additions. The internal default can be adjusted at runtime via `fibonacci.SetDefaultStrassenThreshold()`, and the per-calculation threshold is set via `Options.StrassenThreshold`.
+Enabled via `StrassenThreshold` (default: 3,072 bits via config; internal default: 256 bits) when matrix elements are large enough for the multiplication savings to compensate for additional additions. The per-calculation threshold is set via `Options.StrassenThreshold`; the internal default is reachable through `fibonacci.SetDefaultStrassenThreshold()` but is a test-only fallback — `normalizeOptions` fills a zero `StrassenThreshold` with 3,072 before any matrix multiply, so production never reads it.
 
 ### 5. Symmetric Matrix Squaring
 
@@ -207,7 +235,7 @@ Specific optimization for squaring symmetric matrices (where b = c), reducing mu
 
 ### 6. GC Controller
 
-For large calculations (N ≥ 1M), the `GCController` disables Go's garbage collector during computation, eliminating GC pauses and reducing the ~2× memory overhead from GC scanning. A soft memory limit (3× current Sys) acts as an OOM safety net.
+For large calculations (N ≥ 1M), the `GCController` disables Go's garbage collector during computation, so no GC cycle runs inside the guarded region. The motivation is `GOGC=100`'s default behaviour — the live heap is allowed to double before a cycle triggers — but the repo carries no peak-RSS measurement with and without the controller. A soft memory limit (3× current Sys) acts as an OOM safety net.
 
 | Mode | Activation | Behavior |
 |------|-----------|----------|
@@ -215,7 +243,7 @@ For large calculations (N ≥ 1M), the `GCController` disables Go's garbage coll
 | `aggressive` | Always | Disable GC regardless of N |
 | `disabled` | Never | Standard GC behavior |
 
-GC control is handled automatically; no user-facing flag or environment variable is exposed. The mode is selected internally based on the calculation size.
+The mode defaults to `auto` (selected on calculation size) and is user-overridable through the `--gc-control` flag or the `FIBCALC_GC_CONTROL` environment variable.
 
 > **Note — concurrent comparison (`--algo all`).** When several calculators run in parallel (each with its own `GCController`), GC disable/restore is serialized by a package-level refcount (`gcGlobalMu`/`gcActiveDepth`/`gcSavedPercent`): GC stays off while *any* sibling runs and the real `GOGC` is restored exactly once when the *last* one finishes. See [`docs/adr/0005-gc-control-concurrent.md`](adr/0005-gc-control-concurrent.md).
 
@@ -223,14 +251,19 @@ GC control is handled automatically; no user-facing flag or environment variable
 
 Pre-calculate estimated memory usage before starting with `--memory-limit`:
 
+`memory.EstimateMemoryUsage(n)` (`internal/fibonacci/memory/budget.go`) is the sole
+source of these numbers. It computes `bytesPerFib = (⌊n × 0.69424 / 64⌋ + 1) × 8` and
+totals **15 × bytesPerFib** (state 5× + FFT buffers 3× + transform cache 2× + GC
+overhead 5×):
+
 | N | Estimated Peak Memory |
 |---|---|
-| 10M | ~120 MB |
-| 100M | ~1.2 GB |
-| 1B | ~12 GB |
-| 5B | ~58 GB |
+| 10M | ~12.4 MB |
+| 100M | ~124 MB |
+| 1B | ~1.21 GB |
+| 5B | ~6.06 GB |
 
-If the estimate exceeds the limit, the tool exits with an error and suggests `--last-digits K` as an alternative.
+If the estimate exceeds the limit, the tool exits with an error and suggests `--last-digits K` as an alternative. Note that this is the estimator's figure, not a measured RSS: pick `--memory-limit` against this model, not against observed process memory.
 
 ### 8. Partial Computation (Last Digits)
 
@@ -254,7 +287,7 @@ fibcalc --calibrate
 fibcalc --auto-calibrate
 ```
 
-> The programmatic entry point is `calibration.RunCalibration(ctx, out, calculatorRegistry, progressDisplay, colorProvider) int`; see [CALIBRATION.md](CALIBRATION.md) for the full API and the 3-tier fallback.
+> The programmatic entry point is `calibration.RunCalibration(ctx, out, calculatorRegistry, profilePath, progressDisplay, colorProvider) int`; see [CALIBRATION.md](CALIBRATION.md) for the full API and the 3-tier fallback.
 
 ### Configuration Parameters
 
@@ -271,10 +304,12 @@ fibcalc --auto-calibrate
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `FFTCacheMinBitLen` | 100,000 bits | Minimum operand bit length to cache FFT transforms |
-| `FFTCacheMaxEntries` | 256 entries | Maximum number of cached FFT transforms |
+| `FFTCacheMaxEntries` | see below | Maximum number of cached FFT transforms |
 | `FFTCacheEnabled` | `true` | Enable/disable FFT transform caching |
 
-> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr/MulTo/SqrTo` calls (including `FFTOnlyStrategy.Multiply/Square`, which delegate to them; note that the FFT-only **calculator loop** uses `FFTOnlyStrategy.ExecuteStep` → `executeDoublingStepFFT` → `TransformWithBump`, the same **uncached** path as default Fast Doubling, so it never calls `Multiply/Square`). The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; see ADR-0004 §B1. Measured 2026-06-10 (`BenchmarkCacheImpact`, F(10M), Intel Core Ultra 9 275HX): `WithDefaultCache` 22.95 ms vs `CacheDisabled` 21.18 ms — the cache provides **no speedup** on the default Fast Doubling path ([`CHANGELOG.md`](../CHANGELOG.md)); any cache speedup claim only concerns the `FFTOnlyStrategy` and direct `bigfft.Mul/Sqr` paths. Reworking the default step to use the cache is a won't-fix without a supporting benchmark.
+> **`FFTCacheMaxEntries` has no fixed default of 256.** `bigfft.DefaultTransformCacheConfig()` does return `MaxEntries: 256` (`internal/bigfft/fft_cache.go:DefaultTransformCacheConfig`), but `configureFFTCache` overrides it whenever the option is left at 0 and `n > 0`, computing `clamp(2 × bits.Len64(n), 64, 4096)` (`internal/fibonacci/options.go:configureFFTCache`). For n = 10M that is `2 × 24 = 48`, clamped up to **64**. The dynamic value can never reach 256: `bits.Len64` maxes out at 64, so the expression tops out at 128. The 256 constant only reaches a caller who bypasses `configureFFTCache`, or who leaves `n = 0`. The doc comment on `Options.FFTCacheMaxEntries` (`internal/fibonacci/options.go:Options.FFTCacheMaxEntries`) states this rule directly: it says the field is sized from n as `clamp(2*bits.Len64(n), 64, 4096)`, "which is 64..128 in practice since bits.Len64 caps at 64; the package default of 256 only applies when n is 0."
+
+> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr/MulTo/SqrTo` calls (including `FFTOnlyStrategy.Multiply/Square`, which delegate to them; note that the FFT-only **calculator loop** uses `FFTOnlyStrategy.ExecuteStep` → `executeDoublingStepFFT` → `TransformWithBump`, the same **uncached** path as default Fast Doubling, so it never calls `Multiply/Square`). The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; see ADR-0004 §B1. The "no speedup on the default path" conclusion follows from the code path alone — `TransformWithBump` never consults the cache, so hits and misses are both zero there; it needs no benchmark. A `BenchmarkCacheImpact` figure (22.95 ms vs 21.18 ms) used to be quoted here and attributed to [`CHANGELOG.md`](../CHANGELOG.md); that attribution was **false** — `grep -n "22.95\|BenchmarkCacheImpact" CHANGELOG.md` returns nothing, and no run of that benchmark is archived anywhere in the repo. The numbers were removed on 2026-08-07. Any cache-speedup claim would concern only the `FFTOnlyStrategy` and direct `bigfft.Mul/Sqr` paths, and none is measured here. Reworking the default step to use the cache stays a won't-fix without a supporting benchmark.
 
 #### Dynamic Threshold Adjustment
 
@@ -285,12 +320,12 @@ fibcalc --auto-calibrate
 
 #### FFT Parallelism (bigfft package)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ParallelFFTRecursionThreshold` | 4 | Minimum FFT size (log2) for parallel recursion |
-| `MaxParallelFFTDepth` | 3 | Maximum depth of parallel FFT recursion |
+| Variable (unexported atomic) | Accessor | Default | Description |
+|----------|----------|---------|-------------|
+| `parallelFFTRecursionThreshold` | `bigfft.GetParallelFFTRecursionThreshold()` | 4 | Minimum FFT size (log2) for parallel recursion |
+| `maxParallelFFTDepth` | `bigfft.GetMaxParallelFFTDepth()` | 3 | Maximum depth of parallel FFT recursion |
 
-These FFT parallelism settings are runtime-configurable via `bigfft.SetFFTParallelismConfig()`.
+Both are `atomic.Uint64` package variables seeded in `init()`; they are runtime-configurable via `bigfft.SetFFTParallelismConfig()`.
 
 All threshold parameters are configured via the `fibonacci.Options` struct:
 
@@ -389,7 +424,7 @@ go build -ldflags="-s -w" -gcflags="-B" ./cmd/fibcalc
 
 ## Known Limitations
 
-1. **Memory**: F(1 billion) requires ~12 GB of RAM. Use `--memory-limit` to validate before starting.
+1. **Memory**: `EstimateMemoryUsage` puts F(1 billion) at ~1.21 GB. Use `--memory-limit` to validate before starting.
 2. **Time**: Calculations for N > 500M can take hours
 3. **FFT Contention**: The FFT algorithm saturates cores, limiting external parallelism
 4. **Workaround**: Use `--last-digits K` for O(K) memory usage with arbitrarily large N.

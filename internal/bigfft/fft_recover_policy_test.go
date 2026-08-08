@@ -25,7 +25,6 @@ func TestFermatPostConditionPanicClassifier(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := isFermatPostConditionPanic(tc.in)
@@ -85,7 +84,7 @@ func TestMulRepanicsOnPostCondition(t *testing.T) {
 	}()
 
 	// Replicate the deferred recover semantics of Mul without the FFT body.
-	func() (err error) {
+	_ = func() (err error) {
 		defer func() {
 			if r := recover(); r != nil {
 				if isFermatPostConditionPanic(r) {

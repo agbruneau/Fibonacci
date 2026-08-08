@@ -75,7 +75,6 @@ func TestTUIResultPresenter_FormatDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			result := presenter.FormatDuration(tt.input)
@@ -254,7 +253,9 @@ func TestProgramRef_Send_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			ref.Send(ProgressMsg{Value: float64(i) / 100})
+			if err := ref.Send(ProgressMsg{Value: float64(i) / 100}); !errors.Is(err, ErrProgramNotInitialized) {
+				t.Errorf("Send with no program = %v, want ErrProgramNotInitialized", err)
+			}
 		}(i)
 	}
 	wg.Wait()

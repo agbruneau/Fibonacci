@@ -80,7 +80,7 @@ tests in-package en package externe.
 
 ### R7 — Knobs de tuning `threshold` : pas de migration atomic ni de garde `Once`
 
-L'invariant A2-04 (`manager.go:33-39`) acte explicitement « no atomic
+L'invariant A2-04 (commentaire « INVARIANT (A2-04) » au-dessus du bloc `var` de tuning dans `manager.go`) acte explicitement « no atomic
 migration this pass ». Une garde `sync.Once` dans `SetTuning` casserait
 `TestSetTuning` (F-007) qui appelle légitimement la fonction plusieurs
 fois en séquentiel. La réponse retenue est ailleurs : **exécuter le
@@ -99,5 +99,5 @@ derrière un `sync.Once` côté app) — commit `fix(app)` dédié.
 ## References
 
 - ADR-0004 (backlog), ADR-0002 (recover), A-19 (`progress/doc.go`),
-  A2-04 (`threshold/manager.go:33-39`).
+  A2-04 (commentaire « INVARIANT (A2-04) » de `threshold/manager.go`).
 - Commits de la branche `refactor/audit-deepening-2026-06`.

@@ -25,7 +25,7 @@ func benchmarkFFTMul(b *testing.B, bits int64) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		z := new(big.Int)
-		MulTo(z, x, y)
+		_, _ = MulTo(z, x, y)
 	}
 }
 

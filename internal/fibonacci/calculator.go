@@ -168,7 +168,7 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- progr
 // performs the same check at config-parsing time; CanCalculate intervenes
 // lower in the stack so the protection holds even when the validator is
 // bypassed.
-func CanCalculate(n uint64, memLimitBytes uint64) (bool, memory.MemoryEstimate) {
+func CanCalculate(n, memLimitBytes uint64) (bool, memory.MemoryEstimate) {
 	est := memory.EstimateMemoryUsage(n)
 	if memLimitBytes == 0 {
 		return true, est

@@ -99,7 +99,7 @@ func TestLastNDigitsLargeNumber(t *testing.T) {
 
 func TestCompute(t *testing.T) {
 	t.Parallel()
-	result := fibSmall(100) // F(100) = 354224848179261915075
+	result := fibSmall(100) // F(100) is 354224848179261915075
 	duration := 500 * time.Millisecond
 	n := uint64(100)
 

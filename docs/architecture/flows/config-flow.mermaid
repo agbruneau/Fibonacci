@@ -1,9 +1,9 @@
 flowchart LR
-    subgraph Sources["Configuration Sources (Priority Order)"]
-        S1[1. CLI Flags<br/>--parallel-threshold, etc.]
-        S2[2. Environment Variables<br/>FIBCALC_* prefix]
-        S3[3. Cached Calibration Profile<br/>~/.fibcalc_calibration.json]
-        S4[4. Adaptive Hardware Estimation<br/>CPU cores, architecture]
+    subgraph Sources["Configuration Sources — for the 3 thresholds, a VALID cached profile OUTRANKS flags and env"]
+        S3[1. Cached Calibration Profile<br/>~/.fibcalc_calibration.json — OVERWRITES<br/>Threshold/FFTThreshold/StrassenThreshold<br/>without reading flag or env]
+        S1[2. CLI Flags<br/>--threshold, --fft-threshold,<br/>--strassen-threshold<br/>+ every other flag: highest priority]
+        S2[3. Environment Variables<br/>FIBCALC_* prefix — read only when the<br/>matching flag is absent from argv]
+        S4[4. Adaptive Hardware Estimation<br/>CPU cores, architecture — fills zeros only]
         S5[5. Static Defaults<br/>constants.go]
     end
 
@@ -12,25 +12,27 @@ flowchart LR
         S2 --> P1
         P1 --> P2[flag.Parse]
         P2 --> P3[applyEnvOverrides]
-        P3 --> P4[AppConfig.Validate]
+        P3 --> P3b["strings.ToLower on Algo"]
+        P3b --> P4[AppConfig.Validate]
         P4 --> P5[AppConfig struct]
     end
 
-    subgraph Calibration["Calibration Resolution"]
-        P5 --> C1{--calibrate flag?}
-        C1 -->|Yes| C2[Full Calibration Mode<br/>runner.go]
+    subgraph Calibration["Calibration Resolution (app.New, then runDispatch)"]
+        P5 --> C5["LoadCachedCalibration<br/>(app.New — UNCONDITIONAL,<br/>runs before any mode dispatch)"]
+        C5 --> C6{Loaded AND Validate ok?}
+        C6 -->|"Yes: version, NumCPU, GOARCH, word size, CPUHeuristicKey all match"| C7["Apply Calibrated Thresholds<br/>DISCARDS any --threshold /<br/>--fft-threshold / --strassen-threshold<br/>and their FIBCALC_* values"]
+        C6 -->|No or stale| C8[ApplyAdaptiveThresholds]
+        C7 --> C1{--calibrate flag?}
+        C8 --> C1
+        C1 -->|Yes| C2["Full Calibration Mode<br/>runner.go — terminal, returns"]
         C1 -->|No| C3{--auto-calibrate?}
-        C3 -->|Yes| C4[Quick Micro-benchmarks<br/>microbench.go]
-        C3 -->|No| C5[LoadCachedCalibration]
-        C5 --> C6{Valid profile?}
-        C6 -->|Yes, matching CPU/arch| C7[Apply Calibrated Thresholds]
-        C6 -->|No or stale| C8[Adaptive Estimation]
+        C3 -->|Yes| C4["Quick Micro-benchmarks<br/>microbench.go — overwrites cfg,<br/>then falls through"]
     end
 
-    subgraph Adaptive["Adaptive Threshold Estimation"]
-        C8 --> D1[EstimateOptimalParallelThreshold<br/>by CPU core count]
-        C8 --> D2[EstimateOptimalFFTThreshold<br/>by architecture]
-        C8 --> D3[EstimateOptimalStrassenThreshold<br/>by CPU core count]
+    subgraph Adaptive["Adaptive Threshold Estimation (each reads HardwareHeuristic.SIMD)"]
+        C8 --> D1[EstimateOptimalParallelThreshold<br/>CPU core count, then SIMD class]
+        C8 --> D2[EstimateOptimalFFTThreshold<br/>word size, then SIMD class]
+        C8 --> D3[EstimateOptimalStrassenThreshold<br/>CPU core count, then SIMD class]
     end
 
     subgraph Options["Options Construction"]
@@ -46,9 +48,11 @@ flowchart LR
     end
 
     subgraph Dynamic["Runtime Dynamic Adjustment"]
-        E5 --> F1[DynamicThresholdManager]
+        E5 --> F0{EnableDynamicThresholds?<br/>FastDoublingCalculator only}
+        F0 -->|No| F0a[NewDoublingFramework<br/>dynamicThreshold = nil]
+        F0 -->|Yes| F1[DynamicThresholdManager]
         F1 --> F2[Ring buffer<br/>20 IterationMetric entries]
-        F2 --> F3[Check every 5 iterations]
+        F2 --> F3[Check every 5 iterations<br/>min 3 metrics]
         F3 --> F4[15% hysteresis band]
         F4 --> F5[Adjust FFT/Parallel<br/>thresholds at runtime]
     end
@@ -57,7 +61,8 @@ flowchart LR
         C2 --> G1[JSON profile]
         C4 --> G1
         G1 --> G2[Save to<br/>~/.fibcalc_calibration.json]
-        G2 --> G3[Validated against<br/>CPU / arch / word-size]
+        G2 -.->|read back on a LATER run<br/>by LoadOrCreateProfile| G3["profile.IsValid(): version, NumCPU,<br/>GOARCH, word size, CPUHeuristicKey"]
+        G3 -.-> C5
     end
 
     style Sources fill:#e1f5fe

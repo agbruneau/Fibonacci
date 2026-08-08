@@ -332,7 +332,7 @@ func TestChannelObserver_NilChannel(t *testing.T) {
 func TestChannelObserver_FullChannel(t *testing.T) {
 	t.Parallel()
 
-	ch := make(chan ProgressUpdate) // Unbuffered = full
+	ch := make(chan ProgressUpdate) // unbuffered, therefore always full
 	observer := NewChannelObserver(ch)
 
 	// Should not block - use timeout to verify

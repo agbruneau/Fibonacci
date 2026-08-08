@@ -40,15 +40,21 @@ func BenchmarkCacheImpact(b *testing.B) {
 
 	b.Run("WithOptimizedCache", func(b *testing.B) {
 		// P2-01: "Optimized" is a misnomer — this configuration
-		// (MinBitLen=50000, MaxEntries=256) is ~20% SLOWER than
-		// WithDefaultCache on BenchmarkCacheImpact/F(10^7):
-		//   WithDefaultCache  : 77.3 ms/op
-		//   WithOptimizedCache: 92.7 ms/op (+20%)
-		// Audit bench/TEAM_A_PERFORMANCE.md F-A6 attributes the
-		// regression to MinBitLen=50000 being below the Fibonacci
-		// iteration's break-even point: caching transforms for
-		// small-ish operands costs more in hashing + deep-copy than
-		// the infrequent hit saves. Hit rate drops to ~4.55%.
+		// (MinBitLen=50000, MaxEntries=256) was found SLOWER than
+		// WithDefaultCache, the diagnosis being that MinBitLen=50000
+		// sits below the Fibonacci iteration's break-even point:
+		// caching transforms for small-ish operands costs more in
+		// hashing + deep-copy than the infrequent hit saves.
+		//
+		// The ms/op and hit-rate figures this comment used to quote
+		// came from audit bench/TEAM_A_PERFORMANCE.md F-A6, which is
+		// no longer in the repo, and this benchmark cannot reproduce
+		// them: it drives a FastDoublingCalculator, whose FFT step
+		// transforms with TransformWithBump and never consults the
+		// cache, so the hit rate is 0 under both configurations and
+		// the two arms differ only by the configureFFTCache call.
+		// Measuring the cache would require a calculator that reaches
+		// bigfft.Mul/Sqr — the matrix path.
 		//
 		// Retained as a benchmark reference so regressions in the
 		// default config are visible against the misconfigured

@@ -6,7 +6,7 @@
 
 ## Context
 
-`staticcheck SA6002` signale 8 sites (`internal/bigfft/pool.go:148,245,333,421` ; `pool_warming.go:70,79,88,97`) où un `sync.Pool.Put` reçoit une **valeur de slice** (`[]big.Word`, `fermat`, `[]nat`, `[]fermat`). Mettre une valeur non *pointer-like* dans une interface boxe l'en-tête (3 mots), provoquant une allocation à chaque `Put` — contre-productif dans la couche de pooling censée éliminer les allocations.
+`staticcheck SA6002` signale 8 sites (`internal/bigfft/pool.go` ; `pool_warming.go` — positions relevées à la rédaction, voir la *Status note* pour les lignes courantes) où un `sync.Pool.Put` reçoit une **valeur de slice** (`[]big.Word`, `fermat`, `[]nat`, `[]fermat`). Mettre une valeur non *pointer-like* dans une interface boxe l'en-tête (3 mots), provoquant une allocation à chaque `Put` — contre-productif dans la couche de pooling censée éliminer les allocations.
 
 La « correction » naturelle (pooler des `*[]T`) n'est bénéfique que si le **box pointeur est réutilisé** d'un `Get` à l'autre. Or l'API actuelle `acquire*()` retourne une slice **valeur** et `release*(slice)` reçoit une slice **valeur** : un `release` qui ferait `Put(&s)` sur son paramètre **fait s'échapper** `&s` vers le tas → une allocation par appel, **identique** au boxing.
 
@@ -22,7 +22,7 @@ La « correction » naturelle (pooler des `*[]T`) n'est bénéfique que si le **
 | `Put(&s)` — préservant la signature `release([]T)` | 16.53 | 24 | **1** |
 | `Get`/`Put` d'un **même `*[]T` réutilisé** | 4.30 | 0 | **0** |
 
-Conclusion : le correctif préservant l'API est **strictement neutre** en allocation. Le seul gain réel (0 alloc) exige de **threader `*[]T`** à travers tout l'API d'allocation FFT (`acquire*`/`release*` + leurs appelants + `fftState`) — c'est la **migration `FFTContext` exclusive**, déjà tracée et reportée (ADR-0004 §B1, won't-fix release courante).
+Conclusion : le correctif préservant l'API est **strictement neutre** en allocation. Le seul gain réel (0 alloc) exige de **threader `*[]T`** à travers tout l'API d'allocation FFT (`acquire*`/`release*` + leurs appelants) — c'est la **migration `FFTContext` exclusive**, déjà tracée et reportée (ADR-0004 §B1, won't-fix release courante).
 
 Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait « Surgical Changes » et la directive #4. L'audit lui-même propose explicitement l'annotation/exclusion comme alternative légitime à coût nul.
 
@@ -45,7 +45,7 @@ Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait «
 ## Alternatives Considered
 
 - **Pooler des `*[]T` en préservant la signature `release([]T)` (`Put(&s)`)** — rejetée : mesurée neutre (l'échappement de `&s` remplace le boxing).
-- **Refactor complet `acquire/release` vers `*[]T` (zéro alloc)** — reporté : touche tout le hot path FFT + `fftState` + appelants ; relève de la migration `FFTContext` (ADR-0004 §B1).
+- **Refactor complet `acquire/release` vers `*[]T` (zéro alloc)** — reporté : touche tout le hot path FFT + ses appelants ; relève de la migration `FFTContext` (ADR-0004 §B1).
 - **8 annotations `//nolint` inline** — rejetée au profit d'une exclusion centralisée (cohérent avec les exclusions SA1019/G304 existantes), moins de bruit sur le hot path.
 
 ## References
@@ -55,9 +55,22 @@ Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait «
 - Related ADR(s) : ADR-0004 §B1 (migration `FFTContext`, backlog).
 - Audit : axe 4 Idiomatique, constat `A4-01` (rapport archivé en historique git).
 
-## Status note (2026-06-10)
+## Status note (2026-08-07 — remplace la note du 2026-06-10)
 
-Positions à HEAD (2026-06-10) : les sites SA6002 de `pool.go` sont inchangés
-(lignes 148, 245, 333, 421) ; ceux de `pool_warming.go` ont glissé d'une
-ligne — `.Put(` aux lignes 71, 80, 89, 98 (et non 70, 79, 88, 97). La
-décision et l'exclusion ciblée dans `.golangci.yml` restent inchangées.
+Positions relevées à HEAD le 2026-08-07 (`grep -n '\.Put(' internal/bigfft/pool.go
+internal/bigfft/pool_warming.go`) : les huit sites SA6002 existent toujours, mais
+**aucune** des deux listes du §Context ci-dessus n'est à jour —
+
+- `pool.go` : `.Put(` aux lignes **147, 243, 330, 417** (et non 148, 245, 333, 421
+  comme l'annonçaient le §Context et la note du 2026-06-10) ;
+- `pool_warming.go` : `.Put(` aux lignes **71, 80, 89, 98** (et non 70, 79, 88, 97).
+
+La décision et l'exclusion ciblée par chemin dans `.golangci.yml` restent
+inchangées : elles portent sur les fichiers, pas sur les numéros de ligne.
+
+Le type `fftState` cité par le §Context et par les Alternatives **n'existe plus**
+dans l'arbre (grep insensible à la casse sur `*.go` : zéro occurrence). Il a été
+supprimé avec la machinerie FFT-05 — voir
+[ADR-0009 §R2](0009-audit-2026-07-cleanup-and-rejected-fib05.md). Les mentions
+ci-dessus ont été retirées ; le commentaire d'exclusion SA6002 dans
+`.golangci.yml` a été corrigé au même titre.

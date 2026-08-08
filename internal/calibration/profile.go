@@ -92,7 +92,35 @@ func loadProfile(path string) (*CalibrationProfile, error) {
 		path = GetDefaultProfilePath()
 	}
 
-	data, err := os.ReadFile(path)
+	// Provenance of path, exhaustively — it reaches here by exactly four routes:
+	//  1. the --calibration-profile flag (internal/config/config.go);
+	//  2. FIBCALC_CALIBRATION_PROFILE, which applyEnvOverrides (internal/config/env.go)
+	//     routes into the same cfg.CalibrationProfile whenever the flag was not set
+	//     explicitly — so a wrapper script, CI runner or parent process can supply
+	//     this path without it ever appearing on the command line;
+	//  3. empty → GetDefaultProfilePath() with os.UserHomeDir() succeeding: an
+	//     absolute path under HOME / USERPROFILE — also environment-derived;
+	//  4. empty → GetDefaultProfilePath() with os.UserHomeDir() FAILING: it falls
+	//     back to the bare relative DefaultProfileFileName, so the read resolves
+	//     against the process working directory.
+	// Routes 1-3 are inputs the operator already controls in a single-user CLI that
+	// runs with the operator's own privileges: no privilege boundary exists for a
+	// traversal to cross, and there is no confined root to escape.
+	//
+	// Route 4 is the one the operator does not necessarily control: with no home
+	// directory resolvable, a process started in a directory someone else can write
+	// reads that directory's .fibcalc_calibration.json. It is still not a traversal
+	// — the name is a fixed constant, so no input selects the file — and the blast
+	// radius is a JSON document unmarshalled into CalibrationProfile, then rejected
+	// by IsValid unless it matches this machine's GOARCH, NumCPU, word size, profile
+	// version and CPU heuristic key. A file that survives that only perturbs tuning
+	// thresholds, and routes 1-2 override it for any caller that cares.
+	//
+	// gosec's os.Root remedy is declined deliberately: it would break the documented
+	// ability to point the profile at an arbitrary path. SaveProfile writes that same
+	// path by the same four routes, so read and write have identical exposure —
+	// including route 4, where the write lands in the working directory.
+	data, err := os.ReadFile(path) // #nosec G304 -- path is operator-controlled via flag, FIBCALC_CALIBRATION_PROFILE, or the HOME/USERPROFILE default; the home-lookup-failure fallback reads a fixed filename from the working directory (see above); single-user CLI with no privilege boundary
 	if err != nil {
 		return nil, fmt.Errorf("failed to read profile: %w", err)
 	}

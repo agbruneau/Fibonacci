@@ -6,7 +6,7 @@
 
 ## Context
 
-`fourierRecursiveUnified` (`internal/bigfft/fft_recursion.go:93-169`) et `fourierRecursiveCtx` ne reçoivent **aucun** `context.Context` et ne consultent jamais `ctx.Err()`. La boucle de doublement vérifie déjà le contexte **entre étapes** (`doubling_framework.go`) et **entre les 3 produits** d'un pas FFT (`fibonacci/fft.go executeFFTTransforms` : `ctx.Err()` avant/entre `op1/op2/op3`). Le trou résiduel : **une seule** multiplication FFT d'un opérande géant (N ≫ régime FFT) s'exécute jusqu'au bout sans consulter le contexte → **latence d'annulation non bornée** sur le chemin le plus coûteux.
+`fourierRecursiveUnified` (`internal/bigfft/fft_recursion.go:fourierRecursiveUnified`) et `fourierRecursiveCtx` ne reçoivent **aucun** `context.Context` et ne consultent jamais `ctx.Err()`. La boucle de doublement vérifie déjà le contexte **entre étapes** (`doubling_framework.go`) et **entre les 3 produits** d'un pas FFT (`fibonacci/fft.go executeFFTTransforms` : `ctx.Err()` avant/entre `op1/op2/op3`). Le trou résiduel : **une seule** multiplication FFT d'un opérande géant (N ≫ régime FFT) s'exécute jusqu'au bout sans consulter le contexte → **latence d'annulation non bornée** sur le chemin le plus coûteux.
 
 L'audit qualifie A2-03 d'**amélioration de robustesse, pas de bug de correction** (pas de fuite de goroutine : `wg.Wait` ; pas de deadlock : admission `select`/`default`).
 
@@ -52,3 +52,16 @@ Changer la signature de `fourierRecursive*` pour y passer un `context.Context` c
 - Code concerné : `internal/bigfft/fft_recursion.go`, `internal/fibonacci/fft.go` (vérifs `ctx.Err()` existantes).
 - Related ADR(s) : ADR-0003 (signatures hot path), ADR-0004 §B1 (migration `FFTContext`).
 - Audit : axe 2 Concurrence, constat `A2-03` (rapport archivé en historique git).
+
+## Status note (2026-08-07)
+
+Précisions factuelles ; la décision (report) reste inchangée.
+
+- `fourierRecursiveUnified` vit dans `internal/bigfft/fft_recursion.go`
+  à HEAD (le range `93-169` cité en Context a dérivé ; le `99-201` noté ici
+  le 2026-08-07 était décalé d'une ligne — corrigé le 2026-08-07).
+- `fourierRecursiveCtx` **n'existe plus** : il vivait dans
+  `fft_recursion_ctx.go`, supprimé avec l'API `FFTContext` le 2026-07-11
+  (addendum ADR-0004 §B1). La seule autre variante en place est
+  `fourierRecursive` (`fft_recursion.go:fourierRecursive`), qui ne reçoit pas non plus de
+  `context.Context` — le constat de fond du Context tient donc toujours.

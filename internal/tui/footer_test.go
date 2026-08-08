@@ -92,7 +92,7 @@ func TestFooterModel_View_NarrowWidth(t *testing.T) {
 
 	// Should not panic
 	view := f.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view even with narrow width")
 	}
 }
@@ -104,7 +104,7 @@ func TestFooterModel_SetWidth_Negative(t *testing.T) {
 
 	// Should not panic
 	view := f.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view even with negative width")
 	}
 }
@@ -116,7 +116,7 @@ func TestFooterModel_SetWidth_Zero(t *testing.T) {
 
 	// Should not panic
 	view := f.View()
-	if len(view) == 0 {
+	if view == "" {
 		t.Error("expected non-empty view even with zero width")
 	}
 }

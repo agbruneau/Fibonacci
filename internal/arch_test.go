@@ -1,15 +1,19 @@
-// Package internal_test enforces the Clean Architecture hierarchy
-// revendiquée dans CLAUDE.md :
+// Package internal_test enforces the Clean Architecture hierarchy:
 //
-//	cmd → app → orchestration → fibonacci/bigfft → config/errors
+//	cmd → app → orchestration → fibonacci → bigfft
+//
+// internal/config is a sibling of orchestration, not a layer below
+// fibonacci: internal/fibonacci does not import it. internal/bigfft is the
+// kernel and imports no internal package at all.
 //
 // The test inspects the go list -deps graph at runtime and fails if a
-// forbidden upward import is introduced. It guards the upward arrows
-// broken by the May-2026 hardening and the July-2026 audit:
+// forbidden upward import is introduced. It carries five rules, the last of
+// which forbids two targets:
 //   - internal/fibonacci/threshold → internal/config
 //   - internal/errors → internal/format
 //   - internal/tui → internal/fibonacci (production code only)
 //   - internal/orchestration → internal/format
+//   - internal/config → internal/fibonacci, internal/bigfft
 package internal_test
 
 import (
@@ -29,9 +33,9 @@ type forbiddenImport struct {
 // architectureRules encodes the inverted-tree invariant. Each rule says:
 // `importer` MUST NOT directly import any of the `forbid` entries. The
 // intent is to keep the dependency arrows pointing toward the kernel
-// (cmd → app → orchestration → fibonacci/bigfft → config/errors) without
-// being too rigid about transitive paths, which legitimately allow a TUI
-// to reach domain types via the orchestration façade.
+// (cmd → app → orchestration → fibonacci → bigfft) without being too rigid
+// about transitive paths, which legitimately allow a TUI to reach domain
+// types via the orchestration façade.
 var architectureRules = []forbiddenImport{
 	{
 		// internal/fibonacci/threshold is a leaf inside fibonacci ; it
@@ -90,7 +94,6 @@ var architectureRules = []forbiddenImport{
 func TestArchitectureLayering(t *testing.T) {
 	t.Parallel()
 	for _, rule := range architectureRules {
-
 		t.Run(rule.importer, func(t *testing.T) {
 			t.Parallel()
 			imports := directImports(t, rule.importer)
@@ -99,7 +102,7 @@ func TestArchitectureLayering(t *testing.T) {
 					t.Errorf(
 						"architecture violation: %s directly imports %s; "+
 							"this upward arrow is forbidden by the Clean Architecture "+
-							"hierarchy documented in CLAUDE.md.",
+							"hierarchy that architectureRules (this file) defines.",
 						rule.importer, forbidden,
 					)
 				}

@@ -102,7 +102,7 @@ and exposes the percentage/clamp helpers used by `layoutPanels()`.
 func (m Model) Init() tea.Cmd {
     return tea.Batch(
         tickCmd(),
-        startCalculationCmd(m.ref, m.ctx, m.calculators, m.config, m.generation),
+        startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation),
         watchContextCmd(m.ctx, m.generation),
     )
 }
@@ -198,15 +198,15 @@ the panel width. When done, displays total elapsed time instead of ETA.
 
 | Message Type | Fields | Source | Handled In |
 |-------------|--------|--------|------------|
-| `ProgressMsg` | `CalculatorIndex`, `Value`, `AverageProgress`, `ETA` | `TUIProgressReporter` | logs, chart, metrics |
+| `ProgressMsg` | `CalculatorIndex`, `Value`, `AverageProgress`, `ETA`, `Generation` | `TUIProgressReporter` | logs, chart, metrics |
 | `ProgressDoneMsg` | -- | `TUIProgressReporter` | no-op |
-| `ComparisonResultsMsg` | `Results []CalculationResult` | `TUIResultPresenter` | logs |
-| `FinalResultMsg` | `Result`, `N`, `Verbose`, `Details`, `ShowValue` | `TUIResultPresenter` | logs |
-| `ErrorMsg` | `Err`, `Duration` | `TUIResultPresenter` | logs, footer |
+| `ComparisonResultsMsg` | `Results []CalculationResult`, `Generation` | `TUIResultPresenter` | logs |
+| `FinalResultMsg` | `Result`, `N`, `Verbose`, `Details`, `ShowValue`, `Generation` | `TUIResultPresenter` | logs |
+| `ErrorMsg` | `Err`, `Duration`, `Generation` | `TUIResultPresenter` | logs, footer, header (`handleError` calls `header.SetDone()`) |
 | `TickMsg` | `time.Time` (`type TickMsg time.Time`) | `tickCmd()` (500ms) | `handleTick()`: when running, batches `sampleMemStatsCmd()` + `sampleSysStatsCmd()` + `tickCmd()`; when paused, re-arms only `tickCmd()` |
 | `MemStatsMsg` | `Alloc`, `HeapSys`, `NumGC`, `PauseTotalNs`, `NumGoroutine` | `sampleMemStatsCmd()` | metrics |
 | `SysStatsMsg` | `CPUPercent`, `MemPercent` | `sampleSysStatsCmd()` | chart (`UpdateSysStats`) |
-| `IndicatorsMsg` | `Indicators *metrics.Indicators` | `computeIndicatorsCmd()` | metrics (`UpdateIndicators`) |
+| `IndicatorsMsg` | `Indicators *metrics.Indicators`, `Generation` | `computeIndicatorsCmd()` | metrics (`UpdateIndicators`) |
 | `CalculationCompleteMsg` | `ExitCode`, `Generation` | `startCalculationCmd()` | header, chart, footer |
 | `ContextCancelledMsg` | `Err`, `Generation` | `watchContextCmd()` | triggers `tea.Quit` |
 
@@ -334,7 +334,7 @@ Implements `orchestration.ResultPresenter`:
 
 1. Cancel current context via `m.cancel()`.
 2. Increment `m.generation` to invalidate stale messages.
-3. Create new `context.WithCancel(parentCtx)`.
+3. Create new `context.WithTimeout(m.parentCtx, m.config.Timeout)` — a *fresh* timeout budget, deliberately not inheriting the original session's absolute deadline (APP-05, `internal/tui/handlers.go:Model.handleReset`).
 4. Reset all sub-models.
 5. Re-launch command batch.
 
@@ -346,7 +346,7 @@ Implements `orchestration.ResultPresenter`:
 
 ### Generation Guard
 
-Both completion messages carry a `Generation` field. Mismatches are discarded:
+Seven message types carry a `Generation` field — `ProgressMsg`, `ComparisonResultsMsg`, `FinalResultMsg`, `ErrorMsg`, `CalculationCompleteMsg`, `IndicatorsMsg`, `ContextCancelledMsg`, i.e. every message type declared in `internal/tui/messages.go` — not just the two completion messages. Mismatches are discarded:
 
 ```go
 case CalculationCompleteMsg:
@@ -369,7 +369,7 @@ load and again from `Run()` once the active theme is resolved) reads the current
 populates every `lipgloss.Style` from its fields. The concrete hex values therefore **vary by
 theme** — `DarkTUITheme` (default, orange-dominant), `HighContrastTUITheme`
 (black/white/yellow, via `FIBCALC_TUI_THEME=high-contrast`), and `NoColorTUITheme` (terminal
-defaults, via `NO_COLOR` / `--no-color`).
+defaults, via the `NO_COLOR` environment variable).
 
 | `TUITheme` field | Role | Dark default |
 |------------------|------|--------------|
@@ -398,7 +398,7 @@ defaults, via `NO_COLOR` / `--no-color`).
 
 ### High contrast and non-color cues
 
-- Set **`FIBCALC_TUI_THEME=high-contrast`** before launch (in addition to `--tui` / `FIBCALC_TUI=true`) to use [`HighContrastTUITheme`](../internal/ui/themes.go) (black/white/yellow palette via `ui.GetCurrentTUITheme`). Ignored when the CLI theme is `none` (`NO_COLOR` / `--no-color`).
+- Set **`FIBCALC_TUI_THEME=high-contrast`** before launch (in addition to `--tui` / `FIBCALC_TUI=true`) to use [`HighContrastTUITheme`](../internal/ui/themes.go) (black/white/yellow palette via `ui.GetCurrentTUITheme`). Ignored when the CLI theme is `none` (`NO_COLOR`).
 - Footer status lines include **ASCII prefixes** (`[>]`, `[||]`, `[OK]`, `[!]`) so state is not conveyed by color alone.
 
 ---
@@ -406,20 +406,24 @@ defaults, via `NO_COLOR` / `--no-color`).
 ## 11. Run() Entry Point
 
 ```go
+// internal/tui/commands.go
 func Run(ctx context.Context, calculators []orchestration.Calculator,
-    cfg config.AppConfig, version string) int {
+    cfg config.AppConfig, version string, errOut io.Writer) int {
+    initTUIStyles()
     model := NewModel(ctx, calculators, cfg, version)
     defer model.cancel()
     p := tea.NewProgram(model, tea.WithAltScreen())
     model.ref.SetProgram(p)  // Inject program reference before Run
-    finalModel, err := p.Run()
+    finalModel, err := runProgram(p)
     // ...
 }
 ```
 
 - `tea.WithAltScreen()` enters the alternate terminal buffer.
-- `model.ref.SetProgram(p)` injects the reference before `p.Run()` so bridge goroutines
-  spawned by `Init()` have a valid `Send()` target.
+- `model.ref.SetProgram(p)` injects the reference before the program runs so bridge
+  goroutines spawned by `Init()` have a valid `Send()` target.
+- `runProgram` is a package-level `var` wrapping `p.Run()`, so tests can inject a
+  failure without a real TTY (ERR-04); `errOut` receives the resulting message.
 - The final model is type-asserted to extract the exit code for the process.
 
 ---

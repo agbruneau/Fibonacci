@@ -60,6 +60,6 @@ func BenchmarkFFTParallelization(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Mul(x, y)
+		_, _ = Mul(x, y)
 	}
 }

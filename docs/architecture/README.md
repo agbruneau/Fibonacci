@@ -1,6 +1,6 @@
 # FibGo Architecture — Référence Détaillée
 
-Ce répertoire contient la documentation architecturale détaillée du projet FibCalc, incluant les diagrammes techniques, les ADR (Architectural Decision Records) et les flux de données.
+Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques et flux de données. Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
 
 ## 0) Vue interactive — Dashboard knowledge-graph
 
@@ -68,9 +68,10 @@ de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-d
 
 ### Gate d'architecture
 
-`internal/arch_test.go` enforce quatre invariants Clean Architecture :
-`threshold → config`, `errors → format`, `tui → fibonacci` et
-`orchestration → format` (APP-10) sont interdits. Tout PR réintroduisant
+`internal/arch_test.go` enforce cinq invariants Clean Architecture :
+`threshold → config`, `errors → format`, `tui → fibonacci`,
+`orchestration → format` (APP-10) et `config → fibonacci`/`config → bigfft`
+(ARCH-02) sont interdits. Tout PR réintroduisant
 un de ces imports remontants fait échouer `make test` (ou
 `go test ./internal/`). Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 

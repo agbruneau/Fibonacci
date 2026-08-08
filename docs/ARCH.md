@@ -11,7 +11,7 @@
 - **Go module path:** `github.com/agbruneau/FibGo`
 - **Go version:** 1.26.0+ (`go.mod` declares `go 1.26.0`, no `toolchain` directive)
 - **Primary binary:** `cmd/fibcalc`
-- **Codebase stats:** run `make stats` for the canonical Go-package and LOC counts (the totals drift on every refactor; encoding them statically here has historically caused divergence between this document, `CLAUDE.md` and reality).
+- **Codebase stats:** run `make stats` for the canonical Go-package and LOC counts (the totals drift on every refactor; encoding them statically here has historically caused divergence between this document and reality).
 - **Purpose:** compute very large Fibonacci values efficiently, compare multiple algorithms, and expose both CLI and TUI execution modes.
 - **Core strengths:**
   - Multiple `O(log n)` Fibonacci algorithms (Fast Doubling, Matrix Exponentiation, FFT-Based Doubling)
@@ -58,7 +58,7 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 |                             Domain Layer                              |
 |                                                                       |
 | internal/fibonacci  internal/progress  internal/bigfft                    |
-| (algorithms)        (observer model)   (FFT arithmetic) (concurrency errs) |
+| (algorithms)        (observer model)   (FFT arithmetic)                    |
 |   fibonacci/memory   fibonacci/threshold                                   |
 |   (arena, GC ctrl)   (dynamic tuning)                                      |
 +----------------------------------+------------------------------------+
@@ -73,21 +73,38 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 
 ### Dependency Rules
 
-- **Interfaces layer** → imports Application + Use-Case layers. `internal/tui`
-  consumes domain types through `orchestration.Calculator`/`Options` aliases
-  (no direct `internal/fibonacci` import) — enforced by `internal/arch_test.go`.
-- **Application layer** → imports Use-Case + Domain layers.
-- **Use-Case layer** → imports Domain layer only.
+- **Interfaces layer** → imports Application, Use-Case *and* the shared Domain
+  leaves. `internal/cli` and `internal/tui` both import `internal/progress`
+  directly (they consume `progress.ProgressUpdate` off the channel), but
+  neither imports `internal/fibonacci`: domain types reach them through the
+  `orchestration.Calculator`/`Options` aliases — enforced by
+  `internal/arch_test.go` for `tui`.
+- **Application layer** → imports Use-Case + Domain layers, **plus** the
+  Interfaces layer. `internal/app` is the composition root: it imports
+  `internal/cli`, `internal/tui` and `internal/ui` in order to wire them, and
+  that downward-looking rule does not apply to it. No other package in this
+  layer does (`internal/config` and `internal/calibration` import `ui` for
+  colored output and nothing else from the Interfaces layer).
+- **Use-Case layer** → `internal/orchestration` imports exactly
+  `internal/errors`, `internal/fibonacci`, `internal/fibonacci/memory` and
+  `internal/progress` — Domain plus the `errors` leaf, never a presentation
+  package.
 - **Domain layer** → no imports from outer layers (self-contained).
   `internal/fibonacci/threshold` does **not** import `internal/config` ; the
   application layer wires `threshold.Tuning` via `threshold.SetTuning`.
+  `internal/bigfft` imports no internal package at all.
 - **Infrastructure** → utility packages with no upward dependencies.
   `internal/errors` ships its own byte-formatter (`formatBytesLocal`) instead
   of depending on `internal/format`.
 
-These three arrows (`threshold → config`, `errors → format`, `tui →
-fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
-`internal/arch_test.go` fails the build if any of them is reintroduced.
+`internal/arch_test.go` fails the build if any of **five** upward arrows is
+reintroduced: `threshold → config`, `errors → format` and `tui → fibonacci`
+(May-2026 hardening sprint), `orchestration → format` (July-2026, APP-10), and
+`config → fibonacci` / `config → bigfft` (audit Fable5, ARCH-02 — the two
+tolerated lateral imports `config → fibonacci/memory` and `config → ui` stay
+allowed). Its package doc comment (the `internal_test` package comment in `internal/arch_test.go`) states the same
+chain as this section: `cmd → app → orchestration → fibonacci → bigfft`, with
+`config` a sibling of `orchestration` rather than a layer beneath `fibonacci`.
 
 ---
 
@@ -112,8 +129,7 @@ fibonacci`) were upward leaks resolved during the May-2026 hardening sprint ;
 ├── Makefile                     # Build/test/lint/PGO/cross-compile workflows
 ├── README.md                    # Product and usage overview
 ├── CONTRIBUTING.md              # Development guidelines
-├── CHANGELOG.md                 # Version history
-└── CLAUDE.md                    # AI assistant context
+└── CHANGELOG.md                 # Version history
 ```
 
 ### `internal/` package map
@@ -143,9 +159,7 @@ internal/
 │   └── threshold/               # Dynamic threshold manager
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
-│   └── system/                  # Host CPU/memory sampling (formerly internal/sysmon)
 ├── orchestration/               # Concurrent execution and result analysis
-├── parallel/                    # Thread-safe first-error collector
 ├── progress/                    # Observer pattern (subject/observers/update model)
 ├── testutil/                    # Shared test helpers
 ├── tui/                         # Bubble Tea interactive dashboard
@@ -165,14 +179,14 @@ internal/
 ## `internal/config`
 - **Responsibility:** parse CLI flags, validate configuration, apply `FIBCALC_` env overrides, apply adaptive thresholds.
 - **Key types:** `AppConfig` (20 fields covering all runtime parameters), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
-- **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`, and `Estimate*ForHeuristic` for tests/diagnostics.
-- **Precedence chain:** CLI flags > env vars > calibration profile > adaptive estimation (CPU cores + x86 SIMD tier via `golang.org/x/sys/cpu`) > static defaults.
+- **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`. The per-heuristic variants `estimateParallelThresholdForHeuristic` / `estimateFFTThresholdForHeuristic` / `estimateStrassenThresholdForHeuristic` (`internal/config/thresholds.go`, the three `estimate*ThresholdForHeuristic` functions) are **unexported** — reachable only from in-package tests, not from diagnostics outside `internal/config`.
+- **Precedence chain:** CLI flags > env vars (`applyEnvOverrides` skips any flag explicitly set on the command line, `internal/config/env.go:applyEnvOverrides`) > static defaults — **for every setting except the three thresholds**. `--threshold`, `--fft-threshold` and `--strassen-threshold` are *overridden* by a valid cached calibration profile; see [§9 Configuration and Environment](#9-configuration-and-environment).
 
 ## `internal/calibration`
 - **Responsibility:** full/quick calibration, adaptive threshold candidate generation, micro-benchmarks, profile file persistence.
-- **Key types:** `CalibrationProfile`, `CalibrationOptions`, `CalibrationResult`.
+- **Key types:** `CalibrationProfile`, `CalibrationOptions`, `MicroBenchmark`, `ThresholdResults` (per-pass rows use the unexported `calibrationResult`).
 - **Key functions:** `RunCalibration`, `AutoCalibrate`, `AutoCalibrateWithProfile`, `LoadCachedCalibration`, `LoadOrCreateProfile`, `SaveProfile`, `QuickCalibrate`, `GenerateParallelThresholds`.
-- **Three-tier calibration:** (1) cached profile → (2) quick micro-benchmarks (~100ms) → (3) full benchmark with adaptive threshold search.
+- **Three-tier calibration:** (1) cached profile → (2) quick micro-benchmarks (`FastStrategy`; the source states ~100 ms as its design target — `internal/calibration/microbench.go`, its file comment and the `QuickCalibrate` doc comment — no measurement artifact in the repo) → (3) full benchmark with adaptive threshold search (`CompleteStrategy`).
 
 ## `internal/orchestration`
 - **Responsibility:** execute calculators concurrently, collect durations/errors/results, compare consistency, present summary.
@@ -209,7 +223,7 @@ internal/
 
 ### `internal/fibonacci/threshold`
 - **Responsibility:** dynamic runtime threshold adjustment based on observed iteration performance.
-- **Key types:** `DynamicThresholdManager`, `DynamicThresholdConfig`, `IterationMetric`, `ThresholdStats`.
+- **Key types:** `DynamicThresholdManager`, `DynamicThresholdConfig`, `IterationMetric`, `ThresholdAnalyzer`.
 - **Mechanism:** records per-iteration timing data, detects if FFT/parallel thresholds should be adjusted, returns new thresholds mid-computation.
 
 ## `internal/progress`
@@ -227,8 +241,10 @@ internal/
   - Size-class object pools with adaptive pre-warming
   - Bump allocator for batch temporary allocations
   - Fermat ring arithmetic (`Z/(2^k+1)`) with `smallMulThreshold` cutover
-  - Architecture-aware arithmetic via `go:linkname` to `math/big` internals
-  - CPU feature probing (AVX2, etc.) on amd64
+  - Architecture-neutral arithmetic via `go:linkname` to `math/big` internals
+    (unconditional declarations in `arith_decl.go`; this package performs **no**
+    CPU-feature probing — `golang.org/x/sys/cpu` is read only by
+    `internal/config/hardware.go`, for threshold heuristics)
 
 ## `internal/cli`
 - **Responsibility:** terminal UX for non-TUI mode (progress, table/result output, shell completion).
@@ -243,7 +259,7 @@ internal/
 ## `internal/errors`
 - **Responsibility:** typed errors, wrappers, exit code mapping, standardized calculation-error handling.
 - **Key types:** `ConfigError`, `CalculationError`, `MemoryError` (timeout/cancellation are classified via `errors.Is` on context sentinels, not dedicated types — OVR-07).
-- **Key helpers:** `WrapError`, `IsContextError`, `HandleCalculationError`, `ColorProvider` interface.
+- **Key helpers:** `NewConfigError`, `WrapCalculationError`, `HandleCalculationError`, `ColorProvider` interface.
 
 ## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`
 - **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers. Host CPU/memory sampling is inlined in `internal/tui` (its only consumer — audit Fable5 DEAD-05).
@@ -262,10 +278,10 @@ internal/
 | **Framework (Template Method)** | `DoublingFramework`, `MatrixFramework` | Owns algorithm loop (bit iteration, progress reporting, context checks) while plugging in operation strategy/threshold behavior |
 | **Object Pool** | `sync.Pool` in Fibonacci state and `bigfft` pools | Cuts allocations and GC pressure in hot paths; size-limited via `MaxPooledBitLen` (50M bits) |
 | **Arena Allocator** | `memory.CalculationArena` | Pre-sizes contiguous backing storage for big.Int state to reduce fragmentation/GC overhead |
-| **Bump Allocator** | `bigfft.bumpAllocator` | Batch temporary allocations with O(1) reset for FFT internals |
-| **FFT Transform Cache** | `bigfft.fft_cache.go` | Caches FFT transforms for reuse across multiply/square operations within an iteration |
+| **Bump Allocator** | `bigfft.BumpAllocator` | Batch temporary allocations with O(1) reset for FFT internals |
+| **FFT Transform Cache** | `internal/bigfft/fft_cache.go` | Caches FFT transforms for reuse across multiply/square operations within an iteration |
 | **Dynamic Threshold Adjustment** | `threshold.DynamicThresholdManager` | Records per-iteration metrics and adjusts FFT/parallel thresholds mid-computation |
-| **Zero-Copy Result Return** | `DoublingFramework.ExecuteDoublingLoop`, `MatrixFramework.ExecuteMatrixLoop` | "Steals" result pointer from pooled state instead of copying, saving O(n) copy for large results |
+| **Zero-Copy Result Return** | `MatrixFramework.ExecuteMatrixLoop` only | "Steals" `res.a` from the matrix state instead of copying. Deliberately NOT done in `DoublingFramework.ExecuteDoublingLoop` (P1-04): its state aliases the arena, so the success path deep-copies via `ReleaseStateWithResult` |
 | **Generics with Pointer Constraints** | `executeTasks[T any, PT interface{*T; task}]` | Generic task execution eliminating code duplication between multiplication and squaring tasks |
 | **GC Controller** | `memory.GCController` | Disables GC during large computations (N ≥ 1M), restores afterward; uses `debug.SetMemoryLimit` as safety net |
 
@@ -273,7 +289,7 @@ Additional notable engineering patterns include:
 - **Runtime-configurable threshold heuristics** with adaptive estimation based on CPU count
 - **Channel-based progress aggregation** with buffered channels (`ProgressBufferMultiplier = 5`)
 - **Lock-free observer snapshots** via `ProgressSubject.Freeze()` for hot loop performance
-- **Semaphore-based concurrency limiting** (`NumCPU` for Fibonacci tasks, `NumCPU` for FFT tasks — two separate semaphores)
+- **Semaphore-based concurrency limiting** — two separate semaphores, sized differently: the Fibonacci task semaphore (`fibonacci/common.go` `getTaskSemaphore`) is `runtime.GOMAXPROCS(0)`, the FFT recursion semaphore (`bigfft/fft_recursion.go` `getSemaphore`) is `runtime.NumCPU()`
 - **Functional options** pattern for `Application` construction (`AppOption`, `WithFactory`)
 - **Function adapter** pattern for `ProgressReporterFunc`
 
@@ -294,12 +310,14 @@ Additional notable engineering patterns include:
 │    config.ParseConfig(name, args, errWriter, availableAlgos)     │
 │    ├─ Flag parsing (flag.NewFlagSet with ContinueOnError)        │
 │    ├─ applyEnvOverrides() for FIBCALC_* environment variables    │
-│    ├─ config.Validate(availableAlgos) → semantic checks          │
-│    └─ Algo normalization (strings.ToLower)                       │
+│    ├─ Algo normalization (strings.ToLower)                       │
+│    └─ config.Validate(availableAlgos) → semantic checks          │
 ├───────────────────────────────────────────────────────────────────┤
-│ 3. THRESHOLD RESOLUTION                                           │
+│ 3. THRESHOLD RESOLUTION (overrides step 2 for the 3 thresholds)   │
 │    calibration.LoadCachedCalibration(cfg, profilePath)           │
-│    ├─ IF cached profile valid → apply profile thresholds         │
+│    ├─ IF profile valid AND cfg still validates → OVERWRITE       │
+│    │    Threshold/FFTThreshold/StrassenThreshold with the        │
+│    │    profile's, discarding any CLI flag or FIBCALC_* value    │
 │    └─ ELSE → config.ApplyAdaptiveThresholds(cfg)                 │
 │         ├─ EstimateOptimalParallelThreshold() (CPU-based)        │
 │         ├─ EstimateOptimalFFTThreshold() (CPU-based)             │
@@ -309,7 +327,7 @@ Additional notable engineering patterns include:
 │    ├─ Completion mode → cli.GenerateCompletion → exit            │
 │    ├─ Calibration mode → calibration.RunCalibration → exit       │
 │    ├─ Auto-calibration → calibration.AutoCalibrate → update cfg  │
-│    ├─ TUI mode → tui.Run(ctx, calculators, cfg, version)         │
+│    ├─ TUI mode → tui.Run(ctx, calculators, cfg, version, errOut) │
 │    └─ CLI mode → runCalculate(ctx, out) [default]                │
 ├───────────────────────────────────────────────────────────────────┤
 │ 5. LIFECYCLE SETUP (for CLI/TUI modes)                            │
@@ -320,11 +338,11 @@ Additional notable engineering patterns include:
 ├───────────────────────────────────────────────────────────────────┤
 │ 6. CALCULATOR SELECTION                                           │
 │    orchestration.GetCalculatorsToRun(algo, factory)              │
-│    ├─ algo="all" → factory.GetAll() → all registered calculators │
+│    ├─ algo="all" → factory.List() then factory.Get(k) per key    │
 │    └─ algo=specific → factory.Get(algo) → single calculator     │
 ├───────────────────────────────────────────────────────────────────┤
 │ 7. CONCURRENT EXECUTION                                           │
-│    orchestration.ExecuteCalculations(ctx, calculators, n, opts)  │
+│    orchestration.ExecuteCalculations(ctx, ExecutionConfig{...})  │
 │    ├─ Progress channel: make(chan, numCalcs * 5)                  │
 │    ├─ Progress goroutine: reporter.DisplayProgress(wg, ch, ...)  │
 │    ├─ Single calculator: direct call (no errgroup overhead)      │
@@ -332,11 +350,11 @@ Additional notable engineering patterns include:
 │         └─ Per calculator:                                        │
 │             ├─ Calculator.Calculate(ctx, progressChan, idx, n)   │
 │             ├─ → ProgressSubject + ChannelObserver registration   │
-│             ├─ → CalculateWithObservers                           │
-│             │    ├─ Small-N fast path (n ≤ 93 → iterative add)   │
-│             │    ├─ configureFFTCache(opts)                       │
-│             │    ├─ bigfft.EnsurePoolsWarmed(n)                   │
+│             ├─ → CalculateWithObservers (source order)            │
 │             │    ├─ subject.Freeze(calcIndex) → lock-free reporter│
+│             │    ├─ Small-N fast path (n ≤ 93 → iterative add)   │
+│             │    ├─ configureFFTCache(opts, n)                    │
+│             │    ├─ bigfft.EnsurePoolsWarmed(n)                   │
 │             │    └─ gcCtrl.WithGC(fn) — panic-safe GC control     │
 │             │         (auto: GC off for N≥1M, restored after)     │
 │             │         wrapping core.CalculateCore(ctx, ...)       │
@@ -351,8 +369,9 @@ Additional notable engineering patterns include:
 │    │   (optional: with DynamicThresholdManager)                   │
 │    └─ ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)│
 │         ├─ Bit iteration: MSB → LSB                              │
+│         ├─ shouldParallelizeMultiplicationCached() decision,      │
+│         │   computed HERE and passed to ExecuteStep as inParallel │
 │         ├─ Per bit: ExecuteStep (3 multiplications)              │
-│         │   ├─ shouldParallelizeMultiplication() decision         │
 │         │   ├─ Parallel: executeParallel3 (3 goroutines)         │
 │         │   └─ Sequential: with ctx.Err() checks between ops    │
 │         ├─ Post-multiply: F(2k) = 2·T3 - T2, F(2k+1) = T1 + T2│
@@ -385,29 +404,41 @@ Level 1: Algorithm-level parallelism
 
 Level 2: Intra-algorithm operation parallelism
    └─ executeParallel3(): 3 goroutines for doubling step multiplications
-      └─ Controlled by shouldParallelizeMultiplication():
+      (the 3 goroutines are SPAWNED first; each acquires its token inside
+       runParallel3Op, so the semaphore throttles work, not spawning)
+      └─ Controlled by shouldParallelizeMultiplicationCached(), computed in
+         ExecuteDoublingLoop BEFORE ExecuteStep and passed down as inParallel:
          ├─ Enabled when: operand > ParallelThreshold (default: 4096 bits)
          ├─ Suppressed when: FFT active (FFT saturates CPU cores)
          └─ Re-enabled when: operand > ParallelFFTThreshold (5M bits)
-      └─ Semaphore: NumCPU concurrent goroutines max
+      └─ Semaphore: runtime.GOMAXPROCS(0) concurrent goroutines max
+         (shared with executeTasks / executeMixedTasks on the matrix path)
 
 Level 3: FFT internal parallelism
-   └─ bigfft recursive decomposition: configurable goroutine limit
-      └─ Semaphore: NumCPU concurrent goroutines max
-      └─ Total system: up to NumCPU*2 simultaneous goroutines
-         (mitigated by Level 2 suppression during FFT)
+   └─ bigfft recursive decomposition + pointwise chunking: configurable limit
+      └─ Semaphore: runtime.NumCPU() concurrent goroutines max, acquired
+         NON-BLOCKING — a chunk with no free token runs on the caller
+      └─ Total system: up to GOMAXPROCS(0) + NumCPU simultaneous goroutines
+         (equal by default; mitigated by Level 2 suppression during FFT)
 ```
 
 ### Progress Propagation Flow
 
 ```text
-Core Algorithm
-   └─ ProgressCallback(float64)  [per-iteration, throttled to ≥1% change]
-       └─ FrozenProgressSubject (lock-free snapshot)
-           └─ ChannelObserver → progressChan (buffered)
-               └─ ProgressReporter goroutine
-                   ├─ CLI: spinner + ETA + progress percentage
-                   └─ TUI: progress bar + sparklines + metrics panel
+FibCalculator.CalculateWithObservers
+   └─ reporter := subject.Freeze(calcIndex)   [copies the observer slice once,
+       │                                       returns a lock-free closure of
+       │                                       type progress.ProgressCallback;
+       │                                       there is no FrozenProgressSubject
+       │                                       type — the closure IS the snapshot]
+       └─ handed to CoreCalculator.CalculateCore as `reporter`
+           └─ Core Algorithm calls reporter(float64)
+               [per-iteration, throttled by ReportStepProgress to ≥1% change,
+                with the first and last bit always reported]
+               └─ ChannelObserver.Update → progressChan (buffered, numCalcs*5)
+                   └─ ProgressReporter goroutine (started BEFORE the calculators)
+                       ├─ CLI: spinner + ETA + progress percentage
+                       └─ TUI: TUIProgressReporter → programRef.Send(ProgressMsg)
 ```
 
 ---
@@ -421,18 +452,29 @@ Core Algorithm
   - `F(2k+1) = F(k+1)² + F(k)²`
 - Uses `DoublingFramework` + `AdaptiveStrategy`.
 - Employs pooled `CalculationState` (5 big.Int + bound `CalculationArena`), memory arena pre-sizing, and optional dynamic threshold updates.
-- **Result detachment:** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB memcpy for F(10M), <0.01 % of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
+- **Result detachment:** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB for F(10M): ⌈10e6 × 0.69424⌉ bits ÷ 8; the repo carries no measurement of that copy's share of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
 
 ### B. Matrix Exponentiation (`MatrixExponentiationCalculator`)
 - Uses binary exponentiation of Fibonacci Q-matrix: `[[1,1],[1,0]]^(n-1)`.
-- `MatrixFramework` drives loop (LSB → MSB iteration).
-- Matrix ops switch between naive 2×2 multiply and Strassen based on `StrassenThreshold`.
-- Includes symmetric squaring optimization (exploits `[a,b; b,c]` symmetry to reduce multiplications).
+- `MatrixFramework` drives loop (LSB → MSB iteration over the bits of `n-1`).
+- The `result × base` multiply switches between naive 2×2 multiply and Strassen
+  based on `StrassenThreshold`. The **squaring** path does not: it goes straight
+  from `squareSymmetricMatrix` to `smartSquare`/`smartMultiply` and never
+  consults `StrassenThreshold`.
+- Symmetric squaring is applied **unconditionally** — `MatrixFramework.SquareFunc`
+  is wired to `squareSymmetricMatrix` at construction and called on every
+  iteration but the last. There is no symmetry test and no "standard squaring"
+  alternative in the code; `[a,b; b,d]` symmetry is an invariant of the Q-matrix
+  powers, not a runtime condition. Cost: 3 squarings + 1 multiply instead of 4
+  multiplies.
+- The squaring is skipped on the final bit (`if i < numBits-1`).
 - **Zero-copy result return:** steals `res.a` from matrix state. Matrix exponentiation does not use the state-bound arena, so the steal trick is still safe here.
 
 ### C. FFT-Based Doubling (`FFTBasedCalculator`)
 - Same doubling loop model (via `DoublingFramework`), but strategy is `FFTOnlyStrategy`.
-- Forces FFT multiplication/squaring for all operations regardless of operand size.
+- Every doubling step routes to `executeDoublingStepFFT` with no threshold test,
+  regardless of operand size. It also passes `useParallel = false` to
+  `ExecuteDoublingLoop`, so its three per-step operations always run sequentially.
 - Useful for benchmarking FFT performance and extremely large-input scenarios.
 
 ### D. Modular Fast Doubling (`FastDoublingMod`)
@@ -455,17 +497,27 @@ Implementations:
    ├─ AdaptiveStrategy:  threshold-driven math/big vs FFT selection
    │     └─ ExecuteStep: if FFT-sized → executeDoublingStepFFT (transform reuse)
    │                     else → executeDoublingStepMultiplications (standard)
-   └─ FFTOnlyStrategy:   always FFT (mulFFT/sqrFFT)
+   └─ FFTOnlyStrategy:   ExecuteStep always routes to executeDoublingStepFFT,
+                         with no threshold test at all. (Its Multiply/Square
+                         call bigfft.MulTo/SqrTo — or mulFFT/sqrFFT when the
+                         destination is nil — but ExecuteStep never invokes
+                         them, so they are unreachable from the doubling loop.)
 ```
 
 ### `internal/bigfft` Role
 - Provides efficient arithmetic primitives for huge operands (hundreds of millions of bits):
   - **Fermat ring arithmetic:** operations in Z/(2^k+1) for FFT kernel
   - **Recursive FFT decomposition** with configurable parallelism
-  - **Transform caching:** reuses computed transforms across multiply/square in same step
+  - **Transform caching:** consulted only by the `Mul`/`MulTo`/`Sqr`/`SqrTo`
+    entry points (via `TransformCachedWithBump`), which the matrix path reaches
+    through `smartMultiply`/`smartSquare`. No doubling loop touches it:
+    `executeDoublingStepFFT` calls `TransformWithBump` directly.
   - **Size-class pools** with adaptive pre-warming based on estimated operand sizes
   - **Bump allocator** for batch temporary allocations with O(1) reset
-  - **Architecture-aware:** `go:linkname` to `math/big` internal word operations, CPU feature detection (AVX2)
+  - **Architecture-neutral:** `go:linkname` to `math/big` internal word
+    operations, declared unconditionally in `arith_decl.go` — no build-tag
+    split, **no CPU-feature detection**, and no pure-Go fallback in this repo.
+    The SIMD assembly exploited is `math/big`'s own, on every architecture.
 - Public API used by Fibonacci layer via `Mul/MulTo/Sqr/SqrTo`.
 
 ---
@@ -489,17 +541,42 @@ GetAll() → lazily initializes all, returns copy
 
 ### Configuration Cascade
 
+Two different cascades, applied in this order.
+
+**Everything except the three thresholds** — resolved entirely inside `ParseConfig`:
+
 ```text
 CLI flags (highest priority)
-   ↓ applyEnvOverrides(config, flagSet)
+   ↓ applyEnvOverrides(config, flagSet)  — skips any flag the user set explicitly
 FIBCALC_* environment variables
-   ↓ calibration.LoadCachedCalibration()
-Cached calibration profile (~/.fibcalc_calibration.json)
-   ↓ config.ApplyAdaptiveThresholds()
-CPU-adaptive estimation (based on runtime.NumCPU, GOARCH, etc.)
+   ↓
+Static flag defaults (registerFlags)
+```
+
+**The three thresholds** (`Threshold`, `FFTThreshold`, `StrassenThreshold`) — `app.New`
+runs a second stage *after* `ParseConfig`, and that stage wins:
+
+```text
+Valid cached calibration profile (~/.fibcalc_calibration.json, or
+--calibration-profile / FIBCALC_CALIBRATION_PROFILE)     ← HIGHEST
+   │  LoadCachedCalibration overwrites the three fields unconditionally;
+   │  it reads neither the flag set nor the environment.
+   │  Kept only if the resulting AppConfig still passes Validate().
+   ↓ no valid profile → config.ApplyAdaptiveThresholds()
+CLI flag / FIBCALC_* value, when non-zero (Apply* only fills zeros)
+   ↓ still 0
+CPU-adaptive estimation (runtime.NumCPU, GOARCH, x86 SIMD tier)
    ↓
 Static defaults (in constants.go)
 ```
+
+Verified 2026-08-07 on the binary: with a profile carrying
+`optimal_parallel_threshold: 777777` / `optimal_fft_threshold: 888888` and a matching
+`cpu_heuristic_key`, `fibcalc -n 100 -algo fast -d --threshold 4242 --fft-threshold 4243
+--calibration-profile <p>` prints `Parallelism=777777 bits, FFT=888888 bits`. Change the
+profile's `cpu_heuristic_key` so `IsValid()` fails and the same command prints
+`Parallelism=4242 bits, FFT=4243 bits`. Sources: `internal/calibration/calibration.go:LoadCachedCalibration`,
+`internal/app/app.go:New`.
 
 ### Presentation Layer Integration
 
@@ -519,22 +596,34 @@ internal/orchestration (defines interfaces)
 ```text
 Three-tier calibration approach:
 
-1. CACHED PROFILE (fastest, ~0ms)
+1. CACHED PROFILE (one file read, no benchmark)
    LoadOrCreateProfile(path) → check IsValid() → apply thresholds
 
-2. QUICK MICRO-BENCHMARKS (~100ms)
+2. QUICK MICRO-BENCHMARKS (design target ~100 ms — microbench.go file comment + QuickCalibrate doc;
+   the repo has no measurement of the actual wall time)
    QuickCalibrate(ctx) → parallel/FFT threshold tests
-   → requires confidence ≥ 0.5 to accept results
+   → escalates to tier 3 when confidence < EscalationConfidenceThreshold
+     (= 0.5, strategy.go:EscalationConfidenceThreshold; used in calibration.go:tryFastThenEscalate)
 
 3. FULL CALIBRATION (seconds to minutes)
-   RunCalibration(ctx, out, registry, progressDisplay, colorProvider)
-   ├─ GenerateParallelThresholds() → CPU-adaptive candidates
+   RunCalibration(ctx, out, registry, profilePath, progressDisplay, colorProvider)
+   ├─ registry["fast"] is the only calculator used  (calibration.go:configureHardwareDetection)
+   ├─ GenerateParallelThresholds() → CPU-adaptive candidates  (idem)
    ├─ For each threshold: Calculate(ctx, progressChan, 0, CalibrationN, opts)
-   ├─ Find best parallel threshold by duration
-   ├─ Find best FFT threshold
-   ├─ Find best Strassen threshold (using matrix calculator)
+   ├─ Find best parallel threshold by duration — THE ONLY DIMENSION SWEPT
+   ├─ FFT / Strassen come from the static heuristics, NOT from a sweep:
+   │    config.EstimateOptimalFFTThreshold() / …StrassenThreshold()
+   │    (calibration.go:persistCalibrationProfile)
    └─ SaveProfile(path) → persist for future runs
 ```
+
+Only the `--auto-calibrate` escalation tier actually sweeps FFT and Strassen:
+`CompleteStrategy.Calibrate` calls `findBestFFTThreshold` over
+`GenerateFFTThresholds()` (200K→1M bits, step 50K) with the `"fast"` calculator,
+and `findBestStrassenThreshold` with the `"matrix"` calculator when it is registered
+(`internal/calibration/strategy_complete.go:CompleteStrategy.Calibrate`,
+`adaptive.go:GenerateFFTThresholds`, `runner.go:findBestFFTThreshold` /
+`runner.go:findBestStrassenThreshold`).
 
 ---
 
@@ -545,7 +634,7 @@ Three-tier calibration approach:
 | Flag | Meaning |
 |---|---|
 | `-n` | Fibonacci index (default: 100,000,000) |
-| `-algo` | `all`, `fast`, `matrix`, `fft` (and `gmp` if built/tagged) |
+| `-algo` | `all`, `fast`, `matrix`, `fft`. **Not `gmp`**: `app.New` builds its own factory with `fibonacci.NewDefaultFactory()` (`internal/app/app.go:New`), which registers `fast`/`matrix`/`fft` only (`internal/fibonacci/registry.go:NewDefaultFactory`). The `-tags gmp` `init()` registers into the package-private `globalFactory`, which nothing reads (`internal/fibonacci/calculator_gmp.go`, its `globalFactory` var and `init`). To use it, call `fibonacci.RegisterGMPCalculator` on your own factory — see [`docs/algorithms/GMP.md`](algorithms/GMP.md). |
 | `-timeout` | Global execution timeout (default: 5m) |
 | `-threshold` | Parallelism threshold (bits), `0` = auto |
 | `-fft-threshold` | FFT threshold (bits), `0` = auto |
@@ -565,7 +654,7 @@ Three-tier calibration approach:
 
 ### Environment variable overrides (`FIBCALC_` prefix)
 
-Implemented with precedence: **CLI flags > env vars > adaptive estimation > static defaults**.
+A `FIBCALC_*` variable is read only when the matching flag is absent from the command line, so for every setting other than the three thresholds the order is **CLI flags > env vars > static defaults** (`internal/config/env.go:applyEnvOverrides`). For `FIBCALC_THRESHOLD` / `FIBCALC_FFT_THRESHOLD` / `FIBCALC_STRASSEN_THRESHOLD` — and for the flags they mirror — a valid cached calibration profile takes precedence over both; see [Configuration Cascade](#configuration-cascade) above.
 
 Supported keys include:
 
@@ -573,7 +662,12 @@ Supported keys include:
 - `FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`
 - `FIBCALC_VERBOSE`, `FIBCALC_DETAILS`, `FIBCALC_QUIET`, `FIBCALC_CALCULATE`
 - `FIBCALC_CALIBRATE`, `FIBCALC_AUTO_CALIBRATE`, `FIBCALC_CALIBRATION_PROFILE`
-- `FIBCALC_OUTPUT`, `FIBCALC_MEMORY_LIMIT`, `FIBCALC_TUI`
+- `FIBCALC_OUTPUT`, `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`, `FIBCALC_LAST_DIGITS`
+- `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`
+
+The list above is `envOverrides` (`internal/config/env.go`) plus `FIBCALC_TUI_THEME`
+(read by `internal/ui`). `FIBCALC_PROFILE_MAX_AGE` is read separately by
+`internal/calibration` (`ProfileMaxAgeEnv`), outside this override table.
 
 Also honors standard `NO_COLOR` behavior.
 
@@ -615,7 +709,7 @@ Timeouts and cancellations carry no dedicated type: they are classified with
 `errors.Is` against `context.DeadlineExceeded`/`context.Canceled` (OVR-07
 removed the former `TimeoutError`/`ValidationError`).
 
-Additional helpers: `WrapError` (contextual wrapping with `%w`), `IsContextError` (checks `context.Canceled`/`context.DeadlineExceeded`).
+Additional helpers: `WrapCalculationError` (contextual wrapping with `%w` around a `CalculationContext`). Context classification is done inline in `HandleCalculationError` via `errors.Is` against `context.DeadlineExceeded`/`context.Canceled` — there is no `IsContextError` helper.
 
 ### Exit codes
 
@@ -661,7 +755,7 @@ The project uses standard Go tooling + Makefile workflows.
 
 ### Key Make targets
 
-- **Build:** `build`, `build-all`, `build-linux`, `build-windows`, `build-darwin`
+- **Build:** `build`, `build-all`, `build-linux`, `build-linux-arm64`, `build-windows`, `build-windows-arm64`, `build-darwin`
 - **Test/quality:** `test`, `test-short`, `coverage`, `benchmark`, `lint`, `security`, `check`
 - **Dev hygiene:** `format`, `tidy`, `deps`, `upgrade`
 - **PGO:** `pgo-profile`, `pgo-check`, `build-pgo`, `build-pgo-all`, `pgo-rebuild`, `pgo-clean`
@@ -683,7 +777,7 @@ Build-time version injection via linker flags:
 - Build target auto-detects PGO profile and uses it if present.
 
 ### Cross-compilation
-- Supported in Makefile for Linux/Windows/macOS (`amd64`, plus `arm64` for Darwin).
+- `make build-all` covers Linux, Windows and macOS in both `amd64` and `arm64`. The PGO variant (`build-pgo-all`) covers linux/amd64, windows/amd64 and macOS amd64+arm64 only.
 
 ### GMP build tag
 - Optional calculator in `internal/fibonacci/calculator_gmp.go`.
@@ -715,7 +809,7 @@ From `go.mod`, direct dependencies are:
 | `github.com/leanovate/gopter` | Property-based testing |
 | `github.com/ncw/gmp` | Optional GMP big integer backend (`gmp` build tag) |
 | `github.com/rs/zerolog` | Structured logging (package-level Nop loggers by default) |
-| `github.com/shirou/gopsutil/v4` | Host/system metrics collection (sysmon) |
+| `github.com/shirou/gopsutil/v4` | Host CPU/memory sampling, called directly from `internal/tui` |
 | `golang.org/x/sys` | Low-level OS/CPU support (including CPU feature usage) |
 
 **Notable indirect dependencies:** Charmbracelet ecosystem (x/ansi, x/cellbuf, x/term, colorprofile), fatih/color, go-ole (Windows COM), ebitengine/purego, tklauser/numcpus.
@@ -730,7 +824,7 @@ From `go.mod`, direct dependencies are:
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.
 - **Decision:** Use `sync.Pool` to recycle `CalculationState` and `matrixState` objects.
 - **Guard:** Objects exceeding `MaxPooledBitLen` (50M bits / ~6.25 MB) are discarded to prevent memory bloat.
-- **Results:** 20-30% performance improvement, drastic allocation reduction.
+- **Results:** fewer allocations per calculation. No measurement of a speed-up from pooling alone exists in this repo; the only benchmark artifact tracked is `docs/audits/bench-baseline.txt`, which measures whole calculators, not this decision in isolation.
 
 ### ADR-002: Dynamic Multiplication Algorithm Selection
 - **Context:** FFT multiplication has superior asymptotic complexity (O(n log n)) but significant overhead for small operands.
@@ -753,9 +847,9 @@ From `go.mod`, direct dependencies are:
 - **Results:** Reduced GC pressure, coexists with sync.Pool (pool recycles state objects, arena pre-sizes backing arrays).
 
 ### ADR-006: GC Control During Large Calculations
-- **Context:** Go's GC adds ~2× memory overhead for heap scanning.
+- **Context:** Go's default `GOGC=100` lets the live heap double before a cycle runs, so a large calculation carries roughly twice its working set.
 - **Decision:** Disable GC during computation for N ≥ 1M (auto mode), with `debug.SetMemoryLimit` as OOM safety net.
-- **Results:** Eliminates GC pauses, reduces peak memory ~50%; configurable via `--gc-control`.
+- **Results:** No GC cycle runs inside the guarded region; configurable via `--gc-control`. The repo carries no peak-RSS measurement for this decision — `memory.EstimateMemoryUsage` is a model, not an observation (see [PERFORMANCE.md](PERFORMANCE.md) §7).
 
 ### ADR-007: Observer Pattern for Progress Reporting
 - **Context:** Progress reporting was tightly coupled to channel-based communication.
@@ -770,7 +864,7 @@ From `go.mod`, direct dependencies are:
 ### ADR-009: Heuristique matérielle pour les seuils par défaut
 - **Context:** Les seuils à 0 (auto) ne devaient pas dépendre uniquement de `runtime.NumCPU()` alors que les chemins FFT et multiplications larges bénéficient fortement des jeux d’instructions x86 (AVX2 / AVX-512).
 - **Decision:** `internal/config/hardware.go` classifie l’hôte (`DetectHardwareHeuristic`) ; `thresholds.go` ajuste les estimations FFT / Strassen / parallélisme en conséquence. Le profil de calibration inclut `cpu_heuristic_key` (format v3) pour invalider un cache si la classe SIMD change.
-- **Results:** Comportement documenté et testable via `Estimate*ForHeuristic` ; profils v2 obsolètes (version incrémentée).
+- **Results:** Comportement documenté et testable via les variantes non exportées `estimate*ThresholdForHeuristic` (`internal/config/thresholds.go`), exercées par les tests du package `config` ; profils v2 obsolètes (`CurrentProfileVersion = 3`, `internal/calibration/profile.go:CurrentProfileVersion`).
 
 ### ADR-010: Backends arithmétiques hors GMP (décision recherche)
 - **Context:** des bibliothèques externes (FLINT et autres) pourraient être évaluées pour comparaison recherche ; charge de build, licences et CI hétérogène.

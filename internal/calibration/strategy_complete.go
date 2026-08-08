@@ -26,9 +26,14 @@ var ErrNoUsefulResults = errors.New("calibration: no usable timings collected")
 // CompleteStrategy runs the runner-based threshold sweep: it walks the
 // parallel/FFT/Strassen candidate sets (quick for parallel & Strassen,
 // comprehensive for FFT; adaptive.go) and times each one against the real
-// fibonacci.Calculator, picking the best timing per dimension. It is
-// significantly slower than FastStrategy (multiple seconds vs ~100 ms) but
-// provides the authoritative value recorded with full confidence (1.0).
+// fibonacci.Calculator, picking the best timing per dimension. It is slower
+// than FastStrategy by construction — it times real F(n) computations across
+// three candidate sets instead of bigfft micro-benchmarks — but provides the
+// authoritative value recorded with full confidence (1.0). Neither strategy's
+// wall time is measured in the repo, and this one does not report its own
+// either: CalibrationProfile.CalibrationTime is assigned only by
+// strategy_fast.go and by persistCalibrationProfile (calibration.go), so a
+// profile produced by this strategy alone persists an empty CalibrationTime.
 type CompleteStrategy struct{}
 
 // NewCompleteStrategy returns a ready-to-use CompleteStrategy.

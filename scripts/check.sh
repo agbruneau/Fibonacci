@@ -16,10 +16,24 @@
 # --coverage-only: skip to a no-race test run + the coverage floor (used by
 # `make coverage-check` so the floor has a single source of truth).
 #
-# Lint behaviour: golangci-lint is ADVISORY. Residual findings are documented
-# intentional exceptions (A4-11 math annotations, A4-12 benign shadow/prealloc,
-# errcheck in tests). Lint output is shown for review but does NOT fail this
-# script; the hard gate is build/vet/test/coverage.
+# Lint behaviour: golangci-lint is reported separately from the hard gate. Its
+# output is shown and its status appears in the summary, but it does NOT fail
+# this script; the hard gate is build/vet/test/coverage. The expected state is
+# zero findings. Tolerated cases live in TWO places, not one:
+#   1. .golangci.yml, in two distinct sections:
+#      - issues.exclude-rules (revive stutter, staticcheck SA1019, SA6002 in
+#        bigfft pools, three named gocyclo overages, and the _test.go
+#        relaxations);
+#      - linters-settings.gosec.excludes, which is where G104 and G115 live —
+#        NOT in exclude-rules;
+#   2. in-source annotations, which .golangci.yml does not list at all —
+#      four inline //nolint directives (gocognit in bigfft/fft_recursion.go,
+#      gocritic in cli/completion/bash.go and fibonacci/common.go, unparam in
+#      fibonacci/fft.go) plus the #nosec G115 / G304 annotations across
+#      internal/bigfft, internal/calibration/profile.go and
+#      cmd/generate-golden/main.go.
+# Anything golangci-lint still reports outside those two sets is a real finding
+# to fix, not a pre-approved exception.
 
 set -euo pipefail
 

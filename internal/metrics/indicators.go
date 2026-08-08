@@ -16,7 +16,7 @@ type Indicators struct {
 	// Performance
 	BitsPerSecond   float64 // bits of result produced per second
 	DigitsPerSecond float64 // estimated decimal digits produced per second
-	DoublingSteps   uint64  // number of doubling iterations ≈ log₂(n)
+	DoublingSteps   int     // number of doubling iterations ≈ log₂(n), i.e. bits.Len64(n) ∈ [0, 64]
 	StepsPerSecond  float64 // doubling steps executed per second
 
 	// Mathematical (only available after calculation completes)
@@ -40,8 +40,7 @@ var lastDigitsMod = new(big.Int).Exp(big.NewInt(10), big.NewInt(20), nil)
 func ComputeLive(n uint64, progress float64, elapsed time.Duration) *Indicators {
 	if elapsed <= 0 || progress <= 0 || n <= 1 {
 		return &Indicators{
-			// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
-			DoublingSteps: uint64(bits.Len64(n)),
+			DoublingSteps: bits.Len64(n),
 			IsEven:        n%3 == 0,
 		}
 	}
@@ -50,8 +49,7 @@ func ComputeLive(n uint64, progress float64, elapsed time.Duration) *Indicators 
 	theoreticalBits := float64(n) * log2Phi
 	estimatedBitsProduced := progress * theoreticalBits
 	estimatedDigitsProduced := estimatedBitsProduced * math.Log10(2)
-	// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
-	doublingSteps := uint64(bits.Len64(n))
+	doublingSteps := bits.Len64(n)
 	completedSteps := progress * float64(doublingSteps)
 
 	return &Indicators{
@@ -74,8 +72,7 @@ func Compute(result *big.Int, n uint64, duration time.Duration) *Indicators {
 	bitLen := result.BitLen()
 	seconds := duration.Seconds()
 	estimatedDigits := float64(bitLen) * math.Log10(2)
-	// bits.Len64 returns int in [0, 64], safe to cast to uint64. #nosec G115
-	doublingSteps := uint64(bits.Len64(n))
+	doublingSteps := bits.Len64(n)
 
 	ind := &Indicators{
 		BitsPerSecond:   float64(bitLen) / seconds,

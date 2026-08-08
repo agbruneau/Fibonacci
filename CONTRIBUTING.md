@@ -13,8 +13,10 @@ Thank you for your interest in contributing to the Fibonacci Calculator project!
 - [Pull Request Process](#pull-request-process)
 - [Coding Standards](#coding-standards)
 - [Testing Guidelines](#testing-guidelines)
+- [Mock Generation](#mock-generation)
 - [Documentation](#documentation)
 - [Reporting Issues](#reporting-issues)
+- [Questions?](#questions)
 
 ## Code of Conduct
 
@@ -79,7 +81,11 @@ go build -o build/fibcalc ./cmd/fibcalc
 | `make bench-versioned` | Fixed-flag benchmark snapshot + Git/Go metadata (`build/bench/`, see [docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | `make lint`       | Run linter               |
 | `make format`     | Format code              |
-| `make check`      | Run all checks           |
+| `make check`      | Pre-commit gate — delegates to `bash scripts/check.sh` |
+
+> **Every `make` target here is POSIX/WSL-only.** The Makefile says so in its own
+> header: "every recipe uses a POSIX shell ([ -f ], mkdir -p, ...). On Windows, run
+> via WSL (`wsl make ...`); the native gate is `scripts/check.ps1`."
 
 ## Making Changes
 
@@ -143,11 +149,20 @@ perf(bigfft): optimize FFT butterfly operations
 
 3. **Make your changes** and commit them
 
-4. **Run checks locally**:
+4. **Run checks locally.** There is no remote CI, so this is the only gate.
 
    ```bash
-   make check
+   # Linux / macOS / WSL (make check is just a wrapper around this)
+   bash scripts/check.sh
+
+   # Windows without a POSIX shell — the Makefile does not run there
+   pwsh ./scripts/check.ps1
    ```
+
+   The two scripts are not equivalent: `check.sh` runs its tests with `-race` and
+   adds a step 3b that builds/vets/tests under `-tags gmp` when the libgmp headers
+   are present; `check.ps1` does neither. Prefer `check.sh` (via WSL on Windows)
+   before anything touching `internal/fibonacci` or `internal/bigfft`.
 
 5. **Push to your fork**:
 
@@ -187,8 +202,14 @@ The project uses the Decorator pattern. To add a new algorithm, you only need to
 2. Register your algorithm on the factory your application builds (there is no global registry; `app.New` creates one via `fibonacci.NewDefaultFactory()`):
    ```go
    factory := fibonacci.NewDefaultFactory()
-   factory.Register("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} })
+   if err := factory.Register("myalgo", func() fibonacci.CoreCalculator { return &MyAlgorithm{} }); err != nil {
+       return fmt.Errorf("register myalgo: %w", err)
+   }
    ```
+
+   `Register` returns an `error` (`internal/fibonacci/registry.go:DefaultFactory.Register`). Do not drop
+   it: `errcheck` is enabled and unexcluded (`.golangci.yml`, `linters.enable`), so `make lint`
+   rejects the bare call.
 
 ## Coding Standards
 
