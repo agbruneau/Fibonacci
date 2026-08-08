@@ -58,10 +58,19 @@ Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
 | [0003](../adr/0003-globals-vs-context.md) | Globaux `bigfft` mutables → `atomic.Int64` | Accepted |
 | [0004](../adr/0004-backlog-decisions.md) | Décisions de backlog formelles post-hardening | Accepted |
 | [0005](../adr/0005-gc-control-concurrent.md) | Contrôle GC concurrency-safe (refcount package-level) | Accepted |
-| [0006](../adr/0006-fft-recursion-cancellation.md) | Annulation récursion FFT — report au token par-appel (FFTContext) | Accepted |
+| [0006](../adr/0006-fft-recursion-cancellation.md) | Annulation récursion FFT — report au token par-appel (FFTContext) | Accepted ⚠ *objet retiré du code* |
 | [0007](../adr/0007-pool-pointer-vs-value.md) | SA6002 (`sync.Pool.Put` de slice) — décision mesurée | Accepted |
 | [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | Audit de refactorisation 2026-06 — candidats rejetés après vérification | Accepted |
 | [0009](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) | Audit 2026-07 — purge bigfft, rétention oracle, rejet puis adoption ×10 (addendum R4) | Accepted |
+
+⚠ **ADR-0006 porte « Accepted » et son objet n'est plus dans l'arbre.** L'API opt-in `FFTContext`
+(`NewFFTContext`, `*WithContext`, `fourierRecursiveCtx`) a été **retirée** — zéro occurrence dans
+`internal/bigfft/` au relevé du 2026-08-08 —, la migration qu'elle préparait ayant été classée
+WONT-FIX par [ADR-0004 §B1](../adr/0004-backlog-decisions.md) ; le retrait est consigné à
+[`CHANGELOG.md`](../../CHANGELOG.md) et le code se relit à l'historique git. ⚠ *Un ADR décrit une
+décision datée, non l'état du code : celui-ci reste exact comme décision et cesse d'être vérifiable
+à la source.* **Changer son statut est une décision de mainteneur, pas une resynchronisation de
+documentation — elle n'est pas prise ici.**
 
 L'historique granulaire des décisions héritées (heuristique CPU, backends
 de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
