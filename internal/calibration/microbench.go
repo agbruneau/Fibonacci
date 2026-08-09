@@ -137,7 +137,13 @@ func (mb *MicroBenchmark) runParallelTests(ctx context.Context) []testResult {
 
 	configs := make([]testConfig, 0, len(mb.TestSizes)*4)
 	for _, size := range mb.TestSizes {
-		// For each size, test: math/big seq, math/big par, FFT seq, FFT par
+		// Four configs per size, but only TWO distinct workloads: runSingleTest
+		// does not branch on `parallel` (see its doc comment), so the "par"
+		// rows re-run the "seq" ones. They are not wasted — findFFTCrossover
+		// averages every result sharing a (size, useFFT) key, so each pair
+		// becomes a second sample of the same workload. What is NOT valid is
+		// reading a parallel/sequential difference out of them, which is why
+		// analyzeResults discards findParallelCrossover's return value.
 		configs = append(configs,
 			testConfig{size, false, false},
 			testConfig{size, false, true},

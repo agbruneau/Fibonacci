@@ -9,9 +9,12 @@
 //     hold lipgloss-compatible colors used by the Bubble Tea dashboard via
 //     [GetCurrentTUITheme].
 //
-// Both systems honor the NO_COLOR environment variable and the --no-color flag
-// through [InitTheme] (per https://no-color.org/). The TUI palette can be further
-// switched to a high-contrast variant via FIBCALC_TUI_THEME=high-contrast.
+// Both systems honor the NO_COLOR environment variable through [InitTheme]
+// (per https://no-color.org/). There is no --no-color flag: the boolean
+// [InitTheme] takes is fed by app.New as Config.Quiet || Config.MachineOutput,
+// so -q/--quiet and -machine are what turn colors off from the command line.
+// The TUI palette can be further switched to a high-contrast variant via
+// FIBCALC_TUI_THEME=high-contrast.
 //
 // This package is designed to be a shared dependency for packages that need
 // color output, reducing coupling between business logic and presentation.

@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to the Fibonacci Calculator project! This document provides guidelines and information for contributors.
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour). Useful when scoping a PR — verify which packages your change touches and what depends on them.
+> Interactive architecture map: **[agbruneau.github.io/Fibonacci/dashboard/](https://agbruneau.github.io/Fibonacci/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit `6e3ec29`). Useful when scoping a PR — but check the date: the graph is a snapshot, not a live view, and packages deleted since then still appear in it. See the dated note in [`docs/ARCH.md`](docs/ARCH.md).
 
 ## Table of Contents
 

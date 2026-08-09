@@ -101,7 +101,7 @@ func (c ChartModel) View() string {
 		b.WriteString(progressBar)
 	}
 
-	// Render CPU braille chart if space allows
+	// Render CPU sparkline (Unicode block elements, see sparkline.go) if space allows
 	if c.height >= 8 && c.sparklineWidth() > 0 {
 		b.WriteString("\n\n")
 		b.WriteString(c.renderSparklineSection())

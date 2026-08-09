@@ -50,7 +50,8 @@ var (
 	}
 
 	// NoColorTheme disables all color output.
-	// Used when NO_COLOR is set or --no-color flag is provided.
+	// Used when NO_COLOR is set, or when the caller passes noColor=true to
+	// InitTheme (app.New passes Config.Quiet || Config.MachineOutput).
 	NoColorTheme = Theme{
 		Name:      "none",
 		Primary:   "",
@@ -167,18 +168,23 @@ func setCurrentTheme(t Theme) {
 //
 // Parameters:
 //   - noColor: If true, disables all color output regardless of environment.
+//     There is no --no-color flag; app.New passes Config.Quiet ||
+//     Config.MachineOutput, i.e. -q/--quiet or -machine.
 func InitTheme(noColor bool) {
 	themeMutex.Lock()
 	defer themeMutex.Unlock()
 
-	// Check --no-color flag first
+	// Caller-supplied override wins over the environment.
 	if noColor {
 		currentTheme = NoColorTheme
 		return
 	}
 
-	// Check NO_COLOR environment variable
-	// Any non-empty value disables colors (per no-color.org spec)
+	// NO_COLOR environment variable. This uses LookupEnv, so *presence*
+	// disables colors — NO_COLOR= (empty) disables them too. That is one
+	// notch stricter than no-color.org, which exempts the empty string; the
+	// behaviour is deliberate and pinned by TestInitThemeWithNO_COLOREnv
+	// ("NO_COLOR empty value still disables colors").
 	if _, exists := os.LookupEnv("NO_COLOR"); exists {
 		currentTheme = NoColorTheme
 		return

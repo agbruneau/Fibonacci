@@ -1,6 +1,6 @@
 # Calibration System
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
+> Interactive architecture map: **[agbruneau.github.io/Fibonacci/dashboard/](https://agbruneau.github.io/Fibonacci/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 ## Overview
 
@@ -178,6 +178,11 @@ flag, so rows 2 and 4 re-run rows 1 and 3 verbatim:
 | 2 | Standard math/big "parallel" | identical to 1 |
 | 3 | FFT sequential | `bigfft.Mul(x, y)` |
 | 4 | FFT "parallel" | identical to 3 |
+
+The duplicated rows are not wasted budget: `findFFTCrossover` averages every
+result sharing a `(wordSize, useFFT)` key, so rows 2 and 4 land in the same
+average as rows 1 and 3 and act as a **second sample** of the same workload.
+What they cannot support is a parallel-versus-sequential comparison.
 
 The flag is kept deliberately (P1-07, see the `runSingleTest` doc comment) to
 record the intent for future work; `analyzeResults` already treats any

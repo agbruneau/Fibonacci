@@ -80,9 +80,12 @@ type ThresholdTuningProfile struct {
 
 	// MicroBenchTimeout caps the wall-clock duration of the entire
 	// quick-calibration micro-benchmark suite. The 150 ms budget is
-	// chosen to keep `fibcalc --quick-calibrate` responsive while still
-	// allowing the four (size × algorithm) configurations to each
-	// collect a few iterations on commodity hardware.
+	// chosen to keep `fibcalc --auto-calibrate` responsive (there is no
+	// --quick-calibrate flag; the quick pass is the first tier of
+	// --auto-calibrate) while still allowing the four enqueued
+	// configurations per word size — two distinct workloads, each run
+	// twice, see runParallelTests — to collect a few iterations on
+	// commodity hardware.
 	//
 	// Source: internal/calibration/microbench.go (pre-R4.2 const).
 	MicroBenchTimeout time.Duration

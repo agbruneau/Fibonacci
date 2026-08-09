@@ -4,17 +4,19 @@
 [![Release](https://img.shields.io/github/v/tag/agbruneau/FibGo?style=for-the-badge&label=Release&color=2ea44f)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Prototype_acad%C3%A9mique-orange?style=for-the-badge)
-[![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/FibGo/dashboard/)
+[![Dashboard](https://img.shields.io/badge/Knowledge_Graph-Live-9b59b6?style=for-the-badge)](https://agbruneau.github.io/Fibonacci/dashboard/)
 
 **FibCalc** est un prototype académique qui calcule des nombres de Fibonacci arbitrairement grands à très haute
 vitesse. Il démontre une Clean Architecture, des stratégies zéro-allocation, du parallélisme adaptatif et des
 algorithmes optimisés (Fast Doubling, exponentiation matricielle Strassen-Winograd, multiplication FFT
 Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de millions.
 
-> **[Dashboard knowledge-graph interactif →](https://agbruneau.github.io/FibGo/dashboard/)** — l'architecture
+> **[Dashboard knowledge-graph interactif →](https://agbruneau.github.io/Fibonacci/dashboard/)** — l'architecture
 > complète navigable : **1 128 nœuds**, **4 782 arêtes**, **9 couches**, visite guidée en **12 étapes**.
-> Graphe **régénéré le 2026-07-06** (post-audit 2026-07, contenu en français), avec mise à jour automatique
-> activée (`autoUpdate`) ; procédure de reconstruction : [`docs/BUILD.md`](docs/BUILD.md).
+> Graphe **régénéré le 2026-07-06** au commit `6e3ec29` (post-audit 2026-07, contenu en français). Il n'y a
+> **aucune mise à jour automatique** : pas de workflow GitHub Actions dans ce dépôt, et la clé `autoUpdate`
+> qui figurait dans `config.json` n'était lue par aucun code — elle a été retirée. Le graphe est donc un
+> instantané qui vieillit ; procédure de régénération : [`docs/BUILD.md`](docs/BUILD.md).
 
 ### Historique des audits et jalons
 
@@ -84,7 +86,7 @@ make all      # clean + build + test
 | **Fast Doubling** (défaut) | O(log n) × M(n) | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; pooling état+arène+scratch FFT |
 | **Exponentiation matricielle** | O(log n) × M(n) | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices |
 | **FFT (Schönhage-Strassen)** | O(n log n) | Bascule automatique au-delà de ~500 000 bits (seuil adaptatif) |
-| **GMP** (tag de build `gmp`) | — | Backend GNU MP (CGO + libgmp) ; validé localement par l'étape 3b de `scripts/check.sh` |
+| **GMP** (tag de build `gmp`) | — | Backend GNU MP (CGO + libgmp) ; `scripts/check.sh` étape 3b le compile et le teste **si** les en-têtes libgmp sont présentes sur l'hôte, sinon l'étape est sautée (`check.ps1` n'a pas d'équivalent) |
 
 Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING](docs/algorithms/FAST_DOUBLING.md),
 [MATRIX](docs/algorithms/MATRIX.md), [FFT](docs/algorithms/FFT.md), [GMP](docs/algorithms/GMP.md),
@@ -127,7 +129,7 @@ Clean Architecture — `cmd → app → orchestration → fibonacci → bigfft`,
 et n'importe aucun package interne. Étanchéité gardée par `internal/arch_test.go`
 (cinq arêtes montantes interdites). Source de vérité : [`docs/architecture/`](docs/architecture/)
 (diagrammes C4, [graphe de dépendances](docs/architecture/dependency-graph.mermaid)) et le
-[dashboard interactif](https://agbruneau.github.io/FibGo/dashboard/) (généré, servi par GitHub Pages depuis
+[dashboard interactif](https://agbruneau.github.io/Fibonacci/dashboard/) (généré, servi par GitHub Pages depuis
 [`docs/dashboard/`](docs/dashboard/)).
 
 | Package | Responsabilité |
@@ -167,7 +169,8 @@ vs ×15, allocations inchangées — gain confirmé en ordre d'exécution invers
 [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)).
 
 **Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
-validation croisée ; `fft` devient compétitif sur les très grands N. Méthodologie, tuning et suivi de
+validation croisée ; `fft` est plus lent que `fast` aux deux seules tailles mesurées (F(1M) et F(10M)) —
+l'idée qu'il devienne compétitif au-delà est une hypothèse que le dépôt ne teste pas. Méthodologie, tuning et suivi de
 non-régression : [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) ; baseline du gate perf :
 `docs/audits/bench-baseline.txt` (régénérée le 2026-07-07).
 

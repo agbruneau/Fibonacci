@@ -1,6 +1,6 @@
 # Build Configuration
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
+> Interactive architecture map: **[agbruneau.github.io/Fibonacci/dashboard/](https://agbruneau.github.io/Fibonacci/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
 
 ## Overview
 
@@ -394,7 +394,7 @@ See `.env.example` for a complete reference. The `FIBCALC_*` table above mirrors
 
 ## Dashboard statique (GitHub Pages)
 
-The interactive knowledge-graph dashboard at <https://agbruneau.github.io/FibGo/dashboard/> is a static build of the `@understand-anything/dashboard` package, pre-bundled with the project's knowledge graph and served from [`docs/dashboard/`](dashboard/).
+The interactive knowledge-graph dashboard at <https://agbruneau.github.io/Fibonacci/dashboard/> is a static build of the `@understand-anything/dashboard` package, pre-bundled with the project's knowledge graph and served from [`docs/dashboard/`](dashboard/).
 
 ### Regenerate the graph
 
@@ -422,7 +422,7 @@ MSYS_NO_PATHCONV=1 \
 VITE_GRAPH_URL="./knowledge-graph.json" \
 VITE_META_URL="./meta.json" \
 VITE_CONFIG_URL="./config.json" \
-npx vite build --config vite.config.demo.ts --base=/FibGo/dashboard/
+npx vite build --config vite.config.demo.ts --base=/Fibonacci/dashboard/
 
 # Copy the build + graph files into docs/dashboard/
 TARGET=<FibGo>/docs/dashboard
@@ -436,7 +436,7 @@ touch "$TARGET/.nojekyll"
 
 ### Why `MSYS_NO_PATHCONV=1`?
 
-Git Bash on Windows otherwise rewrites `/FibGo/dashboard/` into `C:\Program Files\Git\FibGo\dashboard\`, which Vite bakes into `index.html` and breaks asset loading.
+Git Bash on Windows otherwise rewrites `/Fibonacci/dashboard/` into `C:\Program Files\Git\FibGo\dashboard\`, which Vite bakes into `index.html` and breaks asset loading.
 
 ### Demo mode flags
 

@@ -174,7 +174,7 @@ func registerFlags(fs *flag.FlagSet, config *AppConfig, availableAlgos []string)
 	fs.BoolVar(&config.ShowValue, "c", false, "Display the calculated value (shorthand).")
 	fs.BoolVar(&config.TUI, "tui", false, "Launch interactive TUI dashboard.")
 	fs.IntVar(&config.LastDigits, "last-digits", 0, "Compute only the last K decimal digits (uses O(K) memory).")
-	fs.StringVar(&config.MemoryLimit, "memory-limit", "", "Maximum memory budget (e.g., 8G, 512M). Warns if estimate exceeds limit.")
+	fs.StringVar(&config.MemoryLimit, "memory-limit", "", "Maximum memory budget (e.g., 8G, 512M). Aborts with a config error if the estimate exceeds it.")
 	fs.StringVar(&config.GCControl, "gc-control", "auto", "GC control during calculation (auto, aggressive, disabled).")
 }
 

@@ -15,7 +15,11 @@ func FuzzMul(f *testing.F) {
 		{{0xff}, {0xff}},
 		{{0x80, 0x00, 0x00, 0x00}, {0x80, 0x00, 0x00, 0x00}},
 		{makeRepeated(0xa5, 256), makeRepeated(0x5a, 256)},
-		{makeRepeated(0xff, 4096), makeRepeated(0xff, 4096)}, // pushes into FFT
+		// 4096 bytes = 512 words, still well under defaultFFTThresholdWords
+		// (1800): this seed exercises the large-operand math/big path, not
+		// the FFT one. Only fuzzer-grown inputs above ~14 400 bytes on both
+		// operands reach mulFFT.
+		{makeRepeated(0xff, 4096), makeRepeated(0xff, 4096)},
 	}
 	for _, s := range seeds {
 		f.Add(s[0], s[1])
