@@ -202,7 +202,7 @@ stats:
 	@printf "Under cmd/:          "; $(GO) list ./cmd/... | wc -l
 	@echo ""
 	@echo "── Lines of code (excluding _test.go) ──"
-	@find . -name '*.go' -not -name '*_test.go' -not -path './.understand-anything/*' -not -path './docs/dashboard/*' -print0 \
+	@find . -name '*.go' -not -name '*_test.go' -not -path './.understand-anything/*' -print0 \
 		| xargs -0 wc -l 2>/dev/null \
 		| tail -1 \
 		| awk '{print "Production LOC: "$$1}'

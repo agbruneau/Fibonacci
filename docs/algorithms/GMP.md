@@ -1,7 +1,5 @@
 # GMP-Based Calculator
 
-> Interactive architecture map: **[agbruneau.github.io/Fibonacci/dashboard/](https://agbruneau.github.io/Fibonacci/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
-
 ## Overview
 
 The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations, delegating every arithmetic operation to GMP's C/assembly routines instead of Go's `math/big`. Whether that wins, and above which N, is **not measured in this repo** — see [Performance](#performance) below. The type comment in `calculator_gmp.go` asserts an advantage above N = 100,000,000 and a CGO-overhead penalty below it; no artifact here backs either number.

@@ -2,8 +2,8 @@
 # index AND checked out LF, whatever the local core.autocrlf. This closes the
 # Windows-git vs WSL-git divergence (the same bytes read as "clean" on one
 # side and "~45 modified" on the other after a CRLF smudge — audit Fable5
-# BUILD-02). Binary-looking files (e.g. docs/dashboard/index.html with its
-# inlined assets) keep git's auto-detection and are left untouched.
+# BUILD-02). Binary-looking files keep git's auto-detection and are left
+# untouched.
 * text=auto eol=lf
 
 # Explicit binaries — never normalized, never diffed as text.

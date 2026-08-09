@@ -2,19 +2,6 @@
 
 Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques et flux de données. Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
 
-## 0) Vue interactive — Dashboard knowledge-graph
-
-Pour une exploration interactive complémentaire aux diagrammes statiques :
-
-**[https://agbruneau.github.io/Fibonacci/dashboard/](https://agbruneau.github.io/Fibonacci/dashboard/)**
-
-- **1 128 nœuds** (fichiers 284, fonctions 680, classes 122, documents 32, configs 6, services 4) · **4 782 arêtes** (imports, calls, contains, tested_by, exports, documents…) — comptes mesurés sur le graphe régénéré le 2026-07-06 (commit 6e3ec29) ; à re-vérifier à la prochaine régénération
-- **9 couches** architecturales (entry-points, application, core-fibonacci, bigfft, calibration, presentation, support, infra-config, documentation)
-- **Tour guidé 12 étapes** depuis `README.md` jusqu'à l'infrastructure et au build
-- Recherche, filtres par couche/type, layout dynamique (force, ELK, dagre)
-
-Source : [`docs/dashboard/knowledge-graph.json`](../dashboard/knowledge-graph.json). Build statique dans [`../dashboard/`](../dashboard/). Régénération : voir [`../BUILD.md#dashboard-statique-github-pages`](../BUILD.md#dashboard-statique-github-pages).
-
 ## 1) Diagrammes d'Architecture (C4 Model)
 
 Nous utilisons le modèle C4 pour documenter l'architecture à différents niveaux d'abstraction :
