@@ -2,7 +2,7 @@
 
 > **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
 
-> **Vue interactive** — Un dashboard navigable du graphe de connaissances (1 128 nœuds, 4 782 arêtes, 9 couches, tour guidé 12 étapes — comptages vérifiés le 2026-07-06 sur l'artefact régénéré au commit 6e3ec29 ; à re-vérifier à chaque régénération du dashboard) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. Source : [`docs/dashboard/knowledge-graph.json`](dashboard/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
+> **Vue interactive** — Un dashboard navigable du graphe de connaissances (1 128 nœuds, 4 782 arêtes, 9 couches, tour guidé 12 étapes — comptés dans l'artefact lui-même) est publié sur **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)**. Complément visuel à ce document statique. **Artefact daté** : le graphe décrit l'arbre au commit `6e3ec29` (2026-07-04) et n'a pas été régénéré depuis le 2026-07-06 — soit 126 commits de retard sur le HEAD `707044d`, 204 fichiers modifiés entre-temps, 14 chemins qu'il référence disparus (dont les packages supprimés `internal/parallel`, `internal/metrics/system` et `internal/fibonacci/fibonaccitest`) et 37 fichiers suivis absents du graphe. À lire comme la carte de l'architecture au 2026-07-04, non de l'état courant. Source : [`docs/dashboard/knowledge-graph.json`](dashboard/knowledge-graph.json), build statique : [`docs/dashboard/`](dashboard/).
 
 ## 1) Project Overview
 
@@ -61,15 +61,24 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 | (algorithms)        (observer model)   (FFT arithmetic)                    |
 |   fibonacci/memory   fibonacci/threshold                                   |
 |   (arena, GC ctrl)   (dynamic tuning)                                      |
-+----------------------------------+------------------------------------+
-                                   |
-                                   v
 +-----------------------------------------------------------------------+
-|                          Infrastructure Helpers                       |
+
+Cross-cutting leaves — NOT a layer below the Domain. No Domain package
+imports them; the arrows come sideways, from Interfaces and Application:
+
++-----------------------------------------------------------------------+
+|                       Shared Utility Packages                         |
 |                                                                       |
-| internal/metrics  internal/format  test/e2e, docs                     |
+| internal/metrics ← internal/cli, internal/tui                         |
+| internal/format  ← internal/cli, internal/tui, internal/calibration   |
 +-----------------------------------------------------------------------+
 ```
+
+Importers verified on HEAD with
+`go list -f '{{join .Imports " "}}' ./internal/<pkg>` over every package of
+the four layers: only `cli`, `tui` and `calibration` come back. `test/e2e` and
+`docs/` are consumers of the binary and prose about it — neither is an import
+edge and neither belongs in this diagram.
 
 ### Dependency Rules
 
@@ -97,9 +106,14 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
   `internal/errors` ships its own byte-formatter (`formatBytesLocal`) instead
   of depending on `internal/format`.
 
-`internal/arch_test.go` fails the build if any of **five** upward arrows is
-reintroduced: `threshold → config`, `errors → format` and `tui → fibonacci`
+`internal/arch_test.go` fails `go test` if any of **six** upward arrows is
+reintroduced — a **test** gate, not a compile gate: the package
+`github.com/agbruneau/FibGo/internal` has `GoFiles = []` and
+`XTestGoFiles = [arch_test.go]`, so `go build ./...` compiles none of it and
+passes regardless. They are grouped into **five** rules (`architectureRules`, one
+subtest each): `threshold → config`, `errors → format` and `tui → fibonacci`
 (May-2026 hardening sprint), `orchestration → format` (July-2026, APP-10), and
+— as the two targets of the fifth and last rule —
 `config → fibonacci` / `config → bigfft` (audit Fable5, ARCH-02 — the two
 tolerated lateral imports `config → fibonacci/memory` and `config → ui` stay
 allowed). Its package doc comment (the `internal_test` package comment in `internal/arch_test.go`) states the same
@@ -348,7 +362,7 @@ Additional notable engineering patterns include:
 │    ├─ Single calculator: direct call (no errgroup overhead)      │
 │    └─ Multiple calculators: errgroup fan-out                     │
 │         └─ Per calculator:                                        │
-│             ├─ Calculator.Calculate(ctx, progressChan, idx, n)   │
+│             ├─ Calculator.Calculate(ctx, progCh, idx, n, opts)   │
 │             ├─ → ProgressSubject + ChannelObserver registration   │
 │             ├─ → CalculateWithObservers (source order)            │
 │             │    ├─ subject.Freeze(calcIndex) → lock-free reporter│
@@ -386,7 +400,7 @@ Additional notable engineering patterns include:
 │    ├─ PresentComparisonTable(results, out) → formatted table     │
 │    ├─ Consistency check: compare all Result values (big.Int.Cmp) │
 │    ├─ Mismatch → ExitErrorMismatch (code 3)                      │
-│    └─ Success → PresentResult(bestResult, n, verbose, details)   │
+│    └─ Success → PresentResult(best, n, verbose, details, ...)    │
 ├───────────────────────────────────────────────────────────────────┤
 │ 10. OUTPUT & EXIT                                                 │
 │     ├─ Optional file output: WriteResultToFile (if -o set)       │
@@ -619,7 +633,9 @@ Three-tier calibration approach:
 
 Only the `--auto-calibrate` escalation tier actually sweeps FFT and Strassen:
 `CompleteStrategy.Calibrate` calls `findBestFFTThreshold` over
-`GenerateFFTThresholds()` (200K→1M bits, step 50K) with the `"fast"` calculator,
+`GenerateFFTThresholds()` (`[-1]` — the sequential no-FFT baseline, prepended
+before the loop — then 200K→1M bits, step 50K: 18 candidates) with the
+`"fast"` calculator,
 and `findBestStrassenThreshold` with the `"matrix"` calculator when it is registered
 (`internal/calibration/strategy_complete.go:CompleteStrategy.Calibrate`,
 `adaptive.go:GenerateFFTThresholds`, `runner.go:findBestFFTThreshold` /
@@ -737,7 +753,7 @@ FibCalc uses a layered testing approach with 100+ `*_test.go` files:
 - **Benchmarks:** algorithm and subsystem benchmarks with alloc stats and profiling hooks.
 - **Race detector:** standard test invocation includes `-race`.
 - **E2E tests:** build and execute binary subprocesses in `test/e2e`.
-- **Spy/mock patterns:** orchestration spy tests ; pour le cœur d’algorithme, implémenter [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (interface exportée) — un stub minimal tient en ~30 lignes (voir `coreStub` dans `internal/orchestration/contract_test.go`).
+- **Spy/mock patterns:** orchestration spy tests; for the algorithm core, implement [`fibonacci.CoreCalculator`](../internal/fibonacci/calculator.go) (exported interface) — a minimal stub fits in ~30 lines (see `coreStub` in `internal/orchestration/contract_test.go`).
 
 Typical commands:
 
@@ -787,7 +803,10 @@ Build-time version injection via linker flags:
 go build -tags=gmp -o fibcalc ./cmd/fibcalc
 ```
 
-- Auto-registers a `gmp` algorithm at init time when tag is enabled.
+- The `init()` in that file registers a `gmp` algorithm at load time — but into
+  the package-private `globalFactory`, which no production code reads. `-algo
+  gmp` therefore stays unavailable even with the tag on; see the `-algo` row in
+  [§9](#core-cli-flags-selected).
 
 ### Linting and security
 - `.golangci.yml` configures comprehensive linting rules.
@@ -849,7 +868,7 @@ From `go.mod`, direct dependencies are:
 ### ADR-006: GC Control During Large Calculations
 - **Context:** Go's default `GOGC=100` lets the live heap double before a cycle runs, so a large calculation carries roughly twice its working set.
 - **Decision:** Disable GC during computation for N ≥ 1M (auto mode), with `debug.SetMemoryLimit` as OOM safety net.
-- **Results:** No GC cycle runs inside the guarded region; configurable via `--gc-control`. The repo carries no peak-RSS measurement for this decision — `memory.EstimateMemoryUsage` is a model, not an observation (see [PERFORMANCE.md](PERFORMANCE.md) §7).
+- **Results:** No *GOGC-driven* cycle runs inside the guarded region; configurable via `--gc-control`. The region is not GC-free, though: the same `Begin()` installs `SetMemoryLimit(3 × Sys)`, which the runtime honours even with `GOGC=off` — by design, per the `DefaultMemoryLimitMultiplier` doc comment ("the Go runtime will trigger emergency GC"). See [PERFORMANCE.md](PERFORMANCE.md) §6. The repo carries no peak-RSS measurement for this decision — `memory.EstimateMemoryUsage` is a model, not an observation (see [PERFORMANCE.md](PERFORMANCE.md) §7).
 
 ### ADR-007: Observer Pattern for Progress Reporting
 - **Context:** Progress reporting was tightly coupled to channel-based communication.

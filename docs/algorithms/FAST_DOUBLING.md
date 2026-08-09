@@ -1,6 +1,6 @@
 # Fast Doubling Algorithm
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 > **Complexity**: O(log n) arithmetic operations
 > **Actual Complexity**: O(log n * M(n)) where M(n) is the multiplication cost
@@ -86,15 +86,19 @@ The identities hold for all n >= 1 by the properties of matrix exponentiation.
 
 ## Visualization
 
-The algorithm iterates through the bits of N from MSB to LSB.
+The algorithm iterates through the bits of N from MSB to LSB. The diagram below
+follows `DoublingFramework.ExecuteDoublingLoop`
+(`internal/fibonacci/doubling_framework.go`) step for step, including the
+expanded form of the F(2k) identity that the loop actually evaluates.
 
 ```mermaid
 graph TD
     Start([Start]) --> Init[Initialize FK=0, FK1=1]
     Init --> CheckBits{Bits left?}
     CheckBits -- No --> Done([Return FK])
-    CheckBits -- Yes --> Doubling["Doubling Step<br/>a = FK, b = FK1<br/>F(2k) = a * (2b - a)<br/>F(2k+1) = a² + b²"]
-    Doubling --> UpdateState[Update FK, FK1]
+    CheckBits -- Yes --> Doubling["Doubling Step — strategy.ExecuteStep<br/>T3 = FK·FK1, T2 = FK², T1 = FK1²"]
+    Doubling --> Combine["Combine<br/>F(2k) = 2·T3 - T2<br/>F(2k+1) = T1 + T2"]
+    Combine --> UpdateState[Rotate pointers: FK, FK1 = T3, T1]
     UpdateState --> IsBitSet{Current Bit == 1?}
     IsBitSet -- No --> NextBit[Next Bit]
     IsBitSet -- Yes --> Addition[Addition Step<br/>FK, FK1 = FK1, FK + FK1]
@@ -207,7 +211,7 @@ path or `ReleaseStateWithResult` on success.
 
 Objects exceeding `MaxPooledBitLen` (50M bits) are left for GC rather than returned to the pool.
 
-### 5. Calculation Arena (state-bound)
+### 3. Calculation Arena (state-bound)
 
 For N > 1,000, a `CalculationArena` pre-allocates a single contiguous block for all `big.Int` backing arrays. This reduces GC pressure and improves cache locality. The arena is owned by the pooled `CalculationState`, so the same `[]big.Word` block is reused across calls when the previous tenancy was wide enough — only `Reset()` runs in the hot path:
 
@@ -226,7 +230,7 @@ Since the 2026-06 audit loop, the default `FastDoublingCalculator` layers two re
 
 Measured 2026-06-10 for the two changes combined (see [`CHANGELOG.md`](../../CHANGELOG.md)): FastDoubling/10M 33.30 ms → 28.20 ms, geomean sec/op −12.0 %, B/op at 10M roughly −70 %.
 
-### 3. Parallel Multiplication via Strategy
+### 4. Parallel Multiplication via Strategy
 
 The `DoublingStepExecutor.ExecuteStep` method performs the three multiplications required for a doubling step. The strategy does **not** decide whether to parallelize: `DoublingFramework.ExecuteDoublingLoop` (`doubling_framework.go`) calls `shouldParallelizeMultiplicationCached(opts, fkBitLen, fk1BitLen)` and passes the verdict in as `inParallel`. That decision reads three thresholds, not just `ParallelThreshold` — when the operand exceeds `FFTThreshold`, parallelism is suppressed unless it also exceeds `ParallelFFTThreshold` (`fastdoubling.go`):
 
@@ -250,24 +254,35 @@ Parallelism considerations:
 - **Disabled with FFT**: FFT already saturates CPU cores
 - **Re-enabled for very large numbers**: Above `ParallelFFTThreshold` (5,000,000 bits)
 
-### 4. 2-Tier Adaptive Multiplication
+### 5. 2-Tier Adaptive Multiplication
 
-The `smartMultiply` function selects the optimal multiplication algorithm based on operand size:
+The `smartMultiply` function (`internal/fibonacci/fft.go`) selects the
+multiplication algorithm from the operand sizes. Verbatim, minus the comments:
 
 ```go
 func smartMultiply(z, x, y *big.Int, fftThreshold int) (*big.Int, error) {
+    if z == nil {
+        z = new(big.Int)
+    }
+
     bx := x.BitLen()
     by := y.BitLen()
 
-    // Tier 1: FFT — O(n log n), for very large operands
+    // Tier 1: FFT Multiplication for very large operands.
     if fftThreshold > 0 && bx > fftThreshold && by > fftThreshold {
         return bigfft.MulTo(z, x, y)
     }
 
-    // Tier 2: Standard math/big (uses Karatsuba internally for large operands)
+    // Tier 2: math/big Multiplication (uses optimized algorithms internally)
     return z.Mul(x, y), nil
 }
 ```
+
+The `&&` (BOTH operands above the threshold) is deliberate: the source comment
+records it as a correctness-axis choice, `math/big.Mul` staying exact for
+asymmetric operands, with a `max(bx, by)` criterion filed as a separate
+performance question (A1-07). `smartSquare` is the one-operand twin and gates on
+`bx > fftThreshold` alone.
 
 ## Complexity Analysis
 
@@ -280,7 +295,8 @@ At each iteration of the main loop:
 - 1 addition (O(n) bits)
 - Potentially 1 additional addition (if bit = 1)
 
-Number of iterations: log2(n)
+Number of iterations: `bits.Len64(n)` = ⌊log2 n⌋ + 1 (`doubling_framework.go`,
+`numBits := bits.Len64(n)`; the loop runs `i` from `numBits-1` down to `0`).
 
 ### Multiplication Cost
 
@@ -300,10 +316,18 @@ The cost of each multiplication depends on the operand size:
 
 | Method | Complexity | Multiplications/iteration | Advantage |
 |--------|------------|---------------------------|-----------|
-| Fast Doubling | O(log n * M(n)) | 3 | Fastest |
-| Matrix Exp. | O(log n * M(n)) | 4-8 | More intuitive |
+| Fast Doubling | O(log n * M(n)) | 3 | Fewest multiplications |
+| Matrix Exp. | O(log n * M(n)) | 4 to 12 | More intuitive |
 | Naive recursion | O(phi^n) | 0 | Simple but impractical |
 | Iteration | O(n) | 0 | Simple, slow for large n |
+
+Matrix Exp. per-iteration count, read off `MatrixFramework.ExecuteMatrixLoop`
+(`matrix_framework.go`): every iteration but the last does one symmetric squaring
+(4 multiplications, `squareSymmetricMatrix`), and an iteration whose exponent bit
+is set adds one matrix multiplication — 7 with Strassen-Winograd, 8 classic. So
+4 when the bit is clear, 11 or 12 when it is set. The two calculators are only
+measured against each other at N=1M and N=10M
+(`docs/audits/bench-baseline.txt`); see [COMPARISON.md](COMPARISON.md).
 
 ## Usage
 
@@ -327,9 +351,17 @@ go test -bench='BenchmarkFibonacci/FastDoubling' -benchmem -run='^$' ./internal/
 # Compare with other algorithms
 go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -benchmem -run='^$' ./internal/fibonacci/
 
-# benchstat-comparable run against the baselines in docs/audits/
-make bench-baseline
+# benchstat-comparable run against docs/audits/bench-baseline.txt: reuse the
+# baseline's own flags and write elsewhere, then compare
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
+    -benchmem -run='^$' -count=5 -benchtime=1x ./internal/fibonacci/ > new.txt
+benchstat docs/audits/bench-baseline.txt new.txt
 ```
+
+`make bench-baseline` is **not** the comparison command: it *overwrites*
+`docs/audits/bench-baseline.txt` with a fresh run, destroying the reference. Run
+it only when deliberately refreshing the baseline — see
+[`../TESTING.md`](../TESTING.md#benchmark-testing).
 
 ## References
 

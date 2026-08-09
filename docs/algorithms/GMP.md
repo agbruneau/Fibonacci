@@ -1,12 +1,16 @@
 # GMP-Based Calculator
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 ## Overview
 
-The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations. GMP is widely regarded as the fastest library for arbitrary-precision arithmetic, often outperforming Go's standard `math/big` library for extremely large numbers (> 100 million bits).
+The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations, delegating every arithmetic operation to GMP's C/assembly routines instead of Go's `math/big`. Whether that wins, and above which N, is **not measured in this repo** — see [Performance](#performance) below. The type comment in `calculator_gmp.go` asserts an advantage above N = 100,000,000 and a CGO-overhead penalty below it; no artifact here backs either number.
 
-This implementation uses the **Fast Doubling** algorithm, identical to the standard `"fast"` strategy, but delegates all arithmetic operations (addition, subtraction, multiplication, squaring) to GMP's highly optimized C assembly routines.
+This implementation uses the **Fast Doubling** algorithm, like the `"fast"` strategy, but it is a separate loop, not the shared one:
+
+- It does **not** use `DoublingFramework`, `AdaptiveStrategy`, `CalculationState`, the arena, or any parallelism. `CalculateCore` is a self-contained MSB→LSB loop over `bits.Len64(n)` (`internal/fibonacci/calculator_gmp.go:CalculateCore`).
+- It evaluates the **factored** identity `F(2k) = F(k)·(2·F(k+1) − F(k))` (`gmpDoublingStep`: `t1 = 2b − a`, then `t1 = a·t1`), whereas the shared loop evaluates the expanded `F(2k) = 2·F(k)·F(k+1) − F(k)²`. Both are algebraically the same and both cost three multiplications; the operand shapes differ.
+- The `--last-digits` path (`FastDoublingMod`, `modular.go`) uses the factored form too.
 
 ## Requirements
 
@@ -89,6 +93,13 @@ go test -tags=gmp -bench=BenchmarkGMP -benchmem ./internal/fibonacci/
 go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/
 ```
 
+> **The two benchmarks share no N, so that last command does not compare
+> anything.** `BenchmarkGMPCalculator` (`calculator_gmp_test.go`) runs
+> n = 100 / 1,000 / 10,000 through `CalculateCore` directly;
+> `BenchmarkFibonacci` (`fibonacci_test.go`) runs n = 1,000,000 / 10,000,000
+> through the `Calculator` wrapper. A real head-to-head requires editing one of
+> the two size lists so they overlap.
+
 ## Performance
 
 **This repo contains no GMP measurement.** `docs/audits/bench-baseline.txt` is the
@@ -104,6 +115,8 @@ crosses the CGO boundary (`internal/fibonacci/calculator_gmp.go`), so a per-call
 cost exists — its size, and where it stops mattering, are unmeasured here.
 
 To produce a real number, install the headers (`sudo apt-get install libgmp-dev`),
+make the two benchmarks meet at a common N (see the note under
+[Running Tests with GMP](#running-tests-with-gmp) — as committed they do not),
 run
 
 ```bash
@@ -112,11 +125,18 @@ go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$
 
 and archive the output under `docs/audits/` before quoting anything from it.
 
+> **This page was verified by reading `calculator_gmp.go`, not by running it.**
+> The file is behind `//go:build gmp` and needs CGO plus libgmp; neither is
+> available on the Windows host used for the 2026-08-09 pass. Every statement
+> here about the GMP path is a source claim, not an execution result.
+
 ## Implementation Details
 
-- **Algorithm**: Fast Doubling (iterative, MSB-to-LSB)
-- **Arithmetic**: Uses `github.com/ncw/gmp` bindings to call `libgmp`
-- **Memory Management**: Reuses `gmp.Int` instances to minimize allocation overhead
+- **Algorithm**: Fast Doubling (iterative, MSB-to-LSB), factored identity `F(2k) = F(k)·(2·F(k+1) − F(k))` — `gmpDoublingStep`
+- **Arithmetic**: Uses `github.com/ncw/gmp` bindings to call `libgmp` (`go.mod`: `github.com/ncw/gmp v1.0.5`)
+- **Memory Management**: four `gmp.Int` (`a`, `b`, `t1`, `t2`) allocated per `CalculateCore` call and reused across every iteration of the loop; no `sync.Pool`, no arena
+- **Concurrency**: none — the three multiplications of a step run sequentially; the `Options` thresholds (`ParallelThreshold`, `FFTThreshold`, `StrassenThreshold`) are ignored on this path
+- **Result conversion**: `gmpToStdBigInt` copies through `g.Bytes()` into a fresh `big.Int` — one full serialize/parse of the result per call
 - **File**: `internal/fibonacci/calculator_gmp.go`
 - **Name()**: Returns `"GMP (Fast Doubling)"`
 - **Registration**: `"gmp"` key, but only in a factory you register it into yourself. `init()` registers into the package-private `globalFactory` (`calculator_gmp.go`, its `globalFactory` var and `init`), which no caller reads; `app.New` builds its own via `NewDefaultFactory()` (`internal/app/app.go:New`, `registry.go:NewDefaultFactory` — `fast`/`matrix`/`fft`). `fibcalc -algo gmp` is therefore rejected even in a `-tags gmp` build.

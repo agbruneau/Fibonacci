@@ -1,6 +1,6 @@
 # Build Configuration
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29). Build steps for that dashboard live below in [Dashboard statique (GitHub Pages)](#dashboard-statique-github-pages).
 
 ## Overview
 
@@ -197,7 +197,11 @@ The Makefile `build` target handles this automatically. The injected values are 
 
 ## Makefile Reference
 
-The Makefile provides targets for building, testing, linting, and maintenance. Requires `make` (not available on all systems).
+The Makefile provides targets for building, testing, linting, and maintenance.
+`make` alone is not enough: the recipes are **POSIX/WSL only** (they use `[ -f ]`,
+`mkdir -p`, `rm -rf`, and `find`/`xargs`/`awk`), as the `Makefile` header states.
+On a bare Windows host run them through WSL (`wsl make ...`); the native gate
+there is `scripts/check.ps1`.
 
 ### Build Targets
 
@@ -320,7 +324,12 @@ fibcalc -completion fish > ~/.config/fish/completions/fibcalc.fish
 fibcalc -completion powershell >> $PROFILE
 ```
 
-The implementation lives in the `internal/cli/completion/` package (shared `registry.go` plus one generator per shell: `bash.go`, `zsh.go`, `fish.go`, `powershell.go`), dispatched via `internal/cli/completion_dispatch.go`.
+The implementation lives in the `internal/cli/completion/` package: three shared
+files — `registry.go` (the `flagRegistry` every generator reads), `completion.go`
+(the `Generate` shell switch, which also accepts `ps` as an alias for
+`powershell`) and `escape.go` (shell escaping) — plus one generator per shell
+(`bash.go`, `zsh.go`, `fish.go`, `powershell.go`). `internal/cli/completion_dispatch.go`
+is the thin `cli.GenerateCompletion` wrapper that delegates to `completion.Generate`.
 
 ## Environment Variables
 

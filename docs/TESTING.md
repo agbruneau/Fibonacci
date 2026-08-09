@@ -1,6 +1,6 @@
 # Testing Strategy
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 ## Overview
 
@@ -8,9 +8,10 @@ The Fibonacci Calculator project uses a layered testing strategy that
 combines unit tests, golden file validation, fuzz testing, property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite contains 100+ test files
-distributed across all packages, with a coverage target of 80 % verified
-locally via `make coverage` / `make coverage-check` (do not freeze a
-percentage here — run the commands for the current figure; see A5-04 below).
+distributed across all packages, with a coverage floor of 80 % asserted
+locally by `make coverage-check` alone — `make coverage` only renders
+`coverage.html` and asserts nothing (do not freeze a percentage here — run
+`make coverage-check` for the current figure; see A5-04 below).
 
 All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag run locally (requires CGO).
 
@@ -29,7 +30,7 @@ Makefile targets (require `make`):
 ```bash
 make test              # go test -v -race -cover ./...
 make coverage          # Generate coverage.html
-make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + lint (advisory) + coverage floor
+make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + `-tags gmp` step (3b) + lint (advisory) + coverage floor
 ```
 
 > `make test` and `make check` (via `check.sh`) use `-race`, which requires
@@ -39,7 +40,7 @@ make check             # delegates to scripts/check.sh: build + vet + test -race
 
 ## Table-Driven Unit Tests
 
-The standard test pattern uses table-driven subtests with `t.Parallel()`. Every algorithm is validated against a shared test oracle (`knownFibResults`) with reference values from F(0) through F(1000).
+The standard test pattern uses table-driven subtests with `t.Parallel()`. Every algorithm is validated against a shared test oracle (`knownFibResults`) with reference values from F(0) through F(1000). The oracle below is verbatim from `internal/fibonacci/fibonacci_test.go` except for the truncated F(1000) literal; the `TestFibonacciCalculators` body that follows it is abridged (identifiers renamed, `ctx`/`opts` set-up elided).
 
 ```go
 var knownFibResults = []struct {
@@ -48,12 +49,16 @@ var knownFibResults = []struct {
 }{
     {0, "0"}, {1, "1"}, {2, "1"}, {10, "55"}, {20, "6765"},
     {50, "12586269025"},
-    {92, "7540113804746346429"},      // Near max uint64
-    {93, "12200160415121876738"},     // Max Fibonacci that fits in uint64
+    {64, "10610209857723"},           // Power of 2
+    {92, "7540113804746346429"},
+    {93, "12200160415121876738"},     // Max uint64
+    {94, "19740274219868223167"},     // First overflow uint64
+    {30, "832040"},
+    {40, "102334155"},
     {100, "354224848179261915075"},
-    {128, "251728825683549488150424261"},        // Power of 2
-    {256, "14169381771405651323470996587..."},   // Power of 2
-    {1000, "43466557686937456435688527..."},     // 209 digits
+    {128, "251728825683549488150424261"},                            // Power of 2
+    {256, "141693817714056513234709965875411919657707794958199867"}, // Power of 2
+    {1000, "43466557686937456435688527..."},  // truncated here; 209 digits in source
 }
 
 func TestFibonacciCalculators(t *testing.T) {
@@ -133,7 +138,7 @@ explore the input space beyond manual test cases.
 | `FuzzFibonacciIdentities` | `internal/fibonacci` | Verifies mathematical identities | n up to 10,000 |
 | `FuzzProgressMonotonicity` | `internal/fibonacci` | Ensures progress is monotonically increasing | n 10 to 20,000 |
 | `FuzzFastDoublingMod` | `internal/fibonacci` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B |
-| `FuzzMul` | `internal/bigfft` | Cross-validates `bigfft.Mul` against `math/big.Int.Mul` (seed corpus pushes past the FFT threshold) | operand size up to 32 000 bytes |
+| `FuzzMul` | `internal/bigfft` | Cross-validates `bigfft.Mul` against `math/big.Int.Mul`. The seed corpus does **not** reach the FFT path: its largest operand is 4 096 bytes = 512 words, and `Mul` only dispatches to `mulFFT` when **both** operands exceed `defaultFFTThresholdWords = 1800` (≈14 400 bytes). Only fuzzer-generated inputs above that size exercise FFT. | operand size up to 32 000 bytes (= 4 000 words) |
 | `FuzzSqr` | `internal/bigfft` | Cross-validates `bigfft.Sqr` against `math/big` squaring | operand size up to 32 000 bytes |
 
 Fibonacci targets live in `internal/fibonacci/fibonacci_fuzz_test.go`;
@@ -161,8 +166,11 @@ Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoubl
 
 ## Architecture-Layering Gate
 
-`internal/arch_test.go` is a runtime sentinel that fails the build if a
-forbidden upward import is reintroduced. It inspects each importer
+`internal/arch_test.go` is a runtime sentinel that fails `go test` if a
+forbidden upward import is reintroduced. It gates the test run, not the
+build: the `internal` package has no non-test Go file
+(`go list -f '{{.GoFiles}}' ./internal/` → `[]`), so `go build ./...` never
+compiles it and stays green even with a violation in place. It inspects each importer
 package via `go list -f '{{range .Imports}}{{.}}\n{{end}}'` (production code only — `_test.go`
 files are excluded). Currently five rules :
 

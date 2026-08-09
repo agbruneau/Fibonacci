@@ -1,6 +1,6 @@
 # Performance Guide
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 ## Overview
 
@@ -54,9 +54,11 @@ you can re-derive from a file in the tree.
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
 | 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,910 |
 
+> **The N=10M row is off by roughly two orders of magnitude, not by a hardware generation.** Its 2.1 s for Fast Doubling is **≈88×** the only measurement in the tree (23.87 ms median, `docs/audits/bench-baseline.txt`, linux/amd64) and **≈75×** the dated reference below. A gap that size is not explained by CPU, Go version or thermal profile; the row's provenance is simply unknown. Treat the whole column as ordering, never as magnitude.
+>
 > Current dated reference for the N=10M row: `BenchmarkFibonacci/FastDoubling/10M` measures 28.20 ms (calculation only, no decimal conversion; 2026-06-10, Intel Core Ultra 9 275HX — see [`CHANGELOG.md`](../CHANGELOG.md)).
 
-> **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless (~2x lower peak than Matrix). Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
+> **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless: on the one artifact in the tree (`docs/audits/bench-baseline.txt`) it allocates **~4.8x** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB) and **~5.3x** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak RSS; no peak-memory measurement exists in this repo. Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
 
 ### Comparison snapshot — Intel Core Ultra 9 275HX (24 cores)
 
@@ -133,7 +135,7 @@ To compare performance across Git revisions on the **same machine**, use a fixed
 3. **CHANGELOG** (optional): add a one-line entry such as
    `Perf: benchmark snapshot @ <SHA> — FastDoubling ns/op ±X% vs previous main` when you publish a measured change.
 
-The reference table in [Reference Benchmarks](#reference-benchmarks) above is tied to a specific hardware and Go 1.25.0 configuration (historical measurement environment; the project now targets Go 1.26.0+ — run `make benchmark` for current figures); your snapshots document *your* runner.
+In [Reference Benchmarks](#reference-benchmarks) above, only the **historical** tables (Results, and the Intel comparison snapshot) are tied to the Ryzen / Go 1.25.0 environment; the project now targets Go 1.26.0+ (`go.mod`). The baseline medians table at the top of that section comes from `docs/audits/bench-baseline.txt` (linux/amd64, 24 threads, stamped `baseline-2026-07-07`) and carries no Go-version stamp at all. Either way, both document *someone else's* runner — your snapshots document *yours*.
 
 ## Hardware heuristic defaults
 
@@ -235,7 +237,9 @@ Specific optimization for squaring symmetric matrices (where b = c), reducing mu
 
 ### 6. GC Controller
 
-For large calculations (N ≥ 1M), the `GCController` disables Go's garbage collector during computation, so no GC cycle runs inside the guarded region. The motivation is `GOGC=100`'s default behaviour — the live heap is allowed to double before a cycle triggers — but the repo carries no peak-RSS measurement with and without the controller. A soft memory limit (3× current Sys) acts as an OOM safety net.
+For large calculations (N ≥ 1M), the `GCController` suppresses *heap-growth-triggered* GC during computation (`debug.SetGCPercent(-1)`). The motivation is `GOGC=100`'s default behaviour — the live heap is allowed to double before a cycle triggers — but the repo carries no peak-RSS measurement with and without the controller.
+
+**The guarded region is not GC-free.** The same `Begin()` installs a soft memory limit of `3 × MemStats.Sys` (`DefaultMemoryLimitMultiplier`, `internal/fibonacci/memory/gc_control.go`), and a `GOMEMLIMIT` is honoured by the runtime *even with `GOGC=off`* — that is precisely its stated purpose here: the constant's own doc comment says it "acts as an OOM safety net: if the calculation runs away, the Go runtime will trigger emergency GC instead of letting the process consume unbounded memory". So the accurate claim is: no *GOGC-driven* cycle runs inside the region, and a memory-limit-driven cycle can. The repo carries no measurement of how often the limit is actually reached.
 
 | Mode | Activation | Behavior |
 |------|-----------|----------|
@@ -309,7 +313,7 @@ fibcalc --auto-calibrate
 
 > **`FFTCacheMaxEntries` has no fixed default of 256.** `bigfft.DefaultTransformCacheConfig()` does return `MaxEntries: 256` (`internal/bigfft/fft_cache.go:DefaultTransformCacheConfig`), but `configureFFTCache` overrides it whenever the option is left at 0 and `n > 0`, computing `clamp(2 × bits.Len64(n), 64, 4096)` (`internal/fibonacci/options.go:configureFFTCache`). For n = 10M that is `2 × 24 = 48`, clamped up to **64**. The dynamic value can never reach 256: `bits.Len64` maxes out at 64, so the expression tops out at 128. The 256 constant only reaches a caller who bypasses `configureFFTCache`, or who leaves `n = 0`. The doc comment on `Options.FFTCacheMaxEntries` (`internal/fibonacci/options.go:Options.FFTCacheMaxEntries`) states this rule directly: it says the field is sized from n as `clamp(2*bits.Len64(n), 64, 4096)`, "which is 64..128 in practice since bits.Len64 caps at 64; the package default of 256 only applies when n is 0."
 
-> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr/MulTo/SqrTo` calls (including `FFTOnlyStrategy.Multiply/Square`, which delegate to them; note that the FFT-only **calculator loop** uses `FFTOnlyStrategy.ExecuteStep` → `executeDoublingStepFFT` → `TransformWithBump`, the same **uncached** path as default Fast Doubling, so it never calls `Multiply/Square`). The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; see ADR-0004 §B1. The "no speedup on the default path" conclusion follows from the code path alone — `TransformWithBump` never consults the cache, so hits and misses are both zero there; it needs no benchmark. A `BenchmarkCacheImpact` figure (22.95 ms vs 21.18 ms) used to be quoted here and attributed to [`CHANGELOG.md`](../CHANGELOG.md); that attribution was **false** — `grep -n "22.95\|BenchmarkCacheImpact" CHANGELOG.md` returns nothing, and no run of that benchmark is archived anywhere in the repo. The numbers were removed on 2026-08-07. Any cache-speedup claim would concern only the `FFTOnlyStrategy` and direct `bigfft.Mul/Sqr` paths, and none is measured here. Reworking the default step to use the cache stays a won't-fix without a supporting benchmark.
+> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr/MulTo/SqrTo` calls (including `FFTOnlyStrategy.Multiply/Square`, which delegate to them; note that the FFT-only **calculator loop** uses `FFTOnlyStrategy.ExecuteStep` → `executeDoublingStepFFT` → `TransformWithBump`, the same **uncached** path as default Fast Doubling, so it never calls `Multiply/Square`). The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; its rationale lives in the `putByKey` doc comment (`internal/bigfft/fft_cache.go`), which records it as an Audit-PRD E1-R4 / [ADR-0002](adr/0002-recover-strategy.md) follow-up. The "no speedup on the default path" conclusion follows from the code path alone — `TransformWithBump` never consults the cache, so hits and misses are both zero there; it needs no benchmark. A `BenchmarkCacheImpact` figure (22.95 ms vs 21.18 ms) used to be quoted here and attributed to [`CHANGELOG.md`](../CHANGELOG.md); that attribution was **false** — `grep -n "22.95\|BenchmarkCacheImpact" CHANGELOG.md` returns nothing, and no run of that benchmark is archived anywhere in the repo. The numbers were removed on 2026-08-07. Any cache-speedup claim would concern only the `FFTOnlyStrategy` and direct `bigfft.Mul/Sqr` paths, and none is measured here. Reworking the default step to use the cache stays a won't-fix without a supporting benchmark.
 
 #### Dynamic Threshold Adjustment
 
@@ -379,8 +383,11 @@ go tool trace trace.out
 - Efficient Strassen optimization for large numbers
 
 **Disadvantages**:
-- 4-8 multiplications per iteration vs 3 for Fast Doubling
-- Slower in practice
+- 4 multiplications per loop iteration when the exponent bit is clear, 11-12 when
+  it is set (one symmetric squaring, plus one full matrix multiply on a set bit),
+  against a flat 3 for Fast Doubling — see
+  [algorithms/MATRIX.md](algorithms/MATRIX.md#comparison-with-fast-doubling)
+- Slower at both sizes the baseline covers
 
 ### FFT-Based
 

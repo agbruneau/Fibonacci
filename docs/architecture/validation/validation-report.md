@@ -1,6 +1,6 @@
 # Architecture Validation
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 **Project**: FibCalc (github.com/agbruneau/FibGo)
 
@@ -118,10 +118,12 @@ its `SquareFunc`. Re-verify members separately from the edge check.
 
 ## Interface & pattern claims
 
-The interface signatures and design-pattern catalogue in
-[`../README.md`](../README.md) and
-[`../patterns/design-patterns.md`](../patterns/design-patterns.md) are
-maintained to match source. Notable narrow/wide interface contracts:
+The design-pattern catalogue in [`../README.md`](../README.md) §4 and
+[`../patterns/design-patterns.md`](../patterns/design-patterns.md), and the
+interface signatures in [`../component-diagram.mermaid`](../component-diagram.mermaid)
+and [`../patterns/interface-hierarchy.mermaid`](../patterns/interface-hierarchy.mermaid)
+(neither `.md` carries a signature), are maintained to match source. Notable
+narrow/wide interface contracts:
 
 - `Calculator` (decorated façade) / `CoreCalculator` (algorithm kernel wrapped by `FibCalculator`) — both exported, `internal/fibonacci/calculator.go`
 - `Multiplier` (narrow) extended by `DoublingStepExecutor` (wide)

@@ -1,6 +1,6 @@
 # BigFFT Subsystem: Implementation Internals
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 > **Scope**: Implementation architecture of `internal/bigfft`
 > **Complexity**: O(n log n) integer multiplication via Schonhage-Strassen FFT
@@ -9,11 +9,17 @@
 ## Overview
 
 The `internal/bigfft` package implements **Schonhage-Strassen FFT multiplication** over
-Fermat rings for arbitrarily large integers. It is the computational backbone of all
-Fibonacci algorithms in this project once operand sizes exceed ~500,000 bits.
+Fermat rings for arbitrarily large integers. All three registered calculators route
+large multiplications through it once operands exceed `FFTThreshold` (~500,000 bits
+by default): `"fast"` and `"fft"` via `executeDoublingStepFFT`, `"matrix"` via
+`smartMultiply`/`smartSquare`. Two Fibonacci paths do **not** touch it — the
+`--last-digits` modular path (`FastDoublingMod`, plain `math/big` + `Mod`) and the
+optional `-tags gmp` calculator (libgmp).
 
-The subsystem's non-test source files (run `make stats` for the canonical, up-to-date
-count) are organized around four concerns:
+The subsystem has 14 non-test source files, enumerated in
+[Package Structure](#package-structure) below. (`make stats` reports package counts
+and repo-wide LOC, not a per-package file count.) They are organized around four
+concerns:
 
 1. **Public API** -- panic-safe entry points for multiplication and squaring
 2. **FFT core** -- polynomial decomposition, forward/inverse transforms, pointwise operations
@@ -44,11 +50,21 @@ pre-condition panics (operand-size mismatches) and other unexpected panics becom
 returned errors.
 
 **Threshold gating**: `Mul`/`MulTo` and `Sqr`/`SqrTo` compare the operand word count
-against `fftThreshold` (default 1800 words, ~115 Kbits on 64-bit). Operands below the
-threshold fall through to `math/big.Mul`, avoiding FFT overhead for small numbers.
+against `fftThreshold` (default 1800 words, ~115 Kbits on 64-bit). `Mul`/`MulTo`
+require **both** operands to exceed it (`xwords > t && ywords > t`); `Sqr`/`SqrTo`
+test their single operand. Anything below falls through to `math/big`'s `Mul`,
+avoiding FFT overhead for small numbers. The threshold lives in an
+`atomic.Int64` read through `getFFTThreshold()`; the writer `SetFFTThreshold` has
+no production caller (test-only in practice). Note this is the **package-internal,
+word-based** threshold, distinct from `fibonacci.Options.FFTThreshold`, which is
+bit-based and decides whether `smartMultiply` calls into this package at all.
 
-**Squaring optimization**: `Sqr`/`SqrTo` only transform the input once, saving
-approximately 33% of the FFT computation compared to `Mul`.
+**Squaring optimization**: `Sqr`/`SqrTo` transform the input once, so a squaring
+runs **two transforms (1 forward + 1 inverse) instead of the three a general `Mul`
+needs** (2 forward + 1 inverse). That is one transform out of three saved — an
+operation count. The repo carries no measurement of the resulting wall-time
+fraction, and `fft.go` says so at the `Sqr` declaration: "The saving is one
+transform out of three, not a measured fraction of wall time."
 
 ---
 
@@ -132,7 +148,7 @@ flowchart TD
 
 **File**: `internal/bigfft/fft.go`
 
-The `fftSize` function determines optimal FFT parameters from a lookup table:
+The `fftSize` function derives the FFT parameters from a lookup table:
 
 ```go
 var fftSizeThreshold = [...]int64{0, 0, 0,
@@ -146,9 +162,37 @@ The FFT length K = 2^k is chosen so that `fftSizeThreshold[k]` exceeds the total
 result bit-length. The chunk size m satisfies `m << k > len(x) + len(y)`, ensuring
 the polynomial representation can hold the full product.
 
-**Design principle**: K is approximately 2*sqrt(N) where N is the total bit-length
-of the product. This balances the cost of the O(K log K) FFT against the O(m^2)
-coefficient multiplications.
+**Stated rationale, not the computation.** The source comment sitting above the
+table (`internal/bigfft/fft.go`, just before `fftSizeThreshold`) reads: "A FFT
+size of K=1<<k is adequate when K is about 2*sqrt(N) where N = x.Bitlen() +
+y.Bitlen()." That is the balance argument behind the table — O(K log K) FFT cost
+against O(m²) coefficient multiplications — but `fftSize` computes **no square
+root**. It walks `fftSizeThreshold` and takes the first index whose entry
+exceeds the bit count. The table is a **tuning artifact, not a measured
+crossover**: no benchmark in this repo pins any of its 16 entries against
+another value.
+
+Consequently the rule and the table diverge, systematically and by a lot at the
+low end. `fftSize` is reached only through `Mul`/`MulTo`, which require **both**
+operands above `defaultFFTThresholdWords = 1800` words, so the smallest bit
+count it ever sees is (1801 + 1801) × 64 = 230 528:
+
+| Total bits N | k | K = 2^k | 2·√N | K ÷ 2√N |
+|---|---|---|---|---|
+| 230,528 (smallest reachable) | 8 | 256 | 960 | 0.27 |
+| 1,000,000 | 9 | 512 | 2,000 | 0.26 |
+| 13,900,000 (≈ F(10M) squaring) | 12 | 4,096 | 7,457 | 0.55 |
+| 100,000,000 | 13 | 8,192 | 20,000 | 0.41 |
+| 400,000,000 | 15 | 32,768 | 40,000 | 0.82 |
+| 1,000,000,000 | 16 (capped) | 65,536 | 63,246 | 1.04 |
+
+Read the rule as an order-of-magnitude justification for the table's shape, not
+as its formula: at the smallest reachable size the table picks K nearly **4×
+below** what the rule would ask for, and the two only converge (ratio 0.8–1.0)
+past a few hundred million bits. The same table is also read by `GetFFTParams`, which
+`internal/fibonacci/fft.go:executeDoublingStepFFT` calls with no 1800-word gate
+at all — so on the FFT-only calculator path even smaller sizes are reachable,
+where the divergence is larger still.
 
 ---
 
@@ -201,8 +245,14 @@ transform-cache hits (`TransformCache.getByKey`), so a caller that releases a
 cache-shared `PolValues` cannot poison the pool.
 
 `PolValues` represents a polynomial evaluated at K-th roots of unity. Pointwise
-multiplication (`Mul`) and squaring (`Sqr`) operate on this type. The `Clone()`
-method produces a deep copy for safe concurrent use.
+multiplication (`Mul`) and squaring (`Sqr`) operate on this type; both are
+read-only on their receivers, which is why the Fast Doubling FFT step can share
+one transformed operand across its three concurrent products without copying.
+`Clone()` produces a deep copy, but has **no production caller** — the source
+marks it a test oracle (audit OVR-10), retained for tests needing an
+aliasing-free copy. The same "test oracle, no production caller" marker sits on
+`Poly.Mul`, `Poly.Transform`, `Poly.NTransform`, `PolValues.InvNTransform`,
+`TransformCache.Get`/`Put`/`Clear` and the non-bump `*Cached` variants.
 
 ---
 
@@ -239,9 +289,12 @@ The `Mul` method switches between `basicMul` (schoolbook, for operands below
 modular reduction. The `Sqr` method provides an optimized squaring path that similarly
 dispatches between `basicSqr` and `big.Int.Mul` based on operand size.
 
-The `smallMulThreshold` (30 words, ~1,920 bits on 64-bit) was determined empirically.
-Below this threshold, the schoolbook `basicMul`/`basicSqr` functions avoid `big.Int`
-allocation overhead and are faster for the small operands common in early FFT recursion levels.
+The `smallMulThreshold` (30 words, ~1,920 bits on 64-bit) trades `big.Int`'s setup
+overhead against `basicMul`'s O(n²) inner loop. It is a **setting, not a measured
+crossover**: `fermat.go` states "30 words is a setting, with no benchmark in the
+repo pinning it against a nearby value." `BenchmarkFermatSqrVsMul`
+(`fermat_test.go`) exists but does not sweep this constant, and no archived run of
+it is tracked.
 
 ---
 
@@ -267,26 +320,45 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int,
     k, size, depth uint, tmp, tmp2 fermat, alloc tempAllocator) error
 ```
 
-The FFT uses a **Cooley-Tukey radix-2 decimation-in-frequency** decomposition:
+The FFT uses a **Cooley-Tukey radix-2 decimation-in-time** decomposition — the
+input is split by index parity (`src` for one half, `src[1<<idxShift:]` for the
+other, `idxShift = k - size`) and the twiddle factors are applied **after** the
+two recursive calls return, in `executeReconstruction`. That ordering is what
+makes it decimation-in-time rather than decimation-in-frequency:
 
-1. **Base cases**: size=0 (copy) and size=1 (butterfly: add/sub)
-2. **Recursive split**: divide into two halves, recurse on each
-3. **Reconstruct**: apply twiddle factors via `ShiftHalf` and butterfly operations
+1. **Base cases**: `size=0` (copy `src[0]` into `dst[0]`) and `size=1` (butterfly: `dst[0] = src[0]+src[1<<idxShift]`, `dst[1] = src[0]-src[1<<idxShift]`)
+2. **Recursive split**: `dst[:1<<(size-1)]` recurses on `src`, `dst[1<<(size-1):]` on `src[1<<idxShift:]`
+3. **Reconstruct**: for each `i`, `tmp = ShiftHalf(dst2[i], i·ω2shift)`, then `dst2[i] = dst1[i] - tmp` and `dst1[i] += tmp`
 
 ### Parallelism Control
 
-FFT parallelism is controlled by two **runtime-configurable** variables (default values shown):
+There are **three** independent parallel dispatch points in this package, gated by
+three different mechanisms. Only the first is runtime-configurable.
 
-Both are unexported `atomic.Uint64` package variables seeded in `init()`; the
-exported surface is the getter pair plus `GetFFTParallelismConfig` /
+**(a) Recursion split** (`fourierRecursiveUnified`) — two runtime-configurable
+variables, both unexported `atomic.Uint64` package variables seeded in `init()`;
+the exported surface is the getter pair plus `GetFFTParallelismConfig` /
 `SetFFTParallelismConfig`.
 
 | Variable | Accessor | Default | Purpose |
 |----------|----------|---------|---------|
-| `parallelFFTRecursionThreshold` | `GetParallelFFTRecursionThreshold()` | 4 | Minimum k for parallel recursion |
+| `parallelFFTRecursionThreshold` | `GetParallelFFTRecursionThreshold()` | 4 | Minimum recursion `size` for parallel recursion |
 | `maxParallelFFTDepth` | `GetMaxParallelFFTDepth()` | 3 | Maximum parallel recursion depth |
 
-These can be adjusted at runtime via the `FFTParallelismConfig` struct:
+**(b) Butterfly reconstruction** (`executeReconstruction`, `fft_recursion.go`) —
+gated by the **compile-time constant** `reconstructionMinParallelWords = 1 << 16`,
+compared against `len(dst1) * len(tmp)`, and short-circuited when
+`runtime.NumCPU() == 1`. Not reachable through `FFTParallelismConfig`.
+
+**(c) Pointwise multiply/square** (`runPointwise`, `fft_poly.go`) — gated by the
+compile-time constant `pointwiseMinParallelWords = 1 << 16`, compared against
+`count*(n+1)`, same `NumCPU() == 1` short-circuit. Also not configurable.
+
+The two constants carry a source note attributing them to "paired end-to-end
+benchmarks on a 24-thread host (2026-06)"; no output of those runs is archived in
+this repo.
+
+The (a) thresholds can be adjusted at runtime via the `FFTParallelismConfig` struct:
 
 ```go
 // Read current configuration
@@ -299,10 +371,15 @@ bigfft.SetFFTParallelismConfig(bigfft.FFTParallelismConfig{
 })
 ```
 
-Parallelism uses a semaphore channel sized to `runtime.NumCPU()`. When a goroutine
-slot is available, the second half of the recursion runs in a new goroutine with
-pool-allocated temporary buffers (avoiding races on the non-thread-safe bump allocator).
-If no slot is available, execution falls through to sequential.
+All three dispatch points share one semaphore channel, sized to
+`runtime.NumCPU()` (`getSemaphore`, `fft_recursion.go`) — distinct from the
+Fibonacci-level task semaphore in `internal/fibonacci/common.go`, which is sized
+`runtime.GOMAXPROCS(0)`. Acquisition is always **non-blocking** (`select` with a
+`default`), so a missing token never deadlocks against another token holder: the
+work simply runs on the calling goroutine. Spawned goroutines draw their scratch
+from the pool allocator, never from the caller's bump allocator, which is not
+thread-safe. Worker panics are captured and re-panicked on the calling goroutine
+so the entry points' recover policy (ADR-0002) still applies.
 
 ```mermaid
 flowchart TD
@@ -443,8 +520,13 @@ K = 2^k (from fftSizeThreshold lookup)
 n = wordLen / K + 1
 transformTemp = K * (n+1)
 multiplyTemp  = 8 * n
-total = (2*transformTemp + multiplyTemp) * 11 / 10   // 10% safety margin (reduced from 20% per profiling)
+total = (2*transformTemp + multiplyTemp) * 11 / 10   // 10% headroom
 ```
+
+The 10% is a tuning choice, not a measured optimum, and undershooting is not a
+correctness problem: `Alloc` falls back to `make()` when the arena is exhausted.
+`bump.go` states it directly — "the margin is a tuning choice, and no benchmark in
+the repo pins 10% over any other value."
 
 ### Pool Pre-Warming
 
@@ -506,18 +588,32 @@ type TransformCache struct {
 | Thread safety | `sync.RWMutex` for concurrent reads, exclusive writes |
 | Key generation | FNV-1a 64-bit hash of input data + FFT parameters (k, n) |
 | Eviction policy | LRU (least recently used) |
-| Default max entries | 256 |
-| Minimum operand size | 100,000 bits (~12 KB) |
+| `DefaultTransformCacheConfig().MaxEntries` | 256 |
+| `DefaultTransformCacheConfig().MinBitLen` | 100,000 bits (~12 KB) |
+
+> **256 is almost never the effective value.** `configureFFTCache`
+> (`internal/fibonacci/options.go`) overwrites it whenever
+> `Options.FFTCacheMaxEntries` is left at 0 and `n > 0`, computing
+> `clamp(2 × bits.Len64(n), 64, 4096)`. Since `bits.Len64` caps at 64 the
+> expression tops out at 128; for n = 10M it is `2 × 24 = 48`, clamped up to 64.
+> The 256 default only survives for a caller that bypasses `configureFFTCache`
+> or passes `n = 0`.
 
 ### Why Cache?
 
 When the same big integer is transformed more than once, the cached forward FFT
 transform avoids recomputing it. The repo carries **no measurement of a speedup**
-from this on any path — the only benchmark artifact tracked is
-`docs/audits/bench-baseline.txt`, which measures whole calculators, and the one
-cache-specific benchmark that exists (`BenchmarkCacheImpact`) has no recorded
-result in the repo. Treat the saving as "one forward transform per hit", not as a
-percentage.
+from this on any path. The only benchmark artifact tracked is
+`docs/audits/bench-baseline.txt`, which measures whole calculators and does not
+vary the cache. Cache-specific benchmarks do exist — `BenchmarkCacheImpact` and
+`BenchmarkCacheHitRate` (`internal/fibonacci/cache_bench_test.go`), plus
+`BenchmarkCacheHit`, `BenchmarkCacheHitParallel`, `BenchmarkCacheMiss`,
+`BenchmarkCachePut` and `BenchmarkTransformCache`
+(`internal/bigfft/fft_cache_test.go`) — but none has an archived result here, and
+the two in `internal/fibonacci` cannot produce one anyway: both drive a
+`FastDoublingCalculator`, whose FFT step never consults the cache (see the scope
+note below), so they report a 0% hit rate whatever the configuration. Treat the
+saving as "one forward transform per hit", not as a percentage.
 
 > **Scope (A3-01)**: The cache is only consulted by the `bigfft.Mul`/`MulTo`/`Sqr`/`SqrTo`
 > entry points (via `fftmulTo`/`fftsqrTo` → `MulCachedWithBump`/`SqrCachedWithBump`).

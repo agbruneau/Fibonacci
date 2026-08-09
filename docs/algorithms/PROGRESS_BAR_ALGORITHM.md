@@ -1,6 +1,6 @@
 # Progress Bar Algorithm for O(log n) Algorithms
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 ## Description
 
@@ -252,9 +252,9 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
 
 ## Guaranteed Properties
 
-1. **Monotonicity**: Progress is always increasing (or stable), never decreasing
-2. **Valid range**: Progress values are always in [0.0, 1.0]
-3. **Finalization**: Final progress is always close to 1.0 (>= 0.99)
+1. **Monotonicity**: Progress is always increasing (or stable), never decreasing — `stepProgress` is strictly increasing as `i` decreases
+2. **Valid range**: Progress values are always in [0.0, 1.0] — `stepProgress` clamps both ends explicitly (`if p < 0 return 0`, `if p > 1 return 1`)
+3. **Finalization**: the last loop iteration (`i == 0`) reports **exactly 1.0** — `stepProgress` returns a literal `1` for `i <= 0`, and `i == 0` forces a report regardless of the threshold. `FibCalculator.CalculateWithObservers` additionally calls `reporter(1.0)` on success (`internal/fibonacci/calculator.go`)
 4. **Performance**: bounded, allocation-free work per iteration — but **not** exponentiation-free. `ReportStepProgress` calls `stepProgress` (`internal/progress/progress.go:ReportStepProgress`), which evaluates two `math.Pow` per iteration: `math.Pow(4, -i)` and `math.Pow(4, -numBits)` (`progress.go:stepProgress`). The precomputed `powers` array is still consulted, but only for the cumulative `workDone` total that the function threads through; the reported ratio no longer divides by it.
 
 ## Progression Behavior

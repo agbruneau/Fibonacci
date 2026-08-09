@@ -14,7 +14,7 @@ E10-R5 / Sprint S4-T5.
 | Windows | arm64 | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-windows-arm64` (build only) |
 | macOS | amd64 | ✅ pour `-race` | ✅ via clang | `make test` (race natif) |
 | macOS | arm64 (Apple Silicon) | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-all` (build only) |
-| WASI / js | — | — | — | non supporté (`runtime/debug`, assertions de post-condition) |
+| WASI / js | — | — | — | non supporté — `go build ./...` échoue sur la pile TUI tierce (voir §6) |
 
 **64 bits uniquement.** Aucune cible 32 bits n'est supportée et aucune n'est
 construite par `make build-all`. La compilation **échoue sur toute cible où
@@ -163,13 +163,34 @@ Une régression introduisant une dépendance amd64-exclusive non gardée par
 - **Pas de bench cross-arch** : les chiffres dans
   `docs/audits/bench-baseline.txt` proviennent d'un host amd64. Un
   benchmark arm64 demande un poste Apple Silicon ou ARM Linux.
-- **GMP non testé en cross-compile** : `gmp` build tag requiert CGO,
-  donc seul `linux/amd64` exerce cette branche.
-- **WebAssembly** : non supporté. La codebase importe `runtime/debug`
-  (blocs `import` de `internal/bigfft/fft.go` et de
-  `internal/fibonacci/memory/gc_control.go`) et
-  s'appuie sur des assertions de panic post-condition, ce qui rend un portage
-  non trivial. Le code de production n'utilise **pas** `unsafe.Pointer` : le
+- **GMP non testé en cross-compile** : le tag `gmp` requiert CGO, donc aucune
+  cible croisée ne l'exerce. Le seul contrôle **automatisé** est l'étape 3b de
+  `scripts/check.sh`, qui ne se déclenche que si `/usr/include/gmp.h` ou
+  `/usr/include/x86_64-linux-gnu/gmp.h` existe. La **première** garde n'est ni
+  spécifique à une distribution ni à une architecture — `/usr/include/gmp.h` est
+  le chemin d'en-tête par défaut d'un `libgmp` installé par le gestionnaire de
+  paquets, amd64 comme arm64 ; la seconde ne couvre que le chemin multiarch
+  Debian/Ubuntu amd64. Ce que le dépôt permet d'affirmer, c'est la forme de la
+  garde (`scripts/check.sh`, étape 3b), pas la liste des hôtes où elle passe :
+  aucun hôte n'est exercé ici. `check.ps1` n'a pas d'équivalent de cette étape.
+  Un build manuel
+  `go build -tags gmp` reste possible sur tout hôte CGO avec libgmp, macOS inclus
+  (`brew install gmp`), mais aucun script du dépôt ne le vérifie.
+- **WebAssembly** : non supporté, mais **pas** à cause du noyau de calcul.
+  Vérifié le 2026-08-09 : le noyau de calcul compile pour les deux cibles WASM —
+  `GOOS=js GOARCH=wasm go build ./internal/bigfft/ ./internal/fibonacci/... ./internal/progress/`
+  **passe**, et la même commande sous `GOOS=wasip1 GOARCH=wasm` aussi — alors
+  que ces paquets sont précisément
+  ceux qui importent `runtime/debug` (blocs `import` de `internal/bigfft/fft.go`
+  et de `internal/fibonacci/memory/gc_control.go`) et qui portent les assertions
+  de panic post-condition. Ce qui casse, c'est la pile TUI tierce :
+  `GOOS=js GOARCH=wasm go build ./...` échoue dans
+  `github.com/charmbracelet/bubbletea` (`p.listenForResize undefined`,
+  `undefined: openInputTTY`, …) et `GOOS=wasip1 GOARCH=wasm go build ./...`
+  échoue dans `github.com/muesli/termenv` (`output.ColorProfile undefined`, …).
+  Un portage WASM passerait donc par l'exclusion de `internal/tui` et de ses
+  dépendances, pas par une réécriture du noyau.
+- **`unsafe`** : le code de production n'utilise **pas** `unsafe.Pointer` ; le
   seul usage de `unsafe` est `unsafe.Sizeof` (`internal/bigfft/fft.go:_W`), plus
   l'import muet requis par `go:linkname` (bloc `import` de `internal/bigfft/arith_decl.go`) ;
   l'unique `unsafe.Pointer` du dépôt est dans un test

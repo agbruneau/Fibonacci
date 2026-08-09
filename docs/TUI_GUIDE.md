@@ -1,6 +1,6 @@
 # TUI Developer Guide
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 Interactive terminal dashboard inspired by btop, built on Bubble Tea (Elm architecture).
 Activated via the `--tui` flag or the `FIBCALC_TUI=true` environment variable.
@@ -289,14 +289,17 @@ and sends `ProgressMsg` for each update. Sends `ProgressDoneMsg` when the channe
 
 ### TUIResultPresenter
 
-Implements `orchestration.ResultPresenter`:
+Implements **two** orchestration interfaces (both compliance assertions are declared in
+`bridge.go`): `orchestration.ResultPresenter` and `orchestration.ErrorHandler`. That is why
+`startCalculationCmd()` passes the same value in both the `presenter` and the `errHandler`
+positions of `AnalyzeComparisonResults`.
 
-| Method | Message Sent |
-|--------|-------------|
-| `PresentComparisonTable()` | `ComparisonResultsMsg` |
-| `PresentResult()` | `FinalResultMsg` |
-| `HandleError()` | `ErrorMsg` |
-| `FormatDuration()` | Delegates to `format.FormatExecutionDuration()` (`internal/format`) |
+| Method | Declared by | Message Sent |
+|--------|-------------|-------------|
+| `PresentComparisonTable()` | `ResultPresenter` | `ComparisonResultsMsg` |
+| `PresentResult()` | `ResultPresenter` | `FinalResultMsg` |
+| `HandleError()` | `ErrorHandler` | `ErrorMsg`, then returns `apperrors.HandleCalculationError`'s exit code |
+| `FormatDuration()` | no orchestration interface — plain method, mirrored on `cli.CLIResultPresenter`; only tests call it | Delegates to `format.FormatExecutionDuration()` (`internal/format`) |
 
 ---
 
@@ -346,7 +349,7 @@ Implements `orchestration.ResultPresenter`:
 
 ### Generation Guard
 
-Seven message types carry a `Generation` field — `ProgressMsg`, `ComparisonResultsMsg`, `FinalResultMsg`, `ErrorMsg`, `CalculationCompleteMsg`, `IndicatorsMsg`, `ContextCancelledMsg`, i.e. every message type declared in `internal/tui/messages.go` — not just the two completion messages. Mismatches are discarded:
+Seven of the eleven message types declared in `internal/tui/messages.go` carry a `Generation` field — `ProgressMsg`, `ComparisonResultsMsg`, `FinalResultMsg`, `ErrorMsg`, `CalculationCompleteMsg`, `IndicatorsMsg`, `ContextCancelledMsg` — not just the two completion messages. The other four (`ProgressDoneMsg`, `TickMsg`, `MemStatsMsg`, `SysStatsMsg`) carry no per-run state and are therefore not generation-tagged. Mismatches are discarded:
 
 ```go
 case CalculationCompleteMsg:

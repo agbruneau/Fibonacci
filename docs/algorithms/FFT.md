@@ -1,13 +1,13 @@
 # FFT Multiplication for Large Integers
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 > **Complexity**: O(n log n) for multiplying two numbers of n bits
-> **Used by**: Fast Doubling and Matrix Exp. for very large numbers
+> **Used by**: `"fast"` and `"matrix"` above `FFTThreshold`; `"fft"` at every size
 
 ## Introduction
 
-The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n^2) for naive multiplication or O(n^1.585) for Karatsuba. This optimization becomes crucial for numbers exceeding approximately 500,000 bits.
+The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n^2) for naive multiplication or O(n^1.585) for Karatsuba. In this project the switch happens at `DefaultFFTThreshold = 500_000` bits — but that is a **configured default, not a measured crossover**: `internal/fibonacci/constants.go` states it is "a deliberately conservative placement of that crossover, not a measured one", the real crossover being host-dependent and measured only by `(*MicroBenchmark).findFFTCrossover` in `internal/calibration`.
 
 ## Mathematical Principle
 
@@ -71,11 +71,11 @@ sequenceDiagram
 
 The FFT multiplication is implemented in the `internal/bigfft` package using a **Fermat FFT** operating in the ring Z/(2^k + 1), where roots of unity are powers of 2 and multiplications become bit shifts.
 
-Pour l'implémentation détaillée (API publique, arithmétique de Fermat, gestion mémoire, cache de transformées), voir [BIGFFT.md](BIGFFT.md).
+For the implementation itself (public API, Fermat arithmetic, memory management, transform cache), see [BIGFFT.md](BIGFFT.md).
 
 ### 2-Tier Multiplication Selection
 
-The `smartMultiply` function in `internal/fibonacci/fft.go` selects the optimal algorithm based on operand bit-length:
+The `smartMultiply` function in `internal/fibonacci/fft.go` selects the algorithm by comparing operand bit-lengths against the configured threshold:
 
 - **Tier 1: FFT** — both operands exceed `FFTThreshold` → routes to `bigfft.MulTo`
 - **Tier 2: Standard math/big** — uses Karatsuba internally for large operands
@@ -98,15 +98,32 @@ FFT off, set the threshold above the largest operand you expect.
 
 ### Threshold Selection
 
-The optimal threshold depends on several factors:
+Two mechanisms exist, and only one of them measures anything.
 
-| Factor | Impact |
-|--------|--------|
-| L3 cache size | Larger cache -> lower threshold |
-| CPU frequency | Faster -> slightly higher threshold |
-| Number of cores | More cores -> FFT less advantageous (saturating) |
+**1. Static hardware heuristic** — `EstimateOptimalFFTThreshold`
+(`internal/config/thresholds.go`) is applied by `ApplyAdaptiveThresholds` to a
+CLI threshold still left at 0. It reads exactly two inputs: word size and the
+detected SIMD level. Nothing else — not L3 size, not clock, not core count:
 
-The calibration system (`internal/calibration`) can determine optimal thresholds for your hardware programmatically.
+| Condition | Threshold returned |
+|-----------|--------------------|
+| word size != 64 (32-bit) | 250,000 bits |
+| 64-bit, AVX-512 | 460,000 bits |
+| 64-bit, AVX2 | 480,000 bits |
+| 64-bit, otherwise | 500,000 bits |
+
+These four constants are hard-coded and unbacked by any benchmark in the repo.
+
+**2. Timed calibration** — `internal/calibration` runs micro-benchmarks and
+`(*MicroBenchmark).findFFTCrossover` returns the smallest measured size at which
+the FFT path beat `math/big`, or 0 when no crossover was observed (in which case
+`analyzeResults` keeps the conservative default without a confidence bonus). This
+is the only path that produces a threshold from measurement rather than
+assertion.
+
+A cached calibration profile (`~/.fibcalc_calibration.json`) sits at the top of
+the resolution chain and overrides even an explicit `--fft-threshold` — a known
+surprise documented at the head of `internal/config/thresholds.go`.
 
 ## Interaction with Parallelism
 
@@ -166,12 +183,12 @@ This calculator is primarily used for:
 
 ### Multiplication of two numbers of n bits
 
-| Algorithm | Complexity | Hidden constant |
-|-----------|------------|-----------------|
-| Naive | O(n^2) | Low |
-| Karatsuba | O(n^1.585) | Medium |
-| Toom-Cook 3 | O(n^1.465) | High |
-| FFT | O(n log n) | Very high |
+| Algorithm | Complexity | Hidden constant | Present in this project? |
+|-----------|------------|-----------------|--------------------------|
+| Naive | O(n^2) | Low | yes — `basicMul`/`basicSqr` in `bigfft/fermat.go`, below `smallMulThreshold` |
+| Karatsuba | O(n^1.585) | Medium | yes — inside `math/big.Int.Mul`, Tier 2 of `smartMultiply` |
+| Toom-Cook 3 | O(n^1.465) | High | **no** — listed for reference only; nothing in this repo implements it |
+| FFT | O(n log n) | Very high | yes — `internal/bigfft` |
 
 ### Crossover Point
 
@@ -184,10 +201,14 @@ This calculator is primarily used for:
                     | /          <- FFT O(n log n)
                     |/     _______
                     +------------------
-                          ~500k bits    Size (bits)
+                          500k bits     Size (bits)
 ```
 
-The default crossover is `DefaultFFTThreshold = 500_000` bits (`internal/fibonacci/constants.go`).
+The 500k mark on that sketch is where the code **switches**, not where the two
+curves have been observed to cross: it is `DefaultFFTThreshold = 500_000`
+(`internal/fibonacci/constants.go`), whose own comment calls it a conservative,
+unmeasured placement. The sketch is qualitative; no measurement in this repo
+plots either curve.
 
 ### FFT Overhead
 

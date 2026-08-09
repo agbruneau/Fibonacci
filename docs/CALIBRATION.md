@@ -1,6 +1,6 @@
 # Calibration System
 
-> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour)
+> Interactive architecture map: **[agbruneau.github.io/FibGo/dashboard/](https://agbruneau.github.io/FibGo/dashboard/)** (knowledge graph, 1128 nodes / 4782 edges / 9 layers / 12-step tour, regenerated 2026-07-06 at commit 6e3ec29)
 
 ## Overview
 
@@ -21,7 +21,7 @@ Three operational modes are supported:
 |------|------|---------|-------------|
 | Full calibration | `--calibrate` | Seconds to minutes | Exhaustive threshold sweep with real Fibonacci calculations |
 | Auto-calibration | `--auto-calibrate` | Instant to seconds | 3-tier fallback: cached profile, micro-benchmarks, full runner |
-| Cached profile | `--calibration-profile` | Instant | Loads a previously saved JSON profile |
+| Cached profile | `--calibration-profile` | Instant | Loads a previously saved JSON profile. The load itself is unconditional — `app.New` calls `LoadCachedCalibration` on every run; the flag only selects *which* file (default `~/.fibcalc_calibration.json`) |
 
 ## Quick Start
 
@@ -99,7 +99,16 @@ Auto-calibration uses a 3-tier fallback strategy to minimize startup latency whi
 
 **Tier 1 -- Cached profile (instant)**
 
-`LoadOrCreateProfile()` attempts to load a saved profile from disk. If the profile exists and `IsValid()` returns true, the cached thresholds are applied immediately and no benchmarks are executed. `IsValid()` checks **five** conditions, all of which must hold (`internal/calibration/profile.go:CalibrationProfile.IsValid`):
+`LoadOrCreateProfile()` attempts to load a saved profile from disk. The cached thresholds are
+applied immediately — no benchmarks executed — only when three conditions hold together
+(`internal/calibration/calibration.go:AutoCalibrateWithProfile`): the profile exists and
+`IsValid()` returns true; it is **not stale** (`IsStale(maxAge)`, see `FIBCALC_PROFILE_MAX_AGE`);
+and its three `Optimal*Threshold` values are all `>= 0` (SEC-01 re-validation, because
+`IsValid()` checks hardware only and never threshold ranges). A stale profile goes straight to
+`CompleteStrategy`; out-of-range thresholds log `"Cached calibration profile has invalid
+thresholds, re-calibrating"` and fall through to the escalation chain.
+
+`IsValid()` checks **five** conditions, all of which must hold (`internal/calibration/profile.go:CalibrationProfile.IsValid`):
 
 1. `ProfileVersion == CurrentProfileVersion` (3)
 2. `NumCPU == runtime.NumCPU()`
@@ -158,12 +167,22 @@ The test sizes are chosen to span the critical algorithm crossover ranges:
 
 ### Test Matrix
 
-For each word size, four configurations are tested:
+For each word size, four configurations are **enqueued** — but only two are
+distinct workloads. `runSingleTest` opens with `_ = parallel`
+(`internal/calibration/microbench.go:runSingleTest`) and never branches on the
+flag, so rows 2 and 4 re-run rows 1 and 3 verbatim:
 
-1. Standard math/big sequential
-2. Standard math/big parallel
-3. FFT sequential
-4. FFT parallel
+| # | Enqueued config | What actually runs |
+|---|---|---|
+| 1 | Standard math/big sequential | `new(big.Int).Mul(x, y)` |
+| 2 | Standard math/big "parallel" | identical to 1 |
+| 3 | FFT sequential | `bigfft.Mul(x, y)` |
+| 4 | FFT "parallel" | identical to 3 |
+
+The flag is kept deliberately (P1-07, see the `runSingleTest` doc comment) to
+record the intent for future work; `analyzeResults` already treats any
+"parallel crossover" as noise between two identical configurations and grants
+it no confidence bonus — see [Confidence Scoring](#confidence-scoring) below.
 
 Tests run in parallel with a semaphore limiting concurrency to `runtime.NumCPU()`. Each test generates deterministic `big.Int` operands via `generateTestNumber()`, performs a warm-up multiplication, then averages 3 timed iterations.
 
@@ -173,7 +192,7 @@ After all tests complete, the engine analyzes results:
 
 - `findFFTCrossover()`: Identifies the smallest bit size where FFT multiplication is faster than standard `math/big`. Applies a 10% margin (multiplies the crossover by 9/10) to ensure FFT is clearly beneficial. Returns `0` when no crossover is observed — the conservative default (`FFTThreshold: 500000`) is owned by `analyzeResults()`, not by this function (FIB-03: a fallback is not a measurement).
 
-- `findParallelCrossover()`: Identifies the smallest bit size where parallel multiplication is at least 10% faster than sequential. Returns `0` on single-core systems and when no crossover is observed; the conservative default (`ParallelThreshold: 4096`) is owned by `analyzeResults()`.
+- `findParallelCrossover()`: Compares the rows flagged `parallel` against those flagged sequential, keeping the smallest bit size where the former is at least 10% faster. Since `runSingleTest` ignores the flag (see [Test Matrix](#test-matrix)), both groups run the same code and any difference is timing noise — which is why `analyzeResults` discards the return value (`_ = mb.findParallelCrossover(bySize)`). Returns `0` on single-core systems and when no crossover is observed; the conservative default (`ParallelThreshold: 4096`) is owned by `analyzeResults()`.
 
 ### Confidence Scoring
 
@@ -217,11 +236,11 @@ type CalibrationProfile struct {
 }
 ```
 
-`NewProfile()` populates hardware fields from `runtime`, définit `CPUHeuristicKey` via `config.CurrentHardwareHeuristicKey()` (classe SIMD / arch pour les seuils par défaut), et fixe `ProfileVersion` à `CurrentProfileVersion` (actuellement **3**).
+`NewProfile()` populates the hardware fields from `runtime`, sets `CPUHeuristicKey` from `config.CurrentHardwareHeuristicKey()` (the SIMD-class / arch tag that drives the default thresholds), and sets `ProfileVersion` to `CurrentProfileVersion` (currently **3**).
 
 ### Validation
 
-`IsValid()` vérifie les conditions suivantes par rapport au système courant :
+`IsValid()` checks the following fields against the running system:
 
 | Field | Comparison |
 |-------|-----------|
@@ -231,9 +250,9 @@ type CalibrationProfile struct {
 | `WordSize` | Must equal system word size (32 or 64) |
 | `CPUHeuristicKey` | Must equal `config.CurrentHardwareHeuristicKey()` (ex. `amd64-avx2`, `amd64-generic`) |
 
-Si un champ diffère, le profil est invalide et une nouvelle calibration est déclenchée. Les profils au format **v2** (sans `cpu_heuristic_key`) ne sont plus acceptés après montée de version.
+If any field differs, the profile is invalid and a fresh calibration is triggered. **v2**-format profiles (without `cpu_heuristic_key`) are no longer accepted after the version bump.
 
-**Migration :** supprimez ou renommez `~/.fibcalc_calibration.json` si vous passez d’une version antérieure du binaire, ou relancez `--calibrate` / `--auto-calibrate` pour régénérer un profil v3.
+**Migration:** delete or rename `~/.fibcalc_calibration.json` when upgrading from an earlier binary, or re-run `--calibrate` / `--auto-calibrate` to regenerate a v3 profile.
 
 `IsStale(maxAge time.Duration)` provides time-based invalidation. A profile older than `maxAge` is considered stale. This can be used to trigger periodic re-calibration.
 
@@ -246,7 +265,9 @@ File: `internal/calibration/profile.go` (save/load methods) and `internal/calibr
 - `LoadOrCreateProfile(path)`: Loads an existing valid profile, or returns `NewProfile(), false`. That fallback profile is **not empty** — `NewProfile()` populates nine fields from the running host (`CPUModel`, `NumCPU`, `GOARCH`, `GOOS`, `GoVersion`, `WordSize`, `CPUHeuristicKey`, `CalibratedAt`, `ProfileVersion` — `internal/calibration/profile.go:NewProfile`). Only the three `Optimal*Threshold` values and `Confidence` are left at zero.
 - `GetDefaultProfilePath()`: Returns `~/.fibcalc_calibration.json` (falls back to the current directory if `$HOME` is unavailable).
 
-Example profile on disk:
+Example profile on disk. `json.MarshalIndent` emits keys in struct-declaration order, so a
+real file always has exactly this key sequence — `cpu_heuristic_key` sits with the hardware
+block (before the thresholds), and `confidence` is always present:
 
 ```json
 {
@@ -256,22 +277,28 @@ Example profile on disk:
   "goos": "linux",
   "go_version": "go1.26.0",
   "word_size": 64,
+  "cpu_heuristic_key": "amd64-avx2",
   "optimal_parallel_threshold": 2048,
   "optimal_fft_threshold": 500000,
   "optimal_strassen_threshold": 256,
   "calibrated_at": "2025-03-15T10:30:00Z",
   "calibration_n": 10000000,
   "calibration_time": "45.2s",
-  "cpu_heuristic_key": "amd64-avx2",
+  "confidence": 1,
   "profile_version": 3
 }
 ```
+
+`calibration_time` is populated only on the `--calibrate` path
+(`persistCalibrationProfile`). On the `--auto-calibrate` path the persisted profile is rebuilt
+by `saveCalibrationProfile`, which copies the thresholds, `CalibrationN` and `Confidence` but
+not `CalibrationTime` — so an auto-calibrated file carries `"calibration_time": ""`.
 
 ## Adaptive Threshold Generation
 
 File: `internal/calibration/adaptive.go`
 
-Les **estimations sans benchmark** (`EstimateOptimal*`, utilisées quand les seuils restent à 0 et qu’aucun profil valide n’est chargé) sont définies dans `internal/config/thresholds.go` et tiennent compte du nombre de cœurs et, sur **amd64/386**, des capacités **AVX2 / AVX-512** détectées via `golang.org/x/sys/cpu` (`internal/config/hardware.go`). Voir aussi [PERFORMANCE.md](PERFORMANCE.md#hardware-heuristic-defaults).
+The **benchmark-free estimates** (`EstimateOptimal*`, used when the thresholds are left at 0 and no valid profile loads) live in `internal/config/thresholds.go`. They read the core count and, on **amd64/386**, the **AVX2 / AVX-512** capabilities detected through `golang.org/x/sys/cpu` (`internal/config/hardware.go`). See also [PERFORMANCE.md](PERFORMANCE.md#hardware-heuristic-defaults).
 
 ### Parallel Threshold Candidates
 
@@ -364,7 +391,7 @@ Each method returns the best threshold and its duration. If all trials fail (tim
 | File | Responsibility |
 |------|---------------|
 | `calibration.go` | Entry points: `RunCalibration()`, `AutoCalibrate()`, `AutoCalibrateWithProfile()`, `LoadCachedCalibration()` |
-| `adaptive.go` | CPU-adaptive threshold generation and heuristic estimation |
+| `adaptive.go` | CPU-adaptive candidate-list generation only (`Generate*Thresholds`). It holds no estimation code: the `EstimateOptimal*` heuristics live in `internal/config/thresholds.go` and the former pass-through delegates were removed (audit 2026-06) |
 | `microbench.go` | Quick micro-benchmarking engine (`QuickCalibrate()`, `MicroBenchmark`) |
 | `profile.go` | `CalibrationProfile` data structure, validation, serialization |
 | `io.go` | Result formatting and output (`printCalibrationResults()`, `printCalibrationOutput()`) |

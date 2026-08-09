@@ -5,7 +5,9 @@
 This document enumerates the concrete design patterns in use across the
 FibGo codebase and points to the implementation sites. It is a companion
 to [`interface-hierarchy.mermaid`](./interface-hierarchy.mermaid) and
-complements the ADRs indexed in [`docs/ARCH.md`](../../ARCH.md#14-architectural-decision-records-adr).
+complements the canonical ADR registry in [`docs/adr/`](../../adr/).
+(`docs/ARCH.md` §14 is a separate in-document narrative journal with its own
+three-digit numbering — it does not index that registry; it links to it.)
 
 ## Inventory
 

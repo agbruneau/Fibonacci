@@ -113,6 +113,17 @@ MatrixFibonacci(n):
     return result[0][0]  // This is F(n)
 ```
 
+> **How the implementation differs from this pseudocode** (`MatrixFramework.ExecuteMatrixLoop`,
+> `internal/fibonacci/matrix_framework.go`): it does not shift a running
+> `exponent` down to 0. It computes `exponent := n - 1` and
+> `numBits := bits.Len64(exponent)` once, then walks
+> `i` from `0` to `numBits-1`, testing `(exponent>>i)&1`. The squaring is guarded
+> by `if i < numBits-1`, so the final iteration skips it — the pseudocode above
+> squares one extra time and discards the result. Both diagrams and the
+> pseudocode are otherwise faithful: `res` starts as the identity, `p` as Q
+> (`matrixState.Reset`), the exponent is `n-1`, and the returned value is
+> `res.a` = `Q^(n-1)[0][0]` = F(n). `n == 0` returns 0 before the loop.
+
 ### Go Implementation
 
 The implementation uses the `MatrixFramework` to encapsulate the exponentiation loop:
@@ -310,7 +321,7 @@ The `multiplyMatrixStrassen()` function uses a three-phase approach:
 2. **Product phase** -- `multiplyMatrixStrassen()` dispatches the seven multiplications P1-P7 through the generic task executor.
 3. **`assembleStrassenResult()`** -- Computes T1/T2 and combines the products into the four result matrix elements.
 
-Independent Strassen products can be parallelized when operands exceed the `ParallelThreshold`.
+Independent Strassen products can be parallelized; see [Parallelism](#4-parallelism) for the exact gate.
 
 ### 2. Symmetric Matrix Squaring
 
@@ -338,7 +349,28 @@ type matrixState struct {
 
 ### 4. Parallelism
 
-Independent multiplications within Strassen's algorithm (P1-P7) can be parallelized when operands exceed the `ParallelThreshold`.
+The independent multiplications — P1-P7 for Strassen, the 8 products of
+`multiplyMatrix2x2`, and the 3 squarings + 1 multiplication of
+`squareSymmetricMatrix` — are dispatched through the generic task executor
+(`executeTasks` / `executeMixedTasks`, `common.go`), which runs them on an
+`errgroup` bounded by a package-level semaphore of `runtime.GOMAXPROCS(0)`
+tokens.
+
+The gate is computed once per loop iteration in `ExecuteMatrixLoop`, not inside
+the multiplication routines:
+
+```go
+useParallel := runtime.GOMAXPROCS(0) > 1 && normalizedOpts.ParallelThreshold > 0
+// ... per iteration, for both the multiply and the square branch:
+inParallel := useParallel && maxBitLenMatrix(state.p) > normalizedOpts.ParallelThreshold
+```
+
+Two consequences worth knowing: the predicate reads **only `state.p`** (the
+running power of Q), including on the `res × p` multiply branch where `res` is
+not consulted; and unlike Fast Doubling there is no FFT-related suppression —
+`ParallelFFTThreshold` is read solely by
+`shouldParallelizeMultiplicationCached` in `fastdoubling.go` and never on the
+matrix path.
 
 ## Complexity Analysis
 
@@ -365,10 +397,22 @@ Independent multiplications within Strassen's algorithm (P1-P7) can be paralleli
 
 | Criterion | Matrix Exp. | Fast Doubling |
 |-----------|-------------|---------------|
-| Multiplications/iter (base) | 8 | 3 |
-| Multiplications/iter (optimized) | 4-7 | 3 |
+| Multiplications per matrix operation | 4 (symmetric square), 7 (Strassen), 8 (classic) | n/a |
+| Multiplications per loop iteration | 4 (bit clear) or 11-12 (bit set) | 3 |
 | Mathematical complexity | More intuitive | More compact |
-| Practical performance | Slower | Faster |
+| Measured performance (1M / 10M) | 6.03 ms / 30.84 ms | 3.15 ms / 23.87 ms |
+
+The per-iteration row follows `ExecuteMatrixLoop`: every iteration but the last
+squares (4 multiplications), and an iteration whose exponent bit is set adds one
+full matrix multiplication (7 or 8) on top. The performance row is the median of
+the five samples per case in `docs/audits/bench-baseline.txt` — the only
+benchmark artifact in the repo, covering N = 1M and N = 10M and nothing else.
+[`../PERFORMANCE.md`](../PERFORMANCE.md) warns the time ordering can invert at
+N ≥ 10M on some CPUs, and holds that only the memory ordering is
+hardware-independent: on the same artifact Fast Doubling allocates ~4.8x fewer
+bytes per op than Matrix at F(1M) and ~5.3x fewer at F(10M) (17.38 MB vs
+92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak
+RSS; no peak-memory measurement exists in this repo.
 
 ## Usage
 
