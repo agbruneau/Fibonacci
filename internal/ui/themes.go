@@ -183,7 +183,7 @@ func InitTheme(noColor bool) {
 	// NO_COLOR environment variable. This uses LookupEnv, so *presence*
 	// disables colors — NO_COLOR= (empty) disables them too. That is one
 	// notch stricter than no-color.org, which exempts the empty string; the
-	// behaviour is deliberate and pinned by TestInitThemeWithNO_COLOREnv
+	// behavior is deliberate and pinned by TestInitThemeWithNO_COLOREnv
 	// ("NO_COLOR empty value still disables colors").
 	if _, exists := os.LookupEnv("NO_COLOR"); exists {
 		currentTheme = NoColorTheme

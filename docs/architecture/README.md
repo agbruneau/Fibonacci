@@ -1,6 +1,6 @@
 # FibGo Architecture — Référence Détaillée
 
-Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques et flux de données. Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
+Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques, flux de données et le relevé de validation des invariants (§5). Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
 
 ## 1) Diagrammes d'Architecture (C4 Model)
 
@@ -70,6 +70,14 @@ de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-d
 (ARCH-02) sont interdits. Tout PR réintroduisant
 un de ces imports remontants fait échouer `make test` (ou
 `go test ./internal/`). Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
+
+## 5) Validation des invariants
+
+- **[Validation/](./validation/) :**
+  - **[validation-report.md](./validation/validation-report.md)** — relevé des invariants que la
+    documentation affirme et qui ont été confrontés à la source : étanchéité des couches et sens des
+    dépendances, affirmations d'interfaces et de patterns, flux d'exécution, note de maintenance.
+    Référence vivante, à re-vérifier et mettre à jour sur place quand la structure change.
 
 ---
 [← Retour à la vue d'ensemble (ARCH.md)](../ARCH.md)

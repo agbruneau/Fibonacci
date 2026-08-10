@@ -18,7 +18,7 @@ Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de
 | **2026-06-24** | Revue Go exhaustive — Claude Opus 4.8, orchestration multi-agents, vérification adversariale | Trois défauts de correctness corrigés (panic de la récursion FFT parallèle re-propagée au lieu de crasher — ADR-0002 ; `--algo all --quiet` ne masque plus une divergence — exit 3 ; messages TUI obsolètes ignorés après *Restart*), durcissements (`GOMEMLIMIT`, troncature UTF-8, complétion shell, codes de sortie), purge de code mort. Chemin critique validé sans régression (`benchstat`) — [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Opus 4.8 pilote, exécuteurs Sonnet, vérification adversariale — **exécuté** (6 phases, ~30 commits) | ~40 findings corrigés (dont panic pointeur/tri, `--gc-control` inerte, complétions shell, data race spinner, correctifs calibration + re-validation profil forgé SEC-01, `bigfft` alloc pool non initialisée + ordonnancement panic FFT-02), ~500 LOC de code mort retiré, couverture 95,0 % → **95,2 %**, build `gmp` réparé, `benchstat` global **sans régression réelle**. FIB-05 (réduction du multiplicateur d'arène) initialement **rejetée sur preuve Ryzen** (+18 à +34 % à F(10M)) → [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) / [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07-07** | Suivi post-audit — exécution des 5 tâches à plus fort levier + **release v4.0.0** | Tag `v4.0.0` (première coupe CHANGELOG depuis 1.0.0) ; backend **GMP branché au gate local** (`check.sh` étape 3b, libgmp dans WSL) ; profil **PGO régénéré** ; **balayage complet du multiplicateur d'arène** (protocole ADR-0009 R4) → **×15 → ×10 adopté** : mémoire FFT 10M **−16 % B/op** à coût CPU nul, confirmé en ordre inversé (addendum [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) |
-| **2026-08-07** | Audit qualité et documentation — Claude Opus 5, boucle bâtisseur/critique sur cinq tours (source Go entière, 30 documents markdown, 11 diagrammes Mermaid) | Outillage **mesuré, non affirmé** : `golangci-lint` **152 → 0**, `gosec` **19 → 0**, `gofmt -l` **1 → 0**, build/vet/test verts de bout en bout — **sans desserrer les outils** (`.golangci.yml` inchangé hors commentaires, `//nolint` stable à 4, `#nosec` **22 → 13** par retrait des sites, non par annotation). Tests **gagnés** : 877 → **879** fonctions, 408 → **410** sous-tests, 2 291 → **2 305** assertions, zéro `t.Skip`. Documentation confrontée à la source, une commande par affirmation ; **121 → 3** renvois `fichier:ligne` vers du Go, convertis en ancres de symbole. **Deux comportements documentés et délibérément inchangés** : un profil de calibration valide écrase les trois seuils explicites (⚠ tous les documents affirmaient l'inverse — désormais épinglé par `TestNewCachedProfileOverridesExplicitFlags`) et `GetDefaultProfilePath` retombe sur un nom relatif si `os.UserHomeDir` échoue. Chiffre de performance sans artefact : **retiré**, non reformulé — [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-08-07** | Audit qualité et documentation — Claude Opus 5, boucle bâtisseur/critique sur cinq tours (source Go entière, 30 documents markdown, 11 diagrammes Mermaid) | Outillage **mesuré, non affirmé** : `golangci-lint` **152 → 0**, `gosec` **19 → 0**, `gofmt -l` **1 → 0**, build/vet/test verts de bout en bout — **sans desserrer les outils** (`.golangci.yml` inchangé hors commentaires, `//nolint` stable à 4, `#nosec` **22 → 13** par retrait des sites, non par annotation). Tests **gagnés** : 877 → **879** fonctions, 408 → **410** sous-tests, 2 291 → **2 305** assertions (⚠ la même ligne affirmait « zéro `t.Skip` » : relevé du 2026-08-10, l'arbre en porte **17 dans 12 fichiers**, tous des gardes `-short` ou d'architecture — aucun test désactivé sans condition). Documentation confrontée à la source, une commande par affirmation ; **121 → 3** renvois `fichier:ligne` vers du Go, convertis en ancres de symbole. **Deux comportements documentés et délibérément inchangés** : un profil de calibration valide écrase les trois seuils explicites (⚠ tous les documents affirmaient l'inverse — désormais épinglé par `TestNewCachedProfileOverridesExplicitFlags`) et `GetDefaultProfilePath` retombe sur un nom relatif si `os.UserHomeDir` échoue. Chiffre de performance sans artefact : **retiré**, non reformulé — [`CHANGELOG.md`](CHANGELOG.md) |
 
 ⚠ **Deux limites déclarées par la passe du 2026-08-07, et non corrigées depuis** : `-race` n'a pas pu
 tourner sur l'hôte, de sorte que ses conclusions de concurrence sont **statiques, non mesurées** ;
@@ -26,9 +26,12 @@ et l'arbre **ne compile pas pour une cible 32 bits** (`maxReasonableWords` débo
 `TestStateBump_PinnedAcrossCachedCalls` est *flaky* au même taux sur le commit parent (un test
 antérieur laisse une arène surdimensionnée dans le pool d'état global).
 
-☑ **Gate rejoué le 2026-08-08 sur l'arbre courant, sortie 0 pour les quatre** : `gofmt -l .` (vide),
-`go vet ./...`, `golangci-lint run ./...`, `gosec ./...`. *Un décompte publié sans avoir été
-réexécuté n'est pas une mesure.*
+☑ **Gate rejoué le 2026-08-10 sur l'arbre courant** (Windows 11, `go1.26.5`, `golangci-lint v1.64.8`,
+`gosec dev`), après correction du `behaviour` → `behavior` de `internal/ui/themes.go:186` qui faisait
+sortir `golangci-lint` à 1 lors du relevé précédent du même jour — **quatre sur quatre à zéro** :
+`gofmt -l .` sans sortie, `go vet ./...` sortie 0, `golangci-lint run ./...` sortie 0,
+`gosec ./...` 0 issue sur 122 fichiers.
+*Un décompte publié sans avoir été réexécuté n'est pas une mesure.*
 
 ---
 
@@ -49,7 +52,8 @@ réexécuté n'est pas une mesure.*
 ## Démarrage rapide
 
 Prérequis : **Go 1.26.0+**. Toutes les commandes ci-dessous ont été exécutées telles quelles le 2026-07-07
-(hôte Windows 11 + WSL2 ; sous Windows, le binaire produit est `fibcalc.exe`).
+(hôte Windows 11 + WSL2). Sous Windows natif, `-o fibcalc` produit un fichier **sans extension** que le
+shell refuse d'exécuter : écrire `go build -o fibcalc.exe ./cmd/fibcalc` puis `.\fibcalc.exe`.
 
 ```bash
 git clone https://github.com/agbruneau/FibGo.git
@@ -82,7 +86,9 @@ make all      # clean + build + test
 
 Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING](docs/algorithms/FAST_DOUBLING.md),
 [MATRIX](docs/algorithms/MATRIX.md), [FFT](docs/algorithms/FFT.md), [GMP](docs/algorithms/GMP.md),
-[COMPARISON](docs/algorithms/COMPARISON.md).
+[COMPARISON](docs/algorithms/COMPARISON.md) ; internes d'implémentation :
+[BIGFFT](docs/algorithms/BIGFFT.md) (`internal/bigfft`) et
+[PROGRESS_BAR_ALGORITHM](docs/algorithms/PROGRESS_BAR_ALGORITHM.md) (progression des boucles O(log n)).
 
 ### Ingénierie de performance
 
@@ -100,7 +106,8 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées (ADR-0001).
 - **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
   stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
-- **Auto-calibration** (`-calibrate`) avec profil persistant et clé matérielle d'invalidation.
+- **Auto-calibration** (`-calibrate`) avec profil persistant et clé matérielle d'invalidation
+  ([`docs/CALIBRATION.md`](docs/CALIBRATION.md)).
 - **PGO** : `make build-pgo` (profil régénéré le 2026-07-07).
 - **Mode `-last-digits K`** : derniers K chiffres décimaux en mémoire O(K), pour des N arbitrairement grands.
 
@@ -119,8 +126,10 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 Clean Architecture — `cmd → app → orchestration → fibonacci → bigfft`, `internal/config` étant un *frère* de
 `orchestration` et non une couche sous `fibonacci` (commentaire de paquet de `internal/arch_test.go`) ; `internal/bigfft` est le noyau
 et n'importe aucun package interne. Étanchéité gardée par `internal/arch_test.go`
-(cinq arêtes montantes interdites). Source de vérité : [`docs/architecture/`](docs/architecture/)
-(diagrammes C4, [graphe de dépendances](docs/architecture/dependency-graph.mermaid)).
+(cinq règles d'import montant interdit — six arêtes, la dernière en couvrant deux).
+Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
+[`docs/architecture/`](docs/architecture/) (diagrammes C4,
+[graphe de dépendances](docs/architecture/dependency-graph.mermaid)).
 
 | Package | Responsabilité |
 |---|---|
@@ -135,6 +144,7 @@ et n'importe aucun package interne. Étanchéité gardée par `internal/arch_tes
 | `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
 | `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
 | `internal/{errors,format,metrics,ui,testutil}` | Packages de support (feuilles) |
+| `test/e2e` | Tests bout-en-bout du binaire CLI (hors `internal/`) |
 
 ---
 
@@ -191,7 +201,7 @@ fibcalc [flags]
 | `-calibrate` / `-auto-calibrate` | | `false` | Calibration des seuils pour cet hôte |
 | `-calibration-profile` | | | Chemin du profil de calibration |
 | `-completion` | | | Script de complétion (`bash`, `zsh`, `fish`, `powershell`) |
-| `-version` | | | Informations de version |
+| `-version` | `-V` | | Informations de version |
 
 Exemples :
 
@@ -245,7 +255,7 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
-- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0009).
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0009, plus `0000-template.md`).
   Audit de 2026-07 : exécuté puis purgé — voir [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) et [`CHANGELOG.md`](CHANGELOG.md).
   ⚠ **Dernier audit : 2026-08-07** (qualité et documentation, `golangci-lint`/`gosec`/`gofmt` à zéro) —
   **il n'a pas d'ADR** : il ne tranche aucune décision d'architecture, et son journal de boucle
