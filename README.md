@@ -5,10 +5,22 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Prototype_acad%C3%A9mique-orange?style=for-the-badge)
 
-**FibCalc** est un prototype académique qui calcule des nombres de Fibonacci arbitrairement grands à très haute
-vitesse. Il démontre une Clean Architecture, des stratégies zéro-allocation, du parallélisme adaptatif et des
-algorithmes optimisés (Fast Doubling, exponentiation matricielle Strassen-Winograd, multiplication FFT
-Schönhage-Strassen). Écrit en Go ; gère des indices de plusieurs centaines de millions.
+Ce dépôt est un **laboratoire d'expérimentation algorithmique et d'ingénierie logicielle**
+(*computational sandbox*) : un bac à sable où l'on pousse un problème volontairement simple — calculer
+F(n) — jusqu'à ses limites, pour y expérimenter des techniques réelles et **mesurer** ce qu'elles valent.
+Le nombre de Fibonacci n'est pas la finalité; c'est le banc d'essai. Il a l'avantage d'avoir une réponse
+exactement vérifiable, de se calculer par plusieurs algorithmes comparables entre eux, et de devenir
+arbitrairement coûteux quand n grandit — tout écart de conception se voit donc au chronomètre et à la
+mémoire, sans place pour l'opinion.
+
+Ce qu'on y expérimente : algorithmique (Fast Doubling, exponentiation matricielle Strassen-Winograd,
+multiplication FFT Schönhage-Strassen), ingénierie de performance (pooling, allocateur bump, contrôle du
+GC, parallélisme adaptatif, PGO, auto-calibration), et méthode logicielle (Clean Architecture, tests
+golden et property-based, ADR, gate de qualité local). Toute affirmation chiffrée doit venir d'un artefact
+de mesure du dépôt; ce qui n'a pas été réexécuté est signalé comme tel.
+
+**FibCalc**, le binaire qui en sort, calcule des nombres de Fibonacci arbitrairement grands à très haute
+vitesse. Écrit en Go; gère des indices de plusieurs centaines de millions.
 
 ### Historique des audits et jalons
 
