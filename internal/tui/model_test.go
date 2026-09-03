@@ -1180,3 +1180,49 @@ func TestLayoutManager_NoNegativeDimensions(t *testing.T) {
 		}
 	}
 }
+
+// TestModel_ContextCancelledAfterDone_KeepsExitCode pins audit H-01: once a run
+// has finished, a cancellation of the (still-armed) run context must not
+// rewrite the recorded exit code. watchContextCmd stays blocked on ctx.Done()
+// after completion and the --timeout keeps running, so before the fix a
+// dashboard left open past the timeout exited 2, and pressing q after
+// completion could exit 130, both on a successful calculation.
+func TestModel_ContextCancelledAfterDone_KeepsExitCode(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"deadline exceeded", context.DeadlineExceeded},
+		{"canceled", context.Canceled},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			m := newTestModel(t)
+
+			done, _ := m.Update(CalculationCompleteMsg{
+				ExitCode:   apperrors.ExitSuccess,
+				Generation: m.generation,
+			})
+			finished := done.(Model)
+			if !finished.done {
+				t.Fatal("precondition: model must be done after CalculationCompleteMsg")
+			}
+
+			updated, cmd := finished.Update(ContextCancelledMsg{
+				Err:        tc.err,
+				Generation: finished.generation,
+			})
+			result := updated.(Model)
+
+			if result.exitCode != apperrors.ExitSuccess {
+				t.Errorf("exit code must survive a post-completion cancellation: got %d, want %d",
+					result.exitCode, apperrors.ExitSuccess)
+			}
+			if cmd != nil {
+				t.Error("a post-completion cancellation must not ask bubbletea to quit")
+			}
+		})
+	}
+}

@@ -86,9 +86,22 @@ func (m *Model) handleCalculationComplete(msg CalculationCompleteMsg) {
 
 // handleContextCancelled marks the model done, maps the cancellation cause to
 // the matching process exit code, and asks bubbletea to quit. Stale messages
-// from a previous generation are ignored.
+// from a previous generation are ignored, and so is any cancellation that
+// arrives once the run has already finished.
+//
+// The already-finished guard is audit H-01. watchContextCmd stays armed after
+// the calculation completes, on a context whose --timeout keeps running, so
+// without it two things went wrong: a dashboard left open past the timeout
+// closed itself with exit 2, and pressing q after completion raced the
+// cancellation this handler observes against the tea.Quit that handleKey
+// returns -- when the former won, a successful run exited 130. Neither is a
+// cancellation of anything: the work is done and its exit code is already
+// recorded, so the message carries no state transition.
 func (m *Model) handleContextCancelled(msg ContextCancelledMsg) tea.Cmd {
 	if msg.Generation != m.generation {
+		return nil
+	}
+	if m.done {
 		return nil
 	}
 	m.done = true
