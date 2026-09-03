@@ -541,3 +541,57 @@ func TestTUIFlag(t *testing.T) {
 		}
 	})
 }
+
+// TestValidateCatchesLateFailingFlags pins audit M-02: --memory-limit and
+// --last-digits were only checked on the paths that happened to reach
+// app.validateMemoryBudget / app.runLastDigits. A malformed limit combined
+// with --last-digits or --calibrate therefore ran to completion in silence,
+// and an oversized K coming from FIBCALC_LAST_DIGITS passed Validate. Both are
+// configuration errors and belong at parse time, where the usage is printed.
+func TestValidateCatchesLateFailingFlags(t *testing.T) {
+	t.Parallel()
+	algos := []string{"fast"}
+	base := func() AppConfig {
+		return AppConfig{Timeout: time.Minute, Algo: "fast"}
+	}
+
+	t.Run("MalformedMemoryLimit", func(t *testing.T) {
+		t.Parallel()
+		for _, raw := range []string{"4GB", "512MB", "xyz", "-1G"} {
+			cfg := base()
+			cfg.MemoryLimit = raw
+			if err := cfg.Validate(algos); err == nil {
+				t.Errorf("memory limit %q must be rejected at validation time", raw)
+			}
+		}
+	})
+
+	t.Run("WellFormedMemoryLimit", func(t *testing.T) {
+		t.Parallel()
+		for _, raw := range []string{"4G", "512M", "1024K", "2048"} {
+			cfg := base()
+			cfg.MemoryLimit = raw
+			if err := cfg.Validate(algos); err != nil {
+				t.Errorf("memory limit %q must be accepted, got: %v", raw, err)
+			}
+		}
+	})
+
+	t.Run("OversizedLastDigits", func(t *testing.T) {
+		t.Parallel()
+		cfg := base()
+		cfg.LastDigits = MaxLastDigits + 1
+		if err := cfg.Validate(algos); err == nil {
+			t.Errorf("last-digits above %d must be rejected", MaxLastDigits)
+		}
+	})
+
+	t.Run("LastDigitsAtBound", func(t *testing.T) {
+		t.Parallel()
+		cfg := base()
+		cfg.LastDigits = MaxLastDigits
+		if err := cfg.Validate(algos); err != nil {
+			t.Errorf("last-digits exactly at the bound must be accepted, got: %v", err)
+		}
+	})
+}

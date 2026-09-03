@@ -174,7 +174,7 @@ result, _ := calc.Calculate(ctx, progressChan, 0, 100_000_000, fibonacci.Options
 
 - **Complexity**: `bits.Len64(N)` = ⌊log2 N⌋ + 1 iterations, each doing 3 multiplications and 3 `Mod` reductions (4 when the exponent bit is set) on operands bounded by the modulus — so O(log N · M(K)) time, not O(log N). Memory is O(K): `FastDoublingMod` holds four `big.Int` (`fk`, `fk1`, `t1`, `t2`), each ≤ 2·log2(10^K) bits, and never materializes F(N).
 - **Use case**: N > 1 billion where full computation exceeds available RAM
-- **Bound**: `--last-digits K` is rejected above `maxLastDigits = 10_000_000` (`internal/app/calculate.go`)
+- **Bound**: `--last-digits K` is rejected above `config.MaxLastDigits = 10_000_000`, at parse time in `config.Validate` and again as defense in depth in `internal/app/calculate.go` (audit M-02)
 
 ## Running a Complete Comparison
 

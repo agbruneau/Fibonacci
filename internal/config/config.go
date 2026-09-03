@@ -52,6 +52,17 @@ const (
 // and no candidate generator produces -1 for it.
 const ThresholdDisabled = -1
 
+// MaxLastDigits bounds the K accepted by --last-digits. The path is O(K)
+// memory (10^K as a big.Int, ~K*3.32 bits) and, unlike the full-N path, is
+// never checked against --memory-limit, so K itself must stay bounded whether
+// or not a limit was set (audit SEC-03).
+//
+// It lives here rather than in internal/app (audit M-02) so the bound applies
+// at parse time, on every mode, instead of only on the one path that reaches
+// runLastDigits. The app-level guard is kept as defense in depth for callers
+// that build an Application programmatically without going through Validate.
+const MaxLastDigits = 10_000_000
+
 // AppConfig aggregates the application's configuration parameters, parsed from
 // command-line flags. It encapsulates all settings that control the execution,
 // from the Fibonacci index to calculate, to performance-tuning parameters.
@@ -136,6 +147,20 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	}
 	if c.LastDigits < 0 {
 		return apperrors.NewConfigError("last-digits cannot be negative: %d (0 disables, >0 computes the last K digits)", c.LastDigits)
+	}
+	if c.LastDigits > MaxLastDigits {
+		return apperrors.NewConfigError("last-digits %d exceeds the maximum of %d digits", c.LastDigits, MaxLastDigits)
+	}
+	// Parse --memory-limit here so a malformed value is a configuration error
+	// on every mode. It used to be parsed only by app.validateMemoryBudget,
+	// which the --last-digits and --calibrate paths never reach, so
+	// `--last-digits 5 --memory-limit 4GB` ran to completion without a word
+	// about the unusable limit (audit M-02). The parsed value is discarded:
+	// ValidateMemoryBudget re-parses it when it actually needs the number.
+	if c.MemoryLimit != "" {
+		if _, err := memory.ParseMemoryLimit(c.MemoryLimit); err != nil {
+			return apperrors.NewConfigError("invalid memory limit %q: %v", c.MemoryLimit, err)
+		}
 	}
 	if c.TUI && c.LastDigits > 0 {
 		return apperrors.NewConfigError("--tui is incompatible with --last-digits: the TUI dashboard always computes the full value")

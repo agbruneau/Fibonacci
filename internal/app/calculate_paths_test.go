@@ -365,7 +365,7 @@ func TestRunLastDigits_RejectsOversizedK(t *testing.T) {
 	app := &Application{
 		Config: config.AppConfig{
 			N:          1_000_000,
-			LastDigits: maxLastDigits + 1,
+			LastDigits: config.MaxLastDigits + 1,
 			Timeout:    1 * time.Minute,
 		},
 		ErrWriter: &errBuf,

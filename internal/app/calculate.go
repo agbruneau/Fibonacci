@@ -128,12 +128,6 @@ func (a *Application) validateMemoryBudget(out io.Writer) int {
 	return apperrors.ExitErrorConfig
 }
 
-// maxLastDigits bounds the K accepted by --last-digits. The path is O(K)
-// memory (10^K as a big.Int, ~K*3.32 bits): unlike the full-N path, it is
-// never checked against --memory-limit, so K itself must stay bounded
-// regardless of whether a limit was set (audit.md SEC-03).
-const maxLastDigits = 10_000_000
-
 // runLastDigits computes only the last K decimal digits of F(N) using modular
 // arithmetic, requiring O(K) memory regardless of N. It owns the lifecycle
 // (timeout + signals) and presentation; the math itself lives in
@@ -147,8 +141,12 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 	k := a.Config.LastDigits
 	n := a.Config.N
 
-	if k > maxLastDigits {
-		fmt.Fprintf(a.ErrWriter, "Error: --last-digits %d exceeds the maximum of %d digits.\n", k, maxLastDigits)
+	// Defense in depth: config.Validate already rejects this at parse time
+	// (audit M-02). The guard stays for callers that build an Application
+	// programmatically and never run Validate, which is exactly how the
+	// SEC-03 regression test reaches this path.
+	if k > config.MaxLastDigits {
+		fmt.Fprintf(a.ErrWriter, "Error: --last-digits %d exceeds the maximum of %d digits.\n", k, config.MaxLastDigits)
 		return apperrors.ExitErrorConfig
 	}
 

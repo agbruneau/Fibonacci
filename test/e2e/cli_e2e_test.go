@@ -542,3 +542,50 @@ func TestCLI_VersionDetails(t *testing.T) {
 		}
 	}
 }
+
+// TestMemoryLimitValidatedOnEveryMode pins audit M-02. --memory-limit was
+// parsed only by app.validateMemoryBudget, which the --last-digits and
+// --calibrate modes never reach, so a malformed limit was silently ignored on
+// exactly the paths where the user asked for a memory bound. Validation now
+// happens at parse time, so the same value is a configuration error (exit 4)
+// whatever mode it is combined with.
+func TestMemoryLimitValidatedOnEveryMode(t *testing.T) {
+	skipShortE2E(t)
+	binPath := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"LastDigitsWithBadLimit", []string{"-n", "100", "--last-digits", "5", "--memory-limit", "4GB"}},
+		{"FullCalculationWithBadLimit", []string{"-n", "100", "--memory-limit", "4GB"}},
+		{"OversizedLastDigits", []string{"-n", "100", "--last-digits", "10000001"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := exec.Command(binPath, tt.args...)
+			cmd.Env = append(os.Environ(), "NO_COLOR=1")
+			output, _ := cmd.CombinedOutput()
+
+			code := cmd.ProcessState.ExitCode()
+			if code != 4 {
+				t.Errorf("got exit %d, want 4 (config error)\nOutput: %s", code, string(output))
+			}
+		})
+	}
+
+	t.Run("WellFormedLimitIsAccepted", func(t *testing.T) {
+		t.Parallel()
+		cmd := exec.Command(binPath, "-n", "100", "--last-digits", "5", "--memory-limit", "4G", "--quiet")
+		cmd.Env = append(os.Environ(), "NO_COLOR=1")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("a well-formed limit must not fail: %v\nOutput: %s", err, string(output))
+		}
+		if got := strings.TrimSpace(string(output)); got != "15075" {
+			t.Errorf("got %q, want the last 5 digits of F(100)", got)
+		}
+	})
+}
