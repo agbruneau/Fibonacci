@@ -13,24 +13,23 @@ import (
 func TestParseBoolEnv(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		val        string
-		defaultVal bool
-		want       bool
+		val  string
+		want bool
 	}{
-		{"true", false, true},
-		{"1", false, true},
-		{"YES", false, true},
-		{"false", true, false},
-		{"0", true, false},
-		{"No", true, false},
+		{"true", true},
+		{"1", true},
+		{"YES", true},
+		{"false", false},
+		{"0", false},
+		{"No", false},
 	}
 	for _, tc := range cases {
-		got, err := parseBoolEnv(tc.val, tc.defaultVal)
+		got, err := parseBoolEnv(tc.val)
 		if err != nil {
-			t.Errorf("parseBoolEnv(%q, %v) unexpected error: %v", tc.val, tc.defaultVal, err)
+			t.Errorf("parseBoolEnv(%q) unexpected error: %v", tc.val, err)
 		}
 		if got != tc.want {
-			t.Errorf("parseBoolEnv(%q, %v) = %v, want %v", tc.val, tc.defaultVal, got, tc.want)
+			t.Errorf("parseBoolEnv(%q) = %v, want %v", tc.val, got, tc.want)
 		}
 	}
 }
@@ -39,7 +38,7 @@ func TestParseBoolEnv(t *testing.T) {
 // error instead of silently falling back to the default (APP-09).
 func TestParseBoolEnv_Malformed(t *testing.T) {
 	t.Parallel()
-	if _, err := parseBoolEnv("garbage", true); err == nil {
+	if _, err := parseBoolEnv("garbage"); err == nil {
 		t.Fatal("expected error for malformed bool env value, got nil")
 	}
 }

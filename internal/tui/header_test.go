@@ -76,22 +76,3 @@ func TestHeaderModel_View_FrozenAfterDone(t *testing.T) {
 		t.Errorf("expected frozen elapsed 'Elapsed: 1m30s', got %q", view)
 	}
 }
-
-func TestSpaces(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		n    int
-		want string
-	}{
-		{0, ""},
-		{-1, ""},
-		{1, " "},
-		{5, "     "},
-	}
-	for _, tt := range tests {
-		got := spaces(tt.n)
-		if got != tt.want {
-			t.Errorf("spaces(%d) = %q, want %q", tt.n, got, tt.want)
-		}
-	}
-}

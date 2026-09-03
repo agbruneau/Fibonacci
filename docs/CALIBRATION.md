@@ -117,7 +117,7 @@ thresholds, re-calibrating"` and fall through to the escalation chain.
 
 **Tier 2 -- Quick micro-benchmarks (~125ms, budget 400ms)**
 
-If no valid cached profile exists, `QuickCalibrate()` from `microbench.go` runs rapid multiplication tests. If the resulting confidence score is >= 0.5, the thresholds are accepted and a profile is saved for future use.
+If no valid cached profile exists, `NewMicroBenchmark().RunQuick()` from `microbench.go` runs rapid multiplication tests. If the resulting confidence score is >= 0.5, the thresholds are accepted and a profile is saved for future use.
 
 Since the 2026-09 audit the score starts at **zero** and is earned as
 `stability x decisiveness`; it used to start at 0.5, which equalled the
@@ -127,9 +127,9 @@ pass" at the end of this document.
 **Tier 3 -- Full calibration runner**
 
 If micro-benchmarks produce low confidence, `newCalibrationRunner()` executes targeted threshold searches:
-- `findBestParallelThreshold()` with the "fast" calculator
-- `findBestFFTThreshold()` with the "fast" calculator
-- `findBestStrassenThreshold()` with the "matrix" calculator (if available)
+- `findBest()` over `GenerateQuickParallelThresholds()` with the "fast" calculator
+- `findBest()` over `GenerateFFTThresholds()` with the "fast" calculator (using the parallel winner)
+- `findBest()` over `GenerateQuickStrassenThresholds()` with the "matrix" calculator (if available)
 
 Each method iterates over its candidate set (`GenerateQuickParallelThresholds()`, `GenerateFFTThresholds()`, `GenerateQuickStrassenThresholds()`). The profile is saved after successful calibration.
 
@@ -340,9 +340,8 @@ replaced by a plain default.
 
 ### FFT and Strassen Candidates
 
-- `GenerateFFTThresholds()` (exported, `adaptive.go:GenerateFFTThresholds`): `[-1]` plus 200 000 → 1 000 000 in steps of 50 000 — 18 candidates. **This is the list the full runner actually sweeps** (`runner.go:findBestFFTThreshold`).
-- `generateQuickFFTThresholds()` (unexported, `adaptive.go:generateQuickFFTThresholds`): `[-1, 750000, 1000000, 1500000]` — used by the quick micro-benchmark tier, not by the runner.
-- `GenerateQuickStrassenThresholds()` (`adaptive.go:GenerateQuickStrassenThresholds`): `[192, 256, 384, 512]` — used by `runner.go:findBestStrassenThreshold`.
+- `GenerateFFTThresholds()` (exported, `adaptive.go:GenerateFFTThresholds`): `[-1]` plus 200 000 → 1 000 000 in steps of 50 000 — 18 candidates. **This is the list the full runner actually sweeps** (`strategy_complete.go`, FFT sweep).
+- `GenerateQuickStrassenThresholds()` (`adaptive.go:GenerateQuickStrassenThresholds`): `[192, 256, 384, 512]` — used by the Strassen sweep in `strategy_complete.go`.
 
 ### Heuristic Estimation (No Benchmarks)
 
@@ -389,15 +388,15 @@ type calibrationRunner struct {
 
 `newCalibrationRunner()` derives a per-trial timeout from the overall timeout (`timeout / 6`, minimum 2 seconds). Each trial uses `context.WithTimeout` to prevent any single test from blocking.
 
-Three search methods iterate over their respective candidate lists:
+One search method, `runner.go:findBest`, is called three times with these candidate lists:
 
-| Method | Calculator | Options Varied | Candidates Source |
+| Sweep | Calculator | Options Varied | Candidates Source |
 |--------|-----------|----------------|-------------------|
-| `findBestParallelThreshold()` | "fast" | `ParallelThreshold` | `GenerateQuickParallelThresholds()` |
-| `findBestFFTThreshold()` | "fast" | `FFTThreshold` (with best parallel) | `GenerateFFTThresholds()` |
-| `findBestStrassenThreshold()` | "matrix" | `StrassenThreshold` (with best parallel) | `GenerateQuickStrassenThresholds()` |
+| parallel | "fast" | `ParallelThreshold` | `GenerateQuickParallelThresholds()` |
+| FFT | "fast" | `FFTThreshold` (with best parallel) | `GenerateFFTThresholds()` |
+| Strassen | "matrix" | `StrassenThreshold` (with best parallel) | `GenerateQuickStrassenThresholds()` |
 
-Each method returns the best threshold and its duration. If all trials fail (timeout or error), the default threshold is preserved.
+Each sweep returns the best threshold and its duration. If all trials fail (timeout or error), the default threshold is preserved.
 
 ## Package Structure
 
@@ -405,10 +404,10 @@ Each method returns the best threshold and its duration. If all trials fail (tim
 |------|---------------|
 | `calibration.go` | Entry points: `RunCalibration()`, `AutoCalibrate()`, `AutoCalibrateWithProfile()`, `LoadCachedCalibration()` |
 | `adaptive.go` | CPU-adaptive candidate-list generation only (`Generate*Thresholds`). It holds no estimation code: the `EstimateOptimal*` heuristics live in `internal/config/thresholds.go` and the former pass-through delegates were removed (audit 2026-06) |
-| `microbench.go` | Quick micro-benchmarking engine (`QuickCalibrate()`, `MicroBenchmark`) |
+| `microbench.go` | Quick micro-benchmarking engine (`MicroBenchmark`, `RunQuick()`) |
 | `profile.go` | `CalibrationProfile` data structure, validation, serialization |
 | `io.go` | Result formatting and output (`printCalibrationResults()`, `printCalibrationOutput()`) |
-| `runner.go` | `calibrationRunner` with `findBest*Threshold()` methods |
+| `runner.go` | `calibrationRunner` with the shared `findBest()` sweep |
 | `strategy.go` | `CalibrationStrategy` interface (Strategy pattern, see the Architecture note under Auto-Calibration) |
 | `strategy_fast.go` | `FastStrategy` -- micro-benchmark tier |
 | `strategy_complete.go` | `CompleteStrategy` -- full calibration runner tier |
@@ -446,7 +445,7 @@ These environment variables follow the `FIBCALC_*` convention and have lower pri
 
 ## Reliability of the quick pass (audit 2026-09, M-01)
 
-`FastStrategy` derives the FFT threshold from `QuickCalibrate`'s
+`FastStrategy` derives the FFT threshold from `RunQuick`'s
 micro-benchmarks. Before the 2026-09 audit that measurement was not
 trustworthy, in four independent ways:
 

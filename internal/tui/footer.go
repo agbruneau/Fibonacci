@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -72,7 +73,7 @@ func (f FooterModel) View() string {
 		gap = 2
 	}
 
-	row := shortcuts + spaces(gap) + status
+	row := shortcuts + strings.Repeat(" ", gap) + status
 
 	return headerStyle.Width(f.width).Render(row)
 }

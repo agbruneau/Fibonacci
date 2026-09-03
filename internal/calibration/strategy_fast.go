@@ -47,7 +47,7 @@ func (FastStrategy) Name() string { return "fast" }
 // On context cancellation or QuickCalibrate failure, Calibrate returns
 // (nil, 0, err) so the orchestrator can escalate to CompleteStrategy.
 func (s FastStrategy) Calibrate(ctx context.Context, opts StrategyOptions) (*CalibrationProfile, Confidence, error) {
-	results, err := QuickCalibrate(ctx)
+	results, err := NewMicroBenchmark().RunQuick(ctx)
 	if err != nil {
 		return nil, 0, err
 	}

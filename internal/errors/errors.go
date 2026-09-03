@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 // Application exit codes define the standard exit statuses for the application.
@@ -59,8 +58,6 @@ type CalculationContext struct {
 	StrassenThresholdBits int
 	// MemoryEstimateBytes is an approximate memory budget for F(N) (best-effort).
 	MemoryEstimateBytes uint64
-	// ConfigExcerpt is a single-line, non-sensitive summary (no secrets or tokens).
-	ConfigExcerpt string
 }
 
 // CalculationError encapsulates a calculation error while preserving the
@@ -92,13 +89,8 @@ func (e CalculationError) Unwrap() error { return e.Cause }
 
 // HasDiagnostic reports whether optional diagnostic fields should be shown.
 func (e CalculationError) HasDiagnostic() bool {
-	if e.ConfigExcerpt != "" || e.MemoryEstimateBytes != 0 {
-		return true
-	}
-	if e.N != 0 {
-		return true
-	}
-	return e.ParallelThresholdBits != 0 || e.FFTThresholdBits != 0 || e.StrassenThresholdBits != 0
+	return e.N != 0 || e.MemoryEstimateBytes != 0 ||
+		e.ParallelThresholdBits != 0 || e.FFTThresholdBits != 0 || e.StrassenThresholdBits != 0
 }
 
 func formatThresholdBits(v int) string {
@@ -106,21 +98,6 @@ func formatThresholdBits(v int) string {
 		return "auto"
 	}
 	return strconv.Itoa(v)
-}
-
-func sanitizeConfigExcerpt(s string) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.TrimSpace(s)
-	const maxLen = 200
-	if len(s) > maxLen {
-		// Trim back to a rune boundary so the cut never splits a multibyte rune.
-		cut := maxLen
-		for cut > 0 && !utf8.RuneStart(s[cut]) {
-			cut--
-		}
-		return s[:cut] + "…"
-	}
-	return s
 }
 
 // formatBytesLocal renders a byte count in a human-readable form (GB/MB/KB/B).
@@ -158,9 +135,6 @@ func (e CalculationError) FormatDiagnostic() string {
 		formatThresholdBits(e.StrassenThresholdBits))
 	if e.MemoryEstimateBytes != 0 {
 		fmt.Fprintf(&b, "; mem_est=%s", formatBytesLocal(e.MemoryEstimateBytes))
-	}
-	if ex := sanitizeConfigExcerpt(e.ConfigExcerpt); ex != "" {
-		fmt.Fprintf(&b, "; config=%s", ex)
 	}
 	return b.String()
 }

@@ -15,7 +15,6 @@ flowchart LR
 
     subgraph Messages["Message Types"]
         B4 --> M1[ProgressMsg]
-        B4 --> M0[ProgressDoneMsg]
         B4 --> M2[ComparisonResultsMsg]
         B4 --> M3[FinalResultMsg]
         B4 --> M4[ErrorMsg]
@@ -49,7 +48,6 @@ flowchart LR
         M6 --> U11[TickMsg: no generation tag —<br/>fires the sampling cmds only]
         M7 --> U12[MemStatsMsg: metrics.UpdateMemStats]
         M8 --> U13[SysStatsMsg: chart.UpdateSysStats]
-        M0 --> U14[ProgressDoneMsg: explicit no-op sink]
     end
 
     subgraph View["Model.View (Panel Layout) — re-rendered after every Update"]

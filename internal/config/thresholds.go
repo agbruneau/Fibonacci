@@ -39,14 +39,15 @@ package config
 // The function only modifies thresholds that are set to their zero default,
 // preserving any user-specified overrides via command-line flags.
 func ApplyAdaptiveThresholds(cfg AppConfig) AppConfig {
+	h := DetectHardwareHeuristic()
 	if cfg.Threshold == 0 {
-		cfg.Threshold = EstimateOptimalParallelThreshold()
+		cfg.Threshold = estimateParallelThresholdForHeuristic(h)
 	}
 	if cfg.FFTThreshold == 0 {
-		cfg.FFTThreshold = EstimateOptimalFFTThreshold()
+		cfg.FFTThreshold = estimateFFTThresholdForHeuristic(h)
 	}
 	if cfg.StrassenThreshold == 0 {
-		cfg.StrassenThreshold = EstimateOptimalStrassenThreshold()
+		cfg.StrassenThreshold = estimateStrassenThresholdForHeuristic(h)
 	}
 	return cfg
 }

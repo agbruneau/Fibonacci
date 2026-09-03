@@ -480,7 +480,6 @@ was too small.
 | Method | Description |
 |--------|-------------|
 | `Alloc(n)` | Allocate n zeroed words |
-| `allocUnsafe(n)` | Allocate n words without zeroing (caller overwrites) — package-internal |
 | `allocFermat(n)` | Allocate a fermat of n+1 words — package-internal |
 | `allocFermatSlice(count, n)` | Allocate `count` contiguous fermat buffers — package-internal |
 | `Reset()` | Invalidate all allocations, reuse from start |

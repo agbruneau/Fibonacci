@@ -2,10 +2,16 @@ package calibration
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
+
+// noTiming is the duration findBest reports when no candidate produced a
+// timing; applyCalibrationResults keys on it to tell "measured" from "kept
+// the default".
+const noTiming = time.Duration(math.MaxInt64)
 
 // calibrationRunner encapsulates the trial run logic for calibration.
 type calibrationRunner struct {
@@ -39,80 +45,14 @@ func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.O
 	return time.Since(start), err
 }
 
-// findBestParallelThreshold finds the optimal parallel threshold.
-//
-// Parameters:
-//   - calc: The calculator to use for testing.
-//   - defaultThreshold: The default threshold to use if no better one is found.
-//
-// Returns:
-//   - int: The best parallel threshold found.
-//   - time.Duration: The duration achieved with the best threshold.
-func (r *calibrationRunner) findBestParallelThreshold(calc fibonacci.Calculator, defaultThreshold int) (threshold int, duration time.Duration) {
-	candidates := GenerateQuickParallelThresholds()
-	best := defaultThreshold
-	bestDur := time.Duration(1<<63 - 1)
-
+// findBest times calc once per candidate threshold, each run under the
+// Options opts builds for that candidate, and returns the fastest candidate
+// with its duration. Trials that error or time out are skipped; when none
+// produces a timing the result is (def, noTiming).
+func (r *calibrationRunner) findBest(calc fibonacci.Calculator, candidates []int, def int, opts func(threshold int) fibonacci.Options) (best int, bestDur time.Duration) {
+	best, bestDur = def, noTiming
 	for _, cand := range candidates {
-		dur, err := r.runTrial(calc, fibonacci.Options{ParallelThreshold: cand, FFTThreshold: 0})
-		if err != nil {
-			continue
-		}
-		if dur < bestDur {
-			bestDur, best = dur, cand
-		}
-	}
-	return best, bestDur
-}
-
-// findBestFFTThreshold finds the optimal FFT threshold.
-//
-// Parameters:
-//   - calc: The calculator to use for testing.
-//   - parallelThreshold: The parallel threshold to use during testing.
-//   - defaultThreshold: The default threshold to use if no better one is found.
-//
-// Returns:
-//   - int: The best FFT threshold found.
-//   - time.Duration: The duration achieved with the best threshold.
-func (r *calibrationRunner) findBestFFTThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (threshold int, duration time.Duration) {
-	candidates := GenerateFFTThresholds()
-	best := defaultThreshold
-	bestDur := time.Duration(1<<63 - 1)
-
-	for _, cand := range candidates {
-		dur, err := r.runTrial(calc, fibonacci.Options{ParallelThreshold: parallelThreshold, FFTThreshold: cand})
-		if err != nil {
-			continue
-		}
-		if dur < bestDur {
-			bestDur, best = dur, cand
-		}
-	}
-	return best, bestDur
-}
-
-// findBestStrassenThreshold finds the optimal Strassen threshold.
-//
-// Parameters:
-//   - calc: The calculator to use for testing.
-//   - parallelThreshold: The parallel threshold to use during testing.
-//   - defaultThreshold: The default threshold to use if no better one is found.
-//
-// Returns:
-//   - int: The best Strassen threshold found.
-//   - time.Duration: The duration achieved with the best threshold.
-func (r *calibrationRunner) findBestStrassenThreshold(calc fibonacci.Calculator, parallelThreshold, defaultThreshold int) (threshold int, duration time.Duration) {
-	candidates := GenerateQuickStrassenThresholds()
-	best := defaultThreshold
-	bestDur := time.Duration(1<<63 - 1)
-
-	for _, cand := range candidates {
-		dur, err := r.runTrial(calc, fibonacci.Options{ParallelThreshold: parallelThreshold, StrassenThreshold: cand})
-		if err != nil {
-			continue
-		}
-		if dur < bestDur {
+		if dur, err := r.runTrial(calc, opts(cand)); err == nil && dur < bestDur {
 			bestDur, best = dur, cand
 		}
 	}

@@ -106,14 +106,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleProgress(msg)
 		return m, nil
 
-	case ProgressDoneMsg:
-		// A-19: intentional drain sink. Completion is driven by
-		// CalculationCompleteMsg; ProgressDoneMsg only signals that the
-		// progress channel closed and carries no state transition. Kept as an
-		// explicit no-op case so the closed-channel signal is consumed rather
-		// than falling through to the default handler.
-		return m, nil
-
 	case ComparisonResultsMsg:
 		if msg.Generation == m.generation {
 			m.logs.AddResults(msg.Results)

@@ -97,29 +97,6 @@ func TestWriteResultToFile(t *testing.T) {
 	}
 }
 
-func TestFormatQuietResult(t *testing.T) {
-	t.Parallel()
-	result := big.NewInt(55)
-
-	t.Run("Decimal format", func(t *testing.T) {
-		t.Parallel()
-		output := FormatQuietResult(result)
-		if output != "55" {
-			t.Errorf("Expected '55', got '%s'", output)
-		}
-	})
-
-	t.Run("Large number decimal", func(t *testing.T) {
-		t.Parallel()
-		large := new(big.Int)
-		large.SetString("123456789012345678901234567890", 10)
-		output := FormatQuietResult(large)
-		if output != large.String() {
-			t.Errorf("Expected full decimal string, got '%s'", output)
-		}
-	})
-}
-
 func TestDisplayQuietResult(t *testing.T) {
 	t.Parallel()
 	result := big.NewInt(55)

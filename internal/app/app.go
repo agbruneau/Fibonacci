@@ -12,6 +12,7 @@ import (
 
 	"github.com/agbruneau/FibGo/internal/calibration"
 	"github.com/agbruneau/FibGo/internal/cli"
+	"github.com/agbruneau/FibGo/internal/cli/completion"
 	"github.com/agbruneau/FibGo/internal/config"
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
@@ -100,20 +101,9 @@ func New(args []string, errWriter io.Writer, opts ...AppOption) (*Application, e
 	return app, nil
 }
 
-// Run executes the application based on the configured mode and returns a
-// typed ExitAction describing the outcome. Use ExitAction.Code for the
-// POSIX exit status and ExitAction.ShouldExit to decide whether main
-// should call os.Exit.
-func (a *Application) Run(ctx context.Context, out io.Writer) ExitAction {
-	return exitActionFromCode(a.runDispatch(ctx, out))
-}
-
-// runDispatch performs the mode dispatch and returns a raw POSIX exit
-// code. It is kept private so that the public Run signature can expose
-// the typed ExitAction without forcing every internal helper to be
-// rewritten — they continue to operate in terms of the POSIX codes
-// defined in internal/errors.
-func (a *Application) runDispatch(ctx context.Context, out io.Writer) int {
+// Run executes the application based on the configured mode and returns the
+// POSIX exit code (internal/errors.Exit*), which main hands to os.Exit.
+func (a *Application) Run(ctx context.Context, out io.Writer) int {
 	if a.Config.Completion != "" {
 		return a.runCompletion(out)
 	}
@@ -136,8 +126,7 @@ func (a *Application) runDispatch(ctx context.Context, out io.Writer) int {
 
 // runCompletion generates shell completion scripts.
 func (a *Application) runCompletion(out io.Writer) int {
-	availableAlgos := a.Factory.List()
-	if err := cli.GenerateCompletion(out, a.Config.Completion, availableAlgos); err != nil {
+	if err := completion.Generate(out, a.Config.Completion, a.Factory.List()); err != nil {
 		fmt.Fprintf(a.ErrWriter, "Error generating completion: %v\n", err)
 		return apperrors.ExitErrorConfig
 	}

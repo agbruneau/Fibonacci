@@ -121,10 +121,7 @@ func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter progress.Pro
 	numBits := bits.Len64(n)
 
 	// Progress reporting setup
-	var lastReported float64
-	totalWork := progress.CalcTotalWork(numBits)
-	currentWork := 0.0
-	powers := progress.PrecomputePowers4(numBits)
+	lastReported := -1.0
 
 	// Iterate from MSB-1 down to 0
 	for i := numBits - 1; i >= 0; i-- {
@@ -144,7 +141,7 @@ func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter progress.Pro
 		}
 
 		// Report progress
-		currentWork = progress.ReportStepProgress(reporter, &lastReported, totalWork, currentWork, i, numBits, powers)
+		progress.ReportStepProgress(reporter, &lastReported, i, numBits)
 	}
 
 	return gmpToStdBigInt(a), nil

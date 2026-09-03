@@ -19,8 +19,8 @@ type ChartModel struct {
 	width           int
 	height          int
 
-	cpuHistory *RingBuffer
-	memHistory *RingBuffer
+	cpuHistory *Ring[float64]
+	memHistory *Ring[float64]
 }
 
 const defaultSparklineCap = 30
@@ -28,8 +28,8 @@ const defaultSparklineCap = 30
 // NewChartModel creates a new chart.
 func NewChartModel() ChartModel {
 	return ChartModel{
-		cpuHistory: NewRingBuffer(defaultSparklineCap),
-		memHistory: NewRingBuffer(defaultSparklineCap),
+		cpuHistory: NewRing[float64](defaultSparklineCap),
+		memHistory: NewRing[float64](defaultSparklineCap),
 	}
 }
 

@@ -2,14 +2,10 @@ package main
 
 import (
 	"bytes"
-	"io"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/agbruneau/FibGo/internal/app"
 )
 
 // --- Unit tests calling run() directly (instrumented for coverage) ---
@@ -30,13 +26,8 @@ func TestRun_Version(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			action := run(tt.args, &stdout, &stderr)
-
-			if action != app.ActionVersionHandled {
-				t.Errorf("Expected ActionVersionHandled, got %v", action)
-			}
-			if action.ShouldExit() {
-				t.Error("ActionVersionHandled.ShouldExit() should be false")
+			if code := run(tt.args, &stdout, &stderr); code != 0 {
+				t.Errorf("Expected exit code 0, got %d", code)
 			}
 			out := stdout.String()
 			if !strings.Contains(out, "fibcalc") {
@@ -69,10 +60,8 @@ func TestRun_Help(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			action := run(tt.args, &stdout, &stderr)
-
-			if action.Code() != 0 {
-				t.Errorf("Expected exit code 0, got %d", action.Code())
+			if code := run(tt.args, &stdout, &stderr); code != 0 {
+				t.Errorf("Expected exit code 0, got %d", code)
 			}
 			// Help text goes to stderr via flag package
 			combined := stdout.String() + stderr.String()
@@ -87,10 +76,8 @@ func TestRun_Help(t *testing.T) {
 func TestRun_InvalidFlag(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	action := run([]string{"fibcalc", "--invalid-flag-xyz"}, &stdout, &stderr)
-
-	if action.Code() != 4 {
-		t.Errorf("Expected exit code 4 (config), got %d", action.Code())
+	if code := run([]string{"fibcalc", "--invalid-flag-xyz"}, &stdout, &stderr); code != 4 {
+		t.Errorf("Expected exit code 4 (config), got %d", code)
 	}
 }
 
@@ -115,16 +102,8 @@ func TestRun_ConfigErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			action := run(tt.args, &stdout, &stderr)
-
-			if action != app.ActionConfig {
-				t.Errorf("Expected ActionConfig, got %v", action)
-			}
-			if action.Code() != 4 {
-				t.Errorf("Expected exit code 4 (config), got %d", action.Code())
-			}
-			if !action.ShouldExit() {
-				t.Error("Error action should require os.Exit")
+			if code := run(tt.args, &stdout, &stderr); code != 4 {
+				t.Errorf("Expected exit code 4 (config), got %d", code)
 			}
 			if !strings.Contains(stderr.String(), tt.wantStderr) {
 				t.Errorf("stderr should contain %q, got:\n%s", tt.wantStderr, stderr.String())
@@ -133,20 +112,16 @@ func TestRun_ConfigErrors(t *testing.T) {
 	}
 }
 
-// TestRun_TimeoutExitAction verifies that a deadline expiring before the
-// calculation completes surfaces as ActionTimeout (POSIX code 2) rather
-// than a generic error.
-func TestRun_TimeoutExitAction(t *testing.T) {
+// TestRun_TimeoutExitCode verifies that a deadline expiring before the
+// calculation completes surfaces as POSIX code 2 rather than a generic error.
+func TestRun_TimeoutExitCode(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	action := run([]string{"fibcalc", "-n", "10000000", "--algo", "fast", "-timeout", "1ns", "--quiet"}, &stdout, &stderr)
+	code := run([]string{"fibcalc", "-n", "10000000", "--algo", "fast", "-timeout", "1ns", "--quiet"}, &stdout, &stderr)
 
-	if action != app.ActionTimeout {
-		t.Fatalf("Expected ActionTimeout, got %v (code %d). stdout:\n%s\nstderr:\n%s",
-			action, action.Code(), stdout.String(), stderr.String())
-	}
-	if action.Code() != 2 {
-		t.Errorf("Expected exit code 2, got %d", action.Code())
+	if code != 2 {
+		t.Fatalf("Expected exit code 2, got %d. stdout:\n%s\nstderr:\n%s",
+			code, stdout.String(), stderr.String())
 	}
 }
 
@@ -156,7 +131,7 @@ func TestRun_Calculation(t *testing.T) {
 	t.Run("small N with show-value", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "-n", "10", "-c"}, &stdout, &stderr).Code()
+		code := run([]string{"fibcalc", "-n", "10", "-c"}, &stdout, &stderr)
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d. Output:\n%s", code, stdout.String())
@@ -169,7 +144,7 @@ func TestRun_Calculation(t *testing.T) {
 	t.Run("quiet mode", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "-n", "10", "--quiet"}, &stdout, &stderr).Code()
+		code := run([]string{"fibcalc", "-n", "10", "--quiet"}, &stdout, &stderr)
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d. Output:\n%s", code, stdout.String())
@@ -185,7 +160,7 @@ func TestRun_Calculation(t *testing.T) {
 			t.Run(algo, func(t *testing.T) {
 				t.Parallel()
 				var stdout, stderr bytes.Buffer
-				code := run([]string{"fibcalc", "-n", "10", "--algo", algo, "--quiet"}, &stdout, &stderr).Code()
+				code := run([]string{"fibcalc", "-n", "10", "--algo", algo, "--quiet"}, &stdout, &stderr)
 
 				if code != 0 {
 					t.Errorf("Expected exit code 0 for algo %s, got %d", algo, code)
@@ -200,7 +175,7 @@ func TestRun_Calculation(t *testing.T) {
 	t.Run("all algorithms comparison", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "-n", "10", "--algo", "all"}, &stdout, &stderr).Code()
+		code := run([]string{"fibcalc", "-n", "10", "--algo", "all"}, &stdout, &stderr)
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d. Output:\n%s", code, stdout.String())
@@ -218,7 +193,7 @@ func TestRun_Completion(t *testing.T) {
 	t.Run("bash completion", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "--completion", "bash"}, &stdout, &stderr).Code()
+		code := run([]string{"fibcalc", "--completion", "bash"}, &stdout, &stderr)
 
 		if code != 0 {
 			t.Errorf("Expected exit code 0, got %d", code)
@@ -232,54 +207,12 @@ func TestRun_Completion(t *testing.T) {
 	t.Run("invalid shell", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		code := run([]string{"fibcalc", "--completion", "invalid-shell"}, &stdout, &stderr).Code()
+		code := run([]string{"fibcalc", "--completion", "invalid-shell"}, &stdout, &stderr)
 
 		if code == 0 {
 			t.Error("Expected non-zero exit code for invalid shell completion")
 		}
 	})
-}
-
-// TestMainFunction_VersionPath exercises main() itself on the --version
-// path, the only path where main returns instead of calling os.Exit
-// (ActionVersionHandled.ShouldExit() == false). If a regression made the
-// version action exit-worthy again, main would call os.Exit(0) here and
-// abort the test binary, which `go test` reports as a failure. The
-// remaining os.Exit branch of main can only be observed via subprocess
-// tests below.
-//
-// Deliberately NOT parallel: it swaps the process-global os.Args and
-// os.Stdout, which must be restored before any other test observes them.
-func TestMainFunction_VersionPath(t *testing.T) {
-	origArgs := os.Args
-	origStdout := os.Stdout
-	t.Cleanup(func() {
-		os.Args = origArgs
-		os.Stdout = origStdout
-	})
-
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	os.Args = []string{"fibcalc", "--version"}
-	os.Stdout = w
-
-	main()
-
-	os.Stdout = origStdout
-	if cerr := w.Close(); cerr != nil {
-		t.Fatalf("closing pipe writer: %v", cerr)
-	}
-	out, rerr := io.ReadAll(r)
-	if rerr != nil {
-		t.Fatalf("reading captured stdout: %v", rerr)
-	}
-
-	got := string(out)
-	if !strings.Contains(got, "fibcalc") || !strings.Contains(got, "Go version:") {
-		t.Errorf("main() with --version should print version info, got:\n%s", got)
-	}
 }
 
 // --- Subprocess tests for os.Exit behavior in main() ---

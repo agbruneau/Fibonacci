@@ -516,7 +516,7 @@ func TestCalibrationRunner(t *testing.T) {
 	calc := &MockCalculator{name: "fast"}
 
 	// Test findBestParallelThreshold
-	bestPar, parDur := runner.findBestParallelThreshold(calc, 4096)
+	bestPar, parDur := runner.findBest(calc, GenerateQuickParallelThresholds(), 4096, func(t int) fibonacci.Options { return fibonacci.Options{ParallelThreshold: t} })
 	if bestPar == 0 {
 		t.Error("findBestParallelThreshold should return a non-zero threshold")
 	}
@@ -525,7 +525,7 @@ func TestCalibrationRunner(t *testing.T) {
 	}
 
 	// Test findBestFFTThreshold
-	bestFFT, fftDur := runner.findBestFFTThreshold(calc, bestPar, 1000000)
+	bestFFT, fftDur := runner.findBest(calc, GenerateFFTThresholds(), 1000000, func(t int) fibonacci.Options { return fibonacci.Options{ParallelThreshold: bestPar, FFTThreshold: t} })
 	if bestFFT == 0 {
 		t.Error("findBestFFTThreshold should return a non-zero threshold")
 	}
@@ -534,7 +534,9 @@ func TestCalibrationRunner(t *testing.T) {
 	}
 
 	// Test findBestStrassenThreshold
-	bestStr, strDur := runner.findBestStrassenThreshold(calc, bestPar, 256)
+	bestStr, strDur := runner.findBest(calc, GenerateQuickStrassenThresholds(), 256, func(t int) fibonacci.Options {
+		return fibonacci.Options{ParallelThreshold: bestPar, StrassenThreshold: t}
+	})
 	if bestStr == 0 {
 		t.Error("findBestStrassenThreshold should return a non-zero threshold")
 	}

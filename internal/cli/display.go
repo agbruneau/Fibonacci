@@ -8,10 +8,7 @@
 //     They handle presentation logic and colorization.
 //     Examples: [DisplayResult], [DisplayQuietResult], [DisplayProgress].
 //
-//   - Format* functions return a formatted string without performing I/O.
-//     They are pure functions suitable for composition.
-//     Example: [FormatQuietResult].
-//     Pure formatting helpers (duration, numbers, ETA) live in the format
+//   - Pure formatting helpers (duration, numbers, ETA) live in the format
 //     package and should be imported from there directly.
 //
 //   - Write* functions write data to files on the filesystem.
@@ -30,6 +27,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -130,17 +128,16 @@ func displayResultHeader(out io.Writer, bitLen int) {
 // displayDetailedAnalysis prints detailed execution metrics including
 // calculation time, number of digits, and scientific notation for large numbers.
 //
-// resultStr is the caller's single decimal rendering of result (audit L-11):
-// big.Int.String() on a multi-million-digit value costs seconds, and this
-// function used to produce its own copy alongside displayCalculatedValue's and
-// the two writeResult made.
+// resultStr is the caller's single decimal rendering of the result (audit
+// L-11): big.Int.String() on a multi-million-digit value costs seconds, and
+// this function used to produce its own copy alongside displayCalculatedValue's
+// and the two writeResult made. Every figure here derives from that string.
 //
 // Parameters:
 //   - out: The io.Writer for the output.
-//   - result: The calculation result.
 //   - resultStr: result rendered in base 10, converted once by the caller.
 //   - duration: The time taken for the calculation.
-func displayDetailedAnalysis(out io.Writer, result *big.Int, resultStr string, duration time.Duration) {
+func displayDetailedAnalysis(out io.Writer, resultStr string, duration time.Duration) {
 	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ui.ColorBold(), ui.ColorReset())
 
 	durationStr := format.FormatExecutionDuration(duration)
@@ -154,9 +151,42 @@ func displayDetailedAnalysis(out io.Writer, result *big.Int, resultStr string, d
 		ui.ColorCyan(), format.FormatNumberString(fmt.Sprintf("%d", numDigits)), ui.ColorReset())
 
 	if numDigits > 6 {
-		f := new(big.Float).SetInt(result)
-		fmt.Fprintf(out, "Scientific notation    : %s%.6e%s\n", ui.ColorCyan(), f, ui.ColorReset())
+		fmt.Fprintf(out, "Scientific notation    : %s%s%s\n", ui.ColorCyan(), scientificNotation(resultStr), ui.ColorReset())
 	}
+}
+
+// scientificNotation renders a non-empty decimal digit string (no sign, no
+// leading zeros) as d.dddddde+XX, i.e. exactly what fmt's %.6e prints for the
+// same integer: seven significant digits, rounded half-to-even on an exact tie.
+//
+// It works on the digits the caller already has instead of going through
+// big.Float: Float.Text materializes the whole integer to convert it, so the
+// previous %.6e cost a second full base-10 conversion of the result — the
+// same seconds-long pass the L-11 audit had just deduplicated — to print a
+// 15-character line.
+func scientificNotation(digits string) string {
+	const sig = 7
+	exp := len(digits) - 1
+	mant := []byte(digits)
+	if len(mant) < sig {
+		mant = append(mant, strings.Repeat("0", sig-len(mant))...)
+	}
+	rest := mant[sig:]
+	mant = mant[:sig]
+	if len(rest) > 0 && (rest[0] > '5' ||
+		(rest[0] == '5' && (strings.TrimRight(string(rest[1:]), "0") != "" || (mant[sig-1]-'0')%2 == 1))) {
+		i := sig - 1
+		for ; i >= 0 && mant[i] == '9'; i-- {
+			mant[i] = '0'
+		}
+		if i < 0 {
+			mant[0] = '1' // 9999999 rounds to 1000000 one decade up
+			exp++
+		} else {
+			mant[i]++
+		}
+	}
+	return fmt.Sprintf("%c.%se+%02d", mant[0], mant[1:], exp)
 }
 
 // displayCalculatedValue prints the Fibonacci value, truncating if necessary.
@@ -220,7 +250,7 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 	}
 
 	if details {
-		displayDetailedAnalysis(out, result, resultStr, duration)
+		displayDetailedAnalysis(out, resultStr, duration)
 		if duration > 0 {
 			displayIndicators(out, metrics.Compute(result, n, duration))
 		}
@@ -346,23 +376,8 @@ func writeResult(w io.Writer, result *big.Int, n uint64, duration time.Duration,
 
 // === Special modes ===
 
-// FormatQuietResult formats a result for quiet mode output.
-// Returns a single-line result suitable for scripting.
-//
-// Parameters:
-//   - result: The calculated Fibonacci number.
-//
-// Returns:
-//   - string: The formatted result string.
-func FormatQuietResult(result *big.Int) string {
-	return result.String()
-}
-
-// DisplayQuietResult outputs a result in quiet mode (minimal output).
-//
-// Parameters:
-//   - out: The output writer.
-//   - result: The calculated Fibonacci number.
+// DisplayQuietResult outputs a result in quiet mode: the bare decimal value on
+// one line, suitable for scripting.
 func DisplayQuietResult(out io.Writer, result *big.Int) {
-	fmt.Fprintln(out, FormatQuietResult(result))
+	fmt.Fprintln(out, result.String())
 }

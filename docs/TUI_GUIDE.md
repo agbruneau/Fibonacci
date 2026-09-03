@@ -197,7 +197,6 @@ the panel width. When done, displays total elapsed time instead of ETA.
 | Message Type | Fields | Source | Handled In |
 |-------------|--------|--------|------------|
 | `ProgressMsg` | `CalculatorIndex`, `Value`, `AverageProgress`, `ETA`, `Generation` | `TUIProgressReporter` | logs, chart, metrics |
-| `ProgressDoneMsg` | -- | `TUIProgressReporter` | no-op |
 | `ComparisonResultsMsg` | `Results []CalculationResult`, `Generation` | `TUIResultPresenter` | logs |
 | `FinalResultMsg` | `Result`, `N`, `Verbose`, `Details`, `ShowValue`, `Generation` | `TUIResultPresenter` | logs |
 | `ErrorMsg` | `Err`, `Duration`, `Generation` | `TUIResultPresenter` | logs, footer, header (`handleError` calls `header.SetDone()`) |
@@ -283,7 +282,7 @@ the discreet `bridgeLogger` (discarded by default so the active render is not co
 ### TUIProgressReporter
 
 Implements `orchestration.ProgressReporter`. Drains the progress channel, computes ETA,
-and sends `ProgressMsg` for each update. Sends `ProgressDoneMsg` when the channel closes.
+and sends `ProgressMsg` for each update. Completion is signalled by `CalculationCompleteMsg`, not by the channel closing.
 
 ### TUIResultPresenter
 
@@ -357,7 +356,7 @@ positions of `AnalyzeComparisonResults`.
 
 ### Generation Guard
 
-Seven of the eleven message types declared in `internal/tui/messages.go` carry a `Generation` field — `ProgressMsg`, `ComparisonResultsMsg`, `FinalResultMsg`, `ErrorMsg`, `CalculationCompleteMsg`, `IndicatorsMsg`, `ContextCancelledMsg` — not just the two completion messages. The other four (`ProgressDoneMsg`, `TickMsg`, `MemStatsMsg`, `SysStatsMsg`) carry no per-run state and are therefore not generation-tagged. Mismatches are discarded:
+Seven of the ten message types declared in `internal/tui/messages.go` carry a `Generation` field — `ProgressMsg`, `ComparisonResultsMsg`, `FinalResultMsg`, `ErrorMsg`, `CalculationCompleteMsg`, `IndicatorsMsg`, `ContextCancelledMsg` — not just the two completion messages. The other three (`TickMsg`, `MemStatsMsg`, `SysStatsMsg`) carry no per-run state and are therefore not generation-tagged. Mismatches are discarded:
 
 ```go
 case CalculationCompleteMsg:

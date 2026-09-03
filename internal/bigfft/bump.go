@@ -116,24 +116,6 @@ func (ba *BumpAllocator) Alloc(n int) []big.Word {
 	return slice
 }
 
-// allocUnsafe allocates n words without zeroing.
-// Use only when you're certain the caller will overwrite all values.
-//
-// Parameters:
-//   - n: Number of big.Word elements to allocate.
-//
-// Returns:
-//   - []big.Word: A slice of n words (may contain stale data).
-func (ba *BumpAllocator) allocUnsafe(n int) []big.Word {
-	if ba.offset+n > len(ba.buffer) {
-		return make([]big.Word, n)
-	}
-
-	slice := ba.buffer[ba.offset : ba.offset+n]
-	ba.offset += n
-	return slice
-}
-
 // allocFermat allocates a fermat number buffer of the given size.
 // Fermat numbers need n+1 words (the extra word for overflow handling).
 //

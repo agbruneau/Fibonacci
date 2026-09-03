@@ -107,13 +107,7 @@ func normalizeOptions(opts Options) Options {
 // BenchmarkCacheImpact drives a FastDoublingCalculator, which by the paragraph
 // above never reaches the cache.
 func configureFFTCache(opts Options, n uint64) {
-	// Get default config to use as base
-	defaultConfig := bigfft.DefaultTransformCacheConfig()
-	config := bigfft.TransformCacheConfig{
-		MaxEntries: defaultConfig.MaxEntries,
-		MinBitLen:  defaultConfig.MinBitLen,
-		Enabled:    defaultConfig.Enabled,
-	}
+	config := bigfft.DefaultTransformCacheConfig()
 
 	// Override with user-provided options if specified
 	if opts.FFTCacheMaxEntries > 0 {

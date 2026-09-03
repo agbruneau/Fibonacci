@@ -177,7 +177,7 @@ files are excluded). Currently five rules :
 | `internal/fibonacci/threshold` | `internal/config` | Would close a cycle through `config → fibonacci/memory`. The threshold package consumes `Tuning` via `SetTuning`. |
 | `internal/errors` | `internal/format` | Leaf utility ; uses local `formatBytesLocal` instead. |
 | `internal/tui` (production) | `internal/fibonacci` | UI must reach domain types through `orchestration.Calculator`/`Options` aliases. |
-| `internal/orchestration` | `internal/format` | APP-10 : `ProgressState` moved from `format` to `orchestration` ; the arrow must not come back. |
+| `internal/orchestration` | `internal/format` | APP-10 : progress aggregation (`ProgressAggregator`, formerly `ProgressState`) moved from `format` to `orchestration` ; the arrow must not come back. |
 | `internal/config` | `internal/fibonacci`, `internal/bigfft` | ARCH-02 : freezes the two documented lateral imports (`fibonacci/memory`, `ui`) where they stand ; reaching the computation core would close a cycle. |
 
 Adding a new rule is a one-line append to `architectureRules`.

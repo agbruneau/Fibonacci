@@ -55,13 +55,9 @@ func ComputeLastDigits(ctx context.Context, n uint64, k int) (LastDigitsResult, 
 		return LastDigitsResult{}, err
 	}
 
-	// Zero-pad on the left to exactly k digits.
-	format := fmt.Sprintf("%%0%ds", k)
-	digits := fmt.Sprintf(format, value.String())
-
 	return LastDigitsResult{
 		Value:    value,
-		Digits:   digits,
+		Digits:   fmt.Sprintf("%0*s", k, value.String()), // zero-padded on the left to exactly k digits
 		Duration: elapsed,
 	}, nil
 }

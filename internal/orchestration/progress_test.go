@@ -13,13 +13,13 @@ func TestNewProgressAggregator_Positive(t *testing.T) {
 	if agg == nil {
 		t.Fatal("expected non-nil aggregator for numCalculators=3")
 	}
-	if agg.numCalculators != 3 {
-		t.Errorf("expected numCalculators=3, got %d", agg.numCalculators)
+	if len(agg.progresses) != 3 {
+		t.Errorf("expected numCalculators=3, got %d", len(agg.progresses))
 	}
 	if !agg.IsMultiCalculator() {
 		t.Error("expected IsMultiCalculator()=true for 3 calculators")
 	}
-	if agg.state == nil {
+	if agg.progresses == nil {
 		t.Fatal("expected non-nil internal ProgressState")
 	}
 	if agg.progressRate != 0 {
@@ -128,7 +128,7 @@ func TestProgressAggregator_GetETA(t *testing.T) {
 	}
 
 	// Simulate some progress and inject a known smoothed rate.
-	agg.state.Update(0, 0.5)
+	agg.progresses[0] = 0.5
 	agg.progressRate = 0.1 // 10% per second
 
 	eta = agg.GetETA()
@@ -147,7 +147,7 @@ func TestProgressAggregator_EdgeCases(t *testing.T) {
 	t.Run("Progress exceeds 1.0", func(t *testing.T) {
 		t.Parallel()
 		agg := NewProgressAggregator(1)
-		agg.state.Update(0, 1.5)
+		agg.progresses[0] = 1.5
 		p := agg.CalculateAverage()
 		if p < 0 {
 			t.Errorf("progress should not be negative, got %f", p)
@@ -157,7 +157,7 @@ func TestProgressAggregator_EdgeCases(t *testing.T) {
 	t.Run("Negative progress", func(t *testing.T) {
 		t.Parallel()
 		agg := NewProgressAggregator(1)
-		agg.state.Update(0, -0.5)
+		agg.progresses[0] = -0.5
 		p := agg.CalculateAverage()
 		if p > 1.0 {
 			t.Errorf("progress should not exceed 1.0, got %f", p)
@@ -182,7 +182,7 @@ func TestProgressAggregator_EdgeCases(t *testing.T) {
 func TestProgressAggregator_ETACapping(t *testing.T) {
 	t.Parallel()
 	agg := NewProgressAggregator(1)
-	agg.state.Update(0, 0.001)   // Very small progress
+	agg.progresses[0] = 0.001    // Very small progress
 	agg.progressRate = 0.0000001 // Very slow rate
 
 	eta := agg.GetETA()
@@ -253,7 +253,7 @@ func TestProgressAggregator_RecomputeETA_ExponentialSmoothing(t *testing.T) {
 func TestProgressAggregator_RecomputeETA_NonPositiveDeltaKeepsRate(t *testing.T) {
 	t.Parallel()
 	agg := NewProgressAggregator(1)
-	agg.state.Update(0, 0.5)
+	agg.progresses[0] = 0.5
 	rewindAggregatorClock(agg, time.Second)
 	agg.lastProgress = 0.5 // same as the incoming average: delta == 0
 	agg.progressRate = 0.2
@@ -317,4 +317,18 @@ func TestDrainChannel_Empty(t *testing.T) {
 
 	DrainChannel(ch)
 	// If we reach here without deadlock, the test passes
+}
+
+// TestProgressAggregator_IgnoresOutOfRangeIndex pins that an update carrying
+// an index outside [0, numCalculators) neither panics nor skews the average.
+func TestProgressAggregator_IgnoresOutOfRangeIndex(t *testing.T) {
+	t.Parallel()
+	agg := NewProgressAggregator(2)
+	agg.Update(progress.ProgressUpdate{CalculatorIndex: 0, Value: 0.5})
+	agg.Update(progress.ProgressUpdate{CalculatorIndex: 1, Value: 1.0})
+	agg.Update(progress.ProgressUpdate{CalculatorIndex: -1, Value: 0.9})
+	agg.Update(progress.ProgressUpdate{CalculatorIndex: 2, Value: 0.9})
+	if got := agg.CalculateAverage(); got != 0.75 {
+		t.Errorf("average after out-of-range updates = %f, want 0.75", got)
+	}
 }

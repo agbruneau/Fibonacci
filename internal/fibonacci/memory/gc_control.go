@@ -30,11 +30,7 @@ const GCAutoThreshold uint64 = 1_000_000
 // leave room for the doubling-loop working set (a + b + temp + arena)
 // without giving up the OOM guard. Audit R4.2 named the constant and moved
 // it here; it did not measure it, and no artifact in the repo pins 3.0
-// against any other factor. The same value is mirrored in
-// config.DefaultThresholdTuning.MemoryLimitMultiplier; this package owns
-// the canonical value because internal/config already imports
-// internal/fibonacci/memory, so the reverse direction would be an import
-// cycle.
+// against any other factor.
 const DefaultMemoryLimitMultiplier = 3.0
 
 // Concurrency-safe process-wide GC control (A2-01 / ADR-0005).

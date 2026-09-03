@@ -1,16 +1,11 @@
 package config
 
-import (
-	"time"
-
-	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
-)
+import "time"
 
 // ThresholdTuningProfile centralizes the magic numbers that govern the
 // dynamic-threshold and micro-benchmark subsystems. Concentrating them here
 // gives a single audit point when tuning the heuristics; previously the
-// constants were scattered across the threshold/, memory/ and calibration/
-// packages.
+// constants were scattered across the threshold/ and calibration/ packages.
 //
 // Field origins are documented inline. Values must be kept in sync with the
 // constants they replaced — see audit R4.2.
@@ -62,22 +57,6 @@ type ThresholdTuningProfile struct {
 	// (pre-R4.2 literal).
 	MinParallelThreshold int
 
-	// MemoryLimitMultiplier is the factor applied to the runtime's
-	// reported Sys footprint to derive a soft GOMEMLIMIT while GC is
-	// disabled. Acts as an OOM safety net for very large F(N).
-	//
-	// Source: internal/fibonacci/memory/gc_control.go (pre-R4.2 literal).
-	// Rationale: 3.0 leaves headroom for the doubling loop's working set
-	// (a + b + temp + arena) without leaking to a hard limit on hosts
-	// where Sys already includes a generous Go heap.
-	//
-	// The canonical value lives in
-	// memory.DefaultMemoryLimitMultiplier so the gc_control package can
-	// consume it without taking a dependency on internal/config (config
-	// already depends on memory via validator.go, and the reverse import
-	// would be a cycle).
-	MemoryLimitMultiplier float64
-
 	// MicroBenchTimeout caps the wall-clock duration of the entire
 	// quick-calibration micro-benchmark suite. It keeps
 	// `fibcalc --auto-calibrate` responsive (there is no --quick-calibrate
@@ -97,15 +76,16 @@ type ThresholdTuningProfile struct {
 }
 
 // DefaultThresholdTuning is the production tuning profile. Its values
-// reproduce the constants that lived in internal/fibonacci/threshold/,
-// internal/fibonacci/memory/ and internal/calibration/ before audit R4.2.
-// Behavior is therefore byte-identical to the pre-centralisation code.
+// reproduce the constants that lived in internal/fibonacci/threshold/ and
+// internal/calibration/ before audit R4.2. Behavior is therefore
+// byte-identical to the pre-centralisation code. (The GC soft-limit factor
+// is not mirrored here: memory.DefaultMemoryLimitMultiplier is its only
+// reader and owns it outright.)
 var DefaultThresholdTuning = ThresholdTuningProfile{
 	FFTSpeedupThreshold:      1.2,
 	ParallelSpeedupThreshold: 1.1,
 	HysteresisMargin:         0.15,
 	MinFFTThreshold:          100_000,
 	MinParallelThreshold:     1024,
-	MemoryLimitMultiplier:    memory.DefaultMemoryLimitMultiplier,
 	MicroBenchTimeout:        400 * time.Millisecond,
 }

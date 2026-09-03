@@ -98,20 +98,6 @@ func TestBumpAllocatorEdgeCases(t *testing.T) {
 		ReleaseBumpAllocator(nil)
 	})
 
-	t.Run("AllocUnsafe falls back beyond capacity", func(t *testing.T) {
-		t.Parallel()
-		ba := AcquireBumpAllocator(8)
-		defer ReleaseBumpAllocator(ba)
-		used := ba.Used()
-		s := ba.allocUnsafe(64)
-		if len(s) != 64 {
-			t.Fatalf("fallback slice has len %d, want 64", len(s))
-		}
-		if ba.Used() != used {
-			t.Fatal("fallback allocation must not consume bump capacity")
-		}
-	})
-
 	t.Run("EstimateBumpCapacity extremes", func(t *testing.T) {
 		t.Parallel()
 		if got := EstimateBumpCapacity(0); got != 0 {

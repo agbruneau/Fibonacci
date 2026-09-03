@@ -98,9 +98,7 @@ type NullProgressReporter struct{}
 // DisplayProgress drains the channel without output.
 func (NullProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <-chan progress.ProgressUpdate, _ int, _ io.Writer) {
 	defer wg.Done()
-	for range progressChan {
-		// Drain channel silently
-	}
+	DrainChannel(progressChan)
 }
 
 // ResultPresenter defines the interface for presenting calculation results.

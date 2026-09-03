@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -68,17 +67,6 @@ const MaxPooledBitLen = 50_000_000
 func checkLimit(z *big.Int) bool {
 	return z != nil && z.BitLen() > MaxPooledBitLen
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Logging
-// ─────────────────────────────────────────────────────────────────────────────
-
-// taskLogger is the package-level logger for parallel task distribution.
-// Defaults to zerolog.Nop() (no output) to avoid performance impact. It is not
-// currently wired to a configurable sink (no SetTaskLogger): the Debug calls
-// below are kept as ready instrumentation that logs to Nop until a future
-// app-level wiring opts in.
-var taskLogger = zerolog.Nop()
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parallel Execution Helper
@@ -199,10 +187,6 @@ func executeTasks[T any, PT interface {
 	*T
 	task
 }](ctx context.Context, tasks []T, inParallel bool) error {
-	taskLogger.Debug().
-		Int("task_count", len(tasks)).
-		Bool("parallel", inParallel).
-		Msg("executing tasks")
 	if inParallel {
 		sem := getTaskSemaphore()
 		var g errgroup.Group
@@ -245,17 +229,10 @@ func executeTasks[T any, PT interface {
 // Returns:
 //   - error: An error if any task failed.
 func executeMixedTasks(ctx context.Context, sqrTasks []squaringTask, mulTasks []multiplicationTask, inParallel bool) error {
-	totalTasks := len(sqrTasks) + len(mulTasks)
-	if totalTasks == 0 {
+	if len(sqrTasks)+len(mulTasks) == 0 {
 		return nil
 	}
 
-	taskLogger.Debug().
-		Int("sqr_tasks", len(sqrTasks)).
-		Int("mul_tasks", len(mulTasks)).
-		Int("total_tasks", totalTasks).
-		Bool("parallel", inParallel).
-		Msg("executing mixed tasks")
 	if inParallel {
 		sem := getTaskSemaphore()
 		var g errgroup.Group

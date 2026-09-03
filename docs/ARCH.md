@@ -337,7 +337,7 @@ Additional notable engineering patterns include:
 │         └─ EstimateOptimalStrassenThreshold() (CPU-based)        │
 ├───────────────────────────────────────────────────────────────────┤
 │ 4. MODE DISPATCH (Application.Run)                                │
-│    ├─ Completion mode → cli.GenerateCompletion → exit            │
+│    ├─ Completion mode → completion.Generate → exit               │
 │    ├─ Calibration mode → calibration.RunCalibration → exit       │
 │    ├─ Auto-calibration → calibration.AutoCalibrate → update cfg  │
 │    ├─ TUI mode → tui.Run(ctx, calculators, cfg, version, errOut) │
@@ -621,9 +621,9 @@ Three-tier calibration approach:
 1. CACHED PROFILE (one file read, no benchmark)
    LoadOrCreateProfile(path) → check IsValid() → apply thresholds
 
-2. QUICK MICRO-BENCHMARKS (design target ~100 ms — microbench.go file comment + QuickCalibrate doc;
+2. QUICK MICRO-BENCHMARKS (design target ~100 ms — microbench.go file comment + RunQuick doc;
    the repo has no measurement of the actual wall time)
-   QuickCalibrate(ctx) → parallel/FFT threshold tests
+   NewMicroBenchmark().RunQuick(ctx) → parallel/FFT threshold tests
    → escalates to tier 3 when confidence < EscalationConfidenceThreshold
      (= 0.5, strategy.go:EscalationConfidenceThreshold; used in calibration.go:tryFastThenEscalate)
 
@@ -640,14 +640,13 @@ Three-tier calibration approach:
 ```
 
 Only the `--auto-calibrate` escalation tier actually sweeps FFT and Strassen:
-`CompleteStrategy.Calibrate` calls `findBestFFTThreshold` over
+`CompleteStrategy.Calibrate` runs the shared `runner.go:findBest` sweep over
 `GenerateFFTThresholds()` (`[-1]` — the sequential no-FFT baseline, prepended
 before the loop — then 200K→1M bits, step 50K: 18 candidates) with the
-`"fast"` calculator,
-and `findBestStrassenThreshold` with the `"matrix"` calculator when it is registered
+`"fast"` calculator, and again over `GenerateQuickStrassenThresholds()` with
+the `"matrix"` calculator when it is registered
 (`internal/calibration/strategy_complete.go:CompleteStrategy.Calibrate`,
-`adaptive.go:GenerateFFTThresholds`, `runner.go:findBestFFTThreshold` /
-`runner.go:findBestStrassenThreshold`).
+`adaptive.go:GenerateFFTThresholds`).
 
 ---
 

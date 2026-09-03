@@ -151,11 +151,6 @@ func acquireMatrixState() *matrixState {
 //
 // Parameters:
 //   - s: The matrixState to return to the pool. Safe to call with nil.
-//
-// P1-08: The oversize-check is split across group helpers
-// (checkStrassenProducts / checkStrassenSums / checkMatrixScratch /
-// checkAllMatricesLimit) so each function has cyclo ≤ 4 instead of the
-// previous aggregate of ~24 from one boolean expression.
 func releaseMatrixState(s *matrixState) {
 	if matrixStateOversized(s) {
 		return
@@ -163,47 +158,23 @@ func releaseMatrixState(s *matrixState) {
 	matrixStatePool.Put(s)
 }
 
-// matrixStateOversized returns true when any big.Int or matrix element in s
-// exceeds MaxPooledBitLen. We short-circuit across four group helpers so each
-// individual predicate stays shallow (cyclo ≤ 4).
+// matrixStateOversized returns true when any big.Int held by s — the three
+// matrices' elements or any Strassen/squaring temporary — exceeds
+// MaxPooledBitLen, so the state is dropped to GC instead of pinning it.
 func matrixStateOversized(s *matrixState) bool {
-	return checkStrassenProducts(s) ||
-		checkStrassenSums(s) ||
-		checkMatrixScratch(s) ||
-		checkAllMatricesLimit(s)
-}
-
-// checkStrassenProducts checks the seven Strassen product temporaries
-// (p1..p7) for oversize.
-func checkStrassenProducts(s *matrixState) bool {
-	return checkLimit(s.p1) || checkLimit(s.p2) || checkLimit(s.p3) ||
-		checkLimit(s.p4) || checkLimit(s.p5) || checkLimit(s.p6) ||
-		checkLimit(s.p7)
-}
-
-// checkStrassenSums checks the eight Strassen sum/difference temporaries
-// (s1..s8) for oversize.
-func checkStrassenSums(s *matrixState) bool {
-	return checkLimit(s.s1) || checkLimit(s.s2) || checkLimit(s.s3) ||
-		checkLimit(s.s4) || checkLimit(s.s5) || checkLimit(s.s6) ||
-		checkLimit(s.s7) || checkLimit(s.s8)
-}
-
-// checkMatrixScratch checks the five general-purpose scratch temporaries
-// (t1..t5) used for symmetric squaring.
-func checkMatrixScratch(s *matrixState) bool {
-	return checkLimit(s.t1) || checkLimit(s.t2) || checkLimit(s.t3) ||
-		checkLimit(s.t4) || checkLimit(s.t5)
-}
-
-// checkAllMatricesLimit checks all three matrices held by the state
-// (res, p, tempMatrix) for oversize elements.
-func checkAllMatricesLimit(s *matrixState) bool {
-	return checkMatrixLimit(s.res) ||
-		checkMatrixLimit(s.p) ||
-		checkMatrixLimit(s.tempMatrix)
-}
-
-func checkMatrixLimit(m *matrix) bool {
-	return checkLimit(m.a) || checkLimit(m.b) || checkLimit(m.c) || checkLimit(m.d)
+	for _, m := range []*matrix{s.res, s.p, s.tempMatrix} {
+		if checkLimit(m.a) || checkLimit(m.b) || checkLimit(m.c) || checkLimit(m.d) {
+			return true
+		}
+	}
+	for _, z := range []*big.Int{
+		s.p1, s.p2, s.p3, s.p4, s.p5, s.p6, s.p7,
+		s.s1, s.s2, s.s3, s.s4, s.s5, s.s6, s.s7, s.s8,
+		s.t1, s.t2, s.t3, s.t4, s.t5,
+	} {
+		if checkLimit(z) {
+			return true
+		}
+	}
+	return false
 }

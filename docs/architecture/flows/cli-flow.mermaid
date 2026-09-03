@@ -13,7 +13,7 @@ flowchart LR
         C5 --> A3
     end
 
-    subgraph Dispatch["Mode Dispatch (runDispatch, priority order)"]
+    subgraph Dispatch["Mode Dispatch (Application.Run, priority order)"]
         A3 --> B1{Completion?}
         B1 -->|Yes| B1a[Generate Shell Completion]
         B1 -->|No| B2{Calibrate?}

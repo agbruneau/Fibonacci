@@ -197,14 +197,19 @@ func (z fermat) Mul(x, y fermat) fermat {
 		}
 		z = zb
 	}
-	// len(z) is at most 2n+1.
+	return z.reduce(n, "Mul")
+}
+
+// reduce folds the raw product z (at most 2n+1 words) back modulo
+// 2^(n*_W)+1. We have z = z[:n] + 1<<(n*W) * z[n:2n+1], which normalizes to
+// z = z[:n] - z[n:2n] + z[2n]; the carries are then restored (z[n] -= c2 is
+// the same as z[0] += c2) and the result normalized. Shared tail of Mul and
+// Sqr; who names the caller in the post-condition panic, whose exact text is
+// a sentinel of fermatPostConditionPanics (fft.go) and must not change.
+func (z fermat) reduce(n int, who string) fermat {
 	if len(z) > 2*n+1 {
 		panic("len(z) > 2n+1")
 	}
-	// We now have
-	// z = z[:n] + 1<<(n*W) * z[n:2n+1]
-	// which normalizes to:
-	// z = z[:n] - z[n:2n] + z[2n]
 	c1 := big.Word(0)
 	if len(z) > 2*n {
 		c1 = addVW(z[:n], z[:n], z[2*n])
@@ -217,14 +222,10 @@ func (z fermat) Mul(x, y fermat) fermat {
 		c2 = subVV(z[:m], z[:m], z[n:])
 		c2 = subVW(z[m:n], z[m:n], c2)
 	}
-	// Restore carries.
-	// Subtracting z[n] -= c2 is the same
-	// as z[0] += c2
 	z = z[:n+1]
 	z[n] = c1
-	c := addVW(z, z, c2)
-	if c != 0 {
-		panic("fermat.Mul: unexpected carry after normalization")
+	if c := addVW(z, z, c2); c != 0 {
+		panic("fermat." + who + ": unexpected carry after normalization")
 	}
 	z.norm()
 	return z
@@ -258,31 +259,7 @@ func (z fermat) Sqr(x fermat) fermat {
 		}
 		z = zb
 	}
-	// len(z) is at most 2n+1.
-	if len(z) > 2*n+1 {
-		panic("len(z) > 2n+1")
-	}
-	// Reduce modulo 2^(n*_W)+1: same normalization as Mul
-	c1 := big.Word(0)
-	if len(z) > 2*n {
-		c1 = addVW(z[:n], z[:n], z[2*n])
-	}
-	c2 := big.Word(0)
-	if len(z) >= 2*n {
-		c2 = subVV(z[:n], z[:n], z[n:2*n])
-	} else {
-		m := len(z) - n
-		c2 = subVV(z[:m], z[:m], z[n:])
-		c2 = subVW(z[m:n], z[m:n], c2)
-	}
-	z = z[:n+1]
-	z[n] = c1
-	c := addVW(z, z, c2)
-	if c != 0 {
-		panic("fermat.Sqr: unexpected carry after normalization")
-	}
-	z.norm()
-	return z
+	return z.reduce(n, "Sqr")
 }
 
 // MulSafe is the error-returning counterpart of (fermat).Mul. It validates

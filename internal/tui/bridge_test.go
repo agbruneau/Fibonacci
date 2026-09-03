@@ -58,33 +58,6 @@ func TestTUIProgressReporter_ZeroCalculators(t *testing.T) {
 	wg.Wait()
 }
 
-func TestTUIResultPresenter_FormatDuration(t *testing.T) {
-	t.Parallel()
-	ref := &programRef{}
-	presenter := &TUIResultPresenter{ref: ref}
-
-	tests := []struct {
-		name  string
-		input time.Duration
-	}{
-		{"zero", 0},
-		{"microseconds", 500 * time.Microsecond},
-		{"milliseconds", 42 * time.Millisecond},
-		{"seconds", 2*time.Second + 500*time.Millisecond},
-		{"minutes", 3 * time.Minute},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := presenter.FormatDuration(tt.input)
-			if result == "" {
-				t.Errorf("expected non-empty duration format for %v", tt.input)
-			}
-		})
-	}
-}
-
 func TestProgramRef_Send_NilProgram(t *testing.T) {
 	t.Parallel()
 	ref := &programRef{} // program is nil

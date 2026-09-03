@@ -90,11 +90,6 @@ func GenerateFFTThresholds() []int {
 	return thresholds
 }
 
-// generateQuickFFTThresholds generates a smaller set for quick calibration.
-func generateQuickFFTThresholds() []int {
-	return []int{config.ThresholdDisabled, 750000, 1000000, 1500000}
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Adaptive Strassen Threshold Generation
 // ─────────────────────────────────────────────────────────────────────────────

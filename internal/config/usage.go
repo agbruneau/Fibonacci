@@ -21,7 +21,7 @@ func setCustomUsage(fs *flag.FlagSet) {
 		// emitted ANSI escapes into a stream the caller asked to keep clean
 		// (audit L-05). fs.Visit only reports flags already parsed, which is
 		// the case here: Parse handles them in order and reaches -h last.
-		if isFlagSetAny(fs, "machine", "quiet", "q") {
+		if isFlagSet(fs, "machine", "quiet", "q") {
 			t = ui.NoColorTheme
 		}
 

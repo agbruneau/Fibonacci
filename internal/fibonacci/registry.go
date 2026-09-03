@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-
-	"github.com/rs/zerolog"
 )
 
 // CalculatorFactory is an interface for creating Calculator instances.
@@ -29,11 +27,6 @@ type CalculatorFactory interface {
 	// GetAll returns a map of all registered calculators.
 	GetAll() map[string]Calculator
 }
-
-// registryLogger is the package-level logger for the registry. It is fixed at
-// zerolog.Nop() since no production caller installs a logger; the field is
-// retained so existing instrumentation calls compile to no-ops.
-var registryLogger = zerolog.Nop()
 
 // DefaultFactory is the default implementation of CalculatorFactory.
 // It maintains a thread-safe registry of calculator creators and
@@ -100,15 +93,12 @@ func (f *DefaultFactory) Create(name string) (Calculator, error) {
 	f.mu.RUnlock()
 
 	if !ok {
-		registryLogger.Debug().Str("calculator", name).Msg("calculator not found")
 		return nil, fmt.Errorf("unknown calculator: %s", name)
 	}
 	calc, err := NewCalculator(creator())
 	if err != nil {
-		registryLogger.Error().Err(err).Str("calculator", name).Msg("failed to create calculator")
 		return nil, err
 	}
-	registryLogger.Debug().Str("calculator", name).Msg("calculator created")
 	return calc, nil
 }
 
@@ -142,17 +132,14 @@ func (f *DefaultFactory) Get(name string) (Calculator, error) {
 
 	creator, ok := f.creators[name]
 	if !ok {
-		registryLogger.Debug().Str("calculator", name).Msg("calculator not found")
 		return nil, fmt.Errorf("unknown calculator: %s", name)
 	}
 
 	calc, err := NewCalculator(creator())
 	if err != nil {
-		registryLogger.Error().Err(err).Str("calculator", name).Msg("failed to pool create calculator")
 		return nil, err
 	}
 	f.calculators[name] = calc
-	registryLogger.Debug().Str("calculator", name).Msg("calculator created and cached")
 	return calc, nil
 }
 
@@ -186,11 +173,8 @@ func (f *DefaultFactory) GetAll() map[string]Calculator {
 	// Ensure all calculators are initialized
 	for name, creator := range f.creators {
 		if _, exists := f.calculators[name]; !exists {
-			calc, err := NewCalculator(creator())
-			if err == nil {
+			if calc, err := NewCalculator(creator()); err == nil {
 				f.calculators[name] = calc
-			} else {
-				registryLogger.Error().Err(err).Str("calculator", name).Msg("failed to default pool create calculator")
 			}
 		}
 	}
@@ -201,38 +185,4 @@ func (f *DefaultFactory) GetAll() map[string]Calculator {
 		result[name] = calc
 	}
 	return result
-}
-
-// MustGet is like Get but panics if the calculator is not found.
-// This is useful in initialization code where missing calculators
-// should be considered a programming error.
-//
-// Parameters:
-//   - name: The name of the calculator to retrieve.
-//
-// Returns:
-//   - Calculator: The Calculator instance.
-//
-// Panics:
-//   - If the calculator type is not registered.
-func (f *DefaultFactory) MustGet(name string) Calculator {
-	calc, err := f.Get(name)
-	if err != nil {
-		panic(fmt.Sprintf("fibonacci: required calculator not found: %s", name))
-	}
-	return calc
-}
-
-// Has checks if a calculator with the given name is registered.
-//
-// Parameters:
-//   - name: The name of the calculator to check.
-//
-// Returns:
-//   - bool: true if the calculator is registered, false otherwise.
-func (f *DefaultFactory) Has(name string) bool {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	_, exists := f.creators[name]
-	return exists
 }

@@ -318,22 +318,6 @@ func TestModel_Update_FinalResultMsg(t *testing.T) {
 	}
 }
 
-func TestModel_Update_ProgressDoneMsg(t *testing.T) {
-	t.Parallel()
-	m := newTestModel(t)
-
-	updated, cmd := m.Update(ProgressDoneMsg{})
-	result := updated.(Model)
-
-	if cmd != nil {
-		t.Error("expected no command from progress done")
-	}
-	// ProgressDoneMsg is a no-op, model state should not change
-	if result.done {
-		t.Error("expected model not to be done after ProgressDoneMsg")
-	}
-}
-
 func TestModel_Update_ContextCancelledMsg(t *testing.T) {
 	t.Parallel()
 	m := newTestModel(t)

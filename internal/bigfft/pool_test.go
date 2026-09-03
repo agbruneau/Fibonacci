@@ -647,3 +647,47 @@ func BenchmarkMulVsMulTo(b *testing.B) {
 		}
 	})
 }
+
+// getWordSlicePoolIndexLinear is the original O(n) linear search implementation,
+// kept as a reference for testing the optimized bitwise version.
+func getWordSlicePoolIndexLinear(size int) int {
+	for i, s := range wordSliceSizes {
+		if size <= s {
+			return i
+		}
+	}
+	return -1
+}
+
+// getFermatPoolIndexLinear is the original O(n) linear search implementation,
+// kept as a reference for testing the optimized bitwise version.
+func getFermatPoolIndexLinear(size int) int {
+	for i, s := range fermatSizes {
+		if size <= s {
+			return i
+		}
+	}
+	return -1
+}
+
+// getNatSlicePoolIndexLinear is the original O(n) linear search implementation,
+// kept as a reference for testing the optimized bitwise version.
+func getNatSlicePoolIndexLinear(size int) int {
+	for i, s := range natSliceSizes {
+		if size <= s {
+			return i
+		}
+	}
+	return -1
+}
+
+// getFermatSlicePoolIndexLinear is the original O(n) linear search implementation,
+// kept as a reference for testing the optimized bitwise version.
+func getFermatSlicePoolIndexLinear(size int) int {
+	for i, s := range fermatSliceSizes {
+		if size <= s {
+			return i
+		}
+	}
+	return -1
+}

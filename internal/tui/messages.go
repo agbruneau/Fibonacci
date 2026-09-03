@@ -18,9 +18,6 @@ type ProgressMsg struct {
 	Generation uint64
 }
 
-// ProgressDoneMsg signals that the progress channel has been closed.
-type ProgressDoneMsg struct{}
-
 // ComparisonResultsMsg carries comparison results for display in the logs.
 type ComparisonResultsMsg struct {
 	Results    []orchestration.CalculationResult

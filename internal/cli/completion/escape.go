@@ -99,24 +99,25 @@ func escapePowerShellSingleQuoted(s string) string {
 	return r.Replace(s)
 }
 
+// mapJoin applies escape to every element of items and joins the results with sep.
+func mapJoin(items []string, sep string, escape func(string) string) string {
+	out := make([]string, len(items))
+	for i, item := range items {
+		out[i] = escape(item)
+	}
+	return strings.Join(out, sep)
+}
+
 // formatAlgoListBash joins algorithm names for inclusion inside a
 // bash double-quoted string, escaping each entry.
 func formatAlgoListBash(algorithms []string) string {
-	escaped := make([]string, len(algorithms))
-	for i, a := range algorithms {
-		escaped[i] = escapeBashDoubleQuoted(a)
-	}
-	return strings.Join(escaped, " ")
+	return mapJoin(algorithms, " ", escapeBashDoubleQuoted)
 }
 
 // formatAlgoListZsh joins algorithm names for the zsh array literal,
 // individually single-quoting each entry.
 func formatAlgoListZsh(algorithms []string) string {
-	parts := make([]string, len(algorithms))
-	for i, a := range algorithms {
-		parts[i] = "'" + escapeZshSingleQuoted(a) + "'"
-	}
-	return strings.Join(parts, " ")
+	return mapJoin(algorithms, " ", func(a string) string { return "'" + escapeZshSingleQuoted(a) + "'" })
 }
 
 // formatZshValueList escapes and space-joins static completion values for a
@@ -125,29 +126,17 @@ func formatAlgoListZsh(algorithms []string) string {
 // they follow the full _arguments escaping rule (':', '[', ']' as well as the
 // single-quote layer).
 func formatZshValueList(values []string) string {
-	escaped := make([]string, len(values))
-	for i, v := range values {
-		escaped[i] = escapeZshArgSpec(v)
-	}
-	return strings.Join(escaped, " ")
+	return mapJoin(values, " ", escapeZshArgSpec)
 }
 
 // formatAlgoListFish joins algorithm names for the fish completion
 // argument, escaping each entry for splicing inside '...'.
 func formatAlgoListFish(algorithms []string) string {
-	escaped := make([]string, len(algorithms))
-	for i, a := range algorithms {
-		escaped[i] = escapeFishSingleQuoted(a)
-	}
-	return strings.Join(escaped, " ")
+	return mapJoin(algorithms, " ", escapeFishSingleQuoted)
 }
 
 // formatAlgoListPowerShell returns the comma-separated, single-quoted
 // PowerShell array element list for $fibcalcAlgorithms.
 func formatAlgoListPowerShell(algorithms []string) string {
-	parts := make([]string, len(algorithms))
-	for i, a := range algorithms {
-		parts[i] = "'" + escapePowerShellSingleQuoted(a) + "'"
-	}
-	return strings.Join(parts, ", ")
+	return mapJoin(algorithms, ", ", func(a string) string { return "'" + escapePowerShellSingleQuoted(a) + "'" })
 }

@@ -3,6 +3,7 @@ package completion
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -19,65 +20,13 @@ func bashStaticValueCase(f FlagCompletion) bashCase {
 	}
 }
 
-func collectBashAlgoCases() []bashCase {
-	var cases []bashCase
-	for _, f := range flagRegistry {
-		if f.IsAlgo {
-			cases = append(cases, bashCase{
-				patterns: []string{"--" + f.Long},
-				body:     `COMPREPLY=( $(compgen -W "${algorithms}" -- "${cur}") )`,
-			})
-		}
-	}
-	return cases
-}
-
-func collectBashCompletionCases() []bashCase {
-	var cases []bashCase
-	for _, f := range flagRegistry {
-		if f.Long == "completion" && len(f.Values) > 0 {
-			cases = append(cases, bashStaticValueCase(f))
-		}
-	}
-	return cases
-}
-
-func collectBashFileCases() []bashCase {
-	var patterns []string
-	for _, f := range flagRegistry {
-		if !f.IsFile {
-			continue
-		}
-		if f.Long != "" {
-			patterns = append(patterns, "--"+f.Long)
-		}
-		if f.Short != "" {
-			patterns = append(patterns, "-"+f.Short)
-		}
-	}
-	if len(patterns) == 0 {
-		return nil
-	}
-	return []bashCase{{
-		patterns: patterns,
-		body: `# File/directory completion
-            COMPREPLY=( $(compgen -f -- "${cur}") )`,
-	}}
-}
-
-func collectBashStaticCases() []bashCase {
-	var cases []bashCase
-	for _, f := range flagRegistry {
-		if !f.IsAlgo && !f.IsFile && f.Long != "completion" && len(f.Values) > 0 {
-			cases = append(cases, bashStaticValueCase(f))
-		}
-	}
-	return cases
-}
-
 // GenerateBash generates a Bash completion script.
 func GenerateBash(out io.Writer, algorithms []string) error {
-	var opts []string
+	// One pass over the registry sorts each flag into the case group it
+	// belongs to; the groups are then emitted in the original script's order
+	// (algo, completion, file, static-with-values), which the goldens pin.
+	var opts, filePatterns []string
+	var algoCases, completionCases, staticCases []bashCase
 	for _, f := range flagRegistry {
 		if f.Long != "" {
 			opts = append(opts, "--"+f.Long)
@@ -85,14 +34,35 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 		if f.Short != "" {
 			opts = append(opts, "-"+f.Short)
 		}
+		switch {
+		case f.IsAlgo:
+			algoCases = append(algoCases, bashCase{
+				patterns: []string{"--" + f.Long},
+				body:     `COMPREPLY=( $(compgen -W "${algorithms}" -- "${cur}") )`,
+			})
+		case f.IsFile:
+			if f.Long != "" {
+				filePatterns = append(filePatterns, "--"+f.Long)
+			}
+			if f.Short != "" {
+				filePatterns = append(filePatterns, "-"+f.Short)
+			}
+		case f.Long == "completion" && len(f.Values) > 0:
+			completionCases = append(completionCases, bashStaticValueCase(f))
+		case len(f.Values) > 0:
+			staticCases = append(staticCases, bashStaticValueCase(f))
+		}
 	}
 
-	// Order: algo, completion, file, static-with-values (matches the original layout).
-	orderedCases := make([]bashCase, 0, len(flagRegistry))
-	orderedCases = append(orderedCases, collectBashAlgoCases()...)
-	orderedCases = append(orderedCases, collectBashCompletionCases()...)
-	orderedCases = append(orderedCases, collectBashFileCases()...)
-	orderedCases = append(orderedCases, collectBashStaticCases()...)
+	orderedCases := slices.Concat(algoCases, completionCases)
+	if len(filePatterns) > 0 {
+		orderedCases = append(orderedCases, bashCase{
+			patterns: filePatterns,
+			body: `# File/directory completion
+            COMPREPLY=( $(compgen -f -- "${cur}") )`,
+		})
+	}
+	orderedCases = append(orderedCases, staticCases...)
 
 	var caseBody strings.Builder
 	for _, c := range orderedCases {

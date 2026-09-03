@@ -133,17 +133,6 @@ func TestBumpAllocatorAllocFermatSlice(t *testing.T) {
 	}
 }
 
-func TestAllocUnsafeFallback(t *testing.T) {
-	t.Parallel()
-	ba := AcquireBumpAllocator(100)
-	defer ReleaseBumpAllocator(ba)
-
-	slice := ba.allocUnsafe(50)
-	if len(slice) != 50 {
-		t.Errorf("Expected length 50, got %d", len(slice))
-	}
-}
-
 func TestEstimateBumpCapacity(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

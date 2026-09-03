@@ -15,12 +15,6 @@ type Ring[T any] struct {
 	count int
 }
 
-// RingBuffer is the float64 instantiation of Ring, kept as an alias so that
-// existing call sites (chart.go, sparkline_test.go) can keep using the
-// non-generic name. Audit task R4.8 introduced the generic Ring so LogsModel
-// can share the same fixed-capacity storage with strings.
-type RingBuffer = Ring[float64]
-
 // NewRing creates a generic ring buffer with the given capacity. A capacity
 // of 0 or below is silently raised to 1 to keep the indexing arithmetic
 // well-defined.
@@ -29,14 +23,6 @@ func NewRing[T any](capacity int) *Ring[T] {
 		capacity = 1
 	}
 	return &Ring[T]{data: make([]T, capacity)}
-}
-
-// NewRingBuffer creates a float64 ring buffer. Kept as a non-generic
-// constructor so existing call sites (sparkline samples, sparkline_test.go,
-// chart.go) can keep using NewRingBuffer(n) without specifying a type
-// parameter.
-func NewRingBuffer(capacity int) *RingBuffer {
-	return NewRing[float64](capacity)
 }
 
 // Push adds a sample, overwriting the oldest if full.

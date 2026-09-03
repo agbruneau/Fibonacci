@@ -182,7 +182,7 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 // selecting the best result, presenting it (quiet vs verbose), and saving it
 // to a file when requested.
 func (a *Application) analyzeResultsWithOutput(results []orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) int {
-	bestPtr := a.selectBest(results)
+	bestPtr := findBestResult(results)
 	// Copy the value out before present(): AnalyzeComparisonResults sorts
 	// results in place, which would invalidate a pointer held into the slice.
 	var best *orchestration.CalculationResult
@@ -192,16 +192,15 @@ func (a *Application) analyzeResultsWithOutput(results []orchestration.Calculati
 	}
 	exitCode := a.present(results, bestPtr, outputCfg, out)
 	if best != nil && exitCode == apperrors.ExitSuccess {
-		if err := a.save(best, outputCfg, out); err != nil {
+		if err := a.saveResultIfNeeded(best, outputCfg); err != nil {
 			return apperrors.ExitErrorGeneric
+		}
+		if outputCfg.OutputFile != "" && !outputCfg.Quiet {
+			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
+				ui.ColorGreen(), ui.ColorCyan(), outputCfg.OutputFile, ui.ColorReset())
 		}
 	}
 	return exitCode
-}
-
-// selectBest picks the fastest successful result, or nil if there is none.
-func (a *Application) selectBest(results []orchestration.CalculationResult) *orchestration.CalculationResult {
-	return findBestResult(results)
 }
 
 // present renders the results to the user and returns the resulting exit
@@ -239,19 +238,7 @@ func (a *Application) present(
 	return orchestration.AnalyzeComparisonResults(results, presOpts, presenter, presenter, out, a.ErrWriter)
 }
 
-// save writes the result to disk if requested and prints a success notice
-// (only in non-quiet mode).
-func (a *Application) save(best *orchestration.CalculationResult, outputCfg cli.OutputConfig, out io.Writer) error {
-	if err := a.saveResultIfNeeded(best, outputCfg); err != nil {
-		return err
-	}
-	if outputCfg.OutputFile != "" && !outputCfg.Quiet {
-		fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
-			ui.ColorGreen(), ui.ColorCyan(), outputCfg.OutputFile, ui.ColorReset())
-	}
-	return nil
-}
-
+// findBestResult picks the fastest successful result, or nil if there is none.
 func findBestResult(results []orchestration.CalculationResult) *orchestration.CalculationResult {
 	var bestResult *orchestration.CalculationResult
 	for i := range results {

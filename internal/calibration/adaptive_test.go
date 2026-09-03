@@ -107,17 +107,6 @@ func TestGenerateQuickParallelThresholds(t *testing.T) {
 	t.Logf("Generated %d quick parallel thresholds: %v", len(thresholds), thresholds)
 }
 
-func TestGenerateQuickFFTThresholds(t *testing.T) {
-	t.Parallel()
-	thresholds := generateQuickFFTThresholds()
-
-	if len(thresholds) < 2 {
-		t.Error("Expected multiple quick FFT thresholds")
-	}
-
-	t.Logf("Generated %d quick FFT thresholds: %v", len(thresholds), thresholds)
-}
-
 func TestGenerateQuickStrassenThresholds(t *testing.T) {
 	t.Parallel()
 	thresholds := GenerateQuickStrassenThresholds()

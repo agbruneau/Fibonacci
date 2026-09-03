@@ -55,17 +55,6 @@ func getWordSlicePoolIndex(size int) int {
 	return idx
 }
 
-// getWordSlicePoolIndexLinear is the original O(n) linear search implementation,
-// kept as a reference for testing the optimized bitwise version.
-func getWordSlicePoolIndexLinear(size int) int {
-	for i, s := range wordSliceSizes {
-		if size <= s {
-			return i
-		}
-	}
-	return -1
-}
-
 // acquireWordSlice gets a word slice of at least the given size from the pool.
 // The returned slice may be larger than requested.
 // If the size is too large for pooling, a new slice is allocated.
@@ -199,17 +188,6 @@ func getFermatPoolIndex(size int) int {
 	return idx
 }
 
-// getFermatPoolIndexLinear is the original O(n) linear search implementation,
-// kept as a reference for testing the optimized bitwise version.
-func getFermatPoolIndexLinear(size int) int {
-	for i, s := range fermatSizes {
-		if size <= s {
-			return i
-		}
-	}
-	return -1
-}
-
 // acquireFermat gets a fermat slice of at least the given size from the pool.
 // The returned slice is zeroed and has exactly the requested length.
 //
@@ -288,17 +266,6 @@ func getNatSlicePoolIndex(size int) int {
 	return idx
 }
 
-// getNatSlicePoolIndexLinear is the original O(n) linear search implementation,
-// kept as a reference for testing the optimized bitwise version.
-func getNatSlicePoolIndexLinear(size int) int {
-	for i, s := range natSliceSizes {
-		if size <= s {
-			return i
-		}
-	}
-	return -1
-}
-
 // acquireNatSlice gets a []nat slice of at least the given size from the pool.
 //
 // The returned slice should be released using releaseNatSlice, preferably with defer:
@@ -374,17 +341,6 @@ func getFermatSlicePoolIndex(size int) int {
 		idx = 0
 	}
 	return idx
-}
-
-// getFermatSlicePoolIndexLinear is the original O(n) linear search implementation,
-// kept as a reference for testing the optimized bitwise version.
-func getFermatSlicePoolIndexLinear(size int) int {
-	for i, s := range fermatSliceSizes {
-		if size <= s {
-			return i
-		}
-	}
-	return -1
 }
 
 // acquireFermatSlice gets a []fermat slice of at least the given size from the pool.

@@ -6,7 +6,7 @@
 //
 // # Must* convention (panics on error)
 //
-// Functions prefixed with "Must" (e.g. MustNewCalculator, DefaultFactory.MustGet)
+// Functions prefixed with "Must" (e.g. MustNewCalculator)
 // follow the standard Go convention of panicking on error instead of returning
 // an error value. They are intended for two narrow use cases:
 //

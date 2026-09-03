@@ -21,16 +21,10 @@ func TestDefaultFactory(t *testing.T) {
 	t.Parallel()
 	factory := NewDefaultFactory()
 
-	// Test Register and Has
-	t.Run("RegisterAndHas", func(t *testing.T) {
+	// Test Register
+	t.Run("Register", func(t *testing.T) {
 		if err := factory.Register("test", func() CoreCalculator { return &mockCoreCalculator{} }); err != nil {
 			t.Fatalf("Register failed: %v", err)
-		}
-		if !factory.Has("test") {
-			t.Error("Factory should have 'test' calculator")
-		}
-		if factory.Has("nonexistent") {
-			t.Error("Factory should not have 'nonexistent' calculator")
 		}
 	})
 
@@ -82,18 +76,6 @@ func TestDefaultFactory(t *testing.T) {
 		if err == nil {
 			t.Error("Get should fail for nonexistent calculator")
 		}
-	})
-
-	// Test MustGet
-	t.Run("MustGet", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("MustGet should have panicked for nonexistent calculator")
-			}
-		}()
-		_ = factory.MustGet("test")
-		// This should panic
-		_ = factory.MustGet("nonexistent")
 	})
 
 	// Test List

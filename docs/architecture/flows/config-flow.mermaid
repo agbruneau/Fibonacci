@@ -17,7 +17,7 @@ flowchart LR
         P4 --> P5[AppConfig struct]
     end
 
-    subgraph Calibration["Calibration Resolution (app.New, then runDispatch)"]
+    subgraph Calibration["Calibration Resolution (app.New, then Application.Run)"]
         P5 --> C5["LoadCachedCalibration<br/>(app.New — UNCONDITIONAL,<br/>runs before any mode dispatch)"]
         C5 --> C6{Loaded AND Validate ok?}
         C6 -->|"Yes: version, NumCPU, GOARCH, word size, CPUHeuristicKey all match"| C7["Apply Calibrated Thresholds<br/>DISCARDS any --threshold /<br/>--fft-threshold / --strassen-threshold<br/>and their FIBCALC_* values"]

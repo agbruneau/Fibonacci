@@ -7,7 +7,8 @@ package calibration
 import (
 	"context"
 	"errors"
-	"time"
+
+	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
 // ErrMissingFastCalculator is returned by CompleteStrategy.Calibrate
@@ -64,14 +65,19 @@ func (s CompleteStrategy) Calibrate(ctx context.Context, opts StrategyOptions) (
 	}
 
 	runner := newCalibrationRunner(ctx, opts.BaseConfig.Timeout)
+	base := opts.BaseConfig
 
-	bestPar, bestParDur := runner.findBestParallelThreshold(fastCalc, opts.BaseConfig.Threshold)
-	bestFFT, bestFFTDur := runner.findBestFFTThreshold(fastCalc, bestPar, opts.BaseConfig.FFTThreshold)
+	bestPar, bestParDur := runner.findBest(fastCalc, GenerateQuickParallelThresholds(), base.Threshold,
+		func(t int) fibonacci.Options { return fibonacci.Options{ParallelThreshold: t} })
+	bestFFT, bestFFTDur := runner.findBest(fastCalc, GenerateFFTThresholds(), base.FFTThreshold,
+		func(t int) fibonacci.Options { return fibonacci.Options{ParallelThreshold: bestPar, FFTThreshold: t} })
 
-	bestStrassen := opts.BaseConfig.StrassenThreshold
-	bestStrassenDur := time.Duration(1<<63 - 1)
+	bestStrassen, bestStrassenDur := base.StrassenThreshold, noTiming
 	if matCalc := opts.CalculatorRegistry["matrix"]; matCalc != nil {
-		bestStrassen, bestStrassenDur = runner.findBestStrassenThreshold(matCalc, bestPar, opts.BaseConfig.StrassenThreshold)
+		bestStrassen, bestStrassenDur = runner.findBest(matCalc, GenerateQuickStrassenThresholds(), base.StrassenThreshold,
+			func(t int) fibonacci.Options {
+				return fibonacci.Options{ParallelThreshold: bestPar, StrassenThreshold: t}
+			})
 	}
 
 	// applyCalibrationResults already encodes the "at least one dimension

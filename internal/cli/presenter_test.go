@@ -58,17 +58,6 @@ func TestCLIResultPresenter_PresentResult(t *testing.T) {
 	}
 }
 
-func TestCLIResultPresenter_FormatDuration(t *testing.T) {
-	t.Parallel()
-	p := CLIResultPresenter{}
-	if p.FormatDuration(0) == "" {
-		t.Fatal("FormatDuration(0) returned empty string")
-	}
-	if p.FormatDuration(123*time.Millisecond) == p.FormatDuration(456*time.Millisecond) {
-		t.Fatal("FormatDuration does not differentiate distinct inputs")
-	}
-}
-
 func TestCLIResultPresenter_HandleError(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -93,23 +82,5 @@ func TestCLIResultPresenter_HandleError(t *testing.T) {
 				t.Errorf("HandleError produced no output")
 			}
 		})
-	}
-}
-
-func TestPadSpaces(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		length int
-		want   string
-	}{
-		{-1, ""},
-		{0, ""},
-		{1, " "},
-		{4, "    "},
-	}
-	for _, tc := range cases {
-		if got := padSpaces(tc.length); got != tc.want {
-			t.Errorf("padSpaces(%d) = %q, want %q", tc.length, got, tc.want)
-		}
 	}
 }

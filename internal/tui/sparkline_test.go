@@ -6,7 +6,7 @@ import (
 
 func TestRingBuffer_PushAndSlice(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := NewRing[float64](3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -25,7 +25,7 @@ func TestRingBuffer_PushAndSlice(t *testing.T) {
 
 func TestRingBuffer_Overflow(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := NewRing[float64](3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -45,7 +45,7 @@ func TestRingBuffer_Overflow(t *testing.T) {
 
 func TestRingBuffer_Last(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(5)
+	rb := NewRing[float64](5)
 	if rb.Last() != 0 {
 		t.Error("expected 0 for empty buffer")
 	}
@@ -59,7 +59,7 @@ func TestRingBuffer_Last(t *testing.T) {
 
 func TestRingBuffer_Last_AfterOverflow(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(2)
+	rb := NewRing[float64](2)
 	rb.Push(10)
 	rb.Push(20)
 	rb.Push(30) // overwrites 10
@@ -70,7 +70,7 @@ func TestRingBuffer_Last_AfterOverflow(t *testing.T) {
 
 func TestRingBuffer_Reset(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(5)
+	rb := NewRing[float64](5)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Reset()
@@ -85,7 +85,7 @@ func TestRingBuffer_Reset(t *testing.T) {
 
 func TestRingBuffer_Resize_Grow(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := NewRing[float64](3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -108,7 +108,7 @@ func TestRingBuffer_Resize_Grow(t *testing.T) {
 
 func TestRingBuffer_Resize_Shrink(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(5)
+	rb := NewRing[float64](5)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Push(3)
@@ -130,7 +130,7 @@ func TestRingBuffer_Resize_Shrink(t *testing.T) {
 
 func TestRingBuffer_ZeroCapacity(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(0)
+	rb := NewRing[float64](0)
 	if rb.Cap() != 1 {
 		t.Errorf("expected min cap 1, got %d", rb.Cap())
 	}
@@ -142,7 +142,7 @@ func TestRingBuffer_ZeroCapacity(t *testing.T) {
 
 func TestRingBuffer_Resize_SameCapacity(t *testing.T) {
 	t.Parallel()
-	rb := NewRingBuffer(3)
+	rb := NewRing[float64](3)
 	rb.Push(1)
 	rb.Push(2)
 	rb.Resize(3) // no-op
@@ -223,7 +223,7 @@ func TestRenderSparkline_MidValue(t *testing.T) {
 func TestRingBuffer_Resize_NonPositiveCap(t *testing.T) {
 	t.Parallel()
 	for _, newCap := range []int{0, -3} {
-		rb := NewRingBuffer(3)
+		rb := NewRing[float64](3)
 		rb.Push(1)
 		rb.Push(2)
 		rb.Push(3)

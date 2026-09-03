@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit de sur-ingénierie 2026-09-03 (ponytail)
+
+Passe repo entier après l'audit exhaustif : ce qui reste à supprimer, replier
+ou remplacer par la bibliothèque standard, plus un correctif et une
+optimisation trouvés en chemin. Décisions et candidats écartés :
+[ADR-0011](docs/adr/0011-audit-2026-09-ponytail.md). Gate : build / vet /
+`go test ./...` verts, `golangci-lint` à zéro, `benchstat` A/B en double ordre
+sur `BenchmarkFibonacci/(FastDoubling|FFTBased)/1M`.
+
+#### Fixed
+
+- **`go build -tags gmp` ne compilait plus** : `calculator_gmp.go` appelait
+  encore `progress.CalcTotalWork`, `progress.PrecomputePowers4` et l'ancienne
+  signature à sept paramètres de `ReportStepProgress`, supprimées par L-01.
+  Aucun gate ne l'exécute sur cet hôte (pas de `libgmp`), le fichier est aligné
+  sur la signature courante sans pouvoir être compilé ici.
+
+#### Performance
+
+- **`--details` payait une seconde conversion décimale complète** pour la
+  ligne « Scientific notation » : `fmt.Sprintf("%.6e", big.Float.SetInt(x))`
+  matérialise l'entier entier pour le convertir (mesuré : 345 ms à F(10M), le
+  même coût que `String()` que L-11 venait de dédupliquer, et `SetPrec(64)`
+  n'y change rien). La notation est maintenant dérivée de la chaîne décimale
+  déjà calculée, arrondi demi-pair identique à `%.6e`, épinglé par
+  `TestScientificNotation_MatchesBigFloat`.
+
+#### Removed / simplified (aucun changement de comportement observable)
+
+- `app.ExitAction` (énumération miroir 1:1 des codes POSIX, aller-retour
+  int → enum → int, existant pour encoder un « ne pas appeler `os.Exit` » sur
+  `--version` indiscernable de `os.Exit(0)`) : `Application.Run` retourne le
+  code POSIX, `main` fait `os.Exit(run(...))`.
+- `orchestration.ProgressState` replié dans `ProgressAggregator` ;
+  `cli.GenerateCompletion` (enveloppe pure) ; `cli.FormatQuietResult` ;
+  `CLIResultPresenter.FormatDuration` / `TUIResultPresenter.FormatDuration`
+  (hors interface, sans appelant) ; `tui.ProgressDoneMsg` (puits no-op) ;
+  `tui.RingBuffer`/`NewRingBuffer` (alias « compatibilité » d'un paquet
+  interne) ; `tui.spaces` et `cli.padSpaces` → `strings.Repeat` ;
+  `errors.CalculationContext.ConfigExcerpt` + `sanitizeConfigExcerpt` (jamais
+  renseigné en production) ; `config.ThresholdTuningProfile.MemoryLimitMultiplier`
+  (miroir sans lecteur) ; `DefaultFactory.MustGet`/`Has` ; les loggers
+  `registryLogger`/`taskLogger` figés à `zerolog.Nop()` ;
+  `bigfft.allocUnsafe` ; `calibration.QuickCalibrate` et
+  `generateQuickFFTThresholds` ; les quatre `get*PoolIndexLinear` et
+  `config.validateEnvOverrides` déplacés dans les fichiers de test qui sont
+  leurs seuls appelants.
+- `config/env.go` : la table de 20 entrées × 7 lignes de boilerplate de
+  parsing devient 20 lignes de `override(key, flags, champ, parse)` ;
+  `parseBoolEnv` perd son paramètre `defaultVal` jamais lu ;
+  `isFlagSet`/`isFlagSetAny` fusionnés.
+- `calibration/runner.go` : les trois `findBest*Threshold` identiques deviennent
+  un `findBest(calc, candidats, défaut, opts)`.
+- `bigfft/fermat.go` : la queue de réduction modulo 2^n+1 dupliquée entre `Mul`
+  et `Sqr` devient `reduce` (sentinelles de panic inchangées).
+- `completion/bash.go` : quatre collecteurs remplacés par une passe sur le
+  registre ; `escape.go` : cinq map-join identiques → `mapJoin`.
+- `fibonacci.matrixStateOversized` : quatre prédicats « cyclo ≤ 4 » → une
+  boucle ; `configureFFTCache` copie la config par défaut au lieu de la
+  recopier champ par champ ; `ApplyAdaptiveThresholds` détecte le matériel une
+  fois au lieu de trois.
+
 ### Audit exhaustif 2026-09
 
 Audit de tout le code Go de production (rapport `audit.md`, 23 constats), exécuté

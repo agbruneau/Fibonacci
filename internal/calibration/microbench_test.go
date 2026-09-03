@@ -66,7 +66,7 @@ func TestQuickCalibrate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	results, err := QuickCalibrate(ctx)
+	results, err := NewMicroBenchmark().RunQuick(ctx)
 	if err != nil {
 		t.Fatalf("QuickCalibrate failed: %v", err)
 	}

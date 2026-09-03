@@ -6,7 +6,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"unicode/utf8"
 )
 
 func TestConfigError(t *testing.T) {
@@ -211,7 +210,6 @@ func TestCalculationError_FormatDiagnostic(t *testing.T) {
 		FFTThresholdBits:      500_000,
 		StrassenThresholdBits: 3072,
 		MemoryEstimateBytes:   1024 * 1024,
-		ConfigExcerpt:         "algo=fast",
 	})
 	var ce CalculationError
 	if !errors.As(err, &ce) {
@@ -221,7 +219,7 @@ func TestCalculationError_FormatDiagnostic(t *testing.T) {
 		t.Fatal("expected HasDiagnostic true")
 	}
 	d := ce.FormatDiagnostic()
-	for _, want := range []string{"n=1000000", "parallel_bits=4096", "fft_bits=500000", "strassen_bits=3072", "mem_est=", "config=algo=fast"} {
+	for _, want := range []string{"n=1000000", "parallel_bits=4096", "fft_bits=500000", "strassen_bits=3072", "mem_est="} {
 		if !strings.Contains(d, want) {
 			t.Errorf("FormatDiagnostic() missing %q in %q", want, d)
 		}
@@ -245,7 +243,6 @@ func TestCalculationError_HasDiagnostic(t *testing.T) {
 		want bool
 	}{
 		{"zero context", CalculationContext{}, false},
-		{"config excerpt only", CalculationContext{ConfigExcerpt: "algo=fast"}, true},
 		{"memory estimate only", CalculationContext{MemoryEstimateBytes: 1}, true},
 		{"n only", CalculationContext{N: 42}, true},
 		{"parallel threshold only", CalculationContext{ParallelThresholdBits: 4096}, true},
@@ -300,44 +297,6 @@ func TestCalculationError_FormatDiagnostic_branches(t *testing.T) {
 	}
 }
 
-func TestSanitizeConfigExcerpt(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{"plain text unchanged", "algo=fast", "algo=fast"},
-		{"newlines flattened and trimmed", "  line1\nline2  ", "line1 line2"},
-		{"exactly max length untouched", strings.Repeat("a", 200), strings.Repeat("a", 200)},
-		{"over max length truncated with ellipsis", strings.Repeat("a", 250), strings.Repeat("a", 200) + "…"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := sanitizeConfigExcerpt(tt.input); got != tt.want {
-				t.Errorf("sanitizeConfigExcerpt(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestSanitizeConfigExcerpt_RuneBoundary ensures truncation never splits a
-// multibyte rune: a >maxLen string whose 200th byte lands inside a rune must be
-// cut back to the rune boundary, yielding valid UTF-8.
-func TestSanitizeConfigExcerpt_RuneBoundary(t *testing.T) {
-	t.Parallel()
-	input := strings.Repeat("a", 199) + "好" // 199 + 3 bytes = 202 > 200; byte 200 is mid-rune
-	got := sanitizeConfigExcerpt(input)
-	if !utf8.ValidString(got) {
-		t.Fatalf("sanitizeConfigExcerpt produced invalid UTF-8: %q", got)
-	}
-	if want := strings.Repeat("a", 199) + "…"; got != want {
-		t.Errorf("sanitizeConfigExcerpt(...) = %q, want %q", got, want)
-	}
-}
-
 func TestFormatBytesLocal(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -361,21 +320,5 @@ func TestFormatBytesLocal(t *testing.T) {
 				t.Errorf("formatBytesLocal(%d) = %q, want %q", tt.bytes, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestCalculationError_FormatDiagnostic_sanitizesExcerpt(t *testing.T) {
-	t.Parallel()
-	err := WrapCalculationError(errors.New("x"), CalculationContext{
-		N:             10,
-		ConfigExcerpt: "line1\nline2\tsecret",
-	})
-	var ce CalculationError
-	if !errors.As(err, &ce) {
-		t.Fatal("expected CalculationError")
-	}
-	d := ce.FormatDiagnostic()
-	if strings.Contains(d, "\n") {
-		t.Errorf("diagnostic should not contain newlines: %q", d)
 	}
 }

@@ -10,7 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
-	"github.com/agbruneau/FibGo/internal/format"
 	"github.com/agbruneau/FibGo/internal/orchestration"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
@@ -96,7 +95,6 @@ func (t *TUIProgressReporter) DisplayProgress(wg *sync.WaitGroup, progressChan <
 			Generation:      t.gen,
 		}, "DisplayProgress")
 	}
-	t.ref.sendOrLog(ProgressDoneMsg{}, "DisplayProgress")
 }
 
 // TUIResultPresenter implements orchestration.ResultPresenter.
@@ -127,11 +125,6 @@ func (t *TUIResultPresenter) PresentResult(result orchestration.CalculationResul
 		ShowValue:  showValue,
 		Generation: t.gen,
 	}, "PresentResult")
-}
-
-// FormatDuration delegates to the CLI formatter.
-func (t *TUIResultPresenter) FormatDuration(d time.Duration) string {
-	return format.FormatExecutionDuration(d)
 }
 
 // HandleError sends an error message to the TUI and returns the exit code.

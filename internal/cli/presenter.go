@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	apperrors "github.com/agbruneau/FibGo/internal/errors"
@@ -34,64 +35,46 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 	// Find the maximum algorithm name width for proper alignment
 	maxNameLen := 9     // "Algorithm" header length
 	maxDurationLen := 8 // "Duration" header length
-	for _, res := range results {
+	durations := make([]string, len(results))
+	for i, res := range results {
 		if len(res.Name) > maxNameLen {
 			maxNameLen = len(res.Name)
 		}
-		duration := format.FormatExecutionDuration(res.Duration)
+		durations[i] = format.FormatExecutionDuration(res.Duration)
 		if res.Duration == 0 {
-			duration = "< 1µs"
+			durations[i] = "< 1µs"
 		}
-		if len(duration) > maxDurationLen {
-			maxDurationLen = len(duration)
+		if len(durations[i]) > maxDurationLen {
+			maxDurationLen = len(durations[i])
 		}
 	}
+	pad := func(n int) string { return strings.Repeat(" ", max(n, 0)) }
 
 	// Print header with proper padding
 	fmt.Fprintf(out, "%sAlgorithm%s%s   %sDuration%s%s   %sStatus%s\n",
-		ui.ColorUnderline(), ui.ColorReset(), padSpaces(maxNameLen-9),
-		ui.ColorUnderline(), ui.ColorReset(), padSpaces(maxDurationLen-8),
+		ui.ColorUnderline(), ui.ColorReset(), pad(maxNameLen-9),
+		ui.ColorUnderline(), ui.ColorReset(), pad(maxDurationLen-8),
 		ui.ColorUnderline(), ui.ColorReset())
 
 	// Print each result row
-	for _, res := range results {
+	for i, res := range results {
 		var status string
 		if res.Err != nil {
 			status = fmt.Sprintf("%s❌ Failure (%v)%s", ui.ColorRed(), res.Err, ui.ColorReset())
 		} else {
 			status = fmt.Sprintf("%s✅ Success%s", ui.ColorGreen(), ui.ColorReset())
 		}
-		duration := format.FormatExecutionDuration(res.Duration)
-		if res.Duration == 0 {
-			duration = "< 1µs"
-		}
 		fmt.Fprintf(out, "%s%s%s%s   %s%s%s%s   %s\n",
-			ui.ColorBlue(), res.Name, ui.ColorReset(), padSpaces(maxNameLen-len(res.Name)),
-			ui.ColorYellow(), duration, ui.ColorReset(), padSpaces(maxDurationLen-len(duration)),
+			ui.ColorBlue(), res.Name, ui.ColorReset(), pad(maxNameLen-len(res.Name)),
+			ui.ColorYellow(), durations[i], ui.ColorReset(), pad(maxDurationLen-len(durations[i])),
 			status)
 	}
-}
-
-// padSpaces returns a string of `length` spaces (empty when length <= 0).
-// Previously this was padRight(s string, length int) but every call site
-// passed s=""; dropping the dead parameter (P1-07) simplifies the API.
-func padSpaces(length int) string {
-	if length <= 0 {
-		return ""
-	}
-	return fmt.Sprintf("%*s", length, "")
 }
 
 // PresentResult displays the final calculation result using the CLI's
 // DisplayResult function.
 func (CLIResultPresenter) PresentResult(result orchestration.CalculationResult, n uint64, verbose, details, showValue bool, out io.Writer) {
 	DisplayResult(result.Result, n, result.Duration, verbose, details, showValue, out)
-}
-
-// FormatDuration formats a duration for display using the CLI's standard
-// duration formatting.
-func (CLIResultPresenter) FormatDuration(d time.Duration) string {
-	return format.FormatExecutionDuration(d)
 }
 
 // HandleError handles calculation errors and returns an appropriate exit code.

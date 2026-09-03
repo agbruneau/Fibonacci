@@ -7,8 +7,8 @@ import (
 )
 
 // ProgressAggregator manages multi-calculator progress aggregation with ETA
-// estimation. It combines the per-calculator progress state (delegated to
-// ProgressState) with time-based smoothing to produce a stable ETA.
+// estimation: it keeps the latest fraction reported by each calculator,
+// averages them, and applies time-based smoothing to produce a stable ETA.
 //
 // Both CLI and TUI use this type so that aggregation, smoothing, and ETA
 // computation are not duplicated across UI layers.
@@ -16,8 +16,7 @@ import (
 // ProgressAggregator is NOT thread-safe. It is designed to be accessed from a
 // single consumer goroutine that reads from the progress channel.
 type ProgressAggregator struct {
-	state          *ProgressState
-	numCalculators int
+	progresses []float64 // latest fraction per calculator, indexed by CalculatorIndex
 
 	// ETA computation state.
 	startTime    time.Time
@@ -34,10 +33,9 @@ func NewProgressAggregator(numCalculators int) *ProgressAggregator {
 	}
 	now := time.Now()
 	return &ProgressAggregator{
-		state:          NewProgressState(numCalculators),
-		numCalculators: numCalculators,
-		startTime:      now,
-		lastUpdate:     now,
+		progresses: make([]float64, numCalculators),
+		startTime:  now,
+		lastUpdate: now,
 	}
 }
 
@@ -55,10 +53,13 @@ type AggregatedProgress struct {
 
 // Update processes a single progress update and returns the aggregated result.
 // It refreshes the smoothed progress rate using exponential smoothing so the
-// ETA stays stable even when updates arrive at irregular intervals.
+// ETA stays stable even when updates arrive at irregular intervals. Updates
+// carrying an out-of-range CalculatorIndex are ignored.
 func (a *ProgressAggregator) Update(update progress.ProgressUpdate) AggregatedProgress {
-	a.state.Update(update.CalculatorIndex, update.Value)
-	avg := a.state.CalculateAverage()
+	if i := update.CalculatorIndex; i >= 0 && i < len(a.progresses) {
+		a.progresses[i] = update.Value
+	}
+	avg := a.CalculateAverage()
 	eta := a.recomputeETA(avg)
 
 	return AggregatedProgress{
@@ -110,21 +111,26 @@ func (a *ProgressAggregator) recomputeETA(frac float64) time.Duration {
 	return capETA(a.progressRate, frac)
 }
 
-// CalculateAverage returns the current average progress without updating.
-// Useful for periodic refresh between updates (e.g., CLI ticker).
+// CalculateAverage returns the current average progress across all tracked
+// calculators without updating. Useful for periodic refresh between updates
+// (e.g., CLI ticker).
 func (a *ProgressAggregator) CalculateAverage() float64 {
-	return a.state.CalculateAverage()
+	var total float64
+	for _, p := range a.progresses {
+		total += p
+	}
+	return total / float64(len(a.progresses))
 }
 
 // GetETA returns the current ETA estimate without updating progress.
 // Useful for periodic refresh between updates (e.g., CLI ticker).
 func (a *ProgressAggregator) GetETA() time.Duration {
-	return capETA(a.progressRate, a.state.CalculateAverage())
+	return capETA(a.progressRate, a.CalculateAverage())
 }
 
 // IsMultiCalculator returns true if tracking more than one calculator.
 func (a *ProgressAggregator) IsMultiCalculator() bool {
-	return a.numCalculators > 1
+	return len(a.progresses) > 1
 }
 
 // DrainChannel reads all updates from the channel without processing.

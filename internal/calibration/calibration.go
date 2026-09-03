@@ -511,19 +511,18 @@ func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (updated co
 //   - config.AppConfig: The updated configuration.
 //   - bool: true if any valid results were found, false otherwise.
 func applyCalibrationResults(cfg config.AppConfig, bestPar int, bestParDur time.Duration, bestFFT int, bestFFTDur time.Duration, bestStrassen int, bestStrassenDur time.Duration) (updated config.AppConfig, ok bool) {
-	maxDuration := time.Duration(1<<63 - 1)
-	if bestParDur == maxDuration && bestFFTDur == maxDuration {
+	if bestParDur == noTiming && bestFFTDur == noTiming {
 		return cfg, false
 	}
 
 	updated = cfg
-	if bestParDur != maxDuration {
+	if bestParDur != noTiming {
 		updated.Threshold = bestPar
 	}
-	if bestFFTDur != maxDuration {
+	if bestFFTDur != noTiming {
 		updated.FFTThreshold = bestFFT
 	}
-	if bestStrassenDur != maxDuration {
+	if bestStrassenDur != noTiming {
 		updated.StrassenThreshold = bestStrassen
 	}
 	return updated, true

@@ -568,21 +568,3 @@ func (mb *MicroBenchmark) findParallelCrossover(bySize map[int][]testResult) int
 
 	return crossoverSize
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Quick Calibration Function
-// ─────────────────────────────────────────────────────────────────────────────
-
-// QuickCalibrate performs a fast calibration using micro-benchmarks.
-// This is designed to run in ~100ms and provide reasonable threshold estimates.
-//
-// Parameters:
-//   - ctx: The context for cancellation
-//
-// Returns:
-//   - ThresholdResults: The estimated optimal thresholds
-//   - error: An error if calibration failed
-func QuickCalibrate(ctx context.Context) (ThresholdResults, error) {
-	mb := NewMicroBenchmark()
-	return mb.RunQuick(ctx)
-}

@@ -7,6 +7,6 @@
 // All error types implement the Unwrap() method to support errors.Is() and errors.As().
 //
 // Calculation failures may be wrapped as [CalculationError] with optional
-// [CalculationContext] (thresholds, memory estimate, safe config excerpt) for
+// [CalculationContext] (n, thresholds, memory estimate) for
 // diagnostics; see [WrapCalculationError] and [CalculationError.FormatDiagnostic].
 package apperrors

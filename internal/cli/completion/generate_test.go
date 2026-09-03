@@ -1,4 +1,4 @@
-package cli
+package completion
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestGenerateCompletion(t *testing.T) {
+func TestGenerate_AllShells(t *testing.T) {
 	t.Parallel()
 	algorithms := []string{"fast", "matrix", "fft"}
 
@@ -111,7 +111,7 @@ func TestGenerateCompletion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
-			err := GenerateCompletion(&buf, tc.shell, algorithms)
+			err := Generate(&buf, tc.shell, algorithms)
 
 			if tc.expectErr {
 				if err == nil {
@@ -139,7 +139,7 @@ func TestGenerateCompletion(t *testing.T) {
 func TestGenerateCompletion_EmptyAlgorithms(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
-	err := GenerateCompletion(&buf, "bash", []string{})
+	err := Generate(&buf, "bash", []string{})
 	if err != nil {
 		t.Errorf("Should not error with empty algorithms: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestGenerateCompletion_MultipleAlgorithms(t *testing.T) {
 	t.Parallel()
 	algorithms := []string{"fast", "matrix", "fft", "strassen", "optimized"}
 	var buf bytes.Buffer
-	err := GenerateCompletion(&buf, "bash", algorithms)
+	err := Generate(&buf, "bash", algorithms)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
