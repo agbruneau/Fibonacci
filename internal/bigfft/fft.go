@@ -51,6 +51,17 @@ func getFFTThreshold() int { return int(fftThreshold.Load()) }
 // via getFFTThreshold but never calls this setter).
 func SetFFTThreshold(v int) { fftThreshold.Store(int64(v)) }
 
+// FFTThresholdWords returns the operand size, in words, above which Mul and
+// friends switch to the FFT path. Below it every entry point falls through to
+// math/big, so a caller timing "FFT versus standard" at a smaller size is
+// timing the same code twice.
+//
+// internal/calibration needs this to keep its micro-benchmark honest: it used
+// to include sizes under the threshold in its crossover search, where the two
+// configurations are identical and any difference is measurement noise (audit
+// M-01).
+func FFTThresholdWords() int { return getFFTThreshold() }
+
 // Mul computes the product x*y and returns z.
 // It can be used instead of the Mul method of
 // *big.Int from math/big package.

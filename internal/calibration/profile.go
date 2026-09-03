@@ -43,9 +43,19 @@ type CalibrationProfile struct {
 
 const (
 	// CurrentProfileVersion is the current version of the profile format.
-	// Increment this when making breaking changes to the profile structure.
-	// Version 3 adds cpu_heuristic_key (SIMD / arch classification for default thresholds).
-	CurrentProfileVersion = 3
+	// Increment this when making breaking changes to the profile structure,
+	// or when the MEANING of a stored value changes enough that replaying an
+	// older profile would be worse than re-measuring.
+	//
+	// Version 3 added cpu_heuristic_key (SIMD / arch classification for default
+	// thresholds). Version 4 is a semantic bump, not a structural one: audit
+	// M-01 rewrote how optimal_fft_threshold is derived (sizes below bigfft's
+	// own threshold no longer compared against themselves, a margin and a
+	// monotonicity requirement, confidence earned rather than assumed), so a
+	// version-3 profile can carry a value that the current code would never
+	// produce. Invalidating them forces one re-calibration instead of pinning
+	// a figure that was noise.
+	CurrentProfileVersion = 4
 
 	// DefaultProfileFileName is the default name for the calibration profile file.
 	DefaultProfileFileName = ".fibcalc_calibration.json"

@@ -79,13 +79,18 @@ type ThresholdTuningProfile struct {
 	MemoryLimitMultiplier float64
 
 	// MicroBenchTimeout caps the wall-clock duration of the entire
-	// quick-calibration micro-benchmark suite. The 150 ms budget is
-	// chosen to keep `fibcalc --auto-calibrate` responsive (there is no
-	// --quick-calibrate flag; the quick pass is the first tier of
-	// --auto-calibrate) while still allowing the four enqueued
-	// configurations per word size — two distinct workloads, each run
-	// twice, see runParallelTests — to collect a few iterations on
-	// commodity hardware.
+	// quick-calibration micro-benchmark suite. It keeps
+	// `fibcalc --auto-calibrate` responsive (there is no --quick-calibrate
+	// flag; the quick pass is the first tier of --auto-calibrate) while
+	// leaving room for the suite to collect enough samples to be worth
+	// believing.
+	//
+	// Raised from 150 ms to 400 ms by audit M-01. The suite now runs its
+	// configurations sequentially rather than concurrently (the old parallel
+	// dispatch measured contention between the benchmark's own goroutines) and
+	// takes more samples per test, which together cost about 125 ms on a
+	// current desktop. 150 ms left no headroom: a run that overshot it was
+	// reported as a failed calibration.
 	//
 	// Source: internal/calibration/microbench.go (pre-R4.2 const).
 	MicroBenchTimeout time.Duration
@@ -102,5 +107,5 @@ var DefaultThresholdTuning = ThresholdTuningProfile{
 	MinFFTThreshold:          100_000,
 	MinParallelThreshold:     1024,
 	MemoryLimitMultiplier:    memory.DefaultMemoryLimitMultiplier,
-	MicroBenchTimeout:        150 * time.Millisecond,
+	MicroBenchTimeout:        400 * time.Millisecond,
 }

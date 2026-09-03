@@ -5,8 +5,9 @@ package calibration
 import (
 	"context"
 	"math/big"
+	"math/bits"
 	"runtime"
-	"sync"
+	"sort"
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
@@ -18,7 +19,14 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // MicroBenchIterations is the number of iterations per test for averaging.
-const MicroBenchIterations = 3
+//
+// Raised from 3 to 7 in audit M-01, paid for by the switch to sequential
+// execution: with the 16 configurations no longer contending with each other
+// (and with bigfft's own recursion) a full pass costs about 60 ms of the
+// 150 ms MicroBenchTimeout, so there is room for more samples. More samples
+// tighten the fastest/slowest bracket that timingStability scores, which is
+// what decides whether the fast pass is trusted or escalated.
+const MicroBenchIterations = 7
 
 // MicroBenchTimeout is the maximum time for the entire micro-benchmark suite.
 //
@@ -70,7 +78,20 @@ type testResult struct {
 	useFFT   bool
 	parallel bool
 	duration time.Duration
-	err      error
+	// fastest and slowest bracket the individual timed iterations. Their ratio
+	// is the dispersion analyzeResults turns into a confidence score (audit
+	// M-01): the previous code awarded a flat +0.2 for "a crossover was found"
+	// without ever asking whether the timings behind it were stable.
+	//
+	// The full min/max bracket is deliberate, and deliberately harsh. A
+	// median would forgive one descheduled iteration, but the asymmetry of the
+	// consequences argues the other way: a wrongly ACCEPTED fast result is
+	// persisted to disk and replayed on every subsequent start, while a
+	// wrongly REJECTED one only costs a single slower calibration through
+	// CompleteStrategy, which is what --auto-calibrate asked for anyway.
+	fastest time.Duration
+	slowest time.Duration
+	err     error
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,19 +122,24 @@ func (mb *MicroBenchmark) RunQuick(ctx context.Context) (ThresholdResults, error
 	defer cancel()
 
 	// Run tests in parallel for speed
-	results := mb.runParallelTests(ctx)
+	results := mb.runTests(ctx)
 
 	// Analyze results to determine optimal thresholds
 	thresholds := mb.analyzeResults(results)
 	thresholds.Duration = time.Since(start)
 
 	// FIB-03: RunQuick used to always report success even when nothing was
-	// measured, letting a zero-confidence result look like a completed
-	// benchmark to callers checking only the error. Surface the context
-	// error when analyzeResults found no valid measurement to work with
-	// (results may be non-empty but entirely errored, e.g. every worker
-	// observed ctx.Done() before timing anything).
-	if thresholds.Confidence == 0 {
+	// measured, letting a result look like a completed benchmark to callers
+	// checking only the error. Surface the context error when not a single
+	// timing was collected (results may be non-empty but entirely errored,
+	// e.g. every test observed ctx.Done() before timing anything).
+	//
+	// The test is on the measurements, not on the confidence score. It used to
+	// read `Confidence == 0`, which was equivalent while the score started at
+	// 0.5 and only a total failure could bring it to zero. Since M-01 rebased
+	// it at zero, a zero score also means "measured cleanly, but no decisive
+	// crossover" — a legitimate outcome that must NOT be reported as an error.
+	if !hasUsableResult(results) {
 		if err := ctx.Err(); err != nil {
 			return thresholds, err
 		}
@@ -122,83 +148,87 @@ func (mb *MicroBenchmark) RunQuick(ctx context.Context) (ThresholdResults, error
 	return thresholds, nil
 }
 
-// runParallelTests executes multiplication tests in parallel.
-func (mb *MicroBenchmark) runParallelTests(ctx context.Context) []testResult {
-	var results []testResult
-	var mu sync.Mutex
-	var wg sync.WaitGroup
+// hasUsableResult reports whether at least one test produced a timing.
+func hasUsableResult(results []testResult) bool {
+	for _, r := range results {
+		if r.err == nil {
+			return true
+		}
+	}
+	return false
+}
 
-	// Test configurations: (size, useFFT, parallel)
+// runTests executes the multiplication tests that can actually inform a
+// crossover, one at a time.
+//
+// Two changes from the original (audit M-01):
+//
+// Sequential, not concurrent. The 16 configurations used to run together under
+// a NumCPU semaphore while bigfft.Mul parallelises its own recursion, so the
+// timings measured contention between the benchmark's own goroutines rather
+// than the cost of a multiplication.
+//
+// Filtered. bigfft.Mul only takes the FFT path above FFTThresholdWords; below
+// it, useFFT=true and useFFT=false run the identical math/big code. Timing
+// them against each other and calling the difference a crossover reported
+// noise as a measurement — with the default 1800-word threshold, the 500-word
+// row could declare a crossover at 28800 bits on nothing but jitter.
+func (mb *MicroBenchmark) runTests(ctx context.Context) []testResult {
+	fftThresholdWords := bigfft.FFTThresholdWords()
+
 	type testConfig struct {
 		wordSize int
 		useFFT   bool
-		parallel bool
 	}
 
-	configs := make([]testConfig, 0, len(mb.TestSizes)*4)
+	configs := make([]testConfig, 0, len(mb.TestSizes)*2)
 	for _, size := range mb.TestSizes {
-		// Four configs per size, but only TWO distinct workloads: runSingleTest
-		// does not branch on `parallel` (see its doc comment), so the "par"
-		// rows re-run the "seq" ones. They are not wasted — findFFTCrossover
-		// averages every result sharing a (size, useFFT) key, so each pair
-		// becomes a second sample of the same workload. What is NOT valid is
-		// reading a parallel/sequential difference out of them, which is why
-		// analyzeResults discards findParallelCrossover's return value.
-		configs = append(configs,
-			testConfig{size, false, false},
-			testConfig{size, false, true},
-			testConfig{size, true, false},
-			testConfig{size, true, true},
-		)
+		// The baseline is always worth timing; the FFT arm only when the size
+		// is large enough for bigfft to actually take that path.
+		configs = append(configs, testConfig{size, false})
+		if size > fftThresholdWords {
+			configs = append(configs, testConfig{size, true})
+		}
 	}
 
-	// Limit concurrency to avoid overwhelming the system
-	semaphore := make(chan struct{}, runtime.NumCPU())
-
-	for _, cfg := range configs {
-		wg.Add(1)
-		go func(c testConfig) {
-			defer wg.Done()
-
-			select {
-			case <-ctx.Done():
-				return
-			case semaphore <- struct{}{}:
-				defer func() { <-semaphore }()
-			}
-
-			dur, err := mb.runSingleTest(ctx, c.wordSize, c.useFFT, c.parallel)
-
-			mu.Lock()
-			results = append(results, testResult{
-				wordSize: c.wordSize,
-				useFFT:   c.useFFT,
-				parallel: c.parallel,
-				duration: dur,
-				err:      err,
-			})
-			mu.Unlock()
-		}(cfg)
+	results := make([]testResult, 0, len(configs))
+	for _, c := range configs {
+		if ctx.Err() != nil {
+			break
+		}
+		dur, fastest, slowest, err := mb.runSingleTest(ctx, c.wordSize, c.useFFT, false)
+		results = append(results, testResult{
+			wordSize: c.wordSize,
+			useFFT:   c.useFFT,
+			duration: dur,
+			fastest:  fastest,
+			slowest:  slowest,
+			err:      err,
+		})
 	}
-
-	wg.Wait()
 	return results
 }
 
-// runSingleTest performs a single multiplication test.
+// runSingleTest performs a single multiplication test and reports the mean
+// alongside the fastest and slowest individual iteration.
+//
+// The bracket is what lets analyzeResults score its own reliability (audit
+// M-01): a mean is not evidence on its own, and the previous code awarded
+// confidence for finding a crossover without ever looking at how noisy the
+// timings behind it were.
 //
 // The `parallel` flag is retained (even though the current implementation
-// does not branch on it) because callers pass cfg.parallel to record the
-// intent of the benchmark, and future work — e.g. actually running the
-// multiplication through the parallel fibonacci harness — is expected to
-// consume it. See P1-07.
-func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (time.Duration, error) {
+// does not branch on it) because callers pass it to record the intent of the
+// benchmark, and future work — e.g. actually running the multiplication
+// through the parallel fibonacci harness — is expected to consume it. See
+// P1-07.
+func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFFT, parallel bool) (mean, fastest, slowest time.Duration, err error) {
 	_ = parallel // documented above; silence unparam without dropping the knob
 
 	// Honor cancellation before the (potentially expensive) warm-up multiply,
 	// not only inside the timed loop — a large wordSize warm-up can run long.
 	if err := ctx.Err(); err != nil {
-		return 0, err
+		return 0, 0, 0, err
 	}
 
 	// Create test numbers
@@ -209,20 +239,29 @@ func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFF
 	multiplyTest(x, y, useFFT)
 
 	// Run timed iterations
+	samples := make([]time.Duration, 0, mb.Iterations)
 	var totalDuration time.Duration
 	for i := 0; i < mb.Iterations; i++ {
 		select {
 		case <-ctx.Done():
-			return 0, ctx.Err()
+			return 0, 0, 0, ctx.Err()
 		default:
 		}
 
 		start := time.Now()
 		multiplyTest(x, y, useFFT)
-		totalDuration += time.Since(start)
+		elapsed := time.Since(start)
+
+		totalDuration += elapsed
+		samples = append(samples, elapsed)
 	}
 
-	return totalDuration / time.Duration(mb.Iterations), nil
+	if len(samples) == 0 {
+		return 0, 0, 0, nil
+	}
+	sort.Slice(samples, func(i, j int) bool { return samples[i] < samples[j] })
+
+	return totalDuration / time.Duration(len(samples)), samples[0], samples[len(samples)-1], nil
 }
 
 // generateTestNumber creates a random-ish big.Int with the specified word count.
@@ -231,14 +270,16 @@ func generateTestNumber(words int) *big.Int {
 	// word i is 0xAAAA… ^ (i * 0x1234567). The step is accumulated in uint64
 	// rather than derived from the loop index, so no signed→unsigned
 	// conversion appears; both forms wrap mod 2^64 and yield the same words.
-	bits := make([]big.Word, words)
+	// Named words, not bits: the latter shadows the math/bits import this file
+	// now uses for UintSize (gocritic importShadow).
+	buf := make([]big.Word, words)
 	var delta uint64
-	for i := range bits {
-		bits[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ delta)
+	for i := range buf {
+		buf[i] = big.Word(0xAAAAAAAAAAAAAAAA ^ delta)
 		delta += 0x1234567
 	}
 	z := new(big.Int)
-	z.SetBits(bits)
+	z.SetBits(buf)
 	return z
 }
 
@@ -266,12 +307,38 @@ func multiplyTest(x, y *big.Int, useFFT bool) {
 // found" bonus is dropped entirely: runSingleTest does not branch on the
 // parallel flag, so any detected "crossover" was measurement noise between
 // two identical configurations, not a real signal.
+//
+// M-01: confidence is now earned, on two axes, from zero.
+//
+// The old score was a flat 0.5 baseline plus a flat +0.2 for having found a
+// crossover at all. Two consecutive runs could therefore persist thresholds a
+// factor of four apart (115200 and 460800 bits were both observed) while both
+// reported 0.70 — and, worse, the 0.5 baseline equalled the escalation bar
+// exactly, so no result was ever weak enough to fall through to the full
+// sweep.
+//
+// The score now starts at zero and is the product of:
+//   - stability: how repeatable the individual iterations were;
+//   - decisiveness: how far past the acceptance margin the winning size was.
+//
+// Both matter. A crossover found on stable timings that only just clears the
+// margin is exactly the flapping case: the smallest qualifying size decides
+// the answer, so a boundary size flipping sides moves the result by 4x. Such a
+// run now scores below the bar and escalates to CompleteStrategy, which is
+// what --auto-calibrate asked for.
 func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults {
 	tr := ThresholdResults{
 		// Conservative defaults, used only when no measurement says otherwise.
+		// Confidence starts at ZERO, not 0.5 (audit M-01): the old baseline was
+		// numerically equal to EscalationConfidenceThreshold, so
+		// tryFastThenEscalate's `conf < threshold` test could never fire on a
+		// run that produced any result at all. The fast pass was therefore
+		// always accepted and persisted, however marginal, and CompleteStrategy
+		// was unreachable except on total failure. Defaults are not a
+		// measurement and must not carry the confidence of one.
 		FFTThreshold:      500000,
 		ParallelThreshold: 4096,
-		Confidence:        0.5,
+		Confidence:        0.0,
 	}
 
 	if len(results) == 0 {
@@ -294,10 +361,11 @@ func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults 
 		return tr
 	}
 
-	// Analyze FFT crossover point; only a real measurement earns confidence.
-	if fftCrossover := mb.findFFTCrossover(bySize); fftCrossover > 0 {
+	// Analyze FFT crossover point; only a real measurement earns confidence,
+	// and only as much as its stability AND its decisiveness justify.
+	if fftCrossover, decisiveness := mb.findFFTCrossover(bySize); fftCrossover > 0 {
 		tr.FFTThreshold = fftCrossover
-		tr.Confidence += 0.2
+		tr.Confidence = timingStability(results) * decisiveness
 	}
 
 	// Parallel crossover is not currently measured (runSingleTest ignores
@@ -313,14 +381,74 @@ func (mb *MicroBenchmark) analyzeResults(results []testResult) ThresholdResults 
 	return tr
 }
 
-// findFFTCrossover determines the bit size where FFT becomes faster than
-// standard math/big. Returns 0 when no crossover was observed in the
+// timingStability scores how repeatable the timings were, in [0, 1].
+//
+// Each successful test brackets its iterations with a fastest and a slowest
+// sample; their ratio is that test's spread. 1.0 means every iteration took
+// the same time, 0.0 means at least one test's slowest iteration took twice
+// its fastest or worse. The worst test in the batch decides, because a
+// crossover is a comparison and one unstable arm is enough to invalidate it.
+func timingStability(results []testResult) float64 {
+	worst := 1.0
+	seen := false
+	for _, r := range results {
+		if r.err != nil || r.fastest <= 0 {
+			continue
+		}
+		seen = true
+		if ratio := float64(r.slowest) / float64(r.fastest); ratio > worst {
+			worst = ratio
+		}
+	}
+	if !seen {
+		return 0
+	}
+	// worst == 1 -> 1.0 (perfectly stable); worst >= 2 -> 0.0.
+	stability := 2 - worst
+	if stability < 0 {
+		return 0
+	}
+	if stability > 1 {
+		return 1
+	}
+	return stability
+}
+
+const (
+	// fftCrossoverMargin is how much faster FFT must be before a size counts
+	// as a crossover. Without it (audit M-01) a one-percent difference — well
+	// inside the spread these short runs show — was enough to move the
+	// persisted threshold by a factor of four between consecutive startups.
+	// findParallelCrossover has always required the same 10%.
+	fftCrossoverMargin = 0.9
+
+	// decisiveSpeedup is the speedup at which a crossover is considered
+	// unambiguous. Between the margin (1/0.9 ≈ 1.11x) and this value, the
+	// decisiveness score ramps from 0 to 1.
+	//
+	// It exists because the margin alone does not settle the flapping (M-01):
+	// findFFTCrossover reports the SMALLEST size where FFT wins, so a size
+	// sitting right at the boundary — 2000 words is one, just past bigfft's
+	// own 1800-word threshold — flips the answer by a factor of four
+	// depending on which side of the margin a given run lands. A win that
+	// barely clears the bar should not be persisted with high confidence; it
+	// should send AutoCalibrateWithProfile on to the full sweep.
+	decisiveSpeedup = 2.0
+)
+
+// findFFTCrossover determines the bit size where FFT becomes clearly faster
+// than standard math/big. Returns 0 when no crossover was observed in the
 // measured data — analyzeResults owns the conservative default for that
 // case (FIB-03: a fallback value is not a measurement and must not be
 // treated as one for confidence purposes).
-func (mb *MicroBenchmark) findFFTCrossover(bySize map[int][]testResult) int {
-	var crossoverSize int
-
+//
+// Sizes at or below bigfft.FFTThresholdWords never reach this function with
+// both arms present: runTests does not emit an FFT configuration for them,
+// because bigfft would run the same math/big code for both (M-01).
+func (mb *MicroBenchmark) findFFTCrossover(bySize map[int][]testResult) (bitSize int, decisiveness float64) {
+	// Speedup (standard / FFT) at each size that has both arms.
+	ratios := make(map[int]float64, len(bySize))
+	sizes := make([]int, 0, len(bySize))
 	for size, results := range bySize {
 		var stdDur, fftDur time.Duration
 		var stdCount, fftCount int
@@ -335,23 +463,65 @@ func (mb *MicroBenchmark) findFFTCrossover(bySize map[int][]testResult) int {
 			}
 		}
 
-		if stdCount > 0 && fftCount > 0 {
-			avgStd := stdDur / time.Duration(stdCount)
-			avgFFT := fftDur / time.Duration(fftCount)
+		if stdCount == 0 || fftCount == 0 {
+			continue
+		}
+		avgFFT := fftDur / time.Duration(fftCount)
+		if avgFFT <= 0 {
+			continue
+		}
+		ratios[size] = float64(stdDur/time.Duration(stdCount)) / float64(avgFFT)
+		sizes = append(sizes, size)
+	}
+	if len(sizes) == 0 {
+		return 0, 0
+	}
+	sort.Ints(sizes)
 
-			// FFT is faster at this size
-			if avgFFT < avgStd {
-				bitSize := size * 64 // Words to bits (64-bit)
-				if crossoverSize == 0 || bitSize < crossoverSize {
-					crossoverSize = bitSize
-				}
-			}
+	// A crossover is a MONOTONE transition: past it, FFT should stay ahead.
+	// Requiring every larger measured size to win too is what stops the
+	// flapping (audit M-01). Taking merely the smallest winning size let a
+	// boundary size — 2000 words sits just past bigfft's own 1800-word
+	// threshold — decide the answer whenever it happened to clear the margin,
+	// moving the persisted threshold by a factor of four between consecutive
+	// startups even though nothing about the machine had changed.
+	const minRatio = 1 / fftCrossoverMargin
+	crossoverIdx := -1
+	for i := len(sizes) - 1; i >= 0; i-- {
+		if ratios[sizes[i]] <= minRatio {
+			break
+		}
+		crossoverIdx = i
+	}
+	if crossoverIdx < 0 {
+		return 0, 0
+	}
+
+	// The weakest link in the winning suffix sets the decisiveness: the
+	// transition is only as convincing as its least convincing size.
+	weakest := ratios[sizes[crossoverIdx]]
+	for _, size := range sizes[crossoverIdx:] {
+		if ratios[size] < weakest {
+			weakest = ratios[size]
 		}
 	}
 
-	// Add some margin (FFT should be clearly better). crossoverSize == 0
-	// (no crossover observed) passes through unchanged: 0 * 9 / 10 == 0.
-	return crossoverSize * 9 / 10
+	// Add some margin (FFT should be clearly better).
+	return sizes[crossoverIdx] * bits.UintSize * 9 / 10, decisivenessOf(weakest)
+}
+
+// decisivenessOf maps the speedup at the deciding size onto [0, 1]: 0 at the
+// acceptance margin, 1 once FFT is decisiveSpeedup times faster.
+func decisivenessOf(ratio float64) float64 {
+	const minRatio = 1 / fftCrossoverMargin
+	if ratio <= minRatio {
+		return 0
+	}
+	d := (ratio - minRatio) / (decisiveSpeedup - minRatio)
+	if d > 1 {
+		return 1
+	}
+	return d
 }
 
 // findParallelCrossover determines the bit size where parallelism becomes
@@ -388,7 +558,7 @@ func (mb *MicroBenchmark) findParallelCrossover(bySize map[int][]testResult) int
 
 			// Parallel is faster at this size (require at least 10% improvement)
 			if avgPar < avgSeq*9/10 {
-				bitSize := size * 64
+				bitSize := size * bits.UintSize
 				if crossoverSize == 0 || bitSize < crossoverSize {
 					crossoverSize = bitSize
 				}

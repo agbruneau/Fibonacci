@@ -437,3 +437,37 @@ These environment variables follow the `FIBCALC_*` convention and have lower pri
 - [BUILD.md](BUILD.md) -- `make run-calibrate` target
 - [Architecture](architecture/README.md) -- Calibration package placement (Business Logic layer, wired in at the app layer via `internal/app`)
 - [algorithms/FFT.md](algorithms/FFT.md) -- FFT threshold context and algorithm details
+
+## Reliability of the quick pass (audit 2026-09, M-01)
+
+`FastStrategy` derives the FFT threshold from `QuickCalibrate`'s
+micro-benchmarks. Before the 2026-09 audit that measurement was not
+trustworthy, in four independent ways:
+
+- it compared `useFFT=true` against `useFFT=false` at sizes **below**
+  `bigfft.FFTThresholdWords`, where both run the same `math/big` code, so any
+  difference was noise;
+- it ran its 16 configurations concurrently under a `NumCPU` semaphore while
+  `bigfft.Mul` parallelises its own recursion, timing contention rather than
+  multiplication;
+- it accepted any margin, so a 1 % edge counted as a crossover;
+- confidence was a flat `0.5 + 0.2`, and that `0.5` baseline equalled
+  `EscalationConfidenceThreshold` exactly — so the fast pass was **always**
+  accepted and `CompleteStrategy` was unreachable except on total failure.
+
+Ten consecutive runs produced thresholds a factor of four apart (115 200 and
+460 800 bits) while every one of them reported the same 0.70 confidence.
+
+The crossover search now requires a 10 % margin **and** monotonicity (every
+larger measured size must win too), runs sequentially with more samples, and
+earns its confidence as `stability x decisiveness` from a base of zero. Eight
+of ten runs now fall below the bar and escalate to the authoritative sweep.
+
+This is an improvement, not a solution: on a CPU where the crossover genuinely
+sits between two test sizes, repeated runs still disagree. The difference is
+that the disagreement is now visible in the confidence score and routed to
+`CompleteStrategy`, instead of being persisted as if it were a measurement.
+See `docs/audits/microbench-stability-2026-09.txt`.
+
+`CurrentProfileVersion` moved 3 to 4 so profiles written by the old search are
+re-measured rather than replayed.

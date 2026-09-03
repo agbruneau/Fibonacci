@@ -1,0 +1,67 @@
+# Quick-calibration stability — audit 2026-09 (T-11 / M-01)
+#
+# QuickCalibrate() run 10 times back to back on an otherwise idle machine.
+# Host: Intel Core Ultra 9 275HX, windows/amd64, go1.27.0.
+#
+# BEFORE
+#   run 0: FFT=460800 bits  conf=0.70
+#   run 1: FFT=115200 bits  conf=0.70
+#   run 2: FFT=115200 bits  conf=0.70
+#   run 3: FFT=115200 bits  conf=0.70
+#   run 4: FFT=115200 bits  conf=0.70
+#   run 5: FFT=115200 bits  conf=0.70
+#
+# Two thresholds a factor of four apart, both reported with the SAME 0.70
+# confidence, and both above the 0.5 bar at which AutoCalibrateWithProfile
+# stops and persists the result. Worse, 0.70 was structural: the score was a
+# flat 0.5 baseline plus a flat +0.2 for having found a crossover at all, and
+# the 0.5 baseline was numerically equal to EscalationConfidenceThreshold, so
+# `conf < threshold` could never fire. CompleteStrategy was unreachable except
+# on total failure.
+#
+# 115200 = 2000 words x 64 x 0.9, i.e. the smallest test size above bigfft's
+# own 1800-word threshold. It was never a property of the machine; it was the
+# resolution of the test grid.
+#
+# AFTER
+#   run 0: FFT=115200 bits  conf=0.00
+#   run 1: FFT=115200 bits  conf=0.00
+#   run 2: FFT=460800 bits  conf=0.71
+#   run 3: FFT=115200 bits  conf=0.06
+#   run 4: FFT=115200 bits  conf=0.02
+#   run 5: FFT=460800 bits  conf=0.00
+#   run 6: FFT=460800 bits  conf=0.00
+#   run 7: FFT=115200 bits  conf=0.24
+#   run 8: FFT=460800 bits  conf=0.64
+#   run 9: FFT=460800 bits  conf=0.35
+#
+# Eight of ten runs now fall below the escalation bar, so the fast pass hands
+# over to CompleteStrategy instead of persisting a coin flip. The two that
+# clear it agree with each other (460800).
+#
+# RESIDUAL, stated plainly: this is better, not solved. Repeat the ten runs and
+# a different pair may clear the bar. The 2000-word size sits just past
+# bigfft's activation threshold on this CPU, so whether FFT wins there is
+# genuinely marginal, and no statistic computed from ~125 ms of sampling will
+# settle a question the hardware itself does not answer cleanly. What changed
+# is that the ambiguity is now VISIBLE in the confidence score and routed to
+# the authoritative sweep, instead of being flattened into a constant 0.70.
+#
+# Fixes behind the AFTER column:
+#   - sizes at or below bigfft.FFTThresholdWords no longer get an "FFT" arm at
+#     all: below it both arms run the same math/big code, so the comparison was
+#     a workload against itself and any difference was noise;
+#   - configurations run sequentially; the old NumCPU-semaphore dispatch timed
+#     16 of them against each other while bigfft parallelised its own recursion;
+#   - a crossover must win by 10%, the same margin findParallelCrossover has
+#     always required;
+#   - a crossover must be MONOTONE: every larger measured size must win too. A
+#     transition that reverses above itself is noise at the boundary, not a
+#     crossover;
+#   - confidence starts at zero and is earned as stability x decisiveness;
+#   - MicroBenchIterations 3 -> 7 and MicroBenchTimeout 150 ms -> 400 ms, paid
+#     for by the sequential switch;
+#   - size-to-bits conversion uses bits.UintSize instead of a hardcoded 64.
+#
+# CurrentProfileVersion 3 -> 4: a version-3 profile can carry a threshold this
+# code would never produce, so old profiles are invalidated rather than replayed.
