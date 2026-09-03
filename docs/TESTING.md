@@ -28,7 +28,7 @@ Makefile targets (require `make`):
 ```bash
 make test              # go test -v -race -cover ./...
 make coverage          # Generate coverage.html
-make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + `-tags gmp` step (3b) + lint (advisory) + coverage floor
+make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + `-tags gmp` step (3b) + lint (HARD since GATE-01) + coverage floor
 ```
 
 > `make test` and `make check` (via `check.sh`) use `-race`, which requires
@@ -390,7 +390,7 @@ There is **no remote CI** for this project (an assumed decision). Pre-commit val
 
 | Guardrail | Role |
 |---|---|
-| `scripts/check.ps1` / `scripts/check.sh` | One-shot pre-commit aggregator (lint + tests + coverage floor). `check.ps1` targets PowerShell 7; `check.sh` requires **bash**, not plain POSIX `sh` (its shebang is `#!/usr/bin/env bash`, and it uses `${BASH_SOURCE[0]}` to resolve `SCRIPT_DIR`). `check.sh` additionally runs a `-tags gmp` step and `-race`; `check.ps1` does neither |
+| `scripts/check.ps1` / `scripts/check.sh` | One-shot pre-commit aggregator (lint + tests + coverage floor). `check.ps1` targets PowerShell 7; `check.sh` requires **bash**, not plain POSIX `sh` (its shebang is `#!/usr/bin/env bash`, and it uses `${BASH_SOURCE[0]}` to resolve `SCRIPT_DIR`). `check.sh` additionally runs a `-tags gmp` step, which `check.ps1` has no counterpart for; both run `-race` when the host has CGO and a C compiler (`check.ps1` probes for it since audit D4, 2026-09-03). In both, lint is a **hard** step — a missing or failing `golangci-lint` fails the gate (GATE-01) |
 | `make coverage-check` | Fails the run if **total** module coverage drops below 80 % (A5-10) |
 | `make test-win` | Full test run **without** `-race` (Windows / no-CGO hosts) |
 | `make test` | Full test run **with** `-race`, requires CGO/gcc (run via WSL or a Linux/macOS host on Windows) |

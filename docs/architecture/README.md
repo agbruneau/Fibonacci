@@ -49,6 +49,7 @@ Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
 | [0007](../adr/0007-pool-pointer-vs-value.md) | SA6002 (`sync.Pool.Put` de slice) — décision mesurée | Accepted |
 | [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | Audit de refactorisation 2026-06 — candidats rejetés après vérification | Accepted |
 | [0009](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) | Audit 2026-07 — purge bigfft, rétention oracle, rejet puis adoption ×10 (addendum R4) | Accepted |
+| [0010](../adr/0010-audit-2026-09-decisions.md) | Audit 2026-09 — précédence des seuils explicites, DTM opt-in, lint bloquant, candidats rejetés sur mesure | Accepted |
 
 ⚠ **ADR-0006 porte « Accepted » et son objet n'est plus dans l'arbre.** L'API opt-in `FFTContext`
 (`NewFFTContext`, `*WithContext`, `fourierRecursiveCtx`) a été **retirée** — zéro occurrence dans
@@ -61,6 +62,13 @@ documentation — elle n'est pas prise ici.**
 
 L'historique granulaire des décisions héritées (heuristique CPU, backends
 de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
+
+⚠ **ADR-0001 a changé de sens pratique sans changer de statut.** Le
+`DynamicThresholdManager` avait été conservé (KEEP) sur la foi d'un gain de
+5-6 % à F(10M) ; l'audit 2026-09 (M-04) a constaté qu'aucun chemin de
+production ne l'activait, l'a câblé derrière `--dynamic-thresholds`, et la
+mesure faite à travers ce flag (`-count=8`) **ne reproduit pas** le gain —
+d'où un défaut à `false`. Voir la note datée en fin d'[ADR-0001](../adr/0001-dtm-decision.md).
 
 ### Gate d'architecture
 

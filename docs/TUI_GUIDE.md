@@ -342,8 +342,18 @@ positions of `AnalyzeComparisonResults`.
 ### Completion
 
 - `CalculationCompleteMsg`: checks generation match, marks done, freezes header timer,
-  sets chart done with elapsed time.
-- `ContextCancelledMsg`: checks generation match, marks done, triggers `tea.Quit`.
+  sets chart done with elapsed time, and records `msg.ExitCode`.
+- `ContextCancelledMsg`: checks generation match, **returns early if the run is already
+  done**, otherwise marks done, maps the cancellation cause to an exit code
+  (`DeadlineExceeded` → timeout, `Canceled` → 130) and triggers `tea.Quit`.
+
+> **The already-finished guard is audit H-01 (2026-09).** `watchContextCmd` stays armed
+> after the calculation completes, on a context whose `--timeout` keeps running. Without
+> the guard, a dashboard left open past the timeout closed itself with **exit 2**, and
+> pressing `q` after completion raced this handler against the `tea.Quit` returned by
+> `handleKey` — when the cancellation won, a **successful** run exited **130**. Neither
+> is a cancellation of anything: the work is done and its exit code is already recorded,
+> so the message carries no state transition (`internal/tui/handlers.go:handleContextCancelled`).
 
 ### Generation Guard
 
@@ -425,6 +435,12 @@ func Run(ctx context.Context, calculators []orchestration.Calculator,
   goroutines spawned by `Init()` have a valid `Send()` target.
 - `runProgram` is a package-level `var` wrapping `p.Run()`, so tests can inject a
   failure without a real TTY (ERR-04); `errOut` receives the resulting message.
+- **`tea.ErrInterrupted` is not a failure** (audit M-07, 2026-09): when stdin is not a
+  TTY, `^C` reaches bubbletea's own signal handler rather than the `Quit` key binding
+  and `p.Run` returns that error. It used to be reported as a generic error — printing
+  `TUI error: program was interrupted` and exiting **1** — so the documented
+  SIGINT-is-130 contract (APP-04) only held for a `^C` typed in a terminal. `Run` now
+  maps it to `apperrors.ExitErrorCanceled` (130) before the generic branch.
 - The final model is type-asserted to extract the exit code for the process.
 
 ---

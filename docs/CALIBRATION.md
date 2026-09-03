@@ -245,7 +245,7 @@ type CalibrationProfile struct {
 }
 ```
 
-`NewProfile()` populates the hardware fields from `runtime`, sets `CPUHeuristicKey` from `config.CurrentHardwareHeuristicKey()` (the SIMD-class / arch tag that drives the default thresholds), and sets `ProfileVersion` to `CurrentProfileVersion` (currently **3**).
+`NewProfile()` populates the hardware fields from `runtime`, sets `CPUHeuristicKey` from `config.CurrentHardwareHeuristicKey()` (the SIMD-class / arch tag that drives the default thresholds), and sets `ProfileVersion` to `CurrentProfileVersion` (currently **4**, bumped by audit M-01 so profiles written by the old FFT-crossover search are re-measured rather than replayed).
 
 ### Validation
 
@@ -259,7 +259,7 @@ type CalibrationProfile struct {
 | `WordSize` | Must equal system word size (32 or 64) |
 | `CPUHeuristicKey` | Must equal `config.CurrentHardwareHeuristicKey()` (ex. `amd64-avx2`, `amd64-generic`) |
 
-If any field differs, the profile is invalid and a fresh calibration is triggered. **v2**-format profiles (without `cpu_heuristic_key`) are no longer accepted after the version bump.
+If any field differs, the profile is invalid and a fresh calibration is triggered. **v2**-format profiles (without `cpu_heuristic_key`) and **v3** profiles (written by the pre-M-01 crossover search) are no longer accepted after the version bumps.
 
 **Migration:** delete or rename `~/.fibcalc_calibration.json` when upgrading from an earlier binary, or re-run `--calibrate` / `--auto-calibrate` to regenerate a v3 profile.
 

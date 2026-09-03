@@ -19,7 +19,7 @@ three-digit numbering — it does not index that registry; it links to it.)
 | **Decorator**    | Cross-cutting capabilities layered on a base calculator | `FibCalculator` wrapping `CoreCalculator` in `internal/fibonacci/calculator.go` |
 | **Facade**       | `app.Application` hides CLI parsing, dispatch, and error-to-exit-code mapping | `internal/app/app.go`                                                               |
 | **Template Method** | `DoublingFramework` fixes the Fast Doubling skeleton while a pluggable `DoublingStepExecutor` supplies the multiplication backend | `internal/fibonacci/doubling_framework.go` (framework), `internal/fibonacci/strategy.go` (executor) |
-| **Cache (LRU)**  | Thread-safe cache of forward-FFT transform results (`PolValues`) | `internal/bigfft/fft_cache.go`                                                      |
+| **Cache (LRU)**  | Thread-safe cache of forward-FFT transform results (`PolValues`), bounded in entries **and** in bytes (audit M-08) | `internal/bigfft/fft_cache.go`                                                      |
 | **Circuit Breaker** (light) | Memory-budget pre-flight exits before OOM | `internal/fibonacci/memory/budget.go`                                               |
 | **Adapter**      | Host CPU/memory probes (`gopsutil`) adapted into a bubbletea message | `internal/tui/commands.go` — `sampleSysStatsCmd` (inlined from the former `internal/metrics/system`) |
 

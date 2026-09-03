@@ -109,9 +109,13 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
   acquisition non bloquante) — **−14 % à −35 %** sur F(10M) selon l'algorithme (2026-06-09, chiffres
   consignés dans [`CHANGELOG.md`](CHANGELOG.md) ; le rapport de mesure a été purgé, pas de sortie archivée).
-- **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées (ADR-0001).
+- **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées —
+  **opt-in, désactivé par défaut** (`-dynamic-thresholds`, câblé en 2026-09 ; la mesure à `-count=8` ne
+  reproduit pas le gain de 5-6 % qui avait justifié sa conservation, [ADR-0001](docs/adr/0001-dtm-decision.md)).
 - **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
   stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
+  Borné en **octets** depuis l'audit 2026-09 (M-08) : un plafond en nombre d'entrées n'est pas une borne
+  mémoire, la taille d'une entrée croissant linéairement avec n.
 - **Auto-calibration** (`-calibrate`) avec profil persistant et clé matérielle d'invalidation
   ([`docs/CALIBRATION.md`](docs/CALIBRATION.md)).
 - **PGO** : `make build-pgo` (profil régénéré le 2026-07-07).
@@ -200,7 +204,7 @@ fibcalc [flags]
 | `-machine` | | `false` | Sortie machine (sans ANSI) |
 | `-tui` | | `false` | Dashboard TUI interactif |
 | `-last-digits` | | `0` | Derniers K chiffres décimaux (mémoire O(K)) |
-| `-memory-limit` | | | Budget mémoire (ex. `8G`), estimation préalable |
+| `-memory-limit` | | | Budget mémoire (ex. `8G`) ; l'estimation préalable est une **borne haute** (re-modélisée en 2026-09 : elle sous-estimait d'un facteur 5 à 12) |
 | `-gc-control` | | `auto` | GC pendant le calcul : `auto`, `aggressive`, `disabled` |
 | `-dynamic-thresholds` | | `false` | Ajuste les seuils FFT/parallélisme pendant le calcul (mesuré neutre, [ADR-0001](docs/adr/0001-dtm-decision.md)) |
 | `-timeout` | | `5m` | Durée maximale du calcul |
@@ -256,7 +260,8 @@ Une variable `FIBCALC_*` n'est lue que si le flag correspondant est absent de la
 
 Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FIBCALC_ALGO`, `FIBCALC_TIMEOUT`,
 `FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`, `FIBCALC_LAST_DIGITS`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`,
-`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`, et
+`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`,
+`FIBCALC_DYNAMIC_THRESHOLDS`, et
 [`NO_COLOR`](https://no-color.org/).
 
 ---
@@ -269,28 +274,34 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   dépasse confortablement (mesure ponctuelle avec `go test ./... -cover`, non figée — directive A5-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
-- **Race detector** : exige CGO/gcc — indisponible sous Windows sans gcc ; sur cet environnement les passes
-  `-race` complètes se font via **WSL** (`wsl go test -race ./...`). Les scripts shell sont épinglés en LF
-  (`.gitattributes`) pour rester exécutables côté WSL.
+- **Race detector** : exige CGO et un compilateur C. `scripts/check.ps1` sonde les deux et active `-race`
+  quand ils sont présents — relevé du 2026-09-03 : 21 paquets verts sur cet hôte Windows. Sans compilateur
+  C, la passe complète se fait via **WSL** (`wsl go test -race ./...`). Les scripts shell sont épinglés en
+  LF (`.gitattributes`) pour rester exécutables côté WSL.
+- **Lint bloquant** : depuis l'audit 2026-09 (GATE-01), `golangci-lint` **v2** fait échouer
+  `check.sh`/`check.ps1`, y compris quand le binaire est absent. Il était consultatif : les scripts
+  affichaient l'échec puis écrivaient `Overall: PASS`.
 - **Backend GMP sous gate** : depuis 2026-07, `scripts/check.sh` compile et teste `-tags gmp -race`
   (étape 3b, **dure** quand les headers libgmp sont présents, SKIP sinon) — le tag ne peut plus casser
   silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
-- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0009, plus `0000-template.md`).
-  Audit de 2026-07 : exécuté puis purgé — voir [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) et [`CHANGELOG.md`](CHANGELOG.md).
-  ⚠ **Dernier audit : 2026-08-07** (qualité et documentation, `golangci-lint`/`gosec`/`gofmt` à zéro) —
-  **il n'a pas d'ADR** : il ne tranche aucune décision d'architecture, et son journal de boucle
-  (`gauntlet-log.md`) a été **retiré de l'arbre le 2026-08-08** ; il se relit à l'historique git.
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0010, plus `0000-template.md`).
+  ⚠ **Dernier audit : 2026-09-03** (code Go de production, 23 constats) — décisions retenues et candidats
+  rejetés sur mesure dans [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md) ; son plan de travail
+  (`audit.md`) a été **retiré de l'arbre** une fois exécuté et se relit à l'historique git.
+  Les audits 2026-07 ([ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) et 2026-08-07
+  ont suivi la même règle ; celui de 2026-08-07 **n'a pas d'ADR** — il ne tranchait aucune décision
+  d'architecture, et son journal de boucle (`gauntlet-log.md`) a été retiré le 2026-08-08.
   Le tableau « Historique des audits et jalons » en tête de ce fichier en porte le détail.
 
 Commandes principales (équivalents `go` pour Windows sans GNU make) :
 
 ```bash
 make all             # clean + build + test     (équiv. : go build ./... && go test ./...)
-make test            # go test -v -race -cover ./...   (CGO requis ; Linux/macOS/WSL)
+make test            # go test -v -race -cover ./...   (CGO + compilateur C requis)
 make test-win        # go test -v -cover ./...         (Windows sans gcc, sans -race)
-make lint            # golangci-lint run ./...  (24 linters)
+make lint            # golangci-lint run ./...  (v2 : 21 linters + formateur gofmt)
 make coverage        # rapport HTML            (équiv. : go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html)
 make benchmark       # benchmarks fibonacci    (équiv. : go test -bench=. -benchmem ./internal/fibonacci/)
 make bench-baseline  # rafraîchit la baseline de non-régression docs/audits/
@@ -333,5 +344,6 @@ fast doubling) ; outillage : Go, Bubble Tea, benchstat, golangci-lint, gosec. Au
 optimisation 2026 réalisés avec [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5),
 Claude Opus 4.8 et Claude Opus 5 (Anthropic) : audit exhaustif 2026-07 (~40 findings, orchestration
 multi-agents — Claude Opus 4.8 pilote, exécuteurs Claude Sonnet), suivi 2026-07-07 (release v4.0.0, gate GMP,
-balayage arène ×10 — Claude Fable 5), puis audit qualité et documentation 2026-08-07 (boucle
-bâtisseur/critique, lint et gosec à zéro — Claude Opus 5).
+balayage arène ×10 — Claude Fable 5), audit qualité et documentation 2026-08-07 (boucle
+bâtisseur/critique, lint et gosec à zéro — Claude Opus 5), puis audit exhaustif du code Go 2026-09-03
+(23 constats, trois défauts hauts corrigés, lint rendu bloquant — Claude Opus 5).

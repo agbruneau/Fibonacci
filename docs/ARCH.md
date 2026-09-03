@@ -192,7 +192,7 @@ internal/
 - **Responsibility:** parse CLI flags, validate configuration, apply `FIBCALC_` env overrides, apply adaptive thresholds.
 - **Key types:** `AppConfig` (20 fields covering all runtime parameters), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
 - **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`. The per-heuristic variants `estimateParallelThresholdForHeuristic` / `estimateFFTThresholdForHeuristic` / `estimateStrassenThresholdForHeuristic` (`internal/config/thresholds.go`, the three `estimate*ThresholdForHeuristic` functions) are **unexported** — reachable only from in-package tests, not from diagnostics outside `internal/config`.
-- **Precedence chain:** CLI flags > env vars (`applyEnvOverrides` skips any flag explicitly set on the command line, `internal/config/env.go:applyEnvOverrides`) > static defaults — **for every setting except the three thresholds**. `--threshold`, `--fft-threshold` and `--strassen-threshold` are *overridden* by a valid cached calibration profile; see [§9 Configuration and Environment](#9-configuration-and-environment).
+- **Precedence chain:** CLI flags > env vars (`applyEnvOverrides` skips any flag explicitly set on the command line, `internal/config/env.go:applyEnvOverrides`) > static defaults — **uniformly, including the three thresholds since audit M-03 (2026-09)**. `ParseConfig` records which of `--threshold`, `--fft-threshold`, `--strassen-threshold` arrived from the user (flag *or* `FIBCALC_*`) in `ThresholdExplicit`/`FFTThresholdExplicit`/`StrassenThresholdExplicit` (`internal/config/config.go:markExplicitThresholds`), and a cached calibration profile fills only the ones left to the tool; see [§9 Configuration and Environment](#9-configuration-and-environment).
 
 ## `internal/calibration`
 - **Responsibility:** full/quick calibration, adaptive threshold candidate generation, micro-benchmarks, profile file persistence.
@@ -325,11 +325,12 @@ Additional notable engineering patterns include:
 │    ├─ Algo normalization (strings.ToLower)                       │
 │    └─ config.Validate(availableAlgos) → semantic checks          │
 ├───────────────────────────────────────────────────────────────────┤
-│ 3. THRESHOLD RESOLUTION (overrides step 2 for the 3 thresholds)   │
+│ 3. THRESHOLD RESOLUTION (fills only what step 2 left to the tool) │
 │    calibration.LoadCachedCalibration(cfg, profilePath)           │
-│    ├─ IF profile valid AND cfg still validates → OVERWRITE       │
-│    │    Threshold/FFTThreshold/StrassenThreshold with the        │
-│    │    profile's, discarding any CLI flag or FIBCALC_* value    │
+│    ├─ IF profile valid AND cfg still validates → fill each of    │
+│    │    Threshold/FFTThreshold/StrassenThreshold whose           │
+│    │    *Explicit marker is false (M-03: a user-supplied         │
+│    │    flag or FIBCALC_* value is never discarded)              │
 │    └─ ELSE → config.ApplyAdaptiveThresholds(cfg)                 │
 │         ├─ EstimateOptimalParallelThreshold() (CPU-based)        │
 │         ├─ EstimateOptimalFFTThreshold() (CPU-based)             │
@@ -566,28 +567,37 @@ Static flag defaults (registerFlags)
 ```
 
 **The three thresholds** (`Threshold`, `FFTThreshold`, `StrassenThreshold`) — `app.New`
-runs a second stage *after* `ParseConfig`, and that stage wins:
+runs a second stage *after* `ParseConfig`, but that stage no longer outranks the user
+(audit M-03, 2026-09; before it the profile overwrote all three unconditionally, and a
+silently discarded `--fft-threshold` was the observable symptom):
 
 ```text
+CLI flag / FIBCALC_* value                               ← HIGHEST
+   │  ParseConfig sets ThresholdExplicit / FFTThresholdExplicit /
+   │  StrassenThresholdExplicit (markExplicitThresholds) when the value
+   │  came from the user, by flag OR by environment variable.
+   ↓ marker false
 Valid cached calibration profile (~/.fibcalc_calibration.json, or
---calibration-profile / FIBCALC_CALIBRATION_PROFILE)     ← HIGHEST
-   │  LoadCachedCalibration overwrites the three fields unconditionally;
-   │  it reads neither the flag set nor the environment.
+--calibration-profile / FIBCALC_CALIBRATION_PROFILE)
+   │  applyProfileThresholds fills ONLY the non-explicit fields.
    │  Kept only if the resulting AppConfig still passes Validate().
    ↓ no valid profile → config.ApplyAdaptiveThresholds()
-CLI flag / FIBCALC_* value, when non-zero (Apply* only fills zeros)
-   ↓ still 0
-CPU-adaptive estimation (runtime.NumCPU, GOARCH, x86 SIMD tier)
+CPU-adaptive estimation (runtime.NumCPU, GOARCH, x86 SIMD tier), for the
+fields still at 0
    ↓
 Static defaults (in constants.go)
 ```
 
-Verified 2026-08-07 on the binary: with a profile carrying
+A fresh `--calibrate` / `--auto-calibrate` pass stays outside this rule: the user asked for a
+measurement, so it is the measurement that is displayed, stored and applied.
+
+Re-verified 2026-09-03 on the binary: with a profile carrying
 `optimal_parallel_threshold: 777777` / `optimal_fft_threshold: 888888` and a matching
-`cpu_heuristic_key`, `fibcalc -n 100 -algo fast -d --threshold 4242 --fft-threshold 4243
---calibration-profile <p>` prints `Parallelism=777777 bits, FFT=888888 bits`. Change the
-profile's `cpu_heuristic_key` so `IsValid()` fails and the same command prints
-`Parallelism=4242 bits, FFT=4243 bits`. Sources: `internal/calibration/calibration.go:LoadCachedCalibration`,
+`cpu_heuristic_key`, `fibcalc -n 100 -algo fast -d --calibration-profile <p>` prints
+`Parallelism=777777 bits, FFT=888888 bits`; adding `--threshold 4242 --fft-threshold 4243` to
+the same command prints `Parallelism=4242 bits, FFT=4243 bits` — the reverse of what the
+2026-08-07 run recorded here. Sources: `internal/calibration/calibration.go:LoadCachedCalibration`
+and `applyProfileThresholds`, `internal/config/config.go:markExplicitThresholds`,
 `internal/app/app.go:New`.
 
 ### Presentation Layer Integration
@@ -650,9 +660,9 @@ and `findBestStrassenThreshold` with the `"matrix"` calculator when it is regist
 | `-n` | Fibonacci index (default: 100,000,000) |
 | `-algo` | `all`, `fast`, `matrix`, `fft`. **Not `gmp`**: `app.New` builds its own factory with `fibonacci.NewDefaultFactory()` (`internal/app/app.go:New`), which registers `fast`/`matrix`/`fft` only (`internal/fibonacci/registry.go:NewDefaultFactory`). The `-tags gmp` `init()` registers into the package-private `globalFactory`, which nothing reads (`internal/fibonacci/calculator_gmp.go`, its `globalFactory` var and `init`). To use it, call `fibonacci.RegisterGMPCalculator` on your own factory — see [`docs/algorithms/GMP.md`](algorithms/GMP.md). |
 | `-timeout` | Global execution timeout (default: 5m) |
-| `-threshold` | Parallelism threshold (bits), `0` = auto |
-| `-fft-threshold` | FFT threshold (bits), `0` = auto |
-| `-strassen-threshold` | Strassen threshold (bits), `0` = auto |
+| `-threshold` | Parallelism threshold (bits), `0` = auto, `-1` = disabled (audit H-02) |
+| `-fft-threshold` | FFT threshold (bits), `0` = auto, `-1` = disabled (audit H-02) |
+| `-strassen-threshold` | Strassen threshold (bits), `0` = auto. **No `-1`**: its consumer compares `size <= threshold`, so a negative value would force Strassen on permanently |
 | `-calibrate` / `-auto-calibrate` | Full calibration / startup calibration |
 | `-calibration-profile` | Profile path override |
 | `-tui` | Launch TUI mode |
@@ -665,10 +675,11 @@ and `findBestStrassenThreshold` with the `"matrix"` calculator when it is regist
 | `--last-digits` | Modular computation mode (O(K) memory) |
 | `--memory-limit` | Memory budget guard (e.g., "8G", "512M") |
 | `--gc-control` | `auto` / `aggressive` / `disabled` |
+| `--dynamic-thresholds` | Opt-in mid-computation threshold adjustment (default `false`; wired by audit M-04, measured neutral — [ADR-0001](adr/0001-dtm-decision.md)) |
 
 ### Environment variable overrides (`FIBCALC_` prefix)
 
-A `FIBCALC_*` variable is read only when the matching flag is absent from the command line, so for every setting other than the three thresholds the order is **CLI flags > env vars > static defaults** (`internal/config/env.go:applyEnvOverrides`). For `FIBCALC_THRESHOLD` / `FIBCALC_FFT_THRESHOLD` / `FIBCALC_STRASSEN_THRESHOLD` — and for the flags they mirror — a valid cached calibration profile takes precedence over both; see [Configuration Cascade](#configuration-cascade) above.
+A `FIBCALC_*` variable is read only when the matching flag is absent from the command line, so the order is **CLI flags > env vars > static defaults** (`internal/config/env.go:applyEnvOverrides`). Since audit M-03 this holds for `FIBCALC_THRESHOLD` / `FIBCALC_FFT_THRESHOLD` / `FIBCALC_STRASSEN_THRESHOLD` too: a value supplied by either route marks the threshold explicit, and a cached calibration profile fills only what was left unset; see [Configuration Cascade](#configuration-cascade) above.
 
 Supported keys include:
 
@@ -677,7 +688,7 @@ Supported keys include:
 - `FIBCALC_VERBOSE`, `FIBCALC_DETAILS`, `FIBCALC_QUIET`, `FIBCALC_CALCULATE`
 - `FIBCALC_CALIBRATE`, `FIBCALC_AUTO_CALIBRATE`, `FIBCALC_CALIBRATION_PROFILE`
 - `FIBCALC_OUTPUT`, `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`, `FIBCALC_LAST_DIGITS`
-- `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`
+- `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`, `FIBCALC_DYNAMIC_THRESHOLDS`
 
 The list above is `envOverrides` (`internal/config/env.go`) plus `FIBCALC_TUI_THEME`
 (read by `internal/ui`). `FIBCALC_PROFILE_MAX_AGE` is read separately by
@@ -807,8 +818,12 @@ go build -tags=gmp -o fibcalc ./cmd/fibcalc
   [§9](#core-cli-flags-selected).
 
 ### Linting and security
-- `.golangci.yml` configures comprehensive linting rules.
-- `gosec` for security audits.
+- `.golangci.yml` configures comprehensive linting rules — **schema v2** since audit GATE-01
+  (2026-09-03): a binary from the pinned v1 line cannot analyze this module under a go1.27
+  toolchain (`export data version 4`).
+- `gosec` for security audits (enabled as a linter, plus the standalone `make security` target).
+- Lint is a **hard** step of `scripts/check.sh` and `scripts/check.ps1`: a missing or failing
+  `golangci-lint` fails the gate instead of being reported and passed over.
 
 ---
 
@@ -835,7 +850,7 @@ From `go.mod`, direct dependencies are:
 
 ## 14) Architectural Decision Records (ADR)
 
-> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0009`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
+> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0010`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.
@@ -880,8 +895,8 @@ From `go.mod`, direct dependencies are:
 
 ### ADR-009: Heuristique matérielle pour les seuils par défaut
 - **Context:** Les seuils à 0 (auto) ne devaient pas dépendre uniquement de `runtime.NumCPU()` alors que les chemins FFT et multiplications larges bénéficient fortement des jeux d’instructions x86 (AVX2 / AVX-512).
-- **Decision:** `internal/config/hardware.go` classifie l’hôte (`DetectHardwareHeuristic`) ; `thresholds.go` ajuste les estimations FFT / Strassen / parallélisme en conséquence. Le profil de calibration inclut `cpu_heuristic_key` (format v3) pour invalider un cache si la classe SIMD change.
-- **Results:** Comportement documenté et testable via les variantes non exportées `estimate*ThresholdForHeuristic` (`internal/config/thresholds.go`), exercées par les tests du package `config` ; profils v2 obsolètes (`CurrentProfileVersion = 3`, `internal/calibration/profile.go:CurrentProfileVersion`).
+- **Decision:** `internal/config/hardware.go` classifie l’hôte (`DetectHardwareHeuristic`) ; `thresholds.go` ajuste les estimations FFT / Strassen / parallélisme en conséquence. Le profil de calibration inclut `cpu_heuristic_key` pour invalider un cache si la classe SIMD change.
+- **Results:** Comportement documenté et testable via les variantes non exportées `estimate*ThresholdForHeuristic` (`internal/config/thresholds.go`), exercées par les tests du package `config` ; profils antérieurs obsolètes (`CurrentProfileVersion = 4` depuis l'audit 2026-09 M-01, `internal/calibration/profile.go:CurrentProfileVersion`).
 
 ### ADR-010: Backends arithmétiques hors GMP (décision recherche)
 - **Context:** des bibliothèques externes (FLINT et autres) pourraient être évaluées pour comparaison recherche ; charge de build, licences et CI hétérogène.

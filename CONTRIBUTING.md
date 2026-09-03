@@ -157,10 +157,13 @@ perf(bigfft): optimize FFT butterfly operations
    pwsh ./scripts/check.ps1
    ```
 
-   The two scripts are not equivalent: `check.sh` runs its tests with `-race` and
-   adds a step 3b that builds/vets/tests under `-tags gmp` when the libgmp headers
-   are present; `check.ps1` does neither. Prefer `check.sh` (via WSL on Windows)
-   before anything touching `internal/fibonacci` or `internal/bigfft`.
+   The two scripts are not equivalent: `check.sh` adds a step 3b that builds/vets/tests
+   under `-tags gmp` when the libgmp headers are present, which `check.ps1` has no
+   counterpart for. The race detector is no longer a difference — since 2026-09-03
+   `check.ps1` probes for CGO and a C compiler and runs `-race` when both are there.
+   Prefer `check.sh` (via WSL on Windows) before anything touching
+   `internal/fibonacci` or `internal/bigfft`. In both scripts lint is a **hard** step:
+   a `golangci-lint` that is absent or failing fails the gate.
 
 5. **Push to your fork**:
 

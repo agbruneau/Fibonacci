@@ -53,7 +53,9 @@ on 2026-08-07:
   for one, the 45 direct internal imports `go list` reports across the module
   (`cmd/fibcalc` 1, `app` 10, `calibration` 7, `cli` 8, `config` 3,
   `fibonacci` 5, `orchestration` 4, `tui` 7; every other package is a leaf).
-  (Previously re-verified 2026-07-11, audit Fable5 ARCH-01.)
+  **Re-verified 2026-09-03** after the 2026-09 audit: same 45 edges, same
+  distribution — that audit changed behaviour and signatures, not package
+  boundaries. (Previously re-verified 2026-07-11, audit Fable5 ARCH-01.)
 - `container-diagram.mermaid` — every `Rel` **between two `Container`s** is a
   real import. The one exception is `Rel(user, entry, "Invokes")` (line 19),
   a `Person` → `Container` relation that is not an import at all. The
@@ -105,6 +107,11 @@ corrected on 2026-08-07:
   (`internal/fibonacci/doubling_framework.go:DoublingFramework.ExecuteDoublingLoop`,
   `cache_strategy_bigfft.go:bigfftCacheStrategy.Sample`). A
   `DoublingFramework --> TransformCache` edge was added for that path.
+  ⚠ Since audit M-04 (2026-09) that edge is **opt-in**: the
+  `DynamicThresholdManager` it depends on is built only when
+  `Options.EnableDynamicThresholds` is set (`internal/fibonacci/fastdoubling.go`),
+  i.e. under `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS`, which default
+  to false. The edge is real but unreachable in a default run.
 
 Class *members* (field/method listings in `component-diagram.mermaid`) drift
 independently from both checks; they were last corrected on 2026-08-07 —
@@ -135,12 +142,15 @@ the diagrams under [`../flows/`](../flows/):
 
 - CLI path: `main()` → `app.New()` → `app.Run()` → orchestration → output
 - TUI path: dispatch → `tui.Run()` → Bubble Tea model lifecycle
-- Configuration resolution: CLI flags → env vars → defaults for every setting,
-  **except** `Threshold`/`FFTThreshold`/`StrassenThreshold`, which a valid cached
-  calibration profile overwrites after `ParseConfig` has run
-  (`internal/app/app.go:New`, `internal/calibration/calibration.go:LoadCachedCalibration`);
-  adaptive estimation only fills thresholds still at 0 when no valid profile
-  loads
+- Configuration resolution: CLI flags → env vars → defaults, **uniformly**, the
+  three thresholds included since audit M-03 (2026-09). `ParseConfig` marks
+  `Threshold`/`FFTThreshold`/`StrassenThreshold` explicit when the user supplied
+  them by flag or by `FIBCALC_*` (`internal/config/config.go:markExplicitThresholds`);
+  a valid cached calibration profile then fills only the ones left unmarked
+  (`internal/app/app.go:New`,
+  `internal/calibration/calibration.go:LoadCachedCalibration` → `applyProfileThresholds`),
+  and adaptive estimation fills those still at 0 when no valid profile loads.
+  Before M-03 the profile overwrote all three unconditionally
 - Per-algorithm: `FibCalculator` decorator → `DoublingFramework` /
   `MatrixFramework` → strategy dispatch
 

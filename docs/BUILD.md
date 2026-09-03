@@ -292,17 +292,21 @@ patterns, along with `gosec`, `unparam` and `noctx` (the e2e suites spawn
 
 There is no remote CI; validation is a deliberately local-only responsibility. Two
 gate scripts run the same core sequence (build, vet, test, lint, 80% coverage
-floor). They are **not** equivalent: `check.sh` has a step 3b that builds, vets
+floor). One difference remains: `check.sh` has a step 3b that builds, vets
 and tests under `-tags gmp` when the libgmp headers are present
 (`scripts/check.sh`, the block headed `step "gmp build tag (-tags gmp)"`);
-`check.ps1` has no such step (its header comment lists five steps, not six). `check.sh` also runs its
-tests with `-race`, which `check.ps1` cannot on a no-CGO host.
+`check.ps1` has no such step (its header comment lists five steps, not six).
+
+The race detector is **no longer** one of the differences (audit D4, 2026-09-03):
+`check.ps1` probes for `CGO_ENABLED` and a C compiler and adds `-race` when both
+are present — verified green on all 21 packages of a Windows host. Without a C
+toolchain it runs the same suite without `-race`.
 
 ```bash
 # CGO / Linux / macOS hosts (tests run WITH the race detector)
 ./scripts/check.sh
 
-# Windows / no-CGO hosts (tests run WITHOUT -race; the race detector needs a C toolchain)
+# Windows hosts (with -race when CGO and a C compiler are detected, without otherwise)
 pwsh ./scripts/check.ps1
 ```
 
@@ -341,7 +345,7 @@ is the thin `cli.GenerateCompletion` wrapper that delegates to `completion.Gener
 
 ## Environment Variables
 
-All environment variables use the `FIBCALC_` prefix (except the standard `NO_COLOR`). A `FIBCALC_*` variable is read only when the matching flag is absent from the command line, so the priority is **CLI flags > environment variables > static defaults** — *except* for the three thresholds, where a valid cached calibration profile overrides both (see [Threshold Tuning](#threshold-tuning) below).
+All environment variables use the `FIBCALC_` prefix (except the standard `NO_COLOR`). A `FIBCALC_*` variable is read only when the matching flag is absent from the command line, so the priority is **CLI flags > environment variables > static defaults** — uniformly, the three thresholds included since audit M-03 (see [Threshold Tuning](#threshold-tuning) below).
 
 ### Calculation Parameters
 
@@ -359,16 +363,27 @@ All environment variables use the `FIBCALC_` prefix (except the standard `NO_COL
 | `FIBCALC_FFT_THRESHOLD` | FFT multiplication threshold (bits) | `0` (auto: hardware-adaptive) |
 | `FIBCALC_STRASSEN_THRESHOLD` | Strassen algorithm threshold (bits) | `0` (auto: hardware-adaptive) |
 
-A **valid cached calibration profile overwrites all three**, whatever the flag or
-the variable says. `app.New` runs `calibration.LoadCachedCalibration` after
-`ParseConfig` (`internal/app/app.go:New`) and it assigns
-`Threshold`/`FFTThreshold`/`StrassenThreshold` from the profile without consulting
-the flag set or the environment (`internal/calibration/calibration.go:LoadCachedCalibration`).
-Only when no valid profile loads does `ApplyAdaptiveThresholds` run, and it fills
-in just the thresholds still left at `0`: hardware-adaptive estimation, then the
-static defaults (parallelism=4,096, FFT=500,000, Strassen=3,072). Delete the
-profile, or point `--calibration-profile` at a path that does not exist, to make
-an explicit threshold stick.
+A **value you supply wins over a cached calibration profile** (audit M-03, 2026-09).
+`ParseConfig` marks each threshold explicit when it came from the flag *or* from the
+matching `FIBCALC_*` variable (`internal/config/config.go:markExplicitThresholds`);
+`app.New` then runs `calibration.LoadCachedCalibration` after `ParseConfig`
+(`internal/app/app.go:New`), and `applyProfileThresholds` fills only the thresholds
+that were left to the tool (`internal/calibration/calibration.go`). Deleting the
+profile is no longer necessary to make an explicit threshold stick.
+
+When no valid profile loads, `ApplyAdaptiveThresholds` fills in just the thresholds
+still left at `0`: hardware-adaptive estimation, then the static defaults
+(parallelism=4,096, FFT=500,000, Strassen=3,072).
+
+`-1` means **disabled** for `FIBCALC_THRESHOLD` / `FIBCALC_FFT_THRESHOLD` and their
+flags (audit H-02) — it is the value calibration stores on hosts where sequential
+wins, and validation used to reject it, which silently discarded the calibrated
+profile at every start-up. `FIBCALC_STRASSEN_THRESHOLD` does **not** accept `-1`:
+its consumer compares `size <= threshold`, so a negative value would force Strassen
+on permanently instead of turning it off.
+
+A fresh `--calibrate` / `--auto-calibrate` pass stays outside this rule: you asked
+for a measurement, so the measurement is what gets stored and applied.
 
 ### Output Control
 
@@ -385,6 +400,7 @@ an explicit threshold stick.
 | `FIBCALC_MACHINE_OUTPUT` | Emit machine-readable output (same as `--machine`) | `false` |
 | `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling; pre-flight estimator aborts if exceeded. Suffix is a **single letter** `K`/`M`/`G` (case-insensitive), e.g. `4G`, `512M` — `4GB` is rejected | (unbounded) |
 | `FIBCALC_GC_CONTROL` | GC control during calculation: `auto`, `aggressive`, `disabled` | `auto` |
+| `FIBCALC_DYNAMIC_THRESHOLDS` | Adjust the FFT/parallelism thresholds mid-computation (backs `--dynamic-thresholds`; measured neutral, [ADR-0001](adr/0001-dtm-decision.md)) | `false` |
 | `NO_COLOR` | Disable ANSI color output (standard; no `FIBCALC_` prefix) | (unset) |
 
 ### Calibration

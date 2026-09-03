@@ -142,7 +142,7 @@ When CLI thresholds are left at **0** (auto) and no valid calibration profile is
 - **`runtime.NumCPU()`** for parallelism tiers (unchanged broad behavior).
 - **`HardwareHeuristic`** (`internal/config/hardware.go`): on **amd64** and **386**, **AVX2** and **AVX-512 (AVX512F)** are read from `golang.org/x/sys/cpu` to nudge defaults (e.g. slightly lower FFT crossover on SIMD-rich CPUs, adjusted Strassen threshold when at least four cores are available).
 
-Diagnostics and the in-package unit tests (`internal/config/hardware_test.go`) exercise the unexported `estimateParallelThresholdForHeuristic`, `estimateFFTThresholdForHeuristic`, and `estimateStrassenThresholdForHeuristic` with a synthetic `HardwareHeuristic`. Cached calibration profiles store `cpu_heuristic_key` (profile format v3) so a change in SIMD class invalidates stale JSON — see [CALIBRATION.md](CALIBRATION.md).
+Diagnostics and the in-package unit tests (`internal/config/hardware_test.go`) exercise the unexported `estimateParallelThresholdForHeuristic`, `estimateFFTThresholdForHeuristic`, and `estimateStrassenThresholdForHeuristic` with a synthetic `HardwareHeuristic`. Cached calibration profiles store `cpu_heuristic_key` (profile format v4 since audit M-01) so a change in SIMD class invalidates stale JSON — see [CALIBRATION.md](CALIBRATION.md).
 
 ## Implemented Optimizations
 
@@ -255,17 +255,33 @@ Pre-calculate estimated memory usage before starting with `--memory-limit`:
 
 `memory.EstimateMemoryUsage(n)` (`internal/fibonacci/memory/budget.go`) is the sole
 source of these numbers. It computes `bytesPerFib = (⌊n × 0.69424 / 64⌋ + 1) × 8` and
-totals **15 × bytesPerFib** (state 5× + FFT buffers 3× + transform cache 2× + GC
-overhead 5×):
+totals **180 × bytesPerFib**, plus a flat **10 MiB** floor once the FFT machinery is
+engaged at all (`n > 93`). The four terms are a descriptive split of one calibrated
+total — state 36× + FFT buffers 39× + transform cache 48× + overhead 57× — so moving
+weight between them (as the M-08 cache bound did, 4× → 48×) must keep the sum constant.
 
 | N | Estimated Peak Memory |
 |---|---|
-| 10M | ~12.4 MB |
-| 100M | ~124 MB |
-| 1B | ~1.21 GB |
-| 5B | ~6.06 GB |
+| 1M | ~24.9 MB |
+| 10M | ~159 MB |
+| 100M | ~1.5 GB |
+| 1B | ~14.6 GB |
+| 5B | ~72.7 GB |
 
-If the estimate exceeds the limit, the tool exits with an error and suggests `--last-digits K` as an alternative. Note that this is the estimator's figure, not a measured RSS: pick `--memory-limit` against this model, not against observed process memory.
+Measured on the binary, 2026-09-03: `fibcalc -n <N> -memory-limit 1K -algo fast` prints
+the estimate in its refusal message.
+
+> **Re-modelled by audit H-03 (2026-09).** The previous model totalled 15 × bytesPerFib
+> and put F(10M) at ~12 MB against **141 MB** actually observed — it counted neither the
+> ×10 arena over-sizing, nor `sync.Pool` pre-warming (the largest single term, whose
+> power-of-four size classes make the true cost a step function), nor the fact that
+> `--algo all` runs three calculators at once. It under-estimated by 5× to 12× at every
+> measured point, which emptied `--memory-limit` of its meaning. The estimate is now a
+> deliberate **safety bound**, between 1.0× and 2.5× the measured figure across the
+> range and never under. Raw measurements: [`docs/audits/mem-baseline-2026-09.txt`](audits/mem-baseline-2026-09.txt).
+> **A limit tuned against the old figures will now be more constraining.**
+
+If the estimate exceeds the limit, the tool exits with an error and suggests `--last-digits K` as an alternative. Note that this is the estimator's figure, not a measured RSS: pick `--memory-limit` against this model, not against observed process memory. A malformed `--memory-limit` (or an out-of-range `--last-digits`) is now rejected at flag-parsing time, on every mode, instead of only on the paths that reached the check (audit M-02).
 
 ### 8. Partial Computation (Last Digits)
 
@@ -308,6 +324,17 @@ fibcalc --auto-calibrate
 | `FFTCacheMinBitLen` | 100,000 bits | Minimum operand bit length to cache FFT transforms |
 | `FFTCacheMaxEntries` | see below | Maximum number of cached FFT transforms |
 | `FFTCacheEnabled` | `true` | Enable/disable FFT transform caching |
+| (no option) `MaxBytes` | `48 × size(F(n))` | Byte ceiling on the whole cache, installed by `configureFFTCache` from `n` (audit M-08); not settable through `Options` |
+
+> **The entry cap is not a memory bound (M-08).** An entry holds `K × (n+1)` words —
+> roughly twice its operand — so a fixed entry budget lets the cache grow linearly with
+> the Fibonacci index, and nothing frees it between calculations in a long-lived process
+> (TUI restart, calibration sweep). Since the 2026-09 audit the cache is also capped in
+> bytes at `FFTCacheMaxBytesFactor = 48` times the size of F(n) (`internal/fibonacci/constants.go`),
+> sized to hold one calculation's transforms. A tighter bound was measured and **rejected**:
+> 4× (2 entries at F(10M)) cost MatrixExp/10M **+22 % sec/op**, +76 % B/op and +137 %
+> allocs/op — see [`docs/audits/bench-fftcache-2026-09.txt`](audits/bench-fftcache-2026-09.txt)
+> and [ADR-0010 R1](adr/0010-audit-2026-09-decisions.md).
 
 > **`FFTCacheMaxEntries` has no fixed default of 256.** `bigfft.DefaultTransformCacheConfig()` does return `MaxEntries: 256` (`internal/bigfft/fft_cache.go:DefaultTransformCacheConfig`), but `configureFFTCache` overrides it whenever the option is left at 0 and `n > 0`, computing `clamp(2 × bits.Len64(n), 64, 4096)` (`internal/fibonacci/options.go:configureFFTCache`). For n = 10M that is `2 × 24 = 48`, clamped up to **64**. The dynamic value can never reach 256: `bits.Len64` maxes out at 64, so the expression tops out at 128. The 256 constant only reaches a caller who bypasses `configureFFTCache`, or who leaves `n = 0`. The doc comment on `Options.FFTCacheMaxEntries` (`internal/fibonacci/options.go:Options.FFTCacheMaxEntries`) states this rule directly: it says the field is sized from n as `clamp(2*bits.Len64(n), 64, 4096)`, "which is 64..128 in practice since bits.Len64 caps at 64; the package default of 256 only applies when n is 0."
 
@@ -437,7 +464,7 @@ go build -ldflags="-s -w" -gcflags="-B" ./cmd/fibcalc
 
 ## Known Limitations
 
-1. **Memory**: `EstimateMemoryUsage` puts F(1 billion) at ~1.21 GB. Use `--memory-limit` to validate before starting.
+1. **Memory**: `EstimateMemoryUsage` puts F(1 billion) at ~14.6 GB (safety bound, re-modelled by audit H-03). Use `--memory-limit` to validate before starting.
 2. **Time**: Calculations for N > 500M can take hours
 3. **FFT Contention**: The FFT algorithm saturates cores, limiting external parallelism
 4. **Workaround**: Use `--last-digits K` for O(K) memory usage with arbitrarily large N.

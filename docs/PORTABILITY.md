@@ -92,13 +92,18 @@ Le race detector Go nécessite CGO. La cible canonique `make test` lance
 - **Windows** : CGO via MinGW si le contributeur l'installe localement.
   Sinon, `make test` échoue faute de gcc. Sur un poste Windows pur sans
   gcc, utiliser la cible sans `-race` **`make test-win`** (équivalent
-  `go test -v -cover ./...`) ou le script de garde-fou local
-  **`scripts/check.ps1`**. Le `-race` reste **recommandé** : l'exécuter via
-  WSL ou un poste Linux/macOS.
+  `go test -v -cover ./...`). Le `-race` reste **recommandé** : l'exécuter
+  via WSL ou un poste Linux/macOS.
+- **`scripts/check.ps1` n'est plus un repli sans `-race`** (2026-09-03,
+  [ADR-0010 D4](adr/0010-audit-2026-09-decisions.md)) : il sonde `CGO_ENABLED`
+  et la présence d'un compilateur C, et active `-race` quand les deux sont
+  réunis — relevé sur cet hôte Windows : **21 paquets verts**. Sans chaîne C,
+  il retombe sur la même suite sans `-race`. L'ancienne formulation décrivait
+  une installation, pas une limite de plate-forme.
 
-> Résumé : `make test` = suite complète avec `-race` (CGO requis, donc
-> Linux/macOS ou WSL sous Windows) ; `make test-win` / `scripts/check.ps1`
-> = repli Windows sans `-race`.
+> Résumé : `make test` = suite complète avec `-race` (CGO et compilateur C
+> requis) ; `make test-win` = repli explicite sans `-race` ;
+> `scripts/check.ps1` = `-race` si l'hôte peut, sinon sans.
 
 Pour les builds cross-compile (`linux/arm64`, `darwin/arm64`), le race
 detector n'est pas exécuté — seule la **compilabilité** sans CGO est

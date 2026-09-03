@@ -315,8 +315,13 @@ All entry points delegate to the recursive core.
 
 ```go
 func fourierRecursiveUnified(dst, src []fermat, backward bool, n int,
-    k, size, depth uint, tmp, tmp2 fermat, alloc tempAllocator) error
+    k, size, depth uint, tmp, tmp2 fermat) error
 ```
+
+> The `alloc tempAllocator` parameter was **removed** by audit L-06 (2026-09): the
+> recursion only handed it down to its own recursive calls and never allocated
+> through it. `tempAllocator` itself stays — `fft_poly.go` uses it (see
+> [Allocator Abstraction](#allocator-abstraction)).
 
 The FFT uses a **Cooley-Tukey radix-2 decimation-in-time** decomposition — the
 input is split by index parity (`src` for one half, `src[1<<idxShift:]` for the
@@ -572,6 +577,7 @@ type TransformCache struct {
     config    TransformCacheConfig
     entries   map[uint64]*list.Element
     lru       *list.List
+    currBytes int // sum of len(entry.backing)*wordSize, guarded by mu (M-08)
     hits, misses, evictions, accesses atomic.Uint64
     // atomic.Pointer so setCacheLogger does not race with the hot-path read
     // in logPeriodicStats (A2-02).
@@ -588,6 +594,7 @@ type TransformCache struct {
 | Eviction policy | LRU (least recently used) |
 | `DefaultTransformCacheConfig().MaxEntries` | 256 |
 | `DefaultTransformCacheConfig().MinBitLen` | 100,000 bits (~12 KB) |
+| `DefaultTransformCacheConfig().MaxBytes` | 0 (unbounded); `configureFFTCache` sizes it from `n` |
 
 > **256 is almost never the effective value.** `configureFFTCache`
 > (`internal/fibonacci/options.go`) overwrites it whenever
@@ -596,6 +603,19 @@ type TransformCache struct {
 > expression tops out at 128; for n = 10M it is `2 × 24 = 48`, clamped up to 64.
 > The 256 default only survives for a caller that bypasses `configureFFTCache`
 > or passes `n = 0`.
+
+> **The entry cap is not a memory bound (audit M-08, 2026-09).** An entry holds
+> `K × (n+1)` words — roughly twice its operand — so a fixed entry budget grows
+> linearly with the Fibonacci index: at F(10M) the matrix path retained 20 entries
+> of ~1.7 MB, and the same 64-128 entry budget at F(100M) would allow gigabytes,
+> with nothing freeing it between calculations in a long-lived process (TUI
+> restart, calibration sweep). `TransformCacheConfig.MaxBytes` now caps the total
+> backing memory (`currBytes` tracks it, and `putByKey` both refuses an
+> over-sized entry and evicts until the new one fits). `configureFFTCache`
+> installs `48 × size(F(n))` (`fibonacci.FFTCacheMaxBytesFactor`), sized to hold
+> one calculation's transforms. Tightening it to 4× was measured at MatrixExp/10M
+> **+22 % sec/op** and rejected — [ADR-0010 R1](../adr/0010-audit-2026-09-decisions.md),
+> [`docs/audits/bench-fftcache-2026-09.txt`](../audits/bench-fftcache-2026-09.txt).
 
 ### Why Cache?
 
@@ -698,12 +718,12 @@ Six `go:linkname` directives bind directly to `math/big` internal functions:
 | `fft_core.go` | Core FFT: `fftmulTo`, `fftsqrTo`, `fourier`, `fourierWithBump` |
 | `fft_recursion.go` | Recursive FFT decomposition with runtime-configurable parallelism (`FFTParallelismConfig`) |
 | `fft_poly.go` | `Poly` and `PolValues` types; transform, multiply, inverse |
-| `fft_cache.go` | `TransformCache`: thread-safe LRU for FFT transforms |
+| `fft_cache.go` | `TransformCache`: thread-safe LRU for FFT transforms, bounded in entries **and** bytes |
 | `fermat.go` | Fermat ring arithmetic: Z/(2^k+1) |
-| `pool.go` | `sync.Pool` hierarchies (4 types, 33 size classes) |
+| `pool.go` | `sync.Pool` hierarchies (4 types, 33 size classes); `acquire*` zeroes only the requested prefix of a pooled slice, not the whole size class (audit M-05) |
 | `pool_warming.go` | `PreWarmPools`, `EnsurePoolsWarmed` |
 | `bump.go` | `BumpAllocator`: O(1) bump allocation with capacity estimation |
-| `allocator.go` | `tempAllocator` interface, `poolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`) |
+| `allocator.go` | `tempAllocator` interface, `poolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`); consumed by `fft_poly.go`, no longer threaded through the FFT recursion (L-06) |
 | `memory_est.go` | `EstimateMemoryNeeds` for pool pre-warming |
 | `arith.go` | Portable vector arithmetic wrappers (test-only oracles) delegating to `math/big` internals |
 | `arith_decl.go` | Architecture-independent `go:linkname` declarations to `math/big` |
