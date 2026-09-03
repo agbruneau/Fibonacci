@@ -76,10 +76,11 @@ func (a *Application) executeCalculations(ctx context.Context, out io.Writer) []
 	}
 
 	opts := fibonacci.Options{
-		ParallelThreshold: a.Config.Threshold,
-		FFTThreshold:      a.Config.FFTThreshold,
-		StrassenThreshold: a.Config.StrassenThreshold,
-		GCMode:            a.Config.GCControl,
+		ParallelThreshold:       a.Config.Threshold,
+		FFTThreshold:            a.Config.FFTThreshold,
+		StrassenThreshold:       a.Config.StrassenThreshold,
+		GCMode:                  a.Config.GCControl,
+		EnableDynamicThresholds: a.Config.DynamicThresholds,
 	}
 	return orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 		Calculators:      calculatorsToRun,

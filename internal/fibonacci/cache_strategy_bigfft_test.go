@@ -93,3 +93,69 @@ func TestDecideCacheTuning(t *testing.T) {
 		})
 	}
 }
+
+// TestDecideCacheTuningBounds pins audit L-08. The heuristics were unreachable
+// until --dynamic-thresholds existed (M-04), and both growth rules had a
+// degenerate case: multiplicative growth that does not move, reported as a
+// change, makes the caller take the cache's exclusive lock every sample to
+// write back the value it already held.
+func TestDecideCacheTuningBounds(t *testing.T) {
+	t.Parallel()
+
+	// Grow branch: evictions with a good hit rate.
+	growStats := bigfft.CacheStats{Evictions: 1, HitRate: 0.9, Hits: 90, Misses: 10}
+
+	t.Run("small MaxEntries still grows", func(t *testing.T) {
+		t.Parallel()
+		for _, start := range []int{1, 2, 3, 4} {
+			got, changed := decideCacheTuning(growStats, bigfft.TransformCacheConfig{MaxEntries: start, MinBitLen: 100000})
+			if !changed {
+				t.Errorf("MaxEntries=%d: expected an adjustment", start)
+				continue
+			}
+			if got.MaxEntries <= start {
+				t.Errorf("MaxEntries=%d: grew to %d, which is not progress", start, got.MaxEntries)
+			}
+		}
+	})
+
+	t.Run("MaxEntries stops at the ceiling", func(t *testing.T) {
+		t.Parallel()
+		got, changed := decideCacheTuning(growStats, bigfft.TransformCacheConfig{MaxEntries: cacheMaxEntriesUpperBound, MinBitLen: 100000})
+		if changed {
+			t.Error("at the ceiling there is nothing left to change")
+		}
+		if got.MaxEntries != cacheMaxEntriesUpperBound {
+			t.Errorf("MaxEntries = %d, want the ceiling %d", got.MaxEntries, cacheMaxEntriesUpperBound)
+		}
+	})
+
+	// Shrink branch: a hit rate too low to be worth the work, with enough
+	// activity for the reading to mean something.
+	shrinkStats := bigfft.CacheStats{HitRate: 0.01, Hits: 1, Misses: 99}
+
+	t.Run("MinBitLen grows then stops at the ceiling", func(t *testing.T) {
+		t.Parallel()
+		got, changed := decideCacheTuning(shrinkStats, bigfft.TransformCacheConfig{MaxEntries: 256, MinBitLen: 100000})
+		if !changed || got.MinBitLen <= 100000 {
+			t.Errorf("expected MinBitLen to grow from 100000, got %d (changed=%v)", got.MinBitLen, changed)
+		}
+
+		got, changed = decideCacheTuning(shrinkStats, bigfft.TransformCacheConfig{MaxEntries: 256, MinBitLen: cacheMinBitLenUpperBound})
+		if changed {
+			t.Error("at the ceiling there is nothing left to change")
+		}
+		if got.MinBitLen != cacheMinBitLenUpperBound {
+			t.Errorf("MinBitLen = %d, want the ceiling %d", got.MinBitLen, cacheMinBitLenUpperBound)
+		}
+	})
+
+	t.Run("no signal means no change", func(t *testing.T) {
+		t.Parallel()
+		cfg := bigfft.TransformCacheConfig{MaxEntries: 256, MinBitLen: 100000}
+		got, changed := decideCacheTuning(bigfft.CacheStats{HitRate: 0.3, Hits: 30, Misses: 70}, cfg)
+		if changed || got != cfg {
+			t.Errorf("a middling hit rate with no evictions must not adjust anything, got %+v (changed=%v)", got, changed)
+		}
+	})
+}

@@ -117,6 +117,18 @@ type AppConfig struct {
 	MemoryLimit string
 	// GCControl sets the GC control mode ("auto", "aggressive", "disabled").
 	GCControl string
+	// DynamicThresholds enables the dynamic threshold manager
+	// (internal/fibonacci/threshold): it times each doubling iteration and
+	// raises or lowers the FFT and parallel thresholds mid-calculation.
+	//
+	// Off by default. ADR-0001 decided to KEEP the subsystem on the strength
+	// of a 5-6% gain measured at F(10M), but nothing ever set
+	// fibonacci.Options.EnableDynamicThresholds outside tests, so that gain
+	// was never delivered to anyone running the binary and the whole
+	// threshold/ package was documented as active while being unreachable
+	// (audit M-04). This flag is the missing wiring; the default stays false
+	// until the gain is re-measured through it.
+	DynamicThresholds bool
 
 	// ThresholdExplicit, FFTThresholdExplicit and StrassenThresholdExplicit
 	// record whether the user pinned the corresponding threshold — on the
@@ -240,6 +252,7 @@ func registerFlags(fs *flag.FlagSet, config *AppConfig, availableAlgos []string)
 	fs.IntVar(&config.LastDigits, "last-digits", 0, "Compute only the last K decimal digits (uses O(K) memory).")
 	fs.StringVar(&config.MemoryLimit, "memory-limit", "", "Maximum memory budget (e.g., 8G, 512M). Aborts with a config error if the estimate exceeds it.")
 	fs.StringVar(&config.GCControl, "gc-control", "auto", "GC control during calculation (auto, aggressive, disabled).")
+	fs.BoolVar(&config.DynamicThresholds, "dynamic-thresholds", false, "Adjust the FFT and parallelism thresholds during the calculation from per-iteration timings.")
 }
 
 // FlagNames returns the names of every CLI flag registered by registerFlags.

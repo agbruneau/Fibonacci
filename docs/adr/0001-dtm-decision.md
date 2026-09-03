@@ -87,3 +87,44 @@ historique ci-dessus est conservé tel quel et la décision KEEP reste inchangé
 - `CLAUDE.md` (renvois « directive 1 » ci-dessus) a été retiré du dépôt le
   2026-07-31 (commit `869bd6a`) : ces renvois sont des citations historiques, il
   n'existe plus de fichier de directives dans l'arbre.
+
+## Status note (2026-09-03) — câblage exécuté, gain non reproduit
+
+L'audit 2026-09 (M-04) a constaté que la décision **KEEP** ci-dessus n'avait
+jamais été suivie d'un câblage : `fibonacci.Options.EnableDynamicThresholds`
+n'était mis à `true` par aucun chemin de production — ni flag, ni variable
+d'environnement, ni `internal/app`. Le gain de 5-6 % qui justifie le KEEP
+n'était donc livré à aucun utilisateur du binaire, et `docs/ARCH.md` /
+`docs/PERFORMANCE.md` présentaient le DTM comme un composant actif du pipeline.
+
+**Câblage livré** : `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS`,
+**désactivé par défaut**, propagé sur les deux chemins (CLI et TUI).
+
+**Mesure** (`docs/audits/bench-dtm-2026-09.txt`) : `BenchmarkFibonacciDTM`,
+`-count=8 -benchtime=1x -benchmem`, Intel Core Ultra 9 275HX, go1.27.0.
+
+| Benchmark | Off | On | Δ |
+|---|---:|---:|---|
+| F(1M) sec/op | 3,144 ms ± 5 % | 3,041 ms ± 5 % | ~ (p=0,279) |
+| F(10M) sec/op | 26,20 ms ± 3 % | 25,71 ms ± 5 % | ~ (p=0,382) |
+| geomean sec/op | — | — | −2,59 % (non significatif) |
+| F(1M) allocs/op | 117,5 ± 3 % | 138,5 ± 3 % | **+17,87 % (p=0,006)** |
+| geomean B/op | — | — | +0,04 % |
+
+**Interprétation.** Le gain de 5-6 % de la table d'origine **ne se reproduit
+pas**. Les deux écarts CPU sont dans le bruit (`~`, p > 0,25), ce qui était
+prévisible : la mesure d'origine était `-count=5 -benchtime=1x` *single-sample*
+et l'ADR la qualifiait lui-même de « bruitée » en appelant une reprise à
+`-count=20`. Cette reprise à `-count=8` avec test statistique ne montre aucun
+effet CPU. Le seul écart significatif est un **surcoût** d'allocations à 1M
+(+17,9 %), attribuable à l'enregistrement des métriques par itération.
+
+**Décision : KEEP maintenu, défaut `false`.** Le sous-système reste dans
+l'arbre — son coût de maintenance est nul depuis la conversion atomique (E1-R1)
+et il est désormais réellement atteignable — mais rien ne justifie de l'activer
+par défaut. Les deux raisons 1 et 3 du KEEP d'origine tiennent ; la raison 2
+(« gain plausible 5-6 % au régime ≥ 10M ») est **caduque sur cette machine**.
+
+À revoir si : une mesure sur une autre microarchitecture, ou sur un régime
+au-delà de F(10M), montre un gain significatif ; le flag existe désormais pour
+la produire sans modifier le code.

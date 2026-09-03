@@ -195,6 +195,14 @@ var envOverrides = []envOverride{
 		c.TUI = parsed
 		return nil
 	}},
+	{"DYNAMIC_THRESHOLDS", []string{"dynamic-thresholds"}, func(c *AppConfig, v string) error {
+		parsed, err := parseBoolEnv(v, c.DynamicThresholds)
+		if err != nil {
+			return malformedEnvError("DYNAMIC_THRESHOLDS", v, err)
+		}
+		c.DynamicThresholds = parsed
+		return nil
+	}},
 }
 
 // malformedEnvError builds a structured ConfigError for an environment

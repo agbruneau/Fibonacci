@@ -292,7 +292,7 @@ internal/
 | **Arena Allocator** | `memory.CalculationArena` | Pre-sizes contiguous backing storage for big.Int state to reduce fragmentation/GC overhead |
 | **Bump Allocator** | `bigfft.BumpAllocator` | Batch temporary allocations with O(1) reset for FFT internals |
 | **FFT Transform Cache** | `internal/bigfft/fft_cache.go` | Caches FFT transforms for reuse across multiply/square operations within an iteration |
-| **Dynamic Threshold Adjustment** | `threshold.DynamicThresholdManager` | Records per-iteration metrics and adjusts FFT/parallel thresholds mid-computation |
+| **Dynamic Threshold Adjustment** | `threshold.DynamicThresholdManager` | Records per-iteration metrics and adjusts FFT/parallel thresholds mid-computation. **Opt-in, off by default**: `--dynamic-thresholds` (wired in the 2026-09 audit, M-04; measured neutral on CPU, see [ADR-0001](adr/0001-dtm-decision.md)) |
 | **Zero-Copy Result Return** | `MatrixFramework.ExecuteMatrixLoop` only | "Steals" `res.a` from the matrix state instead of copying. Deliberately NOT done in `DoublingFramework.ExecuteDoublingLoop` (P1-04): its state aliases the arena, so the success path deep-copies via `ReleaseStateWithResult` |
 | **Generics with Pointer Constraints** | `executeTasks[T any, PT interface{*T; task}]` | Generic task execution eliminating code duplication between multiplication and squaring tasks |
 | **GC Controller** | `memory.GCController` | Disables GC during large computations (N ≥ 1M), restores afterward; uses `debug.SetMemoryLimit` as safety net |
@@ -389,7 +389,7 @@ Additional notable engineering patterns include:
 │         ├─ Post-multiply: F(2k) = 2·T3 - T2, F(2k+1) = T1 + T2│
 │         ├─ Pointer rotation (zero-copy)                          │
 │         ├─ Addition step: if bit=1, F(k) ← F(k+1), F(k+1) ← sum│
-│         ├─ Dynamic threshold adjustment (if enabled)             │
+│         ├─ Dynamic threshold adjustment (--dynamic-thresholds)   │
 │         └─ ReportStepProgress (geometric work model)              │
 ├───────────────────────────────────────────────────────────────────┤
 │ 9. RESULT ANALYSIS                                                │

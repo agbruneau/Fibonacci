@@ -65,10 +65,11 @@ func startCalculationCmd(ctx context.Context, ref *programRef, calculators []orc
 		presenter := &TUIResultPresenter{ref: ref, gen: gen}
 
 		opts := orchestration.Options{
-			ParallelThreshold: cfg.Threshold,
-			FFTThreshold:      cfg.FFTThreshold,
-			StrassenThreshold: cfg.StrassenThreshold,
-			GCMode:            cfg.GCControl,
+			ParallelThreshold:       cfg.Threshold,
+			FFTThreshold:            cfg.FFTThreshold,
+			StrassenThreshold:       cfg.StrassenThreshold,
+			GCMode:                  cfg.GCControl,
+			EnableDynamicThresholds: cfg.DynamicThresholds,
 		}
 		results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 			Calculators:      calculators,

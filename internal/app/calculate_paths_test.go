@@ -442,3 +442,37 @@ func TestPresentQuietMismatchWritesStderr(t *testing.T) {
 		t.Error("the diagnostic must be newline-terminated")
 	}
 }
+
+// TestExecuteCalculations_WiresDynamicThresholds pins audit M-04. ADR-0001
+// decided to KEEP the dynamic threshold manager on the strength of a 5-6% gain
+// at F(10M), but nothing outside tests ever set EnableDynamicThresholds, so
+// the whole threshold/ package was unreachable from the binary and the gain
+// was never delivered. --dynamic-thresholds is the missing wiring.
+func TestExecuteCalculations_WiresDynamicThresholds(t *testing.T) {
+	t.Parallel()
+
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("enabled=%v", enabled), func(t *testing.T) {
+			t.Parallel()
+			spy := &gcSpyCalculator{}
+			factory := fibonacci.NewTestFactory(map[string]fibonacci.Calculator{"fast": spy})
+			app := &Application{
+				Config: config.AppConfig{
+					N:                 10,
+					Algo:              "fast",
+					Quiet:             true,
+					DynamicThresholds: enabled,
+				},
+				Factory: factory,
+			}
+
+			var outBuf bytes.Buffer
+			app.executeCalculations(context.Background(), &outBuf)
+
+			if spy.capturedOpts.EnableDynamicThresholds != enabled {
+				t.Errorf("Options.EnableDynamicThresholds = %v, want %v",
+					spy.capturedOpts.EnableDynamicThresholds, enabled)
+			}
+		})
+	}
+}

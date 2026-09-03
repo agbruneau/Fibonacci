@@ -317,8 +317,16 @@ fibcalc --auto-calibrate
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `EnableDynamicThresholds` | `false` | Enable real-time threshold adjustment based on per-iteration timing |
+| `EnableDynamicThresholds` | `false` | Enable real-time threshold adjustment based on per-iteration timing. Exposed on the command line as `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS` since the 2026-09 audit (M-04); before that no production path set it, so the subsystem was unreachable from the binary |
 | `DynamicAdjustmentInterval` | 5 iterations | Iterations between threshold checks (when enabled) |
+
+The default stays `false` on measurement, not on caution: a `-count=8` benchstat
+run of `BenchmarkFibonacciDTM` puts the CPU difference squarely in the noise
+(`~`, p > 0.25 at both 1M and 10M) and shows a significant **+17.9% allocs/op**
+at 1M. The 5-6% gain quoted by ADR-0001 came from a single-sample
+(`-benchtime=1x -count=5`) run that the ADR itself called noisy; it does not
+reproduce. See `docs/audits/bench-dtm-2026-09.txt` and the 2026-09 status note
+in [ADR-0001](adr/0001-dtm-decision.md).
 
 #### FFT Parallelism (bigfft package)
 

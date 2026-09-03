@@ -45,6 +45,14 @@ const (
 	cacheHitRateGrow    = 0.5
 	cacheHitRateShrink  = 0.1
 	cacheActivityWindow = 10
+
+	// cacheMinBitLenUpperBound caps the shrink heuristic. Raising MinBitLen
+	// excludes ever-larger operands from the cache, so an uncapped 10% growth
+	// per sample eventually excludes everything — the heuristic would keep
+	// paying a global write lock to change a value nothing can reach anymore
+	// (audit L-08). 10M bits is ~100x the 100k default and already above any
+	// operand this cache serves, so past it further growth is unobservable.
+	cacheMinBitLenUpperBound = 10_000_000
 )
 
 // NewBigFFTCacheStrategy returns the default CacheStrategy that wraps the
@@ -80,10 +88,19 @@ func decideCacheTuning(stats bigfft.CacheStats, cfg bigfft.TransformCacheConfig)
 	// If evicting frequently with good hit rate, increase cache size.
 	if stats.Evictions > 0 && stats.HitRate > cacheHitRateGrow {
 		if cfg.MaxEntries < cacheMaxEntriesUpperBound {
-			cfg.MaxEntries = int(float64(cfg.MaxEntries) * cacheGrowthFactor)
-			if cfg.MaxEntries > cacheMaxEntriesUpperBound {
-				cfg.MaxEntries = cacheMaxEntriesUpperBound
+			// Floor the step at +1 (audit L-08): int(4 * 1.2) is 4, so for
+			// MaxEntries <= 4 the multiplicative growth produced no change
+			// while still reporting changed=true, making the caller take the
+			// cache's exclusive lock every sample to write back the value it
+			// already held.
+			grown := int(float64(cfg.MaxEntries) * cacheGrowthFactor)
+			if grown <= cfg.MaxEntries {
+				grown = cfg.MaxEntries + 1
 			}
+			if grown > cacheMaxEntriesUpperBound {
+				grown = cacheMaxEntriesUpperBound
+			}
+			cfg.MaxEntries = grown
 			return cfg, true
 		}
 		return cfg, false
@@ -91,7 +108,17 @@ func decideCacheTuning(stats bigfft.CacheStats, cfg bigfft.TransformCacheConfig)
 
 	// If cache is not useful, prune smaller transforms.
 	if stats.HitRate < cacheHitRateShrink && (stats.Misses+stats.Hits) > cacheActivityWindow {
-		cfg.MinBitLen = int(float64(cfg.MinBitLen) * cacheMinBitLenGrow)
+		if cfg.MinBitLen >= cacheMinBitLenUpperBound {
+			return cfg, false
+		}
+		grown := int(float64(cfg.MinBitLen) * cacheMinBitLenGrow)
+		if grown <= cfg.MinBitLen {
+			grown = cfg.MinBitLen + 1
+		}
+		if grown > cacheMinBitLenUpperBound {
+			grown = cacheMinBitLenUpperBound
+		}
+		cfg.MinBitLen = grown
 		return cfg, true
 	}
 
