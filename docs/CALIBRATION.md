@@ -101,22 +101,28 @@ Auto-calibration uses a 3-tier fallback strategy to minimize startup latency whi
 applied immediately — no benchmarks executed — only when three conditions hold together
 (`internal/calibration/calibration.go:AutoCalibrateWithProfile`): the profile exists and
 `IsValid()` returns true; it is **not stale** (`IsStale(maxAge)`, see `FIBCALC_PROFILE_MAX_AGE`);
-and its three `Optimal*Threshold` values are all `>= 0` (SEC-01 re-validation, because
-`IsValid()` checks hardware only and never threshold ranges). A stale profile goes straight to
+and its three `Optimal*Threshold` values are all in range (SEC-01 re-validation, because
+`IsValid()` checks hardware only and never threshold ranges) — `>= config.ThresholdDisabled`
+for the parallel and FFT thresholds, `>= 0` for Strassen, mirroring `config.Validate` exactly. A stale profile goes straight to
 `CompleteStrategy`; out-of-range thresholds log `"Cached calibration profile has invalid
 thresholds, re-calibrating"` and fall through to the escalation chain.
 
 `IsValid()` checks **five** conditions, all of which must hold (`internal/calibration/profile.go:CalibrationProfile.IsValid`):
 
-1. `ProfileVersion == CurrentProfileVersion` (3)
+1. `ProfileVersion == CurrentProfileVersion` (4 since the 2026-09 audit; the bump invalidates profiles written by the old FFT-crossover search, see M-01 below)
 2. `NumCPU == runtime.NumCPU()`
 3. `GOARCH == runtime.GOARCH`
 4. `WordSize` matches the host's (32 or 64)
 5. `CPUHeuristicKey == config.CurrentHardwareHeuristicKey()` — the `GOARCH`-plus-SIMD-class tag, e.g. `amd64-avx2`
 
-**Tier 2 -- Quick micro-benchmarks (~100ms)**
+**Tier 2 -- Quick micro-benchmarks (~125ms, budget 400ms)**
 
 If no valid cached profile exists, `QuickCalibrate()` from `microbench.go` runs rapid multiplication tests. If the resulting confidence score is >= 0.5, the thresholds are accepted and a profile is saved for future use.
+
+Since the 2026-09 audit the score starts at **zero** and is earned as
+`stability x decisiveness`; it used to start at 0.5, which equalled the
+acceptance bar, so this tier was never escalated. See "Reliability of the quick
+pass" at the end of this document.
 
 **Tier 3 -- Full calibration runner**
 
@@ -149,7 +155,7 @@ const MicroBenchIterations = 3 // there is no per-test timeout constant
 // MicroBenchTimeout is a var (not a const) sourced from
 // config.DefaultThresholdTuning — the canonical value lives alongside the
 // other dynamic-tuning knobs and can be re-pointed in tests.
-var MicroBenchTimeout = config.DefaultThresholdTuning.MicroBenchTimeout // ~150ms default
+var MicroBenchTimeout = config.DefaultThresholdTuning.MicroBenchTimeout // 400ms default (was 150ms before audit M-01)
 
 var MicroBenchTestSizes = []int{500, 2000, 8000, 16000} // word counts
 ```
