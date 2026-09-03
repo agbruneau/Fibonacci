@@ -1,5 +1,22 @@
 # Audit de code FibGo — 2026-09-03
 
+> **ÉTAT : EXÉCUTÉ (2026-09-03).** Le plan de la section 4 a été déroulé
+> intégralement, phase par phase. Ce document reste le **rapport de constats**
+> et la trace du plan ; ce n'est plus une liste de travaux à faire.
+>
+> Les décisions D1-D4 et les recommandations **révisées ou rejetées sur mesure**
+> pendant l'exécution sont consignées dans
+> [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md) — notamment le plafond de
+> cache FFT à ×4 (rejeté : +22 % sec/op) et quatre « symboles morts » conservés
+> comme oracles de test. Le journal des changements livrés est dans
+> [`CHANGELOG.md`](CHANGELOG.md), section « Audit exhaustif 2026-09 ».
+>
+> Deux critères d'acceptation énoncés ici n'ont **pas** été atteints et sont
+> documentés comme tels : la stabilité du micro-benchmark (M-01, résidu de
+> résolution matérielle) et l'enveloppe « ≤ 2 × mesuré » de l'estimation mémoire
+> (H-03, inatteignable — les algorithmes s'étalent de plus d'un facteur 2 entre
+> eux au même n).
+
 Régime : production. Le code est versionné et le rapport sert de base d'action.
 
 ## 0. Périmètre, méthode, état des gates

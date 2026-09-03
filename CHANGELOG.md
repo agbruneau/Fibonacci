@@ -7,6 +7,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Audit exhaustif 2026-09
+
+Audit de tout le code Go de production (rapport `audit.md`, 23 constats), exécuté
+phase par phase — Claude Opus 5. Décisions structurantes et candidats rejetés sur
+mesure : [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md). Gate à chaque
+commit : `go build` / `go vet` / `go test ./...` verts, `golangci-lint` à zéro,
+`go test -race ./...` propre sur les 21 paquets, `benchstat` A/B en **double
+ordre** pour tout changement du chemin chaud.
+
+#### Changed (comportement observable)
+
+- **Un seuil explicite l'emporte sur le profil de calibration** (M-03,
+  [ADR-0010 D1](docs/adr/0010-audit-2026-09-decisions.md)). Un profil valide
+  écrasait `--threshold`, `--fft-threshold` et `--strassen-threshold` sans
+  condition et sans rien afficher : une valeur explicite était abandonnée en
+  silence sur toute machine ayant déjà exécuté `--calibrate`. Le profil ne
+  remplit désormais que les seuils laissés à l'outil. Une passe fraîche de
+  `--calibrate` / `--auto-calibrate` reste hors de cette règle.
+- **`-1` désactive un seuil** (H-02). `config.ThresholdDisabled` est accepté par
+  la validation pour `--threshold` et `--fft-threshold` — pas pour
+  `--strassen-threshold`, dont le consommateur lirait une valeur négative comme
+  « toujours Strassen ». C'est la valeur que la calibration retient depuis
+  FIB-02 quand le séquentiel gagne ; la refuser faisait jeter le profil calibré
+  **en silence à chaque démarrage**, et `--auto-calibrate` le remplaçait par un
+  défaut.
+- **`--memory-limit` estime la mémoire de façon réaliste** (H-03). L'estimation
+  était sous la consommation réelle d'un facteur 5 à 12 à tous les points
+  mesurés. Une limite réglée d'après les chiffres d'une version antérieure sera
+  désormais plus contraignante.
+- `CurrentProfileVersion` 3 → 4 (M-01) : les profils écrits par l'ancienne
+  recherche de crossover FFT sont re-mesurés au lieu d'être rejoués.
+
+#### Added
+
+- `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS` (M-04), **désactivé par
+  défaut**. ADR-0001 avait conservé le gestionnaire de seuils dynamiques sur la
+  foi d'un gain de 5-6 % à F(10M), mais aucun chemin de production ne l'activait :
+  le gain n'était livré à personne. La mesure faite à travers le nouveau flag
+  (`-count=8`) **ne le reproduit pas** — écarts CPU dans le bruit, +17,9 %
+  d'allocations à F(1M) — d'où le défaut à `false`
+  ([ADR-0001, note 2026-09-03](docs/adr/0001-dtm-decision.md)).
+- Cinq artefacts de mesure dans `docs/audits/` : mémoire, cache FFT, memclr des
+  pools, A/B du DTM, stabilité du micro-benchmark.
+
+#### Fixed
+
+- **tui** : le code de sortie d'un calcul terminé n'est plus écrasé par une
+  annulation ultérieure (H-01). Un tableau de bord laissé ouvert au-delà de
+  `--timeout` se fermait avec le code 2, et `q` après complétion pouvait sortir
+  130 — de façon intermittente, sur un calcul réussi. `SIGINT` reçu par signal
+  (stdin non-TTY) sort désormais 130 au lieu d'afficher « TUI error » et de
+  sortir 1 (M-07).
+- **calibration** : la recherche du crossover FFT ne compare plus des
+  configurations exécutant le même code sous le seuil de `bigfft`, s'exécute
+  séquentiellement au lieu de mesurer sa propre contention, exige une marge de
+  10 % **et** la monotonicité, et gagne sa confiance depuis zéro au lieu d'un
+  socle égal à la barre d'escalade — qui rendait le balayage complet
+  inatteignable (M-01). Un agrégateur de progression par passe (L-07).
+- **config** : `--memory-limit` malformé et `--last-digits` hors borne sont
+  rejetés à l'analyse des arguments, sur tous les modes, au lieu des seuls
+  chemins atteignant la vérification (M-02). `--help` avec `--machine`/`-q`
+  n'émet plus de séquences ANSI (L-05) ; le balayage de `--version` s'arrête au
+  terminateur `--` (L-04).
+- **app** : une divergence entre algorithmes en mode `--quiet` est expliquée sur
+  stderr au lieu de sortir 3 sans un mot ; le message de divergence se termine
+  par un retour à la ligne (M-06).
+- **bigfft** : la cache de transformées est bornée en **octets** et plus
+  seulement en nombre d'entrées (M-08) ; les `acquire*` ne zéroïsent plus la
+  totalité du seau de pool mais la seule portion demandée (M-05).
+- **progress** : la mise à jour terminale (1.0) n'est plus abandonnée quand le
+  canal est plein, ce qui faisait rapporter un calcul réussi comme interrompu
+  (L-03).
+- **cli** : la conversion décimale du résultat est faite une fois au lieu de
+  jusqu'à quatre (L-11) — plusieurs secondes à F(100M).
+
+#### Removed
+
+- `cli.displayResultWithConfig`, `cli.displayMemoryStats`,
+  `format.formatProgressBarWithETA`,
+  `orchestration.ProgressAggregator.calculatorCount` (L-02).
+- `progress.CalcTotalWork`, `progress.PrecomputePowers4`, la table `powersOf4` et
+  les paramètres `totalWork`/`workDone`/`powers` de `ReportStepProgress` (L-01) :
+  depuis A-10 le ratio est calculé en forme close et ces valeurs alimentaient un
+  total que les deux appelants réassignaient sans jamais le lire.
+- Le paramètre `tempAllocator` de `fourierRecursiveUnified` (L-06), seulement
+  transporté à travers la récursion sans jamais y allouer quoi que ce soit.
+- **Conservés après vérification** comme oracles de test, contre la
+  recommandation initiale : `memory.CalculationArena.AllocBigInt`/`UsedWords`,
+  `threshold.MetricsBuffer.writtenCount`, `memory.GCController.setLogger`,
+  l'alias `"ps"` — voir [ADR-0010 R2](docs/adr/0010-audit-2026-09-decisions.md).
+
+#### Build
+
+- **`golangci-lint` migré en v2 et le lint devient un gate dur** (GATE-01). Le
+  binaire épinglé v1.64.8 ne peut pas analyser le module sous go1.27 (`export
+  data version 4`), et les deux scripts traitaient le lint comme consultatif :
+  ils affichaient l'échec puis `Overall: PASS`. Pendant une période inconnue,
+  seul `go vet` tournait réellement. Un binaire **absent** échoue désormais aussi.
+- `check.ps1` active `-race` quand l'hôte a CGO et un compilateur C
+  ([ADR-0010 D4](docs/adr/0010-audit-2026-09-decisions.md)) : l'en-tête
+  affirmait qu'un hôte Windows ne pouvait pas exécuter le détecteur, ce qui
+  décrivait une installation et non la plate-forme.
+
+
 ### Changed
 
 - **Multiplicateur d'arène ×15 → ×10** (`acquireSizingForN`, `arenaTotalWords`) :

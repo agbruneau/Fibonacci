@@ -1,18 +1,21 @@
 #!/usr/bin/env pwsh
-# check.ps1 - Local pre-commit gate for FibGo (Windows / no-CGO hosts).
+# check.ps1 - Local pre-commit gate for FibGo (Windows hosts).
 #
-# Runs a REDUCED version of check.sh, adapted to PowerShell 7 and a
-# Windows/no-CGO environment. Two deliberate differences from check.sh:
-#   - tests run WITHOUT the race detector, which requires a C toolchain (CGO)
-#     that is typically unavailable here;
+# Runs a REDUCED version of check.sh, adapted to PowerShell 7 and a Windows
+# environment. One deliberate difference from check.sh remains:
 #   - there is no step 3b: the `-tags gmp` build/vet/test that check.sh runs
 #     when the libgmp headers are present has no counterpart here.
-# The two scripts are therefore NOT equivalent gates.
+# The race detector is no longer a difference: step 3 probes for CGO and a C
+# compiler and enables -race when both are present (verified 2026-09-03: all 21
+# packages pass -race on a Windows host with a toolchain installed). The header
+# used to assert flatly that Windows could not run it, which was a statement
+# about one machine's setup dressed up as a platform limitation.
 #
 # Steps (stop at first hard failure):
 #   1. go build ./...
 #   2. go vet ./...
-#   3. go test -coverprofile ./...  (no -race; Windows/no-CGO; coverage floor derived from this run)
+#   3. go test -coverprofile ./...  (with -race when the host has CGO and a C
+#      compiler; coverage floor derived from this run)
 #   4. golangci-lint run ./...  (HARD — see below)
 #   5. coverage floor (>= 80% on the module total)
 #
@@ -83,11 +86,26 @@ Invoke-HardStep -Name "go build ./..." -Action { go build ./... }
 # 2. Vet
 Invoke-HardStep -Name "go vet ./..." -Action { go vet ./... }
 
-# 3. Tests + coverage (no -race on Windows/no-CGO) — single run, one profile
+# 3. Tests + coverage — single run, one profile
 # Note: pass the flag value as a separate argument. PowerShell 7 mis-parses the
 # "-coverprofile=coverage.out" form (it splits on '=' and treats ".out" as a
 # package), so the equals form is intentionally avoided here.
-Invoke-HardStep -Name "go test -coverprofile coverage.out ./... (no -race)" -Action { go test -coverprofile coverage.out ./... }
+#
+# -race when the host can: the header used to state flatly that Windows hosts
+# cannot run the race detector, which was true only while no C toolchain was
+# installed. `go test -race` needs CGO, so probe for both rather than assume.
+# A host with a compiler now gets the same concurrency coverage as check.sh.
+$cgoEnabled = (go env CGO_ENABLED) -eq '1'
+$cc = Get-Command gcc -ErrorAction SilentlyContinue
+if ($null -eq $cc) { $cc = Get-Command clang -ErrorAction SilentlyContinue }
+$raceArgs = @()
+if ($cgoEnabled -and $null -ne $cc) {
+    $raceArgs = @('-race')
+    Write-Host "race detector: ENABLED (CGO_ENABLED=1, $($cc.Name) on PATH)" -ForegroundColor Green
+} else {
+    Write-Host "race detector: SKIPPED (needs CGO_ENABLED=1 and a C compiler on PATH)" -ForegroundColor Yellow
+}
+Invoke-HardStep -Name "go test $raceArgs -coverprofile coverage.out ./..." -Action { go test @raceArgs -coverprofile coverage.out ./... }
 
 # 4. Lint (HARD — GATE-01)
 Write-Step "golangci-lint run ./..."

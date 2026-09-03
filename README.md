@@ -20,19 +20,24 @@ Ce qu'on y expérimente : algorithmique (Fast Doubling, exponentiation matriciel
 | **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Opus 4.8 pilote, exécuteurs Sonnet, vérification adversariale — **exécuté** (6 phases, ~30 commits) | ~40 findings corrigés (dont panic pointeur/tri, `--gc-control` inerte, complétions shell, data race spinner, correctifs calibration + re-validation profil forgé SEC-01, `bigfft` alloc pool non initialisée + ordonnancement panic FFT-02), ~500 LOC de code mort retiré, couverture 95,0 % → **95,2 %**, build `gmp` réparé, `benchstat` global **sans régression réelle**. FIB-05 (réduction du multiplicateur d'arène) initialement **rejetée sur preuve Ryzen** (+18 à +34 % à F(10M)) → [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) / [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07-07** | Suivi post-audit — exécution des 5 tâches à plus fort levier + **release v4.0.0** | Tag `v4.0.0` (première coupe CHANGELOG depuis 1.0.0) ; backend **GMP branché au gate local** (`check.sh` étape 3b, libgmp dans WSL) ; profil **PGO régénéré** ; **balayage complet du multiplicateur d'arène** (protocole ADR-0009 R4) → **×15 → ×10 adopté** : mémoire FFT 10M **−16 % B/op** à coût CPU nul, confirmé en ordre inversé (addendum [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) |
 | **2026-08-07** | Audit qualité et documentation — Claude Opus 5, boucle bâtisseur/critique sur cinq tours (source Go entière, 30 documents markdown, 11 diagrammes Mermaid) | Outillage **mesuré, non affirmé** : `golangci-lint` **152 → 0**, `gosec` **19 → 0**, `gofmt -l` **1 → 0**, build/vet/test verts de bout en bout — **sans desserrer les outils** (`.golangci.yml` inchangé hors commentaires, `//nolint` stable à 4, `#nosec` **22 → 13** par retrait des sites, non par annotation). Tests **gagnés** : 877 → **879** fonctions, 408 → **410** sous-tests, 2 291 → **2 305** assertions (⚠ la même ligne affirmait « zéro `t.Skip` » : relevé du 2026-08-10, l'arbre en porte **17 dans 12 fichiers**, tous des gardes `-short` ou d'architecture — aucun test désactivé sans condition). Documentation confrontée à la source, une commande par affirmation ; **121 → 3** renvois `fichier:ligne` vers du Go, convertis en ancres de symbole. **Deux comportements documentés et délibérément inchangés** : un profil de calibration valide écrase les trois seuils explicites (⚠ tous les documents affirmaient l'inverse) et `GetDefaultProfilePath` retombe sur un nom relatif si `os.UserHomeDir` échoue. *Le premier a été renversé par l'audit 2026-09 (M-03) : le flag explicite l'emporte désormais, et le test qui épinglait l'ancien sens est devenu `TestNewExplicitFlagsBeatCachedProfile`.* Chiffre de performance sans artefact : **retiré**, non reformulé — [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-09-03** | Audit exhaustif du code Go de production — Claude Opus 5, exécution phase par phase du plan (`audit.md`, 23 constats) | Trois défauts hauts corrigés, **mesurés** : le code de sortie TUI d'un calcul terminé était écrasé par une annulation ultérieure (exit 2 ou 130 sur un succès) ; la sentinelle `-1` de la calibration était rejetée par la validation, faisant **jeter le profil en silence à chaque démarrage** ; `--memory-limit` sous-estimait la mémoire réelle d'un facteur **5 à 12** (12 Mo annoncés pour 141 Mo réels à F(10M)). Outillage : `golangci-lint` **ne pouvait plus s'exécuter** sous go1.27 alors que les scripts écrivaient `Overall: PASS` — migration v2 et lint rendu **bloquant** ; `-race` activé sous Windows (21 paquets verts). Deux recommandations **rejetées sur preuve** : le plafond de cache FFT à ×4 (+22 % sec/op sur MatrixExp/10M) et la suppression de quatre « symboles morts » qui sont des oracles de test. Le gain DTM de 5-6 % d'ADR-0001 **ne se reproduit pas** à `-count=8` — flag livré, défaut laissé à `false` — [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md) / [`CHANGELOG.md`](CHANGELOG.md) |
 
-⚠ **Deux limites déclarées par la passe du 2026-08-07, et non corrigées depuis** : `-race` n'a pas pu
-tourner sur l'hôte, de sorte que ses conclusions de concurrence sont **statiques, non mesurées** ;
-et l'arbre **ne compile pas pour une cible 32 bits** (`maxReasonableWords` déborde un `int` 32 bits).
+⚠ **Limites déclarées par la passe du 2026-08-07.** La première est **levée** : `-race` tourne
+désormais sur l'hôte et passe sur les 21 paquets (2026-09-03), et `check.ps1` l'active
+automatiquement quand CGO et un compilateur C sont présents. La seconde tient : l'arbre
+**ne compile pas pour une cible 32 bits** (`maxReasonableWords` déborde un `int` 32 bits).
 `TestStateBump_PinnedAcrossCachedCalls` est *flaky* au même taux sur le commit parent (un test
 antérieur laisse une arène surdimensionnée dans le pool d'état global).
 
-☑ **Gate rejoué le 2026-08-10 sur l'arbre courant** (Windows 11, `go1.26.5`, `golangci-lint v1.64.8`,
-`gosec dev`), après correction du `behaviour` → `behavior` de `internal/ui/themes.go:186` qui faisait
-sortir `golangci-lint` à 1 lors du relevé précédent du même jour — **quatre sur quatre à zéro** :
-`gofmt -l .` sans sortie, `go vet ./...` sortie 0, `golangci-lint run ./...` sortie 0,
-`gosec ./...` 0 issue sur 122 fichiers.
-*Un décompte publié sans avoir été réexécuté n'est pas une mesure.*
+☑ **Gate rejoué le 2026-09-03** (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) : `go build`,
+`go vet`, `go test ./...`, `go test -race ./...` sur les 21 paquets, `gofmt -l .` sans sortie et
+`golangci-lint run ./...` à **zéro finding**.
+⚠ Le relevé du 2026-08-10 annonçait `golangci-lint` à 0 avec la v1.64.8 ; sous `go1.27` ce binaire
+**ne peut plus s'exécuter du tout** (`export data version 4`), et les scripts de gate traitaient le
+lint comme consultatif — ils affichaient l'échec puis `Overall: PASS`. Le zéro publié restait vrai à
+sa date, mais il a cessé d'être vérifié sans que rien ne le signale. Le lint est désormais bloquant.
+*Un décompte publié sans avoir été réexécuté n'est pas une mesure ; un outil qui ne peut plus tourner
+n'en est pas une non plus.*
 
 ---
 
