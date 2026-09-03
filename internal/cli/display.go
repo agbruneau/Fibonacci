@@ -131,10 +131,17 @@ func displayResultHeader(out io.Writer, bitLen int) {
 // calculation time, number of digits, and scientific notation for large numbers.
 //
 // Parameters:
+// resultStr is the caller's single decimal rendering of result (audit L-11):
+// big.Int.String() on a multi-million-digit value costs seconds, and this
+// function used to produce its own copy alongside displayCalculatedValue's and
+// the two writeResult made.
+//
+// Parameters:
 //   - out: The io.Writer for the output.
 //   - result: The calculation result.
+//   - resultStr: result rendered in base 10, converted once by the caller.
 //   - duration: The time taken for the calculation.
-func displayDetailedAnalysis(out io.Writer, result *big.Int, duration time.Duration) {
+func displayDetailedAnalysis(out io.Writer, result *big.Int, resultStr string, duration time.Duration) {
 	fmt.Fprintf(out, "\n%s--- Detailed result analysis ---%s\n", ui.ColorBold(), ui.ColorReset())
 
 	durationStr := format.FormatExecutionDuration(duration)
@@ -143,7 +150,6 @@ func displayDetailedAnalysis(out io.Writer, result *big.Int, duration time.Durat
 	}
 	fmt.Fprintf(out, "Calculation time        : %s%s%s\n", ui.ColorGreen(), durationStr, ui.ColorReset())
 
-	resultStr := result.String()
 	numDigits := len(resultStr)
 	fmt.Fprintf(out, "Number of digits      : %s%s%s\n",
 		ui.ColorCyan(), format.FormatNumberString(fmt.Sprintf("%d", numDigits)), ui.ColorReset())
@@ -157,12 +163,14 @@ func displayDetailedAnalysis(out io.Writer, result *big.Int, duration time.Durat
 // displayCalculatedValue prints the Fibonacci value, truncating if necessary.
 //
 // Parameters:
+// resultStr is the caller's single decimal rendering (audit L-11).
+//
+// Parameters:
 //   - out: The io.Writer for the output.
-//   - result: The calculation result.
+//   - resultStr: result rendered in base 10, converted once by the caller.
 //   - n: The index of the Fibonacci number calculated.
 //   - verbose: If true, prints the full number regardless of size.
-func displayCalculatedValue(out io.Writer, result *big.Int, n uint64, verbose bool) {
-	resultStr := result.String()
+func displayCalculatedValue(out io.Writer, resultStr string, n uint64, verbose bool) {
 	numDigits := len(resultStr)
 
 	fmt.Fprintf(out, "\n%s--- Calculated value ---%s\n", ui.ColorBold(), ui.ColorReset())
@@ -205,15 +213,23 @@ func displayCalculatedValue(out io.Writer, result *big.Int, n uint64, verbose bo
 func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, details, showValue bool, out io.Writer) {
 	displayResultHeader(out, result.BitLen())
 
+	// One base-10 conversion for the whole function (audit L-11). It is the
+	// dominant cost here at large n — seconds for a 21-million-digit F(100M) —
+	// and `-d -c` used to pay for it twice, once per section.
+	var resultStr string
+	if details || showValue {
+		resultStr = result.String()
+	}
+
 	if details {
-		displayDetailedAnalysis(out, result, duration)
+		displayDetailedAnalysis(out, result, resultStr, duration)
 		if duration > 0 {
 			displayIndicators(out, metrics.Compute(result, n, duration))
 		}
 	}
 
 	if showValue {
-		displayCalculatedValue(out, result, n, verbose)
+		displayCalculatedValue(out, resultStr, n, verbose)
 	}
 }
 
@@ -307,6 +323,10 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 func writeResult(w io.Writer, result *big.Int, n uint64, duration time.Duration, algo string) error {
 	bw := bufio.NewWriter(w)
 
+	// One base-10 conversion, shared by the Digits header and the body
+	// (audit L-11): this function used to call String() twice.
+	resultStr := result.String()
+
 	// Write header
 	fmt.Fprintf(bw, "# Fibonacci Calculation Result\n")
 	fmt.Fprintf(bw, "# Generated: %s\n", time.Now().Format(time.RFC3339))
@@ -314,11 +334,11 @@ func writeResult(w io.Writer, result *big.Int, n uint64, duration time.Duration,
 	fmt.Fprintf(bw, "# Duration: %s\n", duration)
 	fmt.Fprintf(bw, "# N: %d\n", n)
 	fmt.Fprintf(bw, "# Bits: %d\n", result.BitLen())
-	fmt.Fprintf(bw, "# Digits: %d\n", len(result.String()))
+	fmt.Fprintf(bw, "# Digits: %d\n", len(resultStr))
 	fmt.Fprintf(bw, "\n")
 
 	// Write result
-	fmt.Fprintf(bw, "F(%d) =\n%s\n", n, result.String())
+	fmt.Fprintf(bw, "F(%d) =\n%s\n", n, resultStr)
 
 	if err := bw.Flush(); err != nil {
 		return fmt.Errorf("failed to write result: %w", err)

@@ -33,7 +33,22 @@ func NewChannelObserver(ch chan<- ProgressUpdate) *ChannelObserver {
 }
 
 // Update implements ProgressObserver by sending to the channel.
-// Uses non-blocking send to avoid deadlocks when the channel is full.
+//
+// Intermediate updates use a non-blocking send: dropping one is harmless
+// because another follows, and blocking would let a slow UI throttle the
+// calculation.
+//
+// The TERMINAL update (1.0) is sent blocking instead (audit L-03). It is the
+// only value with no successor, and consumers use it to decide whether the run
+// completed: cli.DisplayProgress prints "ETA: N/A (interrupted)" when the last
+// average it saw is below 1.0, so a dropped 1.0 reported a successful
+// calculation as interrupted.
+//
+// The blocking send cannot deadlock in the orchestration this package serves.
+// The reporter emits 1.0 while the calculator goroutine is still running;
+// ExecuteCalculations only closes the channel after g.Wait() returns, and the
+// consumer drains until that close. So a receiver is always live at this
+// point.
 //
 // Parameters:
 //   - calcIndex: The calculator instance identifier.
@@ -49,6 +64,11 @@ func (o *ChannelObserver) Update(calcIndex int, progress float64) {
 	}
 
 	update := ProgressUpdate{CalculatorIndex: calcIndex, Value: progress}
+
+	if progress >= 1.0 {
+		o.channel <- update
+		return
+	}
 
 	// Non-blocking send to avoid deadlocks
 	select {
