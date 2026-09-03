@@ -2,26 +2,34 @@ package config
 
 // Threshold resolution chain as implemented, highest priority first:
 //
-//  1. Cached calibration profile (~/.fibcalc_calibration.json), when it loads
-//     and validates. calibration.LoadCachedCalibration overwrites Threshold,
-//     FFTThreshold and StrassenThreshold unconditionally — it reads neither
-//     flag nor environment — and app.New applies it AFTER config.ParseConfig
-//     has already merged both. KNOWN SURPRISE: a cached profile therefore
-//     overrides an explicit --threshold / --fft-threshold /
-//     --strassen-threshold. That is the behavior, not an aspiration; pinned by
-//     TestNewCachedProfileOverridesExplicitFlags (internal/app). Whether it
-//     SHOULD win is an open behavior decision, deliberately not settled here.
-//  2. CLI flags (--threshold, --fft-threshold, --strassen-threshold), reached
-//     only when no valid cached profile was loaded.
-//  3. Environment variables (FIBCALC_THRESHOLD, FIBCALC_FFT_THRESHOLD,
+//  1. CLI flags (--threshold, --fft-threshold, --strassen-threshold). Setting
+//     one marks it explicit (markExplicitThresholds, env.go) and nothing
+//     downstream overwrites it.
+//  2. Environment variables (FIBCALC_THRESHOLD, FIBCALC_FFT_THRESHOLD,
 //     FIBCALC_STRASSEN_THRESHOLD), applied by applyEnvOverrides to any flag
-//     not set explicitly on the command line.
+//     not set explicitly on the command line. These also mark the threshold
+//     explicit: they are the user speaking, just through a different channel.
+//  3. Cached calibration profile (~/.fibcalc_calibration.json), when it loads
+//     and validates. app.New applies it after ParseConfig, and
+//     calibration.LoadCachedCalibration now fills ONLY the thresholds left
+//     implicit.
+//
+//     Until the 2026-09 audit (M-03) it overwrote all three unconditionally,
+//     so a cached profile beat an explicit flag and the user got no hint that
+//     their value had been dropped. The old behavior was documented here as a
+//     "KNOWN SURPRISE" and pinned by a test through three audits without being
+//     decided; it is decided now, in favor of the flag. A profile is the
+//     tool's guess at what the user did not specify.
 //  4. Adaptive hardware estimation (ApplyAdaptiveThresholds, this file). It
 //     runs only on the no-cached-profile branch and fills only the values
 //     still left at 0.
 //  5. Static defaults in fibonacci/constants.go, applied by
 //     fibonacci.normalizeOptions to anything still 0 at the calculator
 //     boundary (e.g. the single-CPU case, where the estimator returns 0).
+//
+// A fresh --calibrate / --auto-calibrate sweep is outside this chain: there
+// the user asked for a measurement, the result is printed, and it is the
+// measured value that is persisted and applied.
 
 // ApplyAdaptiveThresholds adjusts the configuration thresholds based on
 // hardware characteristics (CPU cores, architecture) when default values

@@ -117,6 +117,20 @@ type AppConfig struct {
 	MemoryLimit string
 	// GCControl sets the GC control mode ("auto", "aggressive", "disabled").
 	GCControl string
+
+	// ThresholdExplicit, FFTThresholdExplicit and StrassenThresholdExplicit
+	// record whether the user pinned the corresponding threshold — on the
+	// command line or through its FIBCALC_* variable — rather than leaving it
+	// at 0 for the tool to choose.
+	//
+	// They exist so a cached calibration profile can fill only what the user
+	// did not pin (audit M-03). Until then a valid profile overwrote all three
+	// unconditionally, so `--fft-threshold 800000` was silently discarded on
+	// any machine that had ever run --calibrate, with no way to tell from the
+	// output. They are set by ParseConfig and are not themselves configurable.
+	ThresholdExplicit         bool
+	FFTThresholdExplicit      bool
+	StrassenThresholdExplicit bool
 }
 
 // Validate checks the semantic consistency of the configuration parameters.
@@ -280,6 +294,9 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 		fs.Usage()
 		return AppConfig{}, err
 	}
+
+	// Must follow applyEnvOverrides: the two agree on what counts as provided.
+	markExplicitThresholds(&config, fs)
 
 	config.Algo = strings.ToLower(config.Algo)
 	if err := config.Validate(availableAlgos); err != nil {

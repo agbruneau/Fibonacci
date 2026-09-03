@@ -595,3 +595,78 @@ func TestValidateCatchesLateFailingFlags(t *testing.T) {
 		}
 	})
 }
+
+// TestMarkExplicitThresholds pins audit M-03's input side: a threshold counts
+// as pinned when its flag is on the command line OR its FIBCALC_* variable is
+// set, and only then. Everything downstream (LoadCachedCalibration) keys off
+// these three booleans, so getting them wrong silently restores the old
+// profile-beats-flag behavior.
+func TestMarkExplicitThresholds(t *testing.T) {
+	tests := []struct {
+		name                           string
+		args                           []string
+		env                            map[string]string
+		wantPar, wantFFT, wantStrassen bool
+	}{
+		{name: "nothing set"},
+		{
+			name:    "parallel flag",
+			args:    []string{"-threshold", "2048"},
+			wantPar: true,
+		},
+		{
+			name:    "fft flag",
+			args:    []string{"-fft-threshold", "600000"},
+			wantFFT: true,
+		},
+		{
+			name:         "strassen flag",
+			args:         []string{"-strassen-threshold", "3072"},
+			wantStrassen: true,
+		},
+		{
+			name:    "parallel env",
+			env:     map[string]string{"FIBCALC_THRESHOLD": "2048"},
+			wantPar: true,
+		},
+		{
+			name:    "fft env",
+			env:     map[string]string{"FIBCALC_FFT_THRESHOLD": "600000"},
+			wantFFT: true,
+		},
+		{
+			// An empty variable is treated as absent by applyEnvOverrides, so
+			// it must not count as a pin either.
+			name: "empty env is not a pin",
+			env:  map[string]string{"FIBCALC_THRESHOLD": ""},
+		},
+		{
+			name:    "flag and env together",
+			args:    []string{"-threshold", "2048"},
+			env:     map[string]string{"FIBCALC_FFT_THRESHOLD": "600000"},
+			wantPar: true,
+			wantFFT: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+			cfg, err := ParseConfig("fibcalc", tt.args, io.Discard, []string{"fast"})
+			if err != nil {
+				t.Fatalf("ParseConfig failed: %v", err)
+			}
+			if cfg.ThresholdExplicit != tt.wantPar {
+				t.Errorf("ThresholdExplicit = %v, want %v", cfg.ThresholdExplicit, tt.wantPar)
+			}
+			if cfg.FFTThresholdExplicit != tt.wantFFT {
+				t.Errorf("FFTThresholdExplicit = %v, want %v", cfg.FFTThresholdExplicit, tt.wantFFT)
+			}
+			if cfg.StrassenThresholdExplicit != tt.wantStrassen {
+				t.Errorf("StrassenThresholdExplicit = %v, want %v", cfg.StrassenThresholdExplicit, tt.wantStrassen)
+			}
+		})
+	}
+}

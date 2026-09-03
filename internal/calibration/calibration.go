@@ -375,15 +375,43 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 	return runStrategy(parentCtx, NewCompleteStrategy(), stratOpts, profilePath, true)
 }
 
+// applyProfileThresholds copies a profile's thresholds onto cfg, leaving alone
+// any threshold the user pinned on the command line or through the
+// environment (audit M-03).
+//
+// A cached profile used to overwrite all three unconditionally, so an explicit
+// --threshold / --fft-threshold / --strassen-threshold was silently discarded
+// on any machine that had ever run --calibrate. A calibration profile is the
+// tool's own guess at what the user did not specify; it does not outrank what
+// the user did specify.
+//
+// It applies to the two paths that REPLAY a stored profile
+// (LoadCachedCalibration and applyCachedProfile). It deliberately does not
+// apply to a fresh --calibrate / --auto-calibrate sweep, where the user asked
+// for a measurement, the measured value is announced on screen, and it is that
+// measured value — not the pin — that gets persisted.
+func applyProfileThresholds(cfg config.AppConfig, profile *CalibrationProfile) config.AppConfig {
+	updated := cfg
+	if !cfg.ThresholdExplicit {
+		updated.Threshold = profile.OptimalParallelThreshold
+	}
+	if !cfg.FFTThresholdExplicit {
+		updated.FFTThreshold = profile.OptimalFFTThreshold
+	}
+	if !cfg.StrassenThresholdExplicit {
+		updated.StrassenThreshold = profile.OptimalStrassenThreshold
+	}
+	return updated
+}
+
 // applyCachedProfile copies the cached threshold values onto cfg and
 // emits the legacy "Using cached calibration" log line. It does not
 // touch disk: the caller has already loaded and validated the profile.
 func applyCachedProfile(cfg config.AppConfig, profile *CalibrationProfile, out io.Writer) config.AppConfig {
-	updated := cfg
-	updated.Threshold = profile.OptimalParallelThreshold
-	updated.FFTThreshold = profile.OptimalFFTThreshold
-	updated.StrassenThreshold = profile.OptimalStrassenThreshold
+	updated := applyProfileThresholds(cfg, profile)
 
+	// Report the EFFECTIVE values, which are what the calculation will use:
+	// a threshold the user pinned shows their value, not the profile's.
 	fmt.Fprintf(out, "%sUsing cached calibration%s: parallelism=%s%d%s bits, FFT=%s%d%s bits, Strassen=%s%d%s bits\n",
 		ui.ColorGreen(), ui.ColorReset(),
 		ui.ColorYellow(), updated.Threshold, ui.ColorReset(),
@@ -448,17 +476,17 @@ func finalizeStrategyResult(cfg config.AppConfig, profile *CalibrationProfile, p
 // LoadCachedCalibration attempts to load a cached calibration profile and
 // apply it to the configuration. Returns the updated config and true if
 // a valid cached profile was found.
+//
+// Thresholds the user pinned explicitly are preserved (audit M-03): this runs
+// unprompted on every start, so overwriting them would discard the user's
+// choice with nothing on screen to say so.
 func LoadCachedCalibration(cfg config.AppConfig, profilePath string) (updated config.AppConfig, ok bool) {
 	profile, loaded := LoadOrCreateProfile(profilePath)
 	if !loaded || !profile.IsValid() {
 		return cfg, false
 	}
 
-	updated = cfg
-	updated.Threshold = profile.OptimalParallelThreshold
-	updated.FFTThreshold = profile.OptimalFFTThreshold
-	updated.StrassenThreshold = profile.OptimalStrassenThreshold
-	return updated, true
+	return applyProfileThresholds(cfg, profile), true
 }
 
 // applyCalibrationResults updates the configuration with the calibration results.

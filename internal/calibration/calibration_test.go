@@ -687,3 +687,44 @@ func TestApplyCalibrationResults(t *testing.T) {
 		t.Errorf("Threshold = %d, want 4096", updated.Threshold)
 	}
 }
+
+// TestLoadCachedCalibrationRespectsExplicit pins audit M-03 at the seam that
+// runs unprompted on every start: a replayed profile fills only the thresholds
+// the user left to the tool.
+func TestLoadCachedCalibrationRespectsExplicit(t *testing.T) {
+	t.Parallel()
+	profilePath := t.TempDir() + "/profile.json"
+
+	profile := NewProfile()
+	profile.OptimalParallelThreshold = 8191
+	profile.OptimalFFTThreshold = 612345
+	profile.OptimalStrassenThreshold = 4093
+	if err := profile.SaveProfile(profilePath); err != nil {
+		t.Fatalf("Failed to save profile: %v", err)
+	}
+
+	cfg := config.AppConfig{
+		Timeout:              time.Minute,
+		Algo:                 "fast",
+		Threshold:            111,
+		ThresholdExplicit:    true,
+		FFTThreshold:         222222,
+		FFTThresholdExplicit: true,
+		// Strassen left implicit: the profile fills it.
+		StrassenThreshold: 0,
+	}
+
+	updated, ok := LoadCachedCalibration(cfg, profilePath)
+	if !ok {
+		t.Fatal("a hardware-valid profile must load")
+	}
+	if updated.Threshold != 111 {
+		t.Errorf("Threshold = %d, want 111 (pinned by the user)", updated.Threshold)
+	}
+	if updated.FFTThreshold != 222222 {
+		t.Errorf("FFTThreshold = %d, want 222222 (pinned by the user)", updated.FFTThreshold)
+	}
+	if updated.StrassenThreshold != 4093 {
+		t.Errorf("StrassenThreshold = %d, want 4093 (from the profile, not pinned)", updated.StrassenThreshold)
+	}
+}

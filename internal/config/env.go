@@ -265,6 +265,26 @@ func validateEnvOverrides(fs *flag.FlagSet) error {
 	return nil
 }
 
+// envProvided reports whether the FIBCALC_-prefixed variable for key carries a
+// value. It mirrors the emptiness test applyEnvOverrides uses, so a variable
+// set to the empty string counts as absent in both places.
+func envProvided(key string) bool {
+	return os.Getenv(EnvPrefix+key) != ""
+}
+
+// markExplicitThresholds records which of the three thresholds the user pinned,
+// so calibration can fill only the ones left to the tool (audit M-03).
+//
+// A threshold counts as explicit when its flag appears on the command line or
+// when its environment variable is set, which together are exactly the two ways
+// a value can arrive that is not the tool's own choice. It must run after
+// applyEnvOverrides so the two agree on what the environment provided.
+func markExplicitThresholds(config *AppConfig, fs *flag.FlagSet) {
+	config.ThresholdExplicit = isFlagSetAny(fs, "threshold") || envProvided("THRESHOLD")
+	config.FFTThresholdExplicit = isFlagSetAny(fs, "fft-threshold") || envProvided("FFT_THRESHOLD")
+	config.StrassenThresholdExplicit = isFlagSetAny(fs, "strassen-threshold") || envProvided("STRASSEN_THRESHOLD")
+}
+
 // applyEnvOverrides applies environment variable values to the configuration
 // for any flags that were not explicitly set on the command line.
 // This implements the priority: CLI flags > Environment variables > Defaults.

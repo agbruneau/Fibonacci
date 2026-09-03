@@ -233,16 +233,20 @@ Une variable `FIBCALC_*` n'est lue que si le flag correspondant est absent de la
 (`internal/config/env.go:applyEnvOverrides`). Priorité générale :
 **flags CLI > variables d'environnement > défauts statiques**.
 
-> **Exception — les trois seuils.** Un profil de calibration en cache **valide** écrase `--threshold`,
-> `--fft-threshold` et `--strassen-threshold`, ainsi que leurs variables d'environnement.
-> `app.New` appelle `calibration.LoadCachedCalibration` *après* `ParseConfig`
-> (`internal/app/app.go:New`) et celle-ci réécrit les trois champs sans consulter ni le flag ni la variable
-> (`internal/calibration/calibration.go:LoadCachedCalibration`). Le profil est lu à `--calibration-profile`, ou à
-> `~/.fibcalc_calibration.json` par défaut ; il n'est retenu que si `IsValid()` passe (version de profil,
-> nombre de CPU, `GOARCH`, taille de mot, clé heuristique SIMD) et si la config résultante valide encore.
-> Sans profil valide, `ApplyAdaptiveThresholds` ne remplit que les seuils laissés à 0 (estimation adaptative,
-> `internal/config/thresholds.go`), les autres gardent la valeur du flag ou de la variable. Pour qu'un seuil
-> explicite soit respecté, supprimer le profil ou pointer `--calibration-profile` sur un chemin inexistant.
+> **Les trois seuils.** Un profil de calibration en cache **valide** ne remplit que les seuils que vous
+> n'avez pas fixés : `--threshold`, `--fft-threshold`, `--strassen-threshold` et leurs variables
+> d'environnement l'emportent sur le profil. `app.New` appelle `calibration.LoadCachedCalibration` *après*
+> `ParseConfig` (`internal/app/app.go:New`), et celle-ci consulte les marqueurs posés par `ParseConfig`
+> pour laisser intact ce qui a été fixé explicitement (`internal/config/thresholds.go`).
+> Le profil est lu à `--calibration-profile`, ou à `~/.fibcalc_calibration.json` par défaut ; il n'est
+> retenu que si `IsValid()` passe (version de profil, nombre de CPU, `GOARCH`, taille de mot, clé
+> heuristique SIMD) et si la config résultante valide encore. Sans profil valide,
+> `ApplyAdaptiveThresholds` ne remplit que les seuils laissés à 0.
+>
+> Jusqu'à l'audit 2026-09, le profil écrasait les trois seuils sans condition : un `--fft-threshold`
+> explicite était abandonné en silence sur toute machine ayant déjà exécuté `--calibrate`. Une passe
+> fraîche de `--calibrate` / `--auto-calibrate` reste hors de cette règle : vous avez demandé une mesure,
+> elle est affichée, et c'est elle qui est enregistrée et appliquée.
 
 Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FIBCALC_ALGO`, `FIBCALC_TIMEOUT`,
 `FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`, `FIBCALC_LAST_DIGITS`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`,

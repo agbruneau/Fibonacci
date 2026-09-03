@@ -68,14 +68,16 @@ func TestNewLoadsCachedCalibrationProfile(t *testing.T) {
 	}
 }
 
-// TestNewCachedProfileOverridesExplicitFlags pins the precedence documented in
-// internal/config/thresholds.go: a valid cached calibration profile is applied
-// after ParseConfig and overwrites the three thresholds unconditionally, so it
-// wins over thresholds passed explicitly on the command line. This is the
-// surprising direction, which is exactly why it needs a guard: the doc comment
-// used to claim the opposite. If the repo owner ever decides flags should win,
-// this test is the thing that must change with the behavior.
-func TestNewCachedProfileOverridesExplicitFlags(t *testing.T) {
+// TestNewExplicitFlagsBeatCachedProfile pins the precedence documented in
+// internal/config/thresholds.go. Its predecessor,
+// TestNewCachedProfileOverridesExplicitFlags, asserted the opposite and said
+// so: "If the repo owner ever decides flags should win, this test is the thing
+// that must change with the behavior." The 2026-09 audit (M-03) decided it.
+//
+// A cached profile is replayed unprompted on every start, so overwriting an
+// explicit --threshold discarded the user's choice with nothing on screen to
+// say so. The profile now fills only what the user left to the tool.
+func TestNewExplicitFlagsBeatCachedProfile(t *testing.T) {
 	t.Parallel()
 	profilePath := t.TempDir() + "/profile.json"
 
@@ -112,14 +114,14 @@ func TestNewCachedProfileOverridesExplicitFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() returned unexpected error: %v", err)
 	}
-	if app.Config.Threshold != 8191 {
-		t.Errorf("Threshold = %d, want 8191 (cached profile beats -threshold=111)", app.Config.Threshold)
+	if app.Config.Threshold != 111 {
+		t.Errorf("Threshold = %d, want 111 (-threshold beats the cached 8191)", app.Config.Threshold)
 	}
-	if app.Config.FFTThreshold != 612345 {
-		t.Errorf("FFTThreshold = %d, want 612345 (cached profile beats -fft-threshold=222222)", app.Config.FFTThreshold)
+	if app.Config.FFTThreshold != 222222 {
+		t.Errorf("FFTThreshold = %d, want 222222 (-fft-threshold beats the cached 612345)", app.Config.FFTThreshold)
 	}
-	if app.Config.StrassenThreshold != 4093 {
-		t.Errorf("StrassenThreshold = %d, want 4093 (cached profile beats -strassen-threshold=333)", app.Config.StrassenThreshold)
+	if app.Config.StrassenThreshold != 333 {
+		t.Errorf("StrassenThreshold = %d, want 333 (-strassen-threshold beats the cached 4093)", app.Config.StrassenThreshold)
 	}
 }
 
