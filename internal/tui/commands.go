@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -24,6 +25,12 @@ var runProgram = func(p *tea.Program) (tea.Model, error) { return p.Run() }
 // Run is the public entry point for the TUI mode.
 // It creates the bubbletea program, runs it, and returns the exit code.
 // Program-level failures (e.g. TTY unavailable) are reported on errOut.
+//
+// Interruption is not a failure (audit M-07): when stdin is not a TTY, ^C
+// reaches bubbletea's own signal handler rather than the Quit key binding, and
+// p.Run returns tea.ErrInterrupted. Treating that as a generic error printed
+// "TUI error: program was interrupted" and exited 1, so the documented
+// SIGINT-is-130 contract (APP-04) only held for a ^C typed in a terminal.
 func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, errOut io.Writer) int {
 	// Rebuild styles from the current ui theme (set by app.Run via InitTheme).
 	initTUIStyles()
@@ -37,6 +44,9 @@ func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config
 
 	finalModel, err := runProgram(p)
 	if err != nil {
+		if errors.Is(err, tea.ErrInterrupted) {
+			return apperrors.ExitErrorCanceled
+		}
 		fmt.Fprintf(errOut, "TUI error: %v\n", err)
 		return apperrors.ExitErrorGeneric
 	}
