@@ -130,7 +130,6 @@ func displayResultHeader(out io.Writer, bitLen int) {
 // displayDetailedAnalysis prints detailed execution metrics including
 // calculation time, number of digits, and scientific notation for large numbers.
 //
-// Parameters:
 // resultStr is the caller's single decimal rendering of result (audit L-11):
 // big.Int.String() on a multi-million-digit value costs seconds, and this
 // function used to produce its own copy alongside displayCalculatedValue's and
@@ -162,7 +161,6 @@ func displayDetailedAnalysis(out io.Writer, result *big.Int, resultStr string, d
 
 // displayCalculatedValue prints the Fibonacci value, truncating if necessary.
 //
-// Parameters:
 // resultStr is the caller's single decimal rendering (audit L-11).
 //
 // Parameters:
@@ -367,40 +365,4 @@ func FormatQuietResult(result *big.Int) string {
 //   - result: The calculated Fibonacci number.
 func DisplayQuietResult(out io.Writer, result *big.Int) {
 	fmt.Fprintln(out, FormatQuietResult(result))
-}
-
-// displayResultWithConfig displays a result with the given output configuration.
-// This is a unified function that handles all output modes.
-//
-// Parameters:
-//   - out: The output writer.
-//   - result: The calculated Fibonacci number.
-//   - n: The index.
-//   - duration: The calculation duration.
-//   - algo: The algorithm name.
-//   - config: Output configuration.
-//
-// Returns:
-//   - error: An error if file output fails.
-func displayResultWithConfig(out io.Writer, result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) error {
-	// Handle quiet mode
-	if config.Quiet {
-		DisplayQuietResult(out, result)
-	} else {
-		// Use standard display
-		DisplayResult(result, n, duration, config.Verbose, true, config.ShowValue, out)
-	}
-
-	// Save to file if requested
-	if config.OutputFile != "" {
-		if err := WriteResultToFile(result, n, duration, algo, config); err != nil {
-			return err
-		}
-		if !config.Quiet {
-			fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
-				ui.ColorGreen(), ui.ColorCyan(), config.OutputFile, ui.ColorReset())
-		}
-	}
-
-	return nil
 }

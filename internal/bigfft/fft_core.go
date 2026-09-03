@@ -12,15 +12,20 @@ func fourier(dst, src []fermat, backward bool, n int, k uint) error {
 	return fourierRecursive(dst, src, backward, n, k, k, tmp, tmp2)
 }
 
-// fourierWithBump performs the Fourier transform using a bump allocator for
-// temporary buffers, giving better cache locality than the pooled-buffer path
-// in fourier() (which acquires tmp/tmp2 via acquireFermat/releaseFermat).
+// fourierWithBump performs the Fourier transform with its two top-level
+// scratch buffers taken from a bump allocator, giving better cache locality
+// than the pooled-buffer path in fourier() (which acquires tmp/tmp2 via
+// acquireFermat/releaseFermat).
 func fourierWithBump(dst, src []fermat, backward bool, n int, k uint, ba *BumpAllocator) error {
+	// The bump allocator supplies the two top-level scratch buffers. It does
+	// NOT reach further down: the recursion's parallel branch must use the
+	// pool (BumpAllocator is not thread-safe) and its sequential branch reuses
+	// these same two buffers, which is why the recursion no longer takes an
+	// allocator at all (audit L-06).
 	tmp := ba.allocFermat(n)
 	tmp2 := ba.allocFermat(n)
 
-	// *BumpAllocator implements tempAllocator directly (see bump.go).
-	return fourierRecursiveUnified(dst, src, backward, n, k, k, 0, tmp, tmp2, ba)
+	return fourierRecursiveUnified(dst, src, backward, n, k, k, 0, tmp, tmp2)
 }
 
 func fftmul(x, y nat) (nat, error) {

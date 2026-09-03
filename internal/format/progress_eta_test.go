@@ -37,66 +37,6 @@ func TestFormatETA(t *testing.T) {
 	}
 }
 
-// TestFormatProgressBarWithETA verifies combined progress and ETA formatting.
-func TestFormatProgressBarWithETA(t *testing.T) {
-	t.Parallel()
-	testCases := []struct {
-		name        string
-		progress    float64
-		eta         time.Duration
-		width       int
-		containsETA bool
-		containsPct bool
-	}{
-		{
-			name:        "Zero progress",
-			progress:    0,
-			eta:         time.Minute,
-			width:       10,
-			containsETA: true,
-			containsPct: true,
-		},
-		{
-			name:        "50% progress",
-			progress:    0.5,
-			eta:         30 * time.Second,
-			width:       20,
-			containsETA: true,
-			containsPct: true,
-		},
-		{
-			name:        "Complete",
-			progress:    1.0,
-			eta:         0,
-			width:       10,
-			containsETA: true,
-			containsPct: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			result := formatProgressBarWithETA(tc.progress, tc.eta, tc.width)
-
-			if tc.containsETA {
-				if !contains(result, "ETA:") {
-					t.Errorf("formatProgressBarWithETA result should contain 'ETA:', got %q", result)
-				}
-			}
-			if tc.containsPct {
-				if !contains(result, "%") {
-					t.Errorf("formatProgressBarWithETA result should contain '%%', got %q", result)
-				}
-			}
-			// Should contain progress bar characters
-			if !contains(result, "[") || !contains(result, "]") {
-				t.Errorf("formatProgressBarWithETA result should contain progress bar brackets, got %q", result)
-			}
-		})
-	}
-}
-
 // TestProgressBar verifies progress bar rendering.
 func TestProgressBar(t *testing.T) {
 	t.Parallel()
@@ -192,18 +132,4 @@ func TestFormatBytes(t *testing.T) {
 			t.Errorf("FormatBytes(%d) = %q; want %q", tt.input, got, tt.expected)
 		}
 	}
-}
-
-// contains is a helper function to check if a string contains a substring.
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || s != "" && containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

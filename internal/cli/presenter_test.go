@@ -96,47 +96,6 @@ func TestCLIResultPresenter_HandleError(t *testing.T) {
 	}
 }
 
-func TestDisplayMemoryStats(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		name          string
-		heapAlloc     uint64
-		totalAlloc    uint64
-		numGC         uint32
-		pauseTotalNs  uint64
-		wantSubstring []string
-	}{
-		{
-			name:          "gc disabled branch",
-			heapAlloc:     1 << 20,
-			totalAlloc:    1 << 22,
-			numGC:         0,
-			pauseTotalNs:  0,
-			wantSubstring: []string{"GC pause total:  0ms (GC disabled)"},
-		},
-		{
-			name:          "gc enabled branch",
-			heapAlloc:     2 << 20,
-			totalAlloc:    8 << 20,
-			numGC:         3,
-			pauseTotalNs:  5_000_000, // 5 ms
-			wantSubstring: []string{"GC pause total:  5.00ms", "GC cycles:       3"},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			var buf bytes.Buffer
-			displayMemoryStats(tc.heapAlloc, tc.totalAlloc, tc.numGC, tc.pauseTotalNs, &buf)
-			for _, want := range tc.wantSubstring {
-				if !strings.Contains(buf.String(), want) {
-					t.Errorf("displayMemoryStats output missing %q; got:\n%s", want, buf.String())
-				}
-			}
-		})
-	}
-}
-
 func TestPadSpaces(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

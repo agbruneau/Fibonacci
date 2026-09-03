@@ -94,10 +94,17 @@ func GetFFTParallelismConfig() FFTParallelismConfig {
 //   - size: current recursion size
 //   - depth: current recursion depth
 //   - tmp, tmp2: temporary buffers for this goroutine
-//   - alloc: allocator for creating new temp buffers in parallel goroutines
+//
+// The recursion takes no allocator (audit L-06). It used to carry a
+// tempAllocator parameter that it only ever handed to its own recursive calls:
+// the parallel branch deliberately draws from defaultPoolAllocator, because
+// BumpAllocator is not thread-safe, and the sequential branch reuses the
+// caller's tmp/tmp2. So fourierWithBump appeared to thread its bump allocator
+// through the whole transform while the allocator never allocated anything
+// below the two initial buffers.
 //
 //nolint:gocognit // FFT recursion dispatch: sequential branch + parallel branch (non-blocking token) with worker panic capture/re-propagation (ADR-0002); splitting it would obscure the hot path. Behavior pinned by TestFourierRecursive*/golden.
-func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat, alloc tempAllocator) error {
+func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) error {
 	idxShift := k - size
 	ω2shift := (4 * n * _W) >> size
 	if backward {
@@ -155,7 +162,7 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 				defer cleanup1()
 				defer cleanup2()
 
-				errAsync = fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2, alloc)
+				errAsync = fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, t1, t2)
 			}()
 
 			// Run first half in current thread with current temps. The call is
@@ -167,7 +174,7 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 			var errSync error
 			func() {
 				defer func() { rSync = recover() }()
-				errSync = fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc)
+				errSync = fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2)
 			}()
 
 			wg.Wait()
@@ -192,10 +199,10 @@ func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, d
 	}
 
 	// Recursive calls (Sequential)
-	if err := fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2, alloc); err != nil {
+	if err := fourierRecursiveUnified(dst1, src, backward, n, k, size-1, depth+1, tmp, tmp2); err != nil {
 		return err
 	}
-	if err := fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2, alloc); err != nil {
+	if err := fourierRecursiveUnified(dst2, src[1<<idxShift:], backward, n, k, size-1, depth+1, tmp, tmp2); err != nil {
 		return err
 	}
 	return executeReconstruction(dst1, dst2, ω2shift, tmp, tmp2)
@@ -302,9 +309,8 @@ func executeReconstruction(dst1, dst2 []fermat, ω2shift int, tmp, tmp2 fermat) 
 	return nil
 }
 
-// fourierRecursive is a convenience wrapper that uses pool allocation.
-// It always enters the recursion at depth 0; the recursive descent itself is
+// fourierRecursive enters the recursion at depth 0; the descent itself is
 // handled by fourierRecursiveUnified.
 func fourierRecursive(dst, src []fermat, backward bool, n int, k, size uint, tmp, tmp2 fermat) error {
-	return fourierRecursiveUnified(dst, src, backward, n, k, size, 0, tmp, tmp2, defaultPoolAllocator)
+	return fourierRecursiveUnified(dst, src, backward, n, k, size, 0, tmp, tmp2)
 }

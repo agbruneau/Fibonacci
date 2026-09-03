@@ -22,6 +22,10 @@ func Generate(out io.Writer, shell string, algorithms []string) error {
 		return GenerateZsh(out, algorithms)
 	case "fish":
 		return GenerateFish(out, algorithms)
+	// "ps" is unreachable from the CLI — config.Validate accepts only bash,
+	// zsh, fish and powershell — but it is a tested alias of this package's
+	// own API, so it stays for callers that use Generate directly (audit L-02
+	// candidate, rejected on verification).
 	case "powershell", "ps":
 		return GeneratePowerShell(out, algorithms)
 	default:

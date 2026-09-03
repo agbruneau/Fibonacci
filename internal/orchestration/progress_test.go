@@ -13,8 +13,8 @@ func TestNewProgressAggregator_Positive(t *testing.T) {
 	if agg == nil {
 		t.Fatal("expected non-nil aggregator for numCalculators=3")
 	}
-	if agg.calculatorCount() != 3 {
-		t.Errorf("expected calculatorCount()=3, got %d", agg.calculatorCount())
+	if agg.numCalculators != 3 {
+		t.Errorf("expected numCalculators=3, got %d", agg.numCalculators)
 	}
 	if !agg.IsMultiCalculator() {
 		t.Error("expected IsMultiCalculator()=true for 3 calculators")

@@ -62,6 +62,13 @@ func NewCalculationArena(n uint64) *CalculationArena {
 
 // AllocBigInt returns a new big.Int whose backing array is allocated from
 // the arena. If the arena is exhausted, falls back to heap allocation.
+//
+// Test oracle (audit L-02): production pre-sizes through PreSizeFromArena and
+// never calls this. It is kept, not deleted, because it and UsedWords are the
+// only observable surface for the bump invariants PreSizeFromArena relies on —
+// offset advance, three-index slicing, exhaustion fallback, Reset. Removing
+// them would take arena_test.go's coverage of those invariants with them.
+// Same reasoning as the bigfft oracle cluster, ADR-0009 R3.
 func (a *CalculationArena) AllocBigInt(words int) *big.Int {
 	if words <= 0 {
 		return new(big.Int)
@@ -122,6 +129,8 @@ func (a *CalculationArena) Reset() {
 }
 
 // UsedWords returns the number of words currently allocated from the arena.
+//
+// Test oracle; see AllocBigInt.
 func (a *CalculationArena) UsedWords() int {
 	return a.offset
 }

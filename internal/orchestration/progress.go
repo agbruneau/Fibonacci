@@ -122,11 +122,6 @@ func (a *ProgressAggregator) GetETA() time.Duration {
 	return capETA(a.progressRate, a.state.CalculateAverage())
 }
 
-// calculatorCount returns the number of calculators being tracked.
-func (a *ProgressAggregator) calculatorCount() int {
-	return a.numCalculators
-}
-
 // IsMultiCalculator returns true if tracking more than one calculator.
 func (a *ProgressAggregator) IsMultiCalculator() bool {
 	return a.numCalculators > 1

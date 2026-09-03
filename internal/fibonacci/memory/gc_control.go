@@ -83,6 +83,11 @@ func NewGCController(mode string, n uint64) *GCController {
 }
 
 // setLogger configures the logger for GC control events.
+//
+// Test oracle (audit L-02): production leaves the logger at zerolog.Nop(), so
+// nothing calls this. It is the only injection point for observing that
+// Begin/End actually emit their events, which is what
+// TestGCController_SetLogger_EmitsGCEvents checks.
 func (gc *GCController) setLogger(l zerolog.Logger) {
 	gc.logger = l
 }

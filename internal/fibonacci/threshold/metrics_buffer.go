@@ -39,7 +39,11 @@ func (b *MetricsBuffer) Count() int {
 }
 
 // writtenCount returns the total number of samples ever written, even after
-// the buffer wraps. Useful to drive periodic adjustment cadences.
+// the buffer wraps.
+//
+// Test oracle (audit L-02): no production caller. It is the only way to
+// observe the lifetime counter separately from Count(), which caps at
+// MaxMetricsHistory — the distinction the wrap-around tests exist to pin.
 func (b *MetricsBuffer) writtenCount() int {
 	return b.written
 }
