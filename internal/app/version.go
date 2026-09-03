@@ -24,6 +24,16 @@ var (
 // HasVersionFlag checks if any argument is a version flag.
 // This allows --version to work in any position (e.g., "fibcalc -n 100000 --version").
 //
+// The scan stops at the "--" terminator, which by POSIX convention ends option
+// parsing: everything after it is an operand, so a literal "--version" there is
+// data and not a request for the version (audit L-04).
+//
+// Known limitation, deliberately not addressed here: the scan does not know
+// which flags take a value, so "-o --version" still reads as a version
+// request rather than an output file named "--version". Fixing it would mean
+// duplicating the FlagSet's arity table in a function that runs before the
+// FlagSet exists, to serve a filename nobody writes.
+//
 // Parameters:
 //   - args: The command-line arguments to check (typically os.Args[1:]).
 //
@@ -31,6 +41,9 @@ var (
 //   - bool: True if a version flag is found, false otherwise.
 func HasVersionFlag(args []string) bool {
 	for _, arg := range args {
+		if arg == "--" {
+			return false
+		}
 		if arg == "--version" || arg == "-version" || arg == "-V" {
 			return true
 		}

@@ -67,3 +67,32 @@ func TestPrintVersion(t *testing.T) {
 		t.Error("PrintVersion output should contain 'OS/Arch:'")
 	}
 }
+
+// TestHasVersionFlagStopsAtTerminator pins audit L-04: "--" ends option
+// parsing by POSIX convention, so a literal "--version" after it is an
+// operand, not a request for the version banner.
+func TestHasVersionFlagStopsAtTerminator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"before terminator", []string{"-n", "10", "--version"}, true},
+		{"after terminator", []string{"-n", "10", "--", "--version"}, false},
+		{"terminator only", []string{"--"}, false},
+		{"short form before terminator", []string{"-V", "--"}, true},
+		{"single dash form", []string{"-version"}, true},
+		{"absent", []string{"-n", "10"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := HasVersionFlag(tt.args); got != tt.want {
+				t.Errorf("HasVersionFlag(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}

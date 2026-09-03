@@ -16,6 +16,14 @@ func setCustomUsage(fs *flag.FlagSet) {
 		if _, ok := os.LookupEnv("NO_COLOR"); ok {
 			t = ui.NoColorTheme
 		}
+		// ui.InitTheme runs in app.Run, i.e. after parsing, so --machine and
+		// -q had no effect on the help text and `fibcalc --machine --help`
+		// emitted ANSI escapes into a stream the caller asked to keep clean
+		// (audit L-05). fs.Visit only reports flags already parsed, which is
+		// the case here: Parse handles them in order and reaches -h last.
+		if isFlagSetAny(fs, "machine", "quiet", "q") {
+			t = ui.NoColorTheme
+		}
 
 		out := fs.Output()
 
