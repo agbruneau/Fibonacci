@@ -61,7 +61,10 @@ func TestValidateThreshold(t *testing.T) {
 		threshold   int
 		expectError bool
 	}{
-		{"NegativeThreshold", -1, true},
+		// -1 (config.ThresholdDisabled) turns parallelism off and is accepted
+		// since audit H-02; only values below it are out of range.
+		{"DisabledThreshold", ThresholdDisabled, false},
+		{"NegativeThreshold", -2, true},
 		{"LargeNegativeThreshold", -1000000, true},
 		{"ZeroThreshold", 0, false},
 		{"SmallThreshold", 1, false},
@@ -101,7 +104,10 @@ func TestValidateFFTThreshold(t *testing.T) {
 		fftThreshold int
 		expectError  bool
 	}{
-		{"NegativeFFTThreshold", -1, true},
+		// -1 (config.ThresholdDisabled) turns FFT off and is accepted since
+		// audit H-02; only values below it are out of range.
+		{"DisabledFFTThreshold", ThresholdDisabled, false},
+		{"NegativeFFTThreshold", -2, true},
 		{"LargeNegativeFFTThreshold", -1000000, true},
 		{"ZeroFFTThreshold", 0, false},
 		{"SmallFFTThreshold", 1, false},
@@ -206,8 +212,8 @@ func TestValidateCombinedErrors(t *testing.T) {
 	// Multiple issues - validation should catch at least one
 	cfg := AppConfig{
 		Timeout:      0,             // Invalid
-		Threshold:    -1,            // Invalid
-		FFTThreshold: -1,            // Invalid
+		Threshold:    -2,            // Invalid (below ThresholdDisabled)
+		FFTThreshold: -2,            // Invalid (below ThresholdDisabled)
 		Algo:         "nonexistent", // Invalid
 	}
 
@@ -417,13 +423,14 @@ func TestParseConfigValidationErrors(t *testing.T) {
 			"unrecognized algorithm",
 		},
 		{
+			// -2, not -1: -1 is ThresholdDisabled and is valid (audit H-02).
 			"NegativeThreshold",
-			[]string{"-threshold", "-1"},
+			[]string{"-threshold", "-2"},
 			"", // Just needs to error
 		},
 		{
 			"NegativeFFTThreshold",
-			[]string{"-fft-threshold", "-1"},
+			[]string{"-fft-threshold", "-2"},
 			"",
 		},
 	}

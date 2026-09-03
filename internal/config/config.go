@@ -29,6 +29,29 @@ const (
 	DefaultAlgo = "all"
 )
 
+// ThresholdDisabled is the value that turns a threshold OFF, as opposed to 0
+// which means "auto" (fill from the hardware heuristic, then from the static
+// default in fibonacci/constants.go).
+//
+// It is the single source of truth for a contract that was previously an
+// unnamed internal sentinel and a validation bug (audit H-02). The calibration
+// candidate lists have used -1 as their genuine no-parallelism / no-FFT
+// baseline since FIB-02, because normalizeOptions only substitutes a default
+// for ==0 and a 0 candidate therefore silently re-measured the default. When
+// that baseline won, calibration persisted -1 into the profile — a value
+// Validate then rejected, so app.New discarded the whole profile without a
+// word on every subsequent start. Accepting -1 is what makes the calibration
+// result usable on hosts where sequential (or non-FFT) really is fastest.
+//
+// It applies to Threshold and FFTThreshold ONLY. Every consumer of those two
+// gates on `> 0` — fastdoubling.go and matrix_framework.go for parallelism,
+// fft.go and strategy.go for FFT — so a negative value reads as "never".
+// StrassenThreshold has no such gate: multiplyMatrices compares
+// `maxBitLen <= strassenThreshold`, so a negative value would force Strassen
+// always, the opposite of disabling it. It keeps rejecting anything below 0,
+// and no candidate generator produces -1 for it.
+const ThresholdDisabled = -1
+
 // AppConfig aggregates the application's configuration parameters, parsed from
 // command-line flags. It encapsulates all settings that control the execution,
 // from the Fibonacci index to calculate, to performance-tuning parameters.
@@ -100,11 +123,13 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	if c.Timeout <= 0 {
 		return apperrors.NewConfigError("timeout value must be strictly positive")
 	}
-	if c.Threshold < 0 {
-		return apperrors.NewConfigError("parallelism threshold cannot be negative: %d", c.Threshold)
+	// ThresholdDisabled (-1) is accepted for the two thresholds whose consumers
+	// gate on `> 0`; see its doc comment for why Strassen is excluded.
+	if c.Threshold < ThresholdDisabled {
+		return apperrors.NewConfigError("parallelism threshold must be >= %d (%d disables parallelism, 0 is auto): %d", ThresholdDisabled, ThresholdDisabled, c.Threshold)
 	}
-	if c.FFTThreshold < 0 {
-		return apperrors.NewConfigError("FFT threshold cannot be negative: %d", c.FFTThreshold)
+	if c.FFTThreshold < ThresholdDisabled {
+		return apperrors.NewConfigError("FFT threshold must be >= %d (%d disables FFT, 0 is auto): %d", ThresholdDisabled, ThresholdDisabled, c.FFTThreshold)
 	}
 	if c.StrassenThreshold < 0 {
 		return apperrors.NewConfigError("Strassen threshold cannot be negative: %d", c.StrassenThreshold)
@@ -157,8 +182,8 @@ func registerFlags(fs *flag.FlagSet, config *AppConfig, availableAlgos []string)
 	fs.BoolVar(&config.Details, "details", false, "Alias for -d.")
 	fs.DurationVar(&config.Timeout, "timeout", DefaultTimeout, "Maximum execution time for the calculation.")
 	fs.StringVar(&config.Algo, "algo", DefaultAlgo, algoHelp)
-	fs.IntVar(&config.Threshold, "threshold", 0, "Threshold (in bits) for activating parallelism in multiplications (0 for auto).")
-	fs.IntVar(&config.FFTThreshold, "fft-threshold", 0, "Threshold (in bits) to enable FFT multiplication (0 for auto).")
+	fs.IntVar(&config.Threshold, "threshold", 0, "Threshold (in bits) for activating parallelism in multiplications (0 for auto, -1 to disable).")
+	fs.IntVar(&config.FFTThreshold, "fft-threshold", 0, "Threshold (in bits) to enable FFT multiplication (0 for auto, -1 to disable).")
 	fs.IntVar(&config.StrassenThreshold, "strassen-threshold", 0, "Threshold (in bits) to switch to Strassen's algorithm in matrix multiplication (0 for auto).")
 	fs.BoolVar(&config.Calibrate, "calibrate", false, "Runs calibration mode to determine the optimal parallelism threshold.")
 	fs.BoolVar(&config.AutoCalibrate, "auto-calibrate", false, "Enables quick automatic calibration at startup (may increase loading time).")

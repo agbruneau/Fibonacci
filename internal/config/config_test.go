@@ -219,17 +219,52 @@ func TestConfigValidate(t *testing.T) {
 
 	t.Run("InvalidThreshold", func(t *testing.T) {
 		t.Parallel()
-		c := AppConfig{Timeout: 1 * time.Second, Threshold: -1, FFTThreshold: 10, Algo: "fast"}
+		// -2, not -1: -1 is ThresholdDisabled and is valid (audit H-02).
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: -2, FFTThreshold: 10, Algo: "fast"}
 		if err := c.Validate(availableAlgos); err == nil {
-			t.Error("Expected error for negative threshold")
+			t.Error("Expected error for out-of-range threshold")
 		}
 	})
 
 	t.Run("InvalidFFTThreshold", func(t *testing.T) {
 		t.Parallel()
-		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: -1, Algo: "fast"}
+		c := AppConfig{Timeout: 1 * time.Second, Threshold: 10, FFTThreshold: -2, Algo: "fast"}
 		if err := c.Validate(availableAlgos); err == nil {
-			t.Error("Expected error for negative FFT threshold")
+			t.Error("Expected error for out-of-range FFT threshold")
+		}
+	})
+
+	// H-02: ThresholdDisabled is what the calibration candidate lists use as
+	// their genuine sequential / no-FFT baseline (FIB-02) and therefore what a
+	// profile carries when that baseline wins. Validate rejecting it made every
+	// such profile unusable, silently discarded on each start.
+	t.Run("ThresholdDisabledAccepted", func(t *testing.T) {
+		t.Parallel()
+		c := AppConfig{
+			Timeout:      1 * time.Second,
+			Threshold:    ThresholdDisabled,
+			FFTThreshold: ThresholdDisabled,
+			Algo:         "fast",
+		}
+		if err := c.Validate(availableAlgos); err != nil {
+			t.Errorf("ThresholdDisabled must be accepted for both thresholds, got: %v", err)
+		}
+	})
+
+	// Strassen is deliberately excluded: multiplyMatrices compares
+	// maxBitLen <= strassenThreshold, so a negative value forces Strassen
+	// always rather than disabling it.
+	t.Run("StrassenRejectsDisabledSentinel", func(t *testing.T) {
+		t.Parallel()
+		c := AppConfig{
+			Timeout:           1 * time.Second,
+			Threshold:         10,
+			FFTThreshold:      10,
+			StrassenThreshold: ThresholdDisabled,
+			Algo:              "fast",
+		}
+		if err := c.Validate(availableAlgos); err == nil {
+			t.Error("Strassen threshold must still reject negative values")
 		}
 	})
 

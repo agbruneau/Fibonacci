@@ -59,7 +59,7 @@ opts := fibonacci.Options{
 }
 ```
 
-When operand bit sizes exceed a threshold, the corresponding optimization is activated. Setting a threshold to `0` means "use the package default" — `normalizeOptions()` rewrites `0` to `DefaultParallelThreshold`/`DefaultFFTThreshold`/`DefaultStrassenThreshold`. The genuine sequential sentinel is `-1` (FIB-02). Higher values delay activation to larger operand sizes.
+When operand bit sizes exceed a threshold, the corresponding optimization is activated. Setting a threshold to `0` means "use the package default" — `normalizeOptions()` rewrites `0` to `DefaultParallelThreshold`/`DefaultFFTThreshold`/`DefaultStrassenThreshold`. The genuine sequential value is `-1`, `config.ThresholdDisabled` (FIB-02), accepted by `config.Validate` for the parallel and FFT thresholds since the 2026-09 audit (H-02) but not for Strassen, whose consumer compares `maxBitLen <= threshold` and would therefore read a negative value as "always Strassen". Higher values delay activation to larger operand sizes.
 
 ## Calibration Modes
 
@@ -307,9 +307,13 @@ The **benchmark-free estimates** (`EstimateOptimal*`, used when the thresholds a
 
 `GenerateParallelThresholds()` produces a CPU-adaptive candidate list:
 
-The baseline element is `-1` (the genuine sequential sentinel), not `0` — `0`
-would be rewritten to the package default by `normalizeOptions()` and the
-no-parallelism run would never be measured (FIB-02).
+The baseline element is `-1` (`config.ThresholdDisabled`, the genuine sequential
+value), not `0` — `0` would be rewritten to the package default by
+`normalizeOptions()` and the no-parallelism run would never be measured
+(FIB-02). When that baseline wins, `-1` is what gets written to the profile;
+`config.Validate` accepts it since the 2026-09 audit (H-02), so the profile
+survives the next start instead of being discarded without a message and
+replaced by a plain default.
 
 | Core Count | Candidates |
 |-----------|------------|

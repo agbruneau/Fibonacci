@@ -198,7 +198,8 @@ fibcalc [flags]
 | `-memory-limit` | | | Budget mémoire (ex. `8G`), estimation préalable |
 | `-gc-control` | | `auto` | GC pendant le calcul : `auto`, `aggressive`, `disabled` |
 | `-timeout` | | `5m` | Durée maximale du calcul |
-| `-threshold` / `-fft-threshold` / `-strassen-threshold` | | `0` (auto) | Seuils en bits (0 = estimation adaptative) |
+| `-threshold` / `-fft-threshold` | | `0` (auto) | Seuils en bits (0 = estimation adaptative, `-1` = désactive) |
+| `-strassen-threshold` | | `0` (auto) | Seuil en bits (0 = estimation adaptative ; `-1` invalide, voir ci-dessous) |
 | `-calibrate` / `-auto-calibrate` | | `false` | Calibration des seuils pour cet hôte |
 | `-calibration-profile` | | | Chemin du profil de calibration |
 | `-completion` | | | Script de complétion (`bash`, `zsh`, `fish`, `powershell`) |
@@ -211,8 +212,18 @@ Exemples :
 ./fibcalc -n 100000000 -last-digits 10 -q -machine  # → 7760546875
 ./fibcalc -n 1000000000 -memory-limit 8G            # validation mémoire préalable
 ./fibcalc -calibrate                                # calibre les seuils pour cet hôte
+./fibcalc -n 10000000 -threshold -1                 # force le calcul séquentiel
 ./fibcalc -completion bash > fibcalc.bash           # complétion shell
 ```
+
+> **`-1` désactive un seuil.** `-threshold -1` supprime toute parallélisation,
+> `-fft-threshold -1` supprime le recours à la FFT. C'est la valeur que la
+> calibration retient sur les hôtes où le séquentiel gagne, et elle est
+> désormais acceptée telle quelle : jusqu'à l'audit 2026-09 elle était rejetée
+> à la validation, si bien que le profil calibré était jeté en silence à chaque
+> démarrage. `-strassen-threshold` n'admet pas `-1` : son consommateur compare
+> `taille <= seuil`, donc une valeur négative forcerait Strassen en permanence
+> au lieu de le désactiver.
 
 ---
 

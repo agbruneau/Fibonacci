@@ -137,12 +137,12 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, calculatorReg
 	printCalibrationResults(out, results, bestThreshold)
 
 	recommendation := fmt.Sprintf("--threshold %d", bestThreshold)
-	if bestThreshold < 0 {
-		// -1 is the internal "genuinely sequential" sentinel (FIB-02); it
-		// is not a valid CLI flag value (config.Validate rejects negative
-		// thresholds), so tell the user what it means instead of an
-		// unusable flag.
-		recommendation = "Sequential (no parallelism)"
+	if bestThreshold == config.ThresholdDisabled {
+		// -1 is the genuine sequential baseline (FIB-02). Since audit H-02 it
+		// is also a valid CLI value, so recommend the flag AND say what it
+		// means; previously Validate rejected it and this line could only
+		// describe the outcome without giving the user a way to reproduce it.
+		recommendation = fmt.Sprintf("--threshold %d (sequential, no parallelism)", config.ThresholdDisabled)
 	}
 	fmt.Fprintf(out, "\n%s✅ Recommendation for this machine: %s%s%s\n",
 		ui.ColorGreen(), ui.ColorYellow(), recommendation, ui.ColorReset())
@@ -337,11 +337,13 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, o
 		// SEC-01: IsValid() checks only hardware compatibility, never
 		// threshold ranges, so a forged on-disk profile can carry an
 		// out-of-range value. Re-validate the three thresholds the profile
-		// controls (mirroring config.Validate's non-negativity checks) before
-		// trusting them; on failure fall through to a fresh calibration
-		// instead of leaking the forged value into the running config.
-		if profile.OptimalParallelThreshold >= 0 &&
-			profile.OptimalFFTThreshold >= 0 &&
+		// controls before trusting them; on failure fall through to a fresh
+		// calibration instead of leaking the forged value into the running
+		// config. The bounds mirror config.Validate exactly, ThresholdDisabled
+		// included: rejecting -1 here (audit H-02) threw away the calibration's
+		// own sequential/no-FFT result and silently replaced it with a default.
+		if profile.OptimalParallelThreshold >= config.ThresholdDisabled &&
+			profile.OptimalFFTThreshold >= config.ThresholdDisabled &&
 			profile.OptimalStrassenThreshold >= 0 {
 			return applyCachedProfile(cfg, profile, out), true
 		}

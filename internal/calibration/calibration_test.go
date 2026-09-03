@@ -280,8 +280,11 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 		// NewProfile() stamps the current hardware fields, so IsValid() passes;
 		// CalibratedAt is now, so it is fresh (not stale). Only the threshold
 		// is forged.
+		// -2, not -1: -1 is config.ThresholdDisabled, a value this package's own
+		// candidate generators produce and which is valid since audit H-02.
+		// Only something below it is genuinely out of range.
 		profile := NewProfile()
-		profile.OptimalParallelThreshold = -1
+		profile.OptimalParallelThreshold = -2
 		profile.OptimalFFTThreshold = 600000
 		profile.OptimalStrassenThreshold = 4096
 		if err := profile.SaveProfile(profilePath); err != nil {
@@ -298,11 +301,79 @@ func TestAutoCalibrateWithProfile(t *testing.T) {
 		defer cancel()
 		updated, _ := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
 
-		if updated.Threshold < 0 {
-			t.Fatalf("forged negative threshold leaked via auto-calibrate: Threshold=%d", updated.Threshold)
+		if updated.Threshold < config.ThresholdDisabled {
+			t.Fatalf("forged out-of-range threshold leaked via auto-calibrate: Threshold=%d", updated.Threshold)
 		}
 		if strings.Contains(outBuf.String(), "Using cached calibration") {
 			t.Errorf("forged profile must not be applied as a cached calibration; output=%q", outBuf.String())
+		}
+	})
+
+	// H-02: the mirror image of the test above. ThresholdDisabled is not a
+	// forged value, it is what the candidate generators in adaptive.go produce
+	// as their sequential / no-FFT baseline (FIB-02). Rejecting it threw away
+	// the calibration's own result on hosts where that baseline wins, and
+	// re-ran a fast pass that overwrote it with a plain default.
+	t.Run("Fresh profile with disabled thresholds is applied", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/sequential.json"
+
+		profile := NewProfile()
+		profile.OptimalParallelThreshold = config.ThresholdDisabled
+		profile.OptimalFFTThreshold = config.ThresholdDisabled
+		profile.OptimalStrassenThreshold = 3072
+		if err := profile.SaveProfile(profilePath); err != nil {
+			t.Fatalf("Failed to save profile: %v", err)
+		}
+
+		registry := map[string]fibonacci.Calculator{
+			"fast": &MockCalculator{name: "fast"},
+		}
+		cfg := config.AppConfig{Timeout: 5 * time.Second}
+
+		var outBuf bytes.Buffer
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		updated, ok := AutoCalibrateWithProfile(ctx, cfg, &outBuf, registry, profilePath)
+
+		if !ok {
+			t.Fatal("a hardware-valid, fresh profile must be applied")
+		}
+		if updated.Threshold != config.ThresholdDisabled {
+			t.Errorf("Threshold = %d, want %d (disabled)", updated.Threshold, config.ThresholdDisabled)
+		}
+		if updated.FFTThreshold != config.ThresholdDisabled {
+			t.Errorf("FFTThreshold = %d, want %d (disabled)", updated.FFTThreshold, config.ThresholdDisabled)
+		}
+		if !strings.Contains(outBuf.String(), "Using cached calibration") {
+			t.Errorf("expected the cached profile to be reported as used; output=%q", outBuf.String())
+		}
+	})
+
+	// The persisted form must survive a round trip through config.Validate,
+	// which is what app.New applies to a loaded profile. Before H-02 this is
+	// exactly where the sequential result was dropped.
+	t.Run("Disabled thresholds survive persist and validate", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		profilePath := tmpDir + "/roundtrip.json"
+
+		saved := NewProfile()
+		saved.OptimalParallelThreshold = config.ThresholdDisabled
+		saved.OptimalFFTThreshold = config.ThresholdDisabled
+		saved.OptimalStrassenThreshold = 3072
+		if err := saved.SaveProfile(profilePath); err != nil {
+			t.Fatalf("Failed to save profile: %v", err)
+		}
+
+		cfg := config.AppConfig{Timeout: time.Minute, Algo: "fast", N: 100}
+		loaded, ok := LoadCachedCalibration(cfg, profilePath)
+		if !ok {
+			t.Fatal("LoadCachedCalibration must accept a hardware-valid profile")
+		}
+		if err := loaded.Validate([]string{"fast"}); err != nil {
+			t.Fatalf("a persisted sequential profile must pass Validate, got: %v", err)
 		}
 	})
 

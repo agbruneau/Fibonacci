@@ -26,8 +26,11 @@ var flagRegistry = []FlagCompletion{
 	{Long: "details", Short: "d", Help: "Show performance details"},
 	{Long: "timeout", Help: "Maximum execution time", Values: []string{"1m", "5m", "10m", "30m", "1h"}, ValueName: "duration"},
 	{Long: "algo", Help: "Algorithm to use", IsAlgo: true, ValueName: "algorithm"},
-	{Long: "threshold", Help: "Parallelism threshold in bits", Values: []string{"1024", "2048", "4096", "8192", "16384"}, ValueName: "bits", BashGroup: "threshold"},
-	{Long: "fft-threshold", Help: "FFT threshold in bits", Values: []string{"100000", "500000", "1000000"}, ValueName: "bits", BashGroup: "threshold"},
+	// "-1" disables the threshold outright (config.ThresholdDisabled); it is a
+	// valid value since audit H-02 and is what calibration persists when the
+	// sequential / no-FFT baseline wins, so it belongs in the suggestions.
+	{Long: "threshold", Help: "Parallelism threshold in bits (-1 disables)", Values: []string{"-1", "1024", "2048", "4096", "8192", "16384"}, ValueName: "bits", BashGroup: "threshold"},
+	{Long: "fft-threshold", Help: "FFT threshold in bits (-1 disables)", Values: []string{"-1", "100000", "500000", "1000000"}, ValueName: "bits", BashGroup: "threshold"},
 	{Long: "strassen-threshold", Help: "Strassen threshold", Values: []string{"1024", "2048", "3072", "4096"}, ValueName: "bits", BashGroup: "threshold"},
 	{Long: "calibrate", Help: "Run calibration mode"},
 	{Long: "auto-calibrate", Help: "Enable auto-calibration"},
