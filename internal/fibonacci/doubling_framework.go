@@ -149,11 +149,6 @@ func executeDoublingStepMultiplications(ctx context.Context, strategy Multiplier
 func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options, s *CalculationState, useParallel bool) (*big.Int, error) {
 	numBits := bits.Len64(n)
 
-	// Calculate total work for progress reporting via common utility
-	totalWork := progress.CalcTotalWork(numBits)
-	// Pre-compute powers of 4 for O(1) progress calculation
-	powers := progress.PrecomputePowers4(numBits)
-	workDone := 0.0
 	lastReportedProgress := -1.0
 
 	// Normalize options to ensure consistent default threshold handling
@@ -227,7 +222,7 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 		}
 
 		// Harmonized reporting via common utility function
-		workDone = progress.ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, i, numBits, powers)
+		progress.ReportStepProgress(reporter, &lastReportedProgress, i, numBits)
 	}
 	// P1-04: do NOT "steal" s.FK here. The state's big.Ints alias the
 	// state-bound arena's backing buffer. If we returned s.FK directly and

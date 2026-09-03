@@ -58,11 +58,6 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter progre
 	normalizedOpts := normalizeOptions(opts)
 	useParallel := runtime.GOMAXPROCS(0) > 1 && normalizedOpts.ParallelThreshold > 0
 
-	// Calculate total work for progress reporting via common utility
-	totalWork := progress.CalcTotalWork(numBits)
-	// Pre-compute powers of 4 for O(1) progress calculation
-	powers := progress.PrecomputePowers4(numBits)
-	workDone := 0.0
 	lastReportedProgress := -1.0
 
 	for i := 0; i < numBits; i++ {
@@ -94,7 +89,7 @@ func (f *MatrixFramework) ExecuteMatrixLoop(ctx context.Context, reporter progre
 		// However, ReportStepProgress assumes `i` counts down from MSB (large work) to LSB.
 		// To correct this, we invert the index passed to ReportStepProgress so that
 		// stepIndex becomes `i`, resulting in increasing work values.
-		workDone = progress.ReportStepProgress(reporter, &lastReportedProgress, totalWork, workDone, numBits-1-i, numBits, powers)
+		progress.ReportStepProgress(reporter, &lastReportedProgress, numBits-1-i, numBits)
 	}
 	// Optimization: Avoid copying the entire result by "stealing" res.a from
 	// the matrix state. We replace it with a fresh empty big.Int so the state

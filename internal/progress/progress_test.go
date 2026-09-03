@@ -10,90 +10,16 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // TestCalcTotalWork tests the total work calculation for O(log n) algorithms.
-func TestCalcTotalWork(t *testing.T) {
-	t.Parallel()
 
-	tests := []struct {
-		name     string
-		numBits  int
-		wantZero bool
-	}{
-		{"zero bits", 0, true},
-		{"one bit", 1, false},
-		{"small bits", 10, false},
-		{"medium bits", 32, false},
-		{"large bits", 64, false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			result := CalcTotalWork(tc.numBits)
-			if tc.wantZero {
-				if result != 0 {
-					t.Errorf("CalcTotalWork(%d) = %f, want 0", tc.numBits, result)
-				}
-			} else {
-				if result <= 0 {
-					t.Errorf("CalcTotalWork(%d) = %f, want > 0", tc.numBits, result)
-				}
-			}
-		})
-	}
-}
-
-// TestCalcTotalWorkMonotonic verifies that work increases with more bits.
-func TestCalcTotalWorkMonotonic(t *testing.T) {
-	t.Parallel()
-
-	prev := CalcTotalWork(1)
-	for bits := 2; bits <= 20; bits++ {
-		current := CalcTotalWork(bits)
-		if current <= prev {
-			t.Errorf("CalcTotalWork not monotonically increasing: bits=%d, prev=%f, current=%f",
-				bits, prev, current)
-		}
-		prev = current
-	}
-}
-
-// TestCalcTotalWork_LargeNumBits is the A-10 regression guard. The previous
-// implementation materialized math.Pow(4, numBits), which overflows float64
-// to +Inf for numBits >= 512 (4^512 == 2^1024 ~= MaxFloat64). A +Inf total
-// makes every currentProgress = done/total collapse to 0 or NaN, freezing
-// the progress bar exactly on the large calculations that are the project's
-// core. numBits=2000 is well past the overflow boundary.
-func TestCalcTotalWork_LargeNumBits(t *testing.T) {
-	t.Parallel()
-
-	for _, numBits := range []int{64, 512, 2000, 100000} {
-		got := CalcTotalWork(numBits)
-		if math.IsInf(got, 0) {
-			t.Fatalf("CalcTotalWork(%d) = +Inf; must remain finite", numBits)
-		}
-		if math.IsNaN(got) {
-			t.Fatalf("CalcTotalWork(%d) = NaN; must be a real number", numBits)
-		}
-		if got <= 0 {
-			t.Fatalf("CalcTotalWork(%d) = %v; want > 0", numBits, got)
-		}
-	}
-}
-
-// TestProgress_MonotonicLargeN drives the full step loop for large numBits
-// values and asserts the reported progress is a monotonically increasing
-// sequence contained in [0, 1] that reaches ~1.0 at the final step. This is
-// the observable contract the UI depends on; before A-10 it produced a frozen
-// (0 or NaN) sequence for numBits >= 512.
+// TestProgress_MonotonicLargeN is the A-10 guard: the reported fraction must
+// stay finite, inside [0,1] and non-decreasing for bit counts well past the
+// float64 overflow point of the old geometric formula (4^512 > MaxFloat64).
 func TestProgress_MonotonicLargeN(t *testing.T) {
 	t.Parallel()
 
 	for _, numBits := range []int{64, 512, 2000, 100000} {
 		t.Run("", func(t *testing.T) {
 			t.Parallel()
-
-			totalWork := CalcTotalWork(numBits)
-			powers := PrecomputePowers4(numBits)
 
 			var lastReported float64
 			var last float64 = -1
@@ -112,9 +38,8 @@ func TestProgress_MonotonicLargeN(t *testing.T) {
 				last = p
 			}
 
-			workDone := 0.0
 			for i := numBits - 1; i >= 0; i-- {
-				workDone = ReportStepProgress(reporter, &lastReported, totalWork, workDone, i, numBits, powers)
+				ReportStepProgress(reporter, &lastReported, i, numBits)
 			}
 
 			if !sawAny {
@@ -128,80 +53,15 @@ func TestProgress_MonotonicLargeN(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PrecomputePowers4 Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TestPrecomputePowers4 tests power-of-4 precomputation.
-func TestPrecomputePowers4(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		numBits int
-		wantNil bool
-	}{
-		{"zero returns nil", 0, true},
-		{"negative returns nil", -5, true},
-		{"one bit", 1, false},
-		{"multiple bits", 10, false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			result := PrecomputePowers4(tc.numBits)
-			if tc.wantNil {
-				if result != nil {
-					t.Errorf("PrecomputePowers4(%d) = %v, want nil", tc.numBits, result)
-				}
-			} else {
-				if result == nil {
-					t.Fatalf("PrecomputePowers4(%d) = nil, want non-nil", tc.numBits)
-				}
-				if len(result) != tc.numBits {
-					t.Errorf("PrecomputePowers4(%d) len = %d, want %d", tc.numBits, len(result), tc.numBits)
-				}
-			}
-		})
-	}
-}
-
-// TestPrecomputePowers4Values verifies the computed values are correct.
-func TestPrecomputePowers4Values(t *testing.T) {
-	t.Parallel()
-
-	powers := PrecomputePowers4(10)
-	if powers == nil {
-		t.Fatal("PrecomputePowers4(10) returned nil")
-	}
-
-	// Verify first element is 4^0 = 1
-	if powers[0] != 1.0 {
-		t.Errorf("powers[0] = %f, want 1.0", powers[0])
-	}
-
-	// Verify each subsequent element is 4 times the previous
-	for i := 1; i < len(powers); i++ {
-		expected := powers[i-1] * 4.0
-		if powers[i] != expected {
-			t.Errorf("powers[%d] = %f, want %f", i, powers[i], expected)
-		}
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // ReportStepProgress Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-// TestReportStepProgress tests progress reporting logic.
 func TestReportStepProgress(t *testing.T) {
 	t.Parallel()
 
 	t.Run("reports progress correctly", func(t *testing.T) {
 		t.Parallel()
 		numBits := 10
-		totalWork := CalcTotalWork(numBits)
-		powers := PrecomputePowers4(numBits)
 
 		var lastReported float64
 		var receivedProgress []float64
@@ -210,9 +70,8 @@ func TestReportStepProgress(t *testing.T) {
 			receivedProgress = append(receivedProgress, progress)
 		}
 
-		workDone := float64(0)
 		for i := numBits - 1; i >= 0; i-- {
-			workDone = ReportStepProgress(reporter, &lastReported, totalWork, workDone, i, numBits, powers)
+			ReportStepProgress(reporter, &lastReported, i, numBits)
 		}
 
 		// Should have received at least initial and final progress
@@ -221,27 +80,46 @@ func TestReportStepProgress(t *testing.T) {
 		}
 
 		// Final progress should be close to 1.0
-		if len(receivedProgress) > 0 {
-			finalProgress := receivedProgress[len(receivedProgress)-1]
-			if finalProgress < 0.99 {
-				t.Errorf("final progress = %f, want >= 0.99", finalProgress)
-			}
+		finalProgress := receivedProgress[len(receivedProgress)-1]
+		if finalProgress < 0.99 {
+			t.Errorf("final progress = %f, want >= 0.99", finalProgress)
 		}
 	})
 
-	t.Run("handles zero total work", func(t *testing.T) {
+	// numBits <= 0 describes no loop at all, so there is nothing to report.
+	// Before audit L-01 the equivalent guard was a `totalWork > 0` test that
+	// could never be false for a real call.
+	t.Run("reports nothing for a zero-length loop", func(t *testing.T) {
 		t.Parallel()
 		var lastReported float64
-		powers := PrecomputePowers4(5)
+		called := false
 
-		// Should not panic with zero total work: nothing is reported, but the
-		// step's own work (powers[numBits-1-i] = powers[4]) is still accumulated.
-		result := ReportStepProgress(func(float64) {}, &lastReported, 0, 0, 0, 5, powers)
-		if result != powers[4] {
-			t.Errorf("result = %f, want %f (work of step must still be calculated)", result, powers[4])
+		ReportStepProgress(func(float64) { called = true }, &lastReported, 0, 0)
+
+		if called {
+			t.Error("nothing may be reported when numBits is 0")
 		}
 		if lastReported != 0 {
-			t.Errorf("lastReported = %f, want 0 (nothing may be reported when totalWork is 0)", lastReported)
+			t.Errorf("lastReported = %f, want 0", lastReported)
+		}
+	})
+
+	// The first and last steps are always reported, whatever the coalescing
+	// threshold would say, so a UI always sees a start and an end.
+	t.Run("always reports the first and last step", func(t *testing.T) {
+		t.Parallel()
+		numBits := 64
+		var lastReported float64
+		var got []float64
+
+		ReportStepProgress(func(p float64) { got = append(got, p) }, &lastReported, numBits-1, numBits)
+		ReportStepProgress(func(p float64) { got = append(got, p) }, &lastReported, 0, numBits)
+
+		if len(got) != 2 {
+			t.Fatalf("got %d reports, want 2 (first and last step)", len(got))
+		}
+		if got[1] != 1.0 {
+			t.Errorf("last step reported %v, want exactly 1.0", got[1])
 		}
 	})
 }
@@ -251,9 +129,6 @@ func TestReportStepProgressMonotonic(t *testing.T) {
 	t.Parallel()
 
 	numBits := 20
-	totalWork := CalcTotalWork(numBits)
-	powers := PrecomputePowers4(numBits)
-
 	var lastReported float64
 	var prevProgress float64
 
@@ -264,8 +139,7 @@ func TestReportStepProgressMonotonic(t *testing.T) {
 		prevProgress = progress
 	}
 
-	workDone := float64(0)
 	for i := numBits - 1; i >= 0; i-- {
-		workDone = ReportStepProgress(reporter, &lastReported, totalWork, workDone, i, numBits, powers)
+		ReportStepProgress(reporter, &lastReported, i, numBits)
 	}
 }

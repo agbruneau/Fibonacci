@@ -22,13 +22,20 @@ TotalWork = 4^0 + 4^1 + 4^2 + ... + 4^(n-1) = (4^n - 1) / 3
 
 Where `n` is the number of bits of the input number.
 
-> **Note (A-10)** — This geometric series is the conceptual model only. The
-> reported progress ratio is **not** computed as `done / TotalWork`: for
+> **Note (A-10, L-01)** — This geometric series is the conceptual model only.
+> The reported progress ratio is **not** computed as `done / TotalWork`: for
 > `numBits >= 512` the quantity `4^numBits` overflows `float64` to `+Inf`,
-> collapsing the ratio to `0`/`NaN` and freezing the bar. The implementation
-> therefore evaluates progress in **closed form** from the bit index (never
-> materializing `4^numBits`) and clamps `CalcTotalWork` above the overflow
-> boundary — see [Step Progress Reporting](#3-step-progress-reporting) below.
+> collapsing the ratio to `0`/`NaN` and freezing the bar. A-10 replaced the
+> division with a **closed form** over the bit index that never materializes
+> `4^numBits`.
+>
+> The 2026-09 audit (L-01) then removed the machinery A-10 had left behind:
+> `CalcTotalWork`, `PrecomputePowers4` and the `powersOf4` table are **gone**,
+> along with `ReportStepProgress`'s `totalWork` / `workDone` / `powers`
+> parameters and its return value. None of them influenced the reported ratio
+> any more — `totalWork` only guarded a test that was always true, and the
+> running work total was assigned back by both callers without ever being read.
+> Sections 1 and 2 below are kept as a record of the model, not of the code.
 
 ### Justification
 
@@ -44,9 +51,11 @@ O(log n) algorithms for computing F(n):
 
 ## Algorithm Components
 
-### 1. Total Work Calculation
+### 1. Total Work Calculation (REMOVED from the code — model only)
 
-**Function**: `CalcTotalWork(numBits int) float64`
+**Former function**: `CalcTotalWork(numBits int) float64`, deleted by audit
+L-01. The listing below documents the model the progress curve still follows;
+no such function exists in `internal/progress` any more.
 
 The raw geometric sum overflows `float64` for large inputs: `4^512 == 2^1024`
 already exceeds `math.MaxFloat64`, so `math.Pow(4, numBits)` returns `+Inf` for
@@ -84,9 +93,11 @@ func CalcTotalWork(numBits int) float64 {
   this value (see step progress below, A-10), so clamping it does not affect the
   progress bar — it only keeps the guard finite.
 
-### 2. Precomputation of Powers of 4
+### 2. Precomputation of Powers of 4 (REMOVED from the code)
 
-**Function**: `PrecomputePowers4(numBits int) []float64`
+**Former function**: `PrecomputePowers4(numBits int) []float64`, deleted by
+audit L-01 together with the `powersOf4` table and its `init`. It only ever fed
+the cumulative total that nothing read.
 
 The implementation uses a global precomputed lookup table to avoid allocations:
 
@@ -122,84 +133,36 @@ func PrecomputePowers4(numBits int) []float64 {
 
 ### 3. Step Progress Reporting
 
-**Function**: `ReportStepProgress(...) float64`
+**Function**: `ReportStepProgress(...)`
 
 **Signature**:
 ```go
 func ReportStepProgress(
     progressReporter ProgressCallback,
     lastReported *float64,
-    totalWork float64,
-    workDone float64,
     i int,           // Current bit index (numBits-1 down to 0)
     numBits int,
-    powers []float64,
-) float64
+)
 ```
 
-> `totalWork` and `powers` are retained for signature/back-compat and to thread
-> the cumulative work value across calls (the returned `float64`). Since the
-> A-10 fix the reported progress ratio no longer divides by either — it is
-> derived in closed form from `i`/`numBits` (step 4 below). `totalWork > 0` is
-> still checked as a guard before reporting.
+The reported fraction is computed in closed form by `stepProgress(i, numBits)`:
 
-**Logic**:
+```
+progress(i) = (4^(-i) - 4^(-numBits)) / (1 - 4^(-numBits))
+```
 
-1. **Step index calculation**:
-   ```go
-   stepIndex = numBits - 1 - i
-   ```
-   - For `i = numBits - 1` (first bit, MSB) -> `stepIndex = 0` (minimal work)
-   - For `i = 0` (last bit, LSB) -> `stepIndex = numBits - 1` (maximum work)
-
-2. **Step work calculation**:
-   ```go
-   workOfStep = powers[stepIndex]  // O(1) lookup
-   ```
-
-3. **Cumulative work calculation** (threaded for back-compat, no longer used as the ratio numerator):
-   ```go
-   currentTotalDone = workDone + workOfStep
-   ```
-
-4. **Progress calculation (closed form — A-10 fix)**:
-
-   The progress ratio is **not** computed as `currentTotalDone / totalWork`. The
-   geometric quantities overflow `float64` to `+Inf` for `numBits >= 512`
-   (`4^512 == 2^1024 > MaxFloat64`), which drove the ratio to `0`/`NaN` and froze
-   the bar on exactly the large calculations this project targets (A-10).
-   Progress is instead derived in closed form from the bit index via
-   `stepProgress(i, numBits)`, which never materializes `4^numBits`:
-
-   ```go
-   // progress(i) = (4^(numBits-i) - 1) / (4^numBits - 1)
-   // Dividing numerator and denominator by 4^numBits gives the
-   // numerically stable, overflow-free equivalent:
-   //   progress(i) = (4^(-i) - 4^(-numBits)) / (1 - 4^(-numBits))
-   currentProgress = stepProgress(i, numBits)
-   ```
-
-   Both `4^(-i)` and `4^(-numBits)` lie in `(0, 1]` and underflow gracefully
-   toward `0` for large exponents, so the expression never overflows. It equals
-   `1.0` at `i == 0` and is strictly increasing as `i` decreases — identical to
-   the old `WorkDone / TotalWork` form bit-for-bit on the safe domain
-   (`numBits < 512`), while remaining finite, monotone and bounded to `[0, 1]`
-   for any `numBits`.
-
-5. **Conditional reporting**:
-   ```go
-   if currentProgress - *lastReported >= ProgressReportThreshold ||
-      i == 0 || i == numBits - 1 {
-       progressReporter(currentProgress)
-       *lastReported = currentProgress
-   }
-   ```
+Both `4^(-i)` and `4^(-numBits)` lie in `(0, 1]` and underflow gracefully
+toward 0, so the expression is finite for any `numBits`. It equals exactly 1.0
+at `i == 0` and is strictly increasing as `i` decreases — mathematically
+identical to `done / TotalWork` on the domain where that was representable.
 
 **Report Threshold**: `ProgressReportThreshold = 0.01` (1%)
 - Avoids excessive updates
 - Always reports at the start (i == numBits-1) and end (i == 0)
 
-**Returns**: The updated cumulative work done
+**Returns**: nothing. It used to return the running work total; audit L-01
+removed it once it was established that both callers assigned it back without
+reading it.
 
 ### 4. Callback Type
 
@@ -218,9 +181,6 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
     numBits := bits.Len64(n)
 
     // Initialization
-    totalWork := CalcTotalWork(numBits)
-    powers := PrecomputePowers4(numBits)
-    workDone := 0.0
     lastReportedProgress := -1.0  // -1 to force the first report
 
     // Main loop: iterate over bits from numBits-1 down to 0
@@ -233,15 +193,7 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
         // ... Perform the step calculation (doubling, addition, etc.) ...
 
         // Progress reporting
-        workDone = ReportStepProgress(
-            reporter,
-            &lastReportedProgress,
-            totalWork,
-            workDone,
-            i,
-            numBits,
-            powers,
-        )
+        ReportStepProgress(reporter, &lastReportedProgress, i, numBits)
     }
 
     // ... Return the result ...
@@ -253,7 +205,7 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
 1. **Monotonicity**: Progress is always increasing (or stable), never decreasing — `stepProgress` is strictly increasing as `i` decreases
 2. **Valid range**: Progress values are always in [0.0, 1.0] — `stepProgress` clamps both ends explicitly (`if p < 0 return 0`, `if p > 1 return 1`)
 3. **Finalization**: the last loop iteration (`i == 0`) reports **exactly 1.0** — `stepProgress` returns a literal `1` for `i <= 0`, and `i == 0` forces a report regardless of the threshold. `FibCalculator.CalculateWithObservers` additionally calls `reporter(1.0)` on success (`internal/fibonacci/calculator.go`)
-4. **Performance**: bounded, allocation-free work per iteration — but **not** exponentiation-free. `ReportStepProgress` calls `stepProgress` (`internal/progress/progress.go:ReportStepProgress`), which evaluates two `math.Pow` per iteration: `math.Pow(4, -i)` and `math.Pow(4, -numBits)` (`progress.go:stepProgress`). The precomputed `powers` array is still consulted, but only for the cumulative `workDone` total that the function threads through; the reported ratio no longer divides by it.
+4. **Performance**: bounded, allocation-free work per iteration — but **not** exponentiation-free. `ReportStepProgress` calls `stepProgress` (`internal/progress/progress.go:ReportStepProgress`), which evaluates two `math.Pow` per iteration: `math.Pow(4, -i)` and `math.Pow(4, -numBits)` (`progress.go:stepProgress`). Since audit L-01 there is no precomputed `powers` array and no cumulative total: the two `math.Pow` calls are the whole per-iteration cost.
 
 ## Progression Behavior
 
@@ -275,15 +227,12 @@ For `numBits = 11` (e.g., n ~ 2,000):
 
 ### Cases to Handle
 
-1. **numBits = 0**:
-   - `CalcTotalWork(0)` -> 0
-   - `PrecomputePowers4(0)` -> nil
+1. **numBits <= 0**:
+   - `ReportStepProgress` returns without reporting anything: a zero-length
+     loop has no progress to describe. This replaced the old `totalWork > 0`
+     guard, which could never be false for a real call (audit L-01).
 
-2. **totalWork = 0**:
-   - `ReportStepProgress` must avoid division by zero
-   - Do not report progress if `totalWork <= 0`
-
-3. **First and last iteration**:
+2. **First and last iteration**:
    - Always report, even if the change is below the threshold
 
 ### Recommended Tests
@@ -291,25 +240,13 @@ For `numBits = 11` (e.g., n ~ 2,000):
 ```bash
 # Run progress-related tests
 go test -v -run TestProgress ./internal/fibonacci/
-go test -v -run 'TestCalcTotalWork|TestReportStepProgress' ./internal/progress/
+go test -v -run 'TestReportStepProgress|TestProgress_' ./internal/progress/
 ```
 
 ```go
-// Test 1: Total work increases with number of bits
-func TestCalcTotalWorkMonotonic(t *testing.T) {
-    prev := CalcTotalWork(1)
-    for bits := 2; bits <= 20; bits++ {
-        current := CalcTotalWork(bits)
-        assert.True(current > prev)
-        prev = current
-    }
-}
-
-// Test 2: Monotonic progress
-func TestProgressMonotonic(t *testing.T) {
+// Test 1: Monotonic progress, finite and inside [0,1]
+func TestReportStepProgressMonotonic(t *testing.T) {
     numBits := 20
-    totalWork := CalcTotalWork(numBits)
-    powers := PrecomputePowers4(numBits)
 
     var lastReported float64
     var prevProgress float64
@@ -319,12 +256,27 @@ func TestProgressMonotonic(t *testing.T) {
         prevProgress = progress
     }
 
-    workDone := 0.0
     for i := numBits - 1; i >= 0; i-- {
-        workDone = ReportStepProgress(reporter, &lastReported, totalWork, workDone, i, numBits, powers)
+        ReportStepProgress(reporter, &lastReported, i, numBits)
     }
 
     assert.True(prevProgress >= 0.99)
+}
+
+// Test 2: the closed form survives past the old overflow boundary (A-10)
+func TestProgress_MonotonicLargeN(t *testing.T) {
+    for _, numBits := range []int{64, 512, 2000, 100000} {
+        var lastReported float64
+        var last float64 = -1
+        for i := numBits - 1; i >= 0; i-- {
+            ReportStepProgress(func(p float64) {
+                assert.False(math.IsNaN(p) || math.IsInf(p, 0))
+                assert.True(p >= last)
+                last = p
+            }, &lastReported, i, numBits)
+        }
+        assert.True(last >= 0.99)
+    }
 }
 ```
 
@@ -332,15 +284,14 @@ func TestProgressMonotonic(t *testing.T) {
 
 ### Performance
 
-1. **Precomputed powers**: Global `[64]float64` array supplies the per-step work unit by lookup, avoiding a `math.Pow(4, stepIndex)` for the cumulative total
-2. **Zero-allocation lookup**: `PrecomputePowers4` returns a slice of the global array for numBits <= 64
-3. **Report threshold**: Reduces the number of callbacks (less I/O overhead)
-4. **Not** exponentiation-free: the reported *ratio* comes from `stepProgress`, which pays two `math.Pow` calls per iteration (`internal/progress/progress.go:stepProgress`). That is the deliberate price of the closed form, which stays finite for `numBits >= 512` where the raw geometric sum overflows to `+Inf` (A-10)
+1. **Report threshold**: Reduces the number of callbacks (less I/O overhead), while always reporting the first and last step
+2. **No precomputation**: the `[64]float64` power table and `PrecomputePowers4` were removed by audit L-01. They fed a cumulative work total that stopped influencing the reported ratio at A-10 and that neither caller read afterwards, so the lookup they saved was a lookup nothing needed.
+3. **Not** exponentiation-free: the reported ratio comes from `stepProgress`, which pays two `math.Pow` calls per iteration (`internal/progress/progress.go:stepProgress`). That is the deliberate price of the closed form, which stays finite for `numBits >= 512` where the raw geometric sum overflows to `+Inf` (A-10)
 
 ### Complexity
 
-- **Time**: O(1) per iteration — one array lookup plus two `math.Pow` calls, no loop over bits
-- **Space**: O(1) — global array, no per-call allocation for typical inputs
+- **Time**: O(1) per iteration — two `math.Pow` calls, no loop over bits
+- **Space**: O(1) — no per-call allocation
 
 ## Adaptation for Other Algorithms
 
@@ -348,7 +299,7 @@ func TestProgressMonotonic(t *testing.T) {
 
 1. **Growth factor**: If work triples per step instead of quadrupling, use 3 instead of 4
 2. **Alternative formula**: For algorithms with different growth, adapt the geometric formula
-3. **Weighting**: If certain steps take more/less time, adjust `workOfStep`
+3. **Weighting**: If certain steps take more/less time, adjust the exponent inside `stepProgress` (there is no longer a per-step `workOfStep` variable to weight — audit L-01)
 
 ### Example: Factor of 3
 
