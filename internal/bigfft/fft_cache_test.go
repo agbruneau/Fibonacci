@@ -923,3 +923,101 @@ func TestComputePolyKeyInvariantR2_10(t *testing.T) {
 		}
 	}
 }
+
+// TestTransformCacheMaxBytes pins audit M-08: MaxEntries alone is not a memory
+// bound, because an entry holds K*(n+1) words and therefore grows with the
+// Fibonacci index while the entry count stays fixed. Nothing frees the cache
+// between calculations in a long-lived process.
+func TestTransformCacheMaxBytes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		n             = 3 // 4 words per coefficient value
+		k        uint = 2 // K = 4 values per entry
+		perEntry      = (1 << k) * (n + 1) * (_W / 8)
+	)
+
+	newEntry := func(seed big.Word) PolValues {
+		values := make([]fermat, 1<<k)
+		for i := range values {
+			v := make(fermat, n+1)
+			v[0] = seed + big.Word(i)
+			values[i] = v
+		}
+		return PolValues{K: k, N: n, Values: values}
+	}
+
+	t.Run("evicts to stay within the byte budget", func(t *testing.T) {
+		t.Parallel()
+		// Room for exactly two entries; MaxEntries is deliberately far higher
+		// so the byte bound is the only thing that can stop the growth.
+		tc := NewTransformCache(TransformCacheConfig{
+			MaxEntries: 1000,
+			MinBitLen:  0,
+			MaxBytes:   2 * perEntry,
+			Enabled:    true,
+		})
+
+		for i := 0; i < 20; i++ {
+			tc.putByKey(uint64(i), newEntry(big.Word(i*100+1)))
+			if got := tc.Bytes(); got > 2*perEntry {
+				t.Fatalf("after %d puts: cache holds %d bytes, budget is %d", i+1, got, 2*perEntry)
+			}
+		}
+		if got := tc.Stats().Size; got != 2 {
+			t.Errorf("Size = %d, want 2 (the byte budget, not MaxEntries=1000)", got)
+		}
+		if tc.Stats().Evictions == 0 {
+			t.Error("expected the byte bound to have evicted something")
+		}
+	})
+
+	t.Run("rejects an entry larger than the whole budget", func(t *testing.T) {
+		t.Parallel()
+		tc := NewTransformCache(TransformCacheConfig{
+			MaxEntries: 1000,
+			MinBitLen:  0,
+			MaxBytes:   perEntry / 2,
+			Enabled:    true,
+		})
+
+		tc.putByKey(1, newEntry(7))
+
+		if got := tc.Stats().Size; got != 0 {
+			t.Errorf("Size = %d, want 0: an entry that cannot fit must be dropped, not stored", got)
+		}
+		if got := tc.Bytes(); got != 0 {
+			t.Errorf("Bytes = %d, want 0", got)
+		}
+	})
+
+	t.Run("zero MaxBytes keeps the historical unbounded behavior", func(t *testing.T) {
+		t.Parallel()
+		tc := NewTransformCache(TransformCacheConfig{
+			MaxEntries: 1000,
+			MinBitLen:  0,
+			MaxBytes:   0,
+			Enabled:    true,
+		})
+
+		for i := 0; i < 20; i++ {
+			tc.putByKey(uint64(i), newEntry(big.Word(i*100+1)))
+		}
+		if got := tc.Stats().Size; got != 20 {
+			t.Errorf("Size = %d, want 20: MaxBytes=0 must not bound anything", got)
+		}
+	})
+
+	t.Run("Clear resets the byte counter", func(t *testing.T) {
+		t.Parallel()
+		tc := NewTransformCache(TransformCacheConfig{MaxEntries: 10, MinBitLen: 0, Enabled: true})
+		tc.putByKey(1, newEntry(3))
+		if tc.Bytes() == 0 {
+			t.Fatal("precondition: the entry should have been stored")
+		}
+		tc.Clear()
+		if got := tc.Bytes(); got != 0 {
+			t.Errorf("Bytes after Clear = %d, want 0", got)
+		}
+	})
+}

@@ -181,3 +181,83 @@ func TestSatMul(t *testing.T) {
 		})
 	}
 }
+
+// TestEstimateMemoryUsageEnvelope pins audit H-03. The estimate is a safety
+// bound for --memory-limit, so the property that matters is directional: it
+// must never fall below what a calculation really costs, or the flag validates
+// runs that go on to exhaust the machine. The old model did exactly that,
+// under-estimating by 5x to 12x at every measured point.
+//
+// The measured figures are MemStats.Sys deltas for the worst of the three
+// algorithms at each n, one process per point
+// (docs/audits/mem-baseline-2026-09.txt). They are machine-specific, so the
+// upper bound is deliberately loose; the lower bound is the real assertion.
+func TestEstimateMemoryUsageEnvelope(t *testing.T) {
+	t.Parallel()
+
+	const mb = 1 << 20
+	// worstMeasuredMB is the largest Sys delta observed across fast / fft /
+	// matrix / all at that index.
+	tests := []struct {
+		n               uint64
+		worstMeasuredMB uint64
+	}{
+		{100_000, 6},
+		{1_000_000, 23},
+		{5_000_000, 34},
+		{10_000_000, 141},
+		{50_000_000, 536},
+		{100_000_000, 617},
+	}
+
+	for _, tt := range tests {
+		est := EstimateMemoryUsage(tt.n).TotalBytes
+		measured := tt.worstMeasuredMB * mb
+
+		if est < measured {
+			t.Errorf("n=%d: estimate %d MB is BELOW the measured %d MB; --memory-limit would validate a run it cannot cover",
+				tt.n, est/mb, tt.worstMeasuredMB)
+		}
+		// 4x leaves room for a slower machine or a different Go version while
+		// still failing if a future edit inflates the model out of usefulness.
+		if est > 4*measured {
+			t.Errorf("n=%d: estimate %d MB is more than 4x the measured %d MB; the bound is too coarse to be useful",
+				tt.n, est/mb, tt.worstMeasuredMB)
+		}
+	}
+}
+
+// TestEstimateMemoryUsageMonotonic guards the shape of the model: a larger
+// index can never be cheaper, and the components must sum to the total.
+func TestEstimateMemoryUsageMonotonic(t *testing.T) {
+	t.Parallel()
+
+	var prev uint64
+	for _, n := range []uint64{0, 1, 93, 94, 1000, 100_000, 1_000_000, 10_000_000, 100_000_000} {
+		est := EstimateMemoryUsage(n)
+		if est.TotalBytes < prev {
+			t.Errorf("n=%d: total %d is below the previous index's %d", n, est.TotalBytes, prev)
+		}
+		prev = est.TotalBytes
+
+		sum := est.StateBytes + est.FFTBufferBytes + est.CacheBytes + est.OverheadBytes
+		if sum != est.TotalBytes {
+			t.Errorf("n=%d: components sum to %d but TotalBytes is %d", n, sum, est.TotalBytes)
+		}
+	}
+}
+
+// TestEstimateMemoryUsageBaselineOnlyAboveSmallN checks that the fixed floor is
+// not charged to indices that never build an arena or warm a pool: at or below
+// MaxFibUint64, Calculate returns through calculateSmall.
+func TestEstimateMemoryUsageBaselineOnlyAboveSmallN(t *testing.T) {
+	t.Parallel()
+
+	if got := EstimateMemoryUsage(baselineMinN).TotalBytes; got >= baselineBytes {
+		t.Errorf("n=%d takes the small-N path and must not be charged the %d-byte floor, got %d",
+			baselineMinN, baselineBytes, got)
+	}
+	if got := EstimateMemoryUsage(baselineMinN + 1).TotalBytes; got < baselineBytes {
+		t.Errorf("n=%d engages the FFT machinery and must carry the floor, got %d", baselineMinN+1, got)
+	}
+}

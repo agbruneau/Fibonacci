@@ -68,3 +68,15 @@ const (
 	// Used to estimate bit length of F(n).
 	FibonacciGrowthFactor = 0.69424
 )
+
+// FFTCacheMaxBytesFactor is the byte budget configureFFTCache gives the global
+// transform cache, as a multiple of the byte size of F(n) (audit M-08).
+//
+// Sized to hold one calculation's transforms: the matrix path — the only
+// production path that reaches the cache — retained 20 entries of about twice
+// the operand each at F(10M), i.e. roughly 40x. 48x leaves headroom without
+// letting the cache grow to the ~256x its entry cap alone would permit.
+//
+// Do not tighten it without re-running the ADR-0009 R4 protocol: 4x was
+// measured at MatrixExp/10M +22% sec/op and +137% allocs/op and rejected.
+const FFTCacheMaxBytesFactor = 48

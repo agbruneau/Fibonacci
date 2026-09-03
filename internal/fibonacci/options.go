@@ -3,6 +3,7 @@
 package fibonacci
 
 import (
+	"math"
 	"math/bits"
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
@@ -133,6 +134,28 @@ func configureFFTCache(opts Options, n uint64) {
 	}
 	if opts.FFTCacheEnabled != nil {
 		config.Enabled = *opts.FFTCacheEnabled
+	}
+
+	// Bound the cache in BYTES as well as entries (audit M-08). An entry holds
+	// K*(n+1) words, roughly twice its operand, so a fixed entry budget is not
+	// a memory bound: at F(10M) the matrix path retained 20 entries of ~1.7 MB,
+	// and the same 64-128 entry budget at F(100M) would allow gigabytes.
+	// Nothing frees the cache between calculations in a long-lived process.
+	//
+	// FFTCacheMaxBytesFactor is sized to hold ONE calculation's transforms and
+	// no more. A tighter bound was measured and rejected: 4x the size of F(n)
+	// (2 entries at F(10M)) cost MatrixExp/10M +22% sec/op, +76% B/op and
+	// +137% allocs/op on benchstat, well past the 5% gate of the ADR-0009 R4
+	// protocol. The zero hit rate measured for a single run is real, but it
+	// does not generalise: a repeated calculation of the same n -- the TUI's
+	// restart key, a calibration sweep, the benchmarks themselves -- replays
+	// identical operands and does hit. Bounding is the goal here; starving is
+	// not.
+	if n > 0 {
+		fibBytes := uint64(float64(n)*FibonacciGrowthFactor) / 8
+		if budget := FFTCacheMaxBytesFactor * fibBytes; budget > 0 && budget <= uint64(math.MaxInt) {
+			config.MaxBytes = int(budget)
+		}
 	}
 
 	// Apply configuration to global cache

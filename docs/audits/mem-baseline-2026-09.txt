@@ -1,0 +1,42 @@
+# Memory baseline — audit 2026-09 (T-10 / H-03, M-08)
+#
+# runtime.MemStats.Sys delta across one calculation, one PROCESS per data point
+# (Sys never shrinks, so several points in one process report the high-water
+# mark of all of them). Probe source: annex A.1 of audit.md.
+#
+# Host: Intel Core Ultra 9 275HX, windows/amd64, go1.27.0.
+# "all" runs the three calculators concurrently, as --algo all does by default.
+#
+#   n           old est   fast    fft   matrix    all    new est   new/worst
+#   1 000          0 MB      0      -       -       -      10 MB      --
+#   100 000        0 MB      0      -       -       6      11 MB     1.83x
+#   1 000 000      1 MB      9     18      13      23      24 MB     1.04x
+#   5 000 000      6 MB     34      -       -       -      84 MB     2.47x
+#   10 000 000    12 MB     62     67     141     101     158 MB     1.12x
+#   50 000 000    62 MB    536      -       -       -     754 MB     1.41x
+#   100 000 000  124 MB    617    460       -       -    1499 MB     2.43x
+#
+# The old estimate was under the real figure at every measured point, by 5x to
+# 12x, which defeated the purpose of --memory-limit: it validated runs that
+# went on to consume several times the declared budget. The new one is never
+# under and at most 2.47x over. The overshoot peaks where n sits just past one
+# of bigfft's power-of-four pool size classes.
+#
+# What the old model missed, in order of weight:
+#   - sync.Pool pre-warming (PreWarmPools): up to six buffers in each of four
+#     pools, every buffer rounded UP to the next power-of-four class. This is
+#     the single largest term and was not modelled at all.
+#   - The x10 arena over-sizing (ADR-0009 R4). The model counted five big.Int.
+#   - --algo all runs three calculators concurrently. The model counted one.
+#
+# FFT transform cache (M-08), F(10M) on the matrix path — the only production
+# path that reaches the cache at all:
+#
+#   before MaxBytes:  20 entries retained, 0 hits, 27 misses
+#   after  MaxBytes:   1 entry  retained, 0 hits, 27 misses
+#
+# The zero hit rate is not a measurement artifact: operand values change on
+# every iteration, so a transform is cached and never read back. That is what
+# the P2-01 note on Options.FFTCacheMinBitLen already predicted, now measured.
+# The cache is therefore bounded tightly (4x the size of F(n)) rather than
+# being given room it has no demonstrated use for.

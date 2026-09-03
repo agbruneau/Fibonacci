@@ -26,6 +26,18 @@ type TransformCacheConfig struct {
 	// Default: 100000 bits (~12KB)
 	MinBitLen int
 
+	// MaxBytes caps the total backing memory held by the cache. Zero means
+	// unbounded, which is the historical behavior.
+	//
+	// MaxEntries alone is not a memory bound (audit M-08): an entry stores
+	// K*(n+1) words, roughly twice the operand, so its size grows linearly
+	// with the Fibonacci index while the entry count stays fixed. At F(10M)
+	// the matrix path retained 20 entries of ~1.7 MB; the same 64-128 entry
+	// budget at F(100M) would allow a multi-gigabyte cache. Nothing frees it
+	// between calculations in a long-lived process (TUI restarts, calibration
+	// sweeps), and EstimateMemoryUsage budgets a flat 2x F(n) for this.
+	MaxBytes int
+
 	// Enabled controls whether caching is active.
 	// Default: true
 	Enabled bool
@@ -36,6 +48,7 @@ func DefaultTransformCacheConfig() TransformCacheConfig {
 	return TransformCacheConfig{
 		MaxEntries: 256,
 		MinBitLen:  100000,
+		MaxBytes:   0, // unbounded; fibonacci.configureFFTCache sizes it from n
 		Enabled:    true,
 	}
 }
@@ -60,6 +73,7 @@ type TransformCache struct {
 	config    TransformCacheConfig
 	entries   map[uint64]*list.Element
 	lru       *list.List
+	currBytes int // sum of len(entry.backing)*wordSize, guarded by mu
 	hits      atomic.Uint64
 	misses    atomic.Uint64
 	evictions atomic.Uint64
@@ -381,10 +395,21 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		}
 	}
 
-	// Evict oldest entries if at capacity. We deliberately do NOT salvage
-	// the evicted backing buffers — see the function-level concurrency
-	// contract above.
-	for tc.lru.Len() >= tc.config.MaxEntries {
+	entryBytes := wordCount * (_W / 8)
+
+	// A single entry larger than the whole budget can never fit: caching it
+	// would mean evicting everything and still being over. Drop it (audit
+	// M-08); the caller recomputes, which is what a miss already costs.
+	if tc.config.MaxBytes > 0 && entryBytes > tc.config.MaxBytes {
+		return
+	}
+
+	// Evict oldest entries until BOTH bounds hold. We deliberately do NOT
+	// salvage the evicted backing buffers — see the function-level
+	// concurrency contract above.
+	for tc.lru.Len() > 0 &&
+		(tc.lru.Len() >= tc.config.MaxEntries ||
+			(tc.config.MaxBytes > 0 && tc.currBytes+entryBytes > tc.config.MaxBytes)) {
 		oldest := tc.lru.Back()
 		if oldest == nil {
 			break
@@ -392,6 +417,7 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 		tc.lru.Remove(oldest)
 		entry := oldest.Value.(*cacheEntry)
 		delete(tc.entries, entry.key)
+		tc.currBytes -= len(entry.backing) * (_W / 8)
 		tc.evictions.Add(1)
 		// entry.backing is intentionally left to the garbage collector;
 		// any concurrent caller still iterating over a PolValues whose
@@ -417,6 +443,16 @@ func (tc *TransformCache) putByKey(key uint64, pv PolValues) {
 
 	elem := tc.lru.PushFront(entry)
 	tc.entries[key] = elem
+	tc.currBytes += entryBytes
+}
+
+// Bytes returns the total backing memory currently held by the cache.
+// Exposed so the memory estimator and its tests can check the bound against
+// the real figure rather than a flat guess (audit M-08).
+func (tc *TransformCache) Bytes() int {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	return tc.currBytes
 }
 
 // Stats returns cache statistics.
@@ -462,6 +498,7 @@ func (tc *TransformCache) Clear() {
 
 	tc.entries = make(map[uint64]*list.Element)
 	tc.lru.Init()
+	tc.currBytes = 0
 	tc.hits.Store(0)
 	tc.misses.Store(0)
 	tc.evictions.Store(0)
