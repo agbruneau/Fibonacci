@@ -203,29 +203,38 @@ func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Ca
 	results = make([]calibrationResult, 0, len(thresholdsToTest))
 	bestDuration := time.Duration(1<<63 - 1)
 
-	var wg sync.WaitGroup
-	progressChan := make(chan progress.ProgressUpdate, 5)
-	wg.Add(1)
-	go progressDisplay(&wg, progressChan, 1, out)
-
-	for _, threshold := range thresholdsToTest {
-		if ctx.Err() != nil {
-			fmt.Fprintf(out, "\n%sCalibration interrupted.%s\n", ui.ColorYellow(), ui.ColorReset())
-			close(progressChan)
-			wg.Wait()
-			return 0, results, apperrors.ExitErrorCanceled
-		}
+	// One progress consumer PER PASS (audit L-07). A single consumer shared by
+	// every threshold saw progress restart from 0 at each new calculation, so
+	// the smoothed rate it maintains — and the ETA derived from it — described
+	// a curve no individual run followed, and the closing "100%" line printed
+	// once for the whole sweep instead of once per pass.
+	runPass := func(threshold int) (time.Duration, error) {
+		var wg sync.WaitGroup
+		progressChan := make(chan progress.ProgressUpdate, 5)
+		wg.Add(1)
+		go progressDisplay(&wg, progressChan, 1, out)
 
 		startTime := time.Now()
 		_, err := calculator.Calculate(ctx, progressChan, 0, CalibrationN, fibonacci.Options{ParallelThreshold: threshold})
 		duration := time.Since(startTime)
 
+		close(progressChan)
+		wg.Wait()
+		return duration, err
+	}
+
+	for _, threshold := range thresholdsToTest {
+		if ctx.Err() != nil {
+			fmt.Fprintf(out, "\n%sCalibration interrupted.%s\n", ui.ColorYellow(), ui.ColorReset())
+			return 0, results, apperrors.ExitErrorCanceled
+		}
+
+		duration, err := runPass(threshold)
+
 		if err != nil {
 			fmt.Fprintf(out, "%s❌ Failure (%v)%s\n", ui.ColorRed(), err, ui.ColorReset())
 			results = append(results, calibrationResult{threshold, 0, err})
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				close(progressChan)
-				wg.Wait()
 				return 0, results, apperrors.HandleCalculationError(err, duration, out, colorProvider)
 			}
 			continue
@@ -236,8 +245,6 @@ func runPassSequence(ctx context.Context, out io.Writer, calculator fibonacci.Ca
 			bestDuration, bestThreshold = duration, threshold
 		}
 	}
-	close(progressChan)
-	wg.Wait()
 
 	if bestDuration == time.Duration(1<<63-1) {
 		fmt.Fprintf(out, "\n%sCalibration failed: no valid results obtained.%s\n", ui.ColorRed(), ui.ColorReset())

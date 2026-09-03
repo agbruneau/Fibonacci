@@ -83,9 +83,14 @@ func acquireWordSlice(size int) []big.Word {
 		return make([]big.Word, size)
 	}
 	slice := wordSlicePools[idx].Get().([]big.Word)
-	// Clear the slice before returning (Go 1.21+ built-in)
+	// Clear only the part the caller can see (audit M-05). Size classes are a
+	// factor of four apart, so clearing the whole bucket did up to 4x the
+	// necessary memclr -- 2.5x on average -- for bytes beyond len that no
+	// caller can reach through the returned header. releaseWordSlice still
+	// routes on cap, so the bucket invariant is untouched.
+	slice = slice[:size]
 	clear(slice)
-	return slice[:size]
+	return slice
 }
 
 // acquireWordSliceUnsafe returns a word slice from the pool without clearing it.
@@ -220,9 +225,10 @@ func acquireFermat(size int) fermat {
 		return make(fermat, size)
 	}
 	f := fermatPools[idx].Get().(fermat)
-	// Clear and resize (Go 1.21+ built-in)
+	// Clear only the visible part; see acquireWordSlice (audit M-05).
+	f = f[:size]
 	clear(f)
-	return f[:size]
+	return f
 }
 
 // releaseFermat returns a fermat slice to the pool.
@@ -307,9 +313,10 @@ func acquireNatSlice(size int) []nat {
 		return make([]nat, size)
 	}
 	slice := natSlicePools[idx].Get().([]nat)
-	// Clear the slice (Go 1.21+ built-in)
+	// Clear only the visible part; see acquireWordSlice (audit M-05).
+	slice = slice[:size]
 	clear(slice)
-	return slice[:size]
+	return slice
 }
 
 // releaseNatSlice returns a []nat slice to the pool.
@@ -394,9 +401,10 @@ func acquireFermatSlice(size int) []fermat {
 		return make([]fermat, size)
 	}
 	slice := fermatSlicePools[idx].Get().([]fermat)
-	// Clear the slice (Go 1.21+ built-in)
+	// Clear only the visible part; see acquireWordSlice (audit M-05).
+	slice = slice[:size]
 	clear(slice)
-	return slice[:size]
+	return slice
 }
 
 // releaseFermatSlice returns a []fermat slice to the pool.
