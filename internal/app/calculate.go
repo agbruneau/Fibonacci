@@ -218,7 +218,13 @@ func (a *Application) present(
 		// Quiet mode must still honor comparison mode's purpose: never emit a
 		// value when the algorithms disagree. Without this, `--algo all --quiet`
 		// would print the fastest result and exit 0 on a real divergence.
+		//
+		// Quiet silences stdout, not diagnostics: reporting nothing at all left
+		// the caller with an empty stdout and exit 3 to interpret on its own
+		// (audit M-06). The message goes to ErrWriter, so a script capturing
+		// stdout still gets exactly nothing.
 		if orchestration.HasResultMismatch(results) {
+			fmt.Fprintf(a.ErrWriter, "%s\n", orchestration.MismatchMessage)
 			return apperrors.ExitErrorMismatch
 		}
 		cli.DisplayQuietResult(out, best.Result)

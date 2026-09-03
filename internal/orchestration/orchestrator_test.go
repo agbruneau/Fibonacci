@@ -636,3 +636,28 @@ func TestAnalyzeComparisonResults_PrefersRootCauseOverCanceled(t *testing.T) {
 		t.Fatalf("firstError = %v, want the non-canceled root cause", handler.got)
 	}
 }
+
+// TestAnalyzeComparisonResultsMismatchIsNewlineTerminated pins audit M-06: the
+// mismatch diagnostic was written with no trailing newline, so whatever the
+// shell printed next ran straight into it.
+func TestAnalyzeComparisonResultsMismatchIsNewlineTerminated(t *testing.T) {
+	t.Parallel()
+	results := []CalculationResult{
+		{Name: "a", Result: big.NewInt(55), Duration: time.Millisecond},
+		{Name: "b", Result: big.NewInt(54), Duration: 2 * time.Millisecond},
+	}
+
+	var out, errOut bytes.Buffer
+	presenter := MockResultPresenter{}
+	code := AnalyzeComparisonResults(results, PresentationOptions{N: 10}, presenter, presenter, &out, &errOut)
+
+	if code != apperrors.ExitErrorMismatch {
+		t.Fatalf("got exit %d, want %d", code, apperrors.ExitErrorMismatch)
+	}
+	if !strings.Contains(errOut.String(), MismatchMessage) {
+		t.Errorf("mismatch diagnostic missing from errOut: %q", errOut.String())
+	}
+	if !strings.HasSuffix(errOut.String(), "\n") {
+		t.Errorf("mismatch diagnostic must end with a newline, got %q", errOut.String())
+	}
+}

@@ -168,7 +168,7 @@ func AnalyzeComparisonResults(results []CalculationResult, presOpts Presentation
 	}
 
 	if HasResultMismatch(results) {
-		fmt.Fprintf(errOut, "\nGlobal Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms.")
+		fmt.Fprintf(errOut, "\n%s\n", MismatchMessage)
 		return apperrors.ExitErrorMismatch
 	}
 
@@ -176,6 +176,11 @@ func AnalyzeComparisonResults(results []CalculationResult, presOpts Presentation
 	presenter.PresentResult(*firstValidResult, presOpts.N, presOpts.Verbose, presOpts.Details, presOpts.ShowValue, out)
 	return apperrors.ExitSuccess
 }
+
+// MismatchMessage is the single wording used whenever the comparison detects
+// divergent results, shared by AnalyzeComparisonResults and by the quiet-mode
+// fast path in internal/app so the two cannot drift (audit M-06).
+const MismatchMessage = "Global Status: CRITICAL ERROR! An inconsistency was detected between the results of the algorithms."
 
 // HasResultMismatch reports whether two or more successful results disagree on
 // the computed value. Failed results (Err != nil) are ignored; with fewer than

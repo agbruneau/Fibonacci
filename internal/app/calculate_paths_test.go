@@ -407,3 +407,38 @@ func TestExecuteCalculations_WiresGCControl(t *testing.T) {
 		t.Errorf("Options.GCMode: want %q, got %q", "disabled", spy.capturedOpts.GCMode)
 	}
 }
+
+// TestPresentQuietMismatchWritesStderr pins audit M-06: quiet mode silences
+// stdout, not diagnostics. The mismatch guard above used to return exit 3 while
+// writing nothing anywhere, leaving a calling script with an empty stdout and a
+// bare exit code to interpret. The explanation belongs on stderr, where it
+// cannot contaminate a captured stdout.
+func TestPresentQuietMismatchWritesStderr(t *testing.T) {
+	t.Parallel()
+	var errBuf bytes.Buffer
+	app := &Application{
+		Config:    config.AppConfig{N: 10, Quiet: true},
+		ErrWriter: &errBuf,
+	}
+	results := []orchestration.CalculationResult{
+		{Name: "fast", Result: big.NewInt(55), Duration: time.Millisecond},
+		{Name: "matrix", Result: big.NewInt(54), Duration: 2 * time.Millisecond}, // divergent
+	}
+
+	var outBuf bytes.Buffer
+	exitCode := app.analyzeResultsWithOutput(results, cli.OutputConfig{Quiet: true}, &outBuf)
+
+	if exitCode != apperrors.ExitErrorMismatch {
+		t.Fatalf("got exit %d, want %d (mismatch)", exitCode, apperrors.ExitErrorMismatch)
+	}
+	if got := strings.TrimSpace(outBuf.String()); got != "" {
+		t.Errorf("stdout must stay empty in quiet mode, got %q", got)
+	}
+	stderr := testutil.StripAnsiCodes(errBuf.String())
+	if !strings.Contains(stderr, orchestration.MismatchMessage) {
+		t.Errorf("stderr must explain the mismatch, got %q", stderr)
+	}
+	if !strings.HasSuffix(errBuf.String(), "\n") {
+		t.Error("the diagnostic must be newline-terminated")
+	}
+}
