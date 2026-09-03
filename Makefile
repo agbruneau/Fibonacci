@@ -283,7 +283,11 @@ security:
 ## install-tools: Install development tools (golangci-lint, gosec)
 install-tools:
 	@echo "Installing tools..."
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 # pinned: .golangci.yml is written for v1 (schema v1, last v1 tag)
+	# v2, unpinned: .golangci.yml uses the v2 schema since audit GATE-01. The
+	# former v1.64.8 pin is what broke — a v1 binary cannot analyze this module
+	# under a go1.27 toolchain (export data v4), and v1 is no longer maintained.
+	# Tracking @latest keeps the linter compilable against the current toolchain.
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 ## format: Format Go code

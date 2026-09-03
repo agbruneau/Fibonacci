@@ -233,8 +233,10 @@ func TestGCDIdentity_PropertyBased(t *testing.T) {
 
 			return gcdResult.Cmp(fGCD) == 0
 		},
+		// Two INDEPENDENT generators over the same range, one per property
+		// parameter (m and n). Collapsing them would tie the two draws together.
 		gen.UInt64Range(1, 5000),
-		gen.UInt64Range(1, 5000),
+		gen.UInt64Range(1, 5000), //nolint:gocritic // dupOption: independent draw, see above
 	))
 
 	properties.TestingRun(t)

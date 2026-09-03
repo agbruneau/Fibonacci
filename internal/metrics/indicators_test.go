@@ -167,7 +167,7 @@ func TestComputeZeroDuration(t *testing.T) {
 func TestGoldenRatioDeviationConverges(t *testing.T) {
 	t.Parallel()
 	// For larger n, the deviation should get smaller
-	var prevDeviation float64 = math.MaxFloat64
+	prevDeviation := math.MaxFloat64
 	for _, n := range []int{50, 100, 500, 1000} {
 		result := fibSmall(n)
 		ind := Compute(result, uint64(n), time.Second)

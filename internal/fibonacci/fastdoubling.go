@@ -224,12 +224,14 @@ func shouldParallelizeMultiplicationCached(opts Options, fkBitLen, fk1BitLen int
 		return maxBitLen > ParallelFFTThreshold
 	}
 
-	// Use normalized threshold (should already be normalized, but ensure consistency)
-	threshold := opts.ParallelThreshold
-	if threshold == 0 {
-		threshold = DefaultParallelThreshold
+	// Use normalized threshold (should already be normalized, but ensure
+	// consistency). Named parallelThreshold, not threshold: the latter shadows
+	// the imported package of the same name (gocritic importShadow).
+	parallelThreshold := opts.ParallelThreshold
+	if parallelThreshold == 0 {
+		parallelThreshold = DefaultParallelThreshold
 	}
-	return maxBitLen > threshold
+	return maxBitLen > parallelThreshold
 }
 
 // CalculationState aggregates temporary variables for the "Fast Doubling"

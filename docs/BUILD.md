@@ -262,9 +262,13 @@ there is `scripts/check.ps1`.
 
 ## Linting
 
-The project uses `golangci-lint` with 24 linters configured in `.golangci.yml`.
+The project uses `golangci-lint` **v2** with 21 linters plus the `gofmt`
+formatter, configured in `.golangci.yml` (schema `version: "2"`).
 
 ```bash
+# Install (v2 — a v1 binary cannot analyze this module under go1.27+)
+make install-tools
+
 # Run linter
 make lint
 # or
@@ -280,7 +284,9 @@ golangci-lint run ./...
 | Function length | 100 lines |
 | Function statements | 50 |
 
-These limits are relaxed in `_test.go` files to accommodate table-driven test patterns.
+These limits are relaxed in `_test.go` files to accommodate table-driven test
+patterns, along with `gosec`, `unparam` and `noctx` (the e2e suites spawn
+`go build` and the built binary on purpose).
 
 ## Local Pre-Commit Checks
 
@@ -300,9 +306,13 @@ tests with `-race`, which `check.ps1` cannot on a no-CGO host.
 pwsh ./scripts/check.ps1
 ```
 
-The hard gate is build/vet/test/coverage; `golangci-lint` is run as an advisory step
-(reported but non-blocking). The Makefile exposes the same building blocks via
-`make test` / `make test-win` and `make coverage-check`.
+Every step is a hard gate: build, vet, test, **lint** and the 80% coverage floor.
+Lint became blocking in audit GATE-01 (2026-09-03); it had been advisory, which
+silently hid the fact that the pinned v1 linter could not run at all under a
+go1.27 toolchain. A golangci-lint that is absent, or that exits with a code
+other than 1, now fails the script rather than printing `Overall: PASS`. The
+Makefile exposes the same building blocks via `make test` / `make test-win` and
+`make coverage-check`.
 
 ## Shell Completion
 

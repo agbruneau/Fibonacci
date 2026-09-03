@@ -1,30 +1,39 @@
 # Configuration explicitly defined for high code quality and performance
 # adhering to the request for explicit rules.
 #
-# SCHEMA: golangci-lint v1 (legacy), verrouille sur v1.64.8 (recompile go1.26).
-# Cles v1 utilisees: linters.disable-all (v2: default:none) et gosimple (v2:
-# fusionne dans staticcheck). La migration v2 est tracee en backlog et non
-# realisee pour la release courante (A5-07): un changement de schema = risque
-# de derive lint non maitrisee, hors perimetre d'un correctif d'audit.
+# SCHEMA: golangci-lint v2 (migrated from the v1 schema on 2026-09-03, audit
+# GATE-01). The v1 line was pinned to v1.64.8, which is built against go1.26
+# and CANNOT analyze this module under a go1.27 toolchain: every package fails
+# with "export data version 4 is greater than maximum supported version 2".
+# The v2 migration (backlog A5-07) was therefore forced rather than optional.
+#
+# v1 -> v2 mapping applied here:
+#   - linters.disable-all: true      -> linters.default: none
+#   - linters-settings               -> linters.settings
+#   - issues.exclude-rules           -> linters.exclusions.rules
+#   - gofmt                          -> formatters.enable (formatters are a
+#                                       separate section in v2)
+#   - gosimple                       -> merged into staticcheck upstream
+#   - typecheck                      -> always on, no longer a named linter
+#   - issues.exclude-use-default:    -> linters.exclusions.presets, listing the
+#     true (the v1 default)             four presets that made up that default
+#   - run.timeout                    -> dropped (v2 has no timeout by default)
+
+version: "2"
 
 run:
-  # timeout for analysis, e.g. 30s, 5m, default is 1m
-  timeout: 5m
   # include test files
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     # Standard linters
-    - gofmt # Checks if the code is formatted with gofmt
     - govet # Vet examines Go source code and reports suspicious constructs
     - errcheck # Errcheck is a program for checking for unchecked errors in go programs
-    - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
-    - gosimple # Linter for Go source code that specializes in simplifying a code
+    - staticcheck # Staticcheck is a go vet on steroids (absorbed gosimple in v2)
     - unused # Checks Go code for unused constants, variables, functions and types
     - ineffassign # Detects when assignments to existing variables are not used
-    - typecheck # Like the front-end of a Go compiler, parses and type-checks Go code
 
     # Style and Complexity
     - revive # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
@@ -36,7 +45,7 @@ linters:
 
     # Performance and Bugs
     - bodyclose # checks whether HTTP response body is closed successfully
-    - noctx # noctx finds sending http request without context.Context
+    - noctx # finds sending http requests / spawning processes without context.Context
     - prealloc # Finds slice declarations that could potentially be preallocated
     - gocritic # Provides many diagnostics that check for bugs, performance and style issues
     - unparam # Reports unused function parameters
@@ -50,141 +59,163 @@ linters:
     # Meta
     - nolintlint # Reports ill-formed or unnecessary //nolint directives
 
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment # Too strict for general use, can hurt readability. Enable manually if memory is critical.
-    # shadow stays ENABLED (enable-all leaves it on). The known-shadowing
-    # sites in bigfft/pool.go were renamed. There is no remote CI, so new
-    # occurrences surface only in the local gate: scripts/check.sh (step 4)
-    # or scripts/check.ps1.
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # Too strict for general use, can hurt readability. Enable manually if memory is critical.
+      # shadow stays ENABLED (enable-all leaves it on). The known-shadowing
+      # sites in bigfft/pool.go were renamed. There is no remote CI, so new
+      # occurrences surface only in the local gate: scripts/check.sh (step 4)
+      # or scripts/check.ps1.
 
-  gocyclo:
-    min-complexity: 15 # Allow slightly complex functions (algorithms)
+    gocyclo:
+      min-complexity: 15 # Allow slightly complex functions (algorithms)
 
-  gocognit:
-    min-complexity: 30 # Cognitive complexity can be higher for mathematical algorithms
+    gocognit:
+      min-complexity: 30 # Cognitive complexity can be higher for mathematical algorithms
 
-  funlen:
-    lines: 100
-    statements: 50
+    funlen:
+      lines: 100
+      statements: 50
 
-  revive:
-    severity: warning
+    revive:
+      severity: warning
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - sayRepetitiveInsteadOfStutters
+        - name: package-comments
+        - name: error-naming
+        - name: error-strings
+        - name: error-return
+        - name: var-naming
+        - name: if-return
+        - name: receiver-naming
+        - name: context-keys-type
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: blank-imports
+        - name: context-as-argument
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - whyNoLint
+        - wrapperFunc
+        - hugeParam # We pass big structs sometimes
+
+    gosec:
+      excludes:
+        - G104 # Duplicate of errcheck (ineffectual assignment)
+        - G115 # Integer overflow casts validated — all observed n/bitLen values
+               # are bounded by context (Fibonacci index limits, math/bits output
+               # ranges, or explicit pre-cast checks).
+               # Individual casts are reviewed in source and annotated with
+               # //nosec G115 where the local bounds argument is non-obvious.
+
+    prealloc:
+      # Report preallocation suggestions only on simple loops that have no other false positives
+      simple: true
+      range-loops: true
+      for-loops: true
+
+    misspell:
+      # Le code est majoritairement en orthographe US; locale:US est donc la
+      # convention retenue et les graphies britanniques residuelles sont
+      # normalisees vers US au fur et a mesure que misspell les signale.
+      locale: US
+
+  exclusions:
+    generated: lax
+    # The four presets below reproduce v1's issues.exclude-use-default: true
+    # (EXC0001..EXC0015). Listing them explicitly is what `golangci-lint
+    # migrate` emits; behavior is unchanged from the v1 configuration.
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+
     rules:
-      - name: exported
-        arguments:
-          - checkPrivateReceivers
-          - sayRepetitiveInsteadOfStutters
-      - name: package-comments
-      - name: error-naming
-      - name: error-strings
-      - name: error-return
-      - name: var-naming
-      - name: if-return
-      - name: receiver-naming
-      - name: context-keys-type
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: blank-imports
-      - name: context-as-argument
+      # Test relaxations. noctx joined this list in the v2 migration: the v2
+      # bundle extends noctx from net/http to os/exec, and the e2e suites
+      # deliberately spawn `go build` / the built binary synchronously
+      # (test/e2e, cmd/fibcalc, internal/arch_test.go). The subprocesses are
+      # awaited in-line and bounded by the test binary's own timeout, so
+      # threading a context through them buys nothing here.
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - gocognit
+          - funlen
+          - gosec
+          - unparam
+          - noctx
 
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - whyNoLint
-      - wrapperFunc
-      - hugeParam # We pass big structs sometimes
+      # Exclude specific linter issues that are considered false positives or not relevant
+      - linters:
+          - staticcheck
+        text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
 
-  gosec:
-    excludes:
-      - G104 # Duplicate of errcheck (ineffectual assignment)
-      - G115 # Integer overflow casts validated — all observed n/bitLen values
-             # are bounded by context (Fibonacci index limits, math/bits output
-             # ranges, or explicit pre-cast checks).
-             # Individual casts are reviewed in source and annotated with
-             # //nosec G115 where the local bounds argument is non-obvious.
+      # gocyclo: production functions assumed over the 15 ceiling rather than
+      # refactored. Measured with these three rules removed (min-complexity 15):
+      # - fourierRecursiveUnified (17): FFT recursion dispatch; splitting would
+      #   obscure the hot path (see its nolint:gocognit rationale) and costs a
+      #   benchstat cycle for zero behavior change.
+      # - Model.Update (16): pure message router, one point over from its
+      #   13-branch switch; splitting the switch hurts readability.
+      # - AppConfig.Validate (16): flat field-validation sequence, one point over
+      #   the ceiling; splitting it would scatter the field checks across helpers
+      #   without removing a single branch.
+      - path: internal/bigfft/fft_recursion\.go
+        linters: [gocyclo]
+        text: "fourierRecursiveUnified"
+      - path: internal/tui/model\.go
+        linters: [gocyclo]
+        text: "Update"
+      - path: internal/config/config\.go
+        linters: [gocyclo]
+        text: "Validate"
 
-  prealloc:
-    # Report preallocation suggestions only on simple loops that have no other false positives
-    simple: true
-    range-loops: true
-    for-loops: true
+      # revive "exported stutter" (format.FormatBytes, progress.ProgressUpdate,
+      # calibration.CalibrationOptions, threshold.ThresholdAnalyzer, ...):
+      # convention preservee pour la stabilite des call-sites de l'API internal/
+      # (code stabilise). Arbitrage de convention, pas un defaut (A4-07). Le helper
+      # formatBytesLocal dans errors.go atteste que format.Format* est un couplage
+      # connu et tolere. Renommer reste possible plus tard (API internal/, sans
+      # impact public) mais hors scope sur code stabilise.
+      - linters:
+          - revive
+        text: "and that is repetitive; consider calling this"
 
-  misspell:
-    # Le code est majoritairement en orthographe US; locale:US est donc la
-    # convention retenue et les graphies britanniques residuelles sont
-    # normalisees vers US au fur et a mesure que misspell les signale.
-    locale: US
+      # SA6002: sync.Pool.Put of a slice VALUE boxes the 3-word header (one alloc).
+      # In pool.go / pool_warming.go this value-Put is RETAINED deliberately.
+      # Measured (ADR-0007, micro-benchmark): the signature-preserving Put(&s) is
+      # allocation-NEUTRAL (&s escapes -> 24 B / 1 alloc, identical to value-Put);
+      # only Get/Put of a reused *[]T box is zero-alloc, which requires threading
+      # *[]T through the FFT acquire/release API and every caller (the FFTContext
+      # migration deferred under ADR-0004 B1). Excluded until that refactor lands.
+      # (The fftState type this comment used to name was deleted with the FFT-05
+      # machinery — see ADR-0009 R2; it no longer exists anywhere in the tree.)
+      - path: internal/bigfft/(pool|pool_warming)\.go
+        linters:
+          - staticcheck
+        text: "SA6002"
+
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
-  # Excluding configuration per-path, per-linter, per-text and per-source
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - gocognit
-        - funlen
-        - gosec
-        - unparam
-
-    # Exclude specific linter issues that are considered false positives or not relevant
-    - linters:
-        - staticcheck
-      text: "SA1019" # Deprecation warnings (keep until ready to upgrade)
-
-    # gocyclo: production functions assumed over the 15 ceiling rather than
-    # refactored. Measured with these three rules removed (min-complexity 15):
-    # - fourierRecursiveUnified (17): FFT recursion dispatch; splitting would
-    #   obscure the hot path (see its nolint:gocognit rationale) and costs a
-    #   benchstat cycle for zero behavior change.
-    # - Model.Update (16): pure message router, one point over from its
-    #   13-branch switch; splitting the switch hurts readability.
-    # - AppConfig.Validate (16): flat field-validation sequence, one point over
-    #   the ceiling; splitting it would scatter the field checks across helpers
-    #   without removing a single branch.
-    - path: internal/bigfft/fft_recursion\.go
-      linters: [gocyclo]
-      text: "fourierRecursiveUnified"
-    - path: internal/tui/model\.go
-      linters: [gocyclo]
-      text: "Update"
-    - path: internal/config/config\.go
-      linters: [gocyclo]
-      text: "Validate"
-
-    # revive "exported stutter" (format.FormatBytes, progress.ProgressUpdate,
-    # calibration.CalibrationOptions, threshold.ThresholdAnalyzer, ...):
-    # convention preservee pour la stabilite des call-sites de l'API internal/
-    # (code stabilise). Arbitrage de convention, pas un defaut (A4-07). Le helper
-    # formatBytesLocal dans errors.go atteste que format.Format* est un couplage
-    # connu et tolere. Renommer reste possible plus tard (API internal/, sans
-    # impact public) mais hors scope sur code stabilise.
-    - linters:
-        - revive
-      text: "and that is repetitive; consider calling this"
-
-    # SA6002: sync.Pool.Put of a slice VALUE boxes the 3-word header (one alloc).
-    # In pool.go / pool_warming.go this value-Put is RETAINED deliberately.
-    # Measured (ADR-0007, micro-benchmark): the signature-preserving Put(&s) is
-    # allocation-NEUTRAL (&s escapes -> 24 B / 1 alloc, identical to value-Put);
-    # only Get/Put of a reused *[]T box is zero-alloc, which requires threading
-    # *[]T through the FFT acquire/release API and every caller (the FFTContext
-    # migration deferred under ADR-0004 B1). Excluded until that refactor lands.
-    # (The fftState type this comment used to name was deleted with the FFT-05
-    # machinery — see ADR-0009 R2; it no longer exists anywhere in the tree.)
-    - path: internal/bigfft/(pool|pool_warming)\.go
-      linters:
-        - staticcheck
-      text: "SA6002"
-
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
 
@@ -194,3 +225,13 @@ issues:
   # Show only new issues: if there are unstaged changes or untracked files,
   # only those changes are analyzed, else only changes in HEAD~ are analyzed.
   new: false
+
+formatters:
+  enable:
+    - gofmt # Checks if the code is formatted with gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

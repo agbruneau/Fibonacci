@@ -88,7 +88,7 @@ func GenerateBash(out io.Writer, algorithms []string) error {
 	}
 
 	// Order: algo, completion, file, static-with-values (matches the original layout).
-	var orderedCases []bashCase
+	orderedCases := make([]bashCase, 0, len(flagRegistry))
 	orderedCases = append(orderedCases, collectBashAlgoCases()...)
 	orderedCases = append(orderedCases, collectBashCompletionCases()...)
 	orderedCases = append(orderedCases, collectBashFileCases()...)

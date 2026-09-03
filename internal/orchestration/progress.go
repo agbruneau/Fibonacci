@@ -73,21 +73,24 @@ func (a *ProgressAggregator) Update(update progress.ProgressUpdate) AggregatedPr
 // ETA. It mirrors the previous behavior of format.ProgressWithETA: requires
 // some elapsed time and progress before producing a meaningful estimate, uses
 // 70/30 exponential smoothing, and caps the ETA at 24h.
-func (a *ProgressAggregator) recomputeETA(progress float64) time.Duration {
+//
+// The fraction parameter is named frac, not progress: the latter shadows the
+// imported internal/progress package (gocritic importShadow).
+func (a *ProgressAggregator) recomputeETA(frac float64) time.Duration {
 	now := time.Now()
 	elapsed := now.Sub(a.startTime)
 
 	// Need some elapsed time and progress to make meaningful estimates.
-	if elapsed < 100*time.Millisecond || progress <= 0.001 {
+	if elapsed < 100*time.Millisecond || frac <= 0.001 {
 		a.lastUpdate = now
-		a.lastProgress = progress
+		a.lastProgress = frac
 		return 0
 	}
 
 	// Calculate instantaneous rate if enough time has passed.
 	timeSinceUpdate := now.Sub(a.lastUpdate).Seconds()
 	if timeSinceUpdate > 0.05 { // At least 50ms between updates.
-		progressDelta := progress - a.lastProgress
+		progressDelta := frac - a.lastProgress
 		if progressDelta > 0 {
 			instantRate := progressDelta / timeSinceUpdate
 
@@ -96,15 +99,15 @@ func (a *ProgressAggregator) recomputeETA(progress float64) time.Duration {
 				a.progressRate = 0.7*a.progressRate + 0.3*instantRate
 			} else {
 				// First meaningful rate calculation - use simple estimation.
-				a.progressRate = progress / elapsed.Seconds()
+				a.progressRate = frac / elapsed.Seconds()
 			}
 		}
 
 		a.lastUpdate = now
-		a.lastProgress = progress
+		a.lastProgress = frac
 	}
 
-	return capETA(a.progressRate, progress)
+	return capETA(a.progressRate, frac)
 }
 
 // CalculateAverage returns the current average progress without updating.
@@ -136,13 +139,14 @@ func DrainChannel(progressChan <-chan progress.ProgressUpdate) {
 	}
 }
 
-// capETA converts a smoothed rate + progress into a remaining duration, capped
-// at 24h. Returns 0 when the estimate is not yet meaningful.
-func capETA(rate, progress float64) time.Duration {
-	if rate <= 0 || progress >= 1.0 {
+// capETA converts a smoothed rate + progress fraction into a remaining
+// duration, capped at 24h. Returns 0 when the estimate is not yet meaningful.
+// frac, not progress: see recomputeETA (gocritic importShadow).
+func capETA(rate, frac float64) time.Duration {
+	if rate <= 0 || frac >= 1.0 {
 		return 0
 	}
-	remaining := 1.0 - progress
+	remaining := 1.0 - frac
 	eta := time.Duration((remaining / rate) * float64(time.Second))
 	if eta > 24*time.Hour {
 		eta = 24 * time.Hour

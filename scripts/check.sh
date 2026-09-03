@@ -10,36 +10,45 @@
 #   2. go vet ./...
 #   3. go test -race -coverprofile=coverage.out ./...  (coverage floor derived from this run)
 #   3b. gmp build tag: build+vet+test -tags gmp (hard when libgmp present, else skipped)
-#   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
+#   4. golangci-lint run ./...  (HARD — see below)
 #   5. coverage floor (>= 80% on the module total)
 #
 # --coverage-only: skip to a no-race test run + the coverage floor (used by
 # `make coverage-check` so the floor has a single source of truth).
 #
-# Lint behaviour: golangci-lint is reported separately from the hard gate. Its
-# output is shown and its status appears in the summary, but it does NOT fail
-# this script; the hard gate is build/vet/test/coverage. The expected state is
-# zero findings. Tolerated cases live in TWO places, not one:
+# Lint behaviour (changed by audit GATE-01, 2026-09-03): golangci-lint is now
+# part of the HARD gate. It previously ran "soft" — findings and even outright
+# execution failures were printed, then the script wrote "Overall: PASS" and
+# exited 0. That masked a total loss of static analysis: the pinned v1.64.8
+# binary could not analyze the module under a go1.27 toolchain (export data
+# version 4), so for an unknown period only `go vet` was actually running.
+# A missing binary is ALSO a hard failure now, for the same reason: a gate that
+# silently checks nothing is worse than no gate.
+#
+# Requires golangci-lint v2 (config schema v2). Install:
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+#
+# The expected state is zero findings. Tolerated cases live in TWO places:
 #   1. .golangci.yml, in two distinct sections:
-#      - issues.exclude-rules (revive stutter, staticcheck SA1019, SA6002 in
+#      - linters.exclusions.rules (revive stutter, staticcheck SA1019, SA6002 in
 #        bigfft pools, three named gocyclo overages, and the _test.go
-#        relaxations);
-#      - linters-settings.gosec.excludes, which is where G104 and G115 live —
-#        NOT in exclude-rules;
+#        relaxations — which since the v2 migration also cover noctx, whose
+#        os/exec check the e2e suites trip deliberately);
+#      - linters.settings.gosec.excludes, which is where G104 and G115 live —
+#        NOT in exclusions.rules;
 #   2. in-source annotations, which .golangci.yml does not list at all —
-#      four inline //nolint directives (gocognit in bigfft/fft_recursion.go,
-#      gocritic in cli/completion/bash.go and fibonacci/common.go, unparam in
-#      fibonacci/fft.go) plus the #nosec G115 / G304 annotations across
-#      internal/bigfft, internal/calibration/profile.go and
-#      cmd/generate-golden/main.go.
+#      inline //nolint directives (gocognit in bigfft/fft_recursion.go,
+#      gocritic in cli/completion/bash.go, fibonacci/common.go and
+#      fibonacci/fibonacci_property_test.go, unparam in fibonacci/fft.go) plus
+#      the #nosec G115 / G304 annotations across internal/bigfft,
+#      internal/calibration/profile.go and cmd/generate-golden/main.go.
 # Anything golangci-lint still reports outside those two sets is a real finding
 # to fix, not a pre-approved exception.
 
 set -euo pipefail
 
 COVERAGE_FLOOR=80.0
-lint_failed=0
-golangci_present=1
+GOLANGCI_INSTALL='go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'
 
 # Run from repo root regardless of the caller's cwd.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -105,20 +114,27 @@ else
     echo "SKIP: gmp (libgmp headers not found; apt-get install libgmp-dev)"
 fi
 
-# 4. Lint (soft: reported but distinct from the hard gate)
+# 4. Lint (HARD — GATE-01)
 step "golangci-lint run ./..."
-if command -v golangci-lint >/dev/null 2>&1; then
-    # Disable -e locally so a lint failure does not abort the script.
-    if golangci-lint run ./...; then
-        echo "OK: golangci-lint"
-    else
-        lint_failed=1
-        echo "LINT FAIL: golangci-lint reported issues."
-        echo "       (reported separately from the build/test/coverage gate)"
-    fi
+if ! command -v golangci-lint >/dev/null 2>&1; then
+    echo "FAIL: golangci-lint not found on PATH."
+    echo "      Static analysis is part of the hard gate; install it with:"
+    echo "        ${GOLANGCI_INSTALL}"
+    exit 1
+fi
+# Any non-zero exit fails the gate: 1 means findings, higher codes mean the
+# linter could not analyze the module at all (the GATE-01 failure mode).
+if golangci-lint run ./...; then
+    echo "OK: golangci-lint"
 else
-    golangci_present=0
-    echo "WARN: golangci-lint not found on PATH; skipping lint."
+    lint_status=$?
+    echo "FAIL: golangci-lint exited ${lint_status}."
+    if [ "${lint_status}" -ne 1 ]; then
+        echo "      Exit != 1 means the linter could not run (config or toolchain"
+        echo "      mismatch), not that your code has findings. Reinstall with:"
+        echo "        ${GOLANGCI_INSTALL}"
+    fi
+    exit 1
 fi
 
 # 5. Coverage floor (>= 80% on the module total) — derived from the profile above
@@ -128,19 +144,9 @@ check_coverage_floor
 echo ""
 echo "================ summary ================"
 echo "build/vet/test/coverage: PASS"
-if [ "${golangci_present}" -eq 0 ]; then
-    echo "lint:                    SKIPPED (golangci-lint absent)"
-elif [ "${lint_failed}" -eq 1 ]; then
-    echo "lint:                    ADVISORY (review findings above)"
-else
-    echo "lint:                    PASS"
-fi
+echo "lint:                    PASS"
 echo "========================================"
 
-# Lint is advisory (see header): it never gates this script. Reaching here means
-# the hard gate (build/vet/test/coverage) passed.
+# Every step above is hard (GATE-01): reaching here means all of them passed.
 echo "Overall: PASS"
-if [ "${lint_failed}" -eq 1 ]; then
-    echo "(golangci-lint reported advisory findings above; review them.)"
-fi
 exit 0

@@ -13,25 +13,35 @@
 #   1. go build ./...
 #   2. go vet ./...
 #   3. go test -coverprofile ./...  (no -race; Windows/no-CGO; coverage floor derived from this run)
-#   4. golangci-lint run ./...  (only if the binary is present; soft-reported)
+#   4. golangci-lint run ./...  (HARD — see below)
 #   5. coverage floor (>= 80% on the module total)
 #
-# Lint behaviour: golangci-lint is reported separately from the hard gate. Its
-# output is shown and its status appears in the summary, but it does NOT fail
-# this script; the hard gate is build/vet/test/coverage. The expected state is
-# zero findings. Tolerated cases live in TWO places, not one:
+# Lint behaviour (changed by audit GATE-01, 2026-09-03): golangci-lint is now
+# part of the HARD gate. It previously ran "soft" — findings and even outright
+# execution failures were printed, then the script wrote "Overall: PASS" and
+# exited 0. That masked a total loss of static analysis: the pinned v1.64.8
+# binary could not analyze the module under a go1.27 toolchain (export data
+# version 4), so for an unknown period only `go vet` was actually running on
+# this host. A missing binary is ALSO a hard failure now, for the same reason:
+# a gate that silently checks nothing is worse than no gate.
+#
+# Requires golangci-lint v2 (config schema v2). Install:
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+#
+# The expected state is zero findings. Tolerated cases live in TWO places:
 #   1. .golangci.yml, in two distinct sections:
-#      - issues.exclude-rules (revive stutter, staticcheck SA1019, SA6002 in
+#      - linters.exclusions.rules (revive stutter, staticcheck SA1019, SA6002 in
 #        bigfft pools, three named gocyclo overages, and the _test.go
-#        relaxations);
-#      - linters-settings.gosec.excludes, which is where G104 and G115 live —
-#        NOT in exclude-rules;
+#        relaxations — which since the v2 migration also cover noctx, whose
+#        os/exec check the e2e suites trip deliberately);
+#      - linters.settings.gosec.excludes, which is where G104 and G115 live —
+#        NOT in exclusions.rules;
 #   2. in-source annotations, which .golangci.yml does not list at all —
-#      four inline //nolint directives (gocognit in bigfft/fft_recursion.go,
-#      gocritic in cli/completion/bash.go and fibonacci/common.go, unparam in
-#      fibonacci/fft.go) plus the #nosec G115 / G304 annotations across
-#      internal/bigfft, internal/calibration/profile.go and
-#      cmd/generate-golden/main.go.
+#      inline //nolint directives (gocognit in bigfft/fft_recursion.go,
+#      gocritic in cli/completion/bash.go, fibonacci/common.go and
+#      fibonacci/fibonacci_property_test.go, unparam in fibonacci/fft.go) plus
+#      the #nosec G115 / G304 annotations across internal/bigfft,
+#      internal/calibration/profile.go and cmd/generate-golden/main.go.
 # Anything golangci-lint still reports outside those two sets is a real finding
 # to fix, not a pre-approved exception. Note: `.gitattributes` pins *.go to LF
 # in the working tree, so the old Windows-CRLF gofmt false positives no longer
@@ -45,7 +55,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
 $CoverageFloor = 80.0
-$lintFailed = $false
+$GolangciInstall = 'go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'
 
 function Write-Step {
     param([string]$Message)
@@ -79,21 +89,28 @@ Invoke-HardStep -Name "go vet ./..." -Action { go vet ./... }
 # package), so the equals form is intentionally avoided here.
 Invoke-HardStep -Name "go test -coverprofile coverage.out ./... (no -race)" -Action { go test -coverprofile coverage.out ./... }
 
-# 4. Lint (soft: reported but distinct from the hard gate)
+# 4. Lint (HARD — GATE-01)
 Write-Step "golangci-lint run ./..."
 $golangci = Get-Command golangci-lint -ErrorAction SilentlyContinue
 if ($null -eq $golangci) {
-    Write-Host "WARN: golangci-lint not found on PATH; skipping lint." -ForegroundColor Yellow
-} else {
-    golangci-lint run ./...
-    if ($LASTEXITCODE -ne 0) {
-        $lintFailed = $true
-        Write-Host "LINT FAIL: golangci-lint reported issues (exit $LASTEXITCODE)." -ForegroundColor Yellow
-        Write-Host "       (reported separately from the build/test/coverage gate)" -ForegroundColor Yellow
-    } else {
-        Write-Host "OK: golangci-lint" -ForegroundColor Green
-    }
+    Write-Host "FAIL: golangci-lint not found on PATH." -ForegroundColor Red
+    Write-Host "      Static analysis is part of the hard gate; install it with:" -ForegroundColor Red
+    Write-Host "        $GolangciInstall" -ForegroundColor Red
+    exit 1
 }
+golangci-lint run ./...
+# Any non-zero exit fails the gate: 1 means findings, higher codes mean the
+# linter could not analyze the module at all (the GATE-01 failure mode).
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAIL: golangci-lint exited $LASTEXITCODE." -ForegroundColor Red
+    if ($LASTEXITCODE -ne 1) {
+        Write-Host "      Exit != 1 means the linter could not run (config or toolchain" -ForegroundColor Red
+        Write-Host "      mismatch), not that your code has findings. Reinstall with:" -ForegroundColor Red
+        Write-Host "        $GolangciInstall" -ForegroundColor Red
+    }
+    exit 1
+}
+Write-Host "OK: golangci-lint" -ForegroundColor Green
 
 # 5. Coverage floor (>= 80% on the module total) — derived from the profile above
 Write-Step "coverage floor (>= $CoverageFloor%)"
@@ -129,19 +146,9 @@ Write-Host ("OK: coverage {0}% >= {1}%" -f $match.Groups[1].Value, $CoverageFloo
 Write-Host ""
 Write-Host "================ summary ================"
 Write-Host "build/vet/test/coverage: PASS"
-if ($null -eq $golangci) {
-    Write-Host "lint:                    SKIPPED (golangci-lint absent)"
-} elseif ($lintFailed) {
-    Write-Host "lint:                    ADVISORY (review findings above)"
-} else {
-    Write-Host "lint:                    PASS"
-}
+Write-Host "lint:                    PASS"
 Write-Host "========================================"
 
-# Lint is advisory (see header): it never gates this script. Reaching here means
-# the hard gate (build/vet/test/coverage) passed.
+# Every step above is hard (GATE-01): reaching here means all of them passed.
 Write-Host "Overall: PASS" -ForegroundColor Green
-if ($lintFailed) {
-    Write-Host "(golangci-lint reported advisory findings above; review them.)" -ForegroundColor Yellow
-}
 exit 0
