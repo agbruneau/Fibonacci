@@ -55,22 +55,54 @@ Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait «
 - Related ADR(s) : ADR-0004 §B1 (migration `FFTContext`, backlog).
 - Audit : axe 4 Idiomatique, constat `A4-01` (rapport archivé en historique git).
 
-## Status note (2026-08-07 — remplace la note du 2026-06-10)
+## Status note (2026-09-04 — remplace les notes du 2026-06-10 et du 2026-08-07)
 
-Positions relevées à HEAD le 2026-08-07 (`grep -n '\.Put(' internal/bigfft/pool.go
-internal/bigfft/pool_warming.go`) : les huit sites SA6002 existent toujours, mais
-**aucune** des deux listes du §Context ci-dessus n'est à jour —
+**Plus aucun numéro de ligne n'est cité ici.** Les quatre sites de `pool.go` ont
+dérivé trois fois sans qu'un seul `Put` change : 148/245/333/421 à la rédaction,
+147/243/330/417 le 2026-08-07, **141/227/304/381** le 2026-09-04
+(`grep -n '\.Put(' internal/bigfft/pool.go`). C'était la référence qui était
+fragile, pas le code. Les huit sites SA6002 sont désormais nommés par la
+fonction qui les contient, ce qui ne peut plus dériver :
 
-- `pool.go` : `.Put(` aux lignes **147, 243, 330, 417** (et non 148, 245, 333, 421
-  comme l'annonçaient le §Context et la note du 2026-06-10) ;
-- `pool_warming.go` : `.Put(` aux lignes **71, 80, 89, 98** (et non 70, 79, 88, 97).
+- `internal/bigfft/pool.go` : `releaseWordSlice`, `releaseFermat`,
+  `releaseNatSlice`, `releaseFermatSlice` — un `Put` de valeur chacun ;
+- `internal/bigfft/pool_warming.go` : les quatre `Put` de la boucle de
+  pré-chauffage de `PreWarmPools` (dont les positions, elles, n'ont pas bougé
+  depuis 2026-08-07).
 
 La décision et l'exclusion ciblée par chemin dans `.golangci.yml` restent
 inchangées : elles portent sur les fichiers, pas sur les numéros de ligne.
 
-Le type `fftState` cité par le §Context et par les Alternatives **n'existe plus**
-dans l'arbre (grep insensible à la casse sur `*.go` : zéro occurrence). Il a été
-supprimé avec la machinerie FFT-05 — voir
+La table « Preuve mesurée » du §Decision n'a **pas** d'artefact dans
+`docs/audits/` : c'est un micro-benchmark jetable de mai 2026, non réexécuté
+depuis, et la décision repose sur son ordre de grandeur (correctif alloc-neutre)
+plutôt que sur ses trois chiffres.
+
+Le type `fftState` cité à l'origine par le §Context et par les Alternatives
+**n'existe plus** dans l'arbre (grep insensible à la casse sur `*.go` : zéro
+occurrence). Il a été supprimé avec la machinerie FFT-05 — voir
 [ADR-0009 §R2](0009-audit-2026-07-cleanup-and-rejected-fib05.md). Les mentions
-ci-dessus ont été retirées ; le commentaire d'exclusion SA6002 dans
-`.golangci.yml` a été corrigé au même titre.
+correspondantes ont été retirées le 2026-08-07 ; le commentaire d'exclusion
+SA6002 dans `.golangci.yml` a été corrigé au même titre.
+
+### La cible « migration `FFTContext` » n'existe plus
+
+Le §Decision, les Consequences et deux Alternatives renvoient le seul gain réel
+(zéro allocation, en threadant des `*[]T`) à « la migration `FFTContext`
+exclusive, déjà tracée et reportée ». Ce renvoi est aujourd'hui sans objet :
+l'API `FFTContext` a été **supprimée de l'arbre** le 2026-07-11 (commit
+`23ab593`, addendum [ADR-0004 §B1](0004-backlog-decisions.md)) et la migration
+reste classée WONT-FIX.
+
+Ce que cela change et ne change pas :
+
+- **La décision tient telle quelle.** Elle repose sur une mesure — le correctif
+  préservant la signature est alloc-neutre — et non sur l'existence d'un
+  chantier à venir.
+- **Le boxing de 24 B par `Put` n'est plus « le coût accepté jusqu'à la
+  migration `FFTContext` »** : c'est le coût accepté, sans échéance. Le lever
+  demanderait de threader `*[]T` à travers `acquire*`/`release*` et tous leurs
+  appelants, pour un gain jamais mesuré sur le hot path complet.
+- La clause « à ré-examiner lors de la migration `FFTContext` » des Risks se lit
+  désormais : à ré-examiner si quelqu'un mesure ce que coûte réellement le
+  boxing sur un calcul complet, plutôt qu'au `Put` isolé.

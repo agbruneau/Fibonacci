@@ -55,6 +55,18 @@ you can re-derive from a file in the tree.
 > **The N=10M row is off by roughly two orders of magnitude, not by a hardware generation.** Its 2.1 s for Fast Doubling is **≈88×** the only measurement in the tree (23.87 ms median, `docs/audits/bench-baseline.txt`, linux/amd64) and **≈75×** the dated reference below. A gap that size is not explained by CPU, Go version or thermal profile; the row's provenance is simply unknown. Treat the whole column as ordering, never as magnitude.
 >
 > Current dated reference for the N=10M row: `BenchmarkFibonacci/FastDoubling/10M` measures 28.20 ms (calculation only, no decimal conversion; 2026-06-10, Intel Core Ultra 9 275HX — see [`CHANGELOG.md`](../CHANGELOG.md)).
+>
+> **The N=100M row is off by a comparable factor.** Sanity check run 2026-09-04
+> on a 24-thread Windows host (`go1.27.0 windows/amd64`, thresholds from the
+> host's cached profile: `Parallelism=disabled, FFT=480000 bits`):
+> `NO_COLOR=1 fibcalc -n 100000000 -algo all` prints
+> `FFT-Based Doubling 566ms`, `Fast Doubling 639ms`,
+> `Matrix Exponentiation 1.9347084s`, for a 69,424,191-bit result — against
+> 48 s / 45 s / 62 s in the table, i.e. **~85×**, **~70×** and **~32×** apart.
+> A second run agreed within 10 %. This is one wall-clock run as printed by the
+> comparison summary (calculation only, no decimal conversion), not a benchmark,
+> and no artifact for it is archived here — reproduce it with the command above
+> rather than citing these numbers.
 
 > **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless: on the one artifact in the tree (`docs/audits/bench-baseline.txt`) it allocates **~4.8x** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB) and **~5.3x** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak RSS; no peak-memory measurement exists in this repo. Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
 
@@ -268,8 +280,10 @@ weight between them (as the M-08 cache bound did, 4× → 48×) must keep the su
 | 1B | ~14.6 GB |
 | 5B | ~72.7 GB |
 
-Measured on the binary, 2026-09-03: `fibcalc -n <N> -memory-limit 1K -algo fast` prints
-the estimate in its refusal message.
+Measured on the binary, 2026-09-03 and re-verified 2026-09-04 (same five totals):
+`fibcalc -n <N> -memory-limit 1K -algo fast` prints the estimate in its refusal
+message, e.g. at N=10M `State: 29.8 MB, FFT: 32.3 MB, Cache: 39.7 MB,
+Overhead: 57.2 MB, Total: 159.0 MB exceeds limit 1K.`
 
 > **Re-modelled by audit H-03 (2026-09).** The previous model totalled 15 × bytesPerFib
 > and put F(10M) at ~12 MB against **141 MB** actually observed — it counted neither the
@@ -338,7 +352,46 @@ fibcalc --auto-calibrate
 
 > **`FFTCacheMaxEntries` has no fixed default of 256.** `bigfft.DefaultTransformCacheConfig()` does return `MaxEntries: 256` (`internal/bigfft/fft_cache.go:DefaultTransformCacheConfig`), but `configureFFTCache` overrides it whenever the option is left at 0 and `n > 0`, computing `clamp(2 × bits.Len64(n), 64, 4096)` (`internal/fibonacci/options.go:configureFFTCache`). For n = 10M that is `2 × 24 = 48`, clamped up to **64**. The dynamic value can never reach 256: `bits.Len64` maxes out at 64, so the expression tops out at 128. The 256 constant only reaches a caller who bypasses `configureFFTCache`, or who leaves `n = 0`. The doc comment on `Options.FFTCacheMaxEntries` (`internal/fibonacci/options.go:Options.FFTCacheMaxEntries`) states this rule directly: it says the field is sized from n as `clamp(2*bits.Len64(n), 64, 4096)`, "which is 64..128 in practice since bits.Len64 caps at 64; the package default of 256 only applies when n is 0."
 
-> **Note — cache reach is path-specific.** The FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by `TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, reached via direct `bigfft.Mul/Sqr/MulTo/SqrTo` calls (including `FFTOnlyStrategy.Multiply/Square`, which delegate to them; note that the FFT-only **calculator loop** uses `FFTOnlyStrategy.ExecuteStep` → `executeDoublingStepFFT` → `TransformWithBump`, the same **uncached** path as default Fast Doubling, so it never calls `Multiply/Square`). The **default Fast Doubling** calculator (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`) transforms FK/FK1 with `TransformWithBump`, which does **not** consult the cache — so the inter-iteration cache speedup does not apply to the default mode (zero hit/miss). The invariant `putByKey` allocates a fresh backing buffer on every insert (no eviction-time recycling) still holds; its rationale lives in the `putByKey` doc comment (`internal/bigfft/fft_cache.go`), which records it as an Audit-PRD E1-R4 / [ADR-0002](adr/0002-recover-strategy.md) follow-up. The "no speedup on the default path" conclusion follows from the code path alone — `TransformWithBump` never consults the cache, so hits and misses are both zero there; it needs no benchmark. A `BenchmarkCacheImpact` figure (22.95 ms vs 21.18 ms) used to be quoted here and attributed to [`CHANGELOG.md`](../CHANGELOG.md); that attribution was **false** — `grep -n "22.95\|BenchmarkCacheImpact" CHANGELOG.md` returns nothing, and no run of that benchmark is archived anywhere in the repo. The numbers were removed on 2026-08-07. Any cache-speedup claim would concern only the `FFTOnlyStrategy` and direct `bigfft.Mul/Sqr` paths, and none is measured here. Reworking the default step to use the cache stays a won't-fix without a supporting benchmark.
+**Cache reach is path-specific — the default algorithm never touches it.** The
+FFT transform cache (`internal/bigfft/fft_cache.go`) is consulted **only** by
+`TransformCached*` / `MulCachedWithBump` / `SqrCachedWithBump`, which are reached
+exclusively from `bigfft.Mul` / `Sqr` / `MulTo` / `SqrTo`
+(`fft_core.go:fftmulTo`, `fftsqrTo`). Which production callers get there:
+
+```mermaid
+flowchart LR
+    FD["FastDoublingCalculator<br/>AdaptiveStrategy.ExecuteStep"] --> EDS
+    FO["FFTOnlyStrategy.ExecuteStep<br/>--algo fft loop"] --> EDS["executeDoublingStepFFT<br/>internal/fibonacci/fft.go"]
+    EDS --> TWB["Poly.TransformWithBump<br/>NO cache lookup"]
+    MX["MatrixExponentiationCalculator<br/>matrix_ops.go"] --> SM["smartMultiply / smartSquare<br/>internal/fibonacci/fft.go"]
+    FOM["FFTOnlyStrategy.Multiply / Square"] --> BM
+    CAL["internal/calibration<br/>microbench.go"] --> BM
+    SM --> BM["bigfft.Mul / Sqr / MulTo / SqrTo"]
+    BM --> CACHE[("global transform cache<br/>MulCachedWithBump / SqrCachedWithBump")]
+```
+
+So the inter-iteration cache speedup does not apply to `--algo fast` (the
+default), nor to the `--algo fft` **loop**, which runs the same
+`executeDoublingStepFFT`: hits and misses are both zero on those paths. That
+conclusion follows from the call graph alone and needs no benchmark. Any
+cache-speedup claim would concern the matrix calculator, `FFTOnlyStrategy`'s
+`Multiply`/`Square` helpers and direct `bigfft` calls — and none is measured
+here.
+
+> The invariant `putByKey` allocates a fresh backing buffer on every insert (no
+> eviction-time recycling) still holds; its rationale lives in the `putByKey`
+> doc comment (`internal/bigfft/fft_cache.go`), which records it as an Audit-PRD
+> E1-R4 / [ADR-0002](adr/0002-recover-strategy.md) follow-up.
+>
+> A `BenchmarkCacheImpact` figure (22.95 ms vs 21.18 ms) used to be quoted here
+> and attributed to [`CHANGELOG.md`](../CHANGELOG.md); that attribution was
+> **false** — `grep -n "22.95\|BenchmarkCacheImpact" CHANGELOG.md` returns
+> nothing (re-run 2026-09-04, exit 1), and no run of that benchmark is archived
+> anywhere in the repo. The numbers were removed on 2026-08-07. The benchmark
+> could not have measured the cache in any case: it drives a
+> `FastDoublingCalculator` (`internal/fibonacci/cache_bench_test.go`), i.e. the
+> uncached branch of the diagram above. Reworking the default step to use the
+> cache stays a won't-fix without a supporting benchmark.
 
 #### Dynamic Threshold Adjustment
 

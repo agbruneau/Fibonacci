@@ -89,14 +89,68 @@ The constant k represents the "multiplicative density" of the algorithm.
 
 > **Note (2026-06, commit `fa13bfd`)**: `FastDoublingCalculator` additionally retains the last released `CalculationState` in a per-instance, GC-immune cache slot (arena capped at 4M words ≈ 32 MB), preferred over the shared `sync.Pool` for repeated calls. Matrix Exp. and FFT-Based are unaffected (FFT-Based acquires its state through the shared `AcquireStateForN` pool path). Measured impact (2026-06-10, cumulative with the F-012 bump fix): `BenchmarkFibonacci/FastDoubling/10M` 33.30 ms -> 28.20 ms sec/op, ~-70 % B/op — see [`CHANGELOG.md`](../../CHANGELOG.md).
 
+#### Resident memory, measured
+
+[`docs/audits/mem-baseline-2026-09.txt`](../audits/mem-baseline-2026-09.txt)
+records the `runtime.MemStats.Sys` delta across one calculation, **one process
+per data point** — `Sys` never shrinks, so several points in one process would
+all report the same high-water mark. `all` runs the three calculators
+concurrently, as `--algo all` does by default. Blank cells were not run.
+
+| n | `fast` | `fft` | `matrix` | `all` |
+|---|---|---|---|---|
+| 1,000 | 0 MB | | | |
+| 100,000 | 0 MB | | | 6 MB |
+| 1,000,000 | 9 MB | 18 MB | 13 MB | 23 MB |
+| 5,000,000 | 34 MB | | | |
+| 10,000,000 | 62 MB | 67 MB | 141 MB | 101 MB |
+| 50,000,000 | 536 MB | | | |
+| 100,000,000 | 617 MB | 460 MB | | |
+
+Two things this table says that the `B/op` table above does not. First, the
+resident gap between Fast Doubling and Matrix at F(10M) is **2.3x**, where the
+allocated-bytes ratio is 5.3x — most of Matrix's extra allocation is churn
+through pooled buffers, not retained footprint. Second, at F(1M) the two
+metrics disagree on the *order*: Matrix allocates more than FFT-Based
+(6.33 MB vs 5.38 MB `B/op`) but holds less (13 MB vs 18 MB `Sys`). These are
+also the only figures in the repo taken at N = 100M, and they are memory only —
+no timing was recorded there.
+
+The same artifact is why `--memory-limit`'s estimator was rewritten (audit
+H-03 / M-08): the old model was under the real figure at every measured point,
+by 5x to 12x, so it validated runs that then consumed several times the
+declared budget. The replacement is never under and at most 2.47x over, the
+overshoot peaking where `n` sits just past one of `bigfft`'s power-of-four pool
+size classes.
+
 ## Benchmarks
 
-### The only measurement in this repo
+### What this repo has actually measured
 
-`docs/audits/bench-baseline.txt` is the sole benchmark artifact tracked here. It
-records `BenchmarkFibonacci` (`internal/fibonacci/fibonacci_test.go`) at two
-sizes only — N = 1,000,000 and N = 10,000,000 — with `-count=5 -benchtime=1x`,
-on `linux/amd64`, 24 threads, dated 2026-07-07. Medians of the five samples:
+Six measurement artifacts live in [`docs/audits/`](../audits/). Exactly one is a
+cross-algorithm timing reference; the rest exist to justify a specific change:
+
+| Artifact | Kind | What it measures | Host |
+|---|---|---|---|
+| [`bench-baseline.txt`](../audits/bench-baseline.txt) | reference | `BenchmarkFibonacci`, the three calculators at N = 1M / 10M — **the table below** | linux/amd64, 24 threads, 2026-07-07 |
+| [`bench-fftcache-2026-09.txt`](../audits/bench-fftcache-2026-09.txt) | benchstat A/B | the same six cases, for the FFT-cache byte bound (M-08) | Core Ultra 9 275HX, windows/amd64, go1.27.0 |
+| [`bench-poolclear-2026-09.txt`](../audits/bench-poolclear-2026-09.txt) | benchstat A/B, **both orders** | the same six cases, for the pool memclr narrowing (M-05) | idem |
+| [`bench-dtm-2026-09.txt`](../audits/bench-dtm-2026-09.txt) | benchstat A/B | dynamic thresholds off vs on, N = 1M / 10M (M-04) | idem |
+| [`mem-baseline-2026-09.txt`](../audits/mem-baseline-2026-09.txt) | one-shot probe | resident memory (`MemStats.Sys` delta), N = 1,000 … 100M (H-03 / M-08) | idem |
+| [`microbench-stability-2026-09.txt`](../audits/microbench-stability-2026-09.txt) | repeatability | ten `QuickCalibrate()` runs, before/after M-01 | idem |
+
+The three benchstat A/B files are **not** a cross-algorithm ranking: their two
+columns differ by one code change, not by algorithm, and they were taken on a
+different host and OS from the reference. On **timing**, nothing in the repo
+measures an N other than 1M and 10M — the wider N range in
+`mem-baseline-2026-09.txt` is memory only, with no clock attached.
+
+### The cross-algorithm reference
+
+`docs/audits/bench-baseline.txt` records `BenchmarkFibonacci`
+(`internal/fibonacci/fibonacci_test.go`) at two sizes only — N = 1,000,000 and
+N = 10,000,000 — with `-count=5 -benchtime=1x`, on `linux/amd64`, 24 threads,
+dated 2026-07-07. Medians of the five samples:
 
 | N | Metric | Fast Doubling | Matrix Exp. | FFT-Based |
 |---|--------|---------------|-------------|-----------|
@@ -116,18 +170,25 @@ the file) or measure your own host with `make benchmark`.
 > contradicted the file above by more than an order of magnitude — the table
 > claimed 85 ms for Fast Doubling at N = 1M against the baseline's 3.15 ms — and
 > the N ≥ 50M rows described runs nothing in this repo has ever performed. They
-> were deleted rather than restated more cautiously. Nothing here measures any N
-> other than 1M and 10M.
+> were deleted rather than restated more cautiously. No **timing** here covers
+> any N other than 1M and 10M.
 
 ### Ordering, as far as it is established
 
-At the two measured sizes, Fast Doubling is fastest and smallest, in that order:
+At the two timed sizes, Fast Doubling is fastest and smallest, in that order:
 Fast Doubling < FFT-Based < Matrix Exp. on time, Fast Doubling < FFT-Based <
-Matrix Exp. on allocation. [`../PERFORMANCE.md`](../PERFORMANCE.md) warns that
+Matrix Exp. on allocated bytes. [`../PERFORMANCE.md`](../PERFORMANCE.md) warns that
 the Fast Doubling / Matrix ordering can invert at N ≥ 10M on some CPUs depending
 on L3 size and memory latency, and that only the memory ordering is
-hardware-independent. Beyond N = 10M nothing is measured, so no ranking is
-claimed.
+hardware-independent.
+
+Two qualifications on that last point, from the resident-memory table above.
+The `B/op` order and the `Sys` order agree at F(10M) but **not** at F(1M),
+where Matrix allocates more than FFT-Based yet holds less. And the two
+artifacts come from different hosts and operating systems, so the disagreement
+cannot be attributed to the metric alone. Beyond N = 10M no timing exists at
+all, so no speed ranking is claimed there; the only figures past 10M are the
+`fast` and `fft` memory points at N = 100M.
 
 ## When to Use Each Algorithm
 
@@ -213,7 +274,7 @@ opts := fibonacci.Options{
 
 ## Conclusion
 
-**Fast Doubling** is the recommended algorithm for all general use cases: it requires only 3 multiplications per iteration — the fewest of the three implementations here — and allocates the least. `docs/audits/bench-baseline.txt` — the repo's only measurement artifact — shows it fastest and smallest at the two sizes it covers: medians of 3.15 ms / 1.32 MB per op at N=1M (vs Matrix 6.03 ms / 6.33 MB and FFT 5.13 ms / 5.38 MB) and 23.87 ms / 17.38 MB at N=10M (vs Matrix 30.84 ms / 92.25 MB and FFT 29.08 ms / 30.88 MB). It is not measured anywhere else in the repo.
+**Fast Doubling** is the recommended algorithm for all general use cases: it requires only 3 multiplications per iteration — the fewest of the three implementations here — and allocates the least. `docs/audits/bench-baseline.txt` — the repo's only cross-algorithm baseline — shows it fastest and smallest at the two sizes it covers: medians of 3.15 ms / 1.32 MB per op at N=1M (vs Matrix 6.03 ms / 6.33 MB and FFT 5.13 ms / 5.38 MB) and 23.87 ms / 17.38 MB at N=10M (vs Matrix 30.84 ms / 92.25 MB and FFT 29.08 ms / 30.88 MB). `mem-baseline-2026-09.txt` puts it lowest on resident memory too at both sizes (9 / 62 MB). No artifact here ranks the three at any other N.
 
 **Matrix Exponentiation** is valuable for educational purposes and result verification. Its elegant mathematical foundation (Q-matrix) makes it ideal for understanding the theory, and the Strassen optimization demonstrates practical algorithm design. In `docs/audits/bench-baseline.txt` it is slower than Fast Doubling by **+91 %** at N=1M and **+29 %** at N=10M — the gap narrows with N and is not a stable 30–50 % band. [`../PERFORMANCE.md`](../PERFORMANCE.md) additionally warns that the Fast Doubling / Matrix ordering can invert at N ≥ 10M on some CPUs.
 

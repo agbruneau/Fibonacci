@@ -151,6 +151,16 @@ sont régénérés post-adoption.
 sur-dimensionnement d'arène redevient favorable (re-balayer alors selon ce même
 protocole avant de changer la valeur).
 
+**Provenance des deux tables de mesure de cet ADR** (annotée le 2026-09-04) :
+ni le bisect R4 (×15 vs ×5, machine Ryzen) ni le balayage de cet addendum
+(×12/×10/×8/×6, Intel Core Ultra 9 275HX) n'a laissé d'artefact dans
+`docs/audits/` — les chiffres vivent dans ce document et dans les messages de
+commit de la passe. Aucun des deux n'a été réexécuté depuis. Le seul artefact
+de mesure lié à cette décision est `docs/audits/bench-baseline.txt`, régénéré
+**après** l'adoption du ×10 : il enregistre l'état retenu, pas la comparaison
+qui l'a fait retenir. Un futur balayage doit déposer sa sortie `benchstat` dans
+`docs/audits/`, comme le fait l'audit 2026-09.
+
 ## Status note (2026-08-07)
 
 - `CLAUDE.md` (cité en R2 et en Consequences comme porteur de l'invariant

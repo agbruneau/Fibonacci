@@ -1,3 +1,8 @@
+# Hiérarchie des interfaces
+
+Les interfaces clés du projet et leurs implémentations, groupées par domaine (calcul, observation, allocation).
+
+```mermaid
 classDiagram
     direction TB
 
@@ -151,3 +156,7 @@ classDiagram
     note for FibCalculator "*FibCalculator implements Calculator (Calculate, Name) plus CalculateWithObservers. It has no CalculateCore, so it does NOT implement CoreCalculator - it composes one through the private core field (Decorator)."
 
     note for ErrorHandler "Third collaboration interface of internal/orchestration, alongside ProgressReporter and ResultPresenter (see orchestration/doc.go). AnalyzeComparisonResults takes it as a parameter next to ResultPresenter. Both presenters satisfy it: the conformance assertions sit on consecutive lines in cli/presenter.go and tui/bridge.go."
+```
+
+---
+[← Retour au hub architecture](../README.md)

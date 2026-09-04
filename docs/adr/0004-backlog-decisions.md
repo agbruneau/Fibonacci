@@ -103,8 +103,10 @@ Justification :
 **Mise à jour (2026-06-21) :** exécuté. Le fichier (déplacé en
 `docs/external-reviews/2026-02-08-jules-self-evaluation.md`) a été purgé
 au commit `7ab9098` ; `docs/external-reviews/` n'existe plus dans l'arbre
-(vérifié le 2026-08-07 : `docs/` contient `adr/`, `algorithms/`,
-`architecture/`, `audits/`, `dashboard/` et les sept fichiers `.md` de tête).
+(vérifié le 2026-09-04 : `docs/` contient `adr/`, `algorithms/`,
+`architecture/`, `audits/` et les sept fichiers `.md` de tête ; le `dashboard/`
+que listait la vérification du 2026-08-07 a lui aussi été purgé depuis, le
+2026-08-09, commit `408a0c9`).
 La décision de report n'a plus d'objet.
 
 ### Item B5 — Extension du golden au-delà de F(10 000)

@@ -202,13 +202,19 @@ facteur 2 à eux seuls. Une borne de sûreté doit couvrir le pire cas.
   recherche de crossover sont re-mesurés plutôt que rejoués.
 - Le gate local vérifie strictement plus qu'avant : lint bloquant et `-race`
   sous Windows quand l'hôte le permet.
-- Trois artefacts de mesure entrent dans `docs/audits/` : mémoire, cache FFT,
-  memclr des pools, plus la stabilité du micro-benchmark et le A/B du DTM.
+- Cinq artefacts de mesure entrent dans `docs/audits/` : mémoire, cache FFT,
+  memclr des pools, stabilité du micro-benchmark, A/B du DTM.
 
 ## References
 
-- `audit.md` (rapport et plan d'exécution), section 5 pour la confrontation
-  avec le document externe `audit Gemini.md`.
+- `audit.md` (rapport et plan d'exécution, 493 lignes), section 5 pour la
+  confrontation avec le document externe `audit Gemini.md` (400 lignes).
+  **Ni l'un ni l'autre n'est dans l'arbre** — annotation du 2026-09-04, même
+  traitement que le §Context d'[ADR-0009](0009-audit-2026-07-cleanup-and-rejected-fib05.md).
+  `audit Gemini.md` a été purgé au commit `c8dab4a` et `audit.md` au commit
+  `bf3d6a7`, tous deux le 2026-09-03. Ils restent lisibles dans l'historique
+  git (`git show c8dab4a^:'audit Gemini.md'`, `git show bf3d6a7^:audit.md`) ;
+  cet ADR et le CHANGELOG portent ce qui devait leur survivre.
 - `docs/audits/mem-baseline-2026-09.txt`, `bench-fftcache-2026-09.txt`,
   `bench-poolclear-2026-09.txt`, `bench-dtm-2026-09.txt`,
   `microbench-stability-2026-09.txt`.

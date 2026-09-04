@@ -282,6 +282,52 @@ asymmetric operands, with a `max(bx, by)` criterion filed as a separate
 performance question (A1-07). `smartSquare` is the one-operand twin and gates on
 `bx > fftThreshold` alone.
 
+#### Where this actually fires — and where it cannot
+
+The routing decision is taken one level up, in `AdaptiveStrategy.ExecuteStep`
+(`internal/fibonacci/strategy.go:99-106`), and it tests a **single** operand:
+
+```go
+if opts.FFTThreshold > 0 && state.FK1.BitLen() > opts.FFTThreshold {
+    return executeDoublingStepFFT(ctx, state, opts, inParallel)   // no smartMultiply at all
+}
+return executeDoublingStepMultiplications(ctx, s, state, opts, inParallel)
+```
+
+Follow both branches:
+
+```mermaid
+flowchart TD
+    Step["AdaptiveStrategy.ExecuteStep"] --> Gate{"FK1.BitLen() &gt; FFTThreshold?"}
+    Gate -- yes --> FFTPath["executeDoublingStepFFT<br/>PolyFromInt + TransformWithBump<br/>bigfft, no threshold re-check<br/>no transform cache"]
+    Gate -- no --> Std["executeDoublingStepMultiplications<br/>→ smartMultiply / smartSquare"]
+    Std --> Tier{"smartMultiply:<br/>bx &gt; t AND by &gt; t?"}
+    Tier -- "yes — cannot happen<br/>on this path" --> T1["Tier 1: bigfft.MulTo"]
+    Tier -- "no — always taken here" --> T2["Tier 2: math/big (Karatsuba)"]
+    Matrix["matrix path:<br/>multiplicationTask / squaringTask"] --> Tier
+    style T1 stroke-dasharray: 5 5
+```
+
+Tier 1 (dashed) is reachable only from the matrix entry. The `"fast"` path's own
+gate has already excluded it by the time `smartMultiply` runs.
+
+The `Tier 1` arm is **dead on the `"fast"` calculator**. Reaching
+`smartMultiply` at all means the gate above was false, so
+`FK1.BitLen() <= FFTThreshold`; and since the Fibonacci sequence is
+non-decreasing, `FK.BitLen() <= FK1.BitLen()`. Both operands are therefore at or
+below the threshold and `bx > t && by > t` cannot hold. The same argument kills
+`smartSquare`'s Tier 1: its only operand is `FK` or `FK1`, both bounded by the
+same gate.
+
+So the "2-tier adaptive multiplication" is genuinely 2-tier only on the **matrix**
+path, where `smartMultiply`/`smartSquare` are reached through
+`multiplicationTask` / `squaringTask` (`internal/fibonacci/common.go:150` and
+`:167`) with no such upstream gate — which is also why the matrix calculator is
+the one production path that consults the FFT transform cache
+([BIGFFT.md](BIGFFT.md#fft-transform-caching)). On the `"fast"` path,
+`FFTThreshold` selects between *two different doubling-step implementations*,
+not between two multiplication routines.
+
 ## Complexity Analysis
 
 ### Number of Operations

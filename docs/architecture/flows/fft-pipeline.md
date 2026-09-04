@@ -1,3 +1,8 @@
+# Pipeline de multiplication FFT (bigfft)
+
+Chemin complet de `bigfft.Mul`/`Sqr` : seuil d'activation, allocation, conversion polynomiale, transformée, produit point à point, transformée inverse.
+
+```mermaid
 flowchart LR
     subgraph Input["FFT Multiplication Input (bigfft.Mul/MulTo/Sqr/SqrTo)"]
         A0{"len(x.Bits()) > getFFTThreshold()<br/>(default 1800 words; both operands for Mul/MulTo)"}
@@ -64,3 +69,7 @@ flowchart LR
     style InverseFFT fill:#e0f2f1
     style Output fill:#f5f5f5
     style Cache fill:#fffde7
+```
+
+---
+[← Retour au hub architecture](../README.md)

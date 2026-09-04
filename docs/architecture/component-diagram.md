@@ -1,3 +1,8 @@
+# Component Diagram — classes et interfaces du moteur
+
+Vue `classDiagram` du coeur de calcul : interfaces, implémentations, et les collaborations qui ne sont **pas** des imports de packages (voir le graphe de dépendances pour ceux-là).
+
+```mermaid
 classDiagram
     direction LR
 
@@ -69,6 +74,8 @@ classDiagram
 
     class DoublingFramework {
         -strategy DoublingStepExecutor
+        -dynamicThreshold *DynamicThresholdManager
+        +CacheStrategy CacheStrategy
         +ExecuteDoublingLoop(ctx, reporter, n, opts, state, useParallel) *big.Int, error
     }
 
@@ -148,10 +155,15 @@ classDiagram
     }
 
     class TransformCache {
-        -entries map
+        -mu sync.RWMutex
         -config TransformCacheConfig
+        -entries map key to list element
+        -lru container/list.List
+        -currBytes int
         +Get(data, k, n) PolValues, bool
         +Put(data, pv)
+        +Config() TransformCacheConfig
+        +Bytes() int
         +Stats() CacheStats
         +Clear()
     }
@@ -215,3 +227,7 @@ classDiagram
     note for FibCalculator "*FibCalculator exposes Name, Calculate and CalculateWithObservers only. It has no CalculateCore, so it does NOT implement CoreCalculator - it composes one through the private core field."
     note for ProgressCallback "Neither framework ever receives a *ProgressSubject: ExecuteDoublingLoop and ExecuteMatrixLoop both take a progress.ProgressCallback, the lock-free closure returned by ProgressSubject.Freeze."
     note for TransformCache "Cached TRANSFORMS are consulted only from Mul/Sqr/MulTo/SqrTo (fftmulTo/fftsqrTo call MulCachedWithBump/SqrCachedWithBump), which the matrix path enters through smartMultiply/smartSquare. No doubling loop reads a cached transform: AdaptiveStrategy routes every operand above FFTThreshold to executeDoublingStepFFT, which calls TransformWithBump, and the operands left below it never clear smartMultiply's own FFT gate. The cache is still CONFIGURED from two other places: options.go:configureFFTCache once per calculation with n > 93, and cache_strategy_bigfft.go:bigfftCacheStrategy.Sample from inside ExecuteDoublingLoop, gated on a non-nil DynamicThresholdManager and throttled to every cacheSampleInterval iterations."
+```
+
+---
+[← Retour au hub architecture](./README.md)

@@ -58,10 +58,38 @@ Changer la signature de `fourierRecursive*` pour y passer un `context.Context` c
 Précisions factuelles ; la décision (report) reste inchangée.
 
 - `fourierRecursiveUnified` vit dans `internal/bigfft/fft_recursion.go`
-  à HEAD (le range `93-169` cité en Context a dérivé ; le `99-201` noté ici
-  le 2026-08-07 était décalé d'une ligne — corrigé le 2026-08-07).
+  à HEAD (le range `93-169` que citait alors le Context avait dérivé ; le
+  `99-201` noté ici le 2026-08-07 était décalé d'une ligne — corrigé le
+  2026-08-07, et le Context est depuis ancré sur le symbole).
 - `fourierRecursiveCtx` **n'existe plus** : il vivait dans
   `fft_recursion_ctx.go`, supprimé avec l'API `FFTContext` le 2026-07-11
   (addendum ADR-0004 §B1). La seule autre variante en place est
   `fourierRecursive` (`fft_recursion.go:fourierRecursive`), qui ne reçoit pas non plus de
   `context.Context` — le constat de fond du Context tient donc toujours.
+
+## Status note (2026-09-04) — la cible du report n'existe plus dans l'arbre
+
+Cet ADR **reporte** la granularité fine d'annulation « à la migration
+`FFTContext` exclusif ». Cette cible n'existe plus, à deux titres :
+
+1. Le code sur lequel elle reposait a été **supprimé** de l'arbre le 2026-07-11
+   (commit `23ab593`, ~572 LOC prod + ~530 LOC tests, zéro appelant de
+   production) — addendum ADR-0004 §B1.
+2. La migration elle-même reste classée **WONT-FIX** par
+   [ADR-0004 §B1](0004-backlog-decisions.md), sans clause de réouverture autre
+   qu'un *use case multi-tenant* concret.
+
+Conséquence à énoncer clairement plutôt que de la laisser implicite : le
+« report » n'a plus d'échéance rattachée à un chantier vivant. La limitation
+décrite en Negative / Trade-offs — **latence d'annulation non bornée pendant
+une seule multiplication d'opérande géant** — est le comportement courant et le
+restera par défaut. Les annulations grossières restent le seul mécanisme :
+entre pas de doublement (`internal/fibonacci/doubling_framework.go`) et entre
+les trois produits d'un pas (`internal/fibonacci/fft.go:executeFFTTransforms`).
+
+Ce qui n'a **pas** changé : l'analyse du §Decision reste valide. Un drapeau
+global `atomic.Bool` demeure faux sous FFT concurrentes (clear-race), et la
+solution correcte demeure un **token d'annulation par appel**. Reprendre le
+chantier veut désormais dire re-créer ce porteur de token — le code supprimé se
+récupère par `git show 23ab593^:internal/bigfft/context.go` — et non attendre
+une migration en cours.

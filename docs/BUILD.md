@@ -63,6 +63,18 @@ PGO uses a CPU profile from a representative workload to guide the compiler towa
 
 - **Profile location**: `cmd/fibcalc/default.pgo`
 
+**PGO is already on by default — there is nothing to opt into.** The profile is
+committed to the repository (`.gitignore` ignores `*.pgo` but re-includes this
+one explicitly, lines 33-36), and Go's `-pgo=auto` default picks up a
+`default.pgo` sitting next to the main package. So the Quick Start command
+above already builds an optimized binary. Verified 2026-09-04:
+`go build -n ./cmd/fibcalc` embeds
+`build -pgo=C:\…\cmd\fibcalc\default.pgo` in the module info. To measure
+*without* PGO, pass `-pgo=off`.
+
+The commands below therefore matter only when you want to **refresh** the
+profile on your own hardware:
+
 #### PGO Workflow
 
 ```bash
@@ -71,8 +83,11 @@ make pgo-profile
 
 # Step 2: Build with PGO
 make build-pgo
-# or explicitly:
+# or explicitly (equivalent to the implicit -pgo=auto above):
 go build -pgo=cmd/fibcalc/default.pgo ./cmd/fibcalc
+
+# Build with PGO disabled, for an A/B measurement
+go build -pgo=off -o fibcalc-nopgo ./cmd/fibcalc
 
 # Full workflow (profile + build in one step)
 make pgo-rebuild
@@ -95,8 +110,13 @@ The `internal/bigfft` package uses `go:linkname` to access `math/big` internal v
 
 | File | Responsibility |
 |------|---------------|
-| `internal/bigfft/arith_decl.go` | `go:linkname` declarations to `math/big` internals (all platforms) |
-| `internal/bigfft/arith.go` | Exported wrappers, portable — no build tags |
+| `internal/bigfft/arith_decl.go` | `go:linkname` declarations to `math/big` internals (all platforms): `addVV`, `subVV`, `addVW`, `subVW`, `shlVU`, `addMulVVW` |
+| `internal/bigfft/arith.go` | Exported wrappers `AddVV` / `SubVV` / `AddMulVVW`, portable — no build tags |
+
+The exported wrappers are **not** the hot path: they exist as test oracles for
+`arith_test.go`, and each carries a `len(z) == 0` guard. Production code in
+`bigfft` calls the linkname'd `addVV` / `subVV` / `addMulVVW` directly (see the
+doc comment on each wrapper in `arith.go`).
 
 Go's `math/big` package already includes platform-optimized assembly for these operations, so the `go:linkname` approach provides the best available performance on all architectures without maintaining separate assembly code. Runtime CPU feature detection (`golang.org/x/sys/cpu`) lives separately in `internal/config/hardware.go`, used for adaptive threshold heuristics — not by the `bigfft` vector arithmetic above.
 
@@ -137,6 +157,11 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 | `build-darwin` | darwin | amd64 + arm64 | `math/big` assembly per arch |
 
 The wrappers in `arith.go` are portable (no build tags): every architecture delegates to `math/big`'s own platform-optimized assembly via `go:linkname`. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent platform-specific import surfaces immediately. Full matrix and portability contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
+
+Verified 2026-09-04 from a Windows host, running the same six `go build`
+invocations `build-all` issues (`GOOS=<os> GOARCH=<arch> go build -trimpath ./cmd/fibcalc`):
+`linux/amd64`, `linux/arm64`, `windows/amd64`, `windows/arm64`, `darwin/amd64`
+and `darwin/arm64` all exit 0.
 
 ## Reproducible Build (Docker / devcontainer)
 
@@ -275,6 +300,11 @@ make lint
 golangci-lint run ./...
 ```
 
+The expected state is **zero findings** — the gate treats any non-zero exit as
+a failure, findings and toolchain breakage alike. Verified 2026-09-04 with
+`golangci-lint v2.13.2 built with go1.27.0`: `golangci-lint run ./...` prints
+`0 issues.` and exits 0.
+
 ### Key Limits
 
 | Rule | Limit |
@@ -300,7 +330,9 @@ and tests under `-tags gmp` when the libgmp headers are present
 The race detector is **no longer** one of the differences (audit D4, 2026-09-03):
 `check.ps1` probes for `CGO_ENABLED` and a C compiler and adds `-race` when both
 are present — verified green on all 21 packages of a Windows host. Without a C
-toolchain it runs the same suite without `-race`.
+toolchain it runs the same suite without `-race`. Re-run 2026-09-04 on this
+host (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, MinGW-W64 gcc 16.1.0):
+`go test -race -count=1 ./...` exits 0 with `ok` on all 21 packages.
 
 ```bash
 # CGO / Linux / macOS hosts (tests run WITH the race detector)
@@ -338,10 +370,24 @@ fibcalc -completion powershell >> $PROFILE
 
 The implementation lives in the `internal/cli/completion/` package: three shared
 files — `registry.go` (the `flagRegistry` every generator reads), `completion.go`
-(the `Generate` shell switch, which also accepts `ps` as an alias for
-`powershell`) and `escape.go` (shell escaping) — plus one generator per shell
-(`bash.go`, `zsh.go`, `fish.go`, `powershell.go`). `internal/cli/completion_dispatch.go`
-is the thin `cli.GenerateCompletion` wrapper that delegates to `completion.Generate`.
+(the `Generate` shell switch) and `escape.go` (shell escaping) — plus one
+generator per shell (`bash.go`, `zsh.go`, `fish.go`, `powershell.go`).
+`internal/app/app.go:runCompletion` calls `completion.Generate` directly; the
+`cli.GenerateCompletion` wrapper and its `internal/cli/completion_dispatch.go`
+file were deleted as a dead 1:1 pass-through (commit `d2aa36a`,
+[ADR-0011](adr/0011-audit-2026-09-ponytail.md)).
+
+`Generate` also answers to `"ps"`, but **the CLI does not**: `config.Validate`
+accepts only the four names above and rejects the alias before `Generate` is
+reached. Verified 2026-09-04 — `fibcalc -completion powershell` emits the
+script (exit 0), while `fibcalc -completion ps` exits **4** with:
+
+```
+Configuration error: unrecognized completion shell: 'ps'. Valid shells are: bash, zsh, fish, powershell
+```
+
+The alias is reachable only by a Go caller using the package API directly
+(`internal/cli/completion/completion.go`, the `case "powershell", "ps"` arm).
 
 ## Environment Variables
 

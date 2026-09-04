@@ -113,15 +113,47 @@ detected SIMD level. Nothing else — not L3 size, not clock, not core count:
 These four constants are hard-coded and unbacked by any benchmark in the repo.
 
 **2. Timed calibration** — `internal/calibration` runs micro-benchmarks and
-`(*MicroBenchmark).findFFTCrossover` returns the smallest measured size at which
-the FFT path beat `math/big`, or 0 when no crossover was observed (in which case
-`analyzeResults` keeps the conservative default without a confidence bonus). This
-is the only path that produces a threshold from measurement rather than
-assertion.
+`(*MicroBenchmark).findFFTCrossover(bySize)` returns `(bitSize, decisiveness)`.
+This is the only path that produces a threshold from measurement rather than
+assertion, and since audit M-01 it accepts a size only under three conditions
+(`internal/calibration/microbench.go:findFFTCrossover`):
 
-A cached calibration profile (`~/.fibcalc_calibration.json`) sits at the top of
-the resolution chain and overrides even an explicit `--fft-threshold` — a known
-surprise documented at the head of `internal/config/thresholds.go`.
+| Condition | Where | Why |
+|---|---|---|
+| Sizes at or below `bigfft.FFTThresholdWords` (1,800 words) get no FFT arm at all | `runTests` | below it both arms run the same `math/big` code, so the comparison was a workload against itself |
+| FFT must win by **10 %** (`fftCrossoverMargin = 0.9`) | `microbench.go:423` | same margin `findParallelCrossover` has always required |
+| The win must be **monotone**: every larger measured size must win too | `microbench.go:481-493` | a transition that reverses above itself is boundary noise, not a crossover |
+
+When no size qualifies, `findFFTCrossover` returns `0` and `analyzeResults`
+keeps `FFTThreshold = 500000` with `Confidence = 0.0`
+(`microbench.go:analyzeResults`) — a default is not a measurement and does not
+carry the confidence of one.
+
+> **What this still does not settle.** [`docs/audits/microbench-stability-2026-09.txt`](../audits/microbench-stability-2026-09.txt)
+> records `QuickCalibrate()` run ten times back to back on an idle host. Before
+> M-01 the runs flapped between 115,200 and 460,800 bits — a factor of four —
+> and reported **both** with the same 0.70 confidence, which cleared the
+> escalation bar (`EscalationConfidenceThreshold = 0.5`,
+> `internal/calibration/strategy.go:35`) every time, so the coin flip got
+> persisted. After M-01, eight of the ten runs fall below the bar and hand over
+> to `CompleteStrategy`; the two that clear it (0.71 and 0.64) agree on
+> 460,800. The artifact says plainly that this is
+> better, not solved: the 2,000-word test size sits just past `bigfft`'s own
+> activation threshold, so whether FFT wins there is genuinely marginal on that
+> CPU. What changed is that the ambiguity is now visible in the confidence
+> score instead of being flattened into a constant. `CurrentProfileVersion` went
+> 3 → 4 so version-3 profiles are invalidated rather than replayed.
+
+**Resolution order.** A cached calibration profile
+(`~/.fibcalc_calibration.json`) does **not** outrank an explicit flag. The chain
+documented at the head of `internal/config/thresholds.go` is, highest first:
+CLI flags (`--fft-threshold`) → environment (`FIBCALC_FFT_THRESHOLD`) → cached
+profile → adaptive hardware estimation (the table above) → the static defaults
+in `fibonacci/constants.go`. Flags and environment variables both mark a
+threshold *explicit*, and `calibration.LoadCachedCalibration` fills only the
+ones left implicit. Until audit M-03 (2026-09) the profile overwrote all three
+unconditionally — that inversion was documented here and in the source as a
+"KNOWN SURPRISE"; it is decided now, in favour of the flag.
 
 ## Interaction with Parallelism
 

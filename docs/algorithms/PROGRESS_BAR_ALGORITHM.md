@@ -35,7 +35,8 @@ Where `n` is the number of bits of the input number.
 > parameters and its return value. None of them influenced the reported ratio
 > any more — `totalWork` only guarded a test that was always true, and the
 > running work total was assigned back by both callers without ever being read.
-> Sections 1 and 2 below are kept as a record of the model, not of the code.
+> [Algorithm Components §1](#1-what-was-removed-and-why-it-does-not-affect-the-curve)
+> lists what went; the model in this section still describes the curve.
 
 ### Justification
 
@@ -51,87 +52,25 @@ O(log n) algorithms for computing F(n):
 
 ## Algorithm Components
 
-### 1. Total Work Calculation (REMOVED from the code — model only)
+### 1. What was removed, and why it does not affect the curve
 
-**Former function**: `CalcTotalWork(numBits int) float64`, deleted by audit
-L-01. The listing below documents the model the progress curve still follows;
-no such function exists in `internal/progress` any more.
+Two functions and one table implemented the model literally, and all three are
+gone. They are recorded here because the progress *curve* is unchanged and the
+model above is still the right way to read it — but do not go looking for this
+code in `internal/progress`:
 
-The raw geometric sum overflows `float64` for large inputs: `4^512 == 2^1024`
-already exceeds `math.MaxFloat64`, so `math.Pow(4, numBits)` returns `+Inf` for
-`numBits >= 512`. To stay finite, `CalcTotalWork` is an overflow-safe function
-with three branches — below the boundary it returns the exact geometric sum;
-above it (`numBits > 511`) it clamps to the largest representable sum:
+| Removed | By | Why it was there | Why it went |
+|---|---|---|---|
+| `CalcTotalWork(numBits) float64` | L-01 | returned the geometric sum `(4^numBits - 1)/3`, clamped above `numBits = 511` because `4^512 == 2^1024 > math.MaxFloat64` | after A-10 nothing divided by it; its only remaining use was a `totalWork > 0` guard that could never be false for a real call |
+| `PrecomputePowers4(numBits) []float64` + the `powersOf4 [64]float64` table and its `init` | L-01 | O(1) lookup of `4^i`, zero-allocation for `numBits <= 64`, avoiding `math.Pow` in the loop | fed a running work total that both callers assigned back without ever reading |
+| `ReportStepProgress`'s `totalWork` / `workDone` / `powers` parameters and its return value | L-01 | carried that running total between iterations | same: written, never read |
 
-```go
-func CalcTotalWork(numBits int) float64 {
-    if numBits <= 0 {
-        return 0
-    }
-    // Below the float64 overflow boundary the exact geometric sum is safe.
-    const safeNumBits = 511 // 4^511 < MaxFloat64 < 4^512
-    if numBits <= safeNumBits {
-        // Geometric sum: 4^0 + 4^1 + ... + 4^(n-1) = (4^n - 1) / 3
-        return (math.Pow(4, float64(numBits)) - 1) / 3
-    }
-    // Past the boundary the true sum is unrepresentable. Clamp to the
-    // safe-domain maximum so the result stays finite and strictly positive.
-    return (math.Pow(4, float64(safeNumBits)) - 1) / 3
-}
-```
+The pivot was **A-10**, not L-01. A-10 replaced `workDone / totalWork` with the
+closed form of §2, which is where the overflow was actually fixed; L-01 only
+swept up the machinery A-10 had orphaned. The two are worth keeping distinct:
+A-10 changed a reported value, L-01 changed no observable behaviour at all.
 
-**Parameters**:
-- `numBits`: Number of bits in the input number
-
-**Returns**:
-- A finite, positive estimate of the total work in units
-
-**Notes**:
-- Returns 0 if `numBits <= 0`.
-- The clamp above `safeNumBits` keeps the historical `totalWork > 0` guard (and
-  its callers/tests) working. The reported progress ratio no longer divides by
-  this value (see step progress below, A-10), so clamping it does not affect the
-  progress bar — it only keeps the guard finite.
-
-### 2. Precomputation of Powers of 4 (REMOVED from the code)
-
-**Former function**: `PrecomputePowers4(numBits int) []float64`, deleted by
-audit L-01 together with the `powersOf4` table and its `init`. It only ever fed
-the cumulative total that nothing read.
-
-The implementation uses a global precomputed lookup table to avoid allocations:
-
-```go
-// Global lookup table for powers of 4 (max 64 entries for uint64 inputs)
-var powersOf4 [64]float64
-
-func init() {
-    powersOf4[0] = 1.0
-    for i := 1; i < 64; i++ {
-        powersOf4[i] = powersOf4[i-1] * 4.0
-    }
-}
-
-func PrecomputePowers4(numBits int) []float64 {
-    if numBits <= 0 {
-        return nil
-    }
-    if numBits > 64 {
-        // Fall back to allocation for unusually large inputs
-        powers := make([]float64, numBits)
-        copy(powers, powersOf4[:])
-        for i := 64; i < numBits; i++ {
-            powers[i] = powers[i-1] * 4.0
-        }
-        return powers
-    }
-    return powersOf4[:numBits]  // Zero allocation — slice of global array
-}
-```
-
-**Optimization**: For the common case (numBits <= 64), this returns a slice of the global array with zero allocation. Avoids repeated calls to `math.Pow(4, x)` during the calculation loop, providing O(1) lookup.
-
-### 3. Step Progress Reporting
+### 2. Step Progress Reporting
 
 **Function**: `ReportStepProgress(...)`
 
@@ -160,17 +99,16 @@ identical to `done / TotalWork` on the domain where that was representable.
 - Avoids excessive updates
 - Always reports at the start (i == numBits-1) and end (i == 0)
 
-**Returns**: nothing. It used to return the running work total; audit L-01
-removed it once it was established that both callers assigned it back without
-reading it.
+**Returns**: nothing (see §1).
 
-### 4. Callback Type
+### 3. Callback Type
 
 ```go
 type ProgressCallback func(progress float64)
 ```
 
-- `progress`: Normalized value from 0.0 to 1.0
+`progress` is normalized to [0.0, 1.0]. Three ways to supply one are shown under
+[Progress Callback Interface](#progress-callback-interface).
 
 ## Integration into the Calculation Loop
 
@@ -199,6 +137,32 @@ func ExecuteCalculation(ctx context.Context, reporter ProgressCallback, n uint64
     // ... Return the result ...
 }
 ```
+
+### The call sites do not agree on loop direction
+
+`ReportStepProgress` assumes `i` **counts down** from `numBits-1` (little work)
+to `0` (most work). There are exactly three production callers
+(`grep -rn "ReportStepProgress(" --include=*.go internal/ cmd/ | grep -v _test`);
+two match that shape directly, and the matrix loop inverts the index at the call:
+
+| Caller | Loop | Call |
+|---|---|---|
+| `DoublingFramework.ExecuteDoublingLoop` (`doubling_framework.go:162,225`) — serves `"fast"` and `"fft"` | `for i := numBits-1; i >= 0; i--` | `ReportStepProgress(reporter, &last, i, numBits)` |
+| `GMPCalculator.CalculateCore` (`calculator_gmp.go:127,144`, `//go:build gmp`) | idem | idem |
+| `MatrixFramework.ExecuteMatrixLoop` (`matrix_framework.go:63,92`) | `for i := 0; i < numBits; i++` — LSB to MSB | `ReportStepProgress(reporter, &last, numBits-1-i, numBits)` |
+
+A fourth path reports nothing: `FastDoublingMod` (`modular.go`, the
+`--last-digits` mode) runs the same MSB→LSB loop but takes no reporter at all.
+Its operands are bounded by the modulus rather than growing, so the 4^i work
+model would be wrong there anyway — every iteration costs about the same.
+
+The matrix loop walks the exponent from its least significant bit upward, so
+its *work* still grows with `i` — the operands double every squaring. Passing
+`numBits-1-i` maps its ascending index onto the descending index
+`stepProgress` expects, which is why both calculators produce the same
+accelerating curve from opposite loop directions. Anyone adding a fourth caller
+has to make the same choice explicitly: the parameter is a *work-remaining*
+index, not a loop counter.
 
 ## Guaranteed Properties
 
@@ -235,50 +199,24 @@ For `numBits = 11` (e.g., n ~ 2,000):
 2. **First and last iteration**:
    - Always report, even if the change is below the threshold
 
-### Recommended Tests
+### What pins these properties
 
 ```bash
-# Run progress-related tests
-go test -v -run TestProgress ./internal/fibonacci/
-go test -v -run 'TestReportStepProgress|TestProgress_' ./internal/progress/
+go test -run 'TestReportStepProgress|TestProgress_' ./internal/progress/
+go test -run TestProgress ./internal/fibonacci/
 ```
 
-```go
-// Test 1: Monotonic progress, finite and inside [0,1]
-func TestReportStepProgressMonotonic(t *testing.T) {
-    numBits := 20
+| Test | File | Pins |
+|---|---|---|
+| `TestProgress_MonotonicLargeN` | `internal/progress/progress_test.go` | the A-10 guard: for `numBits ∈ {64, 512, 2000, 100000}` every reported value is finite, inside [0,1] and non-decreasing, and the last is ≥ 0.99. 512 and above is exactly where the old geometric formula returned `+Inf` |
+| `TestReportStepProgressMonotonic` | idem | monotonicity at `numBits = 20` |
+| `TestReportStepProgress` | idem | the threshold/first/last reporting rule |
+| `TestProgressCalculationLogic`, `TestProgressCallback` | `internal/fibonacci/fibonacci_test.go` | that a real calculation drives the reporter end to end |
 
-    var lastReported float64
-    var prevProgress float64
-
-    reporter := func(progress float64) {
-        assert.True(progress >= prevProgress)
-        prevProgress = progress
-    }
-
-    for i := numBits - 1; i >= 0; i-- {
-        ReportStepProgress(reporter, &lastReported, i, numBits)
-    }
-
-    assert.True(prevProgress >= 0.99)
-}
-
-// Test 2: the closed form survives past the old overflow boundary (A-10)
-func TestProgress_MonotonicLargeN(t *testing.T) {
-    for _, numBits := range []int{64, 512, 2000, 100000} {
-        var lastReported float64
-        var last float64 = -1
-        for i := numBits - 1; i >= 0; i-- {
-            ReportStepProgress(func(p float64) {
-                assert.False(math.IsNaN(p) || math.IsInf(p, 0))
-                assert.True(p >= last)
-                last = p
-            }, &lastReported, i, numBits)
-        }
-        assert.True(last >= 0.99)
-    }
-}
-```
+There is no test asserting that progress is *proportional to elapsed time* —
+the 4^i model is an assumption about the work curve, never validated against a
+clock in this repo. A bar that visibly stalls near the end is consistent with
+everything the tests check.
 
 ## Optimizations
 
@@ -303,26 +241,40 @@ func TestProgress_MonotonicLargeN(t *testing.T) {
 
 ### Example: Factor of 3
 
+There is only one place to change — the base inside `stepProgress`. The closed
+form is base-agnostic: for a growth factor `g`, `progress(i) = (g^-i - g^-numBits) / (1 - g^-numBits)`,
+and the overflow argument holds for any `g > 1` because both powers stay in
+`(0, 1]`.
+
 ```go
-func CalcTotalWork3(numBits int) float64 {
-    if numBits == 0 {
-        return 0
+// Same shape as stepProgress, with 4 replaced by 3 throughout.
+func stepProgress3(i, numBits int) float64 {
+    if numBits <= 0 || i <= 0 {
+        return 1
     }
-    // Geometric sum: 3^0 + 3^1 + ... + 3^(n-1) = (3^n - 1) / 2
-    return (math.Pow(3, float64(numBits)) - 1) / 2
+    if i >= numBits {
+        i = numBits
+    }
+    negI := math.Pow(3, -float64(i))
+    negN := math.Pow(3, -float64(numBits))
+    denom := 1 - negN
+    if denom <= 0 {
+        return negI
+    }
+    return math.Max(0, math.Min(1, (negI-negN)/denom))
 }
 ```
 
+Do **not** reintroduce a `CalcTotalWork`-style geometric sum to divide by: that
+is exactly the shape A-10 removed, and it overflows `float64` at
+`numBits >= 512` for base 4 (`>= 647` for base 3) — a different base only moves
+the cliff, it does not remove it.
+
 ## Progress Callback Interface
 
-### Definition
-
-```go
-// Callback type for progress reporting
-type ProgressCallback func(progress float64)
-```
-
-### Usage in Calculation
+Three ways to build the `ProgressCallback` of §3. Option 2 is what
+`FibCalculator` uses; the observer types live in `internal/progress/observer.go`
+and `observers.go`.
 
 ```go
 // Option 1: Simple callback
@@ -357,9 +309,13 @@ const (
 
 ## Summary of Key Equations
 
-1. **Total work** (overflow-safe, clamped above `numBits = 511`): `TotalWork = (4^numBits - 1) / 3`
-2. **Work per step**: `WorkOfStep(i) = 4^(numBits - 1 - i)`
-3. **Progress** (closed form, A-10 — not `WorkDone / TotalWork`):
+Only equation 3 is executed. Equations 1 and 2 describe the model the curve
+follows; no code computes them.
+
+1. **Total work** (model only): `TotalWork = (4^numBits - 1) / 3`
+2. **Work per step** (model only): `WorkOfStep(i) = 4^(numBits - 1 - i)`
+3. **Progress** (closed form, A-10 — what `stepProgress` actually evaluates, and
+   *not* `WorkDone / TotalWork`):
    `Progress(i) = (4^(-i) - 4^(-numBits)) / (1 - 4^(-numBits))`
    (algebraically equal to `(4^(numBits-i) - 1) / (4^numBits - 1)`, evaluated
    without materializing `4^numBits`)
@@ -368,10 +324,9 @@ const (
 ## Implementation Notes
 
 - Use `float64` for calculation precision
-- Initialize `lastReported` to `-1.0` to force the first report
-- Validate that `totalWork > 0` before division
-- Clamp progress values to [0.0, 1.0] if necessary
-- Handle cases where `numBits == 0` or very small
+- Initialize `lastReported` to `-1.0` to force the first report — though `i == numBits-1` forces the first report anyway, so this only affects a caller that enters the loop mid-way
+- Guard `numBits <= 0` and return without reporting; there is no `totalWork > 0` test to make, because there is no division by a total (audit L-01)
+- Clamp progress to [0.0, 1.0]; `stepProgress` already does, at both ends
 
 ## Reference Implementation
 

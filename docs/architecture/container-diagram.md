@@ -1,3 +1,8 @@
+# Container Diagram — C4 niveau 2
+
+Découpage de l'application en conteneurs logiques. Chaque `Rel` entre deux `Container` est un import Go direct ; `Rel(user, entry, …)` est la seule exception (relation `Person` → `Container`).
+
+```mermaid
 C4Container
     title Container Diagram — FibCalc (C4 Level 2)
 
@@ -18,6 +23,7 @@ C4Container
 
     Rel(user, entry, "Invokes")
     Rel(entry, app, "Delegates to")
+    Rel(entry, support, "errors — Exit* codes for os.Exit")
     Rel(app, config, "Parses configuration")
     Rel(app, calib, "Loads/runs calibration")
     Rel(app, orch, "Dispatches calculation")
@@ -33,10 +39,14 @@ C4Container
     Rel(calib, config, "Reads AppConfig, adaptive estimates")
     Rel(calib, bigfft, "Benchmarks bigfft.Mul")
     Rel(calib, fib, "Benchmarks algorithms")
-    Rel(app, support, "errors, ui, fibonacci/memory, fibonacci/threshold")
+    Rel(app, support, "errors, ui, fibonacci/memory, fibonacci/threshold, cli/completion")
     Rel(config, support, "errors, ui, fibonacci/memory")
     Rel(orch, support, "errors, progress, fibonacci/memory")
     Rel(fib, support, "errors, progress, fibonacci/memory, fibonacci/threshold")
-    Rel(cli, support, "errors, format, metrics, progress, ui, cli/completion")
+    Rel(cli, support, "errors, format, metrics, progress, ui")
     Rel(tui, support, "errors, format, metrics, progress, ui")
     Rel(calib, support, "errors, format, progress, ui")
+```
+
+---
+[← Retour au hub architecture](./README.md)

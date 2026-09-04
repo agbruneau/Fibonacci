@@ -387,7 +387,7 @@ so the entry points' recover policy (ADR-0002) still applies.
 ```mermaid
 flowchart TD
     FFT["fourierRecursiveUnified(size=k)"]
-    FFT -->|"size >= threshold AND depth < maxDepth"| TryParallel{"Semaphore\navailable?"}
+    FFT -->|"size >= threshold AND depth < maxDepth"| TryParallel{"Semaphore<br/>available?"}
     TryParallel -->|Yes| Par["Parallel: half1 here, half2 in goroutine"]
     TryParallel -->|No| Seq["Sequential: half1 then half2"]
     FFT -->|"size < threshold OR depth >= maxDepth"| Seq
@@ -426,9 +426,26 @@ defer releaseWordSlice(slice)
 smallest size class >= the requested size. If no class is large enough, allocation
 bypasses the pool entirely (`make()` direct).
 
-**Clearing**: `acquireWordSlice` zeroes the slice with Go's `clear()` builtin before
-returning it. The companion `acquireWordSliceUnsafe` deliberately skips the clear and
-is reserved for callers that immediately overwrite every element (e.g. via `copy`).
+**Clearing**: `acquireWordSlice` zeroes only `slice[:size]` — the prefix the
+caller can reach through the returned header — not the whole size class
+(audit M-05). Classes are a factor of four apart, so clearing the bucket did up
+to 4x the necessary `memclr`, 2.5x on average. `releaseWordSlice` still routes
+on `cap`, so the bucket invariant is untouched. The companion
+`acquireWordSliceUnsafe` deliberately skips the clear and is reserved for
+callers that immediately overwrite every element (e.g. via `copy`).
+
+> **What narrowing the memclr measured.**
+> [`docs/audits/bench-poolclear-2026-09.txt`](../audits/bench-poolclear-2026-09.txt)
+> ran the six `BenchmarkFibonacci` cases A/B in **both orders**
+> (`-benchmem -benchtime=1s -count=8`, Core Ultra 9 275HX, windows/amd64,
+> go1.27.0). Only `MatrixExp` moves order-stably — −5.60 % (direct) and −8.02 %
+> (inverted) at 10M, −19.86 % and −8.84 % at 1M. The `FastDoubling/10M` and
+> `FFTBased/10M` rows flip sign with the measurement order (+10.10 % / +8.59 %
+> direct, −9.03 % / −13.64 % inverted), which makes them thermal, not causal.
+> Nothing regresses order-stably, matching the a-priori expectation that the
+> change is strictly less work. Read this as the protocol worth copying: a
+> single-order A/B on this host would have reported a 10 % regression that does
+> not exist.
 
 **Release safety**: all four release functions (`releaseWordSlice`,
 `releaseFermat`, `releaseNatSlice`, `releaseFermatSlice` in
@@ -483,6 +500,13 @@ was too small.
 | `allocFermat(n)` | Allocate a fermat of n+1 words — package-internal |
 | `allocFermatSlice(count, n)` | Allocate `count` contiguous fermat buffers — package-internal |
 | `Reset()` | Invalidate all allocations, reuse from start |
+| `Remaining()` / `Used()` | `len(buffer)-offset` and `offset` |
+
+`Remaining()` is what makes the F-012 per-calculation reuse possible:
+`executeDoublingStepFFT` (`internal/fibonacci/fft.go`) `Reset()`s the carried
+allocator and re-acquires a larger one only when `ba.Remaining() < baCap`, so
+the buffer is sized once for the final doubling step instead of regrowing on
+almost every iteration.
 
 ### Allocator Abstraction
 
@@ -529,6 +553,17 @@ The 10% is a tuning choice, not a measured optimum, and undershooting is not a
 correctness problem: `Alloc` falls back to `make()` when the arena is exhausted.
 `bump.go` states it directly — "the margin is a tuning choice, and no benchmark in
 the repo pins 10% over any other value."
+
+**Its k-selection is not `fftSize`'s.** `EstimateBumpCapacity` walks the same
+table but starts at `k := 0` and, when no entry exceeds the bit count, falls
+back to `k = len(fftSizeThreshold) - 1 = 15` (`bump.go`, the `if k == 0` branch).
+`fftSize` starts at `k := len(fftSizeThreshold) = 16` and keeps that value in the
+same case. So past 629,145,600 result bits (`600 << 20`, the table's last entry)
+the estimator sizes for K = 32768 while the transform actually runs at
+K = 65536, i.e. it under-estimates by about half. That is not a correctness
+problem for the same reason the 10 % margin is not: the shortfall lands in
+`Alloc`'s `make()` fallback. It is worth knowing before reading the estimate as
+an allocation bound at very large N.
 
 ### Pool Pre-Warming
 
@@ -620,9 +655,13 @@ type TransformCache struct {
 
 When the same big integer is transformed more than once, the cached forward FFT
 transform avoids recomputing it. The repo carries **no measurement of a speedup**
-from this on any path. The only benchmark artifact tracked is
-`docs/audits/bench-baseline.txt`, which measures whole calculators and does not
-vary the cache. Cache-specific benchmarks do exist — `BenchmarkCacheImpact` and
+from this on any path. Two artifacts touch the cache and neither answers the
+question: `docs/audits/bench-baseline.txt` measures whole calculators without
+varying the cache at all, and
+[`docs/audits/bench-fftcache-2026-09.txt`](../audits/bench-fftcache-2026-09.txt)
+varies only its **byte bound** (`MaxBytes` 4x vs 48x), never its enabled/disabled
+state, so it prices one bound against another rather than caching against no
+caching. Cache-specific benchmarks do exist — `BenchmarkCacheImpact` and
 `BenchmarkCacheHitRate` (`internal/fibonacci/cache_bench_test.go`), plus
 `BenchmarkCacheHit`, `BenchmarkCacheHitParallel`, `BenchmarkCacheMiss`,
 `BenchmarkCachePut` and `BenchmarkTransformCache`
@@ -740,21 +779,21 @@ flowchart TD
     end
 
     subgraph BigFFT["internal/bigfft"]
-        API["Public API\nMul / MulTo / Sqr / SqrTo"]
+        API["Public API<br/>Mul / MulTo / Sqr / SqrTo"]
         Core["fftmulTo / fftsqrTo"]
 
         subgraph Alloc["Memory Layer"]
-            Bump["BumpAllocator\nO(1) contiguous"]
-            Pool["sync.Pool\n33 size classes"]
-            Warm["PreWarmPools\nAdaptive pre-alloc"]
-            Est["EstimateMemoryNeeds\nHeuristic sizing"]
+            Bump["BumpAllocator<br/>O(1) contiguous"]
+            Pool["sync.Pool<br/>33 size classes"]
+            Warm["PreWarmPools<br/>Adaptive pre-alloc"]
+            Est["EstimateMemoryNeeds<br/>Heuristic sizing"]
         end
 
         subgraph Compute["Compute Layer"]
             Poly["Poly / PolValues"]
-            Fermat["Fermat Ring\nZ/(2^k+1)"]
-            FFTRec["FFT Recursion\nCooley-Tukey"]
-            Cache["TransformCache\nLRU, FNV-1a keyed"]
+            Fermat["Fermat Ring<br/>Z/(2^k+1)"]
+            FFTRec["FFT Recursion<br/>Cooley-Tukey"]
+            Cache["TransformCache<br/>LRU, FNV-1a keyed"]
         end
 
     end
@@ -778,8 +817,10 @@ flowchart TD
 
 ### Called From
 
-Seven production files outside `internal/bigfft` import it (verified 2026-08-07 with
-`grep -rn "bigfft\." internal/ cmd/ --include=*.go | grep -v _test.go`):
+Seven production files outside `internal/bigfft` reference it (re-verified
+2026-09-04 with
+`grep -rln "bigfft\." internal/ cmd/ --include=*.go | grep -v _test.go | grep -v "^internal/bigfft/"`,
+which returns exactly these seven):
 
 - `internal/fibonacci/fft.go` -- `smartMultiply()` dispatches to `bigfft.MulTo` (and `smartSquare()` to `bigfft.SqrTo`), or both fall back to `math/big`; `executeDoublingStepFFT` also uses `PolyFromInt`, `TransformWithBump`, `GetFFTParams`, `ValueSize`, `Acquire`/`ReleaseBumpAllocator`, `EstimateBumpCapacity`
 - `internal/fibonacci/calculator.go` -- `FibCalculator.CalculateWithObservers()` calls `bigfft.EnsurePoolsWarmed()` before calculation

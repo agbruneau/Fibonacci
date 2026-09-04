@@ -95,6 +95,21 @@ Entry point: `AutoCalibrateWithProfile()` in `internal/calibration/calibration.g
 
 Auto-calibration uses a 3-tier fallback strategy to minimize startup latency while still finding reasonable threshold values:
 
+```mermaid
+flowchart TD
+    A["fibcalc --auto-calibrate"] --> B{"LoadOrCreateProfile<br/>and IsValid?"}
+    B -- "no / missing" --> F["FastStrategy<br/>RunQuick micro-benchmarks<br/>~125 ms, budget 400 ms"]
+    B -- yes --> C{"IsStale maxAge?<br/>FIBCALC_PROFILE_MAX_AGE"}
+    C -- yes --> G["CompleteStrategy<br/>calibrationRunner.findBest x3"]
+    C -- no --> D{"3 thresholds in range?<br/>SEC-01 re-validation"}
+    D -- no --> F
+    D -- yes --> E["TIER 1 - apply cached thresholds<br/>no benchmark run"]
+    F --> H{"Confidence ≥ 0.5?<br/>EscalationConfidenceThreshold"}
+    H -- yes --> I["TIER 2 - accept, save profile"]
+    H -- no --> G
+    G --> J["TIER 3 - save profile"]
+```
+
 **Tier 1 -- Cached profile (instant)**
 
 `LoadOrCreateProfile()` attempts to load a saved profile from disk. The cached thresholds are
@@ -150,7 +165,7 @@ The micro-benchmarking engine provides rapid threshold estimation by testing raw
 ### Configuration
 
 ```go
-const MicroBenchIterations = 3 // there is no per-test timeout constant
+const MicroBenchIterations = 7 // raised from 3 by audit M-01; no per-test timeout constant
 
 // MicroBenchTimeout is a var (not a const) sourced from
 // config.DefaultThresholdTuning — the canonical value lives alongside the
@@ -171,51 +186,97 @@ The test sizes are chosen to span the critical algorithm crossover ranges:
 
 ### Test Matrix
 
-For each word size, four configurations are **enqueued** — but only two are
-distinct workloads. `runSingleTest` opens with `_ = parallel`
-(`internal/calibration/microbench.go:runSingleTest`) and never branches on the
-flag, so rows 2 and 4 re-run rows 1 and 3 verbatim:
+`runTests` (`internal/calibration/microbench.go:runTests`) enqueues **at most
+two** configurations per word size and runs them **one at a time**:
 
-| # | Enqueued config | What actually runs |
-|---|---|---|
-| 1 | Standard math/big sequential | `new(big.Int).Mul(x, y)` |
-| 2 | Standard math/big "parallel" | identical to 1 |
-| 3 | FFT sequential | `bigfft.Mul(x, y)` |
-| 4 | FFT "parallel" | identical to 3 |
+- the `math/big` baseline, for every size;
+- the FFT arm, **only when the size exceeds `bigfft.FFTThresholdWords()`**
+  (1 800 words by default — `internal/bigfft/fft.go:defaultFFTThresholdWords`).
 
-The duplicated rows are not wasted budget: `findFFTCrossover` averages every
-result sharing a `(wordSize, useFFT)` key, so rows 2 and 4 land in the same
-average as rows 1 and 3 and act as a **second sample** of the same workload.
-What they cannot support is a parallel-versus-sequential comparison.
+With the default `MicroBenchTestSizes` that is **7 runs**, not 16:
 
-The flag is kept deliberately (P1-07, see the `runSingleTest` doc comment) to
-record the intent for future work; `analyzeResults` already treats any
-"parallel crossover" as noise between two identical configurations and grants
-it no confidence bonus — see [Confidence Scoring](#confidence-scoring) below.
+| Word size | `math/big` arm | FFT arm | Note |
+|---|---|---|---|
+| 500 | yes | no | below `FFTThresholdWords`: `bigfft.Mul` would take the same `math/big` path, so timing the two against each other would report jitter as a crossover |
+| 2 000 | yes | yes | first size past the 1 800-word threshold |
+| 8 000 | yes | yes | |
+| 16 000 | yes | yes | |
 
-Tests run in parallel with a semaphore limiting concurrency to `runtime.NumCPU()`. Each test generates deterministic `big.Int` operands via `generateTestNumber()`, performs a warm-up multiplication, then averages 3 timed iterations.
+Both properties are audit M-01. Before it, every size was enqueued in four
+variants (sequential / "parallel" × standard / FFT) — 16 runs — launched
+concurrently under a `runtime.NumCPU()` semaphore while `bigfft.Mul`
+parallelises its own recursion, so the timings measured contention between the
+benchmark's own goroutines rather than the cost of a multiplication.
+
+The `parallel` flag survives on `runSingleTest`'s signature but is now inert on
+both sides: `runTests` always passes `false`, and `runSingleTest` opens with
+`_ = parallel` and never branches on it (P1-07 keeps the knob to record the
+intent for future work). The measurable consequence is that
+`findParallelCrossover` has no `parallel` row to compare against and returns 0
+on every host — see [Analysis](#analysis).
+
+Each run generates deterministic `big.Int` operands via `generateTestNumber()`,
+performs one warm-up multiplication, then times `MicroBenchIterations` (7)
+iterations and reports their mean plus the fastest/slowest bracket that the
+confidence score is built from.
 
 ### Analysis
 
 After all tests complete, the engine analyzes results:
 
-- `findFFTCrossover()`: Identifies the smallest bit size where FFT multiplication is faster than standard `math/big`. Applies a 10% margin (multiplies the crossover by 9/10) to ensure FFT is clearly beneficial. Returns `0` when no crossover is observed — the conservative default (`FFTThreshold: 500000`) is owned by `analyzeResults()`, not by this function (FIB-03: a fallback is not a measurement).
+- `findFFTCrossover()` returns `(bitSize, decisiveness)`. Per word size it
+  computes the speedup `avg(standard) / avg(FFT)`, keeping only sizes that have
+  both arms. A size qualifies when that ratio clears
+  `minRatio = 1 / fftCrossoverMargin = 1 / 0.9 ≈ 1.11×` **and every larger
+  measured size clears it too** — the scan runs from the largest size downward
+  and stops at the first loser, so the answer is a monotone suffix, not merely
+  the smallest winner (audit M-01: taking the smallest winner let the boundary
+  size at 2 000 words move the persisted threshold by 4× between two
+  consecutive start-ups). The reported value is
+  `winningWordSize × bits.UintSize × 9 / 10` — the 10 % margin. It returns
+  `(0, 0)` when nothing qualifies; the conservative default
+  (`FFTThreshold: 500000`) is owned by `analyzeResults()`, not by this function
+  (FIB-03: a fallback is not a measurement).
 
-- `findParallelCrossover()`: Compares the rows flagged `parallel` against those flagged sequential, keeping the smallest bit size where the former is at least 10% faster. Since `runSingleTest` ignores the flag (see [Test Matrix](#test-matrix)), both groups run the same code and any difference is timing noise — which is why `analyzeResults` discards the return value (`_ = mb.findParallelCrossover(bySize)`). Returns `0` on single-core systems and when no crossover is observed; the conservative default (`ParallelThreshold: 4096`) is owned by `analyzeResults()`.
+- `findParallelCrossover()` measures nothing today. It compares rows flagged
+  `parallel` against sequential rows among the non-FFT results, but no row is
+  ever flagged parallel (see [Test Matrix](#test-matrix)), so its `parCount` is
+  always 0 and it returns 0 on every host — as it also does early on
+  single-core systems. `analyzeResults` discards the value
+  (`_ = mb.findParallelCrossover(bySize)`) and keeps the conservative
+  `ParallelThreshold: 4096` default.
 
 ### Confidence Scoring
 
-The `ThresholdResults` struct includes a confidence score (0.0 to 1.0):
+The `ThresholdResults` struct carries a confidence score in [0.0, 1.0]. Since
+audit M-01 it starts at **zero** and has to be earned:
 
-- Base confidence: 0.5 (conservative defaults assumed valid)
-- 0.0 if no result at all was collected (timeout, or every test errored)
-- +0.2 if an FFT crossover point was found
-- Capped at 1.0
+```
+Confidence = timingStability(results) × decisiveness      (then capped at 1.0)
+```
 
-There is **no** parallel-crossover bonus: `runSingleTest` does not branch on the
-`parallel` flag, so `findParallelCrossover`'s result is discarded (`_ = ...`).
+- **`timingStability`** — for each successful run, the ratio
+  `slowest / fastest` over its 7 iterations; the **worst** ratio in the batch
+  decides, because a crossover is a comparison and one unstable arm invalidates
+  it. Score = `clamp(2 − worst, 0, 1)`: 1.0 when every iteration took the same
+  time, 0.0 as soon as one run's slowest iteration is twice its fastest. The
+  full min/max bracket rather than a median is deliberate — a wrongly
+  *accepted* result is written to disk and replayed at every subsequent
+  start-up, while a wrongly *rejected* one costs a single slower sweep.
+- **`decisiveness`** — how far past the acceptance margin the deciding size
+  sits: 0 at `minRatio ≈ 1.11×`, ramping linearly to 1 at
+  `decisiveSpeedup = 2.0×` (`decisivenessOf`).
+- The score stays at **0** when no FFT crossover qualifies, when every run
+  errored, and when the suite collected nothing (timeout).
+- There is **no** parallel-crossover bonus, because there is no parallel
+  measurement to reward (see [Analysis](#analysis)).
 
-A confidence of >= 0.5 is required for auto-calibration to accept micro-benchmark results.
+`FastStrategy`'s result is kept only when
+`Confidence >= EscalationConfidenceThreshold` (**0.5**,
+`internal/calibration/strategy.go`); below it, `AutoCalibrateWithProfile`
+escalates to `CompleteStrategy`. The pre-M-01 formula — a flat 0.5 base plus
+0.2 for having found any crossover — made that test unreachable, since the base
+alone equalled the bar.
 
 ## Calibration Profile
 
@@ -261,7 +322,7 @@ type CalibrationProfile struct {
 
 If any field differs, the profile is invalid and a fresh calibration is triggered. **v2**-format profiles (without `cpu_heuristic_key`) and **v3** profiles (written by the pre-M-01 crossover search) are no longer accepted after the version bumps.
 
-**Migration:** delete or rename `~/.fibcalc_calibration.json` when upgrading from an earlier binary, or re-run `--calibrate` / `--auto-calibrate` to regenerate a v3 profile.
+**Migration:** delete or rename `~/.fibcalc_calibration.json` when upgrading from an earlier binary, or re-run `--calibrate` / `--auto-calibrate` to regenerate a v4 profile.
 
 `IsStale(maxAge time.Duration)` provides time-based invalidation. A profile older than `maxAge` is considered stale. This can be used to trigger periodic re-calibration.
 
@@ -294,7 +355,7 @@ block (before the thresholds), and `confidence` is always present:
   "calibration_n": 10000000,
   "calibration_time": "45.2s",
   "confidence": 1,
-  "profile_version": 3
+  "profile_version": 4
 }
 ```
 

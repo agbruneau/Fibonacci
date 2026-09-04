@@ -5,8 +5,10 @@
 The Fibonacci Calculator project uses a layered testing strategy that
 combines unit tests, golden file validation, fuzz testing, property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
-testing, and end-to-end testing. The test suite contains 100+ test files
-distributed across all packages, with a coverage floor of 80 % asserted
+testing, and end-to-end testing. The test suite spans 134 test files across the
+21 packages (2026-09-04; recount with `git ls-files '*_test.go' | wc -l` rather
+than trusting the figure — `git ls-files` is used deliberately, so untracked
+scratch checkouts are not counted twice), with a coverage floor of 80 % asserted
 locally by `make coverage-check` alone — `make coverage` only renders
 `coverage.html` and asserts nothing (do not freeze a percentage here — run
 `make coverage-check` for the current figure; see A5-04 below).
@@ -31,10 +33,13 @@ make coverage          # Generate coverage.html
 make check             # delegates to scripts/check.sh: build + vet + test -race -coverprofile + `-tags gmp` step (3b) + lint (HARD since GATE-01) + coverage floor
 ```
 
-> `make test` and `make check` (via `check.sh`) use `-race`, which requires
-> CGO/gcc — unavailable on a bare Windows host. On Windows without gcc, use
-> `make test-win` (no `-race`) or the PowerShell gate `scripts/check.ps1`
-> (which omits `-race`). This is a long-standing constraint, not new.
+> `make test` and `make check` (via `check.sh`) use `-race` unconditionally,
+> which requires CGO and a C compiler. The PowerShell gate `scripts/check.ps1`
+> does **not** omit `-race`: since audit D4 (2026-09-03) it probes
+> `go env CGO_ENABLED` and looks for `gcc`/`clang` on `PATH`, and adds `-race`
+> when both are present (`scripts/check.ps1`, the `$raceArgs` block). On a
+> Windows host with no C toolchain it falls back to the same suite without
+> `-race`; `make test-win` is the equivalent Makefile target.
 
 ## Table-Driven Unit Tests
 
@@ -397,7 +402,14 @@ There is **no remote CI** for this project (an assumed decision). Pre-commit val
 
 Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
 
-On Windows hosts without gcc, the `-race` run is executable via WSL (`wsl go test -race ./...`). The repo records no result of any past `-race` pass — there is no CI log and no artifact to point at, so run it yourself before relying on it.
+On Windows hosts without gcc, the `-race` run is executable via WSL (`wsl go test -race ./...`); with MinGW installed it runs natively.
+
+No `-race` log is archived in the tree — there is no CI and no artifact to point
+at — so the pass is only ever as recent as the last person who ran it. Last
+recorded run, 2026-09-04 on `go1.27.0 windows/amd64` with `CGO_ENABLED=1` and
+MinGW-W64 gcc 16.1.0: `go test -race -count=1 ./...` exits 0, `ok` on all 21
+packages, no data race reported. Re-run it yourself rather than trusting this
+line.
 
 ## Test Organization
 

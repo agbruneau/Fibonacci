@@ -1,3 +1,8 @@
+# Pipeline Fast Doubling
+
+Du décorateur `FibCalculator` jusqu'à l'extraction du résultat, en passant par `DoublingFramework` et le pas FFT.
+
+```mermaid
 flowchart LR
     subgraph Input["Input Processing (FibCalculator decorator)"]
         A1[FibCalculator.Calculate] --> A4[Create ProgressSubject]
@@ -78,3 +83,7 @@ flowchart LR
     style FFTPipeline fill:#fce4ec
     style Parallel fill:#e0f2f1
     style Result fill:#f5f5f5
+```
+
+---
+[← Retour au hub architecture](../README.md)

@@ -2,28 +2,35 @@
 
 Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques, flux de données et le relevé de validation des invariants (§5). Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
 
+> **Format des diagrammes.** Les onze diagrammes sont des fichiers `.md` dont le corps est un
+> bloc clôturé `mermaid`. C'est le seul format que GitHub rend graphiquement : un fichier
+> `.mermaid` ou `.mmd` autonome s'affiche en texte brut. Ils portaient l'extension `.mermaid`
+> jusqu'au 2026-09-04 et ont été convertis pour cette raison ; le repo utilisait déjà cette
+> convention ailleurs (`docs/algorithms/*.md`, `docs/TUI_GUIDE.md`). Les onze blocs ont été
+> passés au parseur `mermaid` v11.17.2 le 2026-09-04 — zéro erreur de syntaxe.
+
 ## 1) Diagrammes d'Architecture (C4 Model)
 
 Nous utilisons le modèle C4 pour documenter l'architecture à différents niveaux d'abstraction :
 
-- **[System Context](system-context.mermaid) :** Vue de haut niveau de FibCalc et de ses interactions avec l'utilisateur et le système d'exploitation.
-- **[Container Diagram](container-diagram.mermaid) :** Décomposition de l'application en conteneurs logiques (CLI, TUI, Core Engine).
-- **[Component Diagram](component-diagram.mermaid) :** Détail des composants internes du moteur de calcul et de l'orchestration.
+- **[System Context](system-context.md) :** Vue de haut niveau de FibCalc et de ses interactions avec l'utilisateur et le système d'exploitation.
+- **[Container Diagram](container-diagram.md) :** Décomposition de l'application en conteneurs logiques (CLI, TUI, Core Engine). Chaque `Rel` entre deux `Container` est un import Go réel — le relevé §5 les compte un à un.
+- **[Component Diagram](component-diagram.md) :** Détail des composants internes du moteur de calcul et de l'orchestration. C'est un `classDiagram` : ses flèches sont des relations de classes, **pas** des imports de packages.
 
 ## 2) Graphe des Dépendances
 
 Le projet suit rigoureusement les principes de la **Clean Architecture**. Le graphe suivant illustre les relations entre les packages :
 
-- **[Dependency Graph](dependency-graph.mermaid)**
+- **[Dependency Graph](dependency-graph.md)** — les 46 imports internes directs du module, un par arête. Reproductible avec la commande `go list` donnée dans le [relevé de validation](./validation/validation-report.md#layer-tightness--dependency-direction).
 
-## 3) Flux de Données et Séquences
+## 3) Flux de Données et Chemins d'Exécution
 
-Les répertoires suivants contiennent des diagrammes de séquence illustrant les processus critiques :
+Six `flowchart` retracent les chemins d'exécution critiques, du point d'entrée au résultat :
 
 - **[Flows/](./flows/) :**
-  - Exécution CLI (`cli-flow.mermaid`) et TUI (`tui-flow.mermaid`).
-  - Résolution de configuration (`config-flow.mermaid`).
-  - Pipelines algorithmiques : Fast Doubling (`fastdoubling.mermaid`), FFT (`fft-pipeline.mermaid`), Matrix (`matrix.mermaid`).
+  - Exécution [CLI](./flows/cli-flow.md) et [TUI](./flows/tui-flow.md).
+  - [Résolution de configuration](./flows/config-flow.md).
+  - Pipelines algorithmiques : [Fast Doubling](./flows/fastdoubling.md), [FFT](./flows/fft-pipeline.md), [Matrix](./flows/matrix.md).
 
 ## 4) Design Patterns et ADR
 
@@ -31,7 +38,7 @@ L'architecture repose sur les design patterns documentés ici :
 
 - **[Patterns/](./patterns/) :**
   - **[Design Patterns inventory](./patterns/design-patterns.md)** — table des patterns concrets utilisés (Strategy, Factory/Registry, Observer, Object Pool, Bump Allocator, Decorator, Facade, Template Method, LRU Cache, Circuit Breaker, Adapter) avec liens vers les sites d'implémentation.
-  - **[interface-hierarchy.mermaid](./patterns/interface-hierarchy.mermaid)** — hiérarchie des interfaces clés.
+  - **[Hiérarchie des interfaces](./patterns/interface-hierarchy.md)** — les interfaces clés et leurs implémentations.
 
 ### ADR — Décisions architecturales courantes
 

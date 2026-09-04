@@ -190,9 +190,9 @@ internal/
 
 ## `internal/config`
 - **Responsibility:** parse CLI flags, validate configuration, apply `FIBCALC_` env overrides, apply adaptive thresholds.
-- **Key types:** `AppConfig` (20 fields covering all runtime parameters), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
+- **Key types:** `AppConfig` (24 fields: 21 runtime parameters + the three `*Explicit` markers added by audit M-03 — `internal/config/config.go`, the `AppConfig` struct), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
 - **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`. The per-heuristic variants `estimateParallelThresholdForHeuristic` / `estimateFFTThresholdForHeuristic` / `estimateStrassenThresholdForHeuristic` (`internal/config/thresholds.go`, the three `estimate*ThresholdForHeuristic` functions) are **unexported** — reachable only from in-package tests, not from diagnostics outside `internal/config`.
-- **Precedence chain:** CLI flags > env vars (`applyEnvOverrides` skips any flag explicitly set on the command line, `internal/config/env.go:applyEnvOverrides`) > static defaults — **uniformly, including the three thresholds since audit M-03 (2026-09)**. `ParseConfig` records which of `--threshold`, `--fft-threshold`, `--strassen-threshold` arrived from the user (flag *or* `FIBCALC_*`) in `ThresholdExplicit`/`FFTThresholdExplicit`/`StrassenThresholdExplicit` (`internal/config/config.go:markExplicitThresholds`), and a cached calibration profile fills only the ones left to the tool; see [§9 Configuration and Environment](#9-configuration-and-environment).
+- **Precedence chain:** CLI flags > env vars (`applyEnvOverrides` skips any flag explicitly set on the command line, `internal/config/env.go:applyEnvOverrides`) > static defaults — **uniformly, including the three thresholds since audit M-03 (2026-09)**. `ParseConfig` records which of `--threshold`, `--fft-threshold`, `--strassen-threshold` arrived from the user (flag *or* `FIBCALC_*`) in `ThresholdExplicit`/`FFTThresholdExplicit`/`StrassenThresholdExplicit` (`internal/config/env.go:markExplicitThresholds`), and a cached calibration profile fills only the ones left to the tool; see [§9 Configuration and Environment](#9-configuration-and-environment).
 
 ## `internal/calibration`
 - **Responsibility:** full/quick calibration, adaptive threshold candidate generation, micro-benchmarks, profile file persistence.
@@ -259,8 +259,9 @@ internal/
     `internal/config/hardware.go`, for threshold heuristics)
 
 ## `internal/cli`
-- **Responsibility:** terminal UX for non-TUI mode (progress, table/result output, shell completion).
-- **Key components:** `CLIResultPresenter`, `CLIColorProvider`, `DisplayProgress` (wrapped by `orchestration.ProgressReporterFunc`), `DisplayQuietResult`, `WriteResultToFile`, `GenerateCompletion`.
+- **Responsibility:** terminal UX for non-TUI mode (progress, table/result output).
+- **Key components:** `CLIResultPresenter` (also satisfies `orchestration.ErrorHandler`), `CLIColorProvider`, `DisplayProgress` (wrapped by `orchestration.ProgressReporterFunc`), `DisplayResult`, `DisplayQuietResult`, `WriteResultToFile`, `PrintExecutionConfig`, `PrintExecutionMode`.
+- **Not here:** shell completion. It lives in the leaf subpackage `internal/cli/completion` (`Generate`), and `internal/cli` does **not** import it — `internal/app` does, from `runCompletion` (`internal/app/app.go`). The dependency graph draws that arrow from `app`, not from `cli`.
 
 ## `internal/tui`
 - **Responsibility:** Bubble Tea Elm-style dashboard (`Model-Update-View`) for interactive execution.
@@ -597,7 +598,7 @@ Re-verified 2026-09-03 on the binary: with a profile carrying
 `Parallelism=777777 bits, FFT=888888 bits`; adding `--threshold 4242 --fft-threshold 4243` to
 the same command prints `Parallelism=4242 bits, FFT=4243 bits` — the reverse of what the
 2026-08-07 run recorded here. Sources: `internal/calibration/calibration.go:LoadCachedCalibration`
-and `applyProfileThresholds`, `internal/config/config.go:markExplicitThresholds`,
+and `applyProfileThresholds`, `internal/config/env.go:markExplicitThresholds`,
 `internal/app/app.go:New`.
 
 ### Presentation Layer Integration

@@ -42,8 +42,21 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Prerequisites
 
-- Go 1.26.0 or later
-- Make (optional but recommended)
+- Go 1.26.0 or later (`go.mod` declares `go 1.26.0`, no `toolchain` directive)
+- Make (optional but recommended) — POSIX/WSL only, see the note under Useful Commands
+- `golangci-lint` **v2**, required by the pre-commit gate:
+
+  ```bash
+  go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+  # or, with gosec as well:
+  make install-tools
+  ```
+
+  A v1 binary will not do. `.golangci.yml` uses the v2 schema, and a v1 binary cannot analyze this
+  module under a go1.27 toolchain at all — every package fails with `export data version 4 is greater
+  than maximum supported version 2`. Both gate scripts treat that (and a missing binary) as a hard
+  failure since 2026-09-03; the version pin was dropped for the same reason.
+
 ### Setup
 
 ```bash
@@ -59,7 +72,8 @@ go test -v -cover ./...
 
 # Build the project
 make build
-# or
+# or (the make target additionally injects version/commit/date via -ldflags and
+#     builds with cmd/fibcalc/default.pgo when that profile is present)
 go build -o build/fibcalc ./cmd/fibcalc
 ```
 
@@ -74,7 +88,8 @@ go build -o build/fibcalc ./cmd/fibcalc
 | `make build`      | Build the binary         |
 | `make test`       | Run all tests            |
 | `make test-short` | Run quick tests          |
-| `make coverage`   | Generate coverage report |
+| `make coverage`   | Generate the HTML coverage report (asserts nothing) |
+| `make coverage-check` | Enforce the 80% floor — delegates to `bash scripts/check.sh --coverage-only` |
 | `make benchmark`  | Run benchmarks           |
 | `make bench-versioned` | Fixed-flag benchmark snapshot + Git/Go metadata (`build/bench/`, see [docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | `make lint`       | Run linter               |
@@ -342,14 +357,21 @@ Update documentation when:
 - Modifying configuration options
 - Updating deployment procedures
 
-Documentation files:
+Where each kind of change lands (not an exhaustive list of `docs/` — see the README's own links):
 
-| File                       | Purpose                         |
-| -------------------------- | ------------------------------- |
-| `README.md`                | Main project documentation      |
-| `docs/architecture/README.md` | Architecture hub (source of truth) |
-| `docs/PERFORMANCE.md`        | Performance tuning                 |
-| `docs/BUILD.md`              | Build config                       |
+| File | What belongs there |
+| ---- | ------------------ |
+| `README.md` | Entry point: quick start, flag table, audit history, headline numbers |
+| `CHANGELOG.md` | Every observable change, Keep-a-Changelog format |
+| `docs/architecture/README.md` | Architecture hub and C4 diagrams (source of truth) |
+| `docs/adr/NNNN-*.md` | A decision *and* the candidates you rejected, with the measurement or prior ADR that rejects them |
+| `docs/TESTING.md` | Test strategy, golden files, mock policy |
+| `docs/PERFORMANCE.md` | Tuning method and the non-regression protocol |
+| `docs/BUILD.md` | Build config, PGO, cross-compilation, Docker |
+| `docs/audits/*.txt` | The raw output behind any number you publish |
+
+Numbers stated in prose must be traceable to a command, a source symbol, or a file under
+`docs/audits/`. A figure that has not been re-run is marked as such rather than restated.
 
 ### Generated artifacts — do not edit by hand
 

@@ -28,11 +28,32 @@ leaves (zero internal imports): bigfft, errors, format, metrics, progress,
 ```
 
 The `internal_test` package doc comment in `internal/arch_test.go` states the same chain.
-Verified 2026-08-07 with
-`go list -deps=false -f '{{.ImportPath}} => {{join .Imports " "}}' ./...`:
-`internal/fibonacci` imports `bigfft`, `errors`, `fibonacci/memory`,
-`fibonacci/threshold`, `progress` — no `config`; and `internal/bigfft`
-imports no internal package at all.
+
+**Comment re-vérifier le graphe soi-même.** Le pipeline ci-dessous (shell POSIX,
+depuis la racine du dépôt) extrait les imports internes directs, les renomme
+avec les identifiants de nœud du diagramme, et compare l'ensemble obtenu à
+celui que `dependency-graph.md` dessine. Il ne doit rien afficher :
+
+```sh
+go list -deps=false -f '{{$p := .ImportPath}}{{range .Imports}}{{$p}} -> {{.}}
+{{end}}' ./... \
+ | grep -E '^github\.com/agbruneau/FibGo/\S+ -> github\.com/agbruneau/FibGo/internal/' \
+ | sed 's|github.com/agbruneau/FibGo/||g' \
+ | sed -E 's|internal/fibonacci/memory|fibmem|g; s|internal/fibonacci/threshold|fibthr|g;
+           s|internal/cli/completion|completion|g; s|cmd/fibcalc|main|g;
+           s|internal/fibonacci|fib|g; s|internal/orchestration|orch|g;
+           s|internal/calibration|calib|g; s|internal/||g' \
+ | sed 's/ \[main\]$//' | sort -u > /tmp/real.txt
+grep -oE '^ +[a-z]+ --> [a-z]+$' docs/architecture/dependency-graph.md \
+ | sed 's/^ *//; s/-->/->/' | sort -u > /tmp/drawn.txt
+diff /tmp/real.txt /tmp/drawn.txt
+```
+
+Exécuté le **2026-09-04** : `46` lignes de chaque côté, `diff` vide — le
+diagramme est l'ensemble exact des imports internes directs, pas un
+sur-ensemble ni un sous-ensemble. Sur ce relevé, `internal/fibonacci` importe
+`bigfft`, `errors`, `fibonacci/memory`, `fibonacci/threshold`, `progress` — pas
+`config` ; et `internal/bigfft` n'importe aucun package interne.
 
 Verified properties (against Go `import` declarations in source):
 
@@ -43,38 +64,48 @@ Verified properties (against Go `import` declarations in source):
 | `cli` depends on `orchestration` (not the reverse) | Holds | `internal/cli` imports `internal/orchestration` |
 | `tui` depends on `orchestration` (not the reverse) | Holds | `internal/tui` calls orchestration entry points |
 | `app` is the composition root | Holds | `internal/app` imports `cli`, `tui`, `orchestration`, `fibonacci`, `config`, `errors` |
-| `internal/**` does not leak into `cmd/**` | Holds | `cmd/fibcalc` delegates to `internal/app` only |
+| `internal/**` does not leak into `cmd/**` | Holds | `cmd/fibcalc` imports `internal/app` and `internal/errors` (the `Exit*` codes it hands to `os.Exit`) and nothing else |
 
 Only two of the diagrams carry package-import edges, and both were
-re-verified arrow-by-arrow against `go list -f '{{range .Imports}}…'`
-on 2026-08-07:
+re-verified arrow-by-arrow against the `go list` command above:
 
-- `dependency-graph.mermaid` — exact and complete. Its 45 arrows match, one
-  for one, the 45 direct internal imports `go list` reports across the module
-  (`cmd/fibcalc` 1, `app` 10, `calibration` 7, `cli` 8, `config` 3,
+- `dependency-graph.md` — exact and complete. Its 46 arrows match, one for
+  one, the 46 direct internal imports `go list` reports across the module
+  (`cmd/fibcalc` 2, `app` 11, `calibration` 7, `cli` 7, `config` 3,
   `fibonacci` 5, `orchestration` 4, `tui` 7; every other package is a leaf).
-  **Re-verified 2026-09-03** after the 2026-09 audit: same 45 edges, same
-  distribution — that audit changed behaviour and signatures, not package
-  boundaries. (Previously re-verified 2026-07-11, audit Fable5 ARCH-01.)
-- `container-diagram.mermaid` — every `Rel` **between two `Container`s** is a
-  real import. The one exception is `Rel(user, entry, "Invokes")` (line 19),
-  a `Person` → `Container` relation that is not an import at all. The
+  **Corrected 2026-09-04.** The earlier reading claimed 45 edges and was wrong
+  on three of them, all three around `cli/completion` and `cmd`:
+  `cmd/fibcalc → errors` was missing; `cli → cli/completion` was drawn but
+  does not exist (`internal/cli` never imports it — only `doc.go` mentions it
+  in prose); and the real importer, `app → cli/completion`
+  (`internal/app/app.go` import block, used by `runCompletion` →
+  `completion.Generate`), was missing. The same three corrections were applied
+  to `container-diagram.md`'s `Rel(entry, support, …)`,
+  `Rel(app, support, …)` and `Rel(cli, support, …)` labels.
+  (Previously re-verified 2026-09-03, 2026-08-07 and 2026-07-11 — audit
+  Fable5 ARCH-01 — each time against the same command but with the miscount
+  carried forward.)
+- `container-diagram.md` — every `Rel` **between two `Container`s** is a
+  real import. The one exception is `Rel(user, entry, "Invokes")`, a
+  `Person` → `Container` relation that is not an import at all. The
   `orch → config` edge the diagram used to draw was **false**:
   `internal/orchestration` imports only `errors`, `fibonacci`,
   `fibonacci/memory`, `progress`. It was removed on 2026-08-07, and the real
   `cli → config`, `tui → config`, `calib → config`, `calib → bigfft` edges plus
-  the seven edges into the leaf-package container were added. On 2026-08-07 the
+  the edges into the leaf-package container were added. On 2026-08-07 the
   leaf container was also widened from six packages to nine: it previously
   omitted `fibonacci/memory`, `fibonacci/threshold` and `cli/completion`, so
   `config → fibonacci/memory`, `app → fibonacci/memory`,
   `app → fibonacci/threshold`, `orch → fibonacci/memory`,
-  `fibonacci → fibonacci/memory`, `fibonacci → fibonacci/threshold` and
-  `cli → cli/completion` had no representation. With those nine leaves inside
-  one container, the seven `Rel(*, support, …)` labels now enumerate every
-  remaining direct internal import.
+  `fibonacci → fibonacci/memory` and `fibonacci → fibonacci/threshold` had no
+  representation. With those nine leaves inside one container, the **eight**
+  `Rel(*, support, …)` labels (`entry`, `app`, `config`, `orch`, `fib`, `cli`,
+  `tui`, `calib`) now enumerate every remaining direct internal import — the
+  `entry` one added 2026-09-04 with the `cmd/fibcalc → errors` correction
+  above.
 
-`system-context.mermaid` has no package edges at all — its four `Rel`s are
-to a Person and three external systems. `component-diagram.mermaid` is a
+`system-context.md` has no package edges at all — its four `Rel`s are
+to a Person and three external systems. `component-diagram.md` is a
 `classDiagram`: its arrows are class relations, not imports, and they are
 **not** covered by the import check above. Three of them were false and were
 corrected on 2026-08-07:
@@ -83,7 +114,7 @@ corrected on 2026-08-07:
   `*FibCalculator` has `Name`, `Calculate` and `CalculateWithObservers` and no
   `CalculateCore`, so it does not implement `CoreCalculator` — it composes one
   (`-core CoreCalculator`). Now an aggregation. Same fix applied in
-  `patterns/interface-hierarchy.mermaid`.
+  `patterns/interface-hierarchy.md`.
 - `DoublingFramework --> ProgressSubject` — neither framework ever receives a
   `*ProgressSubject`; `ExecuteDoublingLoop` and `ExecuteMatrixLoop` both take a
   `progress.ProgressCallback`. Retargeted.
@@ -113,7 +144,7 @@ corrected on 2026-08-07:
   i.e. under `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS`, which default
   to false. The edge is real but unreachable in a default run.
 
-Class *members* (field/method listings in `component-diagram.mermaid`) drift
+Class *members* (field/method listings in `component-diagram.md`) drift
 independently from both checks; they were last corrected on 2026-08-07 —
 `tempAllocator`/`BumpAllocator`/`poolAllocator` methods and the
 `DynamicThresholdManager` threshold getters had been shown as exported when the
@@ -125,8 +156,8 @@ its `SquareFunc`. Re-verify members separately from the edge check.
 
 The design-pattern catalogue in [`../README.md`](../README.md) §4 and
 [`../patterns/design-patterns.md`](../patterns/design-patterns.md), and the
-interface signatures in [`../component-diagram.mermaid`](../component-diagram.mermaid)
-and [`../patterns/interface-hierarchy.mermaid`](../patterns/interface-hierarchy.mermaid)
+interface signatures in [`../component-diagram.md`](../component-diagram.md)
+and [`../patterns/interface-hierarchy.md`](../patterns/interface-hierarchy.md)
 (neither `.md` carries a signature), are maintained to match source. Notable
 narrow/wide interface contracts:
 
@@ -145,7 +176,7 @@ the diagrams under [`../flows/`](../flows/):
 - Configuration resolution: CLI flags → env vars → defaults, **uniformly**, the
   three thresholds included since audit M-03 (2026-09). `ParseConfig` marks
   `Threshold`/`FFTThreshold`/`StrassenThreshold` explicit when the user supplied
-  them by flag or by `FIBCALC_*` (`internal/config/config.go:markExplicitThresholds`);
+  them by flag or by `FIBCALC_*` (`internal/config/env.go:markExplicitThresholds`);
   a valid cached calibration profile then fills only the ones left unmarked
   (`internal/app/app.go:New`,
   `internal/calibration/calibration.go:LoadCachedCalibration` → `applyProfileThresholds`),

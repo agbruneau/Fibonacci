@@ -21,7 +21,8 @@ construite par `make build-all`. La compilation **échoue sur toute cible où
 `int` fait 32 bits** — `386`, `arm`, `mips`, `mipsle` — et l'échec est le même
 dans tous les cas : `maxReasonableWords = 1 << 60` (déclaré
 `internal/fibonacci/memory/arena.go:maxReasonableWords`, utilisé trois fois dans
-`arenaTotalWords`) déborde un `int` 32 bits. Vérifié le 2026-08-07 :
+`arenaTotalWords`) déborde un `int` 32 bits. Vérifié le 2026-08-07, revérifié
+le 2026-09-04 sous `go1.27.0` (sortie identique) :
 `GOOS=linux GOARCH=386 go build ./...` et `GOOS=linux GOARCH=arm go build ./...`
 produisent tous deux, mot pour mot, `cannot use maxReasonableWords … (overflows)`
 en `arena.go:26,30` et `maxReasonableWords / 10 … overflows int` en
@@ -97,7 +98,9 @@ Le race detector Go nécessite CGO. La cible canonique `make test` lance
 - **`scripts/check.ps1` n'est plus un repli sans `-race`** (2026-09-03,
   [ADR-0010 D4](adr/0010-audit-2026-09-decisions.md)) : il sonde `CGO_ENABLED`
   et la présence d'un compilateur C, et active `-race` quand les deux sont
-  réunis — relevé sur cet hôte Windows : **21 paquets verts**. Sans chaîne C,
+  réunis — relevé sur cet hôte Windows : **21 paquets verts**, réexécuté le
+  2026-09-04 (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, gcc MinGW-W64 16.1.0 ;
+  `go test -race -count=1 ./...` sort 0, aucun *data race*). Sans chaîne C,
   il retombe sur la même suite sans `-race`. L'ancienne formulation décrivait
   une installation, pas une limite de plate-forme.
 
@@ -163,6 +166,10 @@ passer sans erreur avant tout commit touchant `internal/bigfft/` ou
 Une régression introduisant une dépendance amd64-exclusive non gardée par
 `//go:build` fera échouer immédiatement l'une des cibles ci-dessus.
 
+Vérifié le 2026-09-04 depuis un hôte Windows, en rejouant les six `go build`
+qu'émet `build-all` (`GOOS=<os> GOARCH=<arch> go build -trimpath ./cmd/fibcalc`) :
+les six cibles sortent 0.
+
 ## 6. Limitations connues
 
 - **Pas de bench cross-arch** : les chiffres dans
@@ -182,7 +189,8 @@ Une régression introduisant une dépendance amd64-exclusive non gardée par
   `go build -tags gmp` reste possible sur tout hôte CGO avec libgmp, macOS inclus
   (`brew install gmp`), mais aucun script du dépôt ne le vérifie.
 - **WebAssembly** : non supporté, mais **pas** à cause du noyau de calcul.
-  Vérifié le 2026-08-09 : le noyau de calcul compile pour les deux cibles WASM —
+  Vérifié le 2026-08-09, revérifié le 2026-09-04 (`go1.27.0`, mêmes résultats) :
+  le noyau de calcul compile pour les deux cibles WASM —
   `GOOS=js GOARCH=wasm go build ./internal/bigfft/ ./internal/fibonacci/... ./internal/progress/`
   **passe**, et la même commande sous `GOOS=wasip1 GOARCH=wasm` aussi — alors
   que ces paquets sont précisément

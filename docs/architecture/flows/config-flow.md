@@ -1,8 +1,13 @@
+# Flux de résolution de configuration
+
+Ordre de précédence des sources de configuration et construction de `fibonacci.Options`.
+
+```mermaid
 flowchart LR
-    subgraph Sources["Configuration Sources — for the 3 thresholds, a VALID cached profile OUTRANKS flags and env"]
-        S3[1. Cached Calibration Profile<br/>~/.fibcalc_calibration.json — OVERWRITES<br/>Threshold/FFTThreshold/StrassenThreshold<br/>without reading flag or env]
-        S1[2. CLI Flags<br/>--threshold, --fft-threshold,<br/>--strassen-threshold<br/>+ every other flag: highest priority]
-        S2[3. Environment Variables<br/>FIBCALC_* prefix — read only when the<br/>matching flag is absent from argv]
+    subgraph Sources["Configuration Sources — UNIFORM precedence, the 3 thresholds included since audit M-03 (2026-09)"]
+        S1[1. CLI Flags<br/>--threshold, --fft-threshold,<br/>--strassen-threshold<br/>+ every other flag: highest priority]
+        S2[2. Environment Variables<br/>FIBCALC_* prefix — read only when the<br/>matching flag is absent from argv.<br/>Marks the threshold explicit, same as a flag]
+        S3[3. Cached Calibration Profile<br/>~/.fibcalc_calibration.json — fills ONLY the<br/>thresholds whose *Explicit marker is false<br/>calibration.go:applyProfileThresholds]
         S4[4. Adaptive Hardware Estimation<br/>CPU cores, architecture — fills zeros only]
         S5[5. Static Defaults<br/>constants.go]
     end
@@ -12,7 +17,8 @@ flowchart LR
         S2 --> P1
         P1 --> P2[flag.Parse]
         P2 --> P3[applyEnvOverrides]
-        P3 --> P3b["strings.ToLower on Algo"]
+        P3 --> P3a["markExplicitThresholds (env.go)<br/>flag set OR FIBCALC_* provided<br/>→ Threshold/FFT/Strassen ThresholdExplicit"]
+        P3a --> P3b["strings.ToLower on Algo"]
         P3b --> P4[AppConfig.Validate]
         P4 --> P5[AppConfig struct]
     end
@@ -20,7 +26,7 @@ flowchart LR
     subgraph Calibration["Calibration Resolution (app.New, then Application.Run)"]
         P5 --> C5["LoadCachedCalibration<br/>(app.New — UNCONDITIONAL,<br/>runs before any mode dispatch)"]
         C5 --> C6{Loaded AND Validate ok?}
-        C6 -->|"Yes: version, NumCPU, GOARCH, word size, CPUHeuristicKey all match"| C7["Apply Calibrated Thresholds<br/>DISCARDS any --threshold /<br/>--fft-threshold / --strassen-threshold<br/>and their FIBCALC_* values"]
+        C6 -->|"Yes: version, NumCPU, GOARCH, word size, CPUHeuristicKey all match"| C7["applyProfileThresholds<br/>fills ONLY the thresholds left non-explicit;<br/>a --threshold / --fft-threshold /<br/>--strassen-threshold or FIBCALC_* value survives"]
         C6 -->|No or stale| C8[ApplyAdaptiveThresholds]
         C7 --> C1{--calibrate flag?}
         C8 --> C1
@@ -72,3 +78,7 @@ flowchart LR
     style Options fill:#fce4ec
     style Dynamic fill:#e0f2f1
     style Profile fill:#f5f5f5
+```
+
+---
+[← Retour au hub architecture](../README.md)

@@ -1,3 +1,8 @@
+# Flux d'exécution CLI
+
+De `main.go` au code de sortie : résolution de configuration, dispatch de mode, exécution, présentation.
+
+```mermaid
 flowchart LR
     subgraph Entry["Entry Point"]
         A1[main.go] --> A2[app.New]
@@ -7,7 +12,7 @@ flowchart LR
         A2 --> C1[ParseConfig]
         C1 --> C2["LoadCachedCalibration<br/>(unconditional)"]
         C2 --> C3{Profile loaded AND Validate ok?}
-        C3 -->|Yes| C4["Apply Calibrated Thresholds<br/>OVERWRITES --threshold / --fft-threshold /<br/>--strassen-threshold and their FIBCALC_* values"]
+        C3 -->|Yes| C4["applyProfileThresholds<br/>fills ONLY the thresholds left non-explicit —<br/>a --threshold / --fft-threshold /<br/>--strassen-threshold or FIBCALC_* value<br/>survives (audit M-03, 2026-09)"]
         C3 -->|No| C5[ApplyAdaptiveThresholds]
         C4 --> A3[app.Run]
         C5 --> A3
@@ -79,3 +84,7 @@ flowchart LR
     style Progress fill:#fce4ec
     style Output fill:#e0f2f1
     style ErrorHandling fill:#ffebee
+```
+
+---
+[← Retour au hub architecture](../README.md)

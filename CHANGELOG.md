@@ -172,8 +172,83 @@ ordre** pour tout changement du chemin chaud.
   affirmait qu'un hôte Windows ne pouvait pas exécuter le détecteur, ce qui
   décrivait une installation et non la plate-forme.
 
+### Lint, gosec et documentation à zéro défaut ; purge du dashboard (2026-07-31 → 2026-08-09)
 
-### Changed
+Trois vagues restées hors de ce fichier jusqu'au 2026-09-04, reconstituées
+depuis l'historique git. Elles précèdent l'audit 2026-09 ci-dessus.
+
+#### Build
+
+- **`golangci-lint`, `gosec` et `gofmt` portés à zéro** (commit `c70a495`,
+  2026-08-07) : cinq passes bâtisseur/critique sur toute la source Go, les
+  documents Markdown et les diagrammes Mermaid. Mesuré à ce moment-là —
+  `golangci-lint run ./...` 152 → 0, `gosec ./...` 19 → 0, `gofmt -l .` 1 → 0 —
+  **sans desserrer l'outillage** : `.golangci.yml` n'a changé qu'en commentaires
+  (aucune exclusion élargie, aucun seuil déplacé, aucune règle ajoutée ni
+  retirée). Les `#nosec` tombent de 22 à 13 parce que des sites de suppression
+  ont été **retirés** plutôt qu'annotés : conversions supprimées là où Go accepte
+  déjà un décalage signé, et un vrai garde de borne ajouté dans
+  `internal/bigfft/fft.go:valueSize` (`panic` si `k` dépasse
+  `len(fftSizeThreshold)`), après quoi `gosec` accepte la conversion sans
+  annotation. Recompté le 2026-09-04 : **13 `#nosec`** subsistent. Les comptes
+  de linters ne sont **pas** réexécutés — le gate courant est golangci-lint v2
+  (GATE-01 ci-dessus), pas le v1.64.8 de cette passe.
+
+#### Added
+
+- Trois tests, chacun prouvé mordant — il échoue si l'on mute le code qu'il
+  couvre (`c70a495`) : bornes de `bigfft.valueSize` (un sous-test de chaque côté de la
+  limite), régime permanent d'allocation de `poolAllocator.allocFermatSlice` —
+  le paquet ne mesurait aucune allocation sur son allocateur de production — et
+  le profil de calibration en cache écrasant les flags CLI explicites. Ce
+  dernier épinglait un comportement alors documenté comme délibéré ; il a été
+  **renversé depuis** par [ADR-0010 D1](docs/adr/0010-audit-2026-09-decisions.md).
+
+#### Removed
+
+- **`CLAUDE.md`** (commit `869bd6a`, 2026-07-31) — les 214 lignes de directives
+  que citaient les ADR 0001 (« directive 1 »), 0003 (« directive 4 »), 0004
+  (statut immuable du golden) et 0009 (invariants `bigfft/pool.go`, ×15
+  d'arène). Chacun de ces ADR porte depuis une note de statut marquant le renvoi
+  comme citation historique ; `CONTRIBUTING.md` est la source de vérité du
+  processus, et les invariants concernés vivent dans les doc-comments Go.
+- **Dashboard de graphe de connaissances** (commit `408a0c9`, 2026-08-09) —
+  `docs/dashboard/` (bundle Vite statique et son `knowledge-graph.json` de
+  52 155 lignes), sa publication GitHub Pages, la section de republication de
+  `docs/BUILD.md` (67 lignes) et les liens qui pointaient dessus depuis les
+  documents. La veille, `191aac7` avait réparé le chemin de base des assets — le
+  renommage du dépôt `FibGo` → `Fibonacci` avait cassé les URL Pages, qui ne
+  suivent pas les renommages, contrairement aux URL de module et de clone — puis
+  l'artefact a été abandonné plutôt que maintenu. `.gitignore`, `.gitattributes`
+  et la cible `make stats` perdent leurs exclusions `docs/dashboard/`. L'entrée
+  4.0.0 qui l'annonçait est annotée en conséquence.
+
+#### Docs
+
+- Toutes les références `fichier:ligne` vers la source Go remplacées par des
+  **ancres de symbole** (121 → 3, les trois restantes étant des sorties de
+  compilateur citées) : un refactor ne peut plus les faire pourrir en silence
+  (`c70a495`). C'est la passe qui a produit les notes de statut datées
+  2026-08-07 des ADR 0003, 0004, 0005, 0006 et 0009, ainsi que les recomptes
+  datés du même jour dans les ADR 0001, 0002 et 0007.
+- Commentaires et textes d'aide réalignés sur le code (`191aac7`, 2026-08-09) :
+  `--no-color` n'existe pas — `internal/ui` est initialisé depuis
+  `Config.Quiet || Config.MachineOutput`, et son test `NO_COLOR` utilise
+  `LookupEnv`, donc une valeur vide désactive aussi les couleurs, un cran plus
+  strict que no-color.org et épinglé par test ; `-memory-limit` avorte sur une
+  erreur de configuration au lieu d'avertir ; `MicroBenchTimeout` citait un flag
+  `--quick-calibrate` inexistant.
+- Resynchronisation d'ensemble de `docs/` sur le code (`07fb2ce`, 2026-08-09 ;
+  `b7577a8`, 2026-09-03).
+
+### Vague post-v4.0.0 — audit Fable5 (2026-07-07 → 2026-07-11)
+
+Travail livré après le tag `v4.0.0` et avant les vagues ci-dessus ; renseigné
+au commit `b7190c0`. Titre ajouté le 2026-09-04 : ces cinq sections
+flottaient sans en-tête de vague et se lisaient comme la suite de l'audit
+précédent.
+
+#### Changed
 
 - **Multiplicateur d'arène ×15 → ×10** (`acquireSizingForN`, `arenaTotalWords`) :
   adopté après balayage complet {12, 10, 8, 6} sur la machine de référence Intel
@@ -187,7 +262,7 @@ ordre** pour tout changement du chemin chaud.
   sur un writer d'erreur dédié (stderr côté CLI) ; la table de comparaison reste
   sur stdout. Codes de sortie inchangés (audit Fable5 ERR-02).
 
-### Added
+#### Added
 
 - Gate GMP dans `scripts/check.sh` (étape 3b) : build + vet + test
   `-tags gmp -race`, dur quand les headers libgmp sont présents, SKIP sinon
@@ -196,7 +271,7 @@ ordre** pour tout changement du chemin chaud.
   itération de doublement : `--last-digits` honore désormais `-timeout` et
   Ctrl-C avec un dépassement borné à une itération (audit Fable5 ERR-03).
 
-### Removed
+#### Removed
 
 - **API opt-in `FFTContext`** (`internal/bigfft/context.go`,
   `fft_recursion_ctx.go` : `NewFFTContext`, `Mul/MulTo/Sqr/SqrToWithContext`,
@@ -216,7 +291,7 @@ ordre** pour tout changement du chemin chaud.
   + `thresholdStats` (DEAD-08), `bigfft.allocUnsafe` (DEAD-10),
   `ui.setCurrentTheme` (DEAD-13).
 
-### Fixed
+#### Fixed
 
 - `.gitattributes` épingle `*.sh` en LF (checkout CRLF cassait `check.sh` sous
   WSL avec `core.autocrlf=true`) (2026-07-07).
@@ -247,7 +322,7 @@ ordre** pour tout changement du chemin chaud.
   calibration assertées (TEST-02) ; 5e règle d'architecture
   config ↛ {fibonacci, bigfft} (ARCH-02).
 
-### Docs
+#### Docs
 
 - Exemples migrés de l'API supprimée `GlobalFactory`/`RegisterCalculator` vers
   `NewDefaultFactory` (7 documents) ; `BIGFFT.md` purgé des artefacts supprimés
@@ -424,8 +499,9 @@ baseline is regenerated on demand via `make bench-baseline`.
   disparu. `docs/audits/bench-baseline.txt` est le seul fichier qui subsiste, il
   est suivi par git, et la même entrée 4.0.0 le cite comme vivant plus haut
   (« `docs/audits/bench-baseline.txt` régénérée et committée », TOOL-01) comme
-  plus bas (gate de perf à 5 %). C'est aujourd'hui le seul artefact de mesure du
-  dépôt.
+  plus bas (gate de perf à 5 %). Il a été le seul artefact de mesure du dépôt
+  jusqu'à l'audit 2026-09, qui en a ajouté cinq (recompté le 2026-09-04 :
+  `docs/audits/` contient six fichiers).
 
 #### Performance
 
@@ -768,7 +844,7 @@ been purged ; the ADR series is the surviving source of truth.
 
 ### Added
 
-- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/Fibonacci/dashboard/>. 1128 nodes / 4782 edges / 9 architectural layers / 12-step guided tour (counted in the tracked `docs/dashboard/knowledge-graph.json`, regenerated 2026-07-06), generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build — the `.understand-anything/` source JSON is not tracked in git; only the `docs/dashboard/` bundle is. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages).
+- **Interactive knowledge-graph dashboard** published on GitHub Pages: <https://agbruneau.github.io/Fibonacci/dashboard/>. 1128 nodes / 4782 edges / 9 architectural layers / 12-step guided tour (counted in the tracked `docs/dashboard/knowledge-graph.json`, regenerated 2026-07-06), generated from `.understand-anything/knowledge-graph.json` via the `understand-anything` plugin and bundled into `docs/dashboard/` as a static Vite build — the `.understand-anything/` source JSON is not tracked in git; only the `docs/dashboard/` bundle is. Republish steps documented in [docs/BUILD.md — Dashboard statique (GitHub Pages)](docs/BUILD.md#dashboard-statique-github-pages). **Supprimé depuis** (annoté le 2026-09-04, entrée 4.0.0 conservée telle qu'elle a été publiée) : le bundle, la publication Pages et la section BUILD.md citée ici ont été purgés le 2026-08-09 — voir l'entrée « Dashboard de graphe de connaissances » sous Unreleased (2026-07-31 → 2026-08-09). Les deux liens de cette ligne sont morts.
 - **Interactive TUI mode**: btop-style dashboard built with Bubble Tea (Elm architecture), featuring real-time progress charts, algorithm comparison, and keyboard navigation
 - Portable arithmetic fallback for non-amd64 architectures (`arith_generic.go`)
 - Godoc example functions for `Calculator`, `DefaultFactory`, and `CalculateWithObservers`

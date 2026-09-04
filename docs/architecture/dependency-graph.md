@@ -1,3 +1,11 @@
+# Graphe des dépendances internes
+
+Les 46 imports internes directs du module, un par arête — ni plus, ni moins. Le pipeline
+`go list` qui établit cette égalité d'ensembles est dans le
+[relevé de validation](./validation/validation-report.md#layer-tightness--dependency-direction)
+(exécuté le 2026-09-04, `diff` vide).
+
+```mermaid
 flowchart LR
     subgraph Entry["Entry Point"]
         main["cmd/fibcalc<br/>main.go"]
@@ -40,6 +48,7 @@ flowchart LR
     end
 
     main --> app
+    main --> errors
     app --> config
     app --> orch
     app --> cli
@@ -72,7 +81,6 @@ flowchart LR
     fib --> fibmem
     fib --> fibthr
 
-    cli --> completion
     cli --> format
     cli --> errors
     cli --> metrics
@@ -91,6 +99,7 @@ flowchart LR
 
     app --> fibmem
     app --> fibthr
+    app --> completion
 
     style Entry fill:#e1f5fe
     style Tooling fill:#ede7f6
@@ -99,3 +108,7 @@ flowchart LR
     style Business fill:#e8f5e9
     style Presentation fill:#fce4ec
     style Support fill:#f5f5f5
+```
+
+---
+[← Retour au hub architecture](./README.md)

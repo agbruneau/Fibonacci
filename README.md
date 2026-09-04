@@ -19,19 +19,23 @@ Ce qu'on y expérimente : algorithmique (Fast Doubling, exponentiation matriciel
 | **2026-06-24** | Revue Go exhaustive — Claude Opus 4.8, orchestration multi-agents, vérification adversariale | Trois défauts de correctness corrigés (panic de la récursion FFT parallèle re-propagée au lieu de crasher — ADR-0002 ; `--algo all --quiet` ne masque plus une divergence — exit 3 ; messages TUI obsolètes ignorés après *Restart*), durcissements (`GOMEMLIMIT`, troncature UTF-8, complétion shell, codes de sortie), purge de code mort. Chemin critique validé sans régression (`benchstat`) — [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07** | Audit exhaustif multi-agents (8 dimensions) — Claude Opus 4.8 pilote, exécuteurs Sonnet, vérification adversariale — **exécuté** (6 phases, ~30 commits) | ~40 findings corrigés (dont panic pointeur/tri, `--gc-control` inerte, complétions shell, data race spinner, correctifs calibration + re-validation profil forgé SEC-01, `bigfft` alloc pool non initialisée + ordonnancement panic FFT-02), ~500 LOC de code mort retiré, couverture 95,0 % → **95,2 %**, build `gmp` réparé, `benchstat` global **sans régression réelle**. FIB-05 (réduction du multiplicateur d'arène) initialement **rejetée sur preuve Ryzen** (+18 à +34 % à F(10M)) → [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) / [`CHANGELOG.md`](CHANGELOG.md) |
 | **2026-07-07** | Suivi post-audit — exécution des 5 tâches à plus fort levier + **release v4.0.0** | Tag `v4.0.0` (première coupe CHANGELOG depuis 1.0.0) ; backend **GMP branché au gate local** (`check.sh` étape 3b, libgmp dans WSL) ; profil **PGO régénéré** ; **balayage complet du multiplicateur d'arène** (protocole ADR-0009 R4) → **×15 → ×10 adopté** : mémoire FFT 10M **−16 % B/op** à coût CPU nul, confirmé en ordre inversé (addendum [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) |
-| **2026-08-07** | Audit qualité et documentation — Claude Opus 5, boucle bâtisseur/critique sur cinq tours (source Go entière, 30 documents markdown, 11 diagrammes Mermaid) | Outillage **mesuré, non affirmé** : `golangci-lint` **152 → 0**, `gosec` **19 → 0**, `gofmt -l` **1 → 0**, build/vet/test verts de bout en bout — **sans desserrer les outils** (`.golangci.yml` inchangé hors commentaires, `//nolint` stable à 4, `#nosec` **22 → 13** par retrait des sites, non par annotation). Tests **gagnés** : 877 → **879** fonctions, 408 → **410** sous-tests, 2 291 → **2 305** assertions (⚠ la même ligne affirmait « zéro `t.Skip` » : relevé du 2026-08-10, l'arbre en porte **17 dans 12 fichiers**, tous des gardes `-short` ou d'architecture — aucun test désactivé sans condition). Documentation confrontée à la source, une commande par affirmation ; **121 → 3** renvois `fichier:ligne` vers du Go, convertis en ancres de symbole. **Deux comportements documentés et délibérément inchangés** : un profil de calibration valide écrase les trois seuils explicites (⚠ tous les documents affirmaient l'inverse) et `GetDefaultProfilePath` retombe sur un nom relatif si `os.UserHomeDir` échoue. *Le premier a été renversé par l'audit 2026-09 (M-03) : le flag explicite l'emporte désormais, et le test qui épinglait l'ancien sens est devenu `TestNewExplicitFlagsBeatCachedProfile`.* Chiffre de performance sans artefact : **retiré**, non reformulé — [`CHANGELOG.md`](CHANGELOG.md) |
-| **2026-09-03** | Audit exhaustif du code Go de production — Claude Opus 5, exécution phase par phase du plan (`audit.md`, 23 constats) | Trois défauts hauts corrigés, **mesurés** : le code de sortie TUI d'un calcul terminé était écrasé par une annulation ultérieure (exit 2 ou 130 sur un succès) ; la sentinelle `-1` de la calibration était rejetée par la validation, faisant **jeter le profil en silence à chaque démarrage** ; `--memory-limit` sous-estimait la mémoire réelle d'un facteur **5 à 12** (12 Mo annoncés pour 141 Mo réels à F(10M)). Outillage : `golangci-lint` **ne pouvait plus s'exécuter** sous go1.27 alors que les scripts écrivaient `Overall: PASS` — migration v2 et lint rendu **bloquant** ; `-race` activé sous Windows (21 paquets verts). Deux recommandations **rejetées sur preuve** : le plafond de cache FFT à ×4 (+22 % sec/op sur MatrixExp/10M) et la suppression de quatre « symboles morts » qui sont des oracles de test. Le gain DTM de 5-6 % d'ADR-0001 **ne se reproduit pas** à `-count=8` — flag livré, défaut laissé à `false` — [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md) / [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-08-07** | Audit qualité et documentation — Claude Opus 5, boucle bâtisseur/critique sur cinq tours (source Go entière, 30 documents markdown, 11 diagrammes Mermaid) | Outillage **mesuré, non affirmé** : `golangci-lint` **152 → 0**, `gosec` **19 → 0**, `gofmt -l` **1 → 0**, build/vet/test verts de bout en bout — **sans desserrer les outils** (`.golangci.yml` inchangé hors commentaires, `//nolint` stable à 4, `#nosec` **22 → 13** par retrait des sites, non par annotation). Tests **gagnés** : 877 → **879** fonctions, 408 → **410** sous-tests, 2 291 → **2 305** assertions (⚠ la même ligne affirmait « zéro `t.Skip` » ; recompté le 2026-09-04, l'arbre en porte **19 dans 13 fichiers**, tous des gardes `-short` ou d'architecture — aucun test désactivé sans condition). Documentation confrontée à la source, une commande par affirmation ; **121 → 3** renvois `fichier:ligne` vers du Go, convertis en ancres de symbole. **Deux comportements documentés et délibérément inchangés** : un profil de calibration valide écrase les trois seuils explicites (⚠ tous les documents affirmaient l'inverse) et `GetDefaultProfilePath` retombe sur un nom relatif si `os.UserHomeDir` échoue. *Le premier a été renversé par l'audit 2026-09 (M-03) : le flag explicite l'emporte désormais, et le test qui épinglait l'ancien sens est devenu `TestNewExplicitFlagsBeatCachedProfile`.* Chiffre de performance sans artefact : **retiré**, non reformulé — [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-09-03** *(1)* | Audit exhaustif du code Go de production — Claude Opus 5, exécution phase par phase du plan (`audit.md`, 23 constats) | Trois défauts hauts corrigés, **mesurés** : le code de sortie TUI d'un calcul terminé était écrasé par une annulation ultérieure (exit 2 ou 130 sur un succès) ; la sentinelle `-1` de la calibration était rejetée par la validation, faisant **jeter le profil en silence à chaque démarrage** ; `--memory-limit` sous-estimait la mémoire réelle d'un facteur **5 à 12** (12 Mo annoncés pour 141 Mo réels à F(10M)). Outillage : `golangci-lint` **ne pouvait plus s'exécuter** sous go1.27 alors que les scripts écrivaient `Overall: PASS` — migration v2 et lint rendu **bloquant** ; `-race` activé sous Windows (21 paquets verts). Deux recommandations **rejetées sur preuve** : le plafond de cache FFT à ×4 (+22 % sec/op sur MatrixExp/10M) et la suppression de quatre « symboles morts » qui sont des oracles de test. Le gain DTM de 5-6 % d'ADR-0001 **ne se reproduit pas** à `-count=8` — flag livré, défaut laissé à `false` — [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md) / [`CHANGELOG.md`](CHANGELOG.md) |
+| **2026-09-03** *(2)* | Audit de sur-ingénierie sur tout le code Go de production — Claude Opus 5, passe « ponytail » (ce qui ne fait que déléguer, la flexibilité sans appelant, la bibliothèque standard réécrite) | Un défaut trouvé en chemin : **`go build -tags gmp` ne compilait plus** — `calculator_gmp.go` appelait trois symboles de `progress` supprimés par L-01. Réparé sans pouvoir être recompilé (⚠ toujours vrai ici : `go build -tags gmp ./internal/fibonacci/` échoue sur `gmp.h: No such file or directory`, faute d'en-têtes libgmp). Une optimisation : `--details` payait une **seconde conversion décimale complète** pour la ligne « Scientific notation » — `fmt.Sprintf("%.6e", big.Float.SetInt(x))` matérialise l'entier entier, mesuré à **345 ms** à F(10M), soit le coût du `String()` que L-11 venait justement de dédupliquer ; la notation est désormais dérivée de la chaîne déjà en main, arrondi demi-pair épinglé par `TestScientificNotation_MatchesBigFloat`. Puis ~25 suppressions ou replis **sans changement de comportement observable** (`app.ExitAction` et son aller-retour int → enum → int, la table de parsing d'`env.go` réduite de 140 à 20 lignes, trois `findBest*Threshold` identiques repliés en un, la queue de réduction dupliquée entre `fermat.Mul` et `fermat.Sqr`). Trois familles de candidats **écartées, avec le motif** : les wrappers `*Safe` de `fermat.go` (supprimés puis restaurés — ADR-0002 §5 les garde comme documentation testée du contrat de pré-conditions), la flexibilité que seuls les tests exercent (la retirer supprimerait les tests avec elle), les triplications qu'impose `TestArchitectureLayering`. `benchstat` A/B en **double ordre** : le chemin chaud bouge de moins de 1 %, et le +4 % de `FastDoubling/1M` s'inverse quand l'ordre s'inverse — bruit d'ordre, sous le seuil de 5 % — [ADR-0011](docs/adr/0011-audit-2026-09-ponytail.md) / [`CHANGELOG.md`](CHANGELOG.md) |
 
 ⚠ **Limites déclarées par la passe du 2026-08-07.** La première est **levée** : `-race` tourne
 désormais sur l'hôte et passe sur les 21 paquets (2026-09-03), et `check.ps1` l'active
-automatiquement quand CGO et un compilateur C sont présents. La seconde tient : l'arbre
-**ne compile pas pour une cible 32 bits** (`maxReasonableWords` déborde un `int` 32 bits).
+automatiquement quand CGO et un compilateur C sont présents. La seconde tient — revérifiée le
+2026-09-04, `GOARCH=386 go build ./...` échoue toujours : l'arbre **ne compile pas pour une cible
+32 bits**, `maxReasonableWords` (`1 << 60`, `internal/fibonacci/memory/arena.go`) débordant un `int`
+32 bits.
 `TestStateBump_PinnedAcrossCachedCalls` est *flaky* au même taux sur le commit parent (un test
 antérieur laisse une arène surdimensionnée dans le pool d'état global).
 
-☑ **Gate rejoué le 2026-09-03** (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) : `go build`,
-`go vet`, `go test ./...`, `go test -race ./...` sur les 21 paquets, `gofmt -l .` sans sortie et
-`golangci-lint run ./...` à **zéro finding**.
+☑ **Gate rejoué le 2026-09-04 sur `d2aa36a`** (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
+`go build`, `go vet`, `go test ./...`, `go test -race ./...` sur les 21 paquets, `gofmt -l .` sans
+sortie et `golangci-lint run ./...` à **zéro finding**. Une seule cible reste hors gate sur cet hôte :
+`go build -tags gmp`, faute d'en-têtes libgmp (voir le tableau ci-dessus).
 ⚠ Le relevé du 2026-08-10 annonçait `golangci-lint` à 0 avec la v1.64.8 ; sous `go1.27` ce binaire
 **ne peut plus s'exécuter du tout** (`export data version 4`), et les scripts de gate traitaient le
 lint comme consultatif — ils affichaient l'échec puis `Overall: PASS`. Le zéro publié restait vrai à
@@ -57,18 +61,22 @@ n'en est pas une non plus.*
 
 ## Démarrage rapide
 
-Prérequis : **Go 1.26.0+**. Toutes les commandes ci-dessous ont été exécutées telles quelles le 2026-07-07
-(hôte Windows 11 + WSL2). Sous Windows natif, `-o fibcalc` produit un fichier **sans extension** que le
-shell refuse d'exécuter : écrire `go build -o fibcalc.exe ./cmd/fibcalc` puis `.\fibcalc.exe`.
+Prérequis : **Go 1.26.0+** (`go.mod` déclare `go 1.26.0`, sans directive `toolchain`). Sous Windows natif,
+`-o fibcalc` produit un fichier **sans extension** que le shell refuse d'exécuter : écrire
+`go build -o fibcalc.exe ./cmd/fibcalc` puis `.\fibcalc.exe`.
 
 ```bash
 git clone https://github.com/agbruneau/FibGo.git
 cd FibGo
 go build -o fibcalc ./cmd/fibcalc
-./fibcalc -n 1000000 -algo fast        # F(1 000 000) : 5 ms, 694 241 bits
-./fibcalc -n 100 -c                    # petit indice, valeur affichée
+./fibcalc -n 1000000 -algo fast        # 694 241 bits (la durée dépend de l'hôte, cf. Performance)
+./fibcalc -n 100 -c                    # → 354224848179261915075
 ./fibcalc -tui -n 5000000 -algo all    # dashboard TUI interactif (terminal requis)
 ```
+
+Les deux premières lignes ont été réexécutées telles quelles le 2026-09-04 (Windows 11 natif,
+`go1.27.0`) et rendent les sorties annotées ci-dessus. La troisième ne l'est pas : `-tui` exige un
+terminal interactif.
 
 Avec GNU make (Linux/macOS/WSL — absent par défaut sous Windows, voir les équivalents `go` plus bas) :
 
@@ -139,7 +147,7 @@ et n'importe aucun package interne. Étanchéité gardée par `internal/arch_tes
 (cinq règles d'import montant interdit — six arêtes, la dernière en couvrant deux).
 Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 [`docs/architecture/`](docs/architecture/) (diagrammes C4,
-[graphe de dépendances](docs/architecture/dependency-graph.mermaid)).
+[graphe de dépendances](docs/architecture/dependency-graph.md)).
 
 | Package | Responsabilité |
 |---|---|
@@ -160,23 +168,41 @@ Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 
 ## Performance
 
-Médianes recalculées à partir du **seul artefact de mesure du dépôt**,
-[`docs/audits/bench-baseline.txt`](docs/audits/bench-baseline.txt) (linux/amd64, 24 threads,
-`-count=5 -benchtime=1x`, estampille `baseline-2026-07-07`, arène ×10) :
+Médianes recalculées à partir de [`docs/audits/bench-baseline.txt`](docs/audits/bench-baseline.txt)
+(linux/amd64, 24 threads, `-count=5 -benchtime=1x`, estampille `baseline-2026-07-07`, arène ×10) —
+**seul artefact de débit** du dépôt. Les cinq autres fichiers de [`docs/audits/`](docs/audits/) sont
+des A/B ciblés (DTM, cache FFT, memclr des pools, stabilité du micro-benchmark) ou un relevé mémoire :
+ils comparent deux variantes dans une même session, ils ne mesurent pas un débit de référence.
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
 |---|---|---|---|---|
 | 1 000 000 | **3,15 ms** / 1,32 Mo par op | 6,03 ms / 6,33 Mo | 5,13 ms / 5,38 Mo | 208 988 |
 | 10 000 000 | **23,87 ms** / 17,38 Mo par op | 30,84 ms / 92,25 Mo | 29,08 ms / 30,88 Mo | 2 089 877 |
 
-`-benchtime=1x` : une itération par échantillon, rodage compris. Aucune autre valeur de N n'est
-mesurée dans le dépôt. Pour F(100 000 000), le seul chiffre traçable est le **0,204 s** de calcul seul
-(sans conversion décimale) consigné dans [`CHANGELOG.md`](CHANGELOG.md) au 2026-06-09 ; il n'a pas
-d'artefact de sortie archivé.
+`-benchtime=1x` : une itération par échantillon, rodage compris. **Aucune autre valeur de N n'est
+chronométrée dans le dépôt** (la mémoire, elle, l'est à sept points — voir plus bas). Pour
+F(100 000 000), le seul chiffre de durée traçable est le **0,204 s** de calcul seul (sans conversion
+décimale) consigné dans [`CHANGELOG.md`](CHANGELOG.md) au 2026-06-09 ; il n'a pas d'artefact de sortie
+archivé.
 
 Côté mémoire, l'adoption du multiplicateur d'arène ×10 (2026-07-07) réduit les B/op FFT à F(10M) de **−16 %**
 vs ×15, allocations inchangées — gain confirmé en ordre d'exécution inversé (addendum
 [ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)).
+
+L'**empreinte réelle du processus** est un chiffre distinct des B/op ci-dessus : elle est relevée dans
+[`docs/audits/mem-baseline-2026-09.txt`](docs/audits/mem-baseline-2026-09.txt) (delta de
+`runtime.MemStats.Sys`, **un processus par point** — `Sys` ne redescend jamais, plusieurs points dans un
+même processus ne rapporteraient que leur maximum) :
+
+| N | `-algo fast` | `-algo fft` | `-algo matrix` | `-algo all` (défaut, trois calculateurs de front) |
+|---|---|---|---|---|
+| 1 000 000 | 9 Mo | 18 Mo | 13 Mo | 23 Mo |
+| 10 000 000 | 62 Mo | 67 Mo | 141 Mo | 101 Mo |
+| 100 000 000 | 617 Mo | 460 Mo | — | — |
+
+C'est cet ordre de grandeur que l'estimation de `--memory-limit` manquait d'un facteur 5 à 12 avant
+l'audit 2026-09 : 12 Mo annoncés pour 141 Mo réels à F(10M). Le modèle actuel ne passe jamais sous le
+réel et le majore d'au plus **2,47×** ; il reste donc une borne haute, pas une prédiction.
 
 **Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
 validation croisée ; `fft` est plus lent que `fast` aux deux seules tailles mesurées (F(1M) et F(10M)) —
@@ -286,10 +312,13 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
-- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0010, plus `0000-template.md`).
-  ⚠ **Dernier audit : 2026-09-03** (code Go de production, 23 constats) — décisions retenues et candidats
-  rejetés sur mesure dans [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md) ; son plan de travail
-  (`audit.md`) a été **retiré de l'arbre** une fois exécuté et se relit à l'historique git.
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0011, plus `0000-template.md`).
+  ⚠ **Dernier audit : 2026-09-03**, en deux passes — l'audit exhaustif (23 constats,
+  [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md)) puis la passe de sur-ingénierie
+  ([ADR-0011](docs/adr/0011-audit-2026-09-ponytail.md)). Les deux ADR consignent les décisions retenues
+  **et** les candidats rejetés, avec la mesure ou l'ADR qui les rejette, pour qu'un audit futur ne les
+  re-propose pas sans élément nouveau. Le plan de travail du premier (`audit.md`) a été **retiré de
+  l'arbre** une fois exécuté et se relit à l'historique git.
   Les audits 2026-07 ([ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) et 2026-08-07
   ont suivi la même règle ; celui de 2026-08-07 **n'a pas d'ADR** — il ne tranchait aucune décision
   d'architecture, et son journal de boucle (`gauntlet-log.md`) a été retiré le 2026-08-08.
@@ -345,5 +374,6 @@ optimisation 2026 réalisés avec [Claude Fable 5](https://www.anthropic.com/new
 Claude Opus 4.8 et Claude Opus 5 (Anthropic) : audit exhaustif 2026-07 (~40 findings, orchestration
 multi-agents — Claude Opus 4.8 pilote, exécuteurs Claude Sonnet), suivi 2026-07-07 (release v4.0.0, gate GMP,
 balayage arène ×10 — Claude Fable 5), audit qualité et documentation 2026-08-07 (boucle
-bâtisseur/critique, lint et gosec à zéro — Claude Opus 5), puis audit exhaustif du code Go 2026-09-03
-(23 constats, trois défauts hauts corrigés, lint rendu bloquant — Claude Opus 5).
+bâtisseur/critique, lint et gosec à zéro — Claude Opus 5), audit exhaustif du code Go 2026-09-03
+(23 constats, trois défauts hauts corrigés, lint rendu bloquant — Claude Opus 5), puis passe de
+sur-ingénierie 2026-09-03 (~25 suppressions ou replis, build `gmp` réparé — Claude Opus 5).

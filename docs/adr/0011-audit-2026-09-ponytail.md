@@ -110,6 +110,13 @@ l'exerce le plus, bouge de moins de 1 % dans les deux ordres. Le +4 % de
 `FastDoubling` s'inverse quand l'ordre s'inverse : bruit d'ordre, sous le seuil
 de 5 % de la Directive #1.
 
+**Provenance** (annotée le 2026-09-04) : contrairement aux mesures de l'audit
+2026-09, cette table n'a **pas** d'artefact dans `docs/audits/` — elle vit ici
+et dans le message du commit `d2aa36a`. Elle n'a pas été réexécutée depuis. La
+reproduire demande un A/B `benchstat` de `d2aa36a^` contre `d2aa36a` sur
+`go test -bench='BenchmarkFibonacci/(FastDoubling|FFTBased)/1M' -benchmem
+-run='^$' -count=8 ./internal/fibonacci/`, dans les deux ordres, même session.
+
 ## References
 
 - CHANGELOG « Audit de sur-ingénierie 2026-09-03 ».

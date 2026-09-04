@@ -1,3 +1,8 @@
+# Flux TUI (Bubble Tea)
+
+Cycle Elm du tableau de bord interactif : initialisation, pont `programRef`, messages, `Update`, `View`, raccourcis.
+
+```mermaid
 flowchart LR
     subgraph Init["TUI Initialization"]
         A1[app.runTUI] --> A1a["tui.Run: NewModel, then tea.NewProgram,<br/>then ref.SetProgram(p)"]
@@ -71,3 +76,7 @@ flowchart LR
     style Update fill:#e8f5e9
     style View fill:#fce4ec
     style KeyBindings fill:#f5f5f5
+```
+
+---
+[← Retour au hub architecture](../README.md)

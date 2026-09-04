@@ -100,10 +100,10 @@ go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$
 
 ## Performance
 
-**This repo contains no GMP measurement.** `docs/audits/bench-baseline.txt` is the
-only benchmark artifact tracked, and it covers `FastDoubling`, `MatrixExp` and
-`FFTBased` only — `BenchmarkGMPCalculator` is behind the `gmp` build tag and its
-output has never been archived here. Earlier revisions of this page carried
+**This repo contains no GMP measurement.** Every benchmark artifact in
+[`docs/audits/`](../audits/) covers `FastDoubling`, `MatrixExp` and `FFTBased`
+only — `BenchmarkGMPCalculator` is behind the `gmp` build tag, so no artifact
+here could contain it, and none does. Earlier revisions of this page carried
 figures for CGO call overhead, a crossover around N = 1,000,000 and a net GMP
 advantage above N = 100,000,000; none of them was ever backed by a run in this
 repo, so they were removed on 2026-08-07 rather than restated more cautiously.

@@ -1,3 +1,8 @@
+# Pipeline Matrix Exponentiation
+
+Exponentiation binaire de la matrice Q, décision Strassen, et retour du résultat par vol de pointeur.
+
+```mermaid
 flowchart LR
     subgraph Input["Input Processing"]
         A1[FibCalculator.Calculate] --> A2{n <= 93?}
@@ -50,3 +55,7 @@ flowchart LR
     style Multiply fill:#e8f5e9
     style BigMul fill:#fce4ec
     style Result fill:#f5f5f5
+```
+
+---
+[← Retour au hub architecture](../README.md)

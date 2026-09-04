@@ -151,10 +151,21 @@ func (m Model) View() string {
 +-----------------------------------------------------------------------------+
 ```
 
-Constants: `headerHeight=1`, `footerHeight=1`, `minBodyHeight=4`, `MetricsPanelHeight=7`.
+Constants (`internal/tui/layout.go`): `headerHeight=1`, `footerHeight=1`,
+`minBodyHeight=4`, `LogsPanelWidthPercent=60`, `MetricsPanelHeight=7`,
+`minNormalWidth=80`, `minNormalHeight=20`, `compactMetricsHeight=3`.
 
 `layoutPanels()` is called on every `WindowSizeMsg`: logsWidth = 60%, rightWidth = 40%,
 metricsH = MetricsPanelHeight (7), dropping to compactMetricsHeight (3) on short terminals (height < minNormalHeight, 20) via isShort(), then capped at half the right-column height; chartH = remaining body height.
+
+Two adaptive switches (R4.10) drive the layout, and `View()` reads the first of
+them directly:
+
+- `isNarrow()` — width < `minNormalWidth` (80): single column. The logs panel
+  takes the full width and the metrics + chart stack below it, each getting
+  roughly half the body height (`rightColumnHeight()`).
+- `isShort()` — height < `minNormalHeight` (20): the metrics panel shrinks from
+  7 rows to `compactMetricsHeight` (3) so logs and chart keep room.
 
 ---
 
@@ -296,7 +307,12 @@ positions of `AnalyzeComparisonResults`.
 | `PresentComparisonTable()` | `ResultPresenter` | `ComparisonResultsMsg` |
 | `PresentResult()` | `ResultPresenter` | `FinalResultMsg` |
 | `HandleError()` | `ErrorHandler` | `ErrorMsg`, then returns `apperrors.HandleCalculationError`'s exit code |
-| `FormatDuration()` | no orchestration interface — plain method, mirrored on `cli.CLIResultPresenter`; only tests call it | Delegates to `format.FormatExecutionDuration()` (`internal/format`) |
+
+Those three are the whole surface: the `FormatDuration()` method this table used
+to list was deleted along with its `cli.CLIResultPresenter` twin (commit
+`d2aa36a`, [ADR-0011](adr/0011-audit-2026-09-ponytail.md) — dead wrappers whose
+only callers were tests). `grep -rn FormatDuration --include=*.go .` now returns
+nothing.
 
 ---
 

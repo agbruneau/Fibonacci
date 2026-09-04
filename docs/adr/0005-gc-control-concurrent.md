@@ -78,3 +78,27 @@ L'accesseur d'observabilité `GCController.Stats()` (et le type `GCStats`) a
 `gc.startStats` / `gc.endStats` subsistent, désormais consommés uniquement par
 les logs de `Begin()`/`End()`. La décision de sérialisation par refcount
 ci-dessus est inchangée.
+
+## Status note (2026-09-04) — la vérification `-race` différée est exécutée
+
+Le Context (« l'aspect *data race* dynamique reste `[à vérifier]` sous `-race`
+(indisponible localement : `CGO_ENABLED=0`) ») et la mitigation « *Confirmation
+data race* » des Risks décrivaient une vérification jamais faite. Elle l'est.
+
+La prémisse d'indisponibilité était fausse et non la plate-forme :
+[ADR-0010 §D4](0010-audit-2026-09-decisions.md) a établi que `go test -race`
+passe sur les **21 paquets** de cet hôte Windows (`CGO_ENABLED=1`, chaîne C
+présente), et `scripts/check.ps1` sonde désormais les deux conditions pour
+activer `-race`. La commande exacte que citait la mitigation a été rejouée le
+2026-09-04 :
+
+```
+CGO_ENABLED=1 go test -race -count=1 \
+  -run 'TestGCController|TestExecuteCalculations' \
+  ./internal/fibonacci/memory/ ./internal/orchestration/
+ok  github.com/agbruneau/FibGo/internal/fibonacci/memory   1.364s
+ok  github.com/agbruneau/FibGo/internal/orchestration      1.398s
+```
+
+Aucune course rapportée. La décision reste inchangée ; seule la mention
+« WSL/Linux requis » est caduque.

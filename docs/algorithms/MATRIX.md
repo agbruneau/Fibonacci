@@ -403,14 +403,40 @@ matrix path.
 The per-iteration row follows `ExecuteMatrixLoop`: every iteration but the last
 squares (4 multiplications), and an iteration whose exponent bit is set adds one
 full matrix multiplication (7 or 8) on top. The performance row is the median of
-the five samples per case in `docs/audits/bench-baseline.txt` — the only
-benchmark artifact in the repo, covering N = 1M and N = 10M and nothing else.
+the five samples per case in [`docs/audits/bench-baseline.txt`](../audits/bench-baseline.txt),
+which covers N = 1M and N = 10M and nothing else.
 [`../PERFORMANCE.md`](../PERFORMANCE.md) warns the time ordering can invert at
-N ≥ 10M on some CPUs, and holds that only the memory ordering is
-hardware-independent: on the same artifact Fast Doubling allocates ~4.8x fewer
+N ≥ 10M on some CPUs. On the same artifact Fast Doubling allocates ~4.8x fewer
 bytes per op than Matrix at F(1M) and ~5.3x fewer at F(10M) (17.38 MB vs
-92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak
-RSS; no peak-memory measurement exists in this repo.
+92.25 MB).
+
+**Allocated bytes are not resident bytes, and the two disagree here.** The
+`-benchmem` B/op figure counts every byte the allocator ever handed out during
+an op; it says nothing about how much is live at once. The repo does carry a
+resident measurement — [`docs/audits/mem-baseline-2026-09.txt`](../audits/mem-baseline-2026-09.txt),
+`runtime.MemStats.Sys` delta across one calculation, **one process per data
+point** (Sys never shrinks, so several points in one process would report a
+shared high-water mark):
+
+| n | `fast` | `fft` | `matrix` |
+|---|---|---|---|
+| 1,000,000 | 9 MB | 18 MB | **13 MB** |
+| 10,000,000 | 62 MB | 67 MB | **141 MB** |
+
+At F(10M) the resident gap is **2.3x**, not the 5.3x the B/op ratio suggests —
+most of Matrix's extra allocation is churn through pooled and arena-backed
+buffers, not retained footprint. At F(1M) the two metrics disagree on the
+*order*: Matrix allocates more than FFT-Based (6.33 MB vs 5.38 MB B/op) yet
+holds less (13 MB vs 18 MB Sys). Quote whichever number answers the question
+being asked, and do not read one as a proxy for the other.
+
+This also qualifies [`../PERFORMANCE.md`](../PERFORMANCE.md)'s claim that Fast
+Doubling's memory advantage is the hardware-independent part of the ranking.
+It holds at F(10M) on both metrics, but at F(1M) the Matrix / FFT-Based order
+depends on which metric you pick — and the two artifacts are from different
+hosts and operating systems (linux/amd64 for `bench-baseline.txt`,
+windows/amd64 for `mem-baseline-2026-09.txt`), so the disagreement is not
+demonstrably a metric effect alone.
 
 ## Usage
 

@@ -1,3 +1,8 @@
+# System Context — C4 niveau 1
+
+FibCalc vu de l'extérieur : l'utilisateur, et les trois systèmes externes que le binaire touche (GMP optionnel, OS, système de fichiers).
+
+```mermaid
 C4Context
     title System Context Diagram — FibCalc (C4 Level 1)
 
@@ -13,3 +18,7 @@ C4Context
     Rel(fibcalc, gmp, "Uses for GMP-accelerated fast doubling (optional)")
     Rel(fibcalc, os, "Reads CPU/memory stats, handles signals")
     Rel(fibcalc, fs, "Reads/writes calibration profiles")
+```
+
+---
+[← Retour au hub architecture](./README.md)
