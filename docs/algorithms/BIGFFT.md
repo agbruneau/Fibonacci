@@ -659,9 +659,23 @@ type TransformCache struct {
 ### Why Cache?
 
 When the same big integer is transformed more than once, the cached forward FFT
-transform avoids recomputing it. The repo carries **no measurement of a speedup**
-from this on any path. Two artifacts touch the cache and neither answers the
-question: `docs/audits/bench-baseline.txt` measures whole calculators without
+transform avoids recomputing it. **On the one production path that reaches the
+cache at all, the saving has been measured — and it is zero.**
+[`docs/audits/mem-baseline-2026-09.txt`](../audits/mem-baseline-2026-09.txt)
+instruments F(10M) on the matrix path and records `0 hits, 27 misses` both before
+and after the `MaxBytes` bound was introduced (20 entries retained, then 1). The
+zero is not an instrumentation artifact: operand values change on every iteration,
+so a transform is cached and never read back — which is what the P2-01 note on
+`Options.FFTCacheMinBitLen` predicted before anyone measured it. (That artifact's
+closing line, "the cache is therefore bounded tightly (4x the size of F(n))",
+states an intent that was reversed afterwards: tightening to 4x measured **+22 %
+sec/op** at MatrixExp/10M and was rejected. The shipped factor is 48 —
+`FFTCacheMaxBytesFactor`, `internal/fibonacci/constants.go` — per
+[ADR-0010 R1](../adr/0010-audit-2026-09-decisions.md).)
+
+What remains unmeasured is caching against *no* caching, anywhere. Two other
+artifacts touch the cache without answering that:
+`docs/audits/bench-baseline.txt` measures whole calculators without
 varying the cache at all, and
 [`docs/audits/bench-fftcache-2026-09.txt`](../audits/bench-fftcache-2026-09.txt)
 varies only its **byte bound** (`MaxBytes` 4x vs 48x), never its enabled/disabled

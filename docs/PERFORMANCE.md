@@ -76,7 +76,7 @@ you can re-derive from a file in the tree.
 
 ### Comparison snapshot — Intel Core Ultra 9 275HX (24 cores)
 
-Informative only; kept for cross-architecture comparison. Ryzen remains the canonical reference.
+Kept as published. Ryzen remains the canonical reference — and the box below measures this table against the very CPU it names.
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
 |---|---------------|-------------|-----------|-----------------|
@@ -86,7 +86,29 @@ Informative only; kept for cross-architecture comparison. Ryzen remains the cano
 | 100,000,000  | 30s    | 42s    | 33s    | 20,898,764 |
 | 250,000,000  | 2m10s  | 3m05s  | 2m25s  | 52,246,910 |
 
-Intel figures reflect a mobile workstation profile with higher single-thread performance; absolute ordering of algorithms (Fast Doubling < FFT < Matrix for medium N) is consistent across both platforms.
+> **This table has been checked against the machine it names, and its magnitudes do not hold.**
+> A host running that same CPU (`Intel(R) Core(TM) Ultra 9 275HX`, 24 logical processors,
+> `go1.27.0 windows/amd64`, thresholds `Parallelism=disabled, FFT=480000 bits`) gives, for
+> `NO_COLOR=1 fibcalc -n <N> -algo all` on 2026-09-04 — calculation only, no decimal
+> conversion, two runs each:
+>
+> | N | Fast Doubling | Matrix Exp. | FFT-Based | table above says |
+> |---|---|---|---|---|
+> | 1,000,000 | 7 ms | 22 ms | 7 ms | 3 ms / 55 ms / 45 ms |
+> | 10,000,000 | 40–85 ms | 152–257 ms | 42–94 ms | 60 ms / 750 ms / 600 ms |
+> | 100,000,000 | 614–673 ms | 1.91–2.02 s | 650–703 ms | 30 s / 42 s / 33 s |
+>
+> The error is not uniform, and the shape of it matters more than any single factor. The
+> Fast Doubling column is about right at N=10M and roughly 2× optimistic at N=1M; the
+> Matrix and FFT columns are pessimistic by 2× to 14× at N=1M and N=10M; and **every
+> column at N=100M is off by 21× to 51×**. What does survive is the ordering: Fast Doubling ≤ FFT <
+> Matrix held at all three sizes measured, on this platform. Read this table for ordering,
+> never for magnitude — the same rule as the Ryzen table above.
+>
+> These are single wall-clock runs, not benchmarks: the two N=10M runs differ by a factor
+> of two on every algorithm, so the ranges above are spread, not precision. No artifact is
+> archived for them — reproduce with the command rather than citing these numbers. The
+> N=10,000 and N=250,000,000 rows were not re-measured.
 
 ### Running Benchmarks
 
