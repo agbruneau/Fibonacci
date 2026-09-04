@@ -88,3 +88,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§6 Data Flow](../../ARCH.md#6-data-flow-cli-input-to-final-result) — dix etapes, chacune nommant le sous-graphe qu'elle commente.

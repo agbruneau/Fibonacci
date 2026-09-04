@@ -1,6 +1,43 @@
 # FibGo / FibCalc Architecture
 
-> **Ce document est la vue d'ensemble rapide** de l'architecture de FibCalc. Pour la référence détaillée (diagrammes C4, flows Mermaid, index complet de la documentation), voir **[docs/architecture/README.md](architecture/README.md)**.
+> **Ce document narre ; [`docs/architecture/`](architecture/README.md) dessine.**
+> Les onze figures du corpus (blocs Mermaid) sont la **vue faisant foi sur la forme**
+> du système — arêtes d'import, sous-graphes, ordre des branches, retours de boucle.
+> Ce sont aussi les pages les plus vérifiées du dépôt : chaque arête d'import a été
+> confrontée à `go list` et chaque flèche de classe à la source, arête par arête, dans
+> le [relevé de validation](architecture/validation/validation-report.md).
+> Les sections ci-dessous sont la **légende** de ces figures : elles donnent le
+> pourquoi, les constantes, les défauts et ce qui n'est pas garanti. Règle de
+> maintenance : **là où une figure existe, ARCH.md la cite au lieu d'en redessiner
+> une seconde.** Il n'y a donc pas deux vues concurrentes de l'architecture, mais une
+> figure et son commentaire.
+
+## 0) Carte des figures
+
+Le corpus compte **onze** figures Mermaid, plus deux documents-tables sans figure.
+Chaque ligne dit quelle section de ce document commente quelle figure ; suivre le
+lien depuis la section, ou entrer par le [hub](architecture/README.md).
+
+| Figure (bloc Mermaid) | Ce qu'elle dessine | Commentée en |
+|---|---|---|
+| [`system-context.md`](architecture/system-context.md) | C4-1 : l'utilisateur et les trois systèmes externes touchés (OS, système de fichiers, GMP optionnel) | [§1](#1-project-overview) |
+| [`container-diagram.md`](architecture/container-diagram.md) | C4-2 : les conteneurs logiques ; chaque `Rel` entre deux `Container` est un import Go réel | [§2](#2-high-level-architecture-clean-architecture) |
+| [`dependency-graph.md`](architecture/dependency-graph.md) | les 46 imports internes directs du module, un par arête (ni sur-ensemble ni sous-ensemble) | [§2](#2-high-level-architecture-clean-architecture), [§3](#3-directory-structure) |
+| [`component-diagram.md`](architecture/component-diagram.md) | `classDiagram` : interfaces, champs, collaborations de classes — **pas** des imports | [§4](#4-core-packages-responsibilities-key-types-interfaces) |
+| [`patterns/interface-hierarchy.md`](architecture/patterns/interface-hierarchy.md) | les interfaces clés et leurs implémentations, groupées par domaine | [§5](#5-design-patterns), [§8](#presentation-layer-integration) |
+| [`flows/cli-flow.md`](architecture/flows/cli-flow.md) | `main.go` → code de sortie : configuration, dispatch, exécution, présentation, erreurs | [§6](#6-data-flow-cli-input-to-final-result) |
+| [`flows/tui-flow.md`](architecture/flows/tui-flow.md) | cycle Elm du tableau de bord : pont `programRef`, messages, `Update`, `View`, raccourcis | [§6](#tui-mode-figure) |
+| [`flows/config-flow.md`](architecture/flows/config-flow.md) | les cinq sources de configuration et leur précédence, jusqu'à `fibonacci.Options` | [§8](#configuration-cascade), [§9](#9-configuration-and-environment) |
+| [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md) | décorateur → `DoublingFramework` → décision de multiplication → pas FFT → extraction du résultat | [§7A](#a-fast-doubling-fastdoublingcalculator) |
+| [`flows/matrix.md`](architecture/flows/matrix.md) | exponentiation binaire de la matrice Q, décision Strassen, retour par vol de pointeur | [§7B](#b-matrix-exponentiation-matrixexponentiationcalculator) |
+| [`flows/fft-pipeline.md`](architecture/flows/fft-pipeline.md) | `bigfft.Mul`/`Sqr` : seuil, allocation, conversion polynomiale, transformée, point à point, inverse | [§7C](#c-fft-based-doubling-fftbasedcalculator) |
+
+Sans figure, mais partie du même corpus :
+
+| Document | Rôle |
+|---|---|
+| [`patterns/design-patterns.md`](architecture/patterns/design-patterns.md) | **inventaire faisant foi** des patterns et de leurs sites d'implémentation — [§5](#5-design-patterns) y renvoie au lieu d'en tenir une seconde liste |
+| [`validation/validation-report.md`](architecture/validation/validation-report.md) | relevé des invariants confrontés à la source (commandes, dates, corrections) — [§11](#11-testing-strategy) y renvoie |
 
 ## 1) Project Overview
 
@@ -22,11 +59,27 @@
 
 At runtime, FibCalc can execute one or many calculators in parallel, aggregate progress, validate result consistency across algorithms, and present results through CLI or TUI presentation layers.
 
+> **Figure — [`architecture/system-context.md`](architecture/system-context.md).** Le
+> binaire vu de l'extérieur : un acteur (l'utilisateur) et trois systèmes externes
+> (OS pour les signaux et les compteurs CPU/mémoire, système de fichiers pour le profil
+> de calibration, GMP sous tag de build). Rien d'autre ne franchit la frontière —
+> pas de réseau, pas de service, pas de base.
+
 ---
 
 ## 2) High-Level Architecture (Clean Architecture)
 
 FibCalc follows **Clean Architecture** principles with strict unidirectional dependency flow: outer layers depend on inner layers, never the reverse. The orchestration layer defines interfaces (`ProgressReporter`, `ResultPresenter`) that presentation layers implement, ensuring the business logic never imports UI code.
+
+> **Figures — [`architecture/dependency-graph.md`](architecture/dependency-graph.md) et
+> [`architecture/container-diagram.md`](architecture/container-diagram.md).** Le schéma
+> ci-dessous énonce la **règle** de superposition (quelle couche a le droit d'importer
+> quoi) ; il ne dessine aucune arête. Les arêtes réelles sont dans les deux figures :
+> `dependency-graph.md` porte les **46 imports internes directs**, un par arête,
+> vérifiés égaux à la sortie `go list` (relevé du 2026-09-04, `diff` vide) ;
+> `container-diagram.md` les regroupe en conteneurs C4, avec les neuf paquets-feuilles
+> réunis dans un seul bloc `support`. C'est là qu'on lit si une arête existe — ici, seulement
+> si elle a le droit d'exister.
 
 ```text
 +-----------------------------------------------------------------------+
@@ -122,6 +175,11 @@ chain as this section: `cmd → app → orchestration → fibonacci → bigfft`,
 
 ## 3) Directory Structure
 
+> **Figure — [`architecture/dependency-graph.md`](architecture/dependency-graph.md).**
+> L'arborescence ci-dessous dit *où sont les fichiers* ; la figure dit *qui appelle qui*.
+> Les deux se lisent ensemble : chaque nœud de la figure est un répertoire de la liste
+> `internal/` ci-dessous, et un paquet sans arête sortante y est une feuille.
+
 ### Top-level tree (annotated)
 
 ```text
@@ -181,6 +239,14 @@ internal/
 ---
 
 ## 4) Core Packages (Responsibilities, Key Types, Interfaces)
+
+> **Figure — [`architecture/component-diagram.md`](architecture/component-diagram.md).**
+> Les fiches de paquet ci-dessous nomment les types ; la figure montre leurs **signatures,
+> leurs champs et leurs collaborations** — `FibCalculator` agrège un `CoreCalculator` au
+> lieu de l'implémenter, `DoublingFramework` reçoit une `ProgressCallback` et jamais un
+> `*ProgressSubject`, la `TransformCache` n'est lue que depuis `Mul`/`Sqr`. Attention à
+> la nature des flèches : c'est un `classDiagram`, ses arêtes sont des relations de
+> classes, **pas** des imports de paquets (ceux-là sont en [§2](#2-high-level-architecture-clean-architecture)).
 
 ## `internal/app`
 - **Responsibility:** startup + runtime mode orchestration (completion, calibration, TUI, normal calculation).
@@ -279,135 +345,156 @@ internal/
 
 ---
 
-## 5) Design Patterns (14 patterns)
+## 5) Design Patterns
 
-| Pattern | Where | Why it exists |
-|---|---|---|
-| **Decorator** | `fibonacci.FibCalculator` wrapping `CoreCalculator` | Adds cross-cutting behavior (small-N fast path, observer adaptation, GC control, FFT cache config, pool warming) without changing algorithm cores |
-| **Strategy** | `Multiplier` / `DoublingStepExecutor` with `AdaptiveStrategy`, `FFTOnlyStrategy` | Enables swapping multiplication policy by workload/benchmark intent |
-| **Interface Segregation (ISP)** | `Multiplier` (narrow: Multiply/Square) vs `DoublingStepExecutor` (wide: +ExecuteStep) | Consumers needing only multiply/square depend on the narrow interface; framework-level consumers use the wide one |
-| **Observer** | `progress.ProgressSubject` + `ProgressObserver` implementations | Decouples progress production from UI/log consumers; supports multiple simultaneous observers |
-| **Factory + Registry** | `DefaultFactory` implementing `CalculatorFactory` | Centralized calculator registration/lookup/caching with lazy creation and double-check locking |
-| **Framework (Template Method)** | `DoublingFramework`, `MatrixFramework` | Owns algorithm loop (bit iteration, progress reporting, context checks) while plugging in operation strategy/threshold behavior |
-| **Object Pool** | `sync.Pool` in Fibonacci state and `bigfft` pools | Cuts allocations and GC pressure in hot paths; size-limited via `MaxPooledBitLen` (50M bits) |
-| **Arena Allocator** | `memory.CalculationArena` | Pre-sizes contiguous backing storage for big.Int state to reduce fragmentation/GC overhead |
-| **Bump Allocator** | `bigfft.BumpAllocator` | Batch temporary allocations with O(1) reset for FFT internals |
-| **FFT Transform Cache** | `internal/bigfft/fft_cache.go` | Caches FFT transforms for reuse across multiply/square operations within an iteration |
-| **Dynamic Threshold Adjustment** | `threshold.DynamicThresholdManager` | Records per-iteration metrics and adjusts FFT/parallel thresholds mid-computation. **Opt-in, off by default**: `--dynamic-thresholds` (wired in the 2026-09 audit, M-04; measured neutral on CPU, see [ADR-0001](adr/0001-dtm-decision.md)) |
-| **Zero-Copy Result Return** | `MatrixFramework.ExecuteMatrixLoop` only | "Steals" `res.a` from the matrix state instead of copying. Deliberately NOT done in `DoublingFramework.ExecuteDoublingLoop` (P1-04): its state aliases the arena, so the success path deep-copies via `ReleaseStateWithResult` |
-| **Generics with Pointer Constraints** | `executeTasks[T any, PT interface{*T; task}]` | Generic task execution eliminating code duplication between multiplication and squaring tasks |
-| **GC Controller** | `memory.GCController` | Disables GC during large computations (N ≥ 1M), restores afterward; uses `debug.SetMemoryLimit` as safety net |
+> **Inventaire faisant foi — [`architecture/patterns/design-patterns.md`](architecture/patterns/design-patterns.md).**
+> Un seul inventaire est tenu, et il est là-bas : **17 patterns** et **5 mécanismes
+> d'ingénierie**, une ligne chacun, avec la raison d'être et le site d'implémentation.
+> Ce document n'en garde pas de copie — c'est précisément la duplication qui avait fait
+> diverger les deux listes (14 entrées ici, 11 là-bas, ensembles différents) avant le
+> 2026-09-04.
+>
+> **Figure — [`architecture/patterns/interface-hierarchy.md`](architecture/patterns/interface-hierarchy.md) :**
+> les interfaces que ces patterns mettent en jeu (`Calculator`, `CoreCalculator`,
+> `Multiplier`/`DoublingStepExecutor`, `ProgressObserver`, `ProgressReporter`,
+> `ResultPresenter`, `ErrorHandler`, `tempAllocator`) et leurs implémentations.
 
-Additional notable engineering patterns include:
-- **Runtime-configurable threshold heuristics** with adaptive estimation based on CPU count
-- **Channel-based progress aggregation** with buffered channels (`ProgressBufferMultiplier = 5`)
-- **Lock-free observer snapshots** via `ProgressSubject.Freeze()` for hot loop performance
-- **Semaphore-based concurrency limiting** — two separate semaphores, sized differently: the Fibonacci task semaphore (`fibonacci/common.go` `getTaskSemaphore`) is `runtime.GOMAXPROCS(0)`, the FFT recursion semaphore (`bigfft/fft_recursion.go` `getSemaphore`) is `runtime.NumCPU()`
-- **Functional options** pattern for `Application` construction (`AppOption`, `WithFactory`)
-- **Function adapter** pattern for `ProgressReporterFunc`
+Cinq d'entre eux portent la lecture des sections suivantes ; les retenir suffit pour
+suivre §§6–8 :
+
+- **Decorator** — `FibCalculator` enveloppe un `CoreCalculator`. C'est lui qui tient le
+  chemin rapide N ≤ 93, le contrôle GC, la configuration du cache FFT et le préchauffage
+  des pools ; les cœurs d'algorithme n'en savent rien ([§6 étape 7](#6-data-flow-cli-input-to-final-result)).
+- **Strategy** — `AdaptiveStrategy` (test de seuil FFT) ou `FFTOnlyStrategy` (aucun test)
+  choisit le **moteur de multiplication** ; le choix du **parallélisme**, lui, reste à la
+  boucle, qui le calcule avant d'appeler `ExecuteStep` et le passe en `inParallel`
+  ([§7](#strategy-system), et l'étape 8 de [§6](#6-data-flow-cli-input-to-final-result)).
+- **Framework / Template Method** — `DoublingFramework` et `MatrixFramework` possèdent
+  la boucle sur les bits, le rapport de progression et les vérifications de contexte.
+- **Observer** — `progress.ProgressSubject`, et son instantané sans verrou `Freeze()`,
+  transportent la progression jusqu'au CLI ou à la TUI ([§6](#progress-propagation-flow)).
+- **Factory + Registry** — `DefaultFactory` construit et met en cache les calculateurs.
+  C'est le point d'extension documenté : ajouter un algorithme, c'est `Register` sur une
+  fabrique obtenue de `NewDefaultFactory()`. Attention, `-algo gmp` **ne marche pas** pour
+  autant, même avec le tag de build — voir la ligne `-algo` en
+  [§9](#core-cli-flags-selected) et [§12](#gmp-build-tag).
 
 ---
 
 ## 6) Data Flow (CLI input to final result)
 
+> **Figure — [`architecture/flows/cli-flow.md`](architecture/flows/cli-flow.md).**
+> C'est le dessin faisant foi du trajet complet, de `main.go` au code de sortie :
+> sept sous-graphes (`Entry`, `Config`, `Dispatch`, `Calc`, `Progress`, `Output`,
+> `ErrorHandling`), les branches et leur ordre de priorité. **Ouvrir la figure d'abord ;
+> les dix étapes ci-dessous en sont la légende** — chacune nomme le sous-graphe et les
+> nœuds qu'elle commente, et ajoute ce qu'un `flowchart` ne porte pas : les signatures,
+> les valeurs et les raisons. Le lecteur pressé qui ne veut que la trajectoire en une
+> phrase la trouve dans le [README](../README.md).
+
 ### Complete Execution Flow
 
-```text
-┌───────────────────────────────────────────────────────────────────┐
-│ 1. ENTRY POINT                                                    │
-│    cmd/fibcalc/main.go → run(args, stdout, stderr)               │
-│    ├─ Version flag check → HasVersionFlag → PrintVersion → exit  │
-│    └─ app.New(args, stderr) → Application instance               │
-├───────────────────────────────────────────────────────────────────┤
-│ 2. CONFIG RESOLUTION                                              │
-│    config.ParseConfig(name, args, errWriter, availableAlgos)     │
-│    ├─ Flag parsing (flag.NewFlagSet with ContinueOnError)        │
-│    ├─ applyEnvOverrides() for FIBCALC_* environment variables    │
-│    ├─ Algo normalization (strings.ToLower)                       │
-│    └─ config.Validate(availableAlgos) → semantic checks          │
-├───────────────────────────────────────────────────────────────────┤
-│ 3. THRESHOLD RESOLUTION (fills only what step 2 left to the tool) │
-│    calibration.LoadCachedCalibration(cfg, profilePath)           │
-│    ├─ IF profile valid AND cfg still validates → fill each of    │
-│    │    Threshold/FFTThreshold/StrassenThreshold whose           │
-│    │    *Explicit marker is false (M-03: a user-supplied         │
-│    │    flag or FIBCALC_* value is never discarded)              │
-│    └─ ELSE → config.ApplyAdaptiveThresholds(cfg)                 │
-│         ├─ EstimateOptimalParallelThreshold() (CPU-based)        │
-│         ├─ EstimateOptimalFFTThreshold() (CPU-based)             │
-│         └─ EstimateOptimalStrassenThreshold() (CPU-based)        │
-├───────────────────────────────────────────────────────────────────┤
-│ 4. MODE DISPATCH (Application.Run)                                │
-│    ├─ Completion mode → completion.Generate → exit               │
-│    ├─ Calibration mode → calibration.RunCalibration → exit       │
-│    ├─ Auto-calibration → calibration.AutoCalibrate → update cfg  │
-│    ├─ TUI mode → tui.Run(ctx, calculators, cfg, version, errOut) │
-│    └─ CLI mode → runCalculate(ctx, out) [default]                │
-├───────────────────────────────────────────────────────────────────┤
-│ 5. LIFECYCLE SETUP (for CLI/TUI modes)                            │
-│    ├─ Last-digits mode → runLastDigits (dedicated path)          │
-│    ├─ Memory budget validation (if --memory-limit set)           │
-│    ├─ context.WithTimeout(cfg.Timeout) → deadline context        │
-│    └─ signal.NotifyContext(SIGINT, SIGTERM) → cancellation       │
-├───────────────────────────────────────────────────────────────────┤
-│ 6. CALCULATOR SELECTION                                           │
-│    orchestration.GetCalculatorsToRun(algo, factory)              │
-│    ├─ algo="all" → factory.List() then factory.Get(k) per key    │
-│    └─ algo=specific → factory.Get(algo) → single calculator     │
-├───────────────────────────────────────────────────────────────────┤
-│ 7. CONCURRENT EXECUTION                                           │
-│    orchestration.ExecuteCalculations(ctx, ExecutionConfig{...})  │
-│    ├─ Progress channel: make(chan, numCalcs * 5)                  │
-│    ├─ Progress goroutine: reporter.DisplayProgress(wg, ch, ...)  │
-│    ├─ Single calculator: direct call (no errgroup overhead)      │
-│    └─ Multiple calculators: errgroup fan-out                     │
-│         └─ Per calculator:                                        │
-│             ├─ Calculator.Calculate(ctx, progCh, idx, n, opts)   │
-│             ├─ → ProgressSubject + ChannelObserver registration   │
-│             ├─ → CalculateWithObservers (source order)            │
-│             │    ├─ subject.Freeze(calcIndex) → lock-free reporter│
-│             │    ├─ Small-N fast path (n ≤ 93 → iterative add)   │
-│             │    ├─ configureFFTCache(opts, n)                    │
-│             │    ├─ bigfft.EnsurePoolsWarmed(n)                   │
-│             │    └─ gcCtrl.WithGC(fn) — panic-safe GC control     │
-│             │         (auto: GC off for N≥1M, restored after)     │
-│             │         wrapping core.CalculateCore(ctx, ...)       │
-│             └─ CalculationResult{Name, Result, Duration, Err}    │
-├───────────────────────────────────────────────────────────────────┤
-│ 8. ALGORITHM CORE (inside CalculateCore)                          │
-│    Fast Doubling:                                                 │
-│    ├─ fd.acquireStateForN(n) → CalculationState                   │
-│    │    (GC-immune cachedState slot first, sync.Pool fallback;    │
-│    │     state-bound arena reused/grown + PreSizeFromArena)       │
-│    ├─ Create DoublingFramework(AdaptiveStrategy)                  │
-│    │   (optional: with DynamicThresholdManager)                   │
-│    └─ ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)│
-│         ├─ Bit iteration: MSB → LSB                              │
-│         ├─ shouldParallelizeMultiplicationCached() decision,      │
-│         │   computed HERE and passed to ExecuteStep as inParallel │
-│         ├─ Per bit: ExecuteStep (3 multiplications)              │
-│         │   ├─ Parallel: executeParallel3 (3 goroutines)         │
-│         │   └─ Sequential: with ctx.Err() checks between ops    │
-│         ├─ Post-multiply: F(2k) = 2·T3 - T2, F(2k+1) = T1 + T2│
-│         ├─ Pointer rotation (zero-copy)                          │
-│         ├─ Addition step: if bit=1, F(k) ← F(k+1), F(k+1) ← sum│
-│         ├─ Dynamic threshold adjustment (--dynamic-thresholds)   │
-│         └─ ReportStepProgress (geometric work model)              │
-├───────────────────────────────────────────────────────────────────┤
-│ 9. RESULT ANALYSIS                                                │
-│    orchestration.AnalyzeComparisonResults(results, presOpts, ...) │
-│    ├─ Sort by: success first, then by duration ascending         │
-│    ├─ PresentComparisonTable(results, out) → formatted table     │
-│    ├─ Consistency check: compare all Result values (big.Int.Cmp) │
-│    ├─ Mismatch → ExitErrorMismatch (code 3)                      │
-│    └─ Success → PresentResult(best, n, verbose, details, ...)    │
-├───────────────────────────────────────────────────────────────────┤
-│ 10. OUTPUT & EXIT                                                 │
-│     ├─ Optional file output: WriteResultToFile (if -o set)       │
-│     ├─ Quiet mode: DisplayQuietResult (minimal output)           │
-│     └─ Error mapping → exit codes (0, 1, 2, 3, 4, 130)          │
-└───────────────────────────────────────────────────────────────────┘
-```
+**1. ENTRY POINT** — *figure : sous-graphe `Entry`, nœuds `A1 → A2`.*
+`cmd/fibcalc/main.go` → `run(args, stdout, stderr)`. Le drapeau de version est traité
+avant tout le reste (`HasVersionFlag` → `PrintVersion` → sortie), puis
+`app.New(args, stderr)` construit l'`Application`.
+
+**2. CONFIG RESOLUTION** — *figure : sous-graphe `Config`, nœud `C1`.*
+`config.ParseConfig(name, args, errWriter, availableAlgos)` : analyse des drapeaux
+(`flag.NewFlagSet` en `ContinueOnError`), `applyEnvOverrides()` pour les variables
+`FIBCALC_*`, normalisation de l'algorithme (`strings.ToLower`), puis
+`config.Validate(availableAlgos)` pour les contrôles sémantiques.
+
+**3. THRESHOLD RESOLUTION** — *figure : `Config`, nœuds `C2 → C3 → C4` ou `C5`.*
+Cette étape ne remplit que ce que l'étape 2 a laissé à l'outil.
+`calibration.LoadCachedCalibration(cfg, profilePath)` s'exécute **inconditionnellement** ;
+si le profil est valide et que la configuration passe encore `Validate`, il remplit
+chacun de `Threshold` / `FFTThreshold` / `StrassenThreshold` dont le marqueur `*Explicit`
+est faux — une valeur venue d'un drapeau ou d'un `FIBCALC_*` n'est jamais écartée
+(audit M-03). Sinon, `config.ApplyAdaptiveThresholds(cfg)` prend le relais avec
+`EstimateOptimalParallelThreshold()`, `EstimateOptimalFFTThreshold()` et
+`EstimateOptimalStrassenThreshold()`, toutes trois dérivées du CPU. Détail complet de la
+cascade en [§8](#configuration-cascade), figure dédiée dans
+[`flows/config-flow.md`](architecture/flows/config-flow.md).
+
+**4. MODE DISPATCH** — *figure : sous-graphe `Dispatch`, nœuds `B1 → B5`, dans cet ordre
+de priorité.* `Application.Run` teste, dans l'ordre : mode complétion
+(`completion.Generate` → sortie), mode calibration (`calibration.RunCalibration` →
+sortie), auto-calibration (`calibration.AutoCalibrate` met à jour `cfg` **puis la
+branche retombe** dans la suite), mode TUI
+(`tui.Run(ctx, calculators, cfg, version, errOut)`), et par défaut le mode CLI
+(`runCalculate(ctx, out)`).
+
+**5. LIFECYCLE SETUP** — *pas dessinée : la figure ne montre que les sorties d'erreur
+qu'elle peut produire (nœud `G4`).* Pour les modes CLI et TUI : dérivation vers
+`runLastDigits` si `--last-digits` ; validation du budget mémoire si `--memory-limit`
+est posé ; `context.WithTimeout(cfg.Timeout)` pour l'échéance ;
+`signal.NotifyContext(SIGINT, SIGTERM)` pour l'annulation.
+
+**6. CALCULATOR SELECTION** — *figure : sous-graphe `Calc`, nœud `D1`.*
+`orchestration.GetCalculatorsToRun(algo, factory)` : `algo="all"` passe par
+`factory.List()` puis un `factory.Get(k)` par clé ; un algorithme nommé fait un seul
+`factory.Get(algo)`.
+
+**7. CONCURRENT EXECUTION** — *figure : `Calc`, nœuds `C6, D2, D3, D4, D5`, et sous-graphe
+`Progress`, nœuds `E0 → E1`.* `orchestration.ExecuteCalculations(ctx, ExecutionConfig{…})` :
+
+- canal de progression `make(chan, numCalcs * 5)` ;
+- **la goroutine de progression démarre avant tout `Calculate`** (`E0` dans la figure) :
+  `reporter.DisplayProgress(wg, ch, …)`, ou `NullProgressReporter` en mode `--quiet` ;
+- un seul calculateur → appel direct, sans le coût d'un `errgroup` ; plusieurs → éventail
+  `errgroup` ;
+- par calculateur : `Calculator.Calculate(ctx, progCh, idx, n, opts)` → création du
+  `ProgressSubject` et enregistrement du `ChannelObserver` → `CalculateWithObservers`,
+  qui exécute dans l'ordre de la source `subject.Freeze(calcIndex)` (rapporteur sans
+  verrou), le chemin rapide N ≤ 93 (additions itératives), `configureFFTCache(opts, n)`,
+  `bigfft.EnsurePoolsWarmed(n)`, puis `gcCtrl.WithGC(fn)` — contrôle GC résistant au
+  `panic`, GC coupé pour N ≥ 1M en mode `auto` et restauré ensuite — enveloppant
+  `core.CalculateCore(ctx, …)` ;
+- retour : `CalculationResult{Name, Result, Duration, Err}`.
+
+**8. ALGORITHM CORE** — *pas dans cette figure : le cœur est dessiné par
+[`flows/fastdoubling.md`](architecture/flows/fastdoubling.md), sous-graphes `Framework`,
+`Multiply`, `FFTPipeline`, `Parallel`, `Result`.* À l'intérieur de `CalculateCore`, pour
+Fast Doubling : `fd.acquireStateForN(n)` rend un `CalculationState` (créneau `cachedState`
+immunisé au GC d'abord, `sync.Pool` en repli ; arène liée à l'état, réutilisée ou agrandie,
+puis `PreSizeFromArena`), un `DoublingFramework(AdaptiveStrategy)` est construit
+(optionnellement avec un `DynamicThresholdManager`), et
+`ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)` déroule : itération des bits
+MSB → LSB ; décision `shouldParallelizeMultiplicationCached()` **calculée là, dans la
+boucle, et passée à `ExecuteStep` comme `inParallel`** ; par bit, `ExecuteStep`
+(3 multiplications) en parallèle via `executeParallel3` (3 goroutines) ou en séquentiel
+avec vérification de `ctx.Err()` entre les opérations ; recombinaison
+`F(2k) = 2·T3 − T2`, `F(2k+1) = T1 + T2` ; rotation de pointeurs (sans copie) ; étape
+d'addition **lorsque le bit vaut 1** (`F(k) ← F(k+1)`, `F(k+1) ← somme`) ; ajustement dynamique des
+seuils sous `--dynamic-thresholds` ; `ReportStepProgress` (modèle de travail géométrique).
+Voir [§7A](#a-fast-doubling-fastdoublingcalculator).
+
+**9. RESULT ANALYSIS** — *figure : sous-graphe `Output`, nœuds `F2 → F2a → F2b → F2c → F3`.*
+`orchestration.AnalyzeComparisonResults(results, presOpts, …)` trie (succès d'abord, puis
+durée croissante), affiche `PresentComparisonTable(results, out)`, compare toutes les
+valeurs entre elles (`big.Int.Cmp`) — un écart donne `ExitErrorMismatch` (code 3, nœud
+`G3`) — et sur succès appelle `PresentResult(best, n, verbose, details, …)`.
+
+**10. OUTPUT & EXIT** — *figure : `Output`, nœuds `F5, F6, F7`, et sous-graphe
+`ErrorHandling`, nœuds `G1 → G6`.* Écriture optionnelle dans un fichier
+(`WriteResultToFile`, seulement si `-o` est posé **et** que le code de sortie est 0) ;
+`DisplayQuietResult` en mode discret ; sinon correspondance erreur → code de sortie
+(0, 1, 2, 3, 4, 130), détaillée en [§10](#exit-codes).
+
+### TUI mode (figure)
+
+> **Figure — [`architecture/flows/tui-flow.md`](architecture/flows/tui-flow.md).**
+> Quand l'étape 4 bascule vers `tui.Run`, les étapes 5 à 10 ci-dessus sont remplacées par
+> un cycle Elm : `NewModel` → `tea.NewProgram` → `ref.SetProgram(p)`, puis le pont
+> `programRef` convertit les appels `ProgressReporter`/`ResultPresenter` en messages
+> Bubble Tea. La figure porte les points qui ne se devinent pas : la **garde de
+> génération** placée en première instruction de chaque gestionnaire étiqueté (un message
+> périmé est jeté, ce qui rend `r` — redémarrage — sûr), le fait que
+> `CalculationCompleteMsg` est retourné par la `tea.Cmd` elle-même et ne passe pas par le
+> pont, et la disposition des panneaux selon la largeur du terminal. Les responsabilités
+> des sous-modèles sont décrites en [§4 `internal/tui`](#internaltui) ; l'usage est dans
+> [TUI_GUIDE.md](TUI_GUIDE.md).
 
 ### Concurrency Model (3 levels)
 
@@ -459,7 +546,24 @@ FibCalculator.CalculateWithObservers
 
 ## 7) Algorithm Layer
 
+> **Trois figures, une par pipeline** — [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md)
+> (A), [`flows/matrix.md`](architecture/flows/matrix.md) (B),
+> [`flows/fft-pipeline.md`](architecture/flows/fft-pipeline.md) (le moteur `bigfft` sous
+> A et B). Les sous-sections ci-dessous donnent les identités mathématiques, les coûts et
+> les invariants ; les figures donnent le chemin — quelle branche est prise, dans quel
+> ordre, et où la boucle revient.
+>
+> **Routage FFT** (à partir de quelle taille d'opérande la bascule a lieu, et sur quel
+> chemin) : la description canonique est dans
+> [`docs/algorithms/FFT.md`](algorithms/FFT.md). Ce qui suit n'en retient que
+> l'implication structurelle — quel objet décide, et où.
+
 ### A. Fast Doubling (`FastDoublingCalculator`)
+
+> **Figure — [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md).** Sous-graphes
+> `Input` (décorateur), `Strategy` (choix du `CoreCalculator`), `Framework` (boucle sur
+> les bits), `Multiply` (décision FFT et décision de parallélisme, prises à deux endroits
+> distincts), `FFTPipeline`, `Parallel`, `Result` (détachement hors de l'arène).
 - **Complexity:** O(log n) arithmetic operations; total: O(log n × M(n)) where M(n) is multiplication cost
 - Core identities (derived from Q-matrix squaring):
   - `F(2k)   = F(k) * (2F(k+1) - F(k))`
@@ -469,6 +573,12 @@ FibCalculator.CalculateWithObservers
 - **Result detachment:** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB for F(10M): ⌈10e6 × 0.69424⌉ bits ÷ 8; the repo carries no measurement of that copy's share of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
 
 ### B. Matrix Exponentiation (`MatrixExponentiationCalculator`)
+
+> **Figure — [`flows/matrix.md`](architecture/flows/matrix.md).** Le sous-graphe
+> `Multiply` y porte l'avertissement qui compte : la décision Strassen n'est atteinte que
+> depuis `multiplyMatrices` (`res × p`) ; le chemin de mise au carré ne consulte jamais
+> `StrassenThreshold`.
+
 - Uses binary exponentiation of Fibonacci Q-matrix: `[[1,1],[1,0]]^(n-1)`.
 - `MatrixFramework` drives loop (LSB → MSB iteration over the bits of `n-1`).
 - The `result × base` multiply switches between naive 2×2 multiply and Strassen
@@ -485,6 +595,14 @@ FibCalculator.CalculateWithObservers
 - **Zero-copy result return:** steals `res.a` from matrix state. Matrix exponentiation does not use the state-bound arena, so the steal trick is still safe here.
 
 ### C. FFT-Based Doubling (`FFTBasedCalculator`)
+
+> **Figure — [`flows/fft-pipeline.md`](architecture/flows/fft-pipeline.md)** pour le moteur
+> `bigfft` lui-même (seuil d'entrée, allocation bump, conversion polynomiale, transformée,
+> produit point à point, transformée inverse, reconstruction avec retenues) ; la place de
+> ce calculateur dans la boucle de doublement est dans
+> [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md), sous-graphe `Strategy`,
+> nœud `B3`.
+
 - Same doubling loop model (via `DoublingFramework`), but strategy is `FFTOnlyStrategy`.
 - Every doubling step routes to `executeDoublingStepFFT` with no threshold test,
   regardless of operand size. It also passes `useParallel = false` to
@@ -497,6 +615,10 @@ FibCalculator.CalculateWithObservers
 - Same fast doubling identities applied modularly.
 
 ### Strategy System
+
+*La figure de ces interfaces et de leurs implémentations est
+[`patterns/interface-hierarchy.md`](architecture/patterns/interface-hierarchy.md) ; le
+schéma ci-dessous n'en garde que les signatures et le routage de `ExecuteStep`.*
 
 ```text
 Multiplier (narrow interface)
@@ -555,6 +677,14 @@ GetAll() → lazily initializes all, returns copy
 
 ### Configuration Cascade
 
+> **Figure — [`flows/config-flow.md`](architecture/flows/config-flow.md).** Elle dessine
+> les cinq sources (`Sources`), l'analyse des drapeaux et le marquage `*Explicit`
+> (`Parse`), la résolution par profil ou par heuristique (`Calibration`, `Adaptive`), la
+> construction de `fibonacci.Options` (`Options`) et l'ajustement dynamique optionnel
+> (`Dynamic`) — y compris la boucle en pointillés qui montre qu'un profil écrit
+> aujourd'hui n'est relu qu'à une **exécution ultérieure**. Les deux cascades ci-dessous
+> en sont la lecture ordonnée.
+
 Two different cascades, applied in this order.
 
 **Everything except the three thresholds** — resolved entirely inside `ParseConfig`:
@@ -602,6 +732,10 @@ and `applyProfileThresholds`, `internal/config/env.go:markExplicitThresholds`,
 `internal/app/app.go:New`.
 
 ### Presentation Layer Integration
+
+*Figure — [`patterns/interface-hierarchy.md`](architecture/patterns/interface-hierarchy.md),
+groupe « Observation Interfaces » : elle ajoute `ErrorHandler`, la troisième interface de
+collaboration d'`internal/orchestration`, que les deux présentateurs satisfont aussi.*
 
 ```text
 internal/orchestration (defines interfaces)
@@ -652,6 +786,11 @@ the `"matrix"` calculator when it is registered
 ---
 
 ## 9) Configuration and Environment
+
+> **Figure — [`flows/config-flow.md`](architecture/flows/config-flow.md).** Les tables
+> ci-dessous énumèrent les drapeaux, les variables et les constantes ; la figure dit
+> laquelle l'emporte sur laquelle. Les deux se lisent ensemble : une valeur de ces tables
+> ne s'applique que si le sous-graphe `Sources` lui en laisse la place.
 
 ### Core CLI flags (selected)
 
@@ -752,6 +891,15 @@ Additional helpers: `WrapCalculationError` (contextual wrapping with `%w` around
 ---
 
 ## 11) Testing Strategy
+
+> **Ce que la documentation elle-même garantit —
+> [`architecture/validation/validation-report.md`](architecture/validation/validation-report.md).**
+> Les figures ne sont pas couvertes par `go test` : ce sont des `.md`. Ce qui tient lieu de
+> test pour elles est le relevé de validation, qui donne la commande `go list` reproduisant
+> le graphe d'imports, la date de sa dernière exécution, et la liste **datée** des arêtes
+> qui s'étaient révélées fausses. Il nomme aussi ce qui n'est pas vérifié
+> automatiquement : les membres de classe du `component-diagram.md` dérivent
+> indépendamment du contrôle d'arêtes.
 
 FibCalc uses a layered testing approach with 100+ `*_test.go` files:
 
@@ -907,6 +1055,14 @@ From `go.mod`, direct dependencies are:
 
 ## Appendix: Architectural Notes for New Engineers
 
+Ordre d'entrée conseillé, figure d'abord et section en légende :
+[`flows/cli-flow.md`](architecture/flows/cli-flow.md) avec
+[§6](#6-data-flow-cli-input-to-final-result), puis
+[`dependency-graph.md`](architecture/dependency-graph.md) avec
+[§2](#2-high-level-architecture-clean-architecture), puis la figure du pipeline qui vous
+concerne ([§7](#7-algorithm-layer)). La [carte des figures](#0-carte-des-figures) donne
+les onze correspondances.
+
 - Start from `cmd/fibcalc/main.go` and trace into `internal/app`.
 - For execution semantics, read `internal/orchestration` first.
 - For algorithm internals, focus on:
@@ -916,6 +1072,9 @@ From `go.mod`, direct dependencies are:
   4. `internal/fibonacci/fft.go` + `internal/bigfft`
 - For user interaction, study `internal/cli` and `internal/tui` presenters.
 - For operational tuning, use `docs/CALIBRATION.md`, `docs/PERFORMANCE.md`, and Makefile PGO targets.
-- For in-depth architecture, see `docs/architecture/README.md` with C4 diagrams and flow charts.
+- Les onze figures et leur relevé de validation vivent dans
+  [`docs/architecture/`](architecture/README.md). Règle de maintenance : **si une figure
+  couvre déjà la question, ARCH.md la cite ; il n'en redessine pas une seconde.** Un
+  changement de forme se corrige dans la figure, puis dans la légende qui la commente.
 
 This architecture intentionally emphasizes separation of concerns, algorithmic interchangeability, and performance-tuning hooks while keeping orchestration and presentation decoupled.

@@ -370,6 +370,24 @@ not consulted; and unlike Fast Doubling there is no FFT-related suppression —
 `shouldParallelizeMultiplicationCached` in `fastdoubling.go` and never on the
 matrix path.
 
+### 5. FFT Multiplication of Matrix Entries
+
+Every product and square of matrix entries goes through `multiplicationTask` /
+`squaringTask` (`internal/fibonacci/common.go:150` and `:167`), which call
+`smartMultiply` / `smartSquare` (`internal/fibonacci/fft.go:49`, `:72`). Those
+compare the entries' bit lengths against `FFTThreshold` and route to
+`bigfft.MulTo` / `bigfft.SqrTo` above it.
+
+This makes the matrix calculator the **only production path where the "2-tier
+adaptive multiplication" really has two live tiers** — on the `"fast"` path an
+upstream gate makes Tier 1 unreachable — and, as a consequence, the only one that
+reads the bigfft transform cache. Do not restate the rule here: the canonical
+description of the routing, of where the threshold value comes from, and of the
+sizes at which each tier fires is [FFT.md § FFT Routing](FFT.md#fft-routing).
+
+Note the asymmetry with the parallelism gate above: parallelism reads only
+`state.p`, while the FFT tier is decided per operand pair inside each task.
+
 ## Complexity Analysis
 
 ### Operations per Iteration

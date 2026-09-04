@@ -154,12 +154,15 @@ its `SquareFunc`. Re-verify members separately from the edge check.
 
 ## Interface & pattern claims
 
-The design-pattern catalogue in [`../README.md`](../README.md) §4 and
-[`../patterns/design-patterns.md`](../patterns/design-patterns.md), and the
-interface signatures in [`../component-diagram.md`](../component-diagram.md)
-and [`../patterns/interface-hierarchy.md`](../patterns/interface-hierarchy.md)
-(neither `.md` carries a signature), are maintained to match source. Notable
-narrow/wide interface contracts:
+The design-pattern catalogue lives in exactly **one** file since 2026-09-04:
+[`../patterns/design-patterns.md`](../patterns/design-patterns.md). Before that date
+[`docs/ARCH.md`](../../ARCH.md) §5 carried a second, independently maintained table
+(14 entries against 11, overlapping but not equal, neither mentioning the other); the two
+were merged into the file above and `ARCH.md` §5 now links to it instead. `../README.md`
+§4 enumerates it but does not restate the sites. The interface signatures in
+[`../component-diagram.md`](../component-diagram.md) and
+[`../patterns/interface-hierarchy.md`](../patterns/interface-hierarchy.md) are maintained
+to match source. Notable narrow/wide interface contracts:
 
 - `Calculator` (decorated façade) / `CoreCalculator` (algorithm kernel wrapped by `FibCalculator`) — both exported, `internal/fibonacci/calculator.go`
 - `Multiplier` (narrow) extended by `DoublingStepExecutor` (wide)
@@ -168,8 +171,12 @@ narrow/wide interface contracts:
 
 ## Execution flows
 
-Flow narratives live in [`docs/ARCH.md`](../../ARCH.md) (sections 6-8) and
-the diagrams under [`../flows/`](../flows/):
+The drawings live under [`../flows/`](../flows/); their narrative legend lives in
+[`docs/ARCH.md`](../../ARCH.md) §§6-8, which cites each subgraph by name rather than
+re-drawing it. Until 2026-09-04 `ARCH.md` §6 carried a second, ASCII rendering of the
+same CLI path, maintained separately from `cli-flow.md` and cross-referenced by neither;
+it was replaced by ten numbered steps keyed to the figure's subgraphs. When a path
+changes, correct the figure first, then its legend:
 
 - CLI path: `main()` → `app.New()` → `app.Run()` → orchestration → output
 - TUI path: dispatch → `tui.Run()` → Bubble Tea model lifecycle

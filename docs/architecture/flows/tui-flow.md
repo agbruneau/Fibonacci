@@ -80,3 +80,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§6, mode TUI](../../ARCH.md#tui-mode-figure).

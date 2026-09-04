@@ -73,3 +73,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§7C FFT-Based Doubling](../../ARCH.md#c-fft-based-doubling-fftbasedcalculator).

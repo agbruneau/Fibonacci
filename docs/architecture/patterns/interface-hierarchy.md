@@ -160,3 +160,4 @@ classDiagram
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§5 Design Patterns](../../ARCH.md#5-design-patterns) et [§8 Presentation Layer Integration](../../ARCH.md#presentation-layer-integration).

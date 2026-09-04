@@ -112,3 +112,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](./README.md)
+Légende narrative de cette figure : [§2 High-Level Architecture](../ARCH.md#2-high-level-architecture-clean-architecture) et [§3 Directory Structure](../ARCH.md#3-directory-structure).

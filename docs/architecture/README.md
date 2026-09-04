@@ -2,6 +2,16 @@
 
 Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques, flux de données et le relevé de validation des invariants (§5). Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
 
+> **Partage du travail avec [`docs/ARCH.md`](../ARCH.md).** Ce répertoire **dessine** ;
+> `ARCH.md` **narre**. Les onze figures ci-dessous sont la vue faisant foi sur la *forme*
+> du système — arêtes d'import, sous-graphes, ordre des branches — et les sections
+> d'`ARCH.md` en sont la légende : le pourquoi, les constantes, les défauts, ce qui n'est
+> pas garanti. Il n'existe **pas** deux vues concurrentes de l'architecture : `ARCH.md`
+> cite ces figures au lieu d'en redessiner de secondes, et chaque figure indique en pied
+> de page la section qui la commente. La correspondance complète est la
+> [carte des figures](../ARCH.md#0-carte-des-figures). Un changement de forme se corrige
+> **dans la figure d'abord**, puis dans la légende.
+
 > **Format des diagrammes.** Les onze diagrammes sont des fichiers `.md` dont le corps est un
 > bloc clôturé `mermaid`. C'est le seul format que GitHub rend graphiquement : un fichier
 > `.mermaid` ou `.mmd` autonome s'affiche en texte brut. Ils portaient l'extension `.mermaid`
@@ -13,32 +23,32 @@ Ce répertoire contient la documentation architecturale détaillée du projet Fi
 
 Nous utilisons le modèle C4 pour documenter l'architecture à différents niveaux d'abstraction :
 
-- **[System Context](system-context.md) :** Vue de haut niveau de FibCalc et de ses interactions avec l'utilisateur et le système d'exploitation.
-- **[Container Diagram](container-diagram.md) :** Décomposition de l'application en conteneurs logiques (CLI, TUI, Core Engine). Chaque `Rel` entre deux `Container` est un import Go réel — le relevé §5 les compte un à un.
-- **[Component Diagram](component-diagram.md) :** Détail des composants internes du moteur de calcul et de l'orchestration. C'est un `classDiagram` : ses flèches sont des relations de classes, **pas** des imports de packages.
+- **[System Context](system-context.md) :** Vue de haut niveau de FibCalc et de ses interactions avec l'utilisateur et le système d'exploitation. — *légende : [`ARCH.md` §1](../ARCH.md#1-project-overview)*
+- **[Container Diagram](container-diagram.md) :** Décomposition de l'application en conteneurs logiques (CLI, TUI, Core Engine). Chaque `Rel` entre deux `Container` est un import Go réel — le relevé §5 les compte un à un. — *légende : [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture)*
+- **[Component Diagram](component-diagram.md) :** Détail des composants internes du moteur de calcul et de l'orchestration. C'est un `classDiagram` : ses flèches sont des relations de classes, **pas** des imports de packages. — *légende : [`ARCH.md` §4](../ARCH.md#4-core-packages-responsibilities-key-types-interfaces)*
 
 ## 2) Graphe des Dépendances
 
 Le projet suit rigoureusement les principes de la **Clean Architecture**. Le graphe suivant illustre les relations entre les packages :
 
-- **[Dependency Graph](dependency-graph.md)** — les 46 imports internes directs du module, un par arête. Reproductible avec la commande `go list` donnée dans le [relevé de validation](./validation/validation-report.md#layer-tightness--dependency-direction).
+- **[Dependency Graph](dependency-graph.md)** — les 46 imports internes directs du module, un par arête. Reproductible avec la commande `go list` donnée dans le [relevé de validation](./validation/validation-report.md#layer-tightness--dependency-direction). — *légende : [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture) (la règle de superposition) et [§3](../ARCH.md#3-directory-structure) (les répertoires derrière les nœuds)*
 
 ## 3) Flux de Données et Chemins d'Exécution
 
 Six `flowchart` retracent les chemins d'exécution critiques, du point d'entrée au résultat :
 
 - **[Flows/](./flows/) :**
-  - Exécution [CLI](./flows/cli-flow.md) et [TUI](./flows/tui-flow.md).
-  - [Résolution de configuration](./flows/config-flow.md).
-  - Pipelines algorithmiques : [Fast Doubling](./flows/fastdoubling.md), [FFT](./flows/fft-pipeline.md), [Matrix](./flows/matrix.md).
+  - Exécution [CLI](./flows/cli-flow.md) — *légende : [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result), dix étapes numérotées, chacune nommant le sous-graphe qu'elle commente* — et [TUI](./flows/tui-flow.md) — *légende : [`ARCH.md` §6, mode TUI](../ARCH.md#tui-mode-figure)*.
+  - [Résolution de configuration](./flows/config-flow.md) — *légende : [`ARCH.md` §8](../ARCH.md#configuration-cascade) et [§9](../ARCH.md#9-configuration-and-environment)*.
+  - Pipelines algorithmiques : [Fast Doubling](./flows/fastdoubling.md) (*[§7A](../ARCH.md#a-fast-doubling-fastdoublingcalculator)*), [FFT](./flows/fft-pipeline.md) (*[§7C](../ARCH.md#c-fft-based-doubling-fftbasedcalculator)*), [Matrix](./flows/matrix.md) (*[§7B](../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator)*).
 
 ## 4) Design Patterns et ADR
 
 L'architecture repose sur les design patterns documentés ici :
 
 - **[Patterns/](./patterns/) :**
-  - **[Design Patterns inventory](./patterns/design-patterns.md)** — table des patterns concrets utilisés (Strategy, Factory/Registry, Observer, Object Pool, Bump Allocator, Decorator, Facade, Template Method, LRU Cache, Circuit Breaker, Adapter) avec liens vers les sites d'implémentation.
-  - **[Hiérarchie des interfaces](./patterns/interface-hierarchy.md)** — les interfaces clés et leurs implémentations.
+  - **[Design Patterns inventory](./patterns/design-patterns.md)** — l'**inventaire faisant foi** : 17 patterns (Decorator, Strategy, ISP, Factory/Registry, Observer, Template Method, Facade, Adapter, Object Pool, Arena Allocator, Bump Allocator, LRU Cache, Circuit Breaker, Dynamic Threshold Adjustment, Zero-Copy Result Return, Generics with Pointer Constraints, GC Controller) et 5 mécanismes d'ingénierie, avec la raison d'être et le site d'implémentation de chacun. Fusion (2026-09-04) de cette table et de celle que `ARCH.md` §5 tenait en parallèle ; il n'y a plus qu'une liste, et [`ARCH.md` §5](../ARCH.md#5-design-patterns) y renvoie.
+  - **[Hiérarchie des interfaces](./patterns/interface-hierarchy.md)** — les interfaces clés et leurs implémentations. Commentée par [`ARCH.md` §5](../ARCH.md#5-design-patterns) et [§8](../ARCH.md#presentation-layer-integration).
 
 ### ADR — Décisions architecturales courantes
 

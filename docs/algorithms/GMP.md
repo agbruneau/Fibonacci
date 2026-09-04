@@ -133,7 +133,7 @@ and archive the output under `docs/audits/` before quoting anything from it.
 - **Algorithm**: Fast Doubling (iterative, MSB-to-LSB), factored identity `F(2k) = F(k)·(2·F(k+1) − F(k))` — `gmpDoublingStep`
 - **Arithmetic**: Uses `github.com/ncw/gmp` bindings to call `libgmp` (`go.mod`: `github.com/ncw/gmp v1.0.5`)
 - **Memory Management**: four `gmp.Int` (`a`, `b`, `t1`, `t2`) allocated per `CalculateCore` call and reused across every iteration of the loop; no `sync.Pool`, no arena
-- **Concurrency**: none — the three multiplications of a step run sequentially; the `Options` thresholds (`ParallelThreshold`, `FFTThreshold`, `StrassenThreshold`) are ignored on this path
+- **Concurrency**: none — the three multiplications of a step run sequentially; the `Options` thresholds (`ParallelThreshold`, `FFTThreshold`, `StrassenThreshold`) are ignored on this path, libgmp selecting its own multiplication algorithm. For what those thresholds gate on the other paths, see [FFT.md § FFT Routing](FFT.md#fft-routing)
 - **Result conversion**: `gmpToStdBigInt` copies through `g.Bytes()` into a fresh `big.Int` — one full serialize/parse of the result per call
 - **File**: `internal/fibonacci/calculator_gmp.go`
 - **Name()**: Returns `"GMP (Fast Doubling)"`

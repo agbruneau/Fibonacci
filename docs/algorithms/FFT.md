@@ -1,11 +1,13 @@
 # FFT Multiplication for Large Integers
 
 > **Complexity**: O(n log n) for multiplying two numbers of n bits
-> **Used by**: `"fast"` and `"matrix"` above `FFTThreshold`; `"fft"` at every size
+> **Used by**: `"matrix"` once both operands pass `FFTThreshold`; `"fft"` at every size; `"fast"` only from `n ≈ 1 440 000` up with the default threshold — see [FFT Routing](#fft-routing), which is the canonical description of the switch.
 
 ## Introduction
 
-The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n^2) for naive multiplication or O(n^1.585) for Karatsuba. In this project the switch happens at `DefaultFFTThreshold = 500_000` bits — but that is a **configured default, not a measured crossover**: `internal/fibonacci/constants.go` states it is "a deliberately conservative placement of that crossover, not a measured one", the real crossover being host-dependent and measured only by `(*MicroBenchmark).findFFTCrossover` in `internal/calibration`.
+The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n^2) for naive multiplication or O(n^1.585) for Karatsuba. In this project the nominal switch sits at `DefaultFFTThreshold = 500_000` bits — but that is a **configured default, not a measured crossover**: `internal/fibonacci/constants.go` states it is "a deliberately conservative placement of that crossover, not a measured one", the real crossover being host-dependent and measured only by `(*MicroBenchmark).findFFTCrossover` in `internal/calibration`.
+
+And 500 000 bits is not the number to hold in your head when asking "will *my* run use the FFT?". The threshold is compared against an intermediate operand, not against `F(n)`, and each calculator compares it somewhere else — the whole mechanism is laid out in [FFT Routing](#fft-routing) below.
 
 ## Mathematical Principle
 
@@ -71,14 +73,105 @@ The FFT multiplication is implemented in the `internal/bigfft` package using a *
 
 For the implementation itself (public API, Fermat arithmetic, memory management, transform cache), see [BIGFFT.md](BIGFFT.md).
 
-### 2-Tier Multiplication Selection
+## FFT Routing
 
-The `smartMultiply` function in `internal/fibonacci/fft.go` selects the algorithm by comparing operand bit-lengths against the configured threshold:
+**This section is the canonical description of FFT routing for this repository.** It answers, in one place: where the switch is taken, on which operand, with which threshold value, where that value comes from, and for which `n` the FFT actually runs. The other pages — [FAST_DOUBLING.md](FAST_DOUBLING.md), [MATRIX.md](MATRIX.md), [BIGFFT.md](BIGFFT.md), [COMPARISON.md](COMPARISON.md), and outside `docs/algorithms/` the `README.md` and [`../ARCH.md`](../ARCH.md) — link here rather than restate the rule, so it drifts in one file or in none.
 
-- **Tier 1: FFT** — both operands exceed `FFTThreshold` → routes to `bigfft.MulTo`
-- **Tier 2: Standard math/big** — uses Karatsuba internally for large operands
+The short version: there is **no single FFT switch**. `FFTThreshold` is compared against different operands at different points of the call graph, is ignored outright on two of the five paths below, and on the default `"fast"` calculator does not choose a multiplication routine at all — it chooses a whole doubling-step implementation.
 
-## Activation Threshold
+### Where `FFTThreshold` is read
+
+| Path | Decision site | Predicate | What runs above it | Reads the transform cache? |
+|---|---|---|---|---|
+| `"fast"` (`FastDoublingCalculator`, the default algorithm) | `AdaptiveStrategy.ExecuteStep`, `internal/fibonacci/strategy.go:101` | `opts.FFTThreshold > 0 && state.FK1.BitLen() > opts.FFTThreshold` — a **single** operand, the larger of the two | `executeDoublingStepFFT` (`internal/fibonacci/fft.go:99`): `PolyFromInt` + `TransformWithBump`, three pointwise products, **no further threshold test** | **no** |
+| `"fast"`, below that gate | `executeDoublingStepMultiplications` → `smartMultiply` / `smartSquare` (`fft.go:49`, `fft.go:72`) | `bx > t && by > t` (both operands); `smartSquare` gates on `bx > t` alone | nothing — unreachable here, see below | n/a |
+| `"fft"` (`FFTBasedCalculator`) | `FFTOnlyStrategy.ExecuteStep`, `strategy.go:156` | none | `executeDoublingStepFFT` on every step at every size; `FFTThreshold` is **not read** on this path | **no** |
+| `"matrix"` (`MatrixCalculator`) | `multiplicationTask.execute` / `squaringTask.execute`, `internal/fibonacci/common.go:150` and `:167` | `smartMultiply`: `bx > t && by > t`; `smartSquare`: `bx > t` | `bigfft.MulTo` / `bigfft.SqrTo` | **yes** — the only calculator that does (`internal/calibration/microbench.go` also reaches it, outside the calculators) |
+| `-tags gmp` (`GMPCalculator`) | — | — | libgmp picks its own algorithm; the `Options` thresholds are ignored ([GMP.md](GMP.md)) | n/a |
+
+Two consequences follow immediately, and both contradict the "2-tier multiplication" story the name `smartMultiply` suggests:
+
+1. **Tier 1 of `smartMultiply` is dead code on `"fast"`.** Reaching `smartMultiply` means the gate at `strategy.go:101` was false, so `FK1.BitLen() <= t`; the sequence is non-decreasing, so `FK.BitLen() <= FK1.BitLen() <= t`. `bx > t && by > t` cannot hold. The full argument, with the branch diagram, is in [FAST_DOUBLING.md § Where this actually fires — and where it cannot](FAST_DOUBLING.md#where-this-actually-fires--and-where-it-cannot).
+2. **The FFT step on `"fast"` never consults the transform cache.** `executeDoublingStepFFT` transforms through `TransformWithBump`, while the cache is read only by `bigfft.Mul`/`MulTo`/`Sqr`/`SqrTo` (`internal/fibonacci/options.go:97-108`, `configureFFTCache`). Tuning `FFTCacheMaxEntries` on a `"fast"` run changes nothing. See [BIGFFT.md § FFT Transform Caching](BIGFFT.md#fft-transform-caching).
+
+### Routing diagram
+
+```mermaid
+flowchart TD
+    Opts["opts.FFTThreshold = t<br/>normalizeOptions rewrites 0 to 500 000"]
+
+    subgraph FAST["algo fast — FastDoublingCalculator"]
+        FA["AdaptiveStrategy.ExecuteStep<br/>strategy.go:99"] --> FG{"FK1.BitLen() &gt; t ?"}
+        FG -- yes --> FFFT["executeDoublingStepFFT<br/>fft.go:99<br/>no threshold re-check<br/>no transform cache"]
+        FG -- no --> FSTD["executeDoublingStepMultiplications<br/>smartMultiply / smartSquare"]
+        FSTD --> FT2["Tier 2: math/big Karatsuba<br/>Tier 1 unreachable here"]
+    end
+
+    subgraph FFTC["algo fft — FFTBasedCalculator"]
+        XA["FFTOnlyStrategy.ExecuteStep<br/>strategy.go:156"] --> XFFT["executeDoublingStepFFT<br/>unconditional, t ignored"]
+    end
+
+    subgraph MAT["algo matrix — MatrixCalculator"]
+        MA["multiplicationTask / squaringTask<br/>common.go:150 and :167"] --> MG{"smartMultiply:<br/>bx &gt; t AND by &gt; t ?"}
+        MG -- yes --> MT1["Tier 1: bigfft.MulTo"]
+        MG -- no --> MT2["Tier 2: math/big Karatsuba"]
+    end
+
+    Opts --> FA
+    Opts --> MA
+    MT1 --> IG{"second gate, inside bigfft:<br/>both operands &gt; 1800 words<br/>= 115 200 bits"}
+    IG -- yes --> CORE["fftmulTo — reads the transform cache"]
+    IG -- no --> MB["math/big fallback"]
+```
+
+The `-tags gmp` calculator has no box in this diagram because it has no branch: libgmp selects its own multiplication algorithm and the `Options` thresholds are never read ([GMP.md](GMP.md)).
+
+### The two gates are in series, not the same gate
+
+`fibonacci.Options.FFTThreshold` counts **bits**; `bigfft`'s own `fftThreshold` counts **words** and defaults to `defaultFFTThresholdWords = 1800` (`internal/bigfft/fft.go:32`), i.e. 115 200 bits on a 64-bit host. Passing the first gate does not exempt an operand from the second: `bigfft.MulTo` re-tests `xwords > t && ywords > t` (`internal/bigfft/fft.go:101`) and silently falls back to `math/big` below it.
+
+In practice the second gate never bites on the `"matrix"` path for any value the heuristic can produce, since the smallest of those is 250 000 bits — more than twice 115 200; an explicit `--fft-threshold` below 115 200 would be a different story, the bit gate opening while the word gate stays shut. It also matters for `"fft"`: `FFTOnlyStrategy.Multiply`/`Square` route through `bigfft.MulTo`/`SqrTo` and therefore honour the word gate, while `FFTOnlyStrategy.ExecuteStep` calls `executeDoublingStepFFT`, which bypasses it entirely. That asymmetry is why "`"fft"` forces FFT at every size" is true of the doubling step and false of the `Multiplier` methods.
+
+### Which values of n reach the FFT
+
+On the `"fast"` calculator the gate reads `FK1`, the running `F(k+1)` — **not** `F(n)`. At the entry of the last doubling step, `k = ⌊n/2⌋`, so the largest value the gate ever sees is `bitlen(F(⌊n/2⌋ + 1)) ≈ 0.694 · n/2`. The FFT therefore fires only from
+
+```
+n  >  2 · t / log2(phi)  ≈  2.881 · t
+```
+
+upward — that is, only once `F(n)` is roughly **twice** the threshold. Solved exactly, per threshold value the heuristic can produce:
+
+| `FFTThreshold` (and where it comes from) | Smallest `n` with at least one FFT step | `bitlen(F(n))` there |
+|---|---|---|
+| 250 000 — non-64-bit word size | 720 212 | 500 001 |
+| 460 000 — 64-bit + AVX-512 | 1 325 188 | 920 000 |
+| 480 000 — 64-bit + AVX2 | 1 382 806 | 960 001 |
+| 500 000 — 64-bit, no AVX2/AVX-512, and the static default | 1 440 422 | 1 000 001 |
+
+And, at the default 500 000, how many of the loop's steps take the FFT branch:
+
+| `n` | doubling steps (`bits.Len64(n)`) | of which routed to `executeDoublingStepFFT` |
+|---|---|---|
+| 400 000 | 19 | 0 |
+| 1 000 000 | 20 | 0 |
+| 1 500 000 | 21 | 1 |
+| 10 000 000 | 24 | 3 |
+| 100 000 000 | 27 | 7 |
+
+So: **`-n 400000` does not use the FFT on the `"fast"` calculator, at any SIMD level.** Neither does `-n 1000000` on a 64-bit host. Even at `-n 10000000` only the last 3 of 24 steps take the FFT branch — though operands roughly double at every step, so those 3 carry by far the largest multiplications. How the runtime actually splits between the two branches is not measured by any artifact in this repo; the step counts above are structural, not timings.
+
+One trap in that answer: the CLI default is `-algo all` (`DefaultAlgo = "all"`, `internal/config/config.go:29`), and `GetCalculatorsToRun` then runs **every** registered calculator (`internal/orchestration/calculator_selection.go:17-27`), `"fft"` included. A default `-n 400000` run therefore does execute FFT code — inside the `"fft"` calculator, never inside `"fast"`. Pass `-algo fast` to isolate the path the tables above describe.
+
+These figures are arithmetic on Fibonacci bit lengths plus the gate read at `strategy.go:101`; they are not benchmark results and no measurement artifact is claimed for them. To re-derive them, iterate `k = n >> (i+1)` for `i` from `bits.Len64(n)-1` down to `0` — that is exactly the state the loop holds at the entry of step `i` (`internal/fibonacci/doubling_framework.go:162`) — and count how often `bitlen(F(k+1)) > t`:
+
+```go
+// F returns F(k), F(k+1); any correct implementation will do.
+for i := bits.Len64(n) - 1; i >= 0; i-- {
+    _, fk1 := F(n >> uint(i+1))
+    if fk1.BitLen() > t { /* this step routes to executeDoublingStepFFT */ }
+}
+```
 
 ### Configuration
 
@@ -92,11 +185,13 @@ opts := fibonacci.Options{
 
 Setting `FFTThreshold` to 0 does **not** disable FFT: `normalizeOptions()` rewrites a
 zero threshold to `DefaultFFTThreshold` (500,000) on every calculation path. To keep
-FFT off, set the threshold above the largest operand you expect.
+FFT off, set the threshold above the largest operand you expect — and note that this
+works on `"fast"` and `"matrix"` only: the `"fft"` calculator never reads the field, so
+no value of it will keep that calculator off the FFT path.
 
-### Threshold Selection
+### Where the threshold value comes from
 
-Two mechanisms exist, and only one of them measures anything.
+Two mechanisms produce a value for `FFTThreshold`, and only one of them measures anything.
 
 **1. Static hardware heuristic** — `EstimateOptimalFFTThreshold`
 (`internal/config/thresholds.go`) is applied by `ApplyAdaptiveThresholds` to a
@@ -240,6 +335,12 @@ curves have been observed to cross: it is `DefaultFFTThreshold = 500_000`
 unmeasured placement. The sketch is qualitative; no measurement in this repo
 plots either curve.
 
+It is also the mark for an *operand*, not for `F(n)`. On the `"fast"` calculator
+the branch is taken against `FK1`, so the sketch's 500k corresponds to a result
+around 1 000 000 bits — `n ≈ 1 440 000`. On `"matrix"` it corresponds to the
+matrix entries, which are of the same order as `F(k)` at each iteration. See
+[FFT Routing](#fft-routing).
+
 ### FFT Overhead
 
 FFT overhead comes from:
@@ -271,9 +372,10 @@ go test -bench=. -benchmem ./internal/bigfft/
 ## Cross-References
 
 - [BIGFFT.md](BIGFFT.md) -- Implementation internals: public API, Fermat arithmetic, memory management, transform caching
-- [FAST_DOUBLING.md](FAST_DOUBLING.md) -- Primary consumer of the FFT subsystem
-- [MATRIX.md](MATRIX.md) -- Secondary consumer via Strassen matrix multiplication
+- [FAST_DOUBLING.md](FAST_DOUBLING.md) -- The `"fast"` path: why Tier 1 of `smartMultiply` is unreachable there, with the branch diagram
+- [MATRIX.md](MATRIX.md) -- The one production path where the 2-tier `smartMultiply` really is 2-tier
 - [COMPARISON.md](COMPARISON.md) -- Algorithm comparison and benchmarks
+- [GMP.md](GMP.md) -- The path that ignores `FFTThreshold` entirely
 
 ## References
 

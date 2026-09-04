@@ -59,3 +59,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§7B Matrix Exponentiation](../../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator).

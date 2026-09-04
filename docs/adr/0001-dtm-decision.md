@@ -4,6 +4,18 @@
 - **Date**: 2026-05-21 (mesures complétées)
 - **Context source**: hardening sprint mai 2026 (commits `c0cc530` → `3d8b977`).
 
+> **État courant (annoté le 2026-09-04 ; le `Status` ci-dessus et le corps sont
+> conservés tels qu'ils ont été écrits le 2026-05-21)** : le KEEP tient — le DTM
+> est toujours dans l'arbre — mais **rien ne l'active par défaut**. Le
+> sous-système est opt-in derrière `--dynamic-thresholds` /
+> `FIBCALC_DYNAMIC_THRESHOLDS`, dont le défaut est `false`
+> (`internal/config/config.go:registerFlags`), et le gain de 5-6 % qui porte la
+> raison n° 2 du KEEP **ne se reproduit pas** à la remesure
+> (`docs/audits/bench-dtm-2026-09.txt`). Les deux tables de mesure de ce
+> document ne se contredisent pas : la première est de 2026-05 et *single-sample*,
+> la seconde de 2026-09 avec test statistique — c'est la seconde qui vaut. Détail
+> et décision : *Status note (2026-09-03)*, en fin de document.
+
 ## Context
 
 Le projet maintient **deux** mécanismes adaptatifs pour les seuils FFT/parallèle :
@@ -29,6 +41,13 @@ Deux étapes :
 
 **Interprétation** : DTM On est marginalement plus rapide. Au seuil ≥ 5 % défini par la directive 1 du `CLAUDE.md`, le verdict est **borderline** (sous le seuil à 1M, au-dessus à 10M). La mesure est *single-sample* (`-benchtime=1x`) donc bruitée ; une régression statistique rigoureuse demanderait `-count=20 -benchtime=3s` sur machine quiescente.
 
+> **Non reproduit (annoté le 2026-09-04, chiffres de 2026-05 conservés tels
+> qu'ils ont été mesurés)** : la reprise appelée par cette interprétation a été
+> faite — `-count=8` avec test statistique, table de la *Status note
+> (2026-09-03)*, artefact `docs/audits/bench-dtm-2026-09.txt`. Elle ne retrouve
+> ni le −4.93 % ni le −6.18 % ci-dessus : les deux écarts CPU y sont dans le
+> bruit. **Ne pas citer cette table comme le gain courant du DTM.**
+
 ### Décision finale : **KEEP**
 
 Trois raisons :
@@ -36,6 +55,15 @@ Trois raisons :
 1. **Coût de maintenance fortement réduit** depuis l'atomic conversion (E1-R1) : l'invariant single-writer A-18 a disparu, donc le coût conceptuel de DTM est essentiellement nul désormais.
 2. **Gain plausible (5-6 %) au régime ≥ 10M**, qui est précisément le régime *production* pour ce projet (le régime ≤ 1M est dominé par d'autres frais).
 3. **Principe de prudence** : la suppression est irréversible alors que la conservation peut être révisée si une mesure ultérieure plus rigoureuse infirme le gain.
+
+> **Correctif (annoté le 2026-09-04, les trois raisons sont conservées telles
+> qu'elles ont été écrites)** : la **raison n° 2 est caduque**. La « mesure
+> ultérieure plus rigoureuse » qu'appelait la raison n° 3 a été faite le
+> 2026-09-03 (`-count=8`, `docs/audits/bench-dtm-2026-09.txt`) : les écarts CPU
+> sont dans le bruit aux deux tailles (p = 0,279 à 1M, p = 0,382 à 10M), et le
+> seul effet significatif est un **surcoût** de +17,9 % d'allocations à F(1M).
+> Le KEEP repose désormais sur les seules raisons 1 et 3, et le sous-système est
+> **désactivé par défaut** — voir *Status note (2026-09-03)*.
 
 ## Consequences
 

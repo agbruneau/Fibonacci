@@ -82,3 +82,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§8 Configuration Cascade](../../ARCH.md#configuration-cascade) et [§9 Configuration and Environment](../../ARCH.md#9-configuration-and-environment).

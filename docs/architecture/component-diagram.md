@@ -231,3 +231,4 @@ classDiagram
 
 ---
 [← Retour au hub architecture](./README.md)
+Légende narrative de cette figure : [§4 Core Packages](../ARCH.md#4-core-packages-responsibilities-key-types-interfaces).

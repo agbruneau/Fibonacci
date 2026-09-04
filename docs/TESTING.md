@@ -3,7 +3,9 @@
 ## Overview
 
 The Fibonacci Calculator project uses a layered testing strategy that
-combines unit tests, golden file validation, fuzz testing, property-based
+combines unit tests, golden file validation, fuzz targets replayed as seed
+regression tests (mutation fuzzing itself runs on **no** gate — see
+[Fuzz Testing](#fuzz-testing)), property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite spans 134 test files across the
 21 packages (2026-09-04; recount with `git ls-files '*_test.go' | wc -l` rather
@@ -131,21 +133,62 @@ The CLI package has separate golden tests (`goldens_test.go`) that validate exac
 
 ## Fuzz Testing
 
-Seven fuzz targets use Go's built-in fuzzing framework (`testing.F`) to
-explore the input space beyond manual test cases.
+Seven fuzz targets use Go's built-in fuzzing framework (`testing.F`). Read the
+next paragraph before reading the table: what these targets buy the project
+today is **not** what "fuzz testing" usually means.
 
-| Fuzz Test | Package | Strategy | Input Limit |
-|-----------|---------|----------|-------------|
-| `FuzzFastDoublingConsistency` | `internal/fibonacci` | Cross-validates Fast Doubling vs Matrix | n up to **200 000** (raised from 50 000 to exercise the FFT regime) |
-| `FuzzFFTBasedConsistency` | `internal/fibonacci` | Cross-validates FFT vs Fast Doubling | n up to **200 000** (raised from 20 000) |
-| `FuzzFibonacciIdentities` | `internal/fibonacci` | Verifies mathematical identities | n up to 10,000 |
-| `FuzzProgressMonotonicity` | `internal/fibonacci` | Ensures progress is monotonically increasing | n 10 to 20,000 |
-| `FuzzFastDoublingMod` | `internal/fibonacci` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B |
-| `FuzzMul` | `internal/bigfft` | Cross-validates `bigfft.Mul` against `math/big.Int.Mul`. The seed corpus does **not** reach the FFT path: its largest operand is 4 096 bytes = 512 words, and `Mul` only dispatches to `mulFFT` when **both** operands exceed `defaultFFTThresholdWords = 1800` (≈14 400 bytes). Only fuzzer-generated inputs above that size exercise FFT. | operand size up to 32 000 bytes (= 4 000 words) |
-| `FuzzSqr` | `internal/bigfft` | Cross-validates `bigfft.Sqr` against `math/big` squaring | operand size up to 32 000 bytes |
+> **What actually runs (and what does not).** No guardrail ever mutates an
+> input. `grep -rn "fuzz" scripts/ Makefile` returns nothing (exit 1, verified
+> 2026-09-04): neither `check.ps1`, `check.sh`, `make test`, `make test-win`
+> nor `make coverage-check` passes `-fuzz`. What *does* run on every `go test`
+> is the **seed corpus**, replayed deterministically as ordinary subtests —
+> **63 seed inputs**, in **≈0.26 s** for `internal/fibonacci` and **≈0.24 s**
+> for `internal/bigfft` (`go test -run 'Fuzz' -count=1 ./internal/fibonacci/
+> ./internal/bigfft/`; three runs on 2026-09-04, go1.27.0 windows/amd64, gave
+> 0.267/0.259/0.254 s and 0.259/0.241/0.229 s). Mutation-driven fuzzing is a manual,
+> opt-in activity: the cumulative time this repository has ever been fuzzed is
+> recorded nowhere, and **no crasher has ever been committed**. All 15 files
+> under `internal/fibonacci/testdata/fuzz/` are hand-written seeds added by one
+> commit (`8810795`, 2026-04-18, "add persistent fuzz corpus for 5 targets");
+> none is a minimized failure
+> (`git log --diff-filter=A -- internal/fibonacci/testdata/fuzz`). So: seven
+> targets described, zero mutation budget spent on any schedule.
+
+The "Seeds" column below counts inputs replayed by `go test` and, after the
+slash, the inputs the fuzzing engine keeps after deduplication (see
+[Seed corpus](#seed-corpus-two-sources-12-duplicates)).
+
+| Fuzz Test | Package | Strategy | Input Limit | Seeds (replayed / unique) |
+|-----------|---------|----------|-------------|---------------------------|
+| `FuzzFastDoublingConsistency` | `internal/fibonacci` | Cross-validates Fast Doubling vs Matrix | n up to **200 000** (raised from 50 000 to exercise the FFT regime) | 17 / 14 |
+| `FuzzFFTBasedConsistency` | `internal/fibonacci` | Cross-validates FFT vs Fast Doubling | n up to **200 000** (raised from 20 000) | 9 / 6 |
+| `FuzzFibonacciIdentities` | `internal/fibonacci` | Verifies mathematical identities | n up to 10,000 | 13 / 11 |
+| `FuzzProgressMonotonicity` | `internal/fibonacci` | Ensures progress is monotonically increasing | n 10 to 20,000 | 7 / 4 |
+| `FuzzFastDoublingMod` | `internal/fibonacci` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B | 7 / 6 |
+| `FuzzMul` | `internal/bigfft` | Cross-validates `bigfft.Mul` against `math/big.Int.Mul`. The seed corpus does **not** reach the FFT path: its largest operand is 4 096 bytes = 512 words, and `Mul` only dispatches to `mulFFT` when **both** operands exceed `defaultFFTThresholdWords = 1800` (≈14 400 bytes). Only fuzzer-generated inputs above that size exercise FFT — which no gate ever generates. | operand size up to 32 000 bytes (= 4 000 words) | 5 / 5 |
+| `FuzzSqr` | `internal/bigfft` | Cross-validates `bigfft.Sqr` against `math/big` squaring | operand size up to 32 000 bytes | 5 / 5 |
 
 Fibonacci targets live in `internal/fibonacci/fibonacci_fuzz_test.go`;
 `bigfft` targets in `internal/bigfft/fft_fuzz_test.go`.
+
+### Seed corpus: two sources, 12 duplicates
+
+Seeds come from two places: the `f.Add(...)` calls inside each target, and the
+persistent files under `<pkg>/testdata/fuzz/<TargetName>/`. `go test` replays
+both, so a value present in both is executed twice (63 subtests); the fuzzing
+engine deduplicates before mutating (51 unique inputs — read off the
+`gathering baseline coverage: 0/N` line of a `go test -run '^$' -fuzz='^<Target>$'
+-fuzztime=1x` run, one per target, 2026-09-04).
+
+The 12-input gap is not noise: **12 of the 15 persistent files repeat a value
+already passed to `f.Add` in the same target.** `FuzzFastDoublingConsistency`
+(seeds 0, 93, 5000), `FuzzFFTBasedConsistency` (0, 1, 5000) and
+`FuzzProgressMonotonicity` (100, 1000, 10000) contribute **zero** new inputs
+through `testdata/`. Only three files add anything the target did not already
+carry in code: `FuzzFastDoublingMod/seed-small`,
+`FuzzFastDoublingMod/seed-large-mod` and `FuzzFibonacciIdentities/seed-doubling`.
+`internal/bigfft` has no `testdata/fuzz/` directory at all — `FuzzMul` and
+`FuzzSqr` run their five in-code seeds and nothing else.
 
 ### Running Fuzz Tests
 
@@ -153,6 +196,30 @@ Fibonacci targets live in `internal/fibonacci/fibonacci_fuzz_test.go`;
 go test -fuzz=FuzzFastDoublingConsistency -fuzztime=30s ./internal/fibonacci/
 go test -fuzz=FuzzFFTBasedConsistency -fuzztime=1m ./internal/fibonacci/
 ```
+
+A crasher found this way is written into `testdata/fuzz/<Target>/` in the
+working tree, which is how it would become a committed regression test — that
+has not happened yet.
+
+Two reference sessions, 2026-09-04, go1.27.0 windows/amd64, 24 fuzzing workers
+(the count `go test` reports on this host). They are the only fuzzing figures
+this repository has; nothing is archived, and no gate reproduces them:
+
+| Session (`-run '^$' -fuzz=… -fuzztime=60s`) | Execs | Average rate | New interesting | Crashers |
+|---|---|---|---|---|
+| `^FuzzFastDoublingConsistency$` (`./internal/fibonacci/`) | 2 721 860 | ≈45 000/s | 196 (baseline 14 → total 210) | 0 |
+| `^FuzzMul$` (`./internal/bigfft/`) | 14 312 701 | ≈240 000/s | 30 (baseline 5 → total 35) | 0 |
+
+Sizing, from those averages: one 10-minute session on this host is ~2.7×10⁷
+mutations for `FuzzFastDoublingConsistency`, ~1.4×10⁸ for `FuzzMul` — the
+instantaneous rate swings by an order of magnitude between 3-second samples, so
+treat these as budgeting figures, not throughput guarantees. Two caveats. The
+`FuzzMul` rate reflects a fuzzer that overwhelmingly generates *small* operands;
+whether that session ever reached the FFT path (both operands past ~14 400
+bytes) was **not** instrumented, so do not read those 14 M execs as 14 M FFT
+multiplications. And the "new interesting" counts land in the local `GOCACHE`
+fuzz cache, not in the repository — they vanish with `go clean -fuzzcache` and
+are not shared between contributors.
 
 ### Mathematical Identities Verified
 
@@ -165,7 +232,7 @@ go test -fuzz=FuzzFFTBasedConsistency -fuzztime=1m ./internal/fibonacci/
 
 These provide independent verification without comparing two calculator implementations.
 
-Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoublingConsistency`: 0, 1, 2, 10, 50, 92, 93, 100, 500, 1000, 5000, 50000, 100000, 150000) to guide the fuzzer toward productive exploration.
+Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoublingConsistency`: 0, 1, 2, 10, 50, 92, 93, 100, 500, 1000, 5000, 50000, 100000, 150000) to guide the fuzzer toward productive exploration. Absent a fuzzing run, those values are simply the regression inputs the target executes on every `go test`.
 
 ## Architecture-Layering Gate
 
@@ -402,6 +469,11 @@ There is **no remote CI** for this project (an assumed decision). Pre-commit val
 
 Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
 
+**No guardrail runs `-fuzz`.** The seven fuzz targets enter these runs only as
+the 63 replayed seed inputs described in [Fuzz Testing](#fuzz-testing) (~0.5 s
+of the total); mutation fuzzing is manual, unscheduled, and unrecorded. Nothing
+in this table would catch a bug that only a mutated input reaches.
+
 On Windows hosts without gcc, the `-race` run is executable via WSL (`wsl go test -race ./...`); with MinGW installed it runs natively.
 
 No `-race` log is archived in the tree — there is no CI and no artifact to point
@@ -498,7 +570,7 @@ Each sub-model (header, chart, metrics, logs, footer) has its own test file vali
 1. Follow the table-driven pattern with subtests and descriptive names
 2. Use `t.Parallel()` for independent subtests
 3. Add golden file entries for new algorithms (regenerate with `go run ./cmd/generate-golden/`)
-4. Write fuzz tests for cross-validation between algorithms
+4. Write fuzz tests for cross-validation between algorithms — knowing that a new target only buys its seed replay until someone runs `-fuzz` by hand ([Fuzz Testing](#fuzz-testing)), so choose seeds that are worth running as fixed regression cases
 5. Run with `-race` during development
 6. Use `-short` to skip slow tests during rapid iteration
 7. Test context cancellation for any long-running computation

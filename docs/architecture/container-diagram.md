@@ -50,3 +50,4 @@ C4Container
 
 ---
 [← Retour au hub architecture](./README.md)
+Légende narrative de cette figure : [§2 High-Level Architecture](../ARCH.md#2-high-level-architecture-clean-architecture).

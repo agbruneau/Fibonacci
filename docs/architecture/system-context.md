@@ -22,3 +22,4 @@ C4Context
 
 ---
 [← Retour au hub architecture](./README.md)
+Légende narrative de cette figure : [§1 Project Overview](../ARCH.md#1-project-overview).

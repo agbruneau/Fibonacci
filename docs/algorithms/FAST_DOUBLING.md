@@ -284,6 +284,11 @@ performance question (A1-07). `smartSquare` is the one-operand twin and gates on
 
 #### Where this actually fires — and where it cannot
 
+> The canonical routing description — every entry point, the threshold's origin,
+> and the `n` from which the FFT actually runs — lives in
+> [FFT.md § FFT Routing](FFT.md#fft-routing). What follows is the part specific
+> to this calculator: why its own gate makes Tier 1 unreachable.
+
 The routing decision is taken one level up, in `AdaptiveStrategy.ExecuteStep`
 (`internal/fibonacci/strategy.go:99-106`), and it tests a **single** operand:
 
@@ -327,6 +332,12 @@ the one production path that consults the FFT transform cache
 ([BIGFFT.md](BIGFFT.md#fft-transform-caching)). On the `"fast"` path,
 `FFTThreshold` selects between *two different doubling-step implementations*,
 not between two multiplication routines.
+
+Because the gate reads `FK1` — the running `F(k+1)`, at most `F(⌊n/2⌋+1)` — and
+not the final result, it stays shut far longer than the bare threshold value
+suggests: with the 500 000-bit default, no step of a `"fast"` run takes the FFT
+branch below `n = 1 440 422`. The per-threshold figures and the derivation are in
+[FFT.md § Which values of n reach the FFT](FFT.md#which-values-of-n-reach-the-fft).
 
 ## Complexity Analysis
 

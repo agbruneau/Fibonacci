@@ -87,3 +87,4 @@ flowchart LR
 
 ---
 [← Retour au hub architecture](../README.md)
+Légende narrative de cette figure : [§7A Fast Doubling](../../ARCH.md#a-fast-doubling-fastdoublingcalculator).

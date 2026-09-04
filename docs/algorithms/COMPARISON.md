@@ -272,6 +272,14 @@ opts := fibonacci.Options{
 }
 ```
 
+Setting `FFTThreshold` is not the same as changing when the FFT runs, and how much
+it changes depends on the calculator. On `"fast"` the value is compared against an
+intermediate operand, so `500_000` keeps the FFT out of the picture entirely below
+`N = 1 440 422` — the "medium" block above is a no-op on that path for most of its
+range. On `"fft"` the field is not read at all. Before tuning it, read
+[FFT.md § FFT Routing](FFT.md#fft-routing), which is the canonical description of
+what this option actually gates.
+
 ## Conclusion
 
 **Fast Doubling** is the recommended algorithm for all general use cases: it requires only 3 multiplications per iteration — the fewest of the three implementations here — and allocates the least. `docs/audits/bench-baseline.txt` — the repo's only cross-algorithm baseline — shows it fastest and smallest at the two sizes it covers: medians of 3.15 ms / 1.32 MB per op at N=1M (vs Matrix 6.03 ms / 6.33 MB and FFT 5.13 ms / 5.38 MB) and 23.87 ms / 17.38 MB at N=10M (vs Matrix 30.84 ms / 92.25 MB and FFT 29.08 ms / 30.88 MB). `mem-baseline-2026-09.txt` puts it lowest on resident memory too at both sizes (9 / 62 MB). No artifact here ranks the three at any other N.

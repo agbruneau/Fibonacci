@@ -2,17 +2,21 @@
 
 > **Scope**: Implementation architecture of `internal/bigfft`
 > **Complexity**: O(n log n) integer multiplication via Schonhage-Strassen FFT
-> **See also**: [FFT.md](FFT.md) for mathematical theory and 2-tier multiplication selection
+> **See also**: [FFT.md](FFT.md) for the mathematical theory, and [FFT.md § FFT Routing](FFT.md#fft-routing) — the canonical answer to *when* a calculation reaches this package
 
 ## Overview
 
 The `internal/bigfft` package implements **Schonhage-Strassen FFT multiplication** over
-Fermat rings for arbitrarily large integers. All three registered calculators route
-large multiplications through it once operands exceed `FFTThreshold` (~500,000 bits
-by default): `"fast"` and `"fft"` via `executeDoublingStepFFT`, `"matrix"` via
-`smartMultiply`/`smartSquare`. Two Fibonacci paths do **not** touch it — the
-`--last-digits` modular path (`FastDoublingMod`, plain `math/big` + `Mod`) and the
-optional `-tags gmp` calculator (libgmp).
+Fermat rings for arbitrarily large integers. All three registered calculators reach it,
+but not by the same rule and not at the same size: `"fft"` unconditionally via
+`executeDoublingStepFFT`, `"fast"` via the same function but only once `FK1` passes
+`FFTThreshold` (which, because the gate reads an intermediate operand, means
+`n ≥ 1 440 422` at the 500 000-bit default), `"matrix"` via `smartMultiply`/`smartSquare`
+once **both** operands pass it. The per-path rules, the origin of the threshold value and
+the reachable-`n` tables are in [FFT.md § FFT Routing](FFT.md#fft-routing), which is the
+canonical description; this page does not restate them. Two Fibonacci paths do **not**
+touch this package at all — the `--last-digits` modular path (`FastDoublingMod`, plain
+`math/big` + `Mod`) and the optional `-tags gmp` calculator (libgmp).
 
 The subsystem has 14 non-test source files, enumerated in
 [Package Structure](#package-structure) below. (`make stats` reports package counts
@@ -836,17 +840,18 @@ FFT behavior is influenced by these `fibonacci.Options` fields:
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `FFTThreshold` | 500,000 bits | Bit-length above which `smartMultiply` routes to `bigfft.MulTo` |
+| `FFTThreshold` | 500,000 bits | Bit-length gate; what it gates depends on the calculator — on `"matrix"` it selects `bigfft.MulTo` inside `smartMultiply`, on `"fast"` it selects a whole doubling-step implementation, on `"fft"` it is not read. See [FFT.md § FFT Routing](FFT.md#fft-routing) |
 
 The internal `fftThreshold` (1,800 words) within `bigfft` itself controls whether
 `Mul`/`Sqr` use FFT or fall through to `math/big`; this is separate from the
-strategy-level threshold.
+strategy-level threshold, and the two gates are applied **in series** — see
+[FFT.md § The two gates are in series, not the same gate](FFT.md#the-two-gates-are-in-series-not-the-same-gate).
 
 ---
 
 ## Cross-References
 
-- [FFT.md](FFT.md) -- Mathematical theory, convolution theorem, 2-tier multiplication selection
+- [FFT.md](FFT.md) -- Mathematical theory, convolution theorem, and [§ FFT Routing](FFT.md#fft-routing), the canonical description of when each calculator reaches this package
 - [FAST_DOUBLING.md](FAST_DOUBLING.md) -- Primary consumer of the BigFFT subsystem
 - [MATRIX.md](MATRIX.md) -- Secondary consumer via Strassen matrix multiplication
 - [../PERFORMANCE.md](../PERFORMANCE.md) -- Benchmark data and threshold tuning results

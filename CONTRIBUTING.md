@@ -361,7 +361,7 @@ Where each kind of change lands (not an exhaustive list of `docs/` — see the R
 
 | File | What belongs there |
 | ---- | ------------------ |
-| `README.md` | Entry point: quick start, flag table, audit history, headline numbers |
+| `README.md` | Entry point: quick start, flag table, the end-to-end walkthrough of one `fibcalc` run, audit history, headline numbers |
 | `CHANGELOG.md` | Every observable change, Keep-a-Changelog format |
 | `docs/architecture/README.md` | Architecture hub and C4 diagrams (source of truth) |
 | `docs/adr/NNNN-*.md` | A decision *and* the candidates you rejected, with the measurement or prior ADR that rejects them |
