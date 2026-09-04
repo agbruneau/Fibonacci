@@ -103,6 +103,18 @@ L'annotation d'ADR-0004 §B1 (« le code de calibration s'appuie sur
 - Les oracles bigfft sont explicitement étiquetés, protégeant la validation
   croisée d'une suppression future naïve.
 
+> **Correctif (annoté le 2026-09-04, les Consequences sont conservées telles
+> qu'elles ont été écrites le 2026-07-03)** : deux faits du deuxième point ne
+> tiennent plus. (1) Le multiplicateur d'arène **n'est plus ×15 mais ×10** : le
+> balayage appelé par le « À revoir si » de R4 a été exécuté quatre jours plus
+> tard et a fait adopter ×10 — voir l'*Addendum (2026-07-07)* immédiatement
+> ci-dessous, et `arenaTotalWords`, qui retourne `wordsPerInt * 10`
+> (`internal/fibonacci/memory/arena.go`, vérifié à HEAD le 2026-09-04). (2)
+> `CLAUDE.md` a été retiré du dépôt le 2026-07-31 (commit `869bd6a`) ; la
+> justification du multiplicateur vit désormais dans les doc-comments de
+> `internal/fibonacci/fastdoubling.go` (*Status note (2026-08-07)*). Le fond
+> tient : FIB-05 ne se re-tente pas sans le protocole R4.
+
 ## Addendum (2026-07-07) — R4 revisité : balayage complet, adoption de ×10
 
 Le protocole ouvert par R4 (« À revoir si : un balayage complet… ») a été

@@ -4,6 +4,18 @@
 - **Date**: 2026-05-28
 - **Context source**: audit mai 2026, constat `A2-01` (CRITIQUE), axe 2 Concurrence (rapport archivé en historique git).
 
+> **État courant (annoté le 2026-09-04 ; le `Status` ci-dessus et le corps sont
+> conservés tels qu'ils ont été écrits le 2026-05-28)** : la décision — refcount
+> package-level — tient et est en place. Ce qui a changé, c'est la
+> **vérification**. Le §Context et la mitigation des Risks affirment au présent
+> que la confirmation dynamique sous `-race` reste à faire et que le détecteur
+> est indisponible ici (`CGO_ENABLED=0`) : **les deux sont faux**. `go env
+> CGO_ENABLED` retourne `1`, `gcc` (MinGW-w64) est sur le `PATH`,
+> `scripts/check.ps1` sonde ces deux conditions pour activer `-race`, et la
+> commande exacte de la mitigation a été rejouée sans course. Détail :
+> annotations au point exact ci-dessous et *Status note (2026-09-04)*, en fin de
+> document.
+
 ## Context
 
 `GCController` (`internal/fibonacci/memory/gc_control.go`) désactive le GC pendant un calcul (`debug.SetGCPercent(-1)`) et installe un garde-fou OOM (`debug.SetMemoryLimit`), puis restaure à la fin. Ces deux réglages sont **globaux au processus**.
@@ -16,6 +28,16 @@ En mode comparaison (`--algo all`, `N >= GCAutoThreshold = 1_000_000`), l'orches
 4. Le 1ᵉʳ `End` exécute `SetMemoryLimit(MaxInt64)`, **retirant le filet OOM** alors qu'un calculateur frère calcule encore un très grand nombre.
 
 Vérifié par lecture de code (orchestrateur + calculateur + `gc_control.go`). L'aspect *data race* dynamique reste `[à vérifier]` sous `-race` (indisponible localement : `CGO_ENABLED=0`).
+
+> **Correctif (annoté le 2026-09-04, la phrase ci-dessus est conservée telle
+> qu'elle a été écrite le 2026-05-28)** : la parenthèse est fausse sur cet hôte,
+> et le `[à vérifier]` est **levé**. `go env CGO_ENABLED` retourne **`1`** et
+> `gcc` (MinGW-w64) est sur le `PATH` : `-race` s'exécute ici, et
+> `scripts/check.ps1` sonde précisément ces deux conditions pour l'activer
+> ([ADR-0010 §D4](0010-audit-2026-09-decisions.md) — `go test -race` passe sur
+> les 21 paquets). La commande de la mitigation a été rejouée le 2026-09-04,
+> aucune course rapportée ; transcription dans la *Status note (2026-09-04)*, en
+> fin de document.
 
 ## Decision
 
@@ -45,6 +67,13 @@ L'invariant `WithGC` panic-safe (`defer End()`) est **préservé** : un panic en
 
 - *Décompte déséquilibré (`End` sans `Begin`)* : garde `if gcActiveDepth > 0` avant décrément — pas d'underflow.
 - *Confirmation data race* : à rejouer sous `CGO_ENABLED=1 go test -race -run 'TestGCController|TestExecuteCalculations' ./internal/fibonacci/memory/ ./internal/orchestration/` (Linux/WSL).
+
+> **Fait (annoté le 2026-09-04, la mitigation ci-dessus est conservée telle
+> qu'elle a été écrite)** : rejouée telle quelle le 2026-09-04, **sur cet hôte
+> Windows** et non sous Linux/WSL — les deux paquets passent, aucune course
+> rapportée (sortie dans la *Status note (2026-09-04)*). La parenthèse
+> « (Linux/WSL) » est donc caduque ; ce n'était pas une limite de plate-forme
+> mais l'absence d'une chaîne C sur l'installation d'alors.
 
 ## Alternatives Considered
 

@@ -276,7 +276,10 @@ Setting `FFTThreshold` is not the same as changing when the FFT runs, and how mu
 it changes depends on the calculator. On `"fast"` the value is compared against an
 intermediate operand, so `500_000` keeps the FFT out of the picture entirely below
 `N = 1 440 422` — the "medium" block above is a no-op on that path for most of its
-range. On `"fft"` the field is not read at all. Before tuning it, read
+range. On `"matrix"` it is compared against the matrix entries instead — a different
+rule, and one that never sees a larger operand than `"fast"` does at the same `N`, so
+the same 500 000 keeps the FFT out below `N = 1 768 788`. On `"fft"` the field is not
+read at all. Before tuning it, read
 [FFT.md § FFT Routing](FFT.md#fft-routing), which is the canonical description of
 what this option actually gates.
 

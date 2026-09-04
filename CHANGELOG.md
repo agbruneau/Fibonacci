@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ADR — annotations au point exact des affirmations périmées (2026-09-04)
+
+Balayage des douze ADR à la recherche des affirmations au présent que le
+document dément lui-même plus bas, ou que la source dément aujourd'hui. Forme
+appliquée : bandeau en tête et correctif daté inséré à l'endroit de
+l'affirmation, sans toucher au raisonnement d'époque ni au champ `Status` — la
+même que celle posée sur l'ADR-0001 la veille. Chaque annotation a été vérifiée
+avant d'être posée ; les affirmations encore vraies sont laissées intactes.
+
+#### Docs
+
+- **[ADR-0005](docs/adr/0005-gc-control-concurrent.md)** — le §Context et la
+  mitigation des Risks laissaient un lecteur avec deux faits faux : la
+  confirmation de la course sous `-race` serait à faire, et le détecteur
+  indisponible ici (`CGO_ENABLED=0`, « Linux/WSL » requis). Or `go env
+  CGO_ENABLED` retourne `1`, `gcc` (MinGW-w64) est sur le `PATH`,
+  `scripts/check.ps1` sonde ces deux conditions pour activer `-race`, et la
+  commande exacte de la mitigation a été rejouée sur cet hôte Windows sans
+  course. La *Status note (2026-09-04)* qui l'établissait vivait ~90 lignes plus
+  bas ; le fait est maintenant au point d'énonciation.
+- **[ADR-0006](docs/adr/0006-fft-recursion-cancellation.md)**,
+  **[ADR-0007](docs/adr/0007-pool-pointer-vs-value.md)**,
+  **[ADR-0003](docs/adr/0003-globals-vs-context.md)** — huit renvois d'échéance
+  vers « la migration `FFTContext` » (report de l'annulation fine, gain
+  zéro-alloc des pools, résorption des globaux) pointent un code supprimé de
+  l'arbre le 2026-07-11 (commit `23ab593`) et une migration WONT-FIX
+  ([ADR-0004 §B1](docs/adr/0004-backlog-decisions.md)). Les décisions tiennent ;
+  ce qui est annoté, c'est que ces reports **n'ont plus d'échéance**.
+  Au passage : `fourierRecursiveCtx`, encore nommé au présent par le §Context de
+  l'ADR-0006, n'existe plus.
+- **[ADR-0004 §B5](docs/adr/0004-backlog-decisions.md)** — l'« action concrète »
+  annonce F(100k)/F(500k)/F(1M) ajoutés au golden ; le corpus réel est
+  F(50000)/F(100000)/F(200000) (recompté sur
+  `internal/fibonacci/testdata/fibonacci_golden.json`), ce que la *Status note
+  (2026-06-10)* disait 25 lignes plus bas.
+- **[ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)** —
+  les Consequences donnent le multiplicateur d'arène pour ×15 et le disent
+  documenté dans `CLAUDE.md` ; il est à **×10** depuis l'addendum du 2026-07-07
+  (`arenaTotalWords` retourne `wordsPerInt * 10`) et `CLAUDE.md` a été retiré du
+  dépôt le 2026-07-31.
+
 ### Audit de sur-ingénierie 2026-09-03 (ponytail)
 
 Passe repo entier après l'audit exhaustif : ce qui reste à supprimer, replier

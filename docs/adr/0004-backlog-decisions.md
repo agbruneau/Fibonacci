@@ -125,6 +125,16 @@ Justification :
 Action concrète : voir le commit qui clôt cet ADR pour les entrées
 F(100k), F(500k), F(1M) ajoutées via `cmd/generate-golden`.
 
+> **Correctif (annoté le 2026-09-04, l'action concrète est conservée telle
+> qu'elle a été écrite)** : ce ne sont pas ces entrées-là. Le corpus
+> effectivement ajouté est **F(50000), F(100000), F(200000)** — recompté le
+> 2026-09-04 sur `internal/fibonacci/testdata/fibonacci_golden.json`, dont les
+> trois dernières entrées sont `"n": 50000`, `"n": 100000`, `"n": 200000` ; ni
+> F(500k) ni F(1M) n'y figurent. Voir *Status note (2026-06-10)*, en fin de
+> document. Le `CLAUDE.md` cité juste au-dessus comme source du statut
+> « immuable » a par ailleurs été retiré du dépôt le 2026-07-31 (commit
+> `869bd6a`) : ce statut tient désormais du présent ADR seul.
+
 ## Consequences
 
 - Le PRD est maintenant **formellement clos**. Aucun item flottant.

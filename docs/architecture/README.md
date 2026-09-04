@@ -3,7 +3,10 @@
 Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques, flux de données et le relevé de validation des invariants (§5). Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
 
 > **Partage du travail avec [`docs/ARCH.md`](../ARCH.md).** Ce répertoire **dessine** ;
-> `ARCH.md` **narre**. Les onze figures ci-dessous sont la vue faisant foi sur la *forme*
+> `ARCH.md` **narre** — à une exception près : la figure du flux CLI est dessinée dans
+> [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result), en tête de la section
+> qui la commente, parce que sa légende est cette section et rien d'autre.
+> Les dix figures ci-dessous sont la vue faisant foi sur la *forme*
 > du système — arêtes d'import, sous-graphes, ordre des branches — et les sections
 > d'`ARCH.md` en sont la légende : le pourquoi, les constantes, les défauts, ce qui n'est
 > pas garanti. Il n'existe **pas** deux vues concurrentes de l'architecture : `ARCH.md`
@@ -12,12 +15,13 @@ Ce répertoire contient la documentation architecturale détaillée du projet Fi
 > [carte des figures](../ARCH.md#0-carte-des-figures). Un changement de forme se corrige
 > **dans la figure d'abord**, puis dans la légende.
 
-> **Format des diagrammes.** Les onze diagrammes sont des fichiers `.md` dont le corps est un
+> **Format des diagrammes.** Les dix diagrammes sont des fichiers `.md` dont le corps est un
 > bloc clôturé `mermaid`. C'est le seul format que GitHub rend graphiquement : un fichier
 > `.mermaid` ou `.mmd` autonome s'affiche en texte brut. Ils portaient l'extension `.mermaid`
 > jusqu'au 2026-09-04 et ont été convertis pour cette raison ; le repo utilisait déjà cette
-> convention ailleurs (`docs/algorithms/*.md`, `docs/TUI_GUIDE.md`). Les onze blocs ont été
-> passés au parseur `mermaid` v11.17.2 le 2026-09-04 — zéro erreur de syntaxe.
+> convention ailleurs (`docs/algorithms/*.md`, `docs/TUI_GUIDE.md`). Les onze blocs du corpus
+> — les dix d'ici plus celui de [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result) —
+> ont été passés au parseur `mermaid` v11.17.2 le 2026-09-04 : zéro erreur de syntaxe.
 
 ## 1) Diagrammes d'Architecture (C4 Model)
 
@@ -37,8 +41,11 @@ Le projet suit rigoureusement les principes de la **Clean Architecture**. Le gra
 
 Six `flowchart` retracent les chemins d'exécution critiques, du point d'entrée au résultat :
 
+- **Exécution CLI** — la figure et sa légende sont ensemble dans
+  [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result) : le `flowchart` en tête
+  de section, puis dix étapes numérotées qui commentent chacune un sous-graphe.
 - **[Flows/](./flows/) :**
-  - Exécution [CLI](./flows/cli-flow.md) — *légende : [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result), dix étapes numérotées, chacune nommant le sous-graphe qu'elle commente* — et [TUI](./flows/tui-flow.md) — *légende : [`ARCH.md` §6, mode TUI](../ARCH.md#tui-mode-figure)*.
+  - Exécution [TUI](./flows/tui-flow.md) — *légende : [`ARCH.md` §6, mode TUI](../ARCH.md#tui-mode-figure)*.
   - [Résolution de configuration](./flows/config-flow.md) — *légende : [`ARCH.md` §8](../ARCH.md#configuration-cascade) et [§9](../ARCH.md#9-configuration-and-environment)*.
   - Pipelines algorithmiques : [Fast Doubling](./flows/fastdoubling.md) (*[§7A](../ARCH.md#a-fast-doubling-fastdoublingcalculator)*), [FFT](./flows/fft-pipeline.md) (*[§7C](../ARCH.md#c-fft-based-doubling-fftbasedcalculator)*), [Matrix](./flows/matrix.md) (*[§7B](../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator)*).
 

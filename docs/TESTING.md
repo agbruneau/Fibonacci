@@ -10,10 +10,12 @@ testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite spans 134 test files across the
 21 packages (2026-09-04; recount with `git ls-files '*_test.go' | wc -l` rather
 than trusting the figure — `git ls-files` is used deliberately, so untracked
-scratch checkouts are not counted twice), with a coverage floor of 80 % asserted
-locally by `make coverage-check` alone — `make coverage` only renders
-`coverage.html` and asserts nothing (do not freeze a percentage here — run
-`make coverage-check` for the current figure; see A5-04 below).
+scratch checkouts are not counted twice) and covered **96.6 % of statements**
+when last measured (2026-09-04, `go1.27.0 windows/amd64`). Only the **80 %**
+floor is enforced, by `make coverage-check` alone — `make coverage` renders
+`coverage.html` and asserts nothing. The 16.6-point margin between the reading
+and the floor is unenforced slack, not a guarantee; see [Coverage](#coverage)
+for the command that re-dates the figure.
 
 All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag run locally (requires CGO).
 
@@ -396,18 +398,47 @@ This pattern in `orchestration_spy_test.go` verifies that configuration values (
 
 ## Coverage
 
-The project targets a minimum total coverage of 80 %. `make coverage` only renders the HTML report and asserts nothing; the floor is asserted by `make coverage-check` (which delegates to `scripts/check.sh --coverage-only`). The repo pins no current figure — run `make coverage-check` for the value of the day.
+Two numbers live here and they are not interchangeable.
+
+| | Value | Status |
+|---|---|---|
+| **Enforced floor** | 80.0 % of statements, module total | Asserted by `make coverage-check`, which delegates to `scripts/check.sh --coverage-only` (`COVERAGE_FLOOR=80.0`). Below it, the gate fails. |
+| **Last measured** | **96.6 %** of statements, module total | A dated reading: 2026-09-04, `go1.27.0 windows/amd64`, `go test -coverprofile=… ./...` exit 0, 21 packages. Nothing enforces it — coverage can fall 16.6 points before any gate reacts. |
+
+Read the 96.6 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
+below: it counts no e2e subprocess path and no GMP backend, so it is 96.6 % of
+what the instrumentation can see, not of the shipped code.
+
+That reading came from the same two commands `check.sh --coverage-only` runs
+internally, so reproducing it needs neither `make` nor bash — a plain Go
+toolchain on any host, PowerShell included, gives the same number:
 
 ```bash
-go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
-go tool cover -func=coverage.out    # Coverage by function
-go test -cover ./...                # Quick summary
-make coverage                       # Via Makefile
+go test -coverprofile=coverage.out ./...   # regenerate the profile
+go tool cover -func=coverage.out           # per-function; the LAST line is the module total
+```
+
+`coverage.out` is gitignored (`.gitignore`, the `coverage.*` glob), so
+regenerating it does not dirty the tree. The other recipes:
+
+```bash
+go tool cover -html=coverage.out -o coverage.html   # visual report
+go test -cover ./...                                # per-package summary, no profile
+make coverage                                       # both of the above; requires make
 ```
 
 The HTML report (`coverage.html`) highlights tested and untested code paths. Focus areas: algorithm implementations, output formatting, error handling paths, and configuration parsing.
 
-> **Single source of the metric (A5-04)** — The coverage figure is *not* hard-coded in this document. The canonical sources are `make coverage` (HTML report) and `make coverage-check` (floor assertion). Do not quote a frozen percentage here; run the commands to obtain the current value.
+> **Dated, not frozen (A5-04, amended 2026-09-04)** — The original directive
+> banned *any* percentage from this document, to stop a hard-coded figure from
+> rotting. It over-corrected: the reader could not tell 80.1 % from 96.6 %, and
+> the only sanctioned way to find out (`make`, `check.sh`) needs bash or WSL,
+> which the Windows reader this repo targets does not have. The rule now
+> matches how this document treats every other measurement: **quote the figure
+> with its date, host and command, and re-date it when you re-run.** What stays
+> banned is a bare percentage with no provenance, and reading a measurement as
+> a commitment — `scripts/check.sh` is still the single source of the
+> *enforced* number, and it asserts 80 %, not 96.6 %.
 
 ### Coverage blind spots (A5-08)
 
@@ -418,7 +449,15 @@ Two categories of code are intentionally not reflected in the standard `coverage
 
 ### generate-golden is sparsely covered (A5-09)
 
-`cmd/generate-golden` is the **dev-time** oracle that regenerates the golden corpus; it is outside the production execution path. Its `main` is deliberately left uncovered, so the package sits far below the module total (no frozen percentage here — measure with `go test -cover ./cmd/generate-golden/`). **Exclude it from any per-package coverage floor** — the floor applies to the **module total** only (see `make coverage-check`, A5-10).
+`cmd/generate-golden` is the **dev-time** oracle that regenerates the golden
+corpus; it is outside the production execution path. Its `main` is deliberately
+left uncovered, which costs the package **8.7 points** against the module total:
+**87.9 %** vs 96.6 % (`go test -count=1 -cover ./cmd/generate-golden/`,
+2026-09-04). The whole gap is `main` at 0.0 % — `run` measures 90.5 % and
+`fibBig` 100.0 % (`go tool cover -func`). So the package sits *below* the module
+total, not far below, and clears the 80 % floor on its own.
+**Exclude it from any per-package coverage floor** regardless — the floor
+applies to the **module total** only (see `make coverage-check`, A5-10).
 
 ## End-to-End Testing
 

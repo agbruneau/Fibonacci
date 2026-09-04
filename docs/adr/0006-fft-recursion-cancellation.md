@@ -4,15 +4,45 @@
 - **Date**: 2026-05-28
 - **Context source**: audit mai 2026, constat `A2-03` (MAJEUR), axe 2 Concurrence (rapport archivé en historique git).
 
+> **État courant (annoté le 2026-09-04 ; le `Status` ci-dessus et le corps sont
+> conservés tels qu'ils ont été écrits le 2026-05-28)** : la décision de cet ADR
+> est un **report** vers « la migration `FFTContext` exclusif ». Cette cible
+> **n'existe plus** : le code a été supprimé de l'arbre le 2026-07-11 (commit
+> `23ab593` ; `grep -rn FFTContext --include=*.go .` ne renvoie rien au
+> 2026-09-04) et la migration reste classée WONT-FIX
+> ([ADR-0004 §B1](0004-backlog-decisions.md)). Partout ci-dessous, lire
+> « reporté à la migration `FFTContext` » comme **« sans échéance »** : la
+> latence d'annulation non bornée pendant une multiplication d'opérande géant
+> est le comportement courant et le reste par défaut. Le raisonnement du
+> §Decision — pourquoi un drapeau global `atomic.Bool` est faux sous FFT
+> concurrentes, et pourquoi la solution correcte est un token par appel — reste,
+> lui, entièrement valide. Détail : *Status note (2026-09-04)*, en fin de
+> document.
+
 ## Context
 
 `fourierRecursiveUnified` (`internal/bigfft/fft_recursion.go:fourierRecursiveUnified`) et `fourierRecursiveCtx` ne reçoivent **aucun** `context.Context` et ne consultent jamais `ctx.Err()`. La boucle de doublement vérifie déjà le contexte **entre étapes** (`doubling_framework.go`) et **entre les 3 produits** d'un pas FFT (`fibonacci/fft.go executeFFTTransforms` : `ctx.Err()` avant/entre `op1/op2/op3`). Le trou résiduel : **une seule** multiplication FFT d'un opérande géant (N ≫ régime FFT) s'exécute jusqu'au bout sans consulter le contexte → **latence d'annulation non bornée** sur le chemin le plus coûteux.
+
+> **Correctif (annoté le 2026-09-04, le §Context est conservé tel qu'il a été
+> écrit)** : `fourierRecursiveCtx` **n'existe plus** — il vivait dans
+> `fft_recursion_ctx.go`, supprimé avec l'API `FFTContext` le 2026-07-11. La
+> seconde variante en place à HEAD est `fft_recursion.go:fourierRecursive`, qui
+> ne reçoit pas non plus de `context.Context` : le constat de fond tient, seul le
+> nom a changé. Déjà relevé dans la *Status note (2026-08-07)*.
 
 L'audit qualifie A2-03 d'**amélioration de robustesse, pas de bug de correction** (pas de fuite de goroutine : `wg.Wait` ; pas de deadlock : admission `select`/`default`).
 
 ## Decision
 
 **Reporter la granularité fine** (annulation à l'intérieur d'une multiplication FFT) à la migration **`FFTContext` exclusif** (ADR-0004 §B1, backlog). **Aucun changement de code** dans cette passe ; on documente l'invariant et on s'appuie sur l'annulation grossière existante (entre pas et entre les 3 produits).
+
+> **Correctif (annoté le 2026-09-04, la décision est conservée telle qu'elle a
+> été écrite)** : la cible du report n'existe plus. `FFTContext` a été supprimé
+> de l'arbre le 2026-07-11 (commit `23ab593`) et la migration reste WONT-FIX
+> ([ADR-0004 §B1](0004-backlog-decisions.md)), sans clause de réouverture autre
+> qu'un *use case multi-tenant* concret. Le report **n'a donc plus d'échéance** :
+> « aucun changement de code » n'est pas une étape avant un chantier à venir,
+> c'est l'état courant et le défaut durable.
 
 ### Pourquoi pas un drapeau global `atomic.Bool` (approche initialement proposée) ?
 
@@ -46,6 +76,18 @@ Changer la signature de `fourierRecursive*` pour y passer un `context.Context` c
 - **Drapeau global `atomic.Bool` + watcher** — rejeté : clear-race sous FFT concurrentes (cf. ci-dessus).
 - **`context.Context` threadé dans `fourierRecursive*`** — rejeté : casse la stabilité de signature hot path (ADR-0003) et ajoute un coût de verrou par nœud.
 - **Token `*atomic.Bool` par-appel via `FFTContext`** — **retenu comme cible**, mais relève de la migration `FFTContext` (ADR-0004 §B1), hors scope de la remédiation d'audit courante.
+
+> **Correctif (annoté le 2026-09-04, les trois sections ci-dessus sont conservées
+> telles qu'elles ont été écrites)** : « Accepté jusqu'à la migration
+> `FFTContext` » (Negative), « La granularité fine arrivera avec `FFTContext` »
+> (Risks) et « relève de la migration `FFTContext` » (Alternatives) renvoient
+> toutes les trois à un chantier **supprimé de l'arbre** le 2026-07-11 (commit
+> `23ab593`) et classé WONT-FIX. Aucune de ces trois échéances ne tient : la
+> latence non bornée est le comportement courant, sans date de levée. Reprendre
+> le chantier veut désormais dire **re-créer** le porteur de token — le code
+> supprimé se récupère par
+> `git show 23ab593^:internal/bigfft/context.go` — et non attendre une migration
+> en cours.
 
 ## References
 

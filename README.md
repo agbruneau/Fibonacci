@@ -91,12 +91,22 @@ make all      # clean + build + test
 
 ### Algorithmes
 
-| Algorithme | Complexité | Notes |
+| `-algo` | Coût de F(n) | Notes |
 |---|---|---|
-| **Fast Doubling** (défaut) | O(log n) × M(n) | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; pooling état+arène+scratch FFT |
-| **Exponentiation matricielle** | O(log n) × M(n) | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices |
-| **FFT (Schönhage-Strassen)** | O(n log n) | Bascule quand un **opérande** dépasse le seuil FFT — une table de constantes, pas une mesure (encadré ci-dessous) |
+| `fast` (défaut) — **Fast Doubling** | O(log n) × M(n) | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; `AdaptiveStrategy` choisit M pas par pas ; pooling état+arène+scratch FFT |
+| `matrix` — **Exponentiation matricielle** | O(log n) × M(n) | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices ; choisit M lui aussi, mais à un autre point du graphe d'appel |
+| `fft` — **FFT-Based Doubling** | O(log n) × M(n), M **toujours** FFT | **Pas un troisième algorithme** : `FFTBasedCalculator.CalculateCore` relance la boucle de `fast` — le même `ExecuteDoublingLoop` — en échangeant `AdaptiveStrategy` contre `FFTOnlyStrategy`, qui ne consulte plus aucun seuil. C'est un banc d'essai du chemin FFT isolé, et il est **plus lent que `fast`** aux deux seules tailles mesurées ([Performance](#performance)) |
 | **GMP** (tag de build `gmp`) | — | Backend GNU MP (CGO + libgmp) ; `scripts/check.sh` étape 3b le compile et le teste **si** les en-têtes libgmp sont présentes sur l'hôte, sinon l'étape est sautée (`check.ps1` n'a pas d'équivalent) |
+
+M(n) est le coût d'**une** multiplication de deux nombres de n bits, pas celui de F(n) : `math/big`
+(Karatsuba, M(n) ≈ O(n^1,585)) sous le seuil FFT, Schönhage-Strassen (`internal/bigfft`,
+M(n) ≈ O(n log n)) au-dessus. Les trois calculateurs font O(log n) multiplications et ne diffèrent
+que par la routine qu'ils y branchent et par l'endroit où ils la choisissent — **aucune ligne du
+tableau ne domine donc les autres asymptotiquement** : ce qui les sépare tient aux constantes et se
+lit au chronomètre
+([Performance](#performance)), pas dans la colonne « Coût ». Qui prend quel chemin, à quel moment et
+avec quel seuil : [`docs/algorithms/FFT.md` § FFT Routing](docs/algorithms/FFT.md#fft-routing),
+description canonique du routage.
 
 Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBLING](docs/algorithms/FAST_DOUBLING.md),
 [MATRIX](docs/algorithms/MATRIX.md), [FFT](docs/algorithms/FFT.md), [GMP](docs/algorithms/GMP.md),
@@ -291,7 +301,8 @@ l'audit 2026-09 : 12 Mo annoncés pour 141 Mo réels à F(10M). Le modèle actue
 réel et le majore d'au plus **2,47×** ; il reste donc une borne haute, pas une prédiction.
 
 **Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
-validation croisée ; `fft` est plus lent que `fast` aux deux seules tailles mesurées (F(1M) et F(10M)) —
+validation croisée ; `fft` — la même boucle de doublement que `fast`, multiplication forcée en FFT
+(cf. [Algorithmes](#algorithmes)) — est plus lent que `fast` aux deux seules tailles mesurées (F(1M) et F(10M)) —
 l'idée qu'il devienne compétitif au-delà est une hypothèse que le dépôt ne teste pas. Méthodologie, tuning et suivi de
 non-régression : [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) ; baseline du gate perf :
 `docs/audits/bench-baseline.txt` (régénérée le 2026-07-07).

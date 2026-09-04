@@ -25,6 +25,17 @@ Une trajectoire alternative existait alors via `FFTContext` (`internal/bigfft/co
 - Les lectures hot path sont `atomic.LoadInt64` — coût négligeable (un load fence).
 - La migration vers `FFTContext` exclusif est reportée à une release ultérieure si elle se justifie par un *use case multi-tenant* effectif.
 
+> **Correctif (annoté le 2026-09-04, la décision est conservée telle qu'elle a
+> été écrite le 2026-05-21)** : ce dernier point ne décrit plus un report mais un
+> abandon de fait. `FFTContext` et `internal/bigfft/context.go` ont été
+> **supprimés de l'arbre** le 2026-07-11 (commit `23ab593` ;
+> `grep -rn FFTContext --include=*.go .` ne renvoie rien au 2026-09-04) et la
+> migration reste WONT-FIX ([ADR-0004 §B1](0004-backlog-decisions.md)). Les
+> globaux atomiques ne sont donc pas « le chemin par défaut en attendant » : ils
+> sont **l'unique chemin**, sans échéance. Même lecture pour « la résorption
+> complète (suppression des globaux au profit de `FFTContext`) est reportée »
+> des Negative / Trade-offs. Déjà relevé dans la *Status note (2026-08-07)*.
+
 ## Consequences
 
 ### Positive

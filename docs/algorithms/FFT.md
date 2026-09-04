@@ -1,7 +1,7 @@
 # FFT Multiplication for Large Integers
 
 > **Complexity**: O(n log n) for multiplying two numbers of n bits
-> **Used by**: `"matrix"` once both operands pass `FFTThreshold`; `"fft"` at every size; `"fast"` only from `n ≈ 1 440 000` up with the default threshold — see [FFT Routing](#fft-routing), which is the canonical description of the switch.
+> **Used by**: `"fft"` at every size; `"fast"` only from `n = 1 440 422` up and `"matrix"` only from `n = 1 768 788` up, with the default threshold — see [FFT Routing](#fft-routing), which is the canonical description of the switch.
 
 ## Introduction
 
@@ -112,9 +112,15 @@ flowchart TD
     end
 
     subgraph MAT["algo matrix — MatrixCalculator"]
-        MA["multiplicationTask / squaringTask<br/>common.go:150 and :167"] --> MG{"smartMultiply:<br/>bx &gt; t AND by &gt; t ?"}
-        MG -- yes --> MT1["Tier 1: bigfft.MulTo"]
-        MG -- no --> MT2["Tier 2: math/big Karatsuba"]
+        MA["ExecuteMatrixLoop, iteration i<br/>matrix_framework.go:63<br/>p = Q^(2^i), res = Q^(e mod 2^i), e = n-1"]
+        MA --> MSQ["squareSymmetricMatrix<br/>matrix_ops.go:205<br/>every iteration but the last"]
+        MA --> MMU["multiplyMatrices<br/>only when bit i of e is set"]
+        MSQ --> MGS{"first gate to open:<br/>smartSquare on a = F(2^i+1)<br/>one operand, bx &gt; t ?"}
+        MMU --> MGM{"first gate to open:<br/>smartMultiply P2 = res.a x p.a<br/>both operands, so decided by<br/>the smaller: res.a = F(r+1)"}
+        MGS -- yes --> MT1["Tier 1: bigfft.SqrTo / MulTo"]
+        MGM -- yes --> MT1
+        MGS -- no --> MT2["Tier 2: math/big Karatsuba"]
+        MGM -- no --> MT2
     end
 
     Opts --> FA
@@ -133,6 +139,16 @@ The `-tags gmp` calculator has no box in this diagram because it has no branch: 
 In practice the second gate never bites on the `"matrix"` path for any value the heuristic can produce, since the smallest of those is 250 000 bits — more than twice 115 200; an explicit `--fft-threshold` below 115 200 would be a different story, the bit gate opening while the word gate stays shut. It also matters for `"fft"`: `FFTOnlyStrategy.Multiply`/`Square` route through `bigfft.MulTo`/`SqrTo` and therefore honour the word gate, while `FFTOnlyStrategy.ExecuteStep` calls `executeDoublingStepFFT`, which bypasses it entirely. That asymmetry is why "`"fft"` forces FFT at every size" is true of the doubling step and false of the `Multiplier` methods.
 
 ### Which values of n reach the FFT
+
+Three production paths, three different answers, and none of them is a threshold on
+`bitlen(F(n))`. Two are trivial: `FFTOnlyStrategy.ExecuteStep` never reads
+`FFTThreshold`, so `"fft"` takes `executeDoublingStepFFT` at every step for every
+`n ≥ 1`; and `-tags gmp` has no threshold at all ([GMP.md](GMP.md)). The two paths
+that answer with a number — `"fast"` and `"matrix"` — are below, and **they do not
+answer the same number**: 1 440 422 and 1 768 788 respectively, at the default
+threshold.
+
+#### The `"fast"` path
 
 On the `"fast"` calculator the gate reads `FK1`, the running `F(k+1)` — **not** `F(n)`. At the entry of the last doubling step, `k = ⌊n/2⌋`, so the largest value the gate ever sees is `bitlen(F(⌊n/2⌋ + 1)) ≈ 0.694 · n/2`. The FFT therefore fires only from
 
@@ -161,8 +177,6 @@ And, at the default 500 000, how many of the loop's steps take the FFT branch:
 
 So: **`-n 400000` does not use the FFT on the `"fast"` calculator, at any SIMD level.** Neither does `-n 1000000` on a 64-bit host. Even at `-n 10000000` only the last 3 of 24 steps take the FFT branch — though operands roughly double at every step, so those 3 carry by far the largest multiplications. How the runtime actually splits between the two branches is not measured by any artifact in this repo; the step counts above are structural, not timings.
 
-One trap in that answer: the CLI default is `-algo all` (`DefaultAlgo = "all"`, `internal/config/config.go:29`), and `GetCalculatorsToRun` then runs **every** registered calculator (`internal/orchestration/calculator_selection.go:17-27`), `"fft"` included. A default `-n 400000` run therefore does execute FFT code — inside the `"fft"` calculator, never inside `"fast"`. Pass `-algo fast` to isolate the path the tables above describe.
-
 These figures are arithmetic on Fibonacci bit lengths plus the gate read at `strategy.go:101`; they are not benchmark results and no measurement artifact is claimed for them. To re-derive them, iterate `k = n >> (i+1)` for `i` from `bits.Len64(n)-1` down to `0` — that is exactly the state the loop holds at the entry of step `i` (`internal/fibonacci/doubling_framework.go:162`) — and count how often `bitlen(F(k+1)) > t`:
 
 ```go
@@ -172,6 +186,147 @@ for i := bits.Len64(n) - 1; i >= 0; i-- {
     if fk1.BitLen() > t { /* this step routes to executeDoublingStepFFT */ }
 }
 ```
+
+#### The `"matrix"` path
+
+The `"fast"` number above does **not** transfer here, and the gap is about 330 000.
+
+Write `e = n - 1` and `nb = bits.Len64(e)`, the iteration count of
+`ExecuteMatrixLoop` (the loop at `internal/fibonacci/matrix_framework.go:63`, with
+the `multiplyMatrices` call at `:73` and the squaring at `:81`).
+`matrixState.Reset` (`matrix_types.go:88`) starts `res` at the identity and `p` at Q,
+and the loop squares `p` on every iteration but the last and multiplies `res` by `p`
+on every set bit of `e`. So at the **entry** of iteration `i` the loop holds
+
+```
+p   = Q^(2^i)            res = Q^(r),  r = e mod 2^i
+```
+
+and both are symmetric Fibonacci matrices, `Q^m = [[F(m+1), F(m)], [F(m), F(m-1)]]`.
+Every operand any guard ever inspects is therefore a Fibonacci number, or a small
+signed combination of two of them.
+
+**The squaring branch: four products, four guards, one decisive.**
+`squareSymmetricMatrix` (`internal/fibonacci/matrix_ops.go:205`) dispatches three
+`smartSquare` and one `smartMultiply` per iteration, all on `p = Q^(2^i)`:
+
+| Product | Operand(s) | Guard | Opens when |
+|---|---|---|---|
+| `smartSquare(a)` | `a = F(2^i + 1)` | one operand, `bx > t` | `bitlen(F(2^i + 1)) > t` |
+| `smartSquare(b)` | `b = F(2^i)` | one operand, `bx > t` | `bitlen(F(2^i)) > t` |
+| `smartSquare(d)` | `d = F(2^i - 1)` | one operand, `bx > t` | `bitlen(F(2^i - 1)) > t` |
+| `smartMultiply(b, a+d)` | `b = F(2^i)`, `a+d = L(2^i)` | **both** operands | `bitlen(F(2^i)) > t` |
+
+The multiplication's `&&` is decided by its *smaller* operand, and that operand is
+always `b`: `a + d = F(2^i+1) + F(2^i-1)` is the Lucas number `L(2^i)`, and
+`L(2^i) > F(2^i+1) > F(2^i) = b`. So it opens at
+exactly the same `i` as `smartSquare(b)`, and the decisive guard — the first of the
+four to open as `i` grows — is `smartSquare(a)`, since `a > b > d`. The guards being
+per-operand, one iteration can send 0, 1, 2, 3 or 4 of its four products to `bigfft`;
+only once `bitlen(F(2^i - 1)) > t` does an entire squaring go FFT.
+
+**But the multiplication branch fires first.** At the last iteration (`i = nb-1`,
+whose bit is always set) `res = Q^r` with `r = e` minus its top bit — an exponent that
+can reach `2^(nb-1) - 1`, nearly **twice** the largest exponent any squaring reaches
+(`2^(nb-2)`). Both dispatches of `multiplyMatrices` contain the product `res.a × p.a`
+— `ae` in `multiplyMatrix2x2`, `P2` in `multiplyMatrixStrassen` — and its smaller
+operand, `res.a = F(r+1)`, is the largest "smaller operand" among the seven (or
+eight) products, so `P2` is the first of them to open. It is normally tied:
+`P5 = S1 × S5` has `S1 = res.c + res.d = F(r+1)` for its smaller operand too (the
+classic dispatch ties `ae` with `af = res.a × p.b` the same way), which is why the
+boundary values in the table below fire **two** products rather than one. Either
+way the first-fire `n` is independent of `StrassenThreshold`: whichever dispatch is
+chosen, the same operand pair decides.
+
+One product on this path can never fire at any `n`: Strassen's
+`S2 = A21 + A22 - A11` is **identically zero** here, because `res` is a symmetric
+Fibonacci matrix and `F(r) + F(r-1) = F(r+1)`. `P1 = S2 × S6` is a multiplication by
+zero at every iteration.
+
+**The threshold.** Let `M(t)` be the smallest `m` with `bitlen(F(m)) > t`, and
+`J(t) = ⌈log2 M(t)⌉`. A `"matrix"` run sends at least one product to `bigfft`
+exactly when
+
+```
+n  ≥  2^J(t) + M(t)
+```
+
+and the predicate is monotone in `n`, so this really is a single threshold: for
+`nb = J+1` the run is `n = 2^J + r + 1` and the multiplication guard needs
+`r + 1 ≥ M`; from `n = 2^(J+1) + 1` on, `nb ≥ J+2`, the squaring at `i = J` exists and
+fires for every `n`. Nothing depends on the binary *shape* of `n - 1` — that only
+changes how many products fire, not whether any does.
+
+| `FFTThreshold` | `M(t)` | `J(t)` | Smallest `n` with ≥ 1 FFT product | First product to fire | Smallest `n` at which the squaring branch alone fires |
+|---|---|---|---|---|---|
+| 250 000 | 360 107 | 19 | **884 395** | `P2`, iteration 19 | 1 048 577 |
+| 460 000 | 662 595 | 20 | **1 711 171** | `P2`, iteration 20 | 2 097 153 |
+| 480 000 | 691 404 | 20 | **1 739 980** | `P2`, iteration 20 | 2 097 153 |
+| 500 000 | 720 212 | 20 | **1 768 788** | `P2`, iteration 20 | 2 097 153 |
+
+And, at the default 500 000, how much of the work takes the FFT tier:
+
+| `n` | loop iterations (`bits.Len64(n-1)`) | iterations with ≥ 1 FFT product | FFT products / all entry products |
+|---|---|---|---|
+| 400 000 | 19 | 0 | 0 / 166 |
+| 1 000 000 | 20 | 0 | 0 / 167 |
+| 1 500 000 | 21 | 0 | 0 / 186 |
+| 10 000 000 | 24 | 4 | 18 / 200 |
+| 100 000 000 | 27 | 7 | 54 / 245 |
+
+The denominator is specific to the `n` on its row, not a function of `n` alone in the
+way the `"fast"` step count is: each set bit of `n - 1` adds a 7- or 8-product matrix
+multiply on top of that iteration's 4-product squaring, so it tracks
+`popcount(n - 1)` as much as size. As on `"fast"`, the FFT products are the last and
+by far the largest ones; no artifact in this repo measures how the runtime splits
+between the tiers.
+
+These figures are arithmetic on Fibonacci bit lengths plus the guards at
+`fft.go:49` / `fft.go:72` as reached from `matrix_ops.go`; they are not benchmark
+results and no measurement artifact is claimed for them. They were cross-checked
+against an exact `math/big` replay of `ExecuteMatrixLoop` / `multiplyMatrices` /
+`squareSymmetricMatrix` — a replay that reproduces F(10) and F(100) correctly — at
+seventeen values of `n`, spanning both sides of every boundary in the first table and
+every row of the second below 10 000 000. The 10 000 000 and 100 000 000 rows come
+from the bit-length model alone, which agreed with the replay at every `n` where the
+replay was cheap enough to run. To re-derive them, walk the loop and count what each
+guard sees:
+
+```go
+// bl(k) = bitlen(F(k)) = floor(k*log2(phi) - log2(sqrt 5)) + 1 for k >= 2.
+e := n - 1
+nb := bits.Len64(e)
+for i := 0; i < nb; i++ {
+    m := uint64(1) << uint(i) // p = Q^m
+    r := e & (m - 1)          // res = Q^r
+    if (e>>uint(i))&1 == 1 {
+        // res x p: P2 (Strassen) / ae (classic) = res.a * p.a is the first to open
+        if bl(r+1) > t && bl(m+1) > t { /* this product routes to bigfft.MulTo */ }
+    }
+    if i < nb-1 {
+        // square p: smartSquare on a = F(2^i+1) is the first to open
+        if bl(m+1) > t { /* this product routes to bigfft.SqrTo */ }
+    }
+}
+```
+
+#### Reading these numbers under `-algo all`
+
+The CLI default is `-algo all` (`DefaultAlgo = "all"`,
+`internal/config/config.go:29`), and `GetCalculatorsToRun` then runs **every**
+registered calculator (`internal/orchestration/calculator_selection.go:17-27`). A
+single default invocation therefore exercises all three answers at once, and no one
+number covers it:
+
+| `n`, default threshold | `"fast"` | `"matrix"` | `"fft"` |
+|---|---|---|---|
+| 400 000 | no FFT | no FFT | FFT at every step |
+| 1 440 422 | first FFT step | no FFT | FFT at every step |
+| 1 768 788 | FFT | first FFT product | FFT at every step |
+
+So a default `-n 400000` run does execute FFT code — inside the `"fft"` calculator,
+never inside `"fast"` or `"matrix"`. Pass `-algo fast` or `-algo matrix` to isolate
+the path a table above describes.
 
 ### Configuration
 
@@ -337,9 +492,10 @@ plots either curve.
 
 It is also the mark for an *operand*, not for `F(n)`. On the `"fast"` calculator
 the branch is taken against `FK1`, so the sketch's 500k corresponds to a result
-around 1 000 000 bits — `n ≈ 1 440 000`. On `"matrix"` it corresponds to the
-matrix entries, which are of the same order as `F(k)` at each iteration. See
-[FFT Routing](#fft-routing).
+around 1 000 000 bits — `n = 1 440 422`. On `"matrix"` it is taken against the
+entries of `p = Q^(2^i)` and of the accumulated `res`, and the first pair to cross
+it is `res.a × p.a`, at `n = 1 768 788`. See [The `"fast"` path](#the-fast-path)
+and [The `"matrix"` path](#the-matrix-path).
 
 ### FFT Overhead
 

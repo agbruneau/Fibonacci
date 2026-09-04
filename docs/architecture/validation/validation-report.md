@@ -171,12 +171,11 @@ to match source. Notable narrow/wide interface contracts:
 
 ## Execution flows
 
-The drawings live under [`../flows/`](../flows/); their narrative legend lives in
-[`docs/ARCH.md`](../../ARCH.md) §§6-8, which cites each subgraph by name rather than
-re-drawing it. Until 2026-09-04 `ARCH.md` §6 carried a second, ASCII rendering of the
-same CLI path, maintained separately from `cli-flow.md` and cross-referenced by neither;
-it was replaced by ten numbered steps keyed to the figure's subgraphs. When a path
-changes, correct the figure first, then its legend:
+The drawings live under [`../flows/`](../flows/) — except the CLI flow, whose `flowchart`
+sits at the head of [`docs/ARCH.md` §6](../../ARCH.md#6-data-flow-cli-input-to-final-result),
+above the ten numbered steps that are its legend. The other legends live in
+[`docs/ARCH.md`](../../ARCH.md) §§6-8, which cite each subgraph by name rather than
+re-drawing it. When a path changes, correct the figure first, then its legend:
 
 - CLI path: `main()` → `app.New()` → `app.Run()` → orchestration → output
 - TUI path: dispatch → `tui.Run()` → Bubble Tea model lifecycle

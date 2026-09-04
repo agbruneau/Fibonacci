@@ -12,7 +12,8 @@ but not by the same rule and not at the same size: `"fft"` unconditionally via
 `executeDoublingStepFFT`, `"fast"` via the same function but only once `FK1` passes
 `FFTThreshold` (which, because the gate reads an intermediate operand, means
 `n ≥ 1 440 422` at the 500 000-bit default), `"matrix"` via `smartMultiply`/`smartSquare`
-once **both** operands pass it. The per-path rules, the origin of the threshold value and
+once the entries of `Q^(2^i)` and of the accumulated `res` pass it (a different rule and a
+different size: `n ≥ 1 768 788` at the same default). The per-path rules, the origin of the threshold value and
 the reachable-`n` tables are in [FFT.md § FFT Routing](FFT.md#fft-routing), which is the
 canonical description; this page does not restate them. Two Fibonacci paths do **not**
 touch this package at all — the `--last-digits` modular path (`FastDoublingMod`, plain

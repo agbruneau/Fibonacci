@@ -382,8 +382,12 @@ This makes the matrix calculator the **only production path where the "2-tier
 adaptive multiplication" really has two live tiers** — on the `"fast"` path an
 upstream gate makes Tier 1 unreachable — and, as a consequence, the only one that
 reads the bigfft transform cache. Do not restate the rule here: the canonical
-description of the routing, of where the threshold value comes from, and of the
-sizes at which each tier fires is [FFT.md § FFT Routing](FFT.md#fft-routing).
+description of the routing and of where the threshold value comes from is
+[FFT.md § FFT Routing](FFT.md#fft-routing), and the sizes at which each tier fires
+on *this* path — which of the four products of `squareSymmetricMatrix` carries the
+decisive guard, why the `res × p` multiply crosses before any squaring does, and the
+smallest `n` for which any entry product reaches `bigfft` — are in
+[FFT.md § The `"matrix"` path](FFT.md#the-matrix-path).
 
 Note the asymmetry with the parallelism gate above: parallelism reads only
 `state.p`, while the FFT tier is decided per operand pair inside each task.

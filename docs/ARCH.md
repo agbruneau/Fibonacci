@@ -1,6 +1,8 @@
 # FibGo / FibCalc Architecture
 
-> **Ce document narre ; [`docs/architecture/`](architecture/README.md) dessine.**
+> **Ce document narre ; [`docs/architecture/`](architecture/README.md) dessine** — sauf la
+> figure du flux CLI, qui est dessinée ici même, en tête de [§6](#6-data-flow-cli-input-to-final-result),
+> au-dessus de la légende qui la commente.
 > Les onze figures du corpus (blocs Mermaid) sont la **vue faisant foi sur la forme**
 > du système — arêtes d'import, sous-graphes, ordre des branches, retours de boucle.
 > Ce sont aussi les pages les plus vérifiées du dépôt : chaque arête d'import a été
@@ -14,9 +16,11 @@
 
 ## 0) Carte des figures
 
-Le corpus compte **onze** figures Mermaid, plus deux documents-tables sans figure.
-Chaque ligne dit quelle section de ce document commente quelle figure ; suivre le
-lien depuis la section, ou entrer par le [hub](architecture/README.md).
+Le corpus compte **onze** figures Mermaid, plus deux documents-tables sans figure : dix
+vivent dans [`docs/architecture/`](architecture/README.md), la onzième — le flux CLI — est
+inline en [§6](#6-data-flow-cli-input-to-final-result). Chaque ligne dit quelle section de
+ce document commente quelle figure ; suivre le lien depuis la section, ou entrer par le
+[hub](architecture/README.md).
 
 | Figure (bloc Mermaid) | Ce qu'elle dessine | Commentée en |
 |---|---|---|
@@ -25,7 +29,7 @@ lien depuis la section, ou entrer par le [hub](architecture/README.md).
 | [`dependency-graph.md`](architecture/dependency-graph.md) | les 46 imports internes directs du module, un par arête (ni sur-ensemble ni sous-ensemble) | [§2](#2-high-level-architecture-clean-architecture), [§3](#3-directory-structure) |
 | [`component-diagram.md`](architecture/component-diagram.md) | `classDiagram` : interfaces, champs, collaborations de classes — **pas** des imports | [§4](#4-core-packages-responsibilities-key-types-interfaces) |
 | [`patterns/interface-hierarchy.md`](architecture/patterns/interface-hierarchy.md) | les interfaces clés et leurs implémentations, groupées par domaine | [§5](#5-design-patterns), [§8](#presentation-layer-integration) |
-| [`flows/cli-flow.md`](architecture/flows/cli-flow.md) | `main.go` → code de sortie : configuration, dispatch, exécution, présentation, erreurs | [§6](#6-data-flow-cli-input-to-final-result) |
+| **inline en [§6](#6-data-flow-cli-input-to-final-result)** (flux CLI) | `main.go` → code de sortie : configuration, dispatch, exécution, présentation, erreurs | la section elle-même, dix étapes numérotées |
 | [`flows/tui-flow.md`](architecture/flows/tui-flow.md) | cycle Elm du tableau de bord : pont `programRef`, messages, `Update`, `View`, raccourcis | [§6](#tui-mode-figure) |
 | [`flows/config-flow.md`](architecture/flows/config-flow.md) | les cinq sources de configuration et leur précédence, jusqu'à `fibonacci.Options` | [§8](#configuration-cascade), [§9](#9-configuration-and-environment) |
 | [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md) | décorateur → `DoublingFramework` → décision de multiplication → pas FFT → extraction du résultat | [§7A](#a-fast-doubling-fastdoublingcalculator) |
@@ -383,29 +387,113 @@ suivre §§6–8 :
 
 ## 6) Data Flow (CLI input to final result)
 
-> **Figure — [`architecture/flows/cli-flow.md`](architecture/flows/cli-flow.md).**
-> C'est le dessin faisant foi du trajet complet, de `main.go` au code de sortie :
-> sept sous-graphes (`Entry`, `Config`, `Dispatch`, `Calc`, `Progress`, `Output`,
-> `ErrorHandling`), les branches et leur ordre de priorité. **Ouvrir la figure d'abord ;
-> les dix étapes ci-dessous en sont la légende** — chacune nomme le sous-graphe et les
-> nœuds qu'elle commente, et ajoute ce qu'un `flowchart` ne porte pas : les signatures,
-> les valeurs et les raisons. Le lecteur pressé qui ne veut que la trajectoire en une
-> phrase la trouve dans le [README](../README.md).
+La figure ci-dessous est le dessin faisant foi du trajet complet, de `main.go` au code de
+sortie : sept sous-graphes, les branches et leur ordre de priorité. **Les dix étapes qui la
+suivent en sont la légende** — chacune nomme le sous-graphe et les boîtes qu'elle commente,
+et ajoute ce qu'un `flowchart` ne porte pas : les signatures, les valeurs et les raisons.
+Le lecteur pressé qui ne veut que la trajectoire en une phrase la trouve dans le
+[README](../README.md).
+
+```mermaid
+flowchart LR
+    subgraph Entry["Entry Point"]
+        A1[main.go] --> A2[app.New]
+    end
+
+    subgraph Config["Configuration Resolution (all inside app.New, BEFORE any dispatch)"]
+        A2 --> C1[ParseConfig]
+        C1 --> C2["LoadCachedCalibration<br/>(unconditional)"]
+        C2 --> C3{Profile loaded AND Validate ok?}
+        C3 -->|Yes| C4["applyProfileThresholds<br/>fills ONLY the thresholds left non-explicit —<br/>a --threshold / --fft-threshold /<br/>--strassen-threshold or FIBCALC_* value<br/>survives (audit M-03, 2026-09)"]
+        C3 -->|No| C5[ApplyAdaptiveThresholds]
+        C4 --> A3[app.Run]
+        C5 --> A3
+    end
+
+    subgraph Dispatch["Mode Dispatch (Application.Run, priority order)"]
+        A3 --> B1{Completion?}
+        B1 -->|Yes| B1a[Generate Shell Completion]
+        B1 -->|No| B2{Calibrate?}
+        B2 -->|Yes| B2a[Run Full Calibration]
+        B2 -->|No| B3{Auto-calibrate?}
+        B3 -->|Yes| B3a["Quick Calibration<br/>(then falls through)"]
+        B3 -->|No| B4{TUI mode?}
+        B3a --> B4
+        B4 -->|Yes| B4a[Launch TUI]
+        B4 -->|No| B5[CLI Mode: runCalculate]
+    end
+
+    subgraph Calc["Calculation Pipeline"]
+        B5 --> D1["GetCalculatorsToRun<br/>(app/calculate.go:executeCalculations)"]
+        D1 --> C6["Build fibonacci.Options<br/>(app/calculate.go:executeCalculations, after selection)"]
+        C6 --> D2{Single calculator?}
+        D2 -->|Yes| D3[Direct Calculate]
+        D2 -->|No| D4[errgroup Parallel Execute]
+        D3 --> D5[Result]
+        D4 --> D5
+    end
+
+    subgraph Progress["Progress Reporting"]
+        E0["reporter goroutine started FIRST<br/>(before any Calculate)"] --> E0a{--quiet?}
+        E0a -->|Yes| E0b[NullProgressReporter<br/>drains and discards]
+        E0a -->|No| E1[ProgressReporterFunc<br/>wrapping cli.DisplayProgress]
+        D3 -.->|ChannelObserver to progressChan| E1
+        D4 -.->|ChannelObserver to progressChan| E1
+        E1 --> E2[Spinner + Progress Bar + ETA]
+    end
+
+    subgraph ErrorHandling["Error Handling (exit codes by origin)"]
+        G1{"HandleCalculationError<br/>(first non-Canceled error)"}
+        G1 -->|DeadlineExceeded| G2[Exit 2]
+        G1 -->|context.Canceled| G5[Exit 130]
+        G1 -->|other| G6[Exit 1]
+        G3[Exit 3 — result mismatch]
+        G4["Exit 4 — config / memory budget<br/>(app.New via ParseConfig; app/calculate.go:validateMemoryBudget;<br/>app.go:runCompletion; app/calculate.go:runLastDigits)<br/>never derived from a calculation result"]
+    end
+
+    subgraph Output["Result Presentation (app.present)"]
+        D5 --> F1{--quiet AND at least one success?}
+        F1 -->|Yes| F1a{HasResultMismatch?}
+        F1a -->|Yes| G3
+        F1a -->|No| F1b[DisplayQuietResult]
+        F1 -->|No| F2["AnalyzeComparisonResults<br/>with CLIResultPresenter<br/>(single OR multiple calculators)"]
+        F2 --> F2a[PresentComparisonTable]
+        F2a --> F2b{successCount == 0?}
+        F2b -->|Yes| G1
+        F2b -->|No| F2c{HasResultMismatch?}
+        F2c -->|Yes| G3
+        F2c -->|No| F3[PresentResult on fastest success]
+        F3 --> F5[Formatted Output to stdout]
+        F1b --> F5
+        F5 --> F6{-o set AND exit 0?}
+        F6 -->|Yes| F7[WriteResultToFile]
+    end
+
+    style Entry fill:#e1f5fe
+    style Dispatch fill:#f3e5f5
+    style Config fill:#fff3e0
+    style Calc fill:#e8f5e9
+    style Progress fill:#fce4ec
+    style Output fill:#e0f2f1
+    style ErrorHandling fill:#ffebee
+```
 
 ### Complete Execution Flow
 
-**1. ENTRY POINT** — *figure : sous-graphe `Entry`, nœuds `A1 → A2`.*
+**1. ENTRY POINT** — *figure : « Entry Point », `main.go → app.New`.*
 `cmd/fibcalc/main.go` → `run(args, stdout, stderr)`. Le drapeau de version est traité
 avant tout le reste (`HasVersionFlag` → `PrintVersion` → sortie), puis
 `app.New(args, stderr)` construit l'`Application`.
 
-**2. CONFIG RESOLUTION** — *figure : sous-graphe `Config`, nœud `C1`.*
+**2. CONFIG RESOLUTION** — *figure : « Configuration Resolution », boîte `ParseConfig`.*
 `config.ParseConfig(name, args, errWriter, availableAlgos)` : analyse des drapeaux
 (`flag.NewFlagSet` en `ContinueOnError`), `applyEnvOverrides()` pour les variables
 `FIBCALC_*`, normalisation de l'algorithme (`strings.ToLower`), puis
 `config.Validate(availableAlgos)` pour les contrôles sémantiques.
 
-**3. THRESHOLD RESOLUTION** — *figure : `Config`, nœuds `C2 → C3 → C4` ou `C5`.*
+**3. THRESHOLD RESOLUTION** — *figure : « Configuration Resolution », de `LoadCachedCalibration`
+au losange `Profile loaded AND Validate ok?`, puis `applyProfileThresholds` (oui) ou
+`ApplyAdaptiveThresholds` (non).*
 Cette étape ne remplit que ce que l'étape 2 a laissé à l'outil.
 `calibration.LoadCachedCalibration(cfg, profilePath)` s'exécute **inconditionnellement** ;
 si le profil est valide et que la configuration passe encore `Validate`, il remplit
@@ -417,30 +505,35 @@ est faux — une valeur venue d'un drapeau ou d'un `FIBCALC_*` n'est jamais éca
 cascade en [§8](#configuration-cascade), figure dédiée dans
 [`flows/config-flow.md`](architecture/flows/config-flow.md).
 
-**4. MODE DISPATCH** — *figure : sous-graphe `Dispatch`, nœuds `B1 → B5`, dans cet ordre
-de priorité.* `Application.Run` teste, dans l'ordre : mode complétion
+**4. MODE DISPATCH** — *figure : « Mode Dispatch », la colonne de losanges `Completion?` →
+`Calibrate?` → `Auto-calibrate?` → `TUI mode?`, et le défaut `CLI Mode: runCalculate`.*
+`Application.Run` teste, dans l'ordre : mode complétion
 (`completion.Generate` → sortie), mode calibration (`calibration.RunCalibration` →
 sortie), auto-calibration (`calibration.AutoCalibrate` met à jour `cfg` **puis la
 branche retombe** dans la suite), mode TUI
 (`tui.Run(ctx, calculators, cfg, version, errOut)`), et par défaut le mode CLI
 (`runCalculate(ctx, out)`).
 
-**5. LIFECYCLE SETUP** — *pas dessinée : la figure ne montre que les sorties d'erreur
-qu'elle peut produire (nœud `G4`).* Pour les modes CLI et TUI : dérivation vers
+**5. LIFECYCLE SETUP** — *absente de la figure ; seules les sorties d'erreur qu'elle peut
+produire y sont, dans la boîte `Exit 4 — config / memory budget`.* Pour les modes CLI et
+TUI : dérivation vers
 `runLastDigits` si `--last-digits` ; validation du budget mémoire si `--memory-limit`
 est posé ; `context.WithTimeout(cfg.Timeout)` pour l'échéance ;
 `signal.NotifyContext(SIGINT, SIGTERM)` pour l'annulation.
 
-**6. CALCULATOR SELECTION** — *figure : sous-graphe `Calc`, nœud `D1`.*
+**6. CALCULATOR SELECTION** — *figure : « Calculation Pipeline », boîte `GetCalculatorsToRun`.*
 `orchestration.GetCalculatorsToRun(algo, factory)` : `algo="all"` passe par
 `factory.List()` puis un `factory.Get(k)` par clé ; un algorithme nommé fait un seul
 `factory.Get(algo)`.
 
-**7. CONCURRENT EXECUTION** — *figure : `Calc`, nœuds `C6, D2, D3, D4, D5`, et sous-graphe
-`Progress`, nœuds `E0 → E1`.* `orchestration.ExecuteCalculations(ctx, ExecutionConfig{…})` :
+**7. CONCURRENT EXECUTION** — *figure : « Calculation Pipeline », de `Build fibonacci.Options`
+au losange `Single calculator?` et ses deux branches jusqu'à `Result` ; « Progress Reporting »,
+`reporter goroutine started FIRST` et sa branche `--quiet?`.*
+`orchestration.ExecuteCalculations(ctx, ExecutionConfig{…})` :
 
 - canal de progression `make(chan, numCalcs * 5)` ;
-- **la goroutine de progression démarre avant tout `Calculate`** (`E0` dans la figure) :
+- **la goroutine de progression démarre avant tout `Calculate`** (la boîte
+  `reporter goroutine started FIRST` dans la figure) :
   `reporter.DisplayProgress(wg, ch, …)`, ou `NullProgressReporter` en mode `--quiet` ;
 - un seul calculateur → appel direct, sans le coût d'un `errgroup` ; plusieurs → éventail
   `errgroup` ;
@@ -453,31 +546,45 @@ est posé ; `context.WithTimeout(cfg.Timeout)` pour l'échéance ;
   `core.CalculateCore(ctx, …)` ;
 - retour : `CalculationResult{Name, Result, Duration, Err}`.
 
-**8. ALGORITHM CORE** — *pas dans cette figure : le cœur est dessiné par
-[`flows/fastdoubling.md`](architecture/flows/fastdoubling.md), sous-graphes `Framework`,
-`Multiply`, `FFTPipeline`, `Parallel`, `Result`.* À l'intérieur de `CalculateCore`, pour
-Fast Doubling : `fd.acquireStateForN(n)` rend un `CalculationState` (créneau `cachedState`
-immunisé au GC d'abord, `sync.Pool` en repli ; arène liée à l'état, réutilisée ou agrandie,
-puis `PreSizeFromArena`), un `DoublingFramework(AdaptiveStrategy)` est construit
-(optionnellement avec un `DynamicThresholdManager`), et
-`ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)` déroule : itération des bits
-MSB → LSB ; décision `shouldParallelizeMultiplicationCached()` **calculée là, dans la
-boucle, et passée à `ExecuteStep` comme `inParallel`** ; par bit, `ExecuteStep`
-(3 multiplications) en parallèle via `executeParallel3` (3 goroutines) ou en séquentiel
-avec vérification de `ctx.Err()` entre les opérations ; recombinaison
-`F(2k) = 2·T3 − T2`, `F(2k+1) = T1 + T2` ; rotation de pointeurs (sans copie) ; étape
-d'addition **lorsque le bit vaut 1** (`F(k) ← F(k+1)`, `F(k+1) ← somme`) ; ajustement dynamique des
-seuils sous `--dynamic-thresholds` ; `ReportStepProgress` (modèle de travail géométrique).
+**8. ALGORITHM CORE** — *absente de cette figure : le cœur est dessiné par
+[`flows/fastdoubling.md`](architecture/flows/fastdoubling.md), sous-graphes
+« DoublingFramework.ExecuteDoublingLoop », « Multiplication Decision », « FFT Doubling Step »,
+« Per-operation Execution » et « Result Extraction ».* À l'intérieur de `CalculateCore`,
+pour Fast Doubling :
+
+```text
+fd.acquireStateForN(n) → CalculationState
+  └─ créneau cachedState immunisé au GC d'abord, sync.Pool en repli ;
+     arène liée à l'état, réutilisée ou agrandie, puis PreSizeFromArena
+DoublingFramework(AdaptiveStrategy)
+  └─ optionnellement avec un DynamicThresholdManager
+ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)
+  ├─ itération des bits : MSB → LSB
+  ├─ décision shouldParallelizeMultiplicationCached()
+  │    calculée ICI, dans la boucle, et passée à ExecuteStep comme inParallel
+  ├─ par bit : ExecuteStep (3 multiplications)
+  │    ├─ parallèle : executeParallel3 (3 goroutines)
+  │    └─ séquentiel : ctx.Err() vérifié entre les opérations
+  ├─ recombinaison : F(2k) = 2·T3 − T2, F(2k+1) = T1 + T2
+  ├─ rotation de pointeurs (sans copie)
+  ├─ étape d'addition, lorsque le bit vaut 1 : F(k) ← F(k+1), F(k+1) ← somme
+  ├─ ajustement dynamique des seuils sous --dynamic-thresholds
+  └─ ReportStepProgress (modèle de travail géométrique)
+```
+
 Voir [§7A](#a-fast-doubling-fastdoublingcalculator).
 
-**9. RESULT ANALYSIS** — *figure : sous-graphe `Output`, nœuds `F2 → F2a → F2b → F2c → F3`.*
+**9. RESULT ANALYSIS** — *figure : « Result Presentation », de `AnalyzeComparisonResults`
+à `PresentResult on fastest success`, par `PresentComparisonTable` et les deux losanges
+`successCount == 0?` et `HasResultMismatch?`.*
 `orchestration.AnalyzeComparisonResults(results, presOpts, …)` trie (succès d'abord, puis
 durée croissante), affiche `PresentComparisonTable(results, out)`, compare toutes les
-valeurs entre elles (`big.Int.Cmp`) — un écart donne `ExitErrorMismatch` (code 3, nœud
-`G3`) — et sur succès appelle `PresentResult(best, n, verbose, details, …)`.
+valeurs entre elles (`big.Int.Cmp`) — un écart donne `ExitErrorMismatch` (code 3, la boîte
+`Exit 3 — result mismatch`) — et sur succès appelle `PresentResult(best, n, verbose, details, …)`.
 
-**10. OUTPUT & EXIT** — *figure : `Output`, nœuds `F5, F6, F7`, et sous-graphe
-`ErrorHandling`, nœuds `G1 → G6`.* Écriture optionnelle dans un fichier
+**10. OUTPUT & EXIT** — *figure : « Result Presentation », `Formatted Output to stdout` →
+`-o set AND exit 0?` → `WriteResultToFile` ; « Error Handling », le losange
+`HandleCalculationError` et les codes qui en sortent.* Écriture optionnelle dans un fichier
 (`WriteResultToFile`, seulement si `-o` est posé **et** que le code de sortie est 0) ;
 `DisplayQuietResult` en mode discret ; sinon correspondance erreur → code de sortie
 (0, 1, 2, 3, 4, 130), détaillée en [§10](#exit-codes).
@@ -1056,8 +1163,7 @@ From `go.mod`, direct dependencies are:
 ## Appendix: Architectural Notes for New Engineers
 
 Ordre d'entrée conseillé, figure d'abord et section en légende :
-[`flows/cli-flow.md`](architecture/flows/cli-flow.md) avec
-[§6](#6-data-flow-cli-input-to-final-result), puis
+[§6](#6-data-flow-cli-input-to-final-result) — sa figure y est en tête —, puis
 [`dependency-graph.md`](architecture/dependency-graph.md) avec
 [§2](#2-high-level-architecture-clean-architecture), puis la figure du pipeline qui vous
 concerne ([§7](#7-algorithm-layer)). La [carte des figures](#0-carte-des-figures) donne
@@ -1072,8 +1178,9 @@ les onze correspondances.
   4. `internal/fibonacci/fft.go` + `internal/bigfft`
 - For user interaction, study `internal/cli` and `internal/tui` presenters.
 - For operational tuning, use `docs/CALIBRATION.md`, `docs/PERFORMANCE.md`, and Makefile PGO targets.
-- Les onze figures et leur relevé de validation vivent dans
-  [`docs/architecture/`](architecture/README.md). Règle de maintenance : **si une figure
+- Dix des onze figures et leur relevé de validation vivent dans
+  [`docs/architecture/`](architecture/README.md) ; la onzième est en tête de
+  [§6](#6-data-flow-cli-input-to-final-result). Règle de maintenance : **si une figure
   couvre déjà la question, ARCH.md la cite ; il n'en redessine pas une seconde.** Un
   changement de forme se corrige dans la figure, puis dans la légende qui la commente.
 

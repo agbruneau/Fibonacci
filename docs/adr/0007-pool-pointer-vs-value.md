@@ -4,6 +4,18 @@
 - **Date**: 2026-05-28
 - **Context source**: audit mai 2026, constat `A4-01` (MAJEUR), axe 4 Idiomatique (rapport archivé en historique git).
 
+> **État courant (annoté le 2026-09-04 ; le `Status` ci-dessus et le corps sont
+> conservés tels qu'ils ont été écrits le 2026-05-28)** : la décision — ne pas
+> toucher aux pools, exclure SA6002 par chemin — **tient**, elle repose sur une
+> mesure et non sur un chantier à venir. Ce qui est faux, c'est l'**échéance** :
+> le §Decision, les Consequences, les Risks et deux Alternatives renvoient le
+> seul gain réel (zéro allocation) à « la migration `FFTContext` », dont le code
+> a été **supprimé de l'arbre** le 2026-07-11 (commit `23ab593` ;
+> `grep -rn FFTContext --include=*.go .` ne renvoie rien au 2026-09-04) et qui
+> reste classée WONT-FIX ([ADR-0004 §B1](0004-backlog-decisions.md)). Le boxing
+> de 24 B par `Put` est le coût accepté **sans échéance**. Détail : annotations
+> au point exact ci-dessous et *Status note (2026-09-04)*, en fin de document.
+
 ## Context
 
 `staticcheck SA6002` signale 8 sites (`internal/bigfft/pool.go` ; `pool_warming.go` — positions relevées à la rédaction, voir la *Status note* pour les lignes courantes) où un `sync.Pool.Put` reçoit une **valeur de slice** (`[]big.Word`, `fermat`, `[]nat`, `[]fermat`). Mettre une valeur non *pointer-like* dans une interface boxe l'en-tête (3 mots), provoquant une allocation à chaque `Put` — contre-productif dans la couche de pooling censée éliminer les allocations.
@@ -23,6 +35,15 @@ La « correction » naturelle (pooler des `*[]T`) n'est bénéfique que si le **
 | `Get`/`Put` d'un **même `*[]T` réutilisé** | 4.30 | 0 | **0** |
 
 Conclusion : le correctif préservant l'API est **strictement neutre** en allocation. Le seul gain réel (0 alloc) exige de **threader `*[]T`** à travers tout l'API d'allocation FFT (`acquire*`/`release*` + leurs appelants) — c'est la **migration `FFTContext` exclusive**, déjà tracée et reportée (ADR-0004 §B1, won't-fix release courante).
+
+> **Correctif (annoté le 2026-09-04, la conclusion ci-dessus est conservée telle
+> qu'elle a été écrite)** : « déjà tracée et reportée » est caduc. La migration
+> `FFTContext` n'est plus un chantier tracé : son code a été supprimé de l'arbre
+> le 2026-07-11 (commit `23ab593`) et le WONT-FIX d'[ADR-0004
+> §B1](0004-backlog-decisions.md) tient. La mesure et sa conclusion — le
+> correctif préservant la signature est alloc-neutre — ne dépendent pas de ce
+> renvoi ; l'échéance qu'il laisse entendre, si. Threader `*[]T` reste possible,
+> mais c'est désormais un chantier à ouvrir, pas un chantier à attendre.
 
 Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait « Surgical Changes » et la directive #4. L'audit lui-même propose explicitement l'annotation/exclusion comme alternative légitime à coût nul.
 
@@ -47,6 +68,16 @@ Modifier 4 pools globaux d'un module sous gel perf pour un gain nul violerait «
 - **Pooler des `*[]T` en préservant la signature `release([]T)` (`Put(&s)`)** — rejetée : mesurée neutre (l'échappement de `&s` remplace le boxing).
 - **Refactor complet `acquire/release` vers `*[]T` (zéro alloc)** — reporté : touche tout le hot path FFT + ses appelants ; relève de la migration `FFTContext` (ADR-0004 §B1).
 - **8 annotations `//nolint` inline** — rejetée au profit d'une exclusion centralisée (cohérent avec les exclusions SA1019/G304 existantes), moins de bruit sur le hot path.
+
+> **Correctif (annoté le 2026-09-04, les trois sections ci-dessus sont conservées
+> telles qu'elles ont été écrites)** : « C'est le coût accepté jusqu'à la
+> migration `FFTContext` » (Negative), « À ré-examiner lors de la migration
+> `FFTContext` » (Risks) et « relève de la migration `FFTContext` »
+> (Alternatives) datent toutes d'avant la suppression de cette API (2026-07-11,
+> commit `23ab593`). Aucune de ces trois échéances ne tient. À lire : le boxing
+> de 24 B par `Put` est le coût accepté **sans date de levée**, et la clause de
+> ré-examen se lit désormais « à ré-examiner si quelqu'un mesure ce que coûte
+> réellement le boxing sur un calcul complet, plutôt qu'au `Put` isolé ».
 
 ## References
 
