@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation resynchronisée sur la source, et dédupliquée (2026-09-04)
+
+Trois passes sur tout le corpus Markdown, chaque affirmation confrontée au code, à
+un artefact de [`docs/audits/`](docs/audits/) ou à une commande rejouée sur l'hôte.
+Aucun changement de code. Les annotations d'ADR de la même journée font l'objet de
+l'entrée ci-dessous.
+
+#### Docs
+
+- **Routage FFT — une seule description, dans
+  [`docs/algorithms/FFT.md` § FFT Routing](docs/algorithms/FFT.md#fft-routing)**, à
+  laquelle les autres pages renvoient au lieu de la répéter. Le corpus racontait un
+  `smartMultiply` « à deux niveaux » valant pour tous les chemins ; il n'y a pas de
+  bascule unique. Sur `"fast"`, `AdaptiveStrategy.ExecuteStep` teste `FK1.BitLen()` et
+  choisit une implémentation de pas entière, ce qui rend le niveau 1 de `smartMultiply`
+  inatteignable ; sur `"matrix"`, la garde est dans `smartMultiply`/`smartSquare` ; sur
+  `"fft"`, le seuil n'est **pas lu**. D'où deux premiers `n` distincts au seuil par
+  défaut de 500 000 bits — **1 440 422** sur `"fast"`, **1 768 788** sur `"matrix"` —
+  arithmétique sur les longueurs en bits de Fibonacci, recoupée par un replay exact de
+  la boucle matricielle, pas une mesure.
+- **`estimateFFTThresholdForHeuristic` n'est pas « adaptatif »** : c'est un `switch` sur
+  la détection SIMD (250 000 / 460 000 AVX-512 / 480 000 AVX2 / 500 000), sans
+  chronomètre. Corrigé partout où le corpus promettait une mesure.
+- **Diagrammes rendus visibles** : les onze figures `.mermaid` deviennent des `.md` à
+  bloc clôturé — GitHub n'affiche pas un `.mermaid` autonome. Neuf étiquettes de
+  `BIGFFT.md` contenaient un `\n` littéral que Mermaid ne coupe pas.
+- **Duplications supprimées, source unique désignée** : la table de patterns d'`ARCH.md`
+  §5 (14 entrées) et l'inventaire de `docs/architecture/patterns/design-patterns.md`
+  (11) divergeaient sans se citer → une seule liste réconciliée, **17 patterns** et
+  5 mécanismes. La figure du flux CLI passe inline dans
+  [`ARCH.md` §6](docs/ARCH.md#6-data-flow-cli-input-to-final-result), au-dessus de sa
+  légende, et `docs/architecture/flows/cli-flow.md` est **supprimé** pour qu'il n'en
+  reste pas deux copies.
+- **Chiffres faux corrigés** : le tableau `PERFORMANCE.md` à N=100M (48 s annoncés,
+  566 ms mesurés) ; trois arêtes du graphe de dépendances (`cli → cli/completion`
+  n'existe pas — c'est `app`), qui passe à **46** arêtes vérifiées une à une par le
+  pipeline `go list` du relevé de validation ; « `bench-baseline.txt` est le seul
+  artefact » dans cinq documents alors que `mem-baseline-2026-09.txt` existe.
+- **Couverture chiffrée et datée** : `docs/TESTING.md` donne **96,6 %** des instructions
+  (2026-09-04, `go1.27.0 windows/amd64`, 21 paquets) au lieu de refuser le chiffre. La
+  directive A5-04 est **amendée, pas abandonnée** — daté n'est pas figé, et seul le
+  plancher de 80 % est appliqué. La mesure a débusqué une affirmation qualitative
+  fausse sur `cmd/generate-golden` (87,9 %, pas « far below »).
+- **Fuzzing repositionné** : annoncé comme pilier, il ne tourne sur **aucun** gate
+  (`grep fuzz` sur `scripts/` et le `Makefile` ne renvoie rien). Ce qui tourne
+  vraiment — 63 entrées de seed rejouées en régression — est maintenant chiffré.
+
 ### ADR — annotations au point exact des affirmations périmées (2026-09-04)
 
 Balayage des douze ADR à la recherche des affirmations au présent que le

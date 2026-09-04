@@ -363,7 +363,8 @@ Where each kind of change lands (not an exhaustive list of `docs/` — see the R
 | ---- | ------------------ |
 | `README.md` | Entry point: quick start, flag table, the end-to-end walkthrough of one `fibcalc` run, audit history, headline numbers |
 | `CHANGELOG.md` | Every observable change, Keep-a-Changelog format |
-| `docs/architecture/README.md` | Architecture hub and C4 diagrams (source of truth) |
+| `docs/ARCH.md` | Architecture *prose*: the why, the constants, the defaults, what is not guaranteed. It cites the figures below instead of redrawing them |
+| `docs/architecture/` | Architecture *figures* (C4, dependency graph, flows, patterns) — the authoritative view of the system's shape. `README.md` there is the hub; `patterns/design-patterns.md` is the single pattern inventory. Fix the figure first, then its legend in `ARCH.md` |
 | `docs/adr/NNNN-*.md` | A decision *and* the candidates you rejected, with the measurement or prior ADR that rejects them |
 | `docs/TESTING.md` | Test strategy, golden files, mock policy |
 | `docs/PERFORMANCE.md` | Tuning method and the non-regression protocol |

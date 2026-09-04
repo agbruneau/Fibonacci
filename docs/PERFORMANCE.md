@@ -6,11 +6,15 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 
 ## Reference Benchmarks
 
-### The only measurement this repo carries
+### The only throughput baseline this repo carries
 
-`docs/audits/bench-baseline.txt` is the sole benchmark artifact tracked in the
-repository. Everything else in this section is an unbacked historical note (see
-the Provenance warning below). Medians of the 5 samples per row, computed from
+`docs/audits/bench-baseline.txt` is the **only whole-calculator throughput
+baseline** tracked in the repository — the file `benchstat` compares against.
+The five other files under [`docs/audits/`](audits/) are targeted A/B runs (DTM,
+FFT cache, pool memclr, micro-benchmark stability) or a resident-memory reading,
+each cited where it is used; none of them measures whole-calculator throughput.
+Everything else in *this section* is an unbacked historical note (see the
+Provenance warning below). Medians of the 5 samples per row, computed from
 that file — linux/amd64, 24 threads, `-count=5 -benchtime=1x`, header stamp
 `baseline-2026-07-07`:
 
@@ -52,7 +56,7 @@ you can re-derive from a file in the tree.
 | 100,000,000 | 45s | 62s | 48s | 20,898,764 |
 | 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,910 |
 
-> **The N=10M row is off by roughly two orders of magnitude, not by a hardware generation.** Its 2.1 s for Fast Doubling is **≈88×** the only measurement in the tree (23.87 ms median, `docs/audits/bench-baseline.txt`, linux/amd64) and **≈75×** the dated reference below. A gap that size is not explained by CPU, Go version or thermal profile; the row's provenance is simply unknown. Treat the whole column as ordering, never as magnitude.
+> **The N=10M row is off by roughly two orders of magnitude, not by a hardware generation.** Its 2.1 s for Fast Doubling is **≈88×** the throughput baseline (23.87 ms median, `docs/audits/bench-baseline.txt`, linux/amd64) and **≈75×** the dated reference below. A gap that size is not explained by CPU, Go version or thermal profile; the row's provenance is simply unknown. Treat the whole column as ordering, never as magnitude.
 >
 > Current dated reference for the N=10M row: `BenchmarkFibonacci/FastDoubling/10M` measures 28.20 ms (calculation only, no decimal conversion; 2026-06-10, Intel Core Ultra 9 275HX — see [`CHANGELOG.md`](../CHANGELOG.md)).
 >
@@ -68,7 +72,7 @@ you can re-derive from a file in the tree.
 > and no artifact for it is archived here — reproduce it with the command above
 > rather than citing these numbers.
 
-> **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless: on the one artifact in the tree (`docs/audits/bench-baseline.txt`) it allocates **~4.8x** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB) and **~5.3x** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak RSS; no peak-memory measurement exists in this repo. Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
+> **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless: on the throughput baseline (`docs/audits/bench-baseline.txt`) it allocates **~4.8x** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB) and **~5.3x** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak RSS; no peak-memory measurement exists in this repo. Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
 
 ### Comparison snapshot — Intel Core Ultra 9 275HX (24 cores)
 
@@ -122,10 +126,11 @@ make bench-baseline                            # writes docs/audits/bench-baseli
 git add docs/audits/bench-baseline.txt && git commit -m 'perf(bench): refresh baseline'
 ```
 
-For a one-shot DTM (Dynamic Threshold Manager) comparison, the raw
-`bench-dtm-{on,off}.txt` snapshots were purged as stale audit artifacts;
-regenerate via `BenchmarkFibonacciDTM`
-(`internal/fibonacci/dtm_bench_test.go`) — the numeric results are kept
+For a one-shot DTM (Dynamic Threshold Manager) comparison, the old
+`bench-dtm-{on,off}.txt` snapshots were purged as stale audit artifacts; the
+current one is [`docs/audits/bench-dtm-2026-09.txt`](audits/bench-dtm-2026-09.txt)
+(`-count=8`, audit M-04). Regenerate via `BenchmarkFibonacciDTM`
+(`internal/fibonacci/dtm_bench_test.go`) — the numeric results are also kept
 inline in [ADR-0001](adr/0001-dtm-decision.md) and the CHANGELOG.
 
 ### Versioned benchmark snapshots (regression tracking)
@@ -194,6 +199,12 @@ var statePool = sync.Pool{
 **GC-immune state cache and per-state FFT scratch (2026-06-10)**: `sync.Pool` alone cannot retain the arena across calls — the GC-disable pattern of large calculations (`GCController`) re-enables GC right after every call, and that collection flushes the pool, so each repeated call paid a full arena reallocation (~46 % of all allocations at F(10M)). Since commit `fa13bfd`, each `FastDoublingCalculator` keeps a single-slot, **GC-immune** cache of its last released state (`cachedState`, an `atomic.Pointer[CalculationState]`), capped at `maxCachedArenaWords` (4M words ≈ 32 MB — which covers **n up to ≈ 36.9M**, since `arenaTotalWords(n) = (⌊n × 0.69424 / 64⌋ + 1) × 10` after the ADR-0009 R4 ×15 → ×10 change; the "roughly 20M" figure that used to appear here was computed against the old ×15 factor); larger arenas keep the historical pool-only behavior. Since commit `7999c39` (F-012), the FFT forward-transform `BumpAllocator` is also carried by the `CalculationState`: it is acquired once per calculation at final-operand size and only `Reset()` between doubling steps, instead of being re-acquired and re-grown at every step. Cumulative effect measured 2026-06-10: FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %, geomean sec/op −12.0 % ([`CHANGELOG.md`](../CHANGELOG.md)).
 
 ### 2. 2-Tier Adaptive Multiplication
+
+> **Which calculators actually reach this switch is decided elsewhere.** The two tiers below
+> describe `smartMultiply` itself; they are the real routing only on the `"matrix"` path. On
+> `"fast"` the threshold is read one level up and tier 1 here is unreachable, and on `"fft"` it
+> is not read at all. Canonical description, per path and per threshold value:
+> [`algorithms/FFT.md` § FFT Routing](algorithms/FFT.md#fft-routing).
 
 The `smartMultiply` function selects the optimal multiplication algorithm based on operand bit size:
 

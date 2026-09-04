@@ -49,7 +49,7 @@ The calibration system tunes three thresholds that control algorithm and concurr
 | `FFTThreshold` | 500,000 | bits | Crossover point from standard math/big to FFT multiplication |
 | `StrassenThreshold` | 3072 | bits | Activation point for Strassen matrix multiplication |
 
-These values interact with the 2-tier adaptive multiplication system described in [PERFORMANCE.md](PERFORMANCE.md):
+These values interact with the 2-tier adaptive multiplication system described in [PERFORMANCE.md](PERFORMANCE.md) — for *which* calculator reads `FFTThreshold` where, and from which `n` the FFT actually runs, see [algorithms/FFT.md § FFT Routing](algorithms/FFT.md#fft-routing):
 
 ```go
 opts := fibonacci.Options{

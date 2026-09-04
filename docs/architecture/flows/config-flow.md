@@ -32,7 +32,7 @@ flowchart LR
         C8 --> C1
         C1 -->|Yes| C2["Full Calibration Mode<br/>calibration.go: RunCalibration -> RunCalibrationWithOptions<br/>-> runPassSequence — terminal, returns"]
         C1 -->|No| C3{--auto-calibrate?}
-        C3 -->|Yes| C4["AutoCalibrate (calibration.go): fresh cached profile wins,<br/>else FastStrategy -> QuickCalibrate (microbench.go),<br/>escalating to CompleteStrategy (strategy_complete.go -> runner.go)<br/>when confidence is low — overwrites cfg, then falls through"]
+        C3 -->|Yes| C4["AutoCalibrate (calibration.go): fresh cached profile wins,<br/>else FastStrategy -> MicroBenchmark.RunQuick (microbench.go),<br/>escalating to CompleteStrategy (strategy_complete.go -> runner.go)<br/>when confidence is low — overwrites cfg, then falls through"]
     end
 
     subgraph Adaptive["Adaptive Threshold Estimation (each reads HardwareHeuristic.SIMD)"]

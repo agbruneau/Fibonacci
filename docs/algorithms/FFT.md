@@ -75,7 +75,7 @@ For the implementation itself (public API, Fermat arithmetic, memory management,
 
 ## FFT Routing
 
-**This section is the canonical description of FFT routing for this repository.** It answers, in one place: where the switch is taken, on which operand, with which threshold value, where that value comes from, and for which `n` the FFT actually runs. The other pages — [FAST_DOUBLING.md](FAST_DOUBLING.md), [MATRIX.md](MATRIX.md), [BIGFFT.md](BIGFFT.md), [COMPARISON.md](COMPARISON.md), and outside `docs/algorithms/` the `README.md` and [`../ARCH.md`](../ARCH.md) — link here rather than restate the rule, so it drifts in one file or in none.
+**This section is the canonical description of FFT routing for this repository.** It answers, in one place: where the switch is taken, on which operand, with which threshold value, where that value comes from, and for which `n` the FFT actually runs. The other pages — [FAST_DOUBLING.md](FAST_DOUBLING.md), [MATRIX.md](MATRIX.md), [BIGFFT.md](BIGFFT.md), [COMPARISON.md](COMPARISON.md), [GMP.md](GMP.md), and outside `docs/algorithms/` the `README.md`, [`../ARCH.md`](../ARCH.md), [`../PERFORMANCE.md`](../PERFORMANCE.md) and [`../CALIBRATION.md`](../CALIBRATION.md) — link here rather than restate the rule, so it drifts in one file or in none.
 
 The short version: there is **no single FFT switch**. `FFTThreshold` is compared against different operands at different points of the call graph, is ignored outright on two of the five paths below, and on the default `"fast"` calculator does not choose a multiplication routine at all — it chooses a whole doubling-step implementation.
 

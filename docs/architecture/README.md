@@ -74,6 +74,7 @@ Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
 | [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | Audit de refactorisation 2026-06 — candidats rejetés après vérification | Accepted |
 | [0009](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) | Audit 2026-07 — purge bigfft, rétention oracle, rejet puis adoption ×10 (addendum R4) | Accepted |
 | [0010](../adr/0010-audit-2026-09-decisions.md) | Audit 2026-09 — précédence des seuils explicites, DTM opt-in, lint bloquant, candidats rejetés sur mesure | Accepted |
+| [0011](../adr/0011-audit-2026-09-ponytail.md) | Audit de sur-ingénierie 2026-09-03 — suppressions et replis, candidats écartés avec leur motif | Accepted |
 
 ⚠ **ADR-0006 porte « Accepted » et son objet n'est plus dans l'arbre.** L'API opt-in `FFTContext`
 (`NewFFTContext`, `*WithContext`, `fourierRecursiveCtx`) a été **retirée** — zéro occurrence dans

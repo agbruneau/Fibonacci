@@ -267,8 +267,8 @@ internal/
 ## `internal/calibration`
 - **Responsibility:** full/quick calibration, adaptive threshold candidate generation, micro-benchmarks, profile file persistence.
 - **Key types:** `CalibrationProfile`, `CalibrationOptions`, `MicroBenchmark`, `ThresholdResults` (per-pass rows use the unexported `calibrationResult`).
-- **Key functions:** `RunCalibration`, `AutoCalibrate`, `AutoCalibrateWithProfile`, `LoadCachedCalibration`, `LoadOrCreateProfile`, `SaveProfile`, `QuickCalibrate`, `GenerateParallelThresholds`.
-- **Three-tier calibration:** (1) cached profile → (2) quick micro-benchmarks (`FastStrategy`; the source states ~100 ms as its design target — `internal/calibration/microbench.go`, its file comment and the `QuickCalibrate` doc comment — no measurement artifact in the repo) → (3) full benchmark with adaptive threshold search (`CompleteStrategy`).
+- **Key functions:** `RunCalibration`, `AutoCalibrate`, `AutoCalibrateWithProfile`, `LoadCachedCalibration`, `LoadOrCreateProfile`, `SaveProfile`, `(*MicroBenchmark).RunQuick`, `GenerateParallelThresholds`. (The free function `QuickCalibrate` was removed by the 2026-09-03 over-engineering pass — [ADR-0011](adr/0011-audit-2026-09-ponytail.md); `RunQuick` is the entry point.)
+- **Three-tier calibration:** (1) cached profile → (2) quick micro-benchmarks (`FastStrategy`; `internal/calibration/microbench.go`'s file comment states ~100 ms as the design target and `MicroBenchTimeout` caps a pass at 400 ms — no measurement artifact in the repo) → (3) full benchmark with adaptive threshold search (`CompleteStrategy`). Tier detail: [CALIBRATION.md](CALIBRATION.md#auto-calibration).
 
 ## `internal/orchestration`
 - **Responsibility:** execute calculators concurrently, collect durations/errors/results, compare consistency, present summary.
@@ -662,8 +662,8 @@ FibCalculator.CalculateWithObservers
 >
 > **Routage FFT** (à partir de quelle taille d'opérande la bascule a lieu, et sur quel
 > chemin) : la description canonique est dans
-> [`docs/algorithms/FFT.md`](algorithms/FFT.md). Ce qui suit n'en retient que
-> l'implication structurelle — quel objet décide, et où.
+> [`docs/algorithms/FFT.md` § FFT Routing](algorithms/FFT.md#fft-routing). Ce qui suit n'en
+> retient que l'implication structurelle — quel objet décide, et où.
 
 ### A. Fast Doubling (`FastDoublingCalculator`)
 
@@ -863,8 +863,9 @@ Three-tier calibration approach:
 1. CACHED PROFILE (one file read, no benchmark)
    LoadOrCreateProfile(path) → check IsValid() → apply thresholds
 
-2. QUICK MICRO-BENCHMARKS (design target ~100 ms — microbench.go file comment + RunQuick doc;
-   the repo has no measurement of the actual wall time)
+2. QUICK MICRO-BENCHMARKS (design target ~100 ms per microbench.go's file comment; the
+   enforced cap is MicroBenchTimeout = 400 ms, config.DefaultThresholdTuning. The repo has
+   no measurement of the actual wall time — CALIBRATION.md quotes ~125 ms from ADR-0010)
    NewMicroBenchmark().RunQuick(ctx) → parallel/FFT threshold tests
    → escalates to tier 3 when confidence < EscalationConfidenceThreshold
      (= 0.5, strategy.go:EscalationConfidenceThreshold; used in calibration.go:tryFastThenEscalate)
@@ -1105,18 +1106,24 @@ From `go.mod`, direct dependencies are:
 
 ## 14) Architectural Decision Records (ADR)
 
-> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0010`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
+> Les entrées ci-dessous (ADR-001..ADR-010) forment un **journal narratif interne à ce document**, avec sa propre numérotation à trois chiffres. Elles ne correspondent pas une à une aux fichiers de [`docs/adr/`](adr/) (registre formel `0001`..`0011`, numérotation à quatre chiffres et sujets distincts) ; consulter ce répertoire pour les ADR canoniques.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.
 - **Decision:** Use `sync.Pool` to recycle `CalculationState` and `matrixState` objects.
 - **Guard:** Objects exceeding `MaxPooledBitLen` (50M bits / ~6.25 MB) are discarded to prevent memory bloat.
-- **Results:** fewer allocations per calculation. No measurement of a speed-up from pooling alone exists in this repo; the only benchmark artifact tracked is `docs/audits/bench-baseline.txt`, which measures whole calculators, not this decision in isolation.
+- **Results:** fewer allocations per calculation. No measurement of a speed-up from pooling alone exists in this repo; the throughput baseline `docs/audits/bench-baseline.txt` measures whole calculators, not this decision in isolation, and the five targeted A/B artifacts beside it under [`docs/audits/`](audits/) cover other decisions.
 
 ### ADR-002: Dynamic Multiplication Algorithm Selection
 - **Context:** FFT multiplication has superior asymptotic complexity (O(n log n)) but significant overhead for small operands.
 - **Decision:** 2-tier `smartMultiply` function: FFT (> FFTThreshold bits) or `math/big` Karatsuba (below).
 - **Results:** Optimal performance across entire value range; configurable via threshold.
+- **Scope, as the code stands today:** `smartMultiply` really is that 2-tier switch only on the
+  `"matrix"` path. On the default `"fast"` calculator the threshold is read earlier — in
+  `AdaptiveStrategy.ExecuteStep`, which selects a whole doubling-step implementation, leaving
+  `smartMultiply`'s tier 1 unreachable — and on `"fft"` it is not read at all. Do not take this
+  entry as the routing model: that is
+  [`docs/algorithms/FFT.md` § FFT Routing](algorithms/FFT.md#fft-routing).
 
 ### ADR-003: Adaptive Parallelism
 - **Context:** Parallelism has synchronization cost exceeding gains for small calculations.

@@ -118,17 +118,19 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 > (`internal/config/thresholds.go`) le fixe au démarrage sur la seule détection du jeu d'instructions :
 > 250 000 bits si le mot machine n'a pas 64 bits, sinon **460 000** (AVX-512), **480 000** (AVX2),
 > **500 000** par défaut. Aucun chronomètre n'intervient et rien ne s'ajuste en cours de route : deux hôtes
-> au même SIMD obtiennent la même valeur. La bascule compare ensuite ce seuil à la taille de l'**opérande
-> courant** (`FK1.BitLen()`, à chaque tour de la boucle de doublement), jamais à `n` ni à la taille du
-> résultat — sur l'hôte de ce dépôt (amd64/AVX2, seuil **480 000 bits**, affiché à chaque exécution non
+> au même SIMD obtiennent la même valeur. Sur `-algo fast`, la bascule compare ensuite ce seuil à la
+> taille de l'**opérande courant** (`FK1.BitLen()`, à chaque tour de la boucle de doublement), jamais
+> à `n` ni à la taille du résultat — sur l'hôte de ce dépôt (amd64/AVX2, seuil **480 000 bits**, affiché à chaque exécution non
 > silencieuse sous « Optimization thresholds »), `-algo fast -n 400000` plafonne à **138 848 bits**
 > d'opérande et `-n 1000000`, la commande du démarrage rapide, à **347 121 bits** : ni l'un ni l'autre
-> n'emprunte la FFT, bien que F(1 000 000) fasse 694 241 bits, et la bascule ne commence que vers
-> **n ≈ 1,38 million**. Le binaire n'annonce pas non plus qu'un pas est réellement parti en FFT : il
+> n'emprunte la FFT, bien que F(1 000 000) fasse 694 241 bits, et sur ce chemin la bascule ne commence
+> que vers **n ≈ 1,38 million**. Ce chiffre ne vaut **que pour `fast`** : `matrix` lit le même seuil
+> ailleurs dans le graphe d'appel et bascule plus tard (`n ≥ 1 739 980` sur cet hôte), `fft` ne le lit
+> pas du tout. Le binaire n'annonce pas non plus qu'un pas est réellement parti en FFT : il
 > n'imprime que le seuil. Seul `-auto-calibrate` le mesure — et seulement à défaut d'un profil frais en
 > cache ; `-calibrate`, lui, ne mesure que le seuil de parallélisme et recopie la table pour les deux
-> autres. Mécanisme complet :
-> [`docs/algorithms/FFT.md`](docs/algorithms/FFT.md).
+> autres. Mécanisme complet, chemin par chemin :
+> [`docs/algorithms/FFT.md` § FFT Routing](docs/algorithms/FFT.md#fft-routing).
 
 ### Ingénierie de performance
 
@@ -393,8 +395,11 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
 
 - **Pas de CI distante — décision assumée** : la rigueur repose sur la discipline locale outillée
   (gate `scripts/check.ps1` / `scripts/check.sh`, plancher de couverture, baselines de benchmark).
-- **Couverture** : plancher garanti **80 %** via `make coverage-check` ; la couverture réelle le
-  dépasse confortablement (mesure ponctuelle avec `go test ./... -cover`, non figée — directive A5-04).
+- **Couverture** : plancher garanti **80 %** via `make coverage-check` ; dernière mesure
+  **96,6 %** des instructions (2026-09-04, `go1.27.0 windows/amd64`, 21 paquets). Le chiffre est
+  daté, pas figé : rien ne l'applique, la marge de 16,6 points est du mou non gardé, et seul le
+  plancher fait échouer le gate. Détail, commande de re-datation et angles morts :
+  [`docs/TESTING.md` § Coverage](docs/TESTING.md#coverage) (directive A5-04, amendée le 2026-09-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO et un compilateur C. `scripts/check.ps1` sonde les deux et active `-race`
