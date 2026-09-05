@@ -1,0 +1,1023 @@
+<title>Relevé d'évaluation FibGo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+
+<style>
+  :root {
+    --paper:      #EFF2F1;
+    --surface:    #FAFBFA;
+    --surface-2:  #E7ECEA;
+    --ink:        #101C1A;
+    --ink-2:      #556764;
+    --ink-3:      #7C8D89;
+    --rule:       #D0D9D6;
+    --rule-soft:  #DFE6E4;
+    --accent:     #0B5D57;
+    --accent-ink: #094A45;
+    --good:       #2C6E4C;
+    --warn:       #A9701A;
+    --crit:       #9E3A2C;
+    --chip-good-bg: #DDEBE2;
+    --chip-warn-bg: #F1E6D2;
+    --chip-neut-bg: #E2E8E6;
+
+    --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+    --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
+    --measure: 68ch;
+    --gap: 1.25rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0C1413;
+      --surface:    #131C1A;
+      --surface-2:  #1B2523;
+      --ink:        #E2E9E7;
+      --ink-2:      #97A8A4;
+      --ink-3:      #758682;
+      --rule:       #2A3735;
+      --rule-soft:  #202B29;
+      --accent:     #4FBFAF;
+      --accent-ink: #78D3C5;
+      --good:       #5FB482;
+      --warn:       #D3A455;
+      --crit:       #D9705F;
+      --chip-good-bg: #172E24;
+      --chip-warn-bg: #2E2617;
+      --chip-neut-bg: #1E2827;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0C1413;
+    --surface:    #131C1A;
+    --surface-2:  #1B2523;
+    --ink:        #E2E9E7;
+    --ink-2:      #97A8A4;
+    --ink-3:      #758682;
+    --rule:       #2A3735;
+    --rule-soft:  #202B29;
+    --accent:     #4FBFAF;
+    --accent-ink: #78D3C5;
+    --good:       #5FB482;
+    --warn:       #D3A455;
+    --crit:       #D9705F;
+    --chip-good-bg: #172E24;
+    --chip-warn-bg: #2E2617;
+    --chip-neut-bg: #1E2827;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 2.5rem) 5rem;
+  }
+
+  .prose { max-width: var(--measure); }
+
+  p { margin: 0 0 1em; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, .crit-block:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 1.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+  }
+  .eyebrow span { white-space: nowrap; }
+
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 500;
+    font-size: clamp(2.3rem, 6vw, 3.5rem);
+    line-height: 1.06;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0 0 0.7rem;
+  }
+
+  .deck {
+    font-family: var(--f-display);
+    font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 48ch;
+    margin: 0;
+  }
+
+  .masthead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: end;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  @media (max-width: 720px) {
+    .masthead { grid-template-columns: 1fr; align-items: start; }
+  }
+
+  .grade {
+    text-align: right;
+    border-left: 1px solid var(--rule);
+    padding-left: clamp(1.2rem, 3vw, 2rem);
+  }
+  @media (max-width: 720px) {
+    .grade { text-align: left; border-left: 0; border-top: 1px solid var(--rule); padding: 1.2rem 0 0; }
+  }
+  .grade-number {
+    font-family: var(--f-display);
+    font-size: clamp(3.6rem, 9vw, 5.2rem);
+    line-height: 0.9;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+  .grade-denom { color: var(--ink-3); font-size: 0.42em; letter-spacing: 0; }
+  .grade-letter {
+    font-family: var(--f-mono);
+    font-size: 0.95rem;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    margin-top: 0.55rem;
+    display: block;
+  }
+  .grade-scale {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    line-height: 1.45;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-3);
+    margin-top: 0.4rem;
+    max-width: 22ch;
+    margin-left: auto;
+  }
+  @media (max-width: 720px) { .grade-scale { margin-left: 0; } }
+
+  section { margin-top: clamp(2.8rem, 6vw, 4.2rem); }
+
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 500;
+    font-size: clamp(1.5rem, 3.2vw, 1.95rem);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    margin: 0 0 0.35rem;
+    text-wrap: balance;
+  }
+  .section-note {
+    font-family: var(--f-mono);
+    font-size: 0.73rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 1.5rem;
+  }
+
+  h3 {
+    font-family: var(--f-body);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin: 0;
+  }
+
+  .lede { font-size: 1.05rem; }
+
+  /* ── Protocole ─────────────────────────────────────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: clamp(1.5rem, 4vw, 2.75rem);
+    align-items: start;
+  }
+  @media (max-width: 780px) { .two-col { grid-template-columns: 1fr; } }
+
+  .col-label {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-3);
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 0.2rem;
+  }
+
+  .runs { list-style: none; margin: 0; padding: 0; }
+  .runs li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem 1rem;
+    align-items: baseline;
+    padding: 0.62rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .runs code {
+    font-family: var(--f-mono);
+    font-size: 0.82rem;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .runs .plain { font-size: 0.9rem; color: var(--ink-2); }
+
+  .chip {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    padding: 0.14em 0.55em;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .chip-ok   { background: var(--chip-good-bg); color: var(--good); }
+  .chip-warn { background: var(--chip-warn-bg); color: var(--warn); }
+  .chip-neut { background: var(--chip-neut-bg); color: var(--ink-2); }
+
+  .counts { list-style: none; margin: 0; padding: 0; }
+  .counts li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.88rem;
+  }
+  .counts .k { color: var(--ink-2); }
+  .counts .v {
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .host-line {
+    font-family: var(--f-mono);
+    font-size: 0.72rem;
+    color: var(--ink-3);
+    line-height: 1.6;
+    margin-top: 1rem;
+  }
+
+  /* ── Grille pondérée ───────────────────────────────────── */
+  .grid-chart { margin-top: 0.5rem; }
+  .grid-row {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(9rem, 15rem) minmax(0, 1fr) 4.6rem;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  @media (max-width: 700px) {
+    .grid-row {
+      grid-template-columns: 2.4rem minmax(0, 1fr) 4.6rem;
+    }
+    .grid-row .bar-cell { grid-column: 1 / -1; }
+  }
+  .crit-id {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .crit-name { font-size: 0.92rem; line-height: 1.35; }
+  .bar-cell { display: block; }
+  .track {
+    display: block;
+    height: 11px;
+    background: var(--surface-2);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1px;
+  }
+  .fill.is-strong { background: var(--good); }
+  .fill.is-weak   { background: var(--warn); }
+  .crit-score {
+    font-family: var(--f-mono);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .crit-score .denom { color: var(--ink-3); }
+
+  .grid-total {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(9rem, 15rem) minmax(0, 1fr) 4.6rem;
+    gap: 0.75rem 1rem;
+    align-items: baseline;
+    padding: 0.9rem 0 0;
+    border-top: 2px solid var(--ink);
+    margin-top: 0.3rem;
+  }
+  @media (max-width: 700px) {
+    .grid-total { grid-template-columns: 2.4rem minmax(0, 1fr) 4.6rem; }
+    .grid-total .spacer { display: none; }
+  }
+  .grid-total .label {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .grid-total .crit-score { font-size: 1rem; font-weight: 500; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.4rem;
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+    margin-top: 1.1rem;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.42rem; }
+  .swatch { width: 20px; height: 8px; border-radius: 1px; display: inline-block; }
+  .sw-strong { background: var(--good); }
+  .sw-mid    { background: var(--accent); }
+  .sw-weak   { background: var(--warn); }
+  .sw-track  { background: var(--surface-2); }
+
+  /* ── Critère par critère ───────────────────────────────── */
+  .crit-block {
+    padding: 1.6rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .crit-block:first-of-type { border-top: 1px solid var(--rule); }
+  .crit-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.55rem 0.9rem;
+    margin-bottom: 1rem;
+  }
+  .crit-head .crit-id { font-size: 0.8rem; }
+  .crit-head .pts {
+    font-family: var(--f-mono);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    margin-left: auto;
+  }
+  .crit-head .pts b { color: var(--ink); font-weight: 500; }
+
+  .assess {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem clamp(1.5rem, 4vw, 2.75rem);
+  }
+  @media (max-width: 780px) { .assess { grid-template-columns: 1fr; } }
+
+  .assess h4 {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin: 0 0 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .assess .up h4   { color: var(--good); }
+  .assess .down h4 { color: var(--crit); }
+  .assess ul { margin: 0; padding-left: 1.05rem; }
+  .assess li { margin-bottom: 0.55rem; font-size: 0.9rem; line-height: 1.55; }
+  .assess li:last-child { margin-bottom: 0; }
+  .assess code, .runs .inl, .inl {
+    font-family: var(--f-mono);
+    font-size: 0.85em;
+    background: var(--surface-2);
+    padding: 0.08em 0.32em;
+    border-radius: 2px;
+  }
+
+  /* ── Encadré d'inférence ───────────────────────────────── */
+  .callout {
+    background: var(--surface);
+    border-left: 3px solid var(--warn);
+    padding: 1.15rem 1.35rem;
+    margin: 1.2rem 0 0;
+  }
+  .callout .callout-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .callout h4 {
+    font-family: var(--f-body);
+    font-size: 0.93rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  .callout p { font-size: 0.9rem; margin: 0; color: var(--ink-2); max-width: 62ch; }
+
+  /* ── Bonifications ─────────────────────────────────────── */
+  .bonus { list-style: none; margin: 0; padding: 0; }
+  .bonus li {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) 5.5rem 3.2rem;
+    gap: 0.35rem 1rem;
+    align-items: baseline;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  @media (max-width: 720px) {
+    .bonus li {
+      grid-template-columns: 2.4rem minmax(0, 1fr) 3.2rem;
+    }
+    .bonus .tags { grid-column: 2 / -1; }
+  }
+  .bonus .bid {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+  }
+  .bonus .body { font-size: 0.92rem; line-height: 1.5; }
+  .bonus .body b { font-weight: 600; }
+  .bonus .tags {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    letter-spacing: 0.05em;
+  }
+  .bonus .eff {
+    font-family: var(--f-mono);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--good);
+    white-space: nowrap;
+  }
+
+  /* ── Projets futurs ────────────────────────────────────── */
+  .futures { list-style: none; margin: 0; padding: 0; }
+  .futures li {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    max-width: 74ch;
+  }
+  .futures .t { font-size: 1rem; font-weight: 600; display: block; margin-bottom: 0.25rem; }
+  .futures .d { font-size: 0.9rem; color: var(--ink-2); display: block; }
+  .futures .asset {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    color: var(--ink-3);
+    display: block;
+    margin-top: 0.35rem;
+  }
+
+  footer {
+    margin-top: clamp(3rem, 7vw, 5rem);
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--ink);
+    font-size: 0.85rem;
+    color: var(--ink-2);
+    max-width: var(--measure);
+  }
+  footer .sig {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-top: 1rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">
+        <span>github.com/agbruneau/FibGo</span>
+        <span>main @ 4149136</span>
+        <span>évalué le 5 septembre 2026</span>
+      </p>
+      <h1>Relevé d'évaluation FibGo</h1>
+      <p class="deck">Neuf critères pondérés, une note sur 100, et la liste explicite de ce qui a été rejoué sur l'hôte plutôt que cru sur parole.</p>
+    </div>
+    <div class="grade">
+      <span class="grade-number">81<span class="grade-denom">/100</span></span>
+      <span class="grade-letter">A−</span>
+      <p class="grade-scale">Référence : projet de génie logiciel de 2<sup>e</sup> cycle, volet laboratoire expérimental</p>
+    </div>
+  </header>
+
+  <section>
+    <h2>Appréciation</h2>
+    <p class="section-note">Synthèse</p>
+    <div class="prose">
+      <p class="lede">Un travail d'ingénierie logicielle nettement au-dessus de la moyenne des projets de maîtrise. La vérification est exemplaire, la discipline de mesure est celle d'un bon laboratoire, et la traçabilité des décisions par ADR est rare à ce niveau.</p>
+      <p>Trois choses le retiennent sous la barre du A. Le dépôt se définit par la mesure mais ne se compare à aucun étalon externe. Le noyau FFT porte les marques d'un emprunt non attribué. Et la documentation, à force de rigueur affichée, devient difficile à lire.</p>
+      <p>La complexité du système reste disproportionnée au problème posé, mais le dépôt le sait et a commencé à la réduire de lui-même.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Protocole</h2>
+    <p class="section-note">Ce qui a été rejoué, ce qui a été lu</p>
+    <div class="two-col">
+      <div>
+        <p class="col-label">Exécuté sur l'hôte d'évaluation</p>
+        <ul class="runs">
+          <li><code>go build ./... &amp;&amp; go vet ./...</code><span class="chip chip-ok">OK</span></li>
+          <li><code>go test ./...</code><span class="chip chip-ok">21 paquets verts</span></li>
+          <li><code>golangci-lint run ./...</code><span class="chip chip-ok">0 finding</span></li>
+          <li><code>gofmt -l .</code><span class="chip chip-ok">aucune sortie</span></li>
+          <li><code>go tool cover -func</code><span class="chip chip-ok">96,6 %</span></li>
+          <li><code>GOARCH=386 go build ./...</code><span class="chip chip-warn">échec attendu</span></li>
+          <li><span class="plain">Binaire sur quatre chemins CLI</span><span class="chip chip-ok">résultats exacts</span></li>
+          <li><span class="plain">Détecteur de courses, tag <span class="inl">gmp</span></span><span class="chip chip-neut">non rejoué</span></li>
+          <li><span class="plain">Débits Linux publiés par le dépôt</span><span class="chip chip-neut">non rejoué</span></li>
+        </ul>
+        <p class="host-line">Hôte : Windows 11 · go1.27.0 windows/amd64 · golangci-lint v2.13.2 · 24 fils d'exécution. Le tag <span class="inl">gmp</span> ne compile pas ici, faute d'en-têtes libgmp.</p>
+      </div>
+      <div>
+        <p class="col-label">Décomptes sur les fichiers suivis</p>
+        <ul class="counts">
+          <li><span class="k">Go production</span><span class="v">16 945 l.</span></li>
+          <li><span class="k">Go tests</span><span class="v">29 948 l.</span></li>
+          <li><span class="k">Markdown</span><span class="v">12 129 l.</span></li>
+          <li><span class="k">Fichiers de test</span><span class="v">134</span></li>
+          <li><span class="k">Test / Bench / Fuzz / Example</span><span class="v">820 · 51 · 7 · 5</span></li>
+          <li><span class="k">t.Skip conditionnels</span><span class="v">21</span></li>
+          <li><span class="k">nolint · nosec · TODO</span><span class="v">5 · 13 · 0</span></li>
+          <li><span class="k">Commits (dont conventionnels)</span><span class="v">697 · 389</span></li>
+          <li><span class="k">Identifiants d'audit en commentaire</span><span class="v">172</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>La grille</h2>
+    <p class="section-note">Largeur de piste = pondération · remplissage = points obtenus</p>
+    <div class="grid-chart">
+      <div class="grid-row">
+        <span class="crit-id">C1</span>
+        <span class="crit-name">Fondements algorithmiques</span>
+        <span class="bar-cell"><span class="track" style="width:100%"><span class="fill" style="width:80%"></span></span></span>
+        <span class="crit-score">12<span class="denom">/15</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C2</span>
+        <span class="crit-name">Conception et architecture</span>
+        <span class="bar-cell"><span class="track" style="width:100%"><span class="fill" style="width:80%"></span></span></span>
+        <span class="crit-score">12<span class="denom">/15</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C3</span>
+        <span class="crit-name">Qualité du code</span>
+        <span class="bar-cell"><span class="track" style="width:100%"><span class="fill" style="width:83.3%"></span></span></span>
+        <span class="crit-score">12,5<span class="denom">/15</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C4</span>
+        <span class="crit-name">Vérification et validation</span>
+        <span class="bar-cell"><span class="track" style="width:100%"><span class="fill is-strong" style="width:93.3%"></span></span></span>
+        <span class="crit-score">14<span class="denom">/15</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C5</span>
+        <span class="crit-name">Méthodologie expérimentale</span>
+        <span class="bar-cell"><span class="track" style="width:100%"><span class="fill" style="width:76.7%"></span></span></span>
+        <span class="crit-score">11,5<span class="denom">/15</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C6</span>
+        <span class="crit-name">Documentation</span>
+        <span class="bar-cell"><span class="track" style="width:66.7%"><span class="fill" style="width:80%"></span></span></span>
+        <span class="crit-score">8<span class="denom">/10</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C7</span>
+        <span class="crit-name">Reproductibilité et outillage</span>
+        <span class="bar-cell"><span class="track" style="width:33.3%"><span class="fill is-weak" style="width:70%"></span></span></span>
+        <span class="crit-score">3,5<span class="denom">/5</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C8</span>
+        <span class="crit-name">Intégrité et attribution</span>
+        <span class="bar-cell"><span class="track" style="width:33.3%"><span class="fill is-weak" style="width:50%"></span></span></span>
+        <span class="crit-score">2,5<span class="denom">/5</span></span>
+      </div>
+      <div class="grid-row">
+        <span class="crit-id">C9</span>
+        <span class="crit-name">Gestion de projet</span>
+        <span class="bar-cell"><span class="track" style="width:33.3%"><span class="fill is-strong" style="width:90%"></span></span></span>
+        <span class="crit-score">4,5<span class="denom">/5</span></span>
+      </div>
+      <div class="grid-total">
+        <span class="crit-id">Σ</span>
+        <span class="label">Total</span>
+        <span class="spacer"></span>
+        <span class="crit-score">81<span class="denom">/100</span></span>
+      </div>
+    </div>
+    <p class="legend">
+      <span><i class="swatch sw-strong"></i> 90 % et plus</span>
+      <span><i class="swatch sw-mid"></i> 75 à 90 %</span>
+      <span><i class="swatch sw-weak"></i> sous 75 %</span>
+      <span><i class="swatch sw-track"></i> points non obtenus</span>
+    </p>
+  </section>
+
+  <section>
+    <h2>Critère par critère</h2>
+    <p class="section-note">Ce qui porte la note, ce qui la retient</p>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C1</span>
+        <h3>Fondements algorithmiques et rigueur mathématique</h3>
+        <span class="pts"><b>12</b> / 15</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Les trois chemins sont tous en O(log n · M(n)), et le dépôt le dit franchement : rien ne domine asymptotiquement, tout se joue sur les constantes. C'est la bonne lecture, rare à ce niveau.</li>
+            <li>Boucle de doublement correcte, avec rotation de pointeurs et copie hors arène justifiée par le risque d'aliasing.</li>
+            <li>Strassen-Winograd à 7 multiplications et 15 additions ou soustractions, carré symétrique à 4 multiplications, comptes d'opérations tenus par itération.</li>
+            <li>Preuve par induction sur Q<sup>n</sup> dans la documentation, et démonstration que le seuil FFT porte sur un opérande intermédiaire, d'où les premiers <span class="inl">n</span> réels de 1 440 422 et 1 768 788.</li>
+            <li>Le calculateur <span class="inl">fft</span> est présenté pour ce qu'il est : la même boucle avec une autre stratégie, et plus lent que <span class="inl">fast</span>.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>Contribution algorithmique propre nulle. Fast Doubling, Strassen-Winograd et Schönhage-Strassen sont des classiques, et le noyau FFT est hérité. La valeur est dans l'ingénierie, mais le titre de laboratoire algorithmique promet davantage.</li>
+            <li>Deux seuils FFT à deux niveaux, dont le second n'a aucun appelant de production : la calibration ne pilote pas le seuil interne du multiplicateur.</li>
+            <li>Le seuil de 500 000 bits est une table de constantes par jeu d'instructions, pas une mesure. Un laboratoire de mesure devrait l'avoir mesuré.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C2</span>
+        <h3>Conception et architecture</h3>
+        <span class="pts"><b>12</b> / 15</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Clean Architecture réelle et non déclarative : un test interdit cinq arêtes montantes et échoue si on les introduit, et les 46 imports internes sont confrontés à <span class="inl">go list</span>.</li>
+            <li>Le noyau FFT n'importe aucun paquet interne. Les couches de présentation implémentent des interfaces définies par l'orchestration, et ces interfaces restent étroites.</li>
+            <li>Quatre ADR consignent aussi les candidats rejetés, avec la preuve du rejet. C'est une pratique de conception mature.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>Sur-ingénierie relative au problème : 21 paquets et 17 000 lignes de production pour calculer F(n).</li>
+            <li>Deux mécanismes adaptatifs redondants coexistent, le second désactivé par défaut faute de gain reproductible. Le calculateur <span class="inl">fft</span> duplique <span class="inl">fast</span>. La TUI, 1 912 lignes, est périphérique au propos scientifique.</li>
+            <li>Un seul paquet concentre 4 564 lignes de production : cohésion faible, navigation coûteuse.</li>
+            <li>État global atomique plutôt que porté par le contexte. Le choix est assumé par ADR, il reste une dette.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C3</span>
+        <h3>Qualité du code et pratiques de génie logiciel</h3>
+        <span class="pts"><b>12,5</b> / 15</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Vingt-et-un linters à zéro finding, analyse de sécurité comprise, formatage propre, cinq dérogations de lint et treize de sécurité seulement, aucun TODO résiduel dans le Go.</li>
+            <li>Politique de panique explicite : pré-conditions converties en erreurs, post-conditions re-propagées pour que les vrais bogues restent visibles.</li>
+            <li>Annulation par contexte vérifiée entre multiplications, ramasse-miettes restauré même en cas de panique.</li>
+            <li>Gestion mémoire soignée, arène et pools plafonnés, chaque plafond justifié en commentaire.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>172 références à des identifiants d'audit dans les commentaires, alors que le plan d'audit a été retiré de l'arbre. Un lecteur externe ne peut pas les résoudre : le code documente son passé plutôt que son intention.</li>
+            <li>Commentaires parfois disproportionnés, jusqu'à 37 lignes pour deux constantes.</li>
+            <li>Accès aux internes de la bibliothèque standard par <span class="inl">go:linkname</span>, fragile à chaque version du langage, documenté mais sans repli compilé.</li>
+            <li>Aucune cible 32 bits ne compile, et un test est reconnu instable.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C4</span>
+        <h3>Vérification et validation</h3>
+        <span class="pts"><b>14</b> / 15</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Couverture de 96,6 % vérifiée à l'évaluation, plancher de 80 % appliqué par le gate.</li>
+            <li>Oracle véritablement indépendant : le générateur du golden n'importe aucun paquet interne et calcule par addition itérative, jusqu'à F(200 000).</li>
+            <li>Tests de propriétés sur l'identité de Cassini, équivalence croisée entre les trois calculateurs, contrats de panique, test d'architecture, tests bout-en-bout du binaire.</li>
+            <li>Validation croisée jusqu'en production : le mode comparatif détecte une divergence et sort avec un code dédié.</li>
+            <li>Le fuzzing est repositionné honnêtement : 63 graines rejouées en régression, la mutation ne tourne sur aucun gate.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>Le chemin FFT n'est validé aux tailles de production que par équivalence entre implémentations et par des seuils abaissés en test. Aucun oracle indépendant ne couvre le régime où le chemin bascule réellement.</li>
+            <li>Pas de test de mutation, et le fuzzing n'est planifié nulle part, même en nocturne.</li>
+            <li>Ratio test sur production de 1,77 : la suite est un actif, mais son coût de maintenance n'est mesuré par rien.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C5</span>
+        <h3>Méthodologie expérimentale et mesure</h3>
+        <span class="pts"><b>11,5</b> / 15</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Protocole A/B en double ordre d'exécution, valeurs p rapportées, seuil de significativité fixé. Trois recommandations ont été rejetées sur mesure, et le rejet est consigné pour qu'un audit futur ne les re-propose pas.</li>
+            <li>Discipline mesuré contre affirmé exemplaire : chaque chiffre pointe vers un artefact ou est marqué sans provenance. Un chiffre sans artefact a été retiré plutôt que reformulé.</li>
+            <li>Mémoire résidente relevée un processus par point, pour éviter le plateau du compteur système.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li><b>Aucun étalon externe.</b> Ni GMP, ni la bibliothèque FFT amont, ni aucune autre implémentation ne sert de référence. Pour un dépôt qui se définit comme laboratoire de mesure, c'est la lacune principale : la haute vitesse annoncée n'est comparée qu'à elle-même. Le calculateur GMP existe et n'est pas mesuré.</li>
+            <li>Une seule baseline de débit, deux valeurs de <span class="inl">n</span>, un seul hôte, cinq échantillons d'une itération. Pas de courbe de scalabilité, aucun profil archivé.</li>
+            <li>Des tables historiques sans provenance sont conservées, dont une ligne reconnue fausse d'un facteur 88.</li>
+            <li>Pas de gate de non-régression de performance : la comparaison statistique reste manuelle.</li>
+            <li>La lenteur du chemin FFT est constatée, jamais expliquée.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C6</span>
+        <h3>Documentation et communication scientifique</h3>
+        <span class="pts"><b>8</b> / 10</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Douze mille lignes de documentation : onze ADR, onze figures validées contre la source, guides de construction, de test, de portabilité et de calibration, changelog tenu.</li>
+            <li>Trois passes de resynchronisation entre documentation et source, avec une commande par affirmation. Peu de projets atteignent ce niveau de cohérence.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>Le fichier d'accueil ouvre sur une trentaine de lignes d'historique d'audit avant le démarrage rapide. Le lecteur doit traverser le journal du projet pour atteindre la première commande.</li>
+            <li>Ton auto-référentiel omniprésent, jusqu'à faire de la documentation un journal d'audit. La rigueur est réelle, la forme fatigue et masque le contenu.</li>
+            <li>Bilinguisme non maîtrisé : accueil en français, documentation en anglais, ADR mixtes, sortie du binaire en anglais.</li>
+            <li>La plus ancienne section du changelog porte encore trois affirmations fausses et non annotées, dont une politique de sécurité qui n'existe pas.</li>
+            <li>Il manque le résumé d'une page qu'un lecteur académique cherche en premier : problème, méthode, résultats, limites.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C7</span>
+        <h3>Reproductibilité et outillage</h3>
+        <span class="pts"><b>3,5</b> / 5</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Gate local dur : construction, vet, tests avec détecteur de courses, lint bloquant, plancher de couverture. Un binaire de lint absent fait échouer le gate, ce qui montre que la leçon du lint silencieusement éteint a été tirée.</li>
+            <li>Conteneur de développement avec libgmp et l'outil de comparaison statistique, image multi-étages minimale, optimisation guidée par profil, compilation croisée sur cinq cibles.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li><b>Aucune intégration continue distante</b>, par décision assumée. Cette décision prive tout tiers d'une preuve indépendante que le gate passe : l'évaluateur a dû tout rejouer lui-même. En contexte académique, la reproductibilité par un tiers est un critère, pas une option.</li>
+            <li>Empreintes d'images non épinglées, marquées comme telles depuis longtemps.</li>
+            <li>Le conteneur de développement installe un outil que le gate n'exige plus, et le gate PowerShell n'a pas d'étape GMP.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C8</span>
+        <h3>Intégrité intellectuelle, attribution, licence</h3>
+        <span class="pts"><b>2,5</b> / 5</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>Licence Apache 2.0 présente et complète.</li>
+            <li>Divulgation exemplaire de l'assistance par intelligence artificielle : modèles, dates, rôles de pilote et d'exécuteur, nature de chaque passe, jusqu'aux commits d'agents identifiables. C'est exactement ce que l'intégrité académique demande aujourd'hui, et c'est rare.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>Le noyau FFT porte les marques d'un emprunt non attribué : mêmes fichiers, mêmes identifiants internes, même constante de seuil, et un commentaire repris mot pour mot d'un projet amont sous licence BSD.</li>
+            <li>Aucune mention de l'auteur d'origine nulle part : ni fichier de notice, ni copie de la licence BSD, ni paragraphe dans la documentation du sous-système, ni ligne de remerciement.</li>
+            <li>Le travail d'extension est réel et substantiel, mais il est présenté comme s'il partait de zéro.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="callout-head">
+          <span class="chip chip-warn">inféré</span>
+          <h4>Ce constat est une inférence, pas une vérification</h4>
+        </div>
+        <p>La filiation repose sur la convergence de noms de fichiers, d'identifiants internes, d'une constante et d'un commentaire identique. Aucune comparaison ligne à ligne avec le dépôt amont n'a été faite pendant cette évaluation. Un <span class="inl">diff</span> contre l'amont trancherait dans un sens ou dans l'autre, et devrait être fait avant toute conséquence.</p>
+      </div>
+    </article>
+
+    <article class="crit-block">
+      <div class="crit-head">
+        <span class="crit-id">C9</span>
+        <h3>Gestion de projet et traçabilité des décisions</h3>
+        <span class="pts"><b>4,5</b> / 5</span>
+      </div>
+      <div class="assess">
+        <div class="up">
+          <h4>Ce qui porte</h4>
+          <ul>
+            <li>697 commits sur neuf mois, dont 389 au format conventionnel, la totalité depuis l'été. Étiquettes de version et changelog détaillé.</li>
+            <li>Les ADR consignent les décisions et les rejets avec leur preuve, puis sont annotés au point exact de l'affirmation quand la réalité change, sans réécrire le raisonnement d'époque. C'est la bonne pratique, appliquée avec constance.</li>
+          </ul>
+        </div>
+        <div class="down">
+          <h4>Ce qui la retient</h4>
+          <ul>
+            <li>Premiers commits opaques, une seule demande de tirage sur tout l'historique, tout passe par la branche principale.</li>
+            <li>Le changelog décrit des versions qui n'ont jamais été étiquetées.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <h2>Bonifications</h2>
+    <p class="section-note">Effet estimé sur la note · les quatre premières suffisent à passer au A</p>
+    <ul class="bonus">
+      <li>
+        <span class="bid">B1</span>
+        <span class="body"><b>Attribuer le noyau FFT.</b> Fichier de notice, copie de la licence BSD, en-tête de provenance dans chaque fichier hérité, et un paragraphe qui distingue l'hérité de l'ajouté.</span>
+        <span class="tags">C8</span>
+        <span class="eff">+2</span>
+      </li>
+      <li>
+        <span class="bid">B2</span>
+        <span class="body"><b>Étalon externe et scalabilité.</b> Mesurer le calculateur GMP déjà présent, ajouter la fonction native de GMP et la bibliothèque amont comme références, tracer la courbe de 10<sup>4</sup> à 10<sup>8</sup> sur deux hôtes, avec dix échantillons et des intervalles de confiance.</span>
+        <span class="tags">C5</span>
+        <span class="eff">+3</span>
+      </li>
+      <li>
+        <span class="bid">B3</span>
+        <span class="body"><b>Intégration continue distante.</b> Le gate existant tel quel, la comparaison statistique contre la baseline avec seuil, et un fuzzing nocturne borné.</span>
+        <span class="tags">C7 · C4</span>
+        <span class="eff">+1,5</span>
+      </li>
+      <li>
+        <span class="bid">B4</span>
+        <span class="body"><b>Réécrire l'entrée du dépôt.</b> Un résumé d'une page, le démarrage rapide en premier, l'historique des audits déplacé dans son propre document, et une langue par document.</span>
+        <span class="tags">C6</span>
+        <span class="eff">+1,5</span>
+      </li>
+      <li>
+        <span class="bid">B5</span>
+        <span class="body"><b>Rendre les commentaires autoportants.</b> Remplacer les 172 identifiants d'audit par l'intention qu'ils désignent, ou restaurer l'index qui les résout.</span>
+        <span class="tags">C3</span>
+        <span class="eff">+1</span>
+      </li>
+      <li>
+        <span class="bid">B6</span>
+        <span class="body"><b>Réduire.</b> Trancher entre les deux mécanismes adaptatifs, reclasser le calculateur redondant en outil de test, et brancher la calibration sur le seuil interne du multiplicateur ou retirer le point d'entrée mort.</span>
+        <span class="tags">C2 · C1</span>
+        <span class="eff">+1</span>
+      </li>
+      <li>
+        <span class="bid">B7</span>
+        <span class="body">Oracle indépendant au-delà du seuil FFT, par une valeur de référence produite hors du dépôt.</span>
+        <span class="tags">C4</span>
+        <span class="eff">+0,5</span>
+      </li>
+      <li>
+        <span class="bid">B8</span>
+        <span class="body">Tests de mutation sur les deux paquets qui portent l'arithmétique.</span>
+        <span class="tags">C4</span>
+        <span class="eff">+0,5</span>
+      </li>
+      <li>
+        <span class="bid">B9</span>
+        <span class="body">Hygiène : corriger la plus ancienne section du changelog, épingler les empreintes d'images, aligner le conteneur de développement sur l'outil que le gate exige, et régler la question 32 bits dans un sens ou dans l'autre.</span>
+        <span class="tags">C6 · C7 · C3</span>
+        <span class="eff">+0,5</span>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Projets futurs</h2>
+    <p class="section-note">Chacun part d'un actif que le dépôt possède déjà</p>
+    <ul class="futures">
+      <li>
+        <span class="t">Étude comparative des multiplicateurs</span>
+        <span class="d">Schönhage-Strassen contre une transformée théorique des nombres sur premiers 64 bits avec réduction de Montgomery, et contre la bibliothèque standard et GMP. Mêmes tailles, même harnais, plusieurs architectures.</span>
+        <span class="asset">Actif : le banc existe, les concurrents manquent</span>
+      </li>
+      <li>
+        <span class="t">Généralisation aux récurrences linéaires</span>
+        <span class="d">Suites de Lucas, de Pell, k-bonacci, et toute récurrence à polynôme caractéristique donné. Le pooling, l'arène et la stratégie adaptative se réutilisent tels quels.</span>
+        <span class="asset">Actif : le framework matriciel et la boucle de doublement</span>
+      </li>
+      <li>
+        <span class="t">Vérification formelle du noyau</span>
+        <span class="d">Prouver les identités de doublement et l'arithmétique modulo 2<sup>n</sup>+1 en Lean ou Dafny, ou modéliser les invariants d'aliasing entre arène et pool en TLA+.</span>
+        <span class="asset">Actif : la politique de panique et les tests de contrat définissent déjà les propriétés</span>
+      </li>
+      <li>
+        <span class="t">Harnais de mesure reproductible multi-hôtes</span>
+        <span class="d">Conteneur épinglé, traitement statistique, publication des artefacts selon les critères de badge d'évaluation d'artefacts de l'ACM.</span>
+        <span class="asset">Actif : la discipline est là, l'infrastructure manque</span>
+      </li>
+      <li>
+        <span class="t">Étude empirique de la boucle humain-IA</span>
+        <span class="d">Quatre audits, une soixantaine de constats, des recommandations rejetées sur preuve, des affirmations fausses débusquées puis corrigées. Taux de faux positifs, coût par constat, dérive documentaire : matière publiable en génie logiciel empirique.</span>
+        <span class="asset">Actif : le dépôt est déjà son propre cas d'étude</span>
+      </li>
+      <li>
+        <span class="t">Contribution amont</span>
+        <span class="d">Proposer au projet d'origine l'allocateur bump, le cache de transformées et le parallélisme de récursion, mesures à l'appui. La revue par la communauté est la validation externe qui manque, et elle règle la question d'attribution en passant.</span>
+        <span class="asset">Actif : les extensions sont réelles et isolables</span>
+      </li>
+      <li>
+        <span class="t">Passage à l'échelle au-delà du milliard</span>
+        <span class="d">Multiplication FFT hors-cœur ou distribuée, puis GPU. Le cas à 10<sup>8</sup>, qui tient 617 Mo résidents, montre déjà où la mémoire devient la contrainte.</span>
+        <span class="asset">Actif : le relevé mémoire à sept points</span>
+      </li>
+      <li>
+        <span class="t">Performance par watt</span>
+        <span class="d">Mesurer l'énergie plutôt que le temps seul. La stratégie adaptative et le contrôle du ramasse-miettes ont des effets énergétiques que le chronomètre ne voit pas.</span>
+        <span class="asset">Actif : les points de mesure existent, la métrique change</span>
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Cette page présente l'évaluation détaillée conservée dans <span class="inl">docs/EVALUATION_ACADEMIQUE.md</span>. Les chiffres du protocole viennent d'exécutions faites sur l'hôte d'évaluation le 5 septembre 2026 ; ceux qui n'ont pas été rejoués sont marqués comme tels, et le constat d'attribution est explicitement une inférence.</p>
+    <p class="sig">Évaluation académique · FibGo / FibCalc · main @ 4149136</p>
+  </footer>
+
+</div>
