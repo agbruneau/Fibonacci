@@ -8,6 +8,8 @@
   `golangci-lint v2.13.2` et `govulncheck v1.7.0` lancés par `go run` depuis
   `scripts/tools.env`.
 - **Gabarit** : [`gabarit-evaluation-academique.md`](gabarit-evaluation-academique.md).
+- **Plan d'exécution** : [`plan-evaluation-2026-09-15.md`](plan-evaluation-2026-09-15.md)
+  (tâches `EVAL-00` à `EVAL-25`, décisions D1–D8 à trancher par le mainteneur).
 - **Régime de preuve** : `[E]` exécuté ici, `[L]` lu, `[D]` déduit.
 - **Évaluation antérieure** : `EVALUATION.md` (2026-02-08, 98/100, retirée de
   l'arbre le 2026-05-21, commit `0f79a6c`). Elle n'a pas été reprise : elle ne
