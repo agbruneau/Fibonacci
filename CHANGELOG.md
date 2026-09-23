@@ -1145,6 +1145,12 @@ been purged ; the ADR series is the surviving source of truth.
 
 ## [1.0.0] - 2025-12-22
 
+> Préhistoire : le code Go entre dans ce dépôt le 2026-01-23 (`5bfc50e`) ; les
+> entrées 0.1.0 et 1.0.0 ne sont pas vérifiables ici. Quatre lignes de 1.0.0
+> (sortie JSON, affichage hexadécimal, politique de sécurité, limitation de
+> débit) ont été retirées le 2026-09-23 : `fibcalc --help` et l'arbre les
+> réfutent (EVAL-03).
+
 ### Added
 
 #### Core Features
@@ -1166,15 +1172,12 @@ been purged ; the ADR series is the surviving source of truth.
 
 - Modern CLI with progress spinners, ETA calculation, and colour themes
 - Shell autocompletion generation (bash, zsh, fish, PowerShell)
-- JSON output format support
-- Hexadecimal result display option
 
 #### Documentation
 
 - Comprehensive README with production deployment guide
 - Architecture documentation with ADRs
 - Performance tuning guide
-- Security policy with vulnerability disclosure process
 - Algorithm-specific documentation (Fast Doubling, Matrix, FFT, GMP)
 
 #### Development
@@ -1189,11 +1192,12 @@ been purged ; the ADR series is the surviving source of truth.
 - Input validation for all parameters
 - Maximum N value limit (1 billion) to prevent resource exhaustion
 - Configurable request timeouts
-- Rate limiting protection against DoS
 
 ---
 
 ## [0.1.0] - 2025-11-01
+
+> Préhistoire : voir la note de l'entrée 1.0.0.
 
 ### Added
 
