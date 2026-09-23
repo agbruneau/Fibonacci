@@ -177,6 +177,13 @@ jobs:
         run: GOOS=linux GOARCH=386 go build ./...
       - name: build GOARCH=arm64
         run: GOOS=linux GOARCH=arm64 go build ./...
+      # The pure-Go fallback for the go:linkname kernels (EVAL-21) must keep
+      # building and agreeing with math/big, or it is no fallback at all.
+      - name: test -tags purego (bigfft without go:linkname)
+        run: |
+          go vet -tags purego ./internal/bigfft/
+          go test -tags purego -count=1 ./internal/bigfft/
+          GOOS=linux GOARCH=386 go build -tags purego ./...
 
   # The image had never been built anywhere: no environment the repository was
   # edited from had a docker CLI. This job is what makes the Dockerfile's

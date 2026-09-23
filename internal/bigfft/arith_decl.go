@@ -1,3 +1,5 @@
+//go:build !purego
+
 // Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -26,7 +28,8 @@
 //
 // If this package fails to compile or behaves unexpectedly after a Go upgrade,
 // the linkname declarations below should be reviewed against the current
-// math/big implementation.
+// math/big implementation. Meanwhile, -tags purego swaps them for the pure-Go
+// versions in arith_purego.go (EVAL-21).
 
 package bigfft
 
