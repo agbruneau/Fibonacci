@@ -80,8 +80,8 @@ func TestRegister_AcceptsANewName(t *testing.T) {
 	}
 
 	names := f.List()
-	if len(names) != 4 {
-		t.Errorf("List = %v, want the three built-ins plus %q", names, "extra")
+	if want := 4 + len(taggedRegistrations); len(names) != want {
+		t.Errorf("List = %v, want the built-ins (%d under this build) plus %q", names, want-1, "extra")
 	}
 	// List documents a sorted result; "extra" sorts between "fft" and "fast"?
 	// Assert the property, not a hand-computed order.
@@ -94,12 +94,16 @@ func TestRegister_AcceptsANewName(t *testing.T) {
 }
 
 // The three built-ins must all be present and distinct; NewDefaultFactory now
-// panics rather than registering a subset in silence.
+// panics rather than registering a subset in silence. A -tags gmp build adds
+// "gmp" through taggedRegistrations (EVAL-23), and the expectation follows.
 func TestNewDefaultFactory_RegistersEveryBuiltin(t *testing.T) {
 	t.Parallel()
 	f := NewDefaultFactory()
 
 	want := []string{"fast", "fft", "matrix"}
+	if len(taggedRegistrations) > 0 {
+		want = []string{"fast", "fft", "gmp", "matrix"}
+	}
 	got := f.List()
 	if len(got) != len(want) {
 		t.Fatalf("List = %v, want %v", got, want)

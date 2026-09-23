@@ -3,6 +3,7 @@ package fibonacci
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/agbruneau/FibGo/internal/progress"
 )
@@ -29,8 +30,11 @@ func ExampleMustNewCalculator() {
 func ExampleDefaultFactory() {
 	factory := NewDefaultFactory()
 
-	// List available algorithms.
-	fmt.Println(factory.List())
+	// List available algorithms. The three built-ins are always there; a
+	// -tags gmp build adds "gmp" (EVAL-23), so the example checks membership
+	// rather than printing a list whose content depends on the build.
+	names := factory.List()
+	fmt.Println(slices.Contains(names, "fast"), slices.Contains(names, "matrix"), slices.Contains(names, "fft"))
 
 	// Get a calculator by name.
 	calc, err := factory.Get("fast")
@@ -47,7 +51,7 @@ func ExampleDefaultFactory() {
 
 	fmt.Println(result)
 	// Output:
-	// [fast fft matrix]
+	// true true true
 	// 55
 }
 
