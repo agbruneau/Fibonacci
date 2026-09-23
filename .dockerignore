@@ -27,7 +27,7 @@ coverage.html
 # Documentation and audit trail (not compiled)
 docs/
 *.md
-LICENSE
+# LICENSE and NOTICE stay in the context: the image ships them (EVAL-01).
 
 # Local tooling and agent state
 .claude/

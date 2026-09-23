@@ -1,7 +1,8 @@
 # BigFFT Subsystem: Implementation Internals
 
 > **Scope**: Implementation architecture of `internal/bigfft`
-> **Complexity**: O(n log n) integer multiplication via Schonhage-Strassen FFT
+> **Complexity**: O(n log n log log n) integer multiplication via Schönhage-Strassen FFT
+> **Provenance**: derived from [`github.com/remyoudompheng/bigfft`](https://github.com/remyoudompheng/bigfft) (BSD-3-Clause) — see [§ Provenance](#provenance)
 > **See also**: [FFT.md](FFT.md) for the mathematical theory, and [FFT.md § FFT Routing](FFT.md#fft-routing) — the canonical answer to *when* a calculation reaches this package
 
 ## Overview
@@ -28,6 +29,44 @@ concerns:
 2. **FFT core** -- polynomial decomposition, forward/inverse transforms, pointwise operations
 3. **Fermat arithmetic** -- modular arithmetic in Z/(2^k+1) where multiplications reduce to shifts
 4. **Memory management** -- four pool hierarchies, a bump allocator, pre-warming, and capacity estimation
+
+---
+
+## Provenance
+
+The FFT multiplication core of this package is derived from
+[bigfft](https://github.com/remyoudompheng/bigfft) by Rémy Oudompheng, at upstream commit
+`24d4a6f8daece64d3c9a7660d4ee0974c4e31021` (2023-01-29; Go module version
+`v0.0.0-20230129092748-24d4a6f8daec`). Upstream is distributed under the BSD-3-Clause license
+with the notice "Copyright (c) 2012 The Go Authors. All rights reserved."; that license is
+kept verbatim in [`internal/bigfft/LICENSE`](../../internal/bigfft/LICENSE) and reproduced in
+the root [`NOTICE`](../../NOTICE). Its conditions still apply to the upstream portions. The
+modifications, and every file not in the table below, are Copyright 2026 André-Guy Bruneau and
+licensed under Apache-2.0 ([`LICENSE`](../../LICENSE)).
+
+Six files derive from upstream. Each opens with a header that names its upstream file and
+lists what it took and what changed; the table summarizes those headers.
+
+| File | Upstream origin | Main changes in this repository |
+|------|-----------------|---------------------------------|
+| `arith_decl.go` | `arith_decl.go`: `Word` alias and `go:linkname` declarations (upstream carries the Go Authors 2010 notice, kept) | `mulAddVWW` dropped; warning and per-declaration comments |
+| `fermat.go` | `fermat.go`: the `fermat` type, `norm`, `Shift`, `ShiftHalf`, `Add`, `Sub`, `Mul`, and `basicMul` (which upstream marks "copied from math/big") | `*Safe` wrappers, `Sqr`/`basicSqr`, shared `reduce`, rewritten carry handling |
+| `fft.go` | `fft.go`: `nat`, `_W`, `Mul`, `mulFFT`, `fftSize` and the `fftSizeThreshold` table, `valueSize`, the 1 800-word threshold and its calibration comment | atomic threshold (ADR-0003), error returns and panic recovery (ADR-0002), `MulTo`/`Sqr`/`SqrTo`, exported parameter helpers |
+| `fft_core.go` | `fft.go`: `fourier` entry point, `fftmul` | pooled/bump scratch buffers, `fftmulTo`, `fftsqr`/`fftsqrTo`, transform cache |
+| `fft_poly.go` | `fft.go`: `poly`/`polValues` (exported as `Poly`/`PolValues`), `polyFromNat`, `Int`, `trim`, `Mul`, `Transform`, `InvTransform`, `NTransform`, `InvNTransform`, pointwise `Mul` | pooled backing arrays and `Release`, `*WithBump` variants, `IntTo`, pointwise `Sqr`, `Clone`, parallel pointwise products |
+| `fft_recursion.go` | `fft.go`: the radix-2 recursion that upstream's `fourier` runs as a closure | named recursion with error returns, bounded parallel recursion and panic re-propagation, tunable thresholds, parallel butterfly reconstruction |
+
+Every other file — `allocator.go`, `arith.go`, `bump.go`, `doc.go`, `fft_cache.go`,
+`memory_est.go`, `pool.go`, `pool_warming.go` and all `*_test.go` files — is original to this
+repository. Upstream's `scan.go` (`FromDecimalString`) was carried at one point and removed
+([ADR-0009 R1](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)); none of upstream's
+test files are present.
+
+The derived-file list comes from a line comparison against the upstream module. Counting
+distinct whitespace-trimmed lines of 12 or more characters, other than `package bigfft`,
+each derived file shares between 6 (`fft_core.go`) and 87 (`fermat.go`) with an upstream
+source file; every other non-test file shares none; the test files share only generic
+boilerplate (`b.ResetTimer()`, `z := new(big.Int)`) and no upstream test function.
 
 ---
 
@@ -877,3 +916,4 @@ strategy-level threshold, and the two gates are applied **in series** — see
 2. Crandall, R., & Pomerance, C. (2005). *Prime Numbers: A Computational Perspective*. Chapter 9: Fast Algorithms for Large-Integer Arithmetic.
 3. [GMP Library -- FFT Multiplication](https://gmplib.org/manual/FFT-Multiplication)
 4. Cooley, J. W., & Tukey, J. W. (1965). "An algorithm for the machine calculation of complex Fourier series". *Mathematics of Computation*, 19(90), 297--301.
+5. Oudompheng, R. [bigfft](https://github.com/remyoudompheng/bigfft): Schönhage-Strassen multiplication of `math/big` integers in Go, BSD-3-Clause. The upstream of this package (see [§ Provenance](#provenance)).

@@ -1,3 +1,19 @@
+// Derived from github.com/remyoudompheng/bigfft (BSD 3-Clause; see LICENSE in
+// this directory), file fft.go at upstream commit 24d4a6f8daec.
+// Copyright (c) 2012 The Go Authors. All rights reserved.
+//
+// Taken from upstream: the nat type and _W, Mul, mulFFT, fftSize with the
+// fftSizeThreshold table and its sizing comment, valueSize, and the 1800-word
+// FFT threshold with its calibration comment.
+//
+// Modifications Copyright 2026 André-Guy Bruneau, licensed under Apache-2.0
+// (see /LICENSE and /NOTICE): the threshold became an atomic.Int64 with
+// SetFFTThreshold/FFTThresholdWords (ADR-0003); Mul returns an error and
+// recovers panics (ADR-0002); added MulTo, Sqr, SqrTo, sqrFFT, fftSizeSqr,
+// PolyFromInt, GetFFTParams, ValueSize and the panic-to-error mapping.
+// fftmul and fourier moved to fft_core.go, the poly methods to fft_poly.go and
+// the transform recursion to fft_recursion.go.
+//
 // The implementation is based on the Schönhage-Strassen method
 // using integer FFT modulo 2^n+1.
 

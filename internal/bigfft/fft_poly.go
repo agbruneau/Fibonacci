@@ -1,3 +1,18 @@
+// Derived from github.com/remyoudompheng/bigfft (BSD 3-Clause; see LICENSE in
+// this directory), split out of file fft.go at upstream commit 24d4a6f8daec.
+// Copyright (c) 2012 The Go Authors. All rights reserved.
+//
+// Taken from upstream: the poly and polValues types (exported here as Poly and
+// PolValues), polyFromNat, Int, trim, Mul, Transform, InvTransform,
+// NTransform, InvNTransform and the pointwise PolValues.Mul, with their
+// comments on twisting by θ and on the roots of unity.
+//
+// Modifications Copyright 2026 André-Guy Bruneau, licensed under Apache-2.0
+// (see /LICENSE and /NOTICE): exported types and fields, pooled backing
+// arrays with Release, error returns, bump-allocator variants (the
+// *WithBump methods and the tempAllocator parameter), IntTo and IntToBigInt,
+// the pointwise Sqr, Clone, and parallel pointwise products (runPointwise).
+
 package bigfft
 
 import (

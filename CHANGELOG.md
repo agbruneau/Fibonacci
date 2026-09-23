@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Corrigé
+
+- **Attribution de `internal/bigfft` (EVAL-01, constat P1)** : le paquet dérive de
+  [`github.com/remyoudompheng/bigfft`](https://github.com/remyoudompheng/bigfft)
+  (BSD-3-Clause, commit `24d4a6f8daec`) sans en avoir gardé la notice. La licence
+  amont est conservée telle quelle dans `internal/bigfft/LICENSE` (identique octet
+  pour octet au fichier du module amont) et reproduite dans un nouveau `NOTICE` à
+  la racine, qui distingue les parties amont (BSD-3-Clause) des modifications
+  (Apache-2.0). Les six fichiers dérivés (`arith_decl.go`, `fermat.go`, `fft.go`,
+  `fft_core.go`, `fft_poly.go`, `fft_recursion.go`) portent un en-tête d'origine ;
+  `doc.go` et `BIGFFT.md` gagnent une section Provenance ; l'image Docker copie
+  `LICENSE` et `NOTICE` dans `/usr/share/doc/fibcalc/`. Aucune ligne de code ne
+  change (comparaison d'AST sans commentaires, sept fichiers identiques).
+
 ## [4.1.1] - 2026-09-07
 
 ### Clôture de l'audit 2026-09-07 (après `v4.1.0`)

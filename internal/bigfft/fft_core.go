@@ -1,3 +1,16 @@
+// Derived from github.com/remyoudompheng/bigfft (BSD 3-Clause; see LICENSE in
+// this directory), split out of file fft.go at upstream commit 24d4a6f8daec.
+// Copyright (c) 2012 The Go Authors. All rights reserved.
+//
+// Taken from upstream: fourier (entry point and doc comment; its recursion is
+// in fft_recursion.go) and fftmul (fftSize, polyFromNat on both operands,
+// product, conversion back to nat).
+//
+// Modifications Copyright 2026 André-Guy Bruneau, licensed under Apache-2.0
+// (see /LICENSE and /NOTICE): pooled scratch buffers instead of make, error
+// returns, fourierWithBump, fftmulTo (destination reuse, bump allocator,
+// transform cache), fftsqr and fftsqrTo.
+
 package bigfft
 
 // fourier performs an unnormalized Fourier transform

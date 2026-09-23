@@ -2,6 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Derived from github.com/remyoudompheng/bigfft (BSD 3-Clause; see LICENSE in
+// this directory), file arith_decl.go at upstream commit 24d4a6f8daec; the
+// three-line notice above is upstream's, and the LICENSE file it names is
+// internal/bigfft/LICENSE.
+//
+// Taken from upstream: the Word alias and the go:linkname declarations of
+// addVV, subVV, addVW, subVW, shlVU and addMulVVW.
+//
+// Modifications Copyright 2026 André-Guy Bruneau, licensed under Apache-2.0
+// (see /LICENSE and /NOTICE): the mulAddVWW declaration was dropped, and the
+// warning below and the per-declaration comments were added.
+
 // WARNING: This file uses //go:linkname to access unexported functions from
 // math/big for performance reasons. This technique is fragile and carries
 // several risks:

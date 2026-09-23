@@ -393,6 +393,11 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles de test, fuzzing, gold
 
 ### Remerciements
 
+Le cœur de multiplication FFT de `internal/bigfft` dérive de
+[bigfft](https://github.com/remyoudompheng/bigfft) de Rémy Oudompheng (BSD-3-Clause, « Copyright (c)
+2012 The Go Authors ») ; la notice amont est conservée dans `internal/bigfft/LICENSE` et
+[`NOTICE`](NOTICE), l'image Docker l'embarque, et chaque fichier dérivé l'indique en en-tête.
+
 Architecture et algorithmique inspirées de la littérature classique (Schönhage-Strassen, Strassen-Winograd,
 fast doubling) ; outillage : Go, Bubble Tea, benchstat, golangci-lint, gosec. Audits, refactorisation et
 optimisation 2026 réalisés avec [Claude Fable 5](https://www.anthropic.com/news/claude-fable-5-mythos-5),

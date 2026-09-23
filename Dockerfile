@@ -110,6 +110,9 @@ RUN make build VERSION="${VERSION}" COMMIT="${COMMIT}" BUILD_DATE="${BUILD_DATE}
 FROM gcr.io/distroless/base-debian12@sha256:fabbf1c0c357a3d42550111351daed089b20a2c954df13ee2fcff60602515e84 AS runtime
 
 COPY --from=builder /out/fibcalc /usr/local/bin/fibcalc
+# The bigfft-derived code is BSD-3-Clause, whose clause 2 requires its notice to
+# travel with any binary distribution; NOTICE carries it in full (EVAL-01).
+COPY --from=builder /src/LICENSE /src/NOTICE /usr/share/doc/fibcalc/
 
 USER nonroot:nonroot
 ENTRYPOINT ["/usr/local/bin/fibcalc"]

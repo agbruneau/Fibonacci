@@ -1,3 +1,19 @@
+// Derived from github.com/remyoudompheng/bigfft (BSD 3-Clause; see LICENSE in
+// this directory), split out of file fft.go at upstream commit 24d4a6f8daec.
+// Copyright (c) 2012 The Go Authors. All rights reserved.
+//
+// Taken from upstream: the radix-2 recursion that upstream's fourier runs as a
+// closure (idxShift and ω2shift, the size 0 and 1 base cases, the split of
+// dst into halves, and the ShiftHalf/Sub/Add butterfly that rebuilds P from
+// Q1 and Q2).
+//
+// Modifications Copyright 2026 André-Guy Bruneau, licensed under Apache-2.0
+// (see /LICENSE and /NOTICE): the closure became fourierRecursiveUnified with
+// error returns; parallel recursion bounded by a NumCPU semaphore, with
+// worker panic capture and re-propagation (ADR-0002); tunable parallelism
+// thresholds (FFTParallelismConfig); parallel butterfly reconstruction
+// (executeReconstruction).
+
 package bigfft
 
 import (

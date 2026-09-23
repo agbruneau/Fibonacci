@@ -1,3 +1,16 @@
+// Derived from github.com/remyoudompheng/bigfft (BSD 3-Clause; see LICENSE in
+// this directory), file fermat.go at upstream commit 24d4a6f8daec.
+// Copyright (c) 2012 The Go Authors. All rights reserved.
+//
+// Taken from upstream: the fermat type (arithmetic modulo 2^n+1) and its
+// String, norm, Shift, ShiftHalf, Add, Sub and Mul methods, and basicMul,
+// which upstream marks as copied from math/big.
+//
+// Modifications Copyright 2026 André-Guy Bruneau, licensed under Apache-2.0
+// (see /LICENSE and /NOTICE): the *Safe error-returning wrappers, Sqr and
+// basicSqr, the shared reduce step, the smallMulThreshold constant, and
+// rewritten carry handling and panic messages in norm, Shift and Mul.
+
 package bigfft
 
 import (
