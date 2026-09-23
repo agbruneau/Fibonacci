@@ -24,7 +24,8 @@ documented lateral imports config → fibonacci/memory and config → ui.
 
 leaves (zero internal imports): bigfft, apperrors, format, metrics, progress,
                                 ui, testutil, fibonacci/fibmath,
-                                fibonacci/threshold, cli/completion
+                                cli/completion (fibonacci/threshold was one
+                                until its removal on 2026-09-23)
                                 (fibonacci/memory stopped being one on
                                 2026-09-07: it imports fibonacci/fibmath)
 ```
@@ -41,7 +42,7 @@ go list -deps=false -f '{{$p := .ImportPath}}{{range .Imports}}{{$p}} -> {{.}}
 {{end}}' ./... \
  | grep -E '^github\.com/agbruneau/FibGo/\S+ -> github\.com/agbruneau/FibGo/internal/' \
  | sed 's|github.com/agbruneau/FibGo/||g' \
- | sed -E 's|internal/fibonacci/memory|fibmem|g; s|internal/fibonacci/threshold|fibthr|g;
+ | sed -E 's|internal/fibonacci/memory|fibmem|g;
            s|internal/fibonacci/fibmath|fibmath|g;
            s|internal/cli/completion|completion|g; s|cmd/fibcalc|main|g;
            s|internal/fibonacci|fib|g; s|internal/orchestration|orch|g;
@@ -52,10 +53,13 @@ grep -oE '^ +[a-z]+ --> [a-z]+$' docs/architecture/dependency-graph.md \
 diff /tmp/real.txt /tmp/drawn.txt
 ```
 
-Exécuté le **2026-09-07** : `48` lignes de chaque côté, `diff` vide — le
-diagramme est l'ensemble exact des imports internes directs, pas un
-sur-ensemble ni un sous-ensemble. Sur ce relevé, `internal/fibonacci` importe
-`apperrors`, `bigfft`, `fibonacci/fibmath`, `fibonacci/memory`, `fibonacci/threshold`, `progress` — pas
+Exécuté le **2026-09-23**, après la suppression de `fibonacci/threshold`
+(EVAL-10) : `45` lignes de chaque côté, `diff` vide — le diagramme est
+l'ensemble exact des imports internes directs, pas un sur-ensemble ni un
+sous-ensemble (48 au relevé précédent du 2026-09-07 ; les trois arêtes vers
+`fibonacci/threshold`, depuis `app`, `fibonacci` et `orchestration`, sont
+parties avec le paquet). Sur ce relevé, `internal/fibonacci` importe
+`apperrors`, `bigfft`, `fibonacci/fibmath`, `fibonacci/memory`, `progress` — pas
 `config` ; et `internal/bigfft` n'importe aucun package interne.
 
 Verified properties (against Go `import` declarations in source):
@@ -73,10 +77,10 @@ Only two of the diagrams carry package-import edges, and both were
 re-verified arrow-by-arrow against the `go list` command above:
 
 - `dependency-graph.md` — exact and complete. Its 48 arrows match, one for
-  one, the 48 direct internal imports `go list` reports across the module
-  (`cmd/fibcalc` 2, `app` 11, `calibration` 5, `cli` 8, `config` 3,
-  `fibonacci` 6, `fibonacci/memory` 1, `orchestration` 5, `tui` 7; every
-  other package is a leaf). **Re-verified 2026-09-07** after the « livre »
+  one, the 45 direct internal imports `go list` reports across the module
+  (`cmd/fibcalc` 2, `app` 10, `calibration` 5, `cli` 8, `config` 3,
+  `fibonacci` 5, `fibonacci/memory` 1, `orchestration` 4, `tui` 7; every
+  other package is a leaf — counts of 2026-09-23, after EVAL-10). **Re-verified 2026-09-07** after the « livre »
   audit: `calibration → format` and `calibration → ui` are gone (T16) ;
   `cli → calibration`, `orchestration → fibonacci/threshold` and the two arrows
   into the new `fibonacci/fibmath` leaf (from `fibonacci` and
@@ -146,11 +150,9 @@ corrected on 2026-08-07:
   (`internal/fibonacci/doubling_framework.go:DoublingFramework.ExecuteDoublingLoop`,
   `cache_strategy_bigfft.go:bigfftCacheStrategy.Sample`). A
   `DoublingFramework --> TransformCache` edge was added for that path.
-  ⚠ Since audit M-04 (2026-09) that edge is **opt-in**: the
-  `DynamicThresholdManager` it depends on is built only when
-  `Options.EnableDynamicThresholds` is set (`internal/fibonacci/fastdoubling.go`),
-  i.e. under `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS`, which default
-  to false. The edge is real but unreachable in a default run.
+  That edge and the `CacheStrategy` hook behind it were removed with the
+  dynamic threshold manager on 2026-09-23 (EVAL-10); `configureFFTCache` is now
+  the only place that configures the cache.
 
 Class *members* (field/method listings in `component-diagram.md`) drift
 independently from both checks; they were last corrected on 2026-08-07 —

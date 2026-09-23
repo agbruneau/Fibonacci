@@ -10,7 +10,6 @@ import (
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
 	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
-	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
@@ -140,29 +139,7 @@ func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter pr
 	normalizedOpts := normalizeOptions(opts)
 	useParallel := runtime.GOMAXPROCS(0) > 1 && normalizedOpts.ParallelThreshold > 0
 
-	// Use framework with adaptive strategy for the main loop
-	strategy := &AdaptiveStrategy{}
-
-	// Create framework with or without dynamic threshold adjustment
-	var framework *DoublingFramework
-	if normalizedOpts.EnableDynamicThresholds {
-		// Create dynamic threshold manager
-		interval := normalizedOpts.DynamicAdjustmentInterval
-		if interval <= 0 {
-			interval = threshold.DynamicAdjustmentInterval
-		}
-		dtm := threshold.NewDynamicThresholdManagerFromConfig(threshold.DynamicThresholdConfig{
-			InitialFFTThreshold:      normalizedOpts.FFTThreshold,
-			InitialParallelThreshold: normalizedOpts.ParallelThreshold,
-			AdjustmentInterval:       interval,
-			Enabled:                  true,
-			Logger:                   optionsLogger(normalizedOpts),
-			Tuning:                   normalizedOpts.ThresholdTuning,
-		})
-		framework = NewDoublingFrameworkWithDynamicThresholds(strategy, dtm)
-	} else {
-		framework = NewDoublingFramework(strategy)
-	}
+	framework := NewDoublingFramework(&AdaptiveStrategy{})
 
 	// Execute the doubling loop with parallelization support.
 	// On error we must release without preserving a result; on success we

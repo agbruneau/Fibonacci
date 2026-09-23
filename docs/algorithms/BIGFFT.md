@@ -884,7 +884,6 @@ which returns exactly these seven):
 - `internal/fibonacci/calculator.go` -- `FibCalculator.CalculateWithObservers()` calls `bigfft.EnsurePoolsWarmed()` before calculation
 - `internal/fibonacci/strategy.go` -- `FFTOnlyStrategy.Multiply`/`Square` call `bigfft.MulTo`/`SqrTo` directly (`strategy.go:FFTOnlyStrategy.Multiply`, `strategy.go:FFTOnlyStrategy.Square`)
 - `internal/fibonacci/options.go` -- `configureFFTCache` calls `DefaultTransformCacheConfig` + `SetTransformCacheConfig` (`options.go:configureFFTCache`)
-- `internal/fibonacci/cache_strategy_bigfft.go` -- `Sample` calls `GetTransformCache` + `SetTransformCacheConfig` (`cache_strategy_bigfft.go:bigfftCacheStrategy.Sample`)
 - `internal/fibonacci/fastdoubling.go` -- holds a `*bigfft.BumpAllocator` on the state; `EstimateBumpCapacity`, `ReleaseBumpAllocator`
 - `internal/calibration/microbench.go` -- `bigfft.Mul` in the micro-benchmark (`microbench.go:multiplyTest`)
 

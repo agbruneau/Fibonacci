@@ -201,7 +201,7 @@ func (a *Application) runTUI(ctx context.Context, out io.Writer) int {
 	}
 
 	calculatorsToRun := orchestration.GetCalculatorsToRun(a.Config.Algo, a.Factory)
-	return tui.Run(ctx, calculatorsToRun, a.Config, Version, a.ErrWriter, a.logger, thresholdTuningFromConfig())
+	return tui.Run(ctx, calculatorsToRun, a.Config, Version, a.ErrWriter, a.logger)
 }
 
 // IsHelpError checks if the error is a help flag error (--help was used).

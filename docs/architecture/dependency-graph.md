@@ -29,7 +29,6 @@ flowchart LR
         bigfft["internal/bigfft<br/>FFT Multiplication"]
         calib["internal/calibration<br/>Benchmarking & Tuning"]
         fibmem["internal/fibonacci/memory<br/>Arena, GC, Budget"]
-        fibthr["internal/fibonacci/threshold<br/>Parallel/FFT Thresholds"]
         fibmath["internal/fibonacci/fibmath<br/>Size of F(n): log₂ φ, 93, BitsFor"]
     end
 
@@ -63,7 +62,6 @@ flowchart LR
     orch --> apperrors
     orch --> progress
     orch --> fibmem
-    orch --> fibthr
 
     config --> apperrors
     config --> fibmem
@@ -79,7 +77,6 @@ flowchart LR
     fib --> apperrors
     fib --> progress
     fib --> fibmem
-    fib --> fibthr
     fib --> fibmath
     fibmem --> fibmath
 
@@ -101,7 +98,6 @@ flowchart LR
     tui --> progress
 
     app --> fibmem
-    app --> fibthr
     app --> completion
 
     style Entry fill:#e1f5fe

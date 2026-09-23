@@ -248,11 +248,10 @@ build: the `internal` package has no non-test Go file
 (`go list -f '{{.GoFiles}}' ./internal/` → `[]`), so `go build ./...` never
 compiles it and stays green even with a violation in place. It inspects each importer
 package via `go list -f '{{range .Imports}}{{.}}\n{{end}}'` (production code only — `_test.go`
-files are excluded). Currently seven rules :
+files are excluded). Currently six rules :
 
 | Importer | Forbidden direct import | Rationale |
 |---|---|---|
-| `internal/fibonacci/threshold` | `internal/config` | Would close a cycle through `config → fibonacci/memory`. The threshold package receives `Tuning` by value through `fibonacci.Options` (`SetTuning` was removed on 2026-09-07, T18). |
 | `internal/apperrors` | `internal/format` | Leaf utility ; uses local `formatBytesLocal` instead. |
 | `internal/tui` (production) | `internal/fibonacci` | UI must reach domain types through `orchestration.Calculator`/`Options` aliases. |
 | `internal/orchestration` | `internal/format` | APP-10 : progress aggregation (`ProgressAggregator`, formerly `ProgressState`) moved from `format` to `orchestration` ; the arrow must not come back. |
@@ -540,7 +539,6 @@ The table lists key test files per package; it is **not exhaustive** (`internal/
 |---------|---------------|-----------------|
 | `internal/fibonacci` | `fibonacci_test.go`, `fibonacci_golden_test.go`, `fibonacci_fuzz_test.go`, `fibonacci_property_test.go`, `fibonacci_strassen_test.go`, `fibonacci_edge_test.go`, `modular_test.go`, `fastdoubling_test.go`, `state_cache_test.go`, `registry_test.go`, `strategy_test.go` | Unit, golden, fuzz, property-based, Strassen correctness, modular arithmetic, Fast Doubling state pooling, state/arena/bump cache guardians (8 tests, commits fa13bfd + 7999c39), calculator registry, strategy selection. The `TestMain` that pinned the zerolog level was removed with zerolog itself (audit OBS-01): logging is injected through `fibonacci.Options.Logger` and defaults to a discarding handler, so `-bench` output stays benchstat-parseable without a package-wide hook |
 | `internal/fibonacci/memory` | `arena_test.go`, `arena_fallback_test.go`, `budget_test.go`, `gc_control_test.go` | Bump arena allocation, heap-fallback pre-sizing, memory-budget pre-flight estimation, GC controller |
-| `internal/fibonacci/threshold` | `manager_test.go`, `tuning_test.go` | Threshold manager (parallelism / FFT / Strassen decisions), `Tuning` held per manager rather than globally (`TestTuningIsPerManagerNotGlobal`), `withDefaults` |
 | `internal/bigfft` | `fft_precision_test.go`, `fft_parallel_test.go`, `pool_test.go`, `fermat_test.go`, `bump_test.go`, `fft_cache_test.go` | Unit, precision, parallel correctness, pool recycling, Fermat arithmetic, bump allocator, FFT cache |
 | `internal/cli` | `output_test.go`, `ui_test.go`, `goldens_test.go`, `presenter_test.go` | Unit, golden output, result presentation |
 | `internal/tui` | `model_test.go`, `bridge_test.go`, `header_test.go`, `chart_test.go`, `metrics_test.go`, `sparkline_test.go`, `footer_test.go`, `logs_test.go`, `keymap_test.go`, `cli_flags_test.go` | Unit, sub-model testing, message handling |
@@ -549,7 +547,7 @@ The table lists key test files per package; it is **not exhaustive** (`internal/
 | `internal/config` | `config_test.go`, `config_exhaustive_test.go`, `env_test.go` | Unit, exhaustive flag combinations, env vars |
 | `internal/apperrors` | `errors_test.go`, `handler_test.go` | Unit, exit code mapping |
 | `internal/metrics` | `indicators_test.go` | Performance indicators (throughput, O(1) properties) |
-| `internal/app` | `app_test.go`, `version_test.go`, `app_tuning_test.go` | Unit, lifecycle, threshold-tuning wiring (A2-04, `TestWireThresholdTuning`) |
+| `internal/app` | `app_test.go`, `version_test.go` | Unit, lifecycle |
 | `test/e2e` | `cli_e2e_test.go`, `extended_e2e_test.go` | End-to-end binary testing |
 | `cmd/fibcalc` | `main_test.go` | Entry point smoke test |
 | `cmd/generate-golden` | `main_test.go` | Golden generator validation |

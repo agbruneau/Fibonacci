@@ -114,8 +114,8 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 |                                                                       |
 | internal/fibonacci  internal/progress  internal/bigfft                    |
 | (algorithms)        (observer model)   (FFT arithmetic)                    |
-|   fibonacci/memory   fibonacci/threshold                                   |
-|   (arena, GC ctrl)   (dynamic tuning)                                      |
+|   fibonacci/memory   fibonacci/fibmath                                     |
+|   (arena, GC ctrl)   (size of F(n))                                        |
 +-----------------------------------------------------------------------+
 
 Cross-cutting leaves — NOT a layer below the Domain. No Domain package
@@ -152,13 +152,10 @@ edge and neither belongs in this diagram.
   importing it on 2026-09-07 — it reports through the `calibration.Reporter`
   port that `internal/cli` implements).
 - **Use-Case layer** → `internal/orchestration` imports exactly
-  `internal/apperrors`, `internal/fibonacci`, `internal/fibonacci/memory`,
-  `internal/fibonacci/threshold` and `internal/progress` — Domain plus the
+  `internal/apperrors`, `internal/fibonacci`, `internal/fibonacci/memory`
+  and `internal/progress` — Domain plus the
   `apperrors` leaf, never a presentation package.
 - **Domain layer** → no imports from outer layers (self-contained).
-  `internal/fibonacci/threshold` does **not** import `internal/config` ; the
-  application layer passes `threshold.Tuning` by value inside `fibonacci.Options`
-  (the `SetTuning` global was removed on 2026-09-07).
   `internal/bigfft` imports no internal package at all.
 - **Infrastructure** → utility packages with no upward dependencies.
   `internal/apperrors` ships its own byte-formatter (`formatBytesLocal`) instead
@@ -309,8 +306,8 @@ internal/
 ├── config/                      # Flag parsing, env override, adaptive thresholds
 ├── errors/                      # Typed app errors + exit code handling
 ├── fibonacci/                   # Core Fibonacci algorithms + framework/strategy/factory
-│   ├── memory/                  # Arena allocator, GC control, memory budget
-│   └── threshold/               # Dynamic threshold manager
+│   ├── fibmath/                 # Size of F(n): GrowthFactor, BitsFor
+│   └── memory/                  # Arena allocator, GC control, memory budget
 ├── format/                      # Duration/number/progress ETA formatting
 ├── metrics/                     # Runtime performance/memory indicators
 ├── orchestration/               # Concurrent execution and result analysis
@@ -374,7 +371,7 @@ internal/
   - `FastDoublingCalculator` — Fast Doubling O(log n) with parallel multiplication; holds a per-instance GC-immune `cachedState` slot (`atomic.Pointer`, arenas ≤ 4M words) consulted before the shared `sync.Pool`
   - `MatrixExponentiationCalculator` — Matrix exponentiation O(log n) with Strassen dispatch
   - `FFTBasedCalculator` — FFT-only multiplication for benchmark/large-N scenarios
-  - `Options` — comprehensive configuration (thresholds, FFT cache, dynamic thresholds, GC mode, `Logger`)
+  - `Options` — comprehensive configuration (thresholds, FFT cache, GC mode, memory limit, `Logger`)
   - `CalculationState` — pooled 5-variable state (FK, FK1, T1-T3) for doubling algorithms
   - `DefaultFactory` — thread-safe factory with lazy creation, double-check locking, caching
 
@@ -384,11 +381,6 @@ internal/
   - `CalculationArena` — contiguous bump-style arena with `PreSizeFromArena` for state big.Int
   - `GCController` (`auto`/`aggressive`/`disabled`) — disables GC for N ≥ 1M, uses `debug.SetMemoryLimit` as OOM safety net
   - `EstimateMemoryUsage`, `ParseMemoryLimit`, `FormatMemoryEstimate`
-
-### `internal/fibonacci/threshold`
-- **Responsibility:** dynamic runtime threshold adjustment based on observed iteration performance.
-- **Key types:** `DynamicThresholdManager`, `DynamicThresholdConfig`, `IterationMetric`, `ThresholdAnalyzer`.
-- **Mechanism:** records per-iteration timing data, detects if FFT/parallel thresholds should be adjusted, returns new thresholds mid-computation.
 
 ### `internal/fibonacci/fibmath`
 - **Responsibility:** the three facts about the size of F(n) that used to be duplicated across `fibonacci`, `fibonacci/memory` and `config` : `GrowthFactor` (log₂ φ), `MaxUint64Index` (93) and `BitsFor(n)`.
@@ -643,7 +635,6 @@ fd.acquireStateForN(n) → CalculationState
   └─ créneau cachedState immunisé au GC d'abord, sync.Pool en repli ;
      arène liée à l'état, réutilisée ou agrandie, puis PreSizeFromArena
 DoublingFramework(AdaptiveStrategy)
-  └─ optionnellement avec un DynamicThresholdManager
 ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)
   ├─ itération des bits : MSB → LSB
   ├─ décision shouldParallelizeMultiplicationCached()
@@ -654,7 +645,6 @@ ExecuteDoublingLoop(ctx, reporter, n, opts, state, parallel)
   ├─ recombinaison : F(2k) = 2·T3 − T2, F(2k+1) = T1 + T2
   ├─ rotation de pointeurs (sans copie)
   ├─ étape d'addition, lorsque le bit vaut 1 : F(k) ← F(k+1), F(k+1) ← somme
-  ├─ ajustement dynamique des seuils sous --dynamic-thresholds
   └─ ReportStepProgress (modèle de travail géométrique)
 ```
 
@@ -762,7 +752,7 @@ FibCalculator.CalculateWithObservers
   - `F(2k)   = F(k) * (2F(k+1) - F(k))`
   - `F(2k+1) = F(k+1)² + F(k)²`
 - Uses `DoublingFramework` + `AdaptiveStrategy`.
-- Employs pooled `CalculationState` (5 big.Int + bound `CalculationArena`), memory arena pre-sizing, and optional dynamic threshold updates.
+- Employs pooled `CalculationState` (5 big.Int + bound `CalculationArena`), and memory arena pre-sizing.
 - **Result detachment:** `ReleaseStateWithResult` deep-copies the result out of the arena (~850 KB for F(10M): ⌈10e6 × 0.69424⌉ bits ÷ 8; the repo carries no measurement of that copy's share of runtime) so the arena can safely be reset and reused on the next acquisition. The previous "steal `s.FK`" zero-copy trick was dropped because it left the result aliasing pooled memory the next tenant would overwrite.
 
 ### B. Matrix Exponentiation (`MatrixExponentiationCalculator`)
@@ -951,7 +941,7 @@ Three-tier calibration approach:
    LoadOrCreateProfile(path) → check IsValid() → apply thresholds
 
 2. QUICK MICRO-BENCHMARKS (design target ~100 ms per microbench.go's file comment; the
-   enforced cap is MicroBenchTimeout = 400 ms, config.DefaultThresholdTuning. The repo has
+   enforced cap is the MicroBenchTimeout constant, 400 ms, in microbench.go. The repo has
    no measurement of the actual wall time — CALIBRATION.md quotes ~125 ms from ADR-0010)
    NewMicroBenchmark().RunQuick(ctx) → parallel/FFT threshold tests
    → escalates to tier 3 when confidence < EscalationConfidenceThreshold
@@ -1009,7 +999,6 @@ the `"matrix"` calculator when it is registered
 | `--last-digits` | Modular computation mode (O(K) memory) |
 | `--memory-limit` | Memory budget guard (e.g., "8G", "512M") |
 | `--gc-control` | `auto` / `aggressive` / `disabled` |
-| `--dynamic-thresholds` | Opt-in mid-computation threshold adjustment (default `false`; wired by audit M-04, measured neutral — [ADR-0001](adr/0001-dtm-decision.md)) |
 
 ### Environment variable overrides (`FIBCALC_` prefix)
 
@@ -1022,7 +1011,7 @@ Supported keys include:
 - `FIBCALC_VERBOSE`, `FIBCALC_DETAILS`, `FIBCALC_QUIET`, `FIBCALC_CALCULATE`
 - `FIBCALC_CALIBRATE`, `FIBCALC_AUTO_CALIBRATE`, `FIBCALC_CALIBRATION_PROFILE`
 - `FIBCALC_OUTPUT`, `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`, `FIBCALC_LAST_DIGITS`
-- `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`, `FIBCALC_DYNAMIC_THRESHOLDS`
+- `FIBCALC_MACHINE_OUTPUT`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`
 - `FIBCALC_LOG_LEVEL`, `FIBCALC_PROFILE_MAX_AGE`
 
 The list above is `envOverrides` (`internal/config/env.go`), the single reader

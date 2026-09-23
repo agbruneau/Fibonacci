@@ -47,7 +47,8 @@ permettent de rejouer une comparaison.
 | Fichier | Contenu |
 |---|---|
 | [`bench-baseline.txt`](bench-baseline.txt) | Référence de non-régression comparée par `benchstat` au seuil de 5 % |
-| [`bench-dtm-2026-09.txt`](bench-dtm-2026-09.txt) | Seuils dynamiques, mesure ayant motivé ADR-0001 |
+| [`bench-dtm-2026-09.txt`](bench-dtm-2026-09.txt) | Seuils dynamiques, mesure qui a réfuté le gain d'ADR-0001 |
+| [`bench-dtm-removal-2026-09.txt`](bench-dtm-removal-2026-09.txt) | Suppression des seuils dynamiques (EVAL-10) : `main` contre la branche, ordre ABBA puis alternances, sec/op neutre |
 | [`bench-fftcache-2026-09.txt`](bench-fftcache-2026-09.txt) | Plafond de la cache FFT, mesure du rejet ADR-0010 R1 |
 | [`bench-poolclear-2026-09.txt`](bench-poolclear-2026-09.txt) | Vidage de pool |
 | [`mem-baseline-2026-09.txt`](mem-baseline-2026-09.txt) | Empreinte mémoire mesurée, base de l'estimateur |

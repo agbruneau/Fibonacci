@@ -49,7 +49,6 @@ var flagRegistry = []FlagCompletion{
 	{Long: "profile-max-age", Help: "Freshness window for a cached calibration profile", ValueName: "duration"},
 	{Long: "cpuprofile", Help: "Write a pprof CPU profile to this file", IsFile: true, ValueName: "file"},
 	{Long: "memprofile", Help: "Write a pprof heap profile to this file", IsFile: true, ValueName: "file"},
-	{Long: "dynamic-thresholds", Help: "Adjust FFT/parallelism thresholds during the calculation"},
 }
 
 // flagKey returns the identifier used for lookups: Long name if present, else Short.

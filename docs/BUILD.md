@@ -486,7 +486,6 @@ for a measurement, so the measurement is what gets stored and applied.
 | `FIBCALC_MACHINE_OUTPUT` | Emit machine-readable output (same as `--machine`) | `false` |
 | `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling; pre-flight estimator aborts if exceeded. Suffix is a **single letter** `K`/`M`/`G` (case-insensitive), e.g. `4G`, `512M` — `4GB` is rejected | (unbounded) |
 | `FIBCALC_GC_CONTROL` | GC control during calculation: `auto`, `aggressive`, `disabled` | `auto` |
-| `FIBCALC_DYNAMIC_THRESHOLDS` | Adjust the FFT/parallelism thresholds mid-computation (backs `--dynamic-thresholds`; measured neutral, [ADR-0001](adr/0001-dtm-decision.md)) | `false` |
 | `NO_COLOR` | Disable ANSI color output (standard; no `FIBCALC_` prefix) | (unset) |
 
 ### Calibration

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/fibonacci"
-	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
@@ -24,14 +23,6 @@ type (
 
 	// Options aliases fibonacci.Options for downstream packages.
 	Options = fibonacci.Options
-
-	// ThresholdTuning aliases threshold.Tuning, which Options carries.
-	//
-	// Without it internal/tui would have to import
-	// internal/fibonacci/threshold to name the type it puts in Options —
-	// reaching past the façade into a subpackage of the domain, which is the
-	// arrow TestArchitectureLayering forbids for internal/fibonacci itself.
-	ThresholdTuning = threshold.Tuning
 )
 
 // CalculatorSource is what this package needs to resolve --algo into a list of

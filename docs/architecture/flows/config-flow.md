@@ -53,15 +53,7 @@ flowchart LR
         E4 --> E5
     end
 
-    subgraph Dynamic["Runtime Dynamic Adjustment"]
-        E5 --> F0{EnableDynamicThresholds?<br/>FastDoublingCalculator only}
-        F0 -->|No| F0a[NewDoublingFramework<br/>dynamicThreshold = nil]
-        F0 -->|Yes| F1[DynamicThresholdManager]
-        F1 --> F2[Ring buffer<br/>20 IterationMetric entries]
-        F2 --> F3[Check every 5 iterations<br/>min 3 metrics]
-        F3 --> F4[15% hysteresis band]
-        F4 --> F5[Adjust FFT/Parallel<br/>thresholds at runtime]
-    end
+    E5 --> F0a[NewDoublingFramework<br/>static thresholds for the whole run]
 
     subgraph Profile["Calibration Profile"]
         C2 --> G1[JSON profile]

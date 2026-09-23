@@ -4,14 +4,11 @@
 
 The calibration system (`internal/calibration/`) determines optimal performance thresholds for the current hardware. Rather than relying on hard-coded constants, it benchmarks the system at runtime and selects the threshold values that yield the fastest execution for the active CPU, architecture, and core count.
 
-It complements (does not replace) the **Dynamic Threshold Manager**
-(`internal/fibonacci/threshold/`), which adjusts the FFT/parallel
-thresholds *in-flight* during a calculation based on observed
-per-iteration metrics. The two layers are kept separate because they
-solve different problems : calibration produces a startup snapshot,
-the manager reacts to per-run variance. Their relative value is
-benchmarked via `BenchmarkFibonacciDTM` (`internal/fibonacci/dtm_bench_test.go`)
-and analysed in [`docs/adr/0001-dtm-decision.md`](adr/0001-dtm-decision.md).
+It is the only threshold-selection layer. A second one, the Dynamic
+Threshold Manager, adjusted the thresholds mid-calculation from per-iteration
+timings; measured neutral (`docs/audits/bench-dtm-2026-09.txt`), it was removed
+on 2026-09-23 ([ADR-0013](adr/0013-evaluation-2026-09-decisions.md) D1,
+superseding [ADR-0001](adr/0001-dtm-decision.md)).
 
 Three operational modes are supported:
 
@@ -323,10 +320,9 @@ The micro-benchmarking engine provides rapid threshold estimation by testing raw
 ```go
 const MicroBenchIterations = 7 // raised from 3 by audit M-01; no per-test timeout constant
 
-// MicroBenchTimeout is a var (not a const) sourced from
-// config.DefaultThresholdTuning — the canonical value lives alongside the
-// other dynamic-tuning knobs and can be re-pointed in tests.
-var MicroBenchTimeout = config.DefaultThresholdTuning.MicroBenchTimeout // 400ms default (was 150ms before audit M-01)
+// MicroBenchTimeout caps the whole quick suite; a caller wanting another
+// budget sets MicroBenchmark.Timeout on its own instance.
+const MicroBenchTimeout = 400 * time.Millisecond // was 150ms before audit M-01
 
 var MicroBenchTestSizes = []int{500, 2000, 8000, 16000} // word counts
 ```

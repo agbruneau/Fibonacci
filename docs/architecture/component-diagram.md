@@ -72,8 +72,6 @@ classDiagram
 
     class DoublingFramework {
         -strategy DoublingStepExecutor
-        -dynamicThreshold *DynamicThresholdManager
-        +CacheStrategy CacheStrategy
         +ExecuteDoublingLoop(ctx, reporter, n, opts, state, useParallel) *big.Int, error
     }
 
@@ -166,21 +164,6 @@ classDiagram
         +Clear()
     }
 
-    class DynamicThresholdManager {
-        -mu sync.Mutex
-        -currentFFTThreshold atomic.Int64
-        -currentParallelThreshold atomic.Int64
-        -buffer MetricsBuffer
-        -analyzer ThresholdAnalyzer
-        -iterationCount atomic.Int64
-        -lastAdjustment atomic.Pointer~time.Time~
-        +RecordIteration(bitLen, duration, usedFFT, usedParallel)
-        +ShouldAdjust() newFFT, newParallel, adjusted
-        -getThresholds() fft, parallel
-        -getFFTThreshold() int
-        -getParallelThreshold() int
-    }
-
     class Options {
         +ParallelThreshold int
         +FFTThreshold int
@@ -188,8 +171,6 @@ classDiagram
         +FFTCacheMinBitLen int
         +FFTCacheMaxEntries int
         +FFTCacheEnabled *bool
-        +EnableDynamicThresholds bool
-        +DynamicAdjustmentInterval int
         +GCMode string
         +MemoryLimitBytes uint64
     }
@@ -218,13 +199,11 @@ classDiagram
     ProgressSubject --> ProgressCallback : Freeze produces
     ProgressSubject --> ProgressObserver : notifies
     DefaultFactory --> FibCalculator : creates
-    DoublingFramework --> DynamicThresholdManager : optional
     MatrixFramework --> TransformCache : indirect via bigfft
-    DoublingFramework --> TransformCache : reconfigures via CacheStrategy (DTM only)
 
     note for FibCalculator "*FibCalculator exposes Name, Calculate and CalculateWithObservers only. It has no CalculateCore, so it does NOT implement CoreCalculator - it composes one through the private core field."
     note for ProgressCallback "Neither framework ever receives a *ProgressSubject: ExecuteDoublingLoop and ExecuteMatrixLoop both take a progress.ProgressCallback, the lock-free closure returned by ProgressSubject.Freeze."
-    note for TransformCache "Cached TRANSFORMS are consulted only from Mul/Sqr/MulTo/SqrTo (fftmulTo/fftsqrTo call MulCachedWithBump/SqrCachedWithBump), which the matrix path enters through smartMultiply/smartSquare. No doubling loop reads a cached transform: AdaptiveStrategy routes every operand above FFTThreshold to executeDoublingStepFFT, which calls TransformWithBump, and the operands left below it never clear smartMultiply's own FFT gate. The cache is still CONFIGURED from two other places: options.go:configureFFTCache once per calculation with n > 93, and cache_strategy_bigfft.go:bigfftCacheStrategy.Sample from inside ExecuteDoublingLoop, gated on a non-nil DynamicThresholdManager and throttled to every cacheSampleInterval iterations."
+    note for TransformCache "Cached TRANSFORMS are consulted only from Mul/Sqr/MulTo/SqrTo (fftmulTo/fftsqrTo call MulCachedWithBump/SqrCachedWithBump), which the matrix path enters through smartMultiply/smartSquare. No doubling loop reads a cached transform: AdaptiveStrategy routes every operand above FFTThreshold to executeDoublingStepFFT, which calls TransformWithBump, and the operands left below it never clear smartMultiply's own FFT gate. The cache is still CONFIGURED from one other place: options.go:configureFFTCache, once per calculation with n > 93."
 ```
 
 ---

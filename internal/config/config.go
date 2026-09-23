@@ -156,24 +156,12 @@ type AppConfig struct {
 	// "off" (default), "error", "warn", "info" or "debug".
 	//
 	// The records it gates already existed and were unreachable (audit OBS-01):
-	// GC disable/re-enable with heap sizes and cycle counts, dynamic threshold
-	// adjustments, FFT transform-cache hit rates, and a per-calculation
+	// GC disable/re-enable with heap sizes and cycle counts, FFT
+	// transform-cache hit rates, and a per-calculation
 	// summary. They live at debug level, so "off" and "info" both stay silent
 	// in normal use; this is a diagnostic channel, not program output, and it
 	// never touches stdout.
 	LogLevel string
-	// DynamicThresholds enables the dynamic threshold manager
-	// (internal/fibonacci/threshold): it times each doubling iteration and
-	// raises or lowers the FFT and parallel thresholds mid-calculation.
-	//
-	// Off by default. ADR-0001 decided to KEEP the subsystem on the strength
-	// of a 5-6% gain measured at F(10M), but nothing ever set
-	// fibonacci.Options.EnableDynamicThresholds outside tests, so that gain
-	// was never delivered to anyone running the binary and the whole
-	// threshold/ package was documented as active while being unreachable
-	// (audit M-04). This flag is the missing wiring; the default stays false
-	// until the gain is re-measured through it.
-	DynamicThresholds bool
 
 	// ThresholdExplicit, FFTThresholdExplicit and StrassenThresholdExplicit
 	// record whether the user pinned the corresponding threshold — on the
@@ -344,7 +332,6 @@ func registerFlags(fs *flag.FlagSet, config *AppConfig, availableAlgos []string)
 	fs.StringVar(&config.TUITheme, "tui-theme", "", "TUI palette: dark (default) or high-contrast.")
 	fs.StringVar(&config.CPUProfile, "cpuprofile", "", "Write a pprof CPU profile of the run to this file.")
 	fs.StringVar(&config.MemProfile, "memprofile", "", "Write a pprof heap profile, taken after the run, to this file.")
-	fs.BoolVar(&config.DynamicThresholds, "dynamic-thresholds", false, "Adjust the FFT and parallelism thresholds during the calculation from per-iteration timings.")
 }
 
 // FlagNames returns the names of every CLI flag registered by registerFlags.

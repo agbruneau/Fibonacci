@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
-	"time"
 
-	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 	"github.com/agbruneau/FibGo/internal/progress"
 )
 
@@ -18,15 +16,11 @@ import (
 // It uses a DoublingStepExecutor to perform multiplications, allowing
 // different strategies (adaptive, FFT-only, etc.) to be plugged in.
 //
-// CacheStrategy is an optional pluggable hook called from inside the doubling
-// loop to let an adapter tune an underlying transform cache (e.g. the bigfft
-// global cache). When nil, no cache adjustment is performed. The DTM-driven
-// constructors install the default bigfft-backed strategy automatically so
-// the historical behavior is preserved.
+// The dynamic threshold manager and the CacheStrategy hook it drove were
+// removed on 2026-09-23: measured neutral (ADR-0001, bench-dtm-2026-09.txt),
+// they cost a branch per iteration for no result (ADR-0013 D1, EVAL-10).
 type DoublingFramework struct {
-	strategy         DoublingStepExecutor
-	dynamicThreshold *threshold.DynamicThresholdManager
-	CacheStrategy    CacheStrategy
+	strategy DoublingStepExecutor
 }
 
 // NewDoublingFramework creates a new Fast Doubling framework with the given strategy.
@@ -38,22 +32,6 @@ type DoublingFramework struct {
 //   - *DoublingFramework: A new framework instance.
 func NewDoublingFramework(strategy DoublingStepExecutor) *DoublingFramework {
 	return &DoublingFramework{strategy: strategy}
-}
-
-// NewDoublingFrameworkWithDynamicThresholds creates a framework with dynamic threshold adjustment.
-//
-// Parameters:
-//   - strategy: The DoublingStepExecutor strategy to use.
-//   - dtm: The dynamic threshold manager (can be nil to disable).
-//
-// Returns:
-//   - *DoublingFramework: A new framework instance.
-func NewDoublingFrameworkWithDynamicThresholds(strategy DoublingStepExecutor, dtm *threshold.DynamicThresholdManager) *DoublingFramework {
-	return &DoublingFramework{
-		strategy:         strategy,
-		dynamicThreshold: dtm,
-		CacheStrategy:    NewBigFFTCacheStrategy(),
-	}
 }
 
 // executeDoublingStepMultiplications performs the three multiplications required
@@ -153,31 +131,15 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 
 	// Normalize options to ensure consistent default threshold handling
 	currentOpts := normalizeOptions(opts)
-	dtm := f.dynamicThreshold
-	// P1-02 / R3.2: cache adjustment is delegated to a CacheStrategy. The
-	// strategy implements its own throttling so the loop stays algorithm-only.
-	cacheStrategy := f.CacheStrategy
-	iterCount := 0
 
 	for i := numBits - 1; i >= 0; i-- {
-		iterCount++
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("fast doubling calculation canceled at bit %d/%d: %w", i, numBits-1, err)
-		}
-
-		// Track iteration timing for dynamic threshold adjustment
-		var iterStart time.Time
-		if dtm != nil {
-			iterStart = time.Now()
 		}
 
 		// Doubling Step — cache bit lengths once (BitLen() walks the rep).
 		fkBitLen := s.FK.BitLen()
 		fk1BitLen := s.FK1.BitLen()
-		// Align the usedFFT metric with the operand the routing decision actually
-		// tests: strategy.go routes to FFT on FK1.BitLen(), not FK. A1-06.
-		bitLen := fk1BitLen
-		usedFFT := bitLen > currentOpts.FFTThreshold
 
 		// Execute the three multiplications: T3 = FK·FK1, T2 = FK², T1 = FK1².
 		shouldParallel := useParallel && shouldParallelizeMultiplicationCached(currentOpts, fkBitLen, fk1BitLen)
@@ -199,26 +161,6 @@ func (f *DoublingFramework) ExecuteDoublingLoop(ctx context.Context, reporter pr
 		if (n>>i)&1 == 1 {
 			s.T1.Add(s.FK, s.FK1)
 			s.FK, s.FK1, s.T1 = s.FK1, s.T1, s.FK
-		}
-
-		// Record metrics and check for threshold adjustments
-		if dtm != nil {
-			iterDuration := time.Since(iterStart)
-			dtm.RecordIteration(bitLen, iterDuration, usedFFT, shouldParallel)
-
-			if newFFT, newParallel, adjusted := dtm.ShouldAdjust(); adjusted {
-				currentOpts.FFTThreshold = newFFT
-				currentOpts.ParallelThreshold = newParallel
-			}
-
-			// Cache tuning is delegated to the pluggable strategy. Preserves
-			// the historical "only when DTM is enabled" gate so loops without
-			// dynamic thresholds remain side-effect-free on the global cache.
-			if cacheStrategy != nil {
-				if err := cacheStrategy.Sample(iterCount, numBits); err != nil {
-					return nil, fmt.Errorf("cache strategy sample failed at bit %d/%d: %w", i, numBits-1, err)
-				}
-			}
 		}
 
 		// Harmonized reporting via common utility function

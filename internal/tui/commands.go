@@ -32,12 +32,12 @@ var runProgram = func(p *tea.Program) (tea.Model, error) { return p.Run() }
 // p.Run returns tea.ErrInterrupted. Treating that as a generic error printed
 // "TUI error: program was interrupted" and exited 1, so the documented
 // SIGINT-is-130 contract (APP-04) only held for a ^C typed in a terminal.
-func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, errOut io.Writer, logger *slog.Logger, tuning orchestration.ThresholdTuning) int {
+func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, errOut io.Writer, logger *slog.Logger) int {
 	// Rebuild styles from the current ui theme (set by app.Run via InitTheme)
 	// and the palette the caller selected with --tui-theme.
 	initTUIStyles(cfg.TUITheme)
 
-	model := NewModel(ctx, calculators, cfg, version, logger, tuning)
+	model := NewModel(ctx, calculators, cfg, version, logger)
 	defer model.cancel()
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
@@ -61,22 +61,20 @@ func Run(ctx context.Context, calculators []orchestration.Calculator, cfg config
 }
 
 // startCalculationCmd returns a tea.Cmd that launches the orchestration.
-func startCalculationCmd(ctx context.Context, ref *programRef, calculators []orchestration.Calculator, cfg config.AppConfig, gen uint64, logger *slog.Logger, tuning orchestration.ThresholdTuning) tea.Cmd {
+func startCalculationCmd(ctx context.Context, ref *programRef, calculators []orchestration.Calculator, cfg config.AppConfig, gen uint64, logger *slog.Logger) tea.Cmd {
 	return func() tea.Msg {
 		progressReporter := &TUIProgressReporter{ref: ref, gen: gen}
 		presenter := &TUIResultPresenter{ref: ref, gen: gen}
 
 		opts := orchestration.Options{
-			ParallelThreshold:       cfg.Threshold,
-			FFTThreshold:            cfg.FFTThreshold,
-			StrassenThreshold:       cfg.StrassenThreshold,
-			GCMode:                  cfg.GCControl,
-			EnableDynamicThresholds: cfg.DynamicThresholds,
+			ParallelThreshold: cfg.Threshold,
+			FFTThreshold:      cfg.FFTThreshold,
+			StrassenThreshold: cfg.StrassenThreshold,
+			GCMode:            cfg.GCControl,
 			// Resolved by app.validateMemoryBudget, which runTUI calls before
 			// handing cfg over (audit MEM-01).
 			MemoryLimitBytes: cfg.MemoryLimitBytes,
 			Logger:           logger,
-			ThresholdTuning:  tuning,
 		}
 		results := orchestration.ExecuteCalculations(ctx, orchestration.ExecutionConfig{
 			Calculators:      calculators,

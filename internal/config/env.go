@@ -92,7 +92,6 @@ var envOverrides = []envOverride{
 	override("AUTO_CALIBRATE", flagsOf("auto-calibrate"), func(c *AppConfig) *bool { return &c.AutoCalibrate }, parseBoolEnv),
 	override("CALCULATE", flagsOf("calculate", "c"), func(c *AppConfig) *bool { return &c.ShowValue }, parseBoolEnv),
 	override("TUI", flagsOf("tui"), func(c *AppConfig) *bool { return &c.TUI }, parseBoolEnv),
-	override("DYNAMIC_THRESHOLDS", flagsOf("dynamic-thresholds"), func(c *AppConfig) *bool { return &c.DynamicThresholds }, parseBoolEnv),
 }
 
 // malformedEnvError builds a structured ConfigError for an environment
@@ -143,7 +142,7 @@ func markExplicitThresholds(config *AppConfig, fs *flag.FlagSet) {
 // Supported environment variables (all prefixed with FIBCALC_):
 //   - N, ALGO, TIMEOUT, THRESHOLD, FFT_THRESHOLD, STRASSEN_THRESHOLD, LAST_DIGITS,
 //     VERBOSE, DETAILS, QUIET, MACHINE_OUTPUT, CALIBRATE, AUTO_CALIBRATE, CALCULATE,
-//     OUTPUT, CALIBRATION_PROFILE, MEMORY_LIMIT, GC_CONTROL, TUI, DYNAMIC_THRESHOLDS
+//     OUTPUT, CALIBRATION_PROFILE, MEMORY_LIMIT, GC_CONTROL, TUI
 //   - FIBCALC_TUI_THEME: TUI palette, e.g. high-contrast
 //
 // It returns a structured ConfigError (without mutating further) the first

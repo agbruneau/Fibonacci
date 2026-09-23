@@ -142,9 +142,6 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 - **Parallélisme adaptatif** : produits pointwise et butterflies FFT répartis sur les cœurs (sémaphore global,
   acquisition non bloquante) — **−14 % à −35 %** sur F(10M) selon l'algorithme (2026-06-09, chiffres
   consignés dans [`CHANGELOG.md`](CHANGELOG.md) ; le rapport de mesure a été purgé, pas de sortie archivée).
-- **Seuils dynamiques** avec hystérésis (parallèle/FFT/Strassen) ajustés sur métriques observées —
-  **opt-in, désactivé par défaut** (`-dynamic-thresholds`, câblé en 2026-09 ; la mesure à `-count=8` ne
-  reproduit pas le gain de 5-6 % qui avait justifié sa conservation, [ADR-0001](docs/adr/0001-dtm-decision.md)).
 - **Cache LRU de transformées FFT** — bénéficie aux chemins qui le consultent (`bigfft.Mul/Sqr` directs,
   stratégie `fft`) ; le mode Fast Doubling par défaut ne le consulte pas (mesure 2026-06-10 : zéro hit).
   Borné en **octets** depuis l'audit 2026-09 (M-08) : un plafond en nombre d'entrées n'est pas une borne
@@ -169,7 +166,7 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 Clean Architecture — `cmd → app → orchestration → fibonacci → bigfft`, `internal/config` étant un *frère* de
 `orchestration` et non une couche sous `fibonacci` (commentaire de paquet de `internal/arch_test.go`) ; `internal/bigfft` est le noyau
 et n'importe aucun package interne. Étanchéité gardée par `internal/arch_test.go`
-(sept règles d'import montant interdit — neuf arêtes, les deux dernières en couvrant deux chacune).
+(six règles d'import montant interdit — huit arêtes, les deux dernières en couvrant deux chacune).
 Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 [`docs/architecture/`](docs/architecture/) (diagrammes C4,
 [graphe de dépendances](docs/architecture/dependency-graph.md)).
@@ -179,7 +176,7 @@ Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 | `cmd/fibcalc` | Point d'entrée CLI |
 | `cmd/generate-golden` | Générateur du golden (oracle indépendant : `math/big` itératif, zéro import interne — ne valide pas la lib par elle-même) |
 | `internal/app` | Cycle de vie, dispatch, version |
-| `internal/fibonacci` | Algorithmes, frameworks, stratégies ; `memory/` (arène, GC, budget), `threshold/` (seuils dynamiques) |
+| `internal/fibonacci` | Algorithmes, frameworks, stratégies ; `memory/` (arène, GC, budget), `fibmath/` (taille de F(n)) |
 | `internal/bigfft` | Schönhage-Strassen sur anneaux de Fermat, bump allocator, cache LRU |
 | `internal/orchestration` | Exécution concurrente (`errgroup`), agrégation, sélection des calculateurs |
 | `internal/calibration` | Calibration adaptative au matériel, micro-benchmarks, profils |
@@ -194,7 +191,7 @@ Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 Médianes recalculées à partir de [`docs/audits/bench-baseline.txt`](docs/audits/bench-baseline.txt)
 (linux/amd64, 24 threads, `-count=5 -benchtime=1x`, estampille `baseline-2026-07-07`, arène ×10) —
 **seul artefact de débit** du dépôt. Les cinq autres fichiers de [`docs/audits/`](docs/audits/) sont
-des A/B ciblés (DTM, cache FFT, memclr des pools, stabilité du micro-benchmark) ou un relevé mémoire :
+des A/B ciblés (seuils dynamiques, retirés depuis ; cache FFT, memclr des pools, stabilité du micro-benchmark) ou un relevé mémoire :
 ils comparent deux variantes dans une même session, ils ne mesurent pas un débit de référence.
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
@@ -257,7 +254,6 @@ fibcalc [flags]
 | `-last-digits` | | `0` | Derniers K chiffres décimaux (mémoire O(K)) |
 | `-memory-limit` | | | Budget mémoire (ex. `8G`) ; l'estimation préalable est une **borne haute** (re-modélisée en 2026-09 : elle sous-estimait d'un facteur 5 à 12) |
 | `-gc-control` | | `auto` | GC pendant le calcul : `auto`, `aggressive`, `disabled` |
-| `-dynamic-thresholds` | | `false` | Ajuste les seuils FFT/parallélisme pendant le calcul (mesuré neutre, [ADR-0001](docs/adr/0001-dtm-decision.md)) |
 | `-timeout` | | `5m` | Durée maximale du calcul |
 | `-log-level` | | `off` | Diagnostics sur stderr : `off`, `error`, `warn`, `info`, `debug` |
 | `-threshold` / `-fft-threshold` | | `0` (auto) | Seuils en bits (0 = valeur lue dans une table selon le matériel détecté — nombre de CPU, SIMD, taille de mot —, **pas une mesure** ; `-1` = désactive) |
@@ -314,8 +310,7 @@ Une variable `FIBCALC_*` n'est lue que si le flag correspondant est absent de la
 
 Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FIBCALC_ALGO`, `FIBCALC_TIMEOUT`,
 `FIBCALC_THRESHOLD`, `FIBCALC_FFT_THRESHOLD`, `FIBCALC_STRASSEN_THRESHOLD`, `FIBCALC_LAST_DIGITS`, `FIBCALC_TUI`, `FIBCALC_TUI_THEME`,
-`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL`,
-`FIBCALC_DYNAMIC_THRESHOLDS`, et
+`FIBCALC_CALIBRATION_PROFILE`, `FIBCALC_PROFILE_MAX_AGE` (168h), `FIBCALC_MEMORY_LIMIT`, `FIBCALC_GC_CONTROL` et
 [`NO_COLOR`](https://no-color.org/).
 
 ---

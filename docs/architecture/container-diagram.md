@@ -18,7 +18,7 @@ C4Container
         Container(cli, "CLI Presentation", "internal/cli", "Spinner, progress bar, ETA, result formatting")
         Container(tui, "TUI Presentation", "internal/tui", "Bubble Tea Elm architecture, dashboard panels")
         Container(calib, "Calibration", "internal/calibration", "Benchmarking, threshold estimation, profile persistence")
-        Container(support, "Leaf Packages", "internal/*", "errors, format, metrics, progress, ui, testutil, fibonacci/memory, fibonacci/threshold, cli/completion — every one has zero internal imports")
+        Container(support, "Leaf Packages", "internal/*", "errors, format, metrics, progress, ui, testutil, fibonacci/memory, fibonacci/fibmath, cli/completion — every one has zero internal imports except fibonacci/memory, which imports fibonacci/fibmath")
     }
 
     Rel(user, entry, "Invokes")
@@ -39,10 +39,10 @@ C4Container
     Rel(calib, config, "Reads AppConfig, adaptive estimates")
     Rel(calib, bigfft, "Benchmarks bigfft.Mul")
     Rel(calib, fib, "Benchmarks algorithms")
-    Rel(app, support, "errors, ui, fibonacci/memory, fibonacci/threshold, cli/completion")
+    Rel(app, support, "errors, ui, fibonacci/memory, cli/completion")
     Rel(config, support, "errors, ui, fibonacci/memory")
     Rel(orch, support, "errors, progress, fibonacci/memory")
-    Rel(fib, support, "errors, progress, fibonacci/memory, fibonacci/threshold")
+    Rel(fib, support, "errors, progress, fibonacci/memory, fibonacci/fibmath")
     Rel(cli, support, "errors, format, metrics, progress, ui")
     Rel(tui, support, "errors, format, metrics, progress, ui")
     Rel(calib, support, "errors, format, progress, ui")

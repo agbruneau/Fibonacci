@@ -1,6 +1,6 @@
 # ADR-0001: Sort de `DynamicThresholdManager` vs `internal/calibration/`
 
-- **Status**: Accepted (decision: KEEP, with reduced maintenance cost via atomic conversion).
+- **Status**: Superseded by [ADR-0013](0013-evaluation-2026-09-decisions.md) (2026-09-23 : le DTM est supprimé, D1). Statut d'origine : Accepted (decision: KEEP, with reduced maintenance cost via atomic conversion).
 - **Date**: 2026-05-21 (mesures complétées)
 - **Context source**: hardening sprint mai 2026 (commits `c0cc530` → `3d8b977`).
 

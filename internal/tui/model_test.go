@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"math/big"
 	"strings"
 	"testing"
@@ -36,9 +37,23 @@ func newTestModel(t *testing.T) Model {
 	t.Helper()
 	ctx := context.Background()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	m := NewModel(ctx, nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	m := NewModel(ctx, nil, cfg, "v0.1.0", nil)
 	t.Cleanup(m.cancel)
 	return m
+}
+
+// TestNewModel_KeepsLogger guards the logger NewModel used to drop: it took
+// the parameter and never stored it, so --tui --log-level debug logged nothing
+// (found while removing the dynamic threshold manager, EVAL-10).
+func TestNewModel_KeepsLogger(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.DiscardHandler)
+	m := NewModel(context.Background(), nil, config.AppConfig{Timeout: time.Minute}, "v0.1.0", logger)
+	t.Cleanup(m.cancel)
+	if m.logger != logger {
+		t.Fatal("NewModel dropped its logger")
+	}
 }
 
 func newTestModelWithSize(t *testing.T, w, h int) Model {
@@ -70,7 +85,7 @@ func TestNewModel_WithCalculators(t *testing.T) {
 		mockCalculator{name: "Matrix"},
 	}
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil)
 	defer model.cancel()
 
 	if len(model.calculators) != 2 {
@@ -81,7 +96,7 @@ func TestNewModel_WithCalculators(t *testing.T) {
 func TestModel_Update_WindowSize(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
@@ -102,7 +117,7 @@ func TestModel_Update_WindowSize(t *testing.T) {
 func TestModel_Update_ProgressMsg(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	// Set size first so viewport is initialized
@@ -126,7 +141,7 @@ func TestModel_Update_ProgressMsg(t *testing.T) {
 func TestModel_Update_ProgressMsg_Paused(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 	model.paused = true
 
@@ -147,7 +162,7 @@ func TestModel_Update_ProgressMsg_Paused(t *testing.T) {
 func TestModel_Update_CalculationComplete(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	msg := CalculationCompleteMsg{ExitCode: 0}
@@ -165,7 +180,7 @@ func TestModel_Update_CalculationComplete(t *testing.T) {
 func TestModel_Update_ErrorMsg(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	// Set size first
@@ -187,7 +202,7 @@ func TestModel_Update_ErrorMsg(t *testing.T) {
 func TestModel_View_Initializing(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	view := model.View()
@@ -199,7 +214,7 @@ func TestModel_View_Initializing(t *testing.T) {
 func TestModel_View_WithSize(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	sized, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -217,7 +232,7 @@ func TestModel_View_WithSize(t *testing.T) {
 func TestModel_HandleKey_Pause(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
 	defer model.cancel()
 
 	// Press space to pause
@@ -392,7 +407,7 @@ func TestModel_HandleReset_FreshTimeoutBudget(t *testing.T) {
 	defer parentCancel()
 
 	cfg := config.AppConfig{N: 1000, Timeout: 20 * time.Millisecond}
-	m := NewModel(parentCtx, nil, cfg, "v0.1.0", nil, orchestration.ThresholdTuning{})
+	m := NewModel(parentCtx, nil, cfg, "v0.1.0", nil)
 	t.Cleanup(m.cancel)
 
 	// Let the first generation's budget fully expire.
@@ -926,7 +941,7 @@ func TestStartCalculationCmd_ReturnsCompleteMsg(t *testing.T) {
 	defer cancel()
 	calcs := []fibonacci.Calculator{mockCalculator{name: "Fast"}}
 	cfg := config.AppConfig{N: 10, Timeout: 10 * time.Second}
-	cmd := startCalculationCmd(ctx, ref, calcs, cfg, 0, nil, orchestration.ThresholdTuning{})
+	cmd := startCalculationCmd(ctx, ref, calcs, cfg, 0, nil)
 	if cmd == nil {
 		t.Fatal("expected non-nil command from startCalculationCmd")
 	}
@@ -997,7 +1012,7 @@ func TestModel_HandleKey_Restart_ClearsSysStats(t *testing.T) {
 func TestModel_HandleKey_Quit_CancelsContext(t *testing.T) {
 	t.Parallel()
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+	m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil)
 
 	calcCtx := m.ctx
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})

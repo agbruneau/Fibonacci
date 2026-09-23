@@ -8,7 +8,6 @@ import (
 	"math/bits"
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
-	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 )
 
 // Options configures the Fibonacci calculation.
@@ -46,14 +45,6 @@ type Options struct {
 	// FFTCacheEnabled controls whether FFT transform caching is active.
 	// Default is true. Set to false to disable caching (useful for memory-constrained scenarios).
 	FFTCacheEnabled *bool
-	// EnableDynamicThresholds enables real-time threshold adjustment during calculation.
-	// When enabled, the algorithm monitors iteration performance and adjusts FFT and
-	// parallel thresholds dynamically based on observed timing.
-	// Default is false (use static thresholds).
-	EnableDynamicThresholds bool
-	// DynamicAdjustmentInterval is the number of iterations between threshold checks.
-	// If 0, uses the default (5 iterations). Only used when EnableDynamicThresholds is true.
-	DynamicAdjustmentInterval int
 	// GCMode controls the garbage collector during calculation.
 	// Valid values: "auto" (default), "aggressive", "disabled".
 	GCMode string
@@ -69,8 +60,8 @@ type Options struct {
 	// that bypasses the validator (programmatic embedding, tests, …).
 	MemoryLimitBytes uint64
 	// Logger receives the calculator's diagnostic records: the completion
-	// summary here, "gc disabled" / "gc re-enabled" from the GC controller, and
-	// "thresholds adjusted" from the dynamic threshold manager. A nil Logger
+	// summary here, and "gc disabled" / "gc re-enabled" from the GC controller.
+	// A nil Logger
 	// discards all of them, which is what a caller that only wants the result
 	// should leave it as.
 	//
@@ -82,14 +73,6 @@ type Options struct {
 	// every emitter was wired to a no-op or filtered out by a global level set
 	// in app.Run, so none of them could be seen from the binary.
 	Logger *slog.Logger
-	// ThresholdTuning carries the dynamic-threshold adjustment knobs. Only read
-	// when EnableDynamicThresholds is set; the zero value means the package
-	// defaults (threshold.DefaultTuning).
-	//
-	// Passed by value into each manager, rather than installed into package
-	// globals by a startup call (audit TYP-02). internal/app translates
-	// config.DefaultThresholdTuning into this field.
-	ThresholdTuning threshold.Tuning
 }
 
 // normalizeOptions returns a copy of opts with default values filled in for zero values.

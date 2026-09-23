@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
-	"github.com/agbruneau/FibGo/internal/config"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,20 +27,21 @@ import (
 // what decides whether the fast pass is trusted or escalated.
 const MicroBenchIterations = 7
 
-// MicroBenchTimeout is the maximum time for the entire micro-benchmark suite.
+// MicroBenchTimeout caps the wall-clock duration of the entire quick-calibration
+// micro-benchmark suite. It keeps `fibcalc --auto-calibrate` responsive (the
+// quick pass is the first tier of --auto-calibrate) while leaving the suite room
+// to collect enough samples to be worth believing.
 //
-// Sourced from config.DefaultThresholdTuning.MicroBenchTimeout since audit
-// R4.2 — the canonical value lives there alongside the other dynamic-tuning
-// knobs.
+// Raised from 150 ms to 400 ms by audit M-01: the suite runs its
+// configurations sequentially rather than concurrently and takes more samples
+// per test, which together cost about 125 ms on a current desktop; 150 ms left
+// no headroom, and a run that overshot it was reported as a failed calibration.
 //
-// A function, not a var (audit TYP-02). The var existed so a caller could
-// "re-point this package at an alternative profile in tests", but MicroBenchmark
-// already carries a per-instance Timeout field: a caller wanting a different
-// budget sets that, and does not have to mutate process-wide state that every
-// concurrently running test shares.
-func MicroBenchTimeout() time.Duration {
-	return config.DefaultThresholdTuning.MicroBenchTimeout
-}
+// A constant, not a var (audit TYP-02): MicroBenchmark carries a per-instance
+// Timeout field for a caller wanting a different budget. It lived in
+// config.DefaultThresholdTuning until that profile went with the dynamic
+// threshold manager (EVAL-10).
+const MicroBenchTimeout = 400 * time.Millisecond
 
 // microBenchTestSizes defines the word sizes to test for threshold estimation.
 // These sizes are chosen to span the critical ranges where algorithm switches
@@ -124,7 +124,7 @@ func NewMicroBenchmark() *MicroBenchmark {
 	return &MicroBenchmark{
 		TestSizes:  MicroBenchTestSizes(),
 		Iterations: MicroBenchIterations,
-		Timeout:    MicroBenchTimeout(),
+		Timeout:    MicroBenchTimeout,
 	}
 }
 

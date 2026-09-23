@@ -48,14 +48,10 @@ type Model struct {
 	// off). It travels with the model because each generation rebuilds its
 	// fibonacci.Options and must pass the same logger down (audit OBS-01).
 	logger *slog.Logger
-
-	// tuning is the dynamic-threshold configuration, carried for the same
-	// reason as logger: each generation rebuilds its fibonacci.Options.
-	tuning orchestration.ThresholdTuning
 }
 
 // NewModel creates a new TUI model.
-func NewModel(parentCtx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, logger *slog.Logger, tuning orchestration.ThresholdTuning) Model {
+func NewModel(parentCtx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, logger *slog.Logger) Model {
 	algoNames := make([]string, len(calculators))
 	for i, c := range calculators {
 		algoNames[i] = c.Name()
@@ -87,6 +83,9 @@ func NewModel(parentCtx context.Context, calculators []orchestration.Calculator,
 		parentCtx: parentCtx,
 		config:    cfg,
 		ref:       &programRef{},
+		// Dropped since c2329f3: NewModel took the logger and never stored
+		// it, so --tui --log-level debug logged nothing (found by EVAL-10).
+		logger: logger,
 	}
 }
 
@@ -94,7 +93,7 @@ func NewModel(parentCtx context.Context, calculators []orchestration.Calculator,
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		tickCmd(),
-		startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation, m.logger, m.tuning),
+		startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation, m.logger),
 		watchContextCmd(m.ctx, m.generation),
 	)
 }

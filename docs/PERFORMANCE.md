@@ -10,8 +10,8 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 
 `docs/audits/bench-baseline.txt` is the **only whole-calculator throughput
 baseline** tracked in the repository — the file `benchstat` compares against.
-The five other files under [`docs/audits/`](audits/) are targeted A/B runs (DTM,
-FFT cache, pool memclr, micro-benchmark stability) or a resident-memory reading,
+The five other files under [`docs/audits/`](audits/) are targeted A/B runs (the
+now-removed dynamic thresholds, FFT cache, pool memclr, micro-benchmark stability) or a resident-memory reading,
 each cited where it is used; none of them measures whole-calculator throughput.
 Medians of the 5 samples per row, computed from
 that file — linux/amd64, 24 threads, `-count=5 -benchtime=1x`, header stamp
@@ -85,12 +85,11 @@ make bench-baseline                            # writes docs/audits/bench-baseli
 git add docs/audits/bench-baseline.txt && git commit -m 'perf(bench): refresh baseline'
 ```
 
-For a one-shot DTM (Dynamic Threshold Manager) comparison, the old
-`bench-dtm-{on,off}.txt` snapshots were purged as stale audit artifacts; the
-current one is [`docs/audits/bench-dtm-2026-09.txt`](audits/bench-dtm-2026-09.txt)
-(`-count=8`, audit M-04). Regenerate via `BenchmarkFibonacciDTM`
-(`internal/fibonacci/dtm_bench_test.go`) — the numeric results are also kept
-inline in [ADR-0001](adr/0001-dtm-decision.md) and the CHANGELOG.
+The dynamic threshold manager was removed on 2026-09-23 (ADR-0013 D1,
+EVAL-10): measured neutral at `-count=8`, with +17.9 % allocs/op at F(1M).
+The measurement that decided it stays archived in
+[`docs/audits/bench-dtm-2026-09.txt`](audits/bench-dtm-2026-09.txt); the
+benchmark that produced it left with the code and is in git history.
 
 ### Versioned benchmark snapshots (regression tracking)
 
@@ -363,21 +362,6 @@ here.
 > uncached branch of the diagram above. Reworking the default step to use the
 > cache stays a won't-fix without a supporting benchmark.
 
-#### Dynamic Threshold Adjustment
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `EnableDynamicThresholds` | `false` | Enable real-time threshold adjustment based on per-iteration timing. Exposed on the command line as `--dynamic-thresholds` / `FIBCALC_DYNAMIC_THRESHOLDS` since the 2026-09 audit (M-04); before that no production path set it, so the subsystem was unreachable from the binary |
-| `DynamicAdjustmentInterval` | 5 iterations | Iterations between threshold checks (when enabled) |
-
-The default stays `false` on measurement, not on caution: a `-count=8` benchstat
-run of `BenchmarkFibonacciDTM` puts the CPU difference squarely in the noise
-(`~`, p > 0.25 at both 1M and 10M) and shows a significant **+17.9% allocs/op**
-at 1M. The 5-6% gain quoted by ADR-0001 came from a single-sample
-(`-benchtime=1x -count=5`) run that the ADR itself called noisy; it does not
-reproduce. See `docs/audits/bench-dtm-2026-09.txt` and the 2026-09 status note
-in [ADR-0001](adr/0001-dtm-decision.md).
-
 #### FFT Parallelism (bigfft package)
 
 | Variable (unexported atomic) | Accessor | Default | Description |
@@ -391,14 +375,12 @@ All threshold parameters are configured via the `fibonacci.Options` struct:
 
 ```go
 opts := fibonacci.Options{
-    ParallelThreshold:         4096,
-    FFTThreshold:              500_000,
-    StrassenThreshold:         3072,
-    FFTCacheEnabled:           boolPtr(true),
-    FFTCacheMaxEntries:        256,
-    FFTCacheMinBitLen:         100_000,
-    EnableDynamicThresholds:   false,
-    DynamicAdjustmentInterval: 5,
+    ParallelThreshold:  4096,
+    FFTThreshold:       500_000,
+    StrassenThreshold:  3072,
+    FFTCacheEnabled:    boolPtr(true),
+    FFTCacheMaxEntries: 256,
+    FFTCacheMinBitLen:  100_000,
 }
 ```
 

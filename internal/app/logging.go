@@ -3,9 +3,6 @@ package app
 import (
 	"log/slog"
 	"strings"
-
-	"github.com/agbruneau/FibGo/internal/config"
-	"github.com/agbruneau/FibGo/internal/fibonacci/threshold"
 )
 
 // parseLogLevel maps the --log-level value to a slog level.
@@ -73,30 +70,4 @@ func (a *Application) newDiagnosticLogger() *slog.Logger {
 		return attr
 	}
 	return slog.New(slog.NewJSONHandler(a.ErrWriter, opts))
-}
-
-// thresholdTuningFromConfig translates the config layer's tuning profile into
-// the value the threshold package consumes.
-//
-// This is the whole of what wireThresholdTuning used to do, minus the process
-// state. That function installed the same five numbers into package-level
-// variables in internal/fibonacci/threshold, behind a sync.Once, to satisfy a
-// documented "single-writer-before-use" protocol whose own comment admitted
-// that calling it during a calculation would be a data race (audit TYP-02).
-// The values now travel by value in fibonacci.Options, so there is nothing to
-// install, nothing to guard, and nothing to get wrong by calling it twice.
-//
-// The two packages still hold separate copies of the defaults, because
-// internal/fibonacci/threshold must not import internal/config — that would
-// close a cycle through fibonacci/memory. TestThresholdTuningMatchesDefaults
-// pins them equal.
-func thresholdTuningFromConfig() threshold.Tuning {
-	p := config.DefaultThresholdTuning
-	return threshold.Tuning{
-		FFTSpeedupThreshold:      p.FFTSpeedupThreshold,
-		ParallelSpeedupThreshold: p.ParallelSpeedupThreshold,
-		HysteresisMargin:         p.HysteresisMargin,
-		MinFFTThreshold:          p.MinFFTThreshold,
-		MinParallelThreshold:     p.MinParallelThreshold,
-	}
 }

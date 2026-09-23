@@ -54,7 +54,7 @@ Six `flowchart` retracent les chemins d'exécution critiques, du point d'entrée
 L'architecture repose sur les design patterns documentés ici :
 
 - **[Patterns/](./patterns/) :**
-  - **[Design Patterns inventory](./patterns/design-patterns.md)** — l'**inventaire faisant foi** : 17 patterns (Decorator, Strategy, ISP, Factory/Registry, Observer, Template Method, Facade, Adapter, Object Pool, Arena Allocator, Bump Allocator, LRU Cache, Circuit Breaker, Dynamic Threshold Adjustment, Zero-Copy Result Return, Generics with Pointer Constraints, GC Controller) et 5 mécanismes d'ingénierie, avec la raison d'être et le site d'implémentation de chacun. Fusion (2026-09-04) de cette table et de celle que `ARCH.md` §5 tenait en parallèle ; il n'y a plus qu'une liste, et [`ARCH.md` §5](../ARCH.md#5-design-patterns) y renvoie.
+  - **[Design Patterns inventory](./patterns/design-patterns.md)** — l'**inventaire faisant foi** : 16 patterns (Decorator, Strategy, ISP, Factory/Registry, Observer, Template Method, Facade, Adapter, Object Pool, Arena Allocator, Bump Allocator, LRU Cache, Circuit Breaker, Zero-Copy Result Return, Generics with Pointer Constraints, GC Controller) et 5 mécanismes d'ingénierie, avec la raison d'être et le site d'implémentation de chacun. Fusion (2026-09-04) de cette table et de celle que `ARCH.md` §5 tenait en parallèle ; il n'y a plus qu'une liste, et [`ARCH.md` §5](../ARCH.md#5-design-patterns) y renvoie.
   - **[Hiérarchie des interfaces](./patterns/interface-hierarchy.md)** — les interfaces clés et leurs implémentations. Commentée par [`ARCH.md` §5](../ARCH.md#5-design-patterns) et [§8](../ARCH.md#presentation-layer-integration).
 
 ### ADR — Décisions architecturales courantes
@@ -64,7 +64,7 @@ Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
 | ADR | Titre | Statut |
 |---|---|---|
 | [0000](../adr/0000-template.md) | Template | — |
-| [0001](../adr/0001-dtm-decision.md) | Sort de `DynamicThresholdManager` vs `internal/calibration/` | Accepted (KEEP) |
+| [0001](../adr/0001-dtm-decision.md) | Sort de `DynamicThresholdManager` vs `internal/calibration/` | Superseded by 0013 |
 | [0002](../adr/0002-recover-strategy.md) | Stratégie `recover()` dans `bigfft` (sentinel post-condition) | Accepted |
 | [0003](../adr/0003-globals-vs-context.md) | Globaux `bigfft` mutables → `atomic.Int64` | Accepted |
 | [0004](../adr/0004-backlog-decisions.md) | Décisions de backlog formelles post-hardening | Accepted |
@@ -88,12 +88,12 @@ documentation — elle n'est pas prise ici.**
 L'historique granulaire des décisions héritées (heuristique CPU, backends
 de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
 
-⚠ **ADR-0001 a changé de sens pratique sans changer de statut.** Le
-`DynamicThresholdManager` avait été conservé (KEEP) sur la foi d'un gain de
-5-6 % à F(10M) ; l'audit 2026-09 (M-04) a constaté qu'aucun chemin de
-production ne l'activait, l'a câblé derrière `--dynamic-thresholds`, et la
-mesure faite à travers ce flag (`-count=8`) **ne reproduit pas** le gain —
-d'où un défaut à `false`. Voir la note datée en fin d'[ADR-0001](../adr/0001-dtm-decision.md).
+**ADR-0001 est remplacé par ADR-0013.** Le `DynamicThresholdManager` avait
+été conservé (KEEP) sur la foi d'un gain de 5-6 % à F(10M) ; l'audit 2026-09
+(M-04) l'a câblé derrière `--dynamic-thresholds` et la mesure faite à travers ce
+drapeau (`-count=8`) n'a pas reproduit le gain. L'évaluation du 2026-09-15 en a
+tiré la conséquence : le paquet, le drapeau et la variable sont supprimés depuis
+le 2026-09-23 ([ADR-0013](../adr/0013-evaluation-2026-09-decisions.md) D1).
 
 ### Gate d'architecture
 

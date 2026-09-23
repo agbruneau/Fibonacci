@@ -16,17 +16,7 @@
 //     later, against the actual N, in internal/app (validateMemoryBudget)
 //     and internal/fibonacci (the fibonacci.CanCalculate package function).
 //   - Adaptive defaults: ApplyAdaptiveThresholds() combines hardware
-//     heuristics (DetectHardwareHeuristic, EstimateOptimalParallelThreshold)
-//     and the user-tunable ThresholdTuningProfile (see threshold_tuning.go).
-//
-// Wiring to the threshold package:
-//
-//	Since Audit-PRD E3-R1, internal/fibonacci/threshold no longer imports
-//	internal/config. The intended runtime wiring is for the
-//	application layer to translate DefaultThresholdTuning into a
-//	threshold.Tuning value and call threshold.SetTuning at startup. This
-//	keeps the import arrows pointing toward the kernel (config → memory,
-//	threshold → ø) without re-introducing the historic cycle.
+//     heuristics (DetectHardwareHeuristic, EstimateOptimalParallelThreshold).
 //
 // Dependencies (downward only):
 //

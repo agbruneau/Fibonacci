@@ -143,7 +143,7 @@ func TestNewModel_ConfigPropagation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			m := NewModel(context.Background(), nil, tt.cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+			m := NewModel(context.Background(), nil, tt.cfg, "v1.0.0", nil)
 			t.Cleanup(m.cancel)
 
 			if m.config.N != tt.cfg.N {
@@ -194,7 +194,7 @@ func TestNewModel_ConfigPreservedAfterWindowResize(t *testing.T) {
 		ShowValue:         true,
 		TUI:               true,
 	}
-	m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+	m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil)
 	t.Cleanup(m.cancel)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
@@ -229,7 +229,7 @@ func TestNewModel_ConfigPreservedAfterRestart(t *testing.T) {
 		TUI:               true,
 	}
 	calcs := []fibonacci.Calculator{mockCalculator{name: "Fast"}}
-	m := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+	m := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil)
 	t.Cleanup(m.cancel)
 
 	// Set size so restart works properly
@@ -313,7 +313,7 @@ func TestModel_CalculatorSelection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			m := NewModel(context.Background(), tt.calcs, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+			m := NewModel(context.Background(), tt.calcs, cfg, "v1.0.0", nil)
 			t.Cleanup(m.cancel)
 
 			if len(m.calculators) != tt.wantCount {
@@ -335,7 +335,7 @@ func TestModel_CalculatorsPreservedAfterRestart(t *testing.T) {
 		mockCalculator{name: "Matrix"},
 	}
 	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-	m := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+	m := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil)
 	t.Cleanup(m.cancel)
 
 	// Set size and mark done
@@ -409,7 +409,7 @@ func TestStartCalculationCmd_ConfigPassthrough(t *testing.T) {
 				StrassenThreshold: tt.strassenThreshold,
 			}
 
-			cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{capture}, cfg, 0, nil, orchestration.ThresholdTuning{})
+			cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{capture}, cfg, 0, nil)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -444,7 +444,7 @@ func TestStartCalculationCmd_ExitCodes(t *testing.T) {
 		calc := mockCalculator{name: "Fast"}
 		cfg := config.AppConfig{N: 10, Timeout: time.Minute}
 
-		cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, 0, nil, orchestration.ThresholdTuning{})
+		cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, 0, nil)
 		msg := cmd()
 
 		complete, ok := msg.(CalculationCompleteMsg)
@@ -465,7 +465,7 @@ func TestStartCalculationCmd_ExitCodes(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 		defer cancel()
 
-		cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{calc}, cfg, 0, nil, orchestration.ThresholdTuning{})
+		cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{calc}, cfg, 0, nil)
 		msg := cmd()
 
 		complete, ok := msg.(CalculationCompleteMsg)
@@ -497,7 +497,7 @@ func TestStartCalculationCmd_Generation(t *testing.T) {
 			calc := mockCalculator{name: "Fast"}
 			cfg := config.AppConfig{N: 10, Timeout: time.Minute}
 
-			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, tt.generation, nil, orchestration.ThresholdTuning{})
+			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, tt.generation, nil)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -516,7 +516,7 @@ func TestStartCalculationCmd_NoCalculators(t *testing.T) {
 	ref := &programRef{}
 	cfg := config.AppConfig{N: 10, Timeout: time.Minute}
 
-	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{}, cfg, 0, nil, orchestration.ThresholdTuning{})
+	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{}, cfg, 0, nil)
 	msg := cmd()
 
 	_, ok := msg.(CalculationCompleteMsg)
@@ -558,7 +558,7 @@ func TestStartCalculationCmd_DisplayFlagsInConfig(t *testing.T) {
 				ShowValue: tt.showValue,
 			}
 
-			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, 0, nil, orchestration.ThresholdTuning{})
+			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{calc}, cfg, 0, nil)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -590,7 +590,7 @@ func TestFinalResultMsg_DisplayFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			cfg := config.AppConfig{N: 10, Timeout: time.Minute}
-			m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+			m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil)
 			t.Cleanup(m.cancel)
 
 			// Set size first
@@ -644,7 +644,7 @@ func TestStartCalculationCmd_Timeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
-	cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{calc}, cfg, 0, nil, orchestration.ThresholdTuning{})
+	cmd := startCalculationCmd(ctx, ref, []fibonacci.Calculator{calc}, cfg, 0, nil)
 	msg := cmd()
 
 	complete, ok := msg.(CalculationCompleteMsg)
@@ -709,7 +709,7 @@ func TestStartCalculationCmd_SmallN(t *testing.T) {
 			ref := &programRef{}
 			cfg := config.AppConfig{N: tt.n, Timeout: time.Minute}
 
-			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0, nil, orchestration.ThresholdTuning{})
+			cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0, nil)
 			msg := cmd()
 
 			complete, ok := msg.(CalculationCompleteMsg)
@@ -739,7 +739,7 @@ func TestStartCalculationCmd_WiresGCControl(t *testing.T) {
 		GCControl: "disabled",
 	}
 
-	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0, nil, orchestration.ThresholdTuning{})
+	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0, nil)
 	cmd()
 
 	if capture.capturedOpts.GCMode != "disabled" {
@@ -759,7 +759,7 @@ func TestStartCalculationCmd_ZeroThresholds(t *testing.T) {
 		StrassenThreshold: 0,
 	}
 
-	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0, nil, orchestration.ThresholdTuning{})
+	cmd := startCalculationCmd(context.Background(), ref, []fibonacci.Calculator{capture}, cfg, 0, nil)
 	msg := cmd()
 
 	complete, ok := msg.(CalculationCompleteMsg)
@@ -801,7 +801,7 @@ func TestNewModel_AlgoConfigStored(t *testing.T) {
 				Algo:    tt.algo,
 				TUI:     true,
 			}
-			m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil, orchestration.ThresholdTuning{})
+			m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil)
 			t.Cleanup(m.cancel)
 
 			if m.config.Algo != tt.algo {

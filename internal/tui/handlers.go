@@ -177,7 +177,7 @@ func (m Model) handleReset() (tea.Model, tea.Cmd) {
 	// Restart calculation and watchers.
 	return m, tea.Batch(
 		tickCmd(),
-		startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation, m.logger, m.tuning),
+		startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation, m.logger),
 		watchContextCmd(m.ctx, m.generation),
 	)
 }

@@ -7,9 +7,8 @@
 // kernel and imports no internal package at all.
 //
 // The test inspects the go list -deps graph at runtime and fails if a
-// forbidden upward import is introduced. It carries seven rules, the last
+// forbidden upward import is introduced. It carries six rules, the last
 // two of which forbid two targets each:
-//   - internal/fibonacci/threshold → internal/config
 //   - internal/apperrors → internal/format
 //   - internal/tui → internal/fibonacci (production code only)
 //   - internal/orchestration → internal/format
@@ -39,15 +38,6 @@ type forbiddenImport struct {
 // about transitive paths, which legitimately allow a TUI to reach domain
 // types via the orchestration façade.
 var architectureRules = []forbiddenImport{
-	{
-		// internal/fibonacci/threshold is a leaf inside fibonacci ; it
-		// must not reach upward to internal/config (which would close
-		// a cycle via config → fibonacci/memory).
-		importer: "github.com/agbruneau/FibGo/internal/fibonacci/threshold",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/config",
-		},
-	},
 	{
 		// internal/apperrors is a leaf utility package and must not depend
 		// on internal/format (presentation concern). A local
@@ -105,10 +95,10 @@ var architectureRules = []forbiddenImport{
 		// internal/config already carries two documented lateral imports
 		// (fibonacci/memory for budget estimation, ui for colored usage —
 		// see config/doc.go). This rule freezes that tolerance where it
-		// stands: reaching into fibonacci's root or bigfft would close an
-		// import cycle (fibonacci → threshold ← tuning ← config) and pull
-		// the whole computation core into flag parsing (audit Fable5
-		// ARCH-02).
+		// stands: reaching into fibonacci's root or bigfft would pull the
+		// whole computation core into flag parsing (audit Fable5 ARCH-02).
+		// The seventh rule, threshold → config, went with the threshold
+		// package (EVAL-10).
 		importer: "github.com/agbruneau/FibGo/internal/config",
 		forbid: []string{
 			"github.com/agbruneau/FibGo/internal/fibonacci",
