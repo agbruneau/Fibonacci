@@ -91,9 +91,7 @@ func RunCalibration(ctx context.Context, out io.Writer, rep Reporter, calculator
 
 // RunCalibrationWithOptions executes calibration with the specified options.
 //
-// P2-05: the body was previously a single 80-line function mixing profile
-// short-circuit, hardware detection, pass execution, result aggregation and
-// profile save. It now delegates to three focused helpers
+// P2-05: the body delegates to three focused helpers
 // (configureHardwareDetection, runPassSequence, persistCalibrationProfile)
 // so each concern stays under the package's funlen / cyclo thresholds and
 // can be exercised independently by tests.
@@ -121,10 +119,9 @@ func RunCalibrationWithOptions(ctx context.Context, out io.Writer, rep Reporter,
 
 	recommendation := fmt.Sprintf("--threshold %d", bestThreshold)
 	if bestThreshold == config.ThresholdDisabled {
-		// -1 is the genuine sequential baseline (FIB-02). Since audit H-02 it
-		// is also a valid CLI value, so recommend the flag AND say what it
-		// means; previously Validate rejected it and this line could only
-		// describe the outcome without giving the user a way to reproduce it.
+		// -1 is the genuine sequential baseline (FIB-02). It is also a valid
+		// CLI value (audit H-02), so recommend the flag AND say what it
+		// means: the user gets both the outcome and a way to reproduce it.
 		recommendation = fmt.Sprintf("--threshold %d (sequential, no parallelism)", config.ThresholdDisabled)
 	}
 	rep.Notice("Recommendation for this machine: %s", recommendation)
@@ -370,9 +367,9 @@ func AutoCalibrateWithProfile(parentCtx context.Context, cfg config.AppConfig, r
 // any threshold the user pinned on the command line or through the
 // environment (audit M-03).
 //
-// A cached profile used to overwrite all three unconditionally, so an explicit
-// --threshold / --fft-threshold / --strassen-threshold was silently discarded
-// on any machine that had ever run --calibrate. A calibration profile is the
+// A cached profile that overwrote all three unconditionally would silently
+// discard an explicit --threshold / --fft-threshold / --strassen-threshold on
+// any machine that had ever run --calibrate. A calibration profile is the
 // tool's own guess at what the user did not specify; it does not outrank what
 // the user did specify.
 //

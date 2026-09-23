@@ -96,12 +96,12 @@ func New(args []string, errWriter io.Writer, opts ...AppOption) (*Application, e
 // POSIX exit code (internal/apperrors.Exit*), which main hands to os.Exit.
 //
 // Signal handling is installed HERE, once, for every mode that computes (audit
-// CON-01). It used to be duplicated in runCalculate, runLastDigits and runTUI,
-// which left two modes uncovered: `--calibrate` and the `--auto-calibrate`
-// phase ran on main's raw context, so Ctrl-C hit the runtime's default handler
-// and killed the process outright. The "Calibration interrupted" branch in
-// internal/calibration was unreachable from the binary, and so was the timeout
-// path — those modes ignored --timeout entirely.
+// CON-01). A per-mode install is easy to miss: a mode left on main's raw
+// context, as `--calibrate` and the `--auto-calibrate` phase would be, lets
+// Ctrl-C reach the runtime's default handler, which kills the process outright.
+// The "Calibration interrupted" branch in internal/calibration then cannot be
+// reached from the binary, and neither can the timeout path: such a mode
+// ignores --timeout entirely.
 //
 // Completion generation is deliberately above the signal root: it writes a
 // script and returns, with nothing to interrupt.
@@ -149,9 +149,8 @@ func (a *Application) runCompletion(out io.Writer) int {
 
 // runCalibration runs the full calibration mode.
 //
-// --timeout bounds the whole sweep (audit CON-01). It used to bound nothing
-// here: the mode received main's raw context, so a sweep that stalled ran until
-// the user killed it. Each pass computes F(CalibrationN) at one threshold, so
+// --timeout bounds the whole sweep (audit CON-01). On main's raw context a
+// sweep that stalls runs until the user kills it. Each pass computes F(CalibrationN) at one threshold, so
 // the sweep is a sequence of calculations and the documented "maximum execution
 // time for the calculation" is the honest budget for it.
 func (a *Application) runCalibration(ctx context.Context, out io.Writer) int {

@@ -42,9 +42,8 @@ func newTestModel(t *testing.T) Model {
 	return m
 }
 
-// TestNewModel_KeepsLogger guards the logger NewModel used to drop: it took
-// the parameter and never stored it, so --tui --log-level debug logged nothing
-// (found while removing the dynamic threshold manager, EVAL-10).
+// TestNewModel_KeepsLogger guards NewModel's logger parameter: taken but never
+// stored, it leaves --tui --log-level debug logging nothing (EVAL-10).
 func TestNewModel_KeepsLogger(t *testing.T) {
 	t.Parallel()
 

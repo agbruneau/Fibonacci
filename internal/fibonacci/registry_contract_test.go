@@ -7,11 +7,11 @@ import (
 
 // Contract tests for DefaultFactory.Register (audit API-02).
 //
-// Register used to return nil unconditionally: it accepted an empty name,
-// accepted a nil creator (deferring the panic to whichever Get came first), and
-// replaced an existing registration without a word — so a duplicate name could
-// silently swap out a built-in calculator. Every call site was still required by
-// errcheck to inspect the error, which made the check pure ceremony.
+// Register rejects an empty name, a nil creator (which would defer the panic to
+// whichever Get came first) and a duplicate name (which would silently swap out
+// a built-in calculator). errcheck requires every call site to inspect the
+// error; a Register that always returned nil would make that check pure
+// ceremony.
 
 func TestRegister_RejectsEmptyName(t *testing.T) {
 	t.Parallel()

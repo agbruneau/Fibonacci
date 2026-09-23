@@ -197,8 +197,8 @@ func fftInvTransformInto(dst **big.Int, m int, mul func() (bigfft.PolValues, err
 // read-only on their receivers — they read p.Values[i] as operands to
 // fermat.Mul(buf, x, y) where buf is a separate temporary, so the source
 // PolValues are never modified. Multiple concurrent readers with no writers
-// is safe, eliminating two Clone() calls that previously allocated and copied
-// K*(n+1) words each (e.g., ~hundreds of KB for F(10M)).
+// is safe, eliminating two Clone() calls that would each allocate and copy
+// K*(n+1) words (e.g., ~hundreds of KB for F(10M)).
 func executeFFTTransforms(ctx context.Context, fkPoly, fk1Poly *bigfft.PolValues, s *CalculationState, m int, inParallel bool) error {
 	op1 := func() error {
 		return fftInvTransformInto(&s.T3, m, func() (bigfft.PolValues, error) { return fkPoly.Mul(fk1Poly) })

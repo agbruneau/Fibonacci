@@ -7,11 +7,9 @@ import (
 	"testing"
 )
 
-// These tests used to drive HandleCalculationError, which wrote colored status
-// lines to an io.Writer and returned an exit code as a side effect. The
-// presentation half moved to internal/cli (audit API-04 / ARC-02) and is
-// covered by cli.TestWriteCalculationStatus; what remains here is the pure
-// mapping this package is responsible for.
+// These tests cover the pure error-to-exit-code mapping this package is
+// responsible for. The presentation half lives in internal/cli (audit API-04 /
+// ARC-02) and is covered by cli.TestWriteCalculationStatus.
 
 func TestExitCodeFor(t *testing.T) {
 	t.Parallel()

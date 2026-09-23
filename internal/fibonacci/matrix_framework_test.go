@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-// TestExecuteMatrixLoop_ParallelGateMatchesGOMAXPROCS reproduces FIB-08: the
-// matrix parallel gate used to check runtime.NumCPU() while the task
-// semaphore (getTaskSemaphore) sizes itself from runtime.GOMAXPROCS(0). On a
-// multi-core machine running with GOMAXPROCS=1, the old gate still allowed
-// parallel squaring/multiplication (NumCPU() > 1) even though the runtime is
+// TestExecuteMatrixLoop_ParallelGateMatchesGOMAXPROCS guards FIB-08: the task
+// semaphore (getTaskSemaphore) sizes itself from runtime.GOMAXPROCS(0), so the
+// matrix parallel gate must too. A gate on runtime.NumCPU() would, on a
+// multi-core machine running with GOMAXPROCS=1, still allow parallel
+// squaring/multiplication (NumCPU() > 1) even though the runtime is
 // restricted to a single OS thread, and any goroutines spawned only
 // serialize behind the size-1 semaphore. Both must agree on GOMAXPROCS(0).
 func TestExecuteMatrixLoop_ParallelGateMatchesGOMAXPROCS(t *testing.T) {

@@ -3,11 +3,10 @@
 // based estimate to a full calibration sweep when the fast pass does
 // not produce a confident enough result.
 //
-// R3.3: previously AutoCalibrateWithProfile inlined a two-tier
-// (quick → full) decision tree. Extracting a Strategy interface gives
-// each tier a self-contained implementation file (strategy_fast.go,
-// strategy_complete.go) and lets the orchestrator stay focused on the
-// escalation policy alone.
+// R3.3: the Strategy interface gives each tier of the two-tier
+// (quick → full) decision a self-contained implementation file
+// (strategy_fast.go, strategy_complete.go) and lets the orchestrator stay
+// focused on the escalation policy alone.
 
 package calibration
 

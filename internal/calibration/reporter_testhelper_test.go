@@ -9,10 +9,9 @@ import (
 
 // testReporter renders calibration narration as plain lines into a writer.
 //
-// Tests here used to assert on text the package itself colored, which is why
-// several of them had to strip ANSI escapes before matching a threshold value.
 // With the presentation port (audit ARC-01) the package emits wording only, and
-// this reporter is the plain-text adapter that makes the wording assertable.
+// this reporter is the plain-text adapter that makes the wording assertable
+// without stripping ANSI escapes before matching a threshold value.
 // The CLI adapter (internal/cli.CalibrationReporter) is what a user sees.
 type testReporter struct {
 	out io.Writer

@@ -119,10 +119,11 @@ const (
 	// FibonacciGrowthFactor is log2(phi), where phi ≈ 1.618 (golden ratio).
 	// Used to estimate bit length of F(n).
 	//
-	// Defined in internal/fibonacci/fibmath, which internal/fibonacci/memory
-	// can also import — the two used to carry separate copies of the literal
-	// because neither could import the other (audit TYP-04). Kept as an alias
-	// here so existing references and the exported name are unchanged.
+	// Defined in internal/fibonacci/fibmath, a leaf that both this package and
+	// internal/fibonacci/memory import: memory cannot import this package,
+	// which imports it, so the shared literal has to live below both (audit
+	// TYP-04). Kept as an alias here so existing references and the exported
+	// name are unchanged.
 	FibonacciGrowthFactor = fibmath.GrowthFactor
 )
 

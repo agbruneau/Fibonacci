@@ -71,9 +71,9 @@ func (a *ProgressAggregator) Update(update progress.ProgressUpdate) AggregatedPr
 }
 
 // recomputeETA refreshes the smoothed progress rate and returns the resulting
-// ETA. It mirrors the previous behavior of format.ProgressWithETA: requires
-// some elapsed time and progress before producing a meaningful estimate, uses
-// 70/30 exponential smoothing, and caps the ETA at 24h.
+// ETA. It requires some elapsed time and progress before producing a
+// meaningful estimate, uses 70/30 exponential smoothing, and caps the ETA at
+// 24h.
 //
 // The fraction parameter is named frac, not progress: the latter shadows the
 // imported internal/progress package (gocritic importShadow).

@@ -101,8 +101,8 @@ type testResult struct {
 	duration time.Duration
 	// fastest and slowest bracket the individual timed iterations. Their ratio
 	// is the dispersion analyzeResults turns into a confidence score (audit
-	// M-01): the previous code awarded a flat +0.2 for "a crossover was found"
-	// without ever asking whether the timings behind it were stable.
+	// M-01): a flat bonus for "a crossover was found" would never ask whether
+	// the timings behind it were stable.
 	//
 	// The full min/max bracket is deliberate, and deliberately harsh. A
 	// median would forgive one descheduled iteration, but the asymmetry of the
@@ -149,17 +149,16 @@ func (mb *MicroBenchmark) RunQuick(ctx context.Context) (ThresholdResults, error
 	thresholds := mb.analyzeResults(results)
 	thresholds.Duration = time.Since(start)
 
-	// FIB-03: RunQuick used to always report success even when nothing was
-	// measured, letting a result look like a completed benchmark to callers
-	// checking only the error. Surface the context error when not a single
-	// timing was collected (results may be non-empty but entirely errored,
-	// e.g. every test observed ctx.Done() before timing anything).
+	// FIB-03: success with nothing measured would look like a completed
+	// benchmark to callers checking only the error. Surface the context error
+	// when not a single timing was collected (results may be non-empty but
+	// entirely errored, e.g. every test observed ctx.Done() before timing
+	// anything).
 	//
-	// The test is on the measurements, not on the confidence score. It used to
-	// read `Confidence == 0`, which was equivalent while the score started at
-	// 0.5 and only a total failure could bring it to zero. Since M-01 rebased
-	// it at zero, a zero score also means "measured cleanly, but no decisive
-	// crossover" — a legitimate outcome that must NOT be reported as an error.
+	// The test is on the measurements. Testing `Confidence == 0` instead would
+	// be wrong: the score starts at zero (M-01), so a zero score also means
+	// "measured cleanly, but no decisive crossover" — a legitimate outcome
+	// that must NOT be reported as an error.
 	if !hasUsableResult(results) {
 		if err := ctx.Err(); err != nil {
 			return thresholds, err
@@ -182,17 +181,17 @@ func hasUsableResult(results []testResult) bool {
 // runTests executes the multiplication tests that can actually inform a
 // crossover, one at a time.
 //
-// Two changes from the original (audit M-01):
+// Two properties matter (audit M-01):
 //
-// Sequential, not concurrent. The 16 configurations used to run together under
-// a NumCPU semaphore while bigfft.Mul parallelises its own recursion, so the
-// timings measured contention between the benchmark's own goroutines rather
-// than the cost of a multiplication.
+// Sequential, not concurrent. bigfft.Mul parallelises its own recursion, so
+// running the configurations together under a NumCPU semaphore would time
+// contention between the benchmark's own goroutines rather than the cost of a
+// multiplication.
 //
 // Filtered. bigfft.Mul only takes the FFT path above FFTThresholdWords; below
 // it, useFFT=true and useFFT=false run the identical math/big code. Timing
-// them against each other and calling the difference a crossover reported
-// noise as a measurement — with the default 1800-word threshold, the 500-word
+// them against each other and calling the difference a crossover reports
+// noise as a measurement — with the default 1800-word threshold, a 500-word
 // row could declare a crossover at 28800 bits on nothing but jitter.
 func (mb *MicroBenchmark) runTests(ctx context.Context) []testResult {
 	fftThresholdWords := bigfft.FFTThresholdWords()
@@ -234,9 +233,9 @@ func (mb *MicroBenchmark) runTests(ctx context.Context) []testResult {
 // alongside the fastest and slowest individual iteration.
 //
 // The bracket is what lets analyzeResults score its own reliability (audit
-// M-01): a mean is not evidence on its own, and the previous code awarded
-// confidence for finding a crossover without ever looking at how noisy the
-// timings behind it were.
+// M-01): a mean is not evidence on its own, and confidence for finding a
+// crossover means nothing without looking at how noisy the timings behind it
+// were.
 //
 // The `parallel` flag is retained (even though the current implementation
 // does not branch on it) because callers pass it to record the intent of the

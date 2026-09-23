@@ -16,16 +16,15 @@ import (
 // CalibrationReporter renders calibration narration for a terminal reader. It
 // is the CLI-side implementation of calibration.Reporter (audit ARC-01).
 //
-// The colors and the summary table used to live inside internal/calibration,
-// which imported internal/ui and internal/format for the purpose — an
-// application-layer package doing presentation, 31 ui.Color* calls deep. The
-// wording is unchanged; what moved is the decision of how it looks.
+// The colors and the summary table live here so that internal/calibration, an
+// application-layer package, does no presentation and imports neither
+// internal/ui nor internal/format. The package owns the wording; this adapter
+// owns the decision of how it looks.
 //
-// One deliberate difference from the old output: emphasis is now per line, by
-// message kind, rather than per value. A recommendation used to be a green line
-// with the threshold picked out in yellow; it is now a green line. The table
-// keeps its per-column coloring, which is where the highlighting actually
-// helped.
+// Emphasis is per line, by message kind, rather than per value: a
+// recommendation is a green line, with no threshold picked out in a second
+// color. The table keeps its per-column coloring, which is where the
+// highlighting actually helps.
 type CalibrationReporter struct {
 	out io.Writer
 }

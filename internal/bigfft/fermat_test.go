@@ -20,8 +20,8 @@ func TestFermatSqrVsMul(t *testing.T) {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			t.Parallel()
 			// Per-subtest source: *rand.Rand is not safe for concurrent
-			// use, and the subtests run in parallel (data race flagged by
-			// -race on the previously shared parent rng).
+			// use, and the subtests run in parallel (-race flags a parent
+			// rng shared between them).
 			rng := rand.New(rand.NewSource(42 + int64(n)))
 			// Create random fermat number of size n+1 words
 			x := make(fermat, n+1)

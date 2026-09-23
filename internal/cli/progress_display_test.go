@@ -15,9 +15,9 @@ import (
 // progress channel is consumed and that the final line is written when the
 // channel closes.
 //
-// The spinner seam it used to install is gone with the dependency (audit
-// DEP-02): DisplayProgress draws on its own ticker loop, so the assertion is
-// now on the output rather than on a mock's Start/Stop bookkeeping.
+// DisplayProgress draws on its own ticker loop, with no spinner dependency to
+// mock (audit DEP-02), so the assertion is on the output rather than on a
+// mock's Start/Stop bookkeeping.
 //
 // Synchronization is deterministic: the channel is unbuffered, so each
 // send blocks until DisplayProgress receives it — no time.Sleep needed.

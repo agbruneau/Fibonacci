@@ -305,8 +305,8 @@ func TestLogsModel_AutoScroll_DisablesOnScrollUp(t *testing.T) {
 	logs.Update(tea.KeyMsg{Type: tea.KeyPgUp})
 
 	// After PgUp on overflowing content, AtBottom must become false and
-	// autoScroll must be disabled. Both assertions replace the previous
-	// t.Skip escape hatch (P3-01): the test is now deterministic.
+	// autoScroll must be disabled. Both are asserted, never skipped (P3-01):
+	// the test is deterministic.
 	if logs.viewport.AtBottom() {
 		t.Fatal("viewport still AtBottom after PgUp; content should overflow height=5")
 	}

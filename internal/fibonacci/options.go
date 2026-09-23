@@ -29,9 +29,9 @@ type Options struct {
 	// every iteration, so most transforms are cached and never read back
 	// while hashing and the deep copy are paid on every put. Raise this,
 	// don't lower it, unless profiling on your exact workload confirms a
-	// win. The hit-rate and slowdown percentages this comment used to quote
-	// came from an audit document (bench/TEAM_A_PERFORMANCE.md) that is no
-	// longer in the repo, and nothing replaced them: BenchmarkCacheImpact
+	// win. No hit-rate or slowdown percentage is quoted: their source, an
+	// audit document (bench/TEAM_A_PERFORMANCE.md), is not in the repo, and
+	// nothing here measures them: BenchmarkCacheImpact
 	// and BenchmarkCacheHitRate configure the cache but drive a
 	// FastDoublingCalculator, whose FFT step never consults it, so they
 	// report a 0% hit rate whatever this value is set to.
@@ -65,13 +65,13 @@ type Options struct {
 	// discards all of them, which is what a caller that only wants the result
 	// should leave it as.
 	//
-	// Injected rather than package-global (audit OBS-01 / API-03). This package
-	// used to import github.com/rs/zerolog and reach for its process-wide
-	// logger, which the book calls out twice over: a domain package depending
-	// on a third-party logger (ch. 14) and library code deciding where its
-	// records go (ch. 6). The practical result was worse than the principle —
-	// every emitter was wired to a no-op or filtered out by a global level set
-	// in app.Run, so none of them could be seen from the binary.
+	// Injected rather than package-global (audit OBS-01 / API-03). Reaching
+	// for a third-party process-wide logger is what the book calls out twice
+	// over: a domain package depending on a third-party logger (ch. 14) and
+	// library code deciding where its records go (ch. 6). The practical cost
+	// is worse than the principle — with every emitter wired to a no-op or
+	// filtered out by a global level set in app.Run, none of them can be seen
+	// from the binary.
 	Logger *slog.Logger
 }
 

@@ -22,8 +22,8 @@ const (
 	ProgressBarWidth = 40
 )
 
-// spinnerFrames is the animation cycle, the Braille set the previous
-// implementation used (spinner.CharSets[11]).
+// spinnerFrames is the animation cycle: the Braille set of
+// github.com/briandowns/spinner's CharSets[11].
 var spinnerFrames = [...]string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // progressLine draws a single-line, carriage-return-updated status line.

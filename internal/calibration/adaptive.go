@@ -117,5 +117,5 @@ func GenerateQuickStrassenThresholds() []int {
 }
 
 // Threshold estimation without benchmarking lives in internal/config
-// (config.EstimateOptimal*); callers use it directly. The pass-through
-// delegates that used to live here were removed (audit 2026-06).
+// (config.EstimateOptimal*); callers use it directly rather than through
+// pass-through delegates here (audit 2026-06).

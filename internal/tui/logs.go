@@ -22,9 +22,9 @@ const maxLogEntries = 10000
 // Ring[string] (`buffer`). The `entries` field is a chronological snapshot
 // (oldest first) refreshed in updateContent and exposed for the white-box
 // tests that read len(entries) / entries[i] / strings.Join(entries, "\n").
-// Compared to the previous append-then-trim implementation this caps the
-// underlying allocation at maxLogEntries strings rather than letting `append`
-// grow the backing array unboundedly between trims.
+// The ring caps the underlying allocation at maxLogEntries strings, where an
+// append-then-trim slice would let `append` grow the backing array unboundedly
+// between trims.
 type LogsModel struct {
 	viewport   viewport.Model
 	buffer     *Ring[string]

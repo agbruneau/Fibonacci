@@ -111,13 +111,13 @@ func GetFFTParallelismConfig() FFTParallelismConfig {
 //   - depth: current recursion depth
 //   - tmp, tmp2: temporary buffers for this goroutine
 //
-// The recursion takes no allocator (audit L-06). It used to carry a
-// tempAllocator parameter that it only ever handed to its own recursive calls:
-// the parallel branch deliberately draws from defaultPoolAllocator, because
-// BumpAllocator is not thread-safe, and the sequential branch reuses the
-// caller's tmp/tmp2. So fourierWithBump appeared to thread its bump allocator
-// through the whole transform while the allocator never allocated anything
-// below the two initial buffers.
+// The recursion takes no allocator (audit L-06). A tempAllocator parameter
+// would only ever be handed to its own recursive calls: the parallel branch
+// deliberately draws from defaultPoolAllocator, because BumpAllocator is not
+// thread-safe, and the sequential branch reuses the caller's tmp/tmp2. Such a
+// parameter would make fourierWithBump appear to thread its bump allocator
+// through the whole transform while the allocator allocates nothing below the
+// two initial buffers.
 //
 //nolint:gocognit // FFT recursion dispatch: sequential branch + parallel branch (non-blocking token) with worker panic capture/re-propagation (ADR-0002); splitting it would obscure the hot path. Behavior pinned by TestFourierRecursive*/golden.
 func fourierRecursiveUnified(dst, src []fermat, backward bool, n int, k, size, depth uint, tmp, tmp2 fermat) error {

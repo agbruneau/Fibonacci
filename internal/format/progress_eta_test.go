@@ -107,9 +107,7 @@ func TestFormatNumberString(t *testing.T) {
 }
 
 // TestFormatBytes verifies human-readable byte formatting across all four
-// magnitude branches. This was the only format helper without a unit test
-// in this package (it was previously exercised only indirectly through TUI
-// rendering).
+// magnitude branches directly, rather than only through TUI rendering.
 func TestFormatBytes(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

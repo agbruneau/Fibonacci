@@ -383,14 +383,13 @@ func (tc *TransformCache) Put(data nat, pv PolValues) {
 // putByKey stores a transform result in the cache by precomputed key.
 //
 // Concurrency contract (Audit-PRD E1-R4 / ADR-0002 follow-up): evicted
-// entries' backing buffers are NEVER recycled into the new entry. A prior
-// optimisation salvaged the LRU-tail buffer, but this opened a use-after-
-// free aliasing window — a caller still iterating over a PolValues
-// previously returned by Get() would observe its backing words being
-// overwritten by the new entry. The audit flagged this as a residual
-// risk to close before any library-style multi-tenant exposure. The
-// salvage was removed; each putByKey at capacity therefore allocates a
-// fresh wordCount-sized backing and lets GC reclaim the evicted ones.
+// entries' backing buffers are NEVER recycled into the new entry. Salvaging
+// the LRU-tail buffer opens a use-after-free aliasing window — a caller
+// still iterating over a PolValues returned by Get() would observe its
+// backing words being overwritten by the new entry. The audit flagged this
+// as a risk to close before any library-style multi-tenant exposure. Each
+// putByKey at capacity therefore allocates a fresh wordCount-sized backing
+// and lets GC reclaim the evicted ones.
 // Net cost: at most one extra wordCount-sized allocation per
 // put-on-full-cache. Whether that matters depends entirely on the hit/miss
 // ratio of the workload — it is bounded by the miss rate, and a low

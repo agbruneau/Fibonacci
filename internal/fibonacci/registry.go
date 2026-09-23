@@ -13,9 +13,8 @@ import (
 //
 // It implements no interface declared here: the consumers define what they need
 // (orchestration.CalculatorSource, app.CalculatorRegistry) and this type
-// satisfies them structurally. The five-method CalculatorFactory that used to
-// live in this file was provider-defined and wider than any caller
-// (audit API-01).
+// satisfies them structurally. A provider-defined interface here would be
+// wider than any caller (audit API-01).
 type DefaultFactory struct {
 	mu          sync.RWMutex
 	creators    map[string]func() CoreCalculator
@@ -45,9 +44,8 @@ func NewDefaultFactory() *DefaultFactory {
 		calculators: make(map[string]Calculator),
 	}
 
-	// Register the built-in calculators. Discarding these errors used to be
-	// safe only because Register could not fail; now that it validates, a
-	// failure here means this very function is wrong — a duplicate name or a
+	// Register the built-in calculators. Register validates, so a failure
+	// here means this very function is wrong — a duplicate name or a
 	// nil creator literal — which is a programmer bug, not a runtime
 	// condition. Same contract as MustNewCalculator.
 	builtins := []struct {

@@ -46,10 +46,9 @@ func BenchmarkCacheImpact(b *testing.B) {
 		// caching transforms for small-ish operands costs more in
 		// hashing + deep-copy than the infrequent hit saves.
 		//
-		// The ms/op and hit-rate figures this comment used to quote
-		// came from audit bench/TEAM_A_PERFORMANCE.md F-A6, which is
-		// no longer in the repo, and this benchmark cannot reproduce
-		// them: it drives a FastDoublingCalculator, whose FFT step
+		// No ms/op or hit-rate figure is quoted: their source, audit
+		// bench/TEAM_A_PERFORMANCE.md F-A6, is not in the repo, and
+		// this benchmark cannot reproduce them: it drives a FastDoublingCalculator, whose FFT step
 		// transforms with TransformWithBump and never consults the
 		// cache, so the hit rate is 0 under both configurations and
 		// the two arms differ only by the configureFFTCache call.

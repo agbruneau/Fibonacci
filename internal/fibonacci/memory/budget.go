@@ -59,9 +59,8 @@ const (
 	// Calculate returns through calculateSmall without warming a pool or
 	// building an arena, so none of the fixed cost above is paid.
 	//
-	// It used to be a hand-copied 93 with a comment noting it mirrored
-	// fibonacci.MaxFibUint64 and could not import it. Both now name the same
-	// constant (audit TYP-04).
+	// It names the same constant as fibonacci.MaxFibUint64, which this package
+	// cannot import, rather than a hand-copied 93 (audit TYP-04).
 	baselineMinN = fibmath.MaxUint64Index
 )
 
@@ -73,11 +72,11 @@ const (
 // fit. Under-estimating defeats the whole point; over-estimating refuses a
 // calculation that would have fitted.
 //
-// It used to under-estimate by 5x to 12x (audit H-03). The old model counted
-// five big.Int for the state, three for FFT buffers and two for the cache — it
-// modeled neither the x10 arena over-sizing, nor sync.Pool pre-warming (the
-// largest single term), nor the fact that --algo all runs three calculators at
-// once. Measured MemStats.Sys deltas against the old estimate:
+// Counting only five big.Int for the state, three for FFT buffers and two for
+// the cache under-estimates by 5x to 12x (audit H-03): the model must also
+// cover the x10 arena over-sizing, sync.Pool pre-warming (the largest single
+// term), and the fact that --algo all runs three calculators at once.
+// Measured MemStats.Sys deltas against that count ("old est"):
 //
 //	n      old est   fast    fft   matrix    all
 //	100k     0 MB     0       -       -        6

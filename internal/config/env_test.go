@@ -29,8 +29,8 @@ func TestEnvOverridesIntegrity(t *testing.T) {
 
 // TestEnvOverride_MalformedReturnsError verifies that an explicitly-set but
 // unparsable environment override surfaces a structured config error instead
-// of being silently swallowed (which previously left a default value that
-// could trigger an O(memory) calculation / OOM).
+// of being silently swallowed (which would leave a default value that could
+// trigger an O(memory) calculation / OOM).
 func TestEnvOverride_MalformedReturnsError(t *testing.T) {
 	algos := []string{"fast", "matrix", "fft"}
 

@@ -16,18 +16,18 @@ import (
 // WriteCalculationStatus writes the human-facing "Status: …" line for a failed
 // calculation and returns the exit code that matches it.
 //
-// It is the presentation half of what used to be apperrors.HandleCalculationError
-// (audit API-04): the wording, the color and the writer live here, in the CLI
+// It is the presentation half of calculation-error handling (audit API-04): the
+// wording, the color and the writer live here, in the CLI
 // adapter, while internal/apperrors keeps only ExitCodeFor. A caller that wants
 // just the code — internal/tui, which renders its own error panel — calls
 // ExitCodeFor and never reaches this function, instead of passing io.Discard
 // and a nil color provider to get a number out of a printer.
 //
-// Color comes straight from the ui theme. The ColorProvider indirection this
-// replaces was doubly redundant: ui.Color* already returns empty strings after
-// ui.InitTheme(true), which app.Run calls for both --quiet and --machine, so
-// the "use the no-color provider under --machine" branch at every call site
-// was selecting an empty result that was already empty.
+// Color comes straight from the ui theme, with no ColorProvider indirection:
+// ui.Color* already returns empty strings after ui.InitTheme(true), which
+// app.Run calls for both --quiet and --machine, so a "use the no-color provider
+// under --machine" branch at every call site would select an empty result that
+// is already empty.
 func WriteCalculationStatus(out io.Writer, err error, duration time.Duration) int {
 	if err == nil {
 		return apperrors.ExitSuccess

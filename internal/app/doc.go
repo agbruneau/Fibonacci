@@ -21,10 +21,8 @@
 //
 // # Example
 //
-// This mirrors cmd/fibcalc/main.go. Run returns the POSIX exit code directly
-// (internal/apperrors.Exit*); the ExitAction type this example used to show was
-// removed by ADR-0011 D1, and the example outlived it by four days
-// (audit API-08).
+// This mirrors cmd/fibcalc/main.go and must be kept in step with it (audit
+// API-08). Run returns the POSIX exit code directly (internal/apperrors.Exit*).
 //
 //	func main() {
 //	    os.Exit(run(os.Args, os.Stdout, os.Stderr))

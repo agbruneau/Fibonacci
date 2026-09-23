@@ -10,8 +10,8 @@ import (
 )
 
 // Validate reports every problem, not just the first (audit API-07 / CFG-01).
-// It used to return on the first failing check, so a command line with two bad
-// flags took two runs to fix.
+// Returning on the first failing check would make a command line with two bad
+// flags take two runs to fix.
 func TestValidateReportsEveryProblem(t *testing.T) {
 	t.Parallel()
 

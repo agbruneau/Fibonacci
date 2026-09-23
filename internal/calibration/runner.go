@@ -50,13 +50,14 @@ func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.O
 // with its duration. Trials that error or time out are skipped; when none
 // produces a timing the result is (def, noTiming).
 //
-// The loop checks its own context (audit CON-01). It used to delegate
-// cancellation entirely to the calculator: runTrial derives a per-trial context
-// from r.ctx, so a real Calculator returns context.Canceled immediately and the
-// trial is skipped — correct, but the sweep still walked every remaining
-// candidate before giving up, and the behavior depended on a property of the
-// callee rather than on anything this loop enforced. Checking here makes
-// cancellation prompt and independent of the Calculator implementation.
+// The loop checks its own context (audit CON-01). Delegating cancellation
+// entirely to the calculator is not enough: runTrial derives a per-trial
+// context from r.ctx, so a real Calculator returns context.Canceled immediately
+// and the trial is skipped — correct, but the sweep would still walk every
+// remaining candidate before giving up, and the behavior would depend on a
+// property of the callee rather than on anything this loop enforces. Checking
+// here makes cancellation prompt and independent of the Calculator
+// implementation.
 func (r *calibrationRunner) findBest(calc fibonacci.Calculator, candidates []int, def int, opts func(threshold int) fibonacci.Options) (best int, bestDur time.Duration) {
 	best, bestDur = def, noTiming
 	for _, cand := range candidates {

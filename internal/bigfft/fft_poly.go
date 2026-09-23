@@ -46,8 +46,8 @@ type Poly struct {
 // Safe to call multiple times and on a zero-value Poly. After Release() the
 // Poly must not be used again.
 //
-// This addresses audit finding P0-01: callers of Transform/InvTransform/Mul/Sqr
-// previously leaked pool buffers because Poly/PolValues had no release API.
+// This addresses audit finding P0-01: without a release API, callers of
+// Transform/InvTransform/Mul/Sqr leak pool buffers.
 func (p *Poly) Release() {
 	if p == nil {
 		return
@@ -220,8 +220,8 @@ type PolValues struct {
 // (which have no pooled backing — Release() becomes a no-op).
 // After Release() the PolValues must not be used again.
 //
-// This addresses audit finding P0-01/P0-09: Transform/InvTransform/Mul/Sqr
-// previously leaked pool buffers because there was no release API.
+// This addresses audit finding P0-01/P0-09: without a release API,
+// Transform/InvTransform/Mul/Sqr leak pool buffers.
 func (v *PolValues) Release() {
 	if v == nil {
 		return
@@ -368,8 +368,8 @@ func (v *PolValues) invTransform(alloc tempAllocator) (Poly, error) {
 // and ω = θ².
 //
 // Returns an error if the underlying Fourier transform fails validation
-// (e.g. malformed operand sizes). Callers previously silently discarded
-// this error — see audit P2-12.
+// (e.g. malformed operand sizes). Callers must not discard this error
+// (audit P2-12).
 //
 // Test oracle: no production caller (Mul/MulTo/Sqr/SqrTo route through
 // TransformWithBump via executeDoublingStepFFT); retained as a
@@ -425,8 +425,7 @@ func (p *Poly) NTransform(n int) (PolValues, error) {
 // is unspecified.
 //
 // Returns an error if the underlying inverse Fourier transform fails
-// validation. Callers previously silently discarded this error — see
-// audit P2-12.
+// validation. Callers must not discard this error (audit P2-12).
 //
 // Test oracle: no production caller; pairs with NTransform as a
 // round-trip cross-validation reference (audit OVR-10).

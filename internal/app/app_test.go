@@ -166,8 +166,8 @@ func TestNew(t *testing.T) {
 
 	// H-02: a profile carrying ThresholdDisabled is the calibration's own
 	// result on a host where sequential (or non-FFT) wins, not a forgery.
-	// Validate used to reject it, so app.New fell back to ApplyAdaptiveThresholds
-	// without a word and the calibration was wasted on every start.
+	// If Validate rejected it, app.New would fall back to ApplyAdaptiveThresholds
+	// without a word and the calibration would be wasted on every start.
 	t.Run("Cached profile with disabled thresholds is applied", func(t *testing.T) {
 		t.Parallel()
 		var errBuf bytes.Buffer

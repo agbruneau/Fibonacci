@@ -232,11 +232,11 @@ func TestFindFFTCrossoverDecisivenessIsWeakestLink(t *testing.T) {
 }
 
 // TestAnalyzeResultsConfidenceStartsAtZero pins the escalation fix of audit
-// M-01. The confidence baseline used to be 0.5, numerically equal to
-// EscalationConfidenceThreshold, so tryFastThenEscalate's `conf < threshold`
-// test could never fire on a run that produced any result at all: the fast
-// pass was always accepted and persisted, and CompleteStrategy was
-// unreachable except on total failure.
+// M-01. A confidence baseline of 0.5, numerically equal to
+// EscalationConfidenceThreshold, would keep tryFastThenEscalate's
+// `conf < threshold` test from ever firing on a run that produced any result
+// at all: the fast pass would always be accepted and persisted, and
+// CompleteStrategy would be unreachable except on total failure.
 func TestAnalyzeResultsConfidenceStartsAtZero(t *testing.T) {
 	t.Parallel()
 	mb := NewMicroBenchmark()

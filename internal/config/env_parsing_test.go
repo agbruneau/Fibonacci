@@ -9,8 +9,8 @@ import (
 // TestParseConfigEnvironmentVariables tests environment variable parsing.
 //
 // t.Setenv throughout (audit TST-02): it restores the previous value — set or
-// unset — automatically, which replaces the twenty-line save/restore preamble
-// this test used to carry, and it refuses to run in a parallel test, so the
+// unset — automatically, with no hand-written save/restore preamble, and it
+// refuses to run in a parallel test, so the
 // mutation can never overlap a test that reads the same variables.
 func TestParseConfigEnvironmentVariables(t *testing.T) {
 	t.Run("all environment variables set", func(t *testing.T) {

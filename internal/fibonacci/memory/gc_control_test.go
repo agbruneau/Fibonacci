@@ -194,10 +194,10 @@ func TestGCController_RestoresMemoryLimit(t *testing.T) {
 // logger actually used by Begin/End: the "gc disabled" and "gc re-enabled"
 // debug records must land in the injected sink, with the mode field set.
 //
-// The logger is a constructor parameter since audit OBS-01. It used to be
-// reachable only through a test-only setter, which meant these two records —
-// the ones that answer "did GOGC=off actually hold, and how many cycles ran
-// anyway?" — could not be seen from the binary at any verbosity.
+// The logger is a constructor parameter (audit OBS-01). Behind a test-only
+// setter, these two records — the ones that answer "did GOGC=off actually
+// hold, and how many cycles ran anyway?" — could not be seen from the binary
+// at any verbosity.
 //
 // Not parallel: Begin/End (via WithGC) mutate the process-global GOGC through
 // the package refcount. WithGC itself restores the original value on return,

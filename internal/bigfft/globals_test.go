@@ -75,9 +75,9 @@ func TestSetFFTParallelismConfigRoundTrip(t *testing.T) {
 // global cache and drives logPeriodicStats until the periodic emission fires
 // (exactly one of cacheLogInterval consecutive accesses hits the modulo).
 //
-// SetTransformCacheLogger is exported since audit OBS-01: the setter used to be
-// unexported and callable only from here, so these statistics could not be seen
-// from the binary. internal/fibonacci installs the process logger alongside the
+// SetTransformCacheLogger is exported (audit OBS-01): an unexported setter is
+// callable only from here, and these statistics could not be seen from the
+// binary. internal/fibonacci installs the process logger alongside the
 // cache configuration.
 func TestSetCacheLoggerWiresPeriodicStats(t *testing.T) {
 	t.Cleanup(func() { SetTransformCacheLogger(nil) })

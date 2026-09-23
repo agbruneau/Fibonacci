@@ -177,7 +177,7 @@ func (fd *FastDoublingCalculator) CalculateCore(ctx context.Context, reporter pr
 // so the caller can read FK/FK1 bit lengths once per doubling step instead of
 // once per predicate. The saving is a handful of big.Int header reads per
 // iteration; the repo carries no benchmark isolating it, so no figure is
-// claimed (the previous "2-5%" was unsourced).
+// claimed.
 //
 // Parameters:
 //   - opts: Configuration options including thresholds.

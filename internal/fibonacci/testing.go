@@ -71,10 +71,10 @@ func (f *TestFactory) Get(name string) (Calculator, error) {
 // List returns a sorted list of all registered calculator names.
 //
 // Sorted, like DefaultFactory.List and as the CalculatorFactory contract states
-// (audit API-01). It used to return Go's randomized map-iteration order while
-// claiming to be interchangeable with the real factory, so any test asserting
-// on ordered output — shell completion, the execution-mode banner — was passing
-// or failing on map iteration order rather than on behavior.
+// (audit API-01). A fake that claims to be interchangeable with the real
+// factory but returns Go's randomized map-iteration order makes any test
+// asserting on ordered output — shell completion, the execution-mode banner —
+// pass or fail on map iteration order rather than on behavior.
 func (f *TestFactory) List() []string {
 	names := make([]string, 0, len(f.calculators))
 	for name := range f.calculators {

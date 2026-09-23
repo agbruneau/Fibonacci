@@ -35,14 +35,13 @@ const (
 // which means "auto" (fill from the hardware heuristic, then from the static
 // default in fibonacci/constants.go).
 //
-// It is the single source of truth for a contract that was previously an
-// unnamed internal sentinel and a validation bug (audit H-02). The calibration
-// candidate lists have used -1 as their genuine no-parallelism / no-FFT
-// baseline since FIB-02, because normalizeOptions only substitutes a default
-// for ==0 and a 0 candidate therefore silently re-measured the default. When
-// that baseline won, calibration persisted -1 into the profile — a value
-// Validate then rejected, so app.New discarded the whole profile without a
-// word on every subsequent start. Accepting -1 is what makes the calibration
+// It is the single source of truth for a contract shared by calibration and
+// validation (audit H-02). The calibration candidate lists use -1 as their
+// genuine no-parallelism / no-FFT baseline (FIB-02), because normalizeOptions
+// only substitutes a default for ==0 and a 0 candidate would silently
+// re-measure the default. When that baseline wins, calibration persists -1
+// into the profile; were Validate to reject it, app.New would discard the
+// whole profile without a word on every subsequent start. Accepting -1 is what makes the calibration
 // result usable on hosts where sequential (or non-FFT) really is fastest.
 //
 // It applies to Threshold and FFTThreshold ONLY. Every consumer of those two
@@ -142,14 +141,14 @@ type AppConfig struct {
 	ProfileMaxAge time.Duration
 	// TUITheme selects the TUI palette: "" or "dark" for the default,
 	// "high-contrast" for the accessible one. Same reasoning as ProfileMaxAge:
-	// internal/ui used to read FIBCALC_TUI_THEME itself.
+	// internal/ui does not read FIBCALC_TUI_THEME itself.
 	TUITheme string
 	// CPUProfile and MemProfile, when set, write pprof profiles for the run to
 	// those paths. Empty disables each independently.
 	//
-	// pprof used to be reachable only through `go test -bench`, so a user who
-	// hit an unexpected slowdown at their own n could not profile the binary
-	// that produced it (audit OBS-02).
+	// Without them pprof is reachable only through `go test -bench`, and a
+	// user who hits an unexpected slowdown at their own n cannot profile the
+	// binary that produced it (audit OBS-02).
 	CPUProfile string
 	MemProfile string
 	// LogLevel selects the verbosity of the diagnostic log written to stderr:
@@ -193,8 +192,8 @@ type AppConfig struct {
 func (c AppConfig) Validate(availableAlgos []string) error {
 	// Every check runs; the failures are joined (audit API-07 / CFG-01).
 	//
-	// This used to return on the first problem, so a command line with two bad
-	// flags took two runs to fix — the user corrected one, re-ran, and learned
+	// Returning on the first problem would make a command line with two bad
+	// flags take two runs to fix — the user corrects one, re-runs, and learns
 	// about the next. The book asks for the opposite (ch. 12, p. 342: the
 	// Validate method "joins all errors to return all incorrect configurations
 	// and make maintenance easy"), and nothing here is expensive enough to
@@ -236,10 +235,10 @@ func (c AppConfig) Validate(availableAlgos []string) error {
 	}
 
 	// Parse --memory-limit here so a malformed value is a configuration error
-	// on every mode. It used to be parsed only by app.validateMemoryBudget,
-	// which the --last-digits and --calibrate paths never reach, so
-	// `--last-digits 5 --memory-limit 4GB` ran to completion without a word
-	// about the unusable limit (audit M-02). The parsed value is discarded:
+	// on every mode. app.validateMemoryBudget alone is not enough: the
+	// --last-digits and --calibrate paths never reach it, so
+	// `--last-digits 5 --memory-limit 4GB` would run to completion without a
+	// word about the unusable limit (audit M-02). The parsed value is discarded:
 	// ValidateMemoryBudget re-parses it when it actually needs the number.
 	if c.MemoryLimit != "" {
 		if _, err := memory.ParseMemoryLimit(c.MemoryLimit); err != nil {

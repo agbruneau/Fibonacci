@@ -409,9 +409,9 @@ func TestExecuteCalculations_WiresGCControl(t *testing.T) {
 }
 
 // TestPresentQuietMismatchWritesStderr pins audit M-06: quiet mode silences
-// stdout, not diagnostics. The mismatch guard above used to return exit 3 while
-// writing nothing anywhere, leaving a calling script with an empty stdout and a
-// bare exit code to interpret. The explanation belongs on stderr, where it
+// stdout, not diagnostics. A mismatch guard that returns exit 3 while writing
+// nothing anywhere leaves a calling script with an empty stdout and a bare exit
+// code to interpret. The explanation belongs on stderr, where it
 // cannot contaminate a captured stdout.
 func TestPresentQuietMismatchWritesStderr(t *testing.T) {
 	t.Parallel()

@@ -121,9 +121,9 @@ func displayResultHeader(out io.Writer, bitLen int) {
 // calculation time, number of digits, and scientific notation for large numbers.
 //
 // resultStr is the caller's single decimal rendering of the result (audit
-// L-11): big.Int.String() on a multi-million-digit value costs seconds, and
-// this function used to produce its own copy alongside displayCalculatedValue's
-// and the two writeResult made. Every figure here derives from that string.
+// L-11): big.Int.String() on a multi-million-digit value costs seconds, so this
+// function does not produce its own copy alongside displayCalculatedValue's and
+// writeResult's. Every figure here derives from that string.
 //
 // Parameters:
 //   - out: The io.Writer for the output.
@@ -235,7 +235,7 @@ func DisplayResult(result *big.Int, n uint64, duration time.Duration, verbose, d
 
 	// One base-10 conversion for the whole function (audit L-11). It is the
 	// dominant cost here at large n — seconds for a 21-million-digit F(100M) —
-	// and `-d -c` used to pay for it twice, once per section.
+	// and `-d -c` would otherwise pay for it twice, once per section.
 	var resultStr string
 	if details || showValue {
 		resultStr = result.String()
@@ -344,7 +344,7 @@ func writeResult(w io.Writer, result *big.Int, n uint64, duration time.Duration,
 	bw := bufio.NewWriter(w)
 
 	// One base-10 conversion, shared by the Digits header and the body
-	// (audit L-11): this function used to call String() twice.
+	// (audit L-11): String() is the dominant cost at large n.
 	resultStr := result.String()
 
 	// Write header
