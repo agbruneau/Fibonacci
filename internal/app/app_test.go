@@ -649,8 +649,9 @@ func TestRunCalibration(t *testing.T) {
 
 		app := &Application{
 			Config: config.AppConfig{
-				Calibrate: true,
-				Timeout:   1 * time.Minute,
+				Calibrate:          true,
+				Timeout:            1 * time.Minute,
+				CalibrationProfile: isolatedProfilePath(t),
 			},
 			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},
@@ -804,6 +805,10 @@ func TestRunAllModes(t *testing.T) {
 			Config: config.AppConfig{
 				Calibrate: true,
 				Timeout:   2 * time.Second,
+				// Isolated like TestRunCalibration: without it this sweep wrote
+				// its test profile to the developer's ~/.fibcalc_calibration.json,
+				// which then disabled parallelism for the real binary.
+				CalibrationProfile: isolatedProfilePath(t),
 			},
 			Factory:   factory,
 			ErrWriter: &bytes.Buffer{},

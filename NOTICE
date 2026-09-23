@@ -32,6 +32,12 @@ Version 2.0. Each derived file opens with a header listing what it took from
 upstream and what was changed. Upstream's scan.go (removed from this
 repository, ADR-0009 R1) and upstream's test files are not included.
 
+internal/bigfft/arith_purego.go (build tag purego) does not come from
+bigfft: it follows the generic, non-assembly versions of the same six
+functions in the Go standard library's math/big (arith.go), Copyright The
+Go Authors, under the same BSD-3-Clause terms as the Go distribution
+(https://go.dev/LICENSE); that notice applies to the portions it follows.
+
 The upstream license text follows, unmodified:
 
 Copyright (c) 2012 The Go Authors. All rights reserved.

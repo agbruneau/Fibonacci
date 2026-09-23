@@ -7,9 +7,10 @@
 // unexported symbols. The default build keeps the linkname path, which uses
 // math/big's assembly kernels; this file is the fallback, not a replacement.
 //
-// Each function follows the semantics of math/big's generic (non-assembly)
-// version of the same name: operate on len(z) words, return the carry or
-// borrow out of the top word.
+// Each function follows math/big's generic (non-assembly) version of the same
+// name — operate on len(z) words, return the carry or borrow out of the top
+// word. Those versions are Copyright The Go Authors, BSD 3-Clause
+// (https://go.dev/LICENSE); see /NOTICE.
 
 package bigfft
 

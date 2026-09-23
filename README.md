@@ -456,4 +456,7 @@ multi-agents — Claude Opus 4.8 pilote, exécuteurs Claude Sonnet), suivi 2026-
 balayage arène ×10 — Claude Fable 5), audit qualité et documentation 2026-08-07 (boucle
 bâtisseur/critique, lint et gosec à zéro — Claude Opus 5), audit exhaustif du code Go 2026-09-03
 (23 constats, trois défauts hauts corrigés, lint rendu bloquant — Claude Opus 5), puis passe de
-sur-ingénierie 2026-09-03 (~25 suppressions ou replis, build `gmp` réparé — Claude Opus 5).
+sur-ingénierie 2026-09-03 (~25 suppressions ou replis, build `gmp` réparé — Claude Opus 5), audit « livre »
+2026-09-07 (CI, outils épinglés, `v4.1.0` — Claude Fable 5.1), évaluation académique du 2026-09-15 (grille
+universitaire C1–C10 — Claude Fable 5.1) et exécution de son plan le 2026-09-23 (`v5.0.0`, boucle
+bâtisseur/critique à l'aveugle — Claude Opus 5.5).
