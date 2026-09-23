@@ -114,6 +114,15 @@ Le corpus est aujourd'hui mixte sans règle : `README`, `CHANGELOG`,
 deux dans le même document. La règle suit l'usage réel (le mainteneur écrit en
 français, le code est déjà en anglais) et s'inscrit dans `CONTRIBUTING.md`.
 
+> **Addendum du 2026-09-23 ([ADR-0013](0013-evaluation-2026-09-decisions.md) D2,
+> EVAL-19).** La décision ci-dessus est conservée telle qu'écrite ; elle n'a pas
+> été appliquée : l'évaluation du 2026-09-15 relève treize documents de
+> référence restés en anglais. La règle est amendée pour décrire le corpus :
+> narratif (README, CHANGELOG, ADR, `docs/audits/`) en français ; référence
+> technique (`docs/*.md`, `docs/algorithms/`, `docs/architecture/`) en anglais ;
+> un document ne mélange pas les deux. `docs/ARCH.md`, qui alternait, est rendu
+> monolingue en anglais.
+
 ### D5 — `briandowns/spinner` remplacé par un rendu interne
 
 **Retenu : oui.**

@@ -392,7 +392,11 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles de test, fuzzing, gold
 - Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer — release courante : `v4.1.0`).
 - Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — test rouge → fix → vert,
   validation locale complète avant chaque commit.
-- Licence : **Apache 2.0** — voir [`LICENSE`](LICENSE).
+- Langue des documents : narratif (README, CHANGELOG, ADR, `docs/audits/`) en français, référence
+  technique (`docs/*.md`, `docs/algorithms/`, `docs/architecture/`) et code en anglais —
+  [`CONTRIBUTING.md`](CONTRIBUTING.md), point 4 (règle amendée le 2026-09-23, ADR-0013 D2).
+- Licence : **Apache 2.0** — voir [`LICENSE`](LICENSE) ; le code dérivé de `bigfft` reste sous
+  BSD-3-Clause, voir [`NOTICE`](NOTICE).
 
 ### Remerciements
 

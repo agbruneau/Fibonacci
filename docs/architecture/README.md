@@ -12,7 +12,7 @@ Ce répertoire contient la documentation architecturale détaillée du projet Fi
 > pas garanti. Il n'existe **pas** deux vues concurrentes de l'architecture : `ARCH.md`
 > cite ces figures au lieu d'en redessiner de secondes, et chaque figure indique en pied
 > de page la section qui la commente. La correspondance complète est la
-> [carte des figures](../ARCH.md#0-carte-des-figures). Un changement de forme se corrige
+> [carte des figures](../ARCH.md#0-figure-map). Un changement de forme se corrige
 > **dans la figure d'abord**, puis dans la légende.
 
 > **Format des diagrammes.** Les dix diagrammes sont des fichiers `.md` dont le corps est un

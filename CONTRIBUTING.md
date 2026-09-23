@@ -291,11 +291,18 @@ The project uses the Decorator pattern. To add a new algorithm, you only need to
    at reports that no longer existed anywhere in the tree; the index and that
    rule are what make them resolvable (audit DOC-01).
 
-4. **Language.** Narrative documentation — `README.md`, `CHANGELOG.md`, the
-   ADRs, `docs/*.md` — is written in **French**. Code, comments, identifiers,
-   error messages, linter configuration and commit subjects are in **English**.
-   The corpus was mixed with no stated rule, `docs/ARCH.md` alternating between
-   the two inside one document (audit DOC-02, ADR-0012 D4).
+4. **Language.** The language follows the genre of the document:
+   - **French** for narrative: `README.md`, `CHANGELOG.md`, the ADRs
+     (`docs/adr/`) and the audit and evaluation reports (`docs/audits/`);
+   - **English** for technical reference: `docs/*.md`, `docs/algorithms/`,
+     `docs/architecture/`, and for code, comments, identifiers, error
+     messages, linter configuration and commit subjects.
+
+   A document stays in one language; it does not alternate inside itself.
+   Amended on 2026-09-23 (ADR-0013 D2, EVAL-19): the 2026-09-07 rule put all of
+   `docs/*.md` in French (ADR-0012 D4), and thirteen reference documents never
+   followed it. The amended rule describes the corpus instead of being ignored
+   by it.
 
 5. **Error Handling**: Use the `internal/apperrors` package for custom errors
 
