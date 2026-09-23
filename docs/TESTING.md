@@ -159,7 +159,7 @@ today is **not** what "fuzz testing" usually means.
 > `defaultFFTThresholdWords`, and a replay covers `fftmul` and `fftsqr` at
 > 100 % of statements (`go test -run 'Fuzz(Mul|Sqr)' -coverprofile`).
 >
-> **No crasher has ever been committed.** All 15 files under
+> **No crasher has ever been committed.** The 3 files under
 > `internal/fibonacci/testdata/fuzz/` are hand-written seeds from one commit
 > (`8810795`, 2026-04-18); none is a minimized failure
 > (`git log --diff-filter=A -- internal/fibonacci/testdata/fuzz`). The first
@@ -167,37 +167,32 @@ today is **not** what "fuzz testing" usually means.
 
 The "Seeds" column below counts inputs replayed by `go test` and, after the
 slash, the inputs the fuzzing engine keeps after deduplication (see
-[Seed corpus](#seed-corpus-two-sources-12-duplicates)).
+[Seed corpus](#seed-corpus-two-sources-no-duplicates)).
 
 | Fuzz Test | Package | Strategy | Input Limit | Seeds (replayed / unique) |
 |-----------|---------|----------|-------------|---------------------------|
-| `FuzzFastDoublingConsistency` | `internal/fibonacci` | Cross-validates Fast Doubling vs Matrix | n up to **200 000** (raised from 50 000 to exercise the FFT regime) | 17 / 14 |
-| `FuzzFFTBasedConsistency` | `internal/fibonacci` | Cross-validates FFT vs Fast Doubling | n up to **200 000** (raised from 20 000) | 9 / 6 |
-| `FuzzFibonacciIdentities` | `internal/fibonacci` | Verifies mathematical identities | n up to 10,000 | 13 / 11 |
-| `FuzzProgressMonotonicity` | `internal/fibonacci` | Ensures progress is monotonically increasing | n 10 to 20,000 | 7 / 4 |
-| `FuzzFastDoublingMod` | `internal/fibonacci` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B | 7 / 6 |
+| `FuzzFastDoublingConsistency` | `internal/fibonacci` | Cross-validates Fast Doubling vs Matrix | n up to **200 000** (raised from 50 000 to exercise the FFT regime) | 14 / 14 |
+| `FuzzFFTBasedConsistency` | `internal/fibonacci` | Cross-validates FFT vs Fast Doubling | n up to **200 000** (raised from 20 000) | 6 / 6 |
+| `FuzzFibonacciIdentities` | `internal/fibonacci` | Verifies mathematical identities | n up to 10,000 | 11 / 11 |
+| `FuzzProgressMonotonicity` | `internal/fibonacci` | Ensures progress is monotonically increasing | n 10 to 20,000 | 4 / 4 |
+| `FuzzFastDoublingMod` | `internal/fibonacci` | Validates modular Fast Doubling output range | n up to 100,000, mod up to 1B | 6 / 6 |
 | `FuzzMul` | `internal/bigfft` | Cross-validates `bigfft.Mul` against `math/big.Int.Mul`. Seeds straddle the crossover: one pair just below it, one pair one word above (`Mul` dispatches to `mulFFT` only when **both** operands exceed `defaultFFTThresholdWords`), one well inside the FFT regime, and one asymmetric pair that must still agree through the non-FFT branch. | operand size up to 32 000 bytes (= 4 000 words) | 8 |
 | `FuzzSqr` | `internal/bigfft` | Cross-validates `bigfft.Sqr` against `math/big` squaring, with seeds on both sides of the FFT threshold | operand size up to 32 000 bytes | 7 |
 
 Fibonacci targets live in `internal/fibonacci/fibonacci_fuzz_test.go`;
 `bigfft` targets in `internal/bigfft/fft_fuzz_test.go`.
 
-### Seed corpus: two sources, 12 duplicates
+### Seed corpus: two sources, no duplicates
 
 Seeds come from two places: the `f.Add(...)` calls inside each target, and the
 persistent files under `<pkg>/testdata/fuzz/<TargetName>/`. `go test` replays
-both, so a value present in both is executed twice (63 subtests); the fuzzing
-engine deduplicates before mutating (51 unique inputs — read off the
-`gathering baseline coverage: 0/N` line of a `go test -run '^$' -fuzz='^<Target>$'
--fuzztime=1x` run, one per target, 2026-09-04).
-
-The 12-input gap is not noise: **12 of the 15 persistent files repeat a value
-already passed to `f.Add` in the same target.** `FuzzFastDoublingConsistency`
-(seeds 0, 93, 5000), `FuzzFFTBasedConsistency` (0, 1, 5000) and
-`FuzzProgressMonotonicity` (100, 1000, 10000) contribute **zero** new inputs
-through `testdata/`. Only three files add anything the target did not already
-carry in code: `FuzzFastDoublingMod/seed-small`,
-`FuzzFastDoublingMod/seed-large-mod` and `FuzzFibonacciIdentities/seed-doubling`.
+both. Until 2026-09-23, 12 of the 15 persistent files repeated a value already
+passed to `f.Add` in the same target, so 63 replayed subtests carried 51 unique
+inputs. Those 12 files were removed (EVAL-14); the 3 that remain each add an
+input the target does not carry in code — `FuzzFastDoublingMod/seed-small`,
+`FuzzFastDoublingMod/seed-large-mod` and `FuzzFibonacciIdentities/seed-doubling`
+— and a replay now runs 51 subtests, 51 distinct inputs
+(`go test -run '^Fuzz' -v ./internal/fibonacci/`, counted per target).
 `internal/bigfft` has no `testdata/fuzz/` directory at all — `FuzzMul` and
 `FuzzSqr` run their five in-code seeds and nothing else.
 
