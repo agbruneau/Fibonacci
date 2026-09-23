@@ -29,27 +29,22 @@ import (
 	"github.com/ncw/gmp"
 )
 
-// globalFactory is the package-level factory this file's init() registers the
-// GMP calculator into. It lives here, behind the gmp build tag, because the
-// default build has no global factory — app.New builds its own via
-// NewDefaultFactory (OVR-06 removed the exported GlobalFactory/RegisterCalculator
-// accessors, but the gmp init still needs a target factory).
-var globalFactory = NewDefaultFactory()
-
 // RegisterGMPCalculator registers the GMP calculator in the given factory.
 //
 // Register validates its input since audit API-02 and can now fail — on a
 // duplicate name, in practice. Calling this twice on the same factory is a
-// programmer error, and it runs from init() where there is no caller to return
-// to, so it panics rather than registering nothing in silence.
+// programmer error, and it runs inside NewDefaultFactory where there is no
+// caller to return to, so it panics rather than registering nothing in silence.
 func RegisterGMPCalculator(f *DefaultFactory) {
 	if err := f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} }); err != nil {
 		panic(fmt.Sprintf("fibonacci: registering gmp calculator: %v", err))
 	}
 }
 
+// Until 2026-09-23 this init registered into a private factory nothing ever
+// read, so `-algo gmp` was unreachable even with the tag (EVAL-23).
 func init() {
-	RegisterGMPCalculator(globalFactory)
+	taggedRegistrations = append(taggedRegistrations, RegisterGMPCalculator)
 }
 
 // GMPCalculator implements the Fibonacci calculation using the GMP library.

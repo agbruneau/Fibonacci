@@ -5,6 +5,7 @@ package fibonacci
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 )
 
@@ -113,22 +114,31 @@ func TestGMPCalculator_CrossValidateFastDoubling(t *testing.T) {
 	}
 }
 
-// BenchmarkGMPCalculator benchmarks the GMP calculator for various input sizes.
-// This allows comparison with other calculator implementations.
+// TestDefaultFactory_ListsGMP guards EVAL-23: under the gmp tag, the factory
+// the binary builds must offer "gmp", or `-algo gmp` is refused.
+func TestDefaultFactory_ListsGMP(t *testing.T) {
+	t.Parallel()
+
+	if !slices.Contains(NewDefaultFactory().List(), "gmp") {
+		t.Fatalf("NewDefaultFactory().List() = %v, want it to contain \"gmp\"", NewDefaultFactory().List())
+	}
+}
+
+// BenchmarkGMPCalculator runs the GMP calculator through the same harness and
+// sizes as BenchmarkFibonacci, so `FastDoubling/1M` and `GMPCalculator/1M`
+// compare the same work (EVAL-07). GMPCalculator is the same doubling loop on
+// mpz integers, not mpz_fib_ui.
 func BenchmarkGMPCalculator(b *testing.B) {
-	calc := &GMPCalculator{}
-	ctx := context.Background()
-	noopReporter := func(float64) {}
-	opts := Options{}
-
-	benchmarks := []uint64{100, 1000, 10000}
-
-	for _, n := range benchmarks {
-		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				_, _ = calc.CalculateCore(ctx, noopReporter, n, opts)
-			}
+	calc := MustNewCalculator(&GMPCalculator{})
+	for _, bm := range []struct {
+		name string
+		n    uint64
+	}{
+		{"1M", 1_000_000},
+		{"10M", 10_000_000},
+	} {
+		b.Run(bm.name, func(b *testing.B) {
+			runBenchmark(b, calc, bm.n)
 		})
 	}
 }

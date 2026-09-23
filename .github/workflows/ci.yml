@@ -141,6 +141,25 @@ jobs:
       - run: go build -tags gmp ./...
       - run: go vet -tags gmp ./internal/fibonacci/
       - run: go test -tags gmp -race -shuffle=on -count=1 ./internal/fibonacci/
+      # `-algo gmp` must be reachable from the binary, not only from tests
+      # (EVAL-23): `-algo all` has to compare four calculators.
+      - name: -algo all runs four calculators
+        run: |
+          out="$(NO_COLOR=1 go run -tags gmp ./cmd/fibcalc -n 100000 -algo all)"
+          echo "$out"
+          test "$(echo "$out" | grep -c 'Success$')" -eq 4
+      # External reference measurement (EVAL-07): the same doubling loop on
+      # GMP's mpz against math/big, same harness and sizes.
+      - name: benchmark fast doubling against GMP
+        run: |
+          { go version; echo "runner: ${RUNNER_OS} ${RUNNER_ARCH}, nproc $(nproc)"; \
+            grep -m1 'model name' /proc/cpuinfo; echo "commit: ${GITHUB_SHA}, run: ${GITHUB_RUN_ID}"; \
+            go test -tags gmp -bench='BenchmarkFibonacci/FastDoubling|BenchmarkGMPCalculator' \
+              -benchmem -run='^$' -count=5 -benchtime=1x ./internal/fibonacci/; } | tee bench-gmp.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bench-gmp
+          path: bench-gmp.txt
 
   # 32-bit compile check only (no test run): the package must at least build
   # where int is 32 bits. This job is what audit TYP-01 was invisible without —

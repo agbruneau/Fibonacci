@@ -50,28 +50,23 @@ When built with `-tags=gmp`, the GMP calculator auto-registers itself via an `in
 ```go
 //go:build gmp
 
-func RegisterGMPCalculator(f *DefaultFactory) {
-    f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })
-}
-
 func init() {
-    RegisterGMPCalculator(globalFactory)
+    taggedRegistrations = append(taggedRegistrations, RegisterGMPCalculator)
 }
 ```
 
-The `init()` only targets the package-private `globalFactory` kept for gmp builds. A factory you build yourself with `fibonacci.NewDefaultFactory()` pre-registers `"fast"`, `"matrix"` and `"fft"` only; add the `"gmp"` algorithm to it explicitly with `fibonacci.RegisterGMPCalculator(factory)`.
+`NewDefaultFactory()` applies every entry of `taggedRegistrations` after the three built-ins, so in a `-tags gmp` build each factory — including the one `app.New` builds — offers `"gmp"`: `fibcalc -algo gmp` works and `-algo all` compares four calculators. Until 2026-09-23 the `init()` registered into a private factory nothing read, and the CLI refused `-algo gmp` even with the tag (EVAL-23).
 
 ## Usage
 
 ### Go API
 
 ```go
-// RegisterGMPCalculator only exists when built with -tags=gmp
+// "gmp" is registered only when built with -tags=gmp
 factory := fibonacci.NewDefaultFactory()
-fibonacci.RegisterGMPCalculator(factory)
 calc, err := factory.Get("gmp")
 if err != nil {
-    // "gmp" not registered in this factory
+    // built without the gmp tag
 }
 // nil progress channel disables progress reporting; to receive updates,
 // pass a chan<- progress.ProgressUpdate (package internal/progress)
@@ -91,12 +86,10 @@ go test -tags=gmp -bench=BenchmarkGMP -benchmem ./internal/fibonacci/
 go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/
 ```
 
-> **The two benchmarks share no N, so that last command does not compare
-> anything.** `BenchmarkGMPCalculator` (`calculator_gmp_test.go`) runs
-> n = 100 / 1,000 / 10,000 through `CalculateCore` directly;
-> `BenchmarkFibonacci` (`fibonacci_test.go`) runs n = 1,000,000 / 10,000,000
-> through the `Calculator` wrapper. A real head-to-head requires editing one of
-> the two size lists so they overlap.
+`BenchmarkGMPCalculator` (`calculator_gmp_test.go`) runs n = 1,000,000 and
+10,000,000 through the same `Calculator` wrapper and harness (`runBenchmark`) as
+`BenchmarkFibonacci`, so `GMPCalculator/1M` and `FastDoubling/1M` measure the
+same work (aligned on 2026-09-23, EVAL-07; before that the two shared no N).
 
 ## Performance
 
@@ -113,8 +106,6 @@ crosses the CGO boundary (`internal/fibonacci/calculator_gmp.go`), so a per-call
 cost exists — its size, and where it stops mattering, are unmeasured here.
 
 To produce a real number, install the headers (`sudo apt-get install libgmp-dev`),
-make the two benchmarks meet at a common N (see the note under
-[Running Tests with GMP](#running-tests-with-gmp) — as committed they do not),
 run
 
 ```bash

@@ -22,6 +22,12 @@ type DefaultFactory struct {
 	calculators map[string]Calculator
 }
 
+// taggedRegistrations lists the calculators that exist only under a build
+// tag. Each tagged file appends its registration from init(), so every factory
+// NewDefaultFactory builds carries it; the default build leaves it empty. This
+// is what makes `-algo gmp` reachable with `-tags gmp` (EVAL-23).
+var taggedRegistrations []func(*DefaultFactory)
+
 // NewDefaultFactory creates a new DefaultFactory with the standard
 // Fibonacci calculator implementations pre-registered.
 //
@@ -29,6 +35,7 @@ type DefaultFactory struct {
 //   - "fast": FastDoublingCalculator (O(log n), Parallel, Zero-Alloc)
 //   - "matrix": MatrixExponentiationCalculator (O(log n), Parallel, Zero-Alloc)
 //   - "fft": FFTBasedCalculator (O(log n), FFT-accelerated)
+//   - "gmp": GMPCalculator, only in a build with the gmp tag
 //
 // Returns:
 //   - *DefaultFactory: A new factory with default calculators registered.
@@ -55,6 +62,9 @@ func NewDefaultFactory() *DefaultFactory {
 		if err := f.Register(b.name, b.creator); err != nil {
 			panic(fmt.Sprintf("fibonacci: registering built-in calculator %q: %v", b.name, err))
 		}
+	}
+	for _, register := range taggedRegistrations {
+		register(f)
 	}
 
 	return f

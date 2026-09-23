@@ -465,9 +465,9 @@ suivre §§6–8 :
   transportent la progression jusqu'au CLI ou à la TUI ([§6](#progress-propagation-flow)).
 - **Factory + Registry** — `DefaultFactory` construit et met en cache les calculateurs.
   C'est le point d'extension documenté : ajouter un algorithme, c'est `Register` sur une
-  fabrique obtenue de `NewDefaultFactory()`. Attention, `-algo gmp` **ne marche pas** pour
-  autant, même avec le tag de build — voir la ligne `-algo` en
-  [§9](#core-cli-flags-selected) et [§12](#gmp-build-tag).
+  fabrique obtenue de `NewDefaultFactory()`. Un calculateur qui n'existe que sous un tag
+  de build s'ajoute à `taggedRegistrations` depuis son `init()` : c'est ainsi que
+  `-algo gmp` fonctionne avec `-tags gmp` ([§12](#gmp-build-tag)).
 
 ---
 
@@ -859,10 +859,11 @@ Implementations:
 NewDefaultFactory()
    ├─ Register("fast", → FastDoublingCalculator)
    ├─ Register("matrix", → MatrixExponentiationCalculator)
-   └─ Register("fft", → FFTBasedCalculator)
+   ├─ Register("fft", → FFTBasedCalculator)
+   └─ for each taggedRegistrations entry: register(f)
 
 init() [in calculator_gmp.go, build tag: gmp]
-   └─ RegisterGMPCalculator(globalFactory) → Register("gmp", → GMPCalculator)
+   └─ taggedRegistrations += RegisterGMPCalculator → Register("gmp", → GMPCalculator)
 
 Get(name) → lazy creation + double-check locking cache
 GetAll() → lazily initializes all, returns copy
@@ -991,7 +992,7 @@ the `"matrix"` calculator when it is registered
 | Flag | Meaning |
 |---|---|
 | `-n` | Fibonacci index (default: 100,000,000) |
-| `-algo` | `all`, `fast`, `matrix`, `fft`. **Not `gmp`**: `app.New` builds its own factory with `fibonacci.NewDefaultFactory()` (`internal/app/app.go:New`), which registers `fast`/`matrix`/`fft` only (`internal/fibonacci/registry.go:NewDefaultFactory`). The `-tags gmp` `init()` registers into the package-private `globalFactory`, which nothing reads (`internal/fibonacci/calculator_gmp.go`, its `globalFactory` var and `init`). To use it, call `fibonacci.RegisterGMPCalculator` on your own factory — see [`docs/algorithms/GMP.md`](algorithms/GMP.md). |
+| `-algo` | `all`, `fast`, `matrix`, `fft`, and `gmp` in a `-tags gmp` build: `calculator_gmp.go`'s `init()` appends to `taggedRegistrations`, which every `NewDefaultFactory()` applies (`internal/fibonacci/registry.go`). Until 2026-09-23 that `init()` registered into a private factory nothing read, and `-algo gmp` was refused even with the tag (EVAL-23). |
 | `-timeout` | Global execution timeout (default: 5m) |
 | `-threshold` | Parallelism threshold (bits), `0` = auto, `-1` = disabled (audit H-02) |
 | `-fft-threshold` | FFT threshold (bits), `0` = auto, `-1` = disabled (audit H-02) |
@@ -1157,10 +1158,9 @@ Build-time version injection via linker flags:
 go build -tags=gmp -o fibcalc ./cmd/fibcalc
 ```
 
-- The `init()` in that file registers a `gmp` algorithm at load time — but into
-  the package-private `globalFactory`, which no production code reads. `-algo
-  gmp` therefore stays unavailable even with the tag on; see the `-algo` row in
-  [§9](#core-cli-flags-selected).
+- The `init()` in that file appends `RegisterGMPCalculator` to
+  `taggedRegistrations`, so `-algo gmp` is available and `-algo all` compares
+  four calculators; the CI `gmp` job checks both (EVAL-23).
 
 ### Linting and security
 - `.golangci.yml` configures comprehensive linting rules — **schema v2** since audit GATE-01
