@@ -47,5 +47,5 @@ numéro 0010 a été réutilisé pour 0010-audit-2026-09-decisions.md, puis 0011
 attribué à l'ADR suivant (commit d2aa36a). Deux documents distincts ont donc
 porté le numéro 0010 dans l'historique git. Renuméroter l'ADR-0010 courant
 casserait ses renvois depuis le CHANGELOG, le README et les ADR 0001/0011 :
-décision laissée au mainteneur. Prochain numéro libre : 0012. -->
+décision laissée au mainteneur. Prochain numéro libre : 0014 (révisé 2026-09-23). -->
 

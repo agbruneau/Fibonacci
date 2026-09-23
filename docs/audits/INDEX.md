@@ -33,6 +33,7 @@ Un identifiant n'est admis que si son préfixe figure dans le tableau ci-dessous
 | `F-` | Correctifs de fonctionnement relevés par l'audit loop (2026-06-10), p. ex. `F-012` | `CHANGELOG.md`, section « Audit loop (2026-06-10) » |
 | `ARCH-` | Constats de couches, campagne Fable5 (2026-07) | `CHANGELOG.md`, section « Vague post-v4.0.0 — audit Fable5 » |
 | `P0-`, `P1-`, `P2-`, `P3-` | Audit remediation (mai 2026), lots de priorité 0 à 3 | `CHANGELOG.md`, section « Audit remediation (May 2026) » |
+| `EVAL-` | Évaluation académique 2026-09-15 (grille universitaire C1–C10), tâches du plan d'exécution | [`evaluation-academique-2026-09-15.md`](evaluation-academique-2026-09-15.md), plan [`plan-evaluation-2026-09-15.md`](plan-evaluation-2026-09-15.md), décisions dans [ADR-0013](../adr/0013-evaluation-2026-09-decisions.md) |
 | `ADR-00NN` | Décision d'architecture | [`docs/adr/`](../adr/) |
 
 Une décision notée `D1`…`D5` sans autre contexte appartient à l'ADR cité dans la
