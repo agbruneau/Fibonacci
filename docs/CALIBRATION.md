@@ -61,6 +61,162 @@ opts := fibonacci.Options{
 
 When operand bit sizes exceed a threshold, the corresponding optimization is activated. Setting a threshold to `0` means "use the package default" — `normalizeOptions()` rewrites `0` to `DefaultParallelThreshold`/`DefaultFFTThreshold`/`DefaultStrassenThreshold`. The genuine sequential value is `-1`, `config.ThresholdDisabled` (FIB-02), accepted by `config.Validate` for the parallel and FFT thresholds since the 2026-09 audit (H-02) but not for Strassen, whose consumer compares `maxBitLen <= threshold` and would therefore read a negative value as "always Strassen". Higher values delay activation to larger operand sizes.
 
+### Where the Defaults Come From
+
+None of the three defaults was measured. Git history does not explain them:
+they arrived with the initial import (`5bfc50e`). For each one, this section
+states the argument that places it, labelled as an argument. That is a cost
+model or, for the FFT, an exponent count in the manner of the GMP manual's
+"FFT Multiplication" chapter. Each argument is then set against what was
+measured: the upstream calibrations the code inherits, and one short run on one
+host (see [Measurement](#measurement) for what it can and cannot support).
+The `math/big` facts refer to Go 1.27, `$GOROOT/src/math/big/natmul.go`.
+
+**Parallel: 4096 bits.**
+`shouldParallelizeMultiplicationCached` compares the larger doubling operand
+with `ParallelThreshold`. Above it, `executeParallel3` runs F(k)·F(k+1),
+F(k+1)² and F(k)² on three goroutines. The matrix path applies the same gate to
+its 7 or 8 products; that path was not measured here.
+
+- *Argument.* Let T be the sequential time of the three operations and D the
+  cost of dispatching them. The parallel time is about T/3 + D, so parallelism
+  wins once T > 1.5·D. At 4096 bits (64 words), the product gets one Karatsuba
+  level (`karatsubaThreshold = 40` words) and the two squares get schoolbook
+  squaring: `big.Int.Mul(x, x)` routes to `sqr`, and 64 words lies between
+  `basicSqrThreshold = 12` and `karatsubaSqrThreshold = 80`. The two inputs of
+  the model were timed on the host: D ≈ 1.6 µs (parallel time at 512 bits,
+  where the operations take 0.1 µs), and T = 1.0 µs at 2048 bits, 3.6 µs at
+  4096 bits. The model therefore puts the crossover between 2048 and 4096
+  bits, where the default sits.
+- *Measurement.* The model's one assumption fails: D is not constant. At 4096
+  bits the parallel step takes 6.1 µs, although its longest operation, the
+  product, takes 1.4 µs. That is about 4.7 µs of dispatch, three times the
+  512-bit figure. The run does not show why. As a result, parallel loses 1.7×
+  at 4096 bits and 1.3× at 8192. The two are tied at 16,384 bits, and parallel
+  wins 2.1× at 65,536, against a ceiling of 3× for three operations. On this
+  host, the argument gets the decade of the default right, and the crossover is
+  4 to 16 times higher.
+
+**FFT: 500,000 bits.**
+`smartMultiply` sends a product to `internal/bigfft` when both operands exceed
+`FFTThreshold`. `smartSquare` does the same for a square whose operand exceeds
+it. Below the threshold, `math/big` runs schoolbook multiplication under 40
+words and Karatsuba, O(n^log2 3), above; it has no Toom-3. `bigfft` multiplies
+modulo 2^N+1, splitting the operands into 2^k pieces. `fftSize` picks k from
+`fftSizeThreshold` according to bits(x)+bits(y). `fermat.Mul` hands each
+pointwise product back to `math/big`, so the FFT never recurses into itself.
+
+- *Argument.* For a full product, an FFT with 2^k pieces does 2^k pointwise
+  products. Each one is about 1/2^(k−2) of the operand size: pieces of
+  m ≈ (len x + len y)/2^k words, and coefficients of about 2m words
+  (`valueSize`). If the pointwise products used the same method, the cost
+  would grow as N^(k/(k−2)). That gives 1.667 for k = 5, 1.5 for k = 6, 1.4
+  for k = 7 and 1.333 for k = 8. The first FFT under Karatsuba's 1.585 is
+  k = 6. The count leaves out the transforms' shifts and additions, which is
+  why practice lands higher.
+- *Observed.* `bigfft` has its own threshold, `defaultFFTThresholdWords =
+  1800` words (115,200 bits). Its comment credits this to an upstream
+  `TestCalibrate` run ("110kbits on 64-bit arches"); that test is not in this
+  repo. At that size `fftSize` picks k = 8: 256 pointwise products of 31-word
+  coefficients. That is two steps past the argument, the same gap the GMP
+  manual reports against Toom-3, where k = 7 is predicted and k = 8 found. The
+  host run agrees with the upstream figure: `math/big` wins at 1000 words and
+  `bigfft` at 1800 words, for products and squares, on 1 thread and on 24.
+- *The default.* 500,000 bits (7813 words) is 4.3× the `bigfft` threshold.
+  There, `fftSize` picks k = 9, with 512 pieces and 64-word coefficients.
+  Neither the argument nor the measurement singles this size out. At 8000
+  words (512,000 bits), `bigfft` is 2.4× faster for products and 2.3× for
+  squares on 24 threads, and 3.0× and 2.8× on 1 thread. The default is a
+  safety margin, not a crossover, and no reason for its size survives. One
+  effect was not measured: `executeDoublingStepFFT` reuses forward transforms
+  across the three operations. By inference, that should favour the FFT
+  further.
+
+**Strassen: 3072 bits.**
+`multiplyMatrices` compares the largest entry with `StrassenThreshold`. Only
+the res×p step reaches it; squaring goes through `squareSymmetricMatrix`. The
+classic path does 8 products and 4 additions on product-sized values.
+Strassen-Winograd does 7 products and 15 additions or subtractions: S1–S8 on
+entries, and 7 on products.
+
+- *Argument.* Strassen's exponent, log2 7 ≈ 2.807, does not apply. With one
+  level on a 2×2 matrix, the method saves exactly one product in eight, so the
+  gain is capped at 12.5%. Winograd wins once one entry-sized product M(s)
+  costs more than the extra linear work, 8·A(s) + 3·A(2s), where A is one
+  `big.Int` addition. With `big.Int` timings from the host, the comparison
+  runs as follows. At 512 bits, M = 35 ns against 68 ns of extra additions.
+  At 1024 bits, M = 130 ns against 85 ns. The crossover therefore lies
+  between 512 and 1024 bits. At 3072 bits, M = 773 ns, 3.8 times the 204 ns
+  of extra additions.
+- *Measurement.* It agrees with the argument, not with the default. Classic
+  is 1.65× faster at 256 bits and 1.12× at 512. From 1024 to 16,384 bits,
+  3072 included, Winograd is 9–13% faster, close to the 12.5% cap. At 3072
+  bits the argument predicts a saving of 0.57 µs, and 0.66 µs was measured.
+  The default has no derivation. It sits 3 to 6 times above the crossover, so
+  every res×p step whose entries fall between about 1024 and 3072 bits pays
+  roughly 10% more than it would with Winograd.
+
+These estimators matter more than the constants for the CLI. Without a cached
+profile, `internal/app/app.go` calls `config.ApplyAdaptiveThresholds` before
+`normalizeOptions` runs, so a CLI run gets the estimates. The constants mainly
+reach library callers. The no-benchmark estimators in
+`internal/config/thresholds.go` go against these measurements on a many-core
+host.
+`EstimateOptimalParallelThreshold` returns 512 bits above 16 CPUs; at that size
+parallel measured 15 times slower. `EstimateOptimalStrassenThreshold` returns
+224 to 256 bits with 4 or more CPUs; classic measured 1.65 times faster at 256.
+`EstimateOptimalFFTThreshold` returns 460,000 to 500,000 bits. This is one host,
+so the mismatch is reported here, not corrected.
+
+#### Measurement
+
+The run took place on 2026-09-23: an Intel Core Ultra 9 275HX (24 cores, 24
+threads) under Windows 11, with `go1.27.0 windows/amd64` and `GOMAXPROCS=24`
+unless noted otherwise. The benchmarks were written for this evaluation and
+kept out of the repo: `go test -overlay` injects them without adding a
+source file.
+
+- *Parallel.* The three `big.Int.Mul` calls of a doubling step, first in
+  sequence, then through `executeParallel3`. Operands are random at the given
+  size and destinations are reused. Run with `-bench Eval08Parallel
+  -benchtime=200ms -count=3` on `./internal/fibonacci/`.
+- *Strassen.* `multiplyMatrix2x2` against `multiplyMatrixStrassen`, sequential
+  (at 3072 bits `ParallelThreshold` keeps the step sequential anyway), on
+  random entries. Run with `-bench Eval08Strassen -benchtime=300ms -count=8`.
+- *FFT.* `big.Int.Mul` against `bigfft.MulTo`/`SqrTo` with `SetFFTThreshold(0)`.
+  Run with `-bench Eval08FFT -benchtime=200ms -count=3` on `./internal/bigfft/`,
+  once as is and once with `-cpu=1`. On 24 threads the `bigfft` transform
+  recursion is itself parallel (`fft_recursion.go`: k ≥ 4, depth ≤ 3), as in
+  production.
+- *Model inputs.* `big.Int.Mul` and `big.Int.Add` in a scratch module, run with
+  `-benchtime=200ms -count=3`.
+
+| Threshold | Size | Default side | Other side | Faster |
+|-----------|------|--------------|------------|--------|
+| Parallel (seq / par) | 512 bits | 0.11 µs | 1.6 µs | seq 15× |
+| | 2048 bits | 1.0 µs | 3.9 µs | seq 3.9× |
+| | 4096 bits | 3.6 µs | 6.1 µs | seq 1.7× |
+| | 8192 bits | 10.3 µs | 13.1 µs | seq 1.3× |
+| | 16,384 bits | 33 µs | 36 µs | tie (runs overlap) |
+| | 65,536 bits | 488 µs | 237 µs | par 2.1× |
+| Strassen (classic / Winograd) | 256 bits | 0.33 µs | 0.54 µs | classic 1.65× |
+| | 512 bits | 0.72 µs | 0.81 µs | classic 1.12× |
+| | 1024 bits | 1.16 µs | 1.06 µs | Winograd 1.10× |
+| | 3072 bits | 6.38 µs | 5.72 µs | Winograd 1.12× |
+| | 16,384 bits | 98.2 µs | 88.2 µs | Winograd 1.11× |
+| FFT product (math/big / bigfft; 1 thread in parentheses) | 1000 words | 131 (112) µs | 286 (193) µs | math/big 2.2× (1.7×) |
+| | 1800 words | 472 (313) µs | 377 (249) µs | bigfft 1.25× (1.26×) |
+| | 8000 words | 4726 (3470) µs | 1942 (1166) µs | bigfft 2.4× (3.0×) |
+| FFT square | 1000 words | 91 (81) µs | 269 (172) µs | math/big 3.0× (2.1×) |
+| | 1800 words | 355 (315) µs | 316 (186) µs | bigfft 1.12× (1.69×) |
+| | 8000 words | 3709 (2380) µs | 1638 (863) µs | bigfft 2.3× (2.8×) |
+
+The figures are medians of 3 runs (8 for Strassen), from one session, without
+`benchstat` and without a pinned CPU frequency. Where runs overlap, as for
+parallel at 16,384 bits, the run cannot rank the alternatives; where they do
+not, it can. The figures place the defaults relative to the crossovers on one
+host. They are not portable values; calibration measures those.
+
 ## Calibration Modes
 
 ### Full Calibration

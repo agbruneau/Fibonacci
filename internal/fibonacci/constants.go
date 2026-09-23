@@ -12,36 +12,85 @@ import "github.com/agbruneau/FibGo/internal/fibonacci/fibmath"
 // values — no benchmark in this repo pins any of them, and the calibration
 // subsystem (internal/calibration) exists precisely to replace them with
 // values measured on the host.
+//
+// Each comment below separates the ARGUMENT that places the value (a cost
+// model, not a measurement) from what a measurement says. The numbers, their
+// sources and the one-host measurement are in docs/CALIBRATION.md, § "Where
+// the Defaults Come From". Git history does not explain any of the three
+// values: they arrived with the initial import (5bfc50e).
+//
+// The CLI rarely sees these values. Without a cached profile,
+// config.ApplyAdaptiveThresholds (called from internal/app/app.go) first
+// fills every zero threshold with a hardware estimate. Only the one-CPU
+// parallel estimate, which is 0, falls through to here. The values mainly
+// reach library callers that leave Options at 0.
 
 const (
-	// DefaultParallelThreshold is the default bit size threshold at which
-	// multiplications of large integers are parallelized across multiple cores.
-	// Below this threshold, the overhead of goroutine creation is expected to
-	// exceed the benefits of parallelism. 4096 is a conservative starting
-	// point, not a measured optimum; config.EstimateOptimalParallelThreshold
-	// refines it from core count and SIMD level, and calibration replaces it
-	// with a timed value.
+	// DefaultParallelThreshold is the operand size, in bits, above which the
+	// three multiplications of a doubling step (F(k)·F(k+1), F(k)², F(k+1)²)
+	// run on three goroutines via executeParallel3. The matrix path uses the
+	// same gate for its 7 or 8 products.
+	//
+	// Argument (a cost model, not a measurement of the threshold): parallelism
+	// saves at most two of the three operations. It pays once two of them cost
+	// more than the fixed dispatch cost (three goroutines, semaphore,
+	// wake-ups, WaitGroup). At 4096 bits (64 words), the three operations are
+	// one product with a single Karatsuba level (math/big
+	// karatsubaThreshold = 40 words) and two schoolbook squares
+	// (karatsubaSqrThreshold = 80 words). On the host in CALIBRATION.md each
+	// took about 1 µs and the dispatch about 1.6 µs. That puts 4096 in the
+	// right decade; it does not pin it.
+	//
+	// Measurement: on one 24-thread host the dispatch cost was not fixed; it
+	// grew with operand size, and parallel was still 1.7x slower at 4096 bits.
+	// The two were tied at 16,384 bits and parallel won 2.1x at 65,536 bits.
 	DefaultParallelThreshold = 4096
 
-	// DefaultFFTThreshold is the default bit size threshold at which the
-	// algorithm switches from standard math/big multiplication to
-	// FFT-based multiplication (Schönhage-Strassen).
+	// DefaultFFTThreshold is the operand size, in bits, above which
+	// smartMultiply (both operands) and smartSquare hand the work to
+	// internal/bigfft (Schönhage-Strassen, O(n log n log log n)) instead of
+	// math/big (schoolbook below 40 words, Karatsuba O(n^1.585) above). bigfft has its
+	// own threshold, 1800 words = 115,200 bits (defaultFFTThresholdWords),
+	// under which it falls back to math/big; at 500,000 bits that one is not
+	// binding.
 	//
-	// Below this threshold, math/big's O(n^1.585) complexity (Karatsuba
-	// internally) wins on constant factors; above it, FFT's O(n log n) does.
-	// 500,000 bits is a deliberately conservative placement of that crossover,
-	// not a measured one — the actual crossover is host-dependent and is what
-	// (*MicroBenchmark).findFFTCrossover, in internal/calibration, measures.
+	// Argument (not a measurement): counted as in the GMP manual, an FFT of
+	// 2^k pieces for a full product does 2^k pointwise products, each about
+	// 1/2^(k-2) of the operand size. That is an O(N^(k/(k-2))) method, first
+	// below Karatsuba's exponent log2(3) ≈ 1.585 at k = 6 (1.5). The argument
+	// places the crossover no lower than k = 6. It says nothing that singles
+	// out 500,000 bits.
+	//
+	// Observed: bigfft's 1800 words rests on an upstream TestCalibrate run
+	// (the comment on defaultFFTThresholdWords; the test is not in this
+	// repo). There, fftSize picks k = 8, two steps past the argument, the same
+	// kind of gap GMP reports against Toom-3. 500,000 bits is 4.3x that
+	// threshold (k = 9). No rationale for the 4.3x survives. On one host,
+	// bigfft beat math/big from 1800 words on and was 2.3-3x faster at 8000
+	// words (512,000 bits). This default is conservative, not an estimate of
+	// the crossover. (*MicroBenchmark).findFFTCrossover, in
+	// internal/calibration, is what measures it.
 	DefaultFFTThreshold = 500_000
 
-	// DefaultStrassenThreshold is the default bit size threshold at which
-	// matrix multiplication switches to Strassen's algorithm.
+	// DefaultStrassenThreshold is the matrix-entry size, in bits, above which
+	// multiplyMatrices switches from the classic 2x2 product (8 products, 4
+	// additions) to Strassen-Winograd (7 products, 15 additions/subtractions:
+	// 8 on entries, 7 on products). Only the res×p step reaches it; squaring
+	// goes through squareSymmetricMatrix.
 	//
-	// Strassen reduces multiplications from 8 to 7 at the cost of more
-	// additions, so it only pays once the operands are large enough for a
-	// saved multiplication to outweigh the extra adds. 3072 bits is the
-	// default placement of that crossover; only CompleteStrategy calibration
-	// measures it (the micro-benchmarks do not exercise matrix multiplication).
+	// Argument (not a measurement): Winograd wins once one entry-sized product
+	// M(s) costs more than the extra linear work, about 8·A(s) + 3·A(2s)
+	// (A = one big.Int addition). With only one level on a 2x2 matrix, the
+	// log2(7) exponent does not apply. The gain is capped at one product in
+	// eight (12.5%). With math/big timings from one host, the argument puts
+	// the crossover between 512 and 1024 bits, not at 3072.
+	//
+	// Measurement on the same host agrees with the argument, not with this
+	// value. Classic was 1.12x faster at 512 bits. Winograd was 9-13% faster
+	// from 1024 bits on, 3072 included. So 3072 has no derivation, and it
+	// sits 3-6x above the measured crossover. Only CompleteStrategy
+	// calibration measures this threshold (the micro-benchmarks do not
+	// exercise matrix multiplication).
 	DefaultStrassenThreshold = 3072
 
 	// ParallelFFTThreshold is the bit size threshold above which parallel
