@@ -36,9 +36,9 @@ func TestCalculators_AboveDefaultFFTThreshold(t *testing.T) {
 	}
 
 	for _, core := range []CoreCalculator{&MatrixExponentiationCalculator{}, &FFTBasedCalculator{}} {
-		got, err := MustNewCalculator(core).Calculate(ctx, nil, 0, n, opts)
-		if err != nil {
-			t.Fatalf("%s F(%d) failed: %v", core.Name(), n, err)
+		got, calcErr := MustNewCalculator(core).Calculate(ctx, nil, 0, n, opts)
+		if calcErr != nil {
+			t.Fatalf("%s F(%d) failed: %v", core.Name(), n, calcErr)
 		}
 		if gotFD.Cmp(got) != 0 {
 			t.Errorf("FastDoubling and %s disagree at F(%d)", core.Name(), n)
