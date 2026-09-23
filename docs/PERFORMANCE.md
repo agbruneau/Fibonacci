@@ -10,9 +10,13 @@ This document describes the optimization techniques used in the Fibonacci Calcul
 
 `docs/audits/bench-baseline.txt` is the **only whole-calculator throughput
 baseline** tracked in the repository — the file `benchstat` compares against.
-The five other files under [`docs/audits/`](audits/) are targeted A/B runs (the
-now-removed dynamic thresholds, FFT cache, pool memclr, micro-benchmark stability) or a resident-memory reading,
-each cited where it is used; none of them measures whole-calculator throughput.
+Two other files time whole calculators without being baselines: the
+[scale curve](#scale-curve-four-sizes-one-host) (`bench-scale-2026-09.txt`) and
+the GMP reference (`bench-gmp-2026-09.txt`, read in
+[algorithms/GMP.md § Performance](algorithms/GMP.md#performance)). The rest of
+[`docs/audits/`](audits/) holds targeted A/B runs (the now-removed dynamic
+thresholds and their removal, FFT cache, pool memclr, micro-benchmark stability)
+or a resident-memory reading, each cited where it is used.
 Medians of the 5 samples per row, computed from
 that file — linux/amd64, 24 threads, `-count=5 -benchtime=1x`, header stamp
 `baseline-2026-07-07`:
@@ -29,8 +33,7 @@ is the slowest of the five — but **not** in the other two: in MatrixExp/1M the
 first sample (5,781,043 ns) is the second *lowest* of its five, and in FFTBased/1M
 the first sample (5,134,173 ns) is exactly the median. Counted from
 [`docs/audits/bench-baseline.txt`](audits/bench-baseline.txt). These
-are the numbers `benchstat` compares against, and the only ones in this document
-you can re-derive from a file in the tree.
+are the numbers `benchstat` compares against.
 
 ### What the removed historical tables left behind
 
@@ -40,12 +43,147 @@ archived. Re-checked on 2026-09-04 against the CPU the second one names, their
 magnitudes were off by 2× to 88×, so both were removed (EVAL-05). The one thing
 that check confirmed is the **ordering**: Fast Doubling ≤ FFT-Based < Matrix
 Exponentiation at N = 1M, 10M and 100M, on that host. The baseline table above
-agrees at 1M and 10M, and it is the only source of magnitudes in this section.
+agrees at 1M and 10M. The scale curve below, on the same CPU, agrees at 1M and
+100M; at 10M it separates only Fast Doubling from Matrix, and FFT-Based from
+neither.
 
 Fast Doubling is also the most **memory**-efficient: on the same baseline it
 allocates **~4.8×** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB)
 and **~5.3×** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op
 medians — total bytes allocated, not peak RSS.
+
+### Scale curve: four sizes, one host
+
+[`docs/audits/bench-scale-2026-09.txt`](audits/bench-scale-2026-09.txt) (EVAL-09)
+times `BenchmarkFibonacci` at N = 100K, 1M, 10M and 100M for the three
+calculators, 10 samples each — 120 result lines. It is a curve, **not** a
+regression baseline: host, OS and Go version all differ from
+`bench-baseline.txt`, and the 5 % rule below still compares against the baseline
+only. `benchstat` itself will not line the two files up (it keys results on
+`goos` and `cpu`, which differ), so a gap between them — FastDoubling/10M is
+32.28 ms here, 23.87 ms there — mixes host, OS, Go version and code, and is not a
+regression signal.
+
+From the artifact header (lines 2–6): `go1.27.0 windows/amd64`, Intel Core Ultra 9
+275HX, `GOMAXPROCS=24` (default), Windows 11, commit `751c1cc`, 2026-09-23, run
+with
+
+```bash
+go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' \
+    -benchmem -run='^$' -count=10 -benchtime=1x ./internal/fibonacci/
+```
+
+Every figure below is printed by
+
+```bash
+go run golang.org/x/perf/cmd/benchstat@v0.0.0-20260825160852-19be9d8e6c70 docs/audits/bench-scale-2026-09.txt
+```
+
+(prefix `MSYS_NO_PATHCONV=1` under Git Bash). Median, 95 % confidence interval,
+and median B/op in benchstat's binary units:
+
+| N | Fast Doubling | Matrix Exp. | FFT-Based |
+|---|---|---|---|
+| 100,000 | **143.2 µs ± 46 %** / 54.12 KiB | 342.8 µs ± 24 % / 382.7 KiB | 876.7 µs ± 25 % / 523.7 KiB |
+| 1,000,000 | **3.972 ms ± 27 %** / 1.270 MiB | 8.341 ms ± 8 % / 6.150 MiB | 5.853 ms ± 17 % / 5.157 MiB |
+| 10,000,000 | **32.28 ms ± 13 %** / 16.63 MiB | 35.23 ms ± 5 % / 84.95 MiB | 36.53 ms ± 13 % / 29.52 MiB |
+| 100,000,000 | **193.2 ms ± 11 %** / 561.5 MiB | 351.4 ms ± 19 % / 1.059 GiB | 272.0 ms ± 3 % / 347.1 MiB |
+
+**What is timed.** One `Calculate` call returning a `*big.Int` — no decimal
+conversion, no I/O — as wall time on 24 hardware threads. Fast Doubling runs its
+three products concurrently above `ParallelThreshold` (4,096 bits) except while
+the FFT is in play, where it waits for operands above `ParallelFFTThreshold`
+(5,000,000 bits); `internal/bigfft` recurses in parallel up to depth 3
+([FFT Parallelism](#fft-parallelism-bigfft-package)). No CPU time is recorded, so
+no figure here measures work; each measures elapsed time on this machine.
+
+**What `-benchtime=1x` does to it.** Each sample is one call. With `1x` the
+`testing` package keeps the result of its initial `N = 1` run and runs nothing
+else (`src/testing/benchmark.go`, `launch`: "If -benchtime=1x was requested, use
+that result"), so no warm-up iteration is discarded. It shows: the first sample
+is the slowest of its ten in 6 of the 12 groups (FastDoubling/100K, FFTBased/100K,
+FastDoubling/1M, MatrixExp/1M, MatrixExp/10M, MatrixExp/100M), and the largest on
+B/op in 5 — FastDoubling/100K's first sample allocates 836,168 B (line 11) against
+a 54.12 KiB median, MatrixExp/100M's 2,098,162,616 B (line 111) against 1.059 GiB.
+A median of ten is insensitive to one such sample, and so is benchstat's
+interval, which here runs from the 2nd to the 9th of the ten sorted values
+(checked against both FastDoubling/100K intervals). The ± 46 % on FastDoubling/100K
+time therefore comes from the spread of the other samples (118.0 to 209.4 µs), and
+the ± 151 % on its B/op from two more samples near 137 KB (lines 16–17): the 100K
+row is noisy beyond warm-up. Read it as an order of magnitude.
+
+**Ordering.** Pairwise, each group renamed so benchstat compares two files
+(Mann–Whitney U, 10 against 10):
+
+```bash
+f=docs/audits/bench-scale-2026-09.txt
+grep 'FastDoubling/10M-' $f | sed 's#FastDoubling/##' > a.txt
+grep 'MatrixExp/10M-'    $f | sed 's#MatrixExp/##'    > b.txt
+benchstat a.txt b.txt      # +9.13 % (p=0.035 n=10)
+```
+
+| N | Matrix vs Fast | FFT vs Fast | FFT vs Matrix |
+|---|---|---|---|
+| 100K | +139.43 % (p = 0.002) | +512.43 % (p = 0.000) | +155.78 % (p = 0.000) |
+| 1M | +110.01 % (p = 0.000) | +47.36 % (p = 0.000) | −29.83 % (p = 0.000) |
+| 10M | +9.13 % (p = 0.035) | ~ (p = 0.063) | ~ (p = 0.579) |
+| 100M | +81.91 % (p = 0.000) | +40.82 % (p = 0.000) | −22.59 % (p = 0.000) |
+
+Twelve tests are read together, so each p-value is held to the Bonferroni level
+0.05 / 12 ≈ 0.004. Fast Doubling has the lowest median at all four sizes, and
+that ordering is significant at that level at 100K, 1M and 100M; at 10M the three
+calculators are not separated (Matrix vs Fast p = 0.035 falls short of 0.004,
+the two FFT comparisons are not significant at all). FFT-Based beats Matrix at 1M and 100M, loses at 100K and ties at
+10M; it never beats Fast Doubling, so the hypothesis that forcing the FFT pays
+off at large N is still unconfirmed at 100M. On allocated bytes the order is not
+the time order at 100M: FFT-Based allocates 347.1 MiB per op against Fast
+Doubling's 561.5 MiB, so "most memory-efficient" above holds at the baseline
+sizes, not at 100M. The p-values assume independent
+samples, and here the ten samples of a group run back to back (file order), so a
+drift of the machine during the run would read as a difference between groups;
+nothing in the test guards against it.
+
+**Slope between sizes, against the documented bound.** Ratio of medians per decade
+of N, with its base-10 logarithm — the local exponent — in parentheses:
+
+| Decade | Fast Doubling | Matrix Exp. | FFT-Based |
+|---|---|---|---|
+| 100K → 1M | ×27.7 (1.44) | ×24.3 (1.39) | ×6.7 (0.82) |
+| 1M → 10M | ×8.1 (0.91) | ×4.2 (0.63) | ×6.2 (0.80) |
+| 10M → 100M | ×6.0 (0.78) | ×10.0 (1.00) | ×7.4 (0.87) |
+
+[FFT.md § Complexity Analysis](algorithms/FFT.md#complexity-analysis) puts every
+pure-Go calculator at Θ(n^log2 3): ×38.5 per decade. That exponent is asymptotic,
+and FFT.md derives it from the `k = 16` cap, which the `"fast"` and `"fft"` paths
+reach only from n ≈ 9.06·10^8 — beyond this curve. Below the cap `k` grows with N
+and FFT.md states no law for time. Nor can three wall-clock ratios per calculator
+estimate an exponent. What the table does show:
+
+- **Six of the nine ratios are below ×10**, and Matrix 10M → 100M sits at ×10.0.
+  Work cannot grow slower than the result, which has ≈ 0.694·n bits, so a ratio
+  under ×10 means the elapsed time at the smaller size is not proportional to
+  work: fixed costs weigh there, or parallel efficiency changes between the two
+  sizes, or the multiplication path does (Matrix switches to the FFT between 1M
+  and 10M, at N = 1,768,788). For Fast Doubling between 10M and 100M (×6.0), one
+  candidate, read from
+  `shouldParallelizeMultiplicationCached` (`internal/fibonacci/fastdoubling.go`)
+  and not measured: at N = 10M the largest operand, F(5M), has ≈ 3.47M bits, below
+  `ParallelFFTThreshold`, so Fast Doubling runs its three FFT products one after
+  another (each still recursing in parallel inside `bigfft`); at N = 100M the last steps' operands (≈ 34.7M bits for F(50M)) are above
+  it and the three run concurrently.
+- **One ratio stays inside a single multiplication regime.** At 100K and 1M Fast
+  Doubling never reaches the FFT (its crossover is N = 1,440,422,
+  [FFT.md § Crossover Point](algorithms/FFT.md#crossover-point)), so every product
+  goes to `math/big` — Karatsuba above 40 words, schoolbook below. ×27.7 is under the ×38.5 of the pure power law, as
+  lower-order terms and fixed per-call costs at 100K would make it; with ± 46 % on
+  the 100K median that is consistent with the Karatsuba regime, not a measurement
+  of its exponent.
+
+So the curve neither confirms nor refutes Θ(n^1.585). What it establishes, on this
+host only: the elapsed time to F(100M) — 0.19 s to 0.35 s depending on the
+calculator — and the ordering above. No second host has reproduced it; the
+Core Ultra 9 275HX mixes performance and efficiency cores, and which ones a run
+lands on is not controlled.
 
 ### Running Benchmarks
 
@@ -451,7 +589,8 @@ is a regression `benchstat` will show as B/op before it shows as sec/op.
   it is set (one symmetric squaring, plus one full matrix multiply on a set bit),
   against a flat 3 for Fast Doubling — see
   [algorithms/MATRIX.md](algorithms/MATRIX.md#comparison-with-fast-doubling)
-- Slower at both sizes the baseline covers
+- Slower than Fast Doubling at both sizes the baseline covers and at all four of
+  the [scale curve](#scale-curve-four-sizes-one-host)
 
 ### FFT-Based
 
@@ -496,6 +635,6 @@ go build -ldflags="-s -w" -gcflags="-B" ./cmd/fibcalc
 ## Known Limitations
 
 1. **Memory**: `EstimateMemoryUsage` puts F(1 billion) at ~14.6 GB (safety bound, re-modelled by audit H-03). Use `--memory-limit` to validate before starting.
-2. **Time**: Calculations for N > 500M can take hours
+2. **Time**: no N above 100M is timed in this repo; the [scale curve](#scale-curve-four-sizes-one-host) stops there, at 0.19 s to 0.35 s on one host
 3. **FFT Contention**: The FFT algorithm saturates cores, limiting external parallelism
 4. **Workaround**: Use `--last-digits K` for O(K) memory usage with arbitrarily large N.

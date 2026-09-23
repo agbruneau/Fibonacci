@@ -9,7 +9,7 @@ Ce dépôt est un **laboratoire d'expérimentation algorithmique et d'ingénieri
 (*computational sandbox*) : un bac à sable où l'on pousse un problème volontairement simple — calculer F(n) — jusqu'à ses limites, pour y expérimenter des techniques réelles et **mesurer** ce qu'elles valent.
 Le nombre de Fibonacci n'est pas la finalité; c'est le banc d'essai. Il a l'avantage d'avoir une réponse exactement vérifiable, de se calculer par plusieurs algorithmes comparables entre eux, et de devenir arbitrairement coûteux quand n grandit — tout écart de conception se voit donc au chronomètre et à la mémoire, sans place pour l'opinion.
 
-Ce qu'on y expérimente : algorithmique (Fast Doubling, exponentiation matricielle Strassen-Winograd, multiplication FFT Schönhage-Strassen), ingénierie de performance (pooling, allocateur bump, contrôle du GC, parallélisme adaptatif, PGO, auto-calibration), et méthode logicielle (Clean Architecture, tests golden et property-based, ADR, gate de qualité local). Toute affirmation chiffrée doit venir d'un artefact de mesure du dépôt; ce qui n'a pas été réexécuté est signalé comme tel. **FibCalc**, le binaire qui en sort, calcule des nombres de Fibonacci arbitrairement grands à très haute vitesse. Écrit en Go; gère des indices de plusieurs centaines de millions.
+Ce qu'on y expérimente : algorithmique (Fast Doubling, exponentiation matricielle Strassen-Winograd, multiplication FFT Schönhage-Strassen), ingénierie de performance (pooling, allocateur bump, contrôle du GC, parallélisme adaptatif, PGO, auto-calibration), et méthode logicielle (Clean Architecture, tests golden et property-based, ADR, gate de qualité local). Toute affirmation chiffrée doit venir d'un artefact de mesure du dépôt; ce qui n'a pas été réexécuté est signalé comme tel. **FibCalc**, le binaire qui en sort, calcule des nombres de Fibonacci arbitrairement grands à très haute vitesse. Écrit en Go ; le plus grand indice chronométré dans le dépôt est n = 100 000 000 ([`bench-scale-2026-09.txt`](docs/audits/bench-scale-2026-09.txt)).
 
 ### Historique
 
@@ -92,7 +92,7 @@ make all      # clean + build + test
 |---|---|---|
 | `fast` (défaut) — **Fast Doubling** | Θ(M(n)) — O(log n) multiplications | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; `AdaptiveStrategy` choisit M pas par pas ; pooling état+arène+scratch FFT |
 | `matrix` — **Exponentiation matricielle** | Θ(M(n)) — O(log n) multiplications | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices ; choisit M lui aussi, mais à un autre point du graphe d'appel |
-| `fft` — **FFT-Based Doubling** | Θ(M(n)), M **toujours** FFT | **Pas un troisième algorithme** : `FFTBasedCalculator.CalculateCore` relance la boucle de `fast` — le même `ExecuteDoublingLoop` — en échangeant `AdaptiveStrategy` contre `FFTOnlyStrategy`, qui ne consulte plus aucun seuil. C'est un banc d'essai du chemin FFT isolé, et il est **plus lent que `fast`** aux deux seules tailles mesurées ([Performance](#performance)) |
+| `fft` — **FFT-Based Doubling** | Θ(M(n)), M **toujours** FFT | **Pas un troisième algorithme** : `FFTBasedCalculator.CalculateCore` relance la boucle de `fast` — le même `ExecuteDoublingLoop` — en échangeant `AdaptiveStrategy` contre `FFTOnlyStrategy`, qui ne consulte plus aucun seuil. C'est un banc d'essai du chemin FFT isolé, et il n'est **plus rapide que `fast`** à aucune des quatre tailles mesurées ([Performance](#performance)) |
 | **GMP** (tag de build `gmp`) | — | Backend GNU MP (CGO + libgmp) ; `scripts/check.sh` étape 3b le compile et le teste **si** les en-têtes libgmp sont présentes sur l'hôte, sinon l'étape est sautée (`check.ps1` n'a pas d'équivalent) |
 
 M(n) est le coût d'**une** multiplication de deux nombres de n bits, pas celui de F(n) : `math/big`
@@ -196,22 +196,60 @@ Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 
 ## Performance
 
-Médianes recalculées à partir de [`docs/audits/bench-baseline.txt`](docs/audits/bench-baseline.txt)
-(linux/amd64, 24 threads, `-count=5 -benchtime=1x`, estampille `baseline-2026-07-07`, arène ×10) —
-**seul artefact de débit** du dépôt. Les cinq autres fichiers de [`docs/audits/`](docs/audits/) sont
-des A/B ciblés (seuils dynamiques, retirés depuis ; cache FFT, memclr des pools, stabilité du micro-benchmark) ou un relevé mémoire :
-ils comparent deux variantes dans une même session, ils ne mesurent pas un débit de référence.
+Médianes de 10 échantillons calculées par `benchstat` sur
+[`docs/audits/bench-scale-2026-09.txt`](docs/audits/bench-scale-2026-09.txt) — la courbe d'échelle
+(EVAL-09) : Windows 11, `go1.27.0`, Intel Core Ultra 9 275HX, 24 fils, commit `751c1cc`,
+`-count=10 -benchtime=1x`. Intervalle de confiance à 95 % et B/op médian, dans les unités binaires
+de `benchstat` :
 
 | N | Fast Doubling | Matrix Exp. | FFT-Based | Chiffres décimaux |
 |---|---|---|---|---|
-| 1 000 000 | **3,15 ms** / 1,32 Mo par op | 6,03 ms / 6,33 Mo | 5,13 ms / 5,38 Mo | 208 988 |
-| 10 000 000 | **23,87 ms** / 17,38 Mo par op | 30,84 ms / 92,25 Mo | 29,08 ms / 30,88 Mo | 2 089 877 |
+| 100 000 | **143,2 µs ± 46 %** / 54,12 Kio | 342,8 µs ± 24 % / 382,7 Kio | 876,7 µs ± 25 % / 523,7 Kio | 20 899 |
+| 1 000 000 | **3,972 ms ± 27 %** / 1,270 Mio | 8,341 ms ± 8 % / 6,150 Mio | 5,853 ms ± 17 % / 5,157 Mio | 208 988 |
+| 10 000 000 | **32,28 ms ± 13 %** / 16,63 Mio | 35,23 ms ± 5 % / 84,95 Mio | 36,53 ms ± 13 % / 29,52 Mio | 2 089 877 |
+| 100 000 000 | **193,2 ms ± 11 %** / 561,5 Mio | 351,4 ms ± 19 % / 1,059 Gio | 272,0 ms ± 3 % / 347,1 Mio | 20 898 764 |
 
-`-benchtime=1x` : une itération par échantillon, rodage compris. **Aucune autre valeur de N n'est
-chronométrée dans le dépôt** (la mémoire, elle, l'est à sept points — voir plus bas). Pour
-F(100 000 000), le seul chiffre de durée traçable est le **0,204 s** de calcul seul (sans conversion
-décimale) consigné dans [`CHANGELOG.md`](CHANGELOG.md) au 2026-06-09 ; il n'a pas d'artefact de sortie
-archivé.
+Pour rejouer :
+`go run golang.org/x/perf/cmd/benchstat@v0.0.0-20260825160852-19be9d8e6c70 docs/audits/bench-scale-2026-09.txt`
+(préfixer `MSYS_NO_PATHCONV=1` sous Git Bash).
+
+Ce que ces chiffres mesurent : un appel à `Calculate`, résultat rendu en `*big.Int` sans conversion
+décimale, en temps écoulé sur 24 fils — aucun temps CPU n'est relevé. `-benchtime=1x` : un appel par
+échantillon, sans itération de rodage écartée ; le premier échantillon est le plus lent de son groupe
+dans 6 groupes sur 12. La médiane et l'intervalle y résistent, mais à 100 000 les autres échantillons
+se dispersent aussi (± 46 %) : ligne à lire comme un ordre de grandeur. Un seul
+hôte, non reproduit ailleurs. `fast` a la médiane la plus basse aux quatre tailles ; au seuil de Bonferroni
+(0,05 / 12 comparaisons ≈ 0,004), l'écart est significatif à 100K, 1M et 100M, pas à 10M, où les trois
+calculateurs ne se séparent pas. À 100M, `fft` alloue toutefois moins que `fast`.
+Comparaisons par paires, pente entre tailles et confrontation à la borne Θ(n^1,585) de
+[`FFT.md`](docs/algorithms/FFT.md#complexity-analysis) :
+[`docs/PERFORMANCE.md` § Scale curve](docs/PERFORMANCE.md#scale-curve-four-sizes-one-host). En bref, la
+pente ne confirme ni ne réfute la borne : celle-ci est asymptotique, son régime commence vers
+n ≈ 9·10⁸, et un temps écoulé sur 24 fils mêle le travail et l'efficacité du parallélisme.
+
+F(100 000 000) est donc désormais chronométré : 193,2 ms en médiane pour `fast`, calcul seul. Ce chiffre
+remplace le 0,204 s consigné sans artefact dans [`CHANGELOG.md`](CHANGELOG.md) au 2026-06-09.
+
+La **baseline du gate de non-régression** reste
+[`docs/audits/bench-baseline.txt`](docs/audits/bench-baseline.txt) (linux/amd64, 24 fils, `-count=5
+-benchtime=1x`, estampille `baseline-2026-07-07`, arène ×10) : 3,15 ms et 23,87 ms pour `fast` à F(1M) et
+F(10M). Autre hôte, autre OS, autre version de Go : elle ne se compare pas à la courbe ci-dessus, et
+`benchstat` refuse d'ailleurs d'aligner les deux fichiers. Les autres fichiers de
+[`docs/audits/`](docs/audits/) sont des A/B ciblés (seuils dynamiques et leur retrait, cache FFT,
+memclr des pools, stabilité du micro-benchmark), un relevé mémoire, et la mesure GMP ci-dessous.
+
+**Positionnement.** [`docs/audits/bench-gmp-2026-09.txt`](docs/audits/bench-gmp-2026-09.txt) (EVAL-07 :
+WSL2 Ubuntu sur le même processeur, `go1.26.1`, libgmp 6.3.0, 5 échantillons) oppose `fast` à
+`GMPCalculator` — la **même boucle de doublement à trois produits**, exécutée sur les entiers `mpz` de
+GMP. Ce n'est **pas** `mpz_fib_ui`, la fonction Fibonacci de GMP, qui double avec deux carrés par bit
+[[11]](docs/REFERENCES.md#ref-11) ; ni elle ni le `fibonacci()` de PARI/GP ne sont mesurés ici
+([`COMPARISON.md` § Related work](docs/algorithms/COMPARISON.md#related-work-not-measured)). Rapport
+`fast` ÷ `gmp` : **1,21** à F(1M) (4,037 ms contre 3,324 ms), écart **non significatif** (p = 0,151,
+n = 5 — un premier échantillon GMP lent emporte le verdict) ; **0,77** à F(10M) (31,49 ms contre
+41,06 ms, p = 0,008). `fast` peut paralléliser, `GMPCalculator` est séquentiel : c'est un rapport de
+temps écoulé sur 24 fils, pas une comparaison d'arithmétique à cœur égal, et le dépôt n'établit donc
+pas que `math/big` multiplie plus vite que GMP. Les B/op de GMP ne se comparent pas non plus (libgmp
+alloue hors du tas Go). Détail et limites : [`GMP.md` § Performance](docs/algorithms/GMP.md#performance).
 
 Côté mémoire, l'adoption du multiplicateur d'arène ×10 (2026-07-07) réduit les B/op FFT à F(10M) de **−16 %**
 vs ×15, allocations inchangées — gain confirmé en ordre d'exécution inversé (addendum
@@ -234,8 +272,9 @@ réel et le majore d'au plus **2,47×** ; il reste donc une borne haute, pas une
 
 **Choix d'algorithme** : `fast` pour l'usage général (le plus régulier) ; `matrix` pour la pédagogie et la
 validation croisée ; `fft` — la même boucle de doublement que `fast`, multiplication forcée en FFT
-(cf. [Algorithmes](#algorithmes)) — est plus lent que `fast` aux deux seules tailles mesurées (F(1M) et F(10M)) —
-l'idée qu'il devienne compétitif au-delà est une hypothèse que le dépôt ne teste pas. Méthodologie, tuning et suivi de
+(cf. [Algorithmes](#algorithmes)) — n'est plus rapide que `fast` à aucune des quatre tailles mesurées
+(à égalité statistique à F(10M), 41 % plus lent à F(100M)) ; qu'il devienne compétitif au-delà de F(100M)
+reste une hypothèse que le dépôt ne teste pas. Méthodologie, tuning et suivi de
 non-régression : [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) ; baseline du gate perf :
 `docs/audits/bench-baseline.txt` (régénérée le 2026-07-07).
 

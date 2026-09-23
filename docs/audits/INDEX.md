@@ -50,7 +50,9 @@ permettent de rejouer une comparaison.
 | [`bench-dtm-2026-09.txt`](bench-dtm-2026-09.txt) | Seuils dynamiques, mesure qui a réfuté le gain d'ADR-0001 |
 | [`bench-dtm-removal-2026-09.txt`](bench-dtm-removal-2026-09.txt) | Suppression des seuils dynamiques (EVAL-10) : `main` contre la branche, ordre ABBA puis alternances, sec/op neutre |
 | [`bench-fftcache-2026-09.txt`](bench-fftcache-2026-09.txt) | Plafond de la cache FFT, mesure du rejet ADR-0010 R1 |
+| [`bench-gmp-2026-09.txt`](bench-gmp-2026-09.txt) | Référence externe (EVAL-07) : `FastDoubling` contre `GMPCalculator` — même boucle de doublement sur `mpz`, séquentielle, pas `mpz_fib_ui` — à F(1M) et F(10M), 5 échantillons, WSL2 ; lu dans [`GMP.md` § Performance](../algorithms/GMP.md#performance) |
 | [`bench-poolclear-2026-09.txt`](bench-poolclear-2026-09.txt) | Vidage de pool |
+| [`bench-scale-2026-09.txt`](bench-scale-2026-09.txt) | Courbe d'échelle (EVAL-09) : `BenchmarkFibonacci`, trois calculateurs à 100K, 1M, 10M et 100M, 10 échantillons, Windows ; pas une baseline de gate ; lue dans [`PERFORMANCE.md` § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host) |
 | [`mem-baseline-2026-09.txt`](mem-baseline-2026-09.txt) | Empreinte mémoire mesurée, base de l'estimateur |
 | [`microbench-stability-2026-09.txt`](microbench-stability-2026-09.txt) | Stabilité des micro-benchmarks de calibration |
 

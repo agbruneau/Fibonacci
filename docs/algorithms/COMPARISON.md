@@ -100,7 +100,7 @@ algorithm, and it is what the comparison below turns on.
    - So the per-iteration k alternates between 4 and 11/12, averaging ~7.5-8 over a
      random exponent, against Fast Doubling's flat 3
 
-**Conclusion**: Fast Doubling's constant factor k is strictly smaller (a flat 3 vs 4 or 11-12). The one measurement artifact the repo carries, `docs/audits/bench-baseline.txt` (linux/amd64, 24 threads, `-count=5 -benchtime=1x`, 2026-07-07), agrees at the two sizes it covers — medians 3.15 ms vs 6.03 ms (Matrix) and 5.13 ms (FFT) at N=1M; 23.87 ms vs 30.84 ms and 29.08 ms at N=10M. Nothing in the repo measures any other N.
+**Conclusion**: Fast Doubling's constant factor k is strictly smaller (a flat 3 vs 4 or 11-12). The one measurement artifact the repo carries, `docs/audits/bench-baseline.txt` (linux/amd64, 24 threads, `-count=5 -benchtime=1x`, 2026-07-07), agrees at the two sizes it covers — medians 3.15 ms vs 6.03 ms (Matrix) and 5.13 ms (FFT) at N=1M; 23.87 ms vs 30.84 ms and 29.08 ms at N=10M. The scale curve (`docs/audits/bench-scale-2026-09.txt`, one Windows host, 10 samples) extends this to N = 100K and 100M: Fast Doubling has the lowest median at all four sizes, significantly except against FFT-Based at 10M ([Ordering](#ordering-as-far-as-it-is-established)). A smaller k lowers the constant; it does not decide the ordering by itself, since the calculators also differ in parallelism and in which multiplication path they take.
 
 ### Memory
 
@@ -134,9 +134,10 @@ resident gap between Fast Doubling and Matrix at F(10M) is **2.3x**, where the
 allocated-bytes ratio is 5.3x — most of Matrix's extra allocation is churn
 through pooled buffers, not retained footprint. Second, at F(1M) the two
 metrics disagree on the *order*: Matrix allocates more than FFT-Based
-(6.33 MB vs 5.38 MB `B/op`) but holds less (13 MB vs 18 MB `Sys`). These are
-also the only figures in the repo taken at N = 100M, and they are memory only —
-no timing was recorded there.
+(6.33 MB vs 5.38 MB `B/op`) but holds less (13 MB vs 18 MB `Sys`). At N = 100M
+the only other figures are the scale curve's timings and `B/op`
+([PERFORMANCE.md § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host));
+this table stays the only resident-memory reading there.
 
 The same artifact is why `--memory-limit`'s estimator was rewritten (audit
 H-03 / M-08): the old model was under the real figure at every measured point,
@@ -149,22 +150,26 @@ size classes.
 
 ### What this repo has actually measured
 
-Six measurement artifacts live in [`docs/audits/`](../audits/). Exactly one is a
-cross-algorithm timing reference; the rest exist to justify a specific change:
+Nine measurement artifacts live in [`docs/audits/`](../audits/). One is the
+regression reference, two extend it — a scale curve and an external reference —
+and the rest exist to justify a specific change:
 
 | Artifact | Kind | What it measures | Host |
 |---|---|---|---|
 | [`bench-baseline.txt`](../audits/bench-baseline.txt) | reference | `BenchmarkFibonacci`, the three calculators at N = 1M / 10M — **the table below** | linux/amd64, 24 threads, 2026-07-07 |
+| [`bench-scale-2026-09.txt`](../audits/bench-scale-2026-09.txt) | scale curve, 10 samples | `BenchmarkFibonacci`, the three calculators at N = 100K / 1M / 10M / 100M (EVAL-09) — read in [PERFORMANCE.md § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host) | Core Ultra 9 275HX, windows/amd64, go1.27.0 |
+| [`bench-gmp-2026-09.txt`](../audits/bench-gmp-2026-09.txt) | external reference, 5 samples | `FastDoubling` against `GMPCalculator` at N = 1M / 10M (EVAL-07) — read in [GMP.md § Performance](GMP.md#performance) | Core Ultra 9 275HX, WSL2 linux/amd64, go1.26.1 |
+| [`bench-dtm-removal-2026-09.txt`](../audits/bench-dtm-removal-2026-09.txt) | benchstat A/B | `main` against the branch without the dynamic threshold manager (EVAL-10) | Core Ultra 9 275HX, windows/amd64, go1.27.0 |
 | [`bench-fftcache-2026-09.txt`](../audits/bench-fftcache-2026-09.txt) | benchstat A/B | the same six cases, for the FFT-cache byte bound (M-08) | Core Ultra 9 275HX, windows/amd64, go1.27.0 |
 | [`bench-poolclear-2026-09.txt`](../audits/bench-poolclear-2026-09.txt) | benchstat A/B, **both orders** | the same six cases, for the pool memclr narrowing (M-05) | idem |
 | [`bench-dtm-2026-09.txt`](../audits/bench-dtm-2026-09.txt) | benchstat A/B | dynamic thresholds off vs on, N = 1M / 10M (M-04) | idem |
 | [`mem-baseline-2026-09.txt`](../audits/mem-baseline-2026-09.txt) | one-shot probe | resident memory (`MemStats.Sys` delta), N = 1,000 … 100M (H-03 / M-08) | idem |
 | [`microbench-stability-2026-09.txt`](../audits/microbench-stability-2026-09.txt) | repeatability | ten `QuickCalibrate()` runs, before/after M-01 | idem |
 
-The three benchstat A/B files are **not** a cross-algorithm ranking: their two
+The four benchstat A/B files are **not** a cross-algorithm ranking: their two
 columns differ by one code change, not by algorithm, and they were taken on a
-different host and OS from the reference. On **timing**, nothing in the repo
-measures an N other than 1M and 10M — the wider N range in
+different host and OS from the reference. On **timing**, only the scale curve
+goes beyond 1M and 10M, to 100K and 100M, on one host; the wider N range in
 `mem-baseline-2026-09.txt` is memory only, with no clock attached.
 
 ### The cross-algorithm reference
@@ -192,31 +197,68 @@ the file) or measure your own host with `make benchmark`.
 > contradicted the file above by more than an order of magnitude — the table
 > claimed 85 ms for Fast Doubling at N = 1M against the baseline's 3.15 ms — and
 > the N ≥ 50M rows described runs nothing in this repo has ever performed. They
-> were deleted rather than restated more cautiously. No **timing** here covers
-> any N other than 1M and 10M.
+> were deleted rather than restated more cautiously. The only timing beyond 1M
+> and 10M is now the scale curve, which stops at 100M.
 
 ### Ordering, as far as it is established
 
-At the two timed sizes, Fast Doubling is fastest and smallest, in that order:
+At the two baseline sizes, Fast Doubling is fastest and smallest, in that order:
 Fast Doubling < FFT-Based < Matrix Exp. on time, Fast Doubling < FFT-Based <
-Matrix Exp. on allocated bytes. [`../PERFORMANCE.md`](../PERFORMANCE.md) warns that
-the Fast Doubling / Matrix ordering can invert at N ≥ 10M on some CPUs depending
-on L3 size and memory latency, and that only the memory ordering is
-hardware-independent.
+Matrix Exp. on allocated bytes.
 
-Two qualifications on that last point, from the resident-memory table above.
-The `B/op` order and the `Sys` order agree at F(10M) but **not** at F(1M),
-where Matrix allocates more than FFT-Based yet holds less. And the two
-artifacts come from different hosts and operating systems, so the disagreement
-cannot be attributed to the metric alone. Beyond N = 10M no timing exists at
-all, so no speed ranking is claimed there; the only figures past 10M are the
-`fast` and `fft` memory points at N = 100M.
+The scale curve (`bench-scale-2026-09.txt`, medians of 10, pairwise benchstat;
+the full table and its caveats are in
+[PERFORMANCE.md § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host))
+refines the time ordering on its one host:
+
+| N | Fast / Matrix / FFT (median) | Established order |
+|---|---|---|
+| 100K | 143.2 µs / 342.8 µs / 876.7 µs | Fast < Matrix < FFT |
+| 1M | 3.972 ms / 8.341 ms / 5.853 ms | Fast < FFT < Matrix |
+| 10M | 32.28 ms / 35.23 ms / 36.53 ms | not separated at the Bonferroni level 0.004 (Fast vs Matrix p = 0.035; FFT p = 0.063, 0.579) |
+| 100M | 193.2 ms / 351.4 ms / 272.0 ms | Fast < FFT < Matrix |
+
+So FFT-Based sits between the other two only at 1M and 100M. An earlier revision
+of PERFORMANCE.md warned, without an artifact, that the Fast Doubling / Matrix
+ordering can invert at N ≥ 10M on some CPUs; on this CPU it does not, at 10M or
+100M. No second CPU has been measured, so the warning is neither confirmed nor
+ruled out elsewhere.
+
+On memory, one qualification from the resident-memory table above: the `B/op`
+order and the `Sys` order agree at F(10M) but **not** at F(1M), where Matrix
+allocates more than FFT-Based yet holds less. The two artifacts come from
+different hosts and operating systems, so the disagreement cannot be attributed
+to the metric alone.
+
+## Related work (not measured)
+
+Two established implementations compute F(n) directly. Neither is measured in
+this repo; they are cited so that a reader knows what a fair external comparison
+would be, and how far the one archived measurement is from it.
+
+- **GMP `mpz_fib_ui`** [[11]](../REFERENCES.md#ref-11) — the GNU MP library's own
+  Fibonacci function, which doubles with two squarings per bit using the
+  (−1)^k term of Cassini's identity, against this repo's three products. The cost
+  model in [FAST_DOUBLING.md § Against the two-squaring formulations](FAST_DOUBLING.md#against-the-two-squaring-formulations)
+  puts this repo's loop at about twice its multiplication work; that is a model,
+  not a timing. What [`bench-gmp-2026-09.txt`](../audits/bench-gmp-2026-09.txt)
+  measures instead is `GMPCalculator`, this repo's three-product loop on GMP
+  `mpz` arithmetic ([GMP.md § Performance](GMP.md#performance)): GMP's
+  multiplication under our algorithm, not GMP's algorithm. The binding the repo
+  uses, `github.com/ncw/gmp` v1.0.5, has no Fibonacci entry point (no `fib` in its
+  sources), so measuring `mpz_fib_ui` would take a CGO call of our own.
+- **PARI/GP `fibonacci(x)`** — documented as "x-th Fibonacci number", library
+  syntax `GEN fibo(long x)`
+  (<https://pari.math.u-bordeaux.fr/dochtml/html/Combinatorics.html>, read on
+  2026-09-23; the page states no version). Its documentation says nothing about
+  the algorithm, and this repo has not read the PARI sources, so no claim is made
+  here about how it compares.
 
 ## When to Use Each Algorithm
 
 ### Fast Doubling (`"fast"`)
 
-**Recommended for**: general usage. Fastest and smallest of the three at both measured sizes; behavior above N = 10M is untested here. Note the CLI does **not** default to it: `DefaultAlgo = "all"` (`internal/config/config.go`), which runs every registered calculator (`GetCalculatorsToRun`, `internal/orchestration/calculator_selection.go`). Pass `-algo fast` to run this one alone.
+**Recommended for**: general usage. Fastest and smallest of the three at both baseline sizes, and lowest median time at the four sizes of the scale curve (N = 100K to 100M, one host) — though not the fewest bytes at 100M, where FFT-Based allocates 347.1 MiB per op against its 561.5 MiB; behavior above N = 100M is untested here. Note the CLI does **not** default to it: `DefaultAlgo = "all"` (`internal/config/config.go`), which runs every registered calculator (`GetCalculatorsToRun`, `internal/orchestration/calculator_selection.go`). Pass `-algo fast` to run this one alone.
 
 ```go
 factory := fibonacci.NewDefaultFactory()
@@ -241,7 +283,7 @@ result, _ := calc.Calculate(ctx, progressChan, 0, 10_000_000, fibonacci.Options{
 
 ### FFT-Based (`"fft"`)
 
-**Recommended for**: exercising the FFT path in isolation — FFT multiplication benchmarking, regression testing, FFT vs standard `math/big` comparison. It is **not** the faster calculator at any size this repo measures (see the table above), and the type comment on `FFTBasedCalculator` (`internal/fibonacci/fft_based.go`) says so explicitly: a crossover where forcing FFT at every size pays off would lie beyond F(10M) and is unmeasured here.
+**Recommended for**: exercising the FFT path in isolation — FFT multiplication benchmarking, regression testing, FFT vs standard `math/big` comparison. It is **not** the faster calculator at any size this repo measures (see the tables above), and the type comment on `FFTBasedCalculator` (`internal/fibonacci/fft_based.go`) says so explicitly. The scale curve has it 40.82 % slower than Fast Doubling at 100M (272.0 ms vs 193.2 ms, p = 0.000), so a crossover where forcing FFT at every size pays off, if any, lies beyond F(100M) and is unmeasured here.
 
 ```go
 factory := fibonacci.NewDefaultFactory()
@@ -307,8 +349,8 @@ what this option actually gates.
 
 ## Conclusion
 
-**Fast Doubling** is the recommended algorithm for all general use cases: it requires only 3 multiplications per iteration — the fewest of the three implementations here — and allocates the least. `docs/audits/bench-baseline.txt` — the repo's only cross-algorithm baseline — shows it fastest and smallest at the two sizes it covers: medians of 3.15 ms / 1.32 MB per op at N=1M (vs Matrix 6.03 ms / 6.33 MB and FFT 5.13 ms / 5.38 MB) and 23.87 ms / 17.38 MB at N=10M (vs Matrix 30.84 ms / 92.25 MB and FFT 29.08 ms / 30.88 MB). `mem-baseline-2026-09.txt` puts it lowest on resident memory too at both sizes (9 / 62 MB). No artifact here ranks the three at any other N.
+**Fast Doubling** is the recommended algorithm for all general use cases: it requires only 3 multiplications per iteration — the fewest of the three implementations here — and allocates the least up to N = 10M. `docs/audits/bench-baseline.txt` — the repo's only cross-algorithm baseline — shows it fastest and smallest at the two sizes it covers: medians of 3.15 ms / 1.32 MB per op at N=1M (vs Matrix 6.03 ms / 6.33 MB and FFT 5.13 ms / 5.38 MB) and 23.87 ms / 17.38 MB at N=10M (vs Matrix 30.84 ms / 92.25 MB and FFT 29.08 ms / 30.88 MB). `mem-baseline-2026-09.txt` puts it lowest on resident memory too at both sizes (9 / 62 MB). The scale curve (`bench-scale-2026-09.txt`, one Windows host) keeps it fastest at N = 100K and 100M as well (143.2 µs and 193.2 ms medians), but at 100M FFT-Based allocates less (347.1 MiB vs 561.5 MiB per op), as `mem-baseline-2026-09.txt` also has it on resident memory (460 MB vs 617 MB).
 
-**Matrix Exponentiation** is valuable for educational purposes and result verification. Its elegant mathematical foundation (Q-matrix) makes it ideal for understanding the theory, and the Strassen optimization demonstrates practical algorithm design. In `docs/audits/bench-baseline.txt` it is slower than Fast Doubling by **+91 %** at N=1M and **+29 %** at N=10M — the gap narrows with N and is not a stable 30–50 % band. [`../PERFORMANCE.md`](../PERFORMANCE.md) additionally warns that the Fast Doubling / Matrix ordering can invert at N ≥ 10M on some CPUs.
+**Matrix Exponentiation** is valuable for educational purposes and result verification. Its elegant mathematical foundation (Q-matrix) makes it ideal for understanding the theory, and the Strassen optimization demonstrates practical algorithm design. In `docs/audits/bench-baseline.txt` it is slower than Fast Doubling by **+91 %** at N=1M and **+29 %** at N=10M — the gap narrows with N and is not a stable 30–50 % band. The scale curve says the narrowing does not continue: +139 % at 100K, +110 % at 1M, +9 % at 10M, +82 % at 100M, all significant on its one host.
 
-**FFT-Based** is a specialized variant that forces FFT multiplication for all operations. At the two measured sizes it is slower than Fast Doubling (5.13 ms vs 3.15 ms at N=1M; 29.08 ms vs 23.87 ms at N=10M) and allocates ~4x more at 1M. Whether forcing FFT at every size ever pays off — the usual argument being that FFT multiplication's lower growth rate eventually outweighs its overhead — is a hypothesis this repo does not test: nothing here measures beyond N=10M. For this repository's FFT the argument is weaker than usual: `internal/bigfft` runs one transform level over Karatsuba and keeps Karatsuba's exponent, so what it can win is a constant factor ([FFT.md § Complexity Analysis](FFT.md#complexity-analysis)). Its established use is exercising the FFT subsystem in isolation.
+**FFT-Based** is a specialized variant that forces FFT multiplication for all operations. At the two baseline sizes it is slower than Fast Doubling (5.13 ms vs 3.15 ms at N=1M; 29.08 ms vs 23.87 ms at N=10M) and allocates ~4x more at 1M. Whether forcing FFT at every size ever pays off — the usual argument being that FFT multiplication's lower growth rate eventually outweighs its overhead — is not borne out up to N = 100M: the scale curve has it 47.36 % slower than Fast Doubling at 1M, tied at 10M (p = 0.063) and 40.82 % slower at 100M, so the gap does not close steadily with N. Nothing here measures beyond 100M. For this repository's FFT the argument is weaker than usual: `internal/bigfft` runs one transform level over Karatsuba and keeps Karatsuba's exponent, so what it can win is a constant factor ([FFT.md § Complexity Analysis](FFT.md#complexity-analysis)). Its established use is exercising the FFT subsystem in isolation.

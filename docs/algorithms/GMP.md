@@ -2,7 +2,7 @@
 
 ## Overview
 
-The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations, delegating every arithmetic operation to GMP's C/assembly routines instead of Go's `math/big`. Whether that wins, and above which N, is **not measured in this repo** — see [Performance](#performance) below. The type comment in `calculator_gmp.go` asserts an advantage above N = 100,000,000 and a CGO-overhead penalty below it; no artifact here backs either number.
+The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations, delegating every arithmetic operation to GMP's C/assembly routines instead of Go's `math/big`. Whether that wins is measured at two sizes only, on one host — see [Performance](#performance) below. The type comment in `calculator_gmp.go` asserts an advantage above N = 100,000,000 and a CGO-overhead penalty below it; the measurement stops at N = 10,000,000, so it tests neither claim directly, and at the sizes it covers it does not show the penalty.
 
 This implementation uses the **Fast Doubling** algorithm, like the `"fast"` strategy, but it is a separate loop, not the shared one:
 
@@ -93,31 +93,65 @@ same work (aligned on 2026-09-23, EVAL-07; before that the two shared no N).
 
 ## Performance
 
-**This repo contains no GMP measurement.** Every benchmark artifact in
-[`docs/audits/`](../audits/) covers `FastDoubling`, `MatrixExp` and `FFTBased`
-only — `BenchmarkGMPCalculator` is behind the `gmp` build tag, so no artifact
-here could contain it, and none does. Earlier revisions of this page carried
-figures for CGO call overhead, a crossover around N = 1,000,000 and a net GMP
-advantage above N = 100,000,000; none of them was ever backed by a run in this
-repo, so they were removed on 2026-08-07 rather than restated more cautiously.
-
-What is structurally true and checkable in the source: every arithmetic operation
-crosses the CGO boundary (`internal/fibonacci/calculator_gmp.go`), so a per-call
-cost exists — its size, and where it stops mattering, are unmeasured here.
-
-To produce a real number, install the headers (`sudo apt-get install libgmp-dev`),
-run
+One measurement exists: [`docs/audits/bench-gmp-2026-09.txt`](../audits/bench-gmp-2026-09.txt)
+(EVAL-07). From its header (lines 2–6): `go1.26.1 linux/amd64` under WSL2 Ubuntu on
+an Intel Core Ultra 9 275HX, `nproc` 24, libgmp `2:6.3.0+dfsg-2ubuntu6.1`, commit
+`751c1cc`, 2026-09-23, five samples per row:
 
 ```bash
-go test -tags=gmp -bench='Benchmark(Fibonacci|GMPCalculator)' -benchmem -run='^$' ./internal/fibonacci/
+go test -tags gmp -bench='BenchmarkFibonacci/FastDoubling|BenchmarkGMPCalculator' \
+    -benchmem -run='^$' -count=5 -benchtime=1x ./internal/fibonacci/
 ```
 
-and archive the output under `docs/audits/` before quoting anything from it.
+Medians from `go run golang.org/x/perf/cmd/benchstat@v0.0.0-20260825160852-19be9d8e6c70 docs/audits/bench-gmp-2026-09.txt`;
+the verdict column compares the two rows of one N after renaming them to the same
+benchmark name, as in [PERFORMANCE.md § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host):
 
-> **This page was verified by reading `calculator_gmp.go`, not by running it.**
-> The file is behind `//go:build gmp` and needs CGO plus libgmp; neither is
-> available on the Windows host used for the 2026-08-09 pass. Every statement
-> here about the GMP path is a source claim, not an execution result.
+| N | `fast` (`math/big`) | `gmp` | fast ÷ gmp | benchstat, gmp → fast |
+|---|---|---|---|---|
+| 1,000,000 | 4.037 ms | 3.324 ms | 1.21 | ~ (p = 0.151, n = 5): **no significant difference** |
+| 10,000,000 | 31.49 ms | 41.06 ms | 0.77 | −23.31 % (p = 0.008, n = 5): `fast` faster |
+
+What the ratio does and does not measure:
+
+- **Same loop, not GMP's Fibonacci.** `GMPCalculator` is this repo's doubling
+  loop with `mpz` arithmetic — three products per bit, like `fast`. It is **not**
+  `mpz_fib_ui`, GMP's own function, which doubles with two squarings per bit
+  [[11]](../REFERENCES.md#ref-11). The table measures GMP's arithmetic under this
+  loop; `mpz_fib_ui` is unmeasured here
+  ([COMPARISON.md § Related work](COMPARISON.md#related-work-not-measured)).
+- **Parallel against sequential.** `fast` may run its three products concurrently
+  and `internal/bigfft` recurses in parallel; `GMPCalculator` runs on one thread.
+  The ratio is elapsed time on a 24-thread machine, not efficiency per core — no
+  CPU time is recorded. The 10M win for `fast` is therefore not a claim that
+  `math/big` multiplies faster than GMP.
+- **Not the same exit.** The `gmp` time includes `gmpToStdBigInt`, one
+  serialize/parse of the result into a `big.Int`; `fast` returns its own.
+- **`B/op` is not comparable.** `gmp` reports 176.2 KiB at 1M and 1.656 MiB at
+  10M, about twice the byte size of F(n) (F(10M) ≈ 0.87 MB) — consistent with the
+  `Bytes()` + `SetBytes` copy above. libgmp allocates its limbs with `malloc`,
+  outside the Go heap, where `-benchmem` does not look. (Inferred from the
+  arithmetic, not traced.)
+- **Five samples.** benchstat prints `± ∞` ("need >= 6 samples"), so there is no
+  interval. The 1M verdict turns on one sample: `GMPCalculator/1M`'s first run,
+  4,815,476 ns (line 11), is the slowest of both rows and of the same `-benchtime=1x`
+  kind described in PERFORMANCE.md. Without it the four remaining GMP samples are
+  all below every `fast` sample — which is why the 1.21 is a median ratio, not a
+  result.
+- **Same machine, not the scale curve's environment.** WSL2 and `go1.26.1` differ
+  from the Windows `go1.27.0` run of `bench-scale-2026-09.txt`; the `FastDoubling` rows of the two
+  files are not interchangeable (`FastDoubling/100M`: 219.1 ms here, 193.2 ms
+  there). Take the ratio within this file only.
+
+Against the type comment: at 1M no CGO penalty is visible (the two do not
+differ significantly), and at 10M the sequential GMP loop is slower than the
+parallel `math/big` one. Neither size reaches the N > 100,000,000 the comment is
+about; `BenchmarkGMPCalculator` stops at 10M.
+
+The CI `gmp` job (`.github/workflows/ci.yml`) runs the same command on every push
+and uploads `bench-gmp.txt`, stamped with the runner, CPU model and run ID. The
+archived file is not one of those runs: it was taken locally, and a CI runner has a
+different CPU.
 
 ## Implementation Details
 
@@ -128,7 +162,7 @@ and archive the output under `docs/audits/` before quoting anything from it.
 - **Result conversion**: `gmpToStdBigInt` copies through `g.Bytes()` into a fresh `big.Int` — one full serialize/parse of the result per call
 - **File**: `internal/fibonacci/calculator_gmp.go`
 - **Name()**: Returns `"GMP (Fast Doubling)"`
-- **Registration**: `"gmp"` key, but only in a factory you register it into yourself. `init()` registers into the package-private `globalFactory` (`calculator_gmp.go`, its `globalFactory` var and `init`), which no caller reads; `app.New` builds its own via `NewDefaultFactory()` (`internal/app/app.go:New`, `registry.go:NewDefaultFactory` — `fast`/`matrix`/`fft`). `fibcalc -algo gmp` is therefore rejected even in a `-tags gmp` build.
+- **Registration**: `"gmp"` key in every factory `NewDefaultFactory()` builds under `-tags gmp` — `init()` appends `RegisterGMPCalculator` to `taggedRegistrations` (`registry.go`), so `fibcalc -algo gmp` works; see [Auto-Registration](#auto-registration).
 
 ## Research backends beyond GMP
 

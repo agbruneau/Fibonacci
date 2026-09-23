@@ -52,10 +52,12 @@ func init() {
 // This implementation uses the Fast Doubling algorithm but leverages GMP's
 // highly optimized C assembly routines for arithmetic operations.
 //
-// Performance Characteristics:
-//   - Excels for extremely large N (> 100,000,000) where GMP's assembly-optimized
-//     multiplication routines outperform Go's math/big
-//   - For smaller N, the CGO call overhead may make math/big faster
+// Performance characteristics (docs/audits/bench-gmp-2026-09.txt, one host):
+//   - The loop is sequential: the three mpz operations of a step run one after
+//     the other, while FastDoublingCalculator can spread them over goroutines.
+//   - At F(1M) the two are not distinguishable (p = 0.151, n = 5); at F(10M) the
+//     parallel math/big calculator is 23 % faster in wall time. Nothing above
+//     10M is measured for GMP, and no per-call CGO cost has been isolated.
 //   - Memory is managed by reusing gmp.Int instances to minimize allocations
 type GMPCalculator struct{}
 
