@@ -39,7 +39,7 @@ flowchart LR
         E1 -->|Yes| E1b["chunks on extra goroutines,<br/>non-blocking acquire on the FFT semaphore<br/>(cap = runtime.NumCPU); no token -> run inline"]
         E1a --> E2[fermat.Mul / fermat.Sqr<br/>in the ring mod 2^&#40;n*W&#41; + 1]
         E1b --> E2
-        E2 --> E4["addVV/subVV/addVW/subVW/shlVU/addMulVVW<br/>reached through go:linkname into math/big —<br/>declared unconditionally in arith_decl.go:<br/>no build-tag split, no CPU-feature test,<br/>no pure-Go fallback in this repo.<br/>The SIMD assembly is math/big's own."]
+        E2 --> E4["addVV/subVV/addVW/subVW/shlVU/addMulVVW<br/>reached through go:linkname into math/big —<br/>declared in arith_decl.go:<br/>no per-architecture split, no CPU-feature test.<br/>The SIMD assembly is math/big's own.<br/>-tags purego swaps in arith_purego.go (math/bits)."]
         E4 --> E6[Product coefficients]
     end
 

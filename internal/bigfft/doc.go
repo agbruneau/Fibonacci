@@ -19,9 +19,10 @@
 //     via ReleaseBumpAllocator, which resets it for reuse. Reset is exposed
 //     separately for reusing one allocator instance across multiple phases
 //     without a full release/acquire round-trip.
-//   - Element-wise word arithmetic (arith.go) delegates unconditionally to
-//     math/big's internal assembly via go:linkname (arith_decl.go); there is
-//     no separate AVX2/pure-Go build-tag split.
+//   - Element-wise word arithmetic (arith.go) delegates to math/big's
+//     internal assembly via go:linkname (arith_decl.go); there is no
+//     per-architecture split. The one build tag, purego, replaces those
+//     bindings with the math/bits code of arith_purego.go.
 //   - The FFT transform-result cache (fft_cache.go) is thread-safe
 //     (sync.RWMutex + LRU); it caches computed PolValues keyed by an FNV-1a
 //     hash of the input, not precomputed FFT plans.

@@ -102,7 +102,7 @@ re-verified arrow-by-arrow against the `go list` command above:
   `Person` → `Container` relation that is not an import at all. The
   `orch → config` edge the diagram used to draw was **false**:
   `internal/orchestration` imports only `apperrors`, `fibonacci`,
-  `fibonacci/memory`, `fibonacci/threshold`, `progress`. It was removed on 2026-08-07, and the real
+  `fibonacci/memory`, `progress` (and `fibonacci/threshold` until 2026-09-23). It was removed on 2026-08-07, and the real
   `cli → config`, `tui → config`, `calib → config`, `calib → bigfft` edges plus
   the edges into the leaf-package container were added. On 2026-08-07 the
   leaf container was also widened from six packages to nine: it previously

@@ -123,13 +123,14 @@ imports them; the arrows come sideways, from Interfaces and Application:
 |                       Shared Utility Packages                         |
 |                                                                       |
 | internal/metrics ← internal/cli, internal/tui                         |
-| internal/format  ← internal/cli, internal/tui, internal/calibration   |
+| internal/format  ← internal/cli, internal/tui                         |
 +-----------------------------------------------------------------------+
 ```
 
 Importers verified on HEAD with
 `go list -f '{{join .Imports " "}}' ./internal/<pkg>` over every package of
-the four layers: only `cli`, `tui` and `calibration` come back. `test/e2e` and
+the four layers: only `cli` and `tui` come back (`calibration` stopped
+importing `format` on 2026-09-07, audit ARC-01). `test/e2e` and
 `docs/` are consumers of the binary and prose about it — neither is an import
 edge and neither belongs in this diagram.
 
@@ -140,7 +141,7 @@ edge and neither belongs in this diagram.
   directly (they consume `progress.ProgressUpdate` off the channel), but
   neither imports `internal/fibonacci`: domain types reach them through the
   `orchestration.Calculator`/`Options` aliases — enforced by
-  `internal/arch_test.go` for `tui`.
+  `internal/arch_test.go` for both.
 - **Application layer** → imports Use-Case + Domain layers, **plus** the
   Interfaces layer. `internal/app` is the composition root: it imports
   `internal/cli`, `internal/tui` and `internal/ui` in order to wire them, and
@@ -159,14 +160,15 @@ edge and neither belongs in this diagram.
   `internal/apperrors` ships its own byte-formatter (`formatBytesLocal`) instead
   of depending on `internal/format`.
 
-`internal/arch_test.go` fails `go test` if any of **six** upward arrows is
+`internal/arch_test.go` fails `go test` if any of **eight** upward arrows is
 reintroduced — a **test** gate, not a compile gate: the package
 `github.com/agbruneau/FibGo/internal` has `GoFiles = []` and
 `XTestGoFiles = [arch_test.go]`, so `go build ./...` compiles none of it and
-passes regardless. They are grouped into **five** rules (`architectureRules`, one
-subtest each): `threshold → config`, `errors → format` and `tui → fibonacci`
-(May-2026 hardening sprint), `orchestration → format` (July-2026, APP-10), and
-— as the two targets of the fifth and last rule —
+passes regardless. They are grouped into **six** rules (`architectureRules`, one
+subtest each): `errors → format` and `tui → fibonacci` (May-2026 hardening
+sprint), `orchestration → format` (July-2026, APP-10), `cli → fibonacci`
+(2026-09-07, STR-04), `calibration → ui` / `calibration → format` (2026-09-07,
+ARC-01), and — as the two targets of the sixth and last rule —
 `config → fibonacci` / `config → bigfft` (audit Fable5, ARCH-02 — the two
 tolerated lateral imports `config → fibonacci/memory` and `config → ui` stay
 allowed). Its package doc comment (the `internal_test` package comment in `internal/arch_test.go`) states the same
@@ -296,13 +298,14 @@ internal/
 │   ├── fermat.go                # Fermat ring arithmetic (Z/(2^k+1))
 │   ├── pool.go, pool_warming.go # Size-class pools, adaptive pre-warming
 │   ├── allocator.go, bump.go    # Memory allocators (bump allocator)
-│   ├── arith_decl.go            # go:linkname declarations into math/big
+│   ├── arith_decl.go            # go:linkname declarations into math/big (!purego)
+│   ├── arith_purego.go          # pure-Go replacements, -tags purego (EVAL-21)
 │   └── arith.go                 # AddVV/SubVV/AddMulVVW wrappers (no build-tag split)
 ├── calibration/                 # Threshold benchmarking + profile persistence
 ├── cli/                         # CLI output/presenter/spinner
 │   └── completion/              # Shell completion generators (bash/zsh/fish/powershell)
 ├── config/                      # Flag parsing, env override, adaptive thresholds
-├── errors/                      # Typed app errors + exit code handling
+├── apperrors/                   # Typed app errors + exit code handling
 ├── fibonacci/                   # Core Fibonacci algorithms + framework/strategy/factory
 │   ├── fibmath/                 # Size of F(n): GrowthFactor, BitsFor
 │   └── memory/                  # Arena allocator, GC control, memory budget
@@ -336,7 +339,7 @@ internal/
 
 ## `internal/config`
 - **Responsibility:** parse CLI flags, validate configuration, apply `FIBCALC_` env overrides, apply adaptive thresholds.
-- **Key types:** `AppConfig` (24 fields: 21 runtime parameters + the three `*Explicit` markers added by audit M-03 — `internal/config/config.go`, the `AppConfig` struct), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
+- **Key types:** `AppConfig` (29 fields: 26 runtime parameters + the three `*Explicit` markers added by audit M-03 — `internal/config/config.go`, the `AppConfig` struct), `HardwareHeuristic` / `SIMDKind` (CPU class for default thresholds).
 - **Key functions:** `ParseConfig`, `ApplyAdaptiveThresholds`, `DetectHardwareHeuristic`, `EstimateOptimalParallelThreshold`, `EstimateOptimalFFTThreshold`, `EstimateOptimalStrassenThreshold`. The per-heuristic variants `estimateParallelThresholdForHeuristic` / `estimateFFTThresholdForHeuristic` / `estimateStrassenThresholdForHeuristic` (`internal/config/thresholds.go`, the three `estimate*ThresholdForHeuristic` functions) are **unexported** — reachable only from in-package tests, not from diagnostics outside `internal/config`.
 - **Precedence chain:** CLI flags > env vars (`applyEnvOverrides` skips any flag explicitly set on the command line, `internal/config/env.go:applyEnvOverrides`) > static defaults — **uniformly, including the three thresholds since audit M-03 (2026-09)**. `ParseConfig` records which of `--threshold`, `--fft-threshold`, `--strassen-threshold` arrived from the user (flag *or* `FIBCALC_*`) in `ThresholdExplicit`/`FFTThresholdExplicit`/`StrassenThresholdExplicit` (`internal/config/env.go:markExplicitThresholds`), and a cached calibration profile fills only the ones left to the tool; see [§9 Configuration and Environment](#9-configuration-and-environment).
 
@@ -400,7 +403,8 @@ internal/
   - Bump allocator for batch temporary allocations
   - Fermat ring arithmetic (`Z/(2^k+1)`) with `smallMulThreshold` cutover
   - Architecture-neutral arithmetic via `go:linkname` to `math/big` internals
-    (unconditional declarations in `arith_decl.go`; this package performs **no**
+    (declarations in `arith_decl.go`, replaced by `arith_purego.go` under
+    `-tags purego`; this package performs **no**
     CPU-feature probing — `golang.org/x/sys/cpu` is read only by
     `internal/config/hardware.go`, for threshold heuristics)
 
@@ -826,9 +830,11 @@ Implementations:
   - **Size-class pools** with adaptive pre-warming based on estimated operand sizes
   - **Bump allocator** for batch temporary allocations with O(1) reset
   - **Architecture-neutral:** `go:linkname` to `math/big` internal word
-    operations, declared unconditionally in `arith_decl.go` — no build-tag
-    split, **no CPU-feature detection**, and no pure-Go fallback in this repo.
-    The SIMD assembly exploited is `math/big`'s own, on every architecture.
+    operations, declared in `arith_decl.go` — no per-architecture split and
+    **no CPU-feature detection**. The SIMD assembly exploited is `math/big`'s
+    own, on every architecture. The one build tag is `purego` (EVAL-21):
+    `arith_purego.go` then replaces the linkname declarations with `math/bits`
+    code ([PORTABILITY.md § 2.1](PORTABILITY.md#21-internalbigfftarithgo)).
 - Public API used by Fibonacci layer via `Mul/MulTo/Sqr/SqrTo`.
 
 ---

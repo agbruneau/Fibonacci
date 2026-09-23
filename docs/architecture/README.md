@@ -99,10 +99,10 @@ the consequence: the package, the flag and the variable have been removed since
 
 ### Architecture gate
 
-`internal/arch_test.go` enforces five Clean Architecture invariants:
-`threshold → config`, `errors → format`, `tui → fibonacci`,
-`orchestration → format` (APP-10) and `config → fibonacci`/`config → bigfft`
-(ARCH-02) are forbidden. Any PR reintroducing
+`internal/arch_test.go` enforces six Clean Architecture rules, eight forbidden arrows:
+`errors → format`, `tui → fibonacci`, `orchestration → format` (APP-10),
+`cli → fibonacci` (STR-04), `calibration → ui`/`calibration → format` (ARC-01) and
+`config → fibonacci`/`config → bigfft` (ARCH-02). Any PR reintroducing
 one of these upward imports fails `make test` (or
 `go test ./internal/`). Detail: [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 

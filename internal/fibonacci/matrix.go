@@ -22,8 +22,10 @@ import (
 // This reduces the number of matrix multiplications from O(n) to O(log n).
 //
 // Algorithmic Complexity:
-// The total complexity is O(log n * M(n)), where M(n) is the complexity of
-// multiplying the numbers involved, which are proportional to n bits.
+// The loop does O(log n) matrix operations, but the bit cost is Θ(M(n)), not
+// O(log n * M(n)), M(n) being the cost of one n-bit multiplication: the entries
+// double at every iteration, so the per-iteration costs form a geometric
+// series (docs/algorithms/MATRIX.md § Total Complexity).
 //   - A classic 2x2 matrix multiplication requires 8 integer multiplications.
 //   - Strassen's algorithm reduces this to 7 multiplications, improving the
 //     constant factor but with higher overhead from additions and subtractions.

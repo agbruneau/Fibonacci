@@ -215,29 +215,29 @@ vérifiée · ⊘ écartée (motif consigné).
 
 | ID | Statut | Commit | Vérification rejouée | Note |
 |---|---|---|---|---|
-| EVAL-00 | ☐ | | | D1–D8 à trancher d'abord |
-| EVAL-01 | ☐ | | | bloquante |
-| EVAL-02 | ☐ | | | |
-| EVAL-03 | ☐ | | | D3 |
-| EVAL-04 | ☐ | | | |
-| EVAL-05 | ☐ | | | |
-| EVAL-06 | ☐ | | | |
-| EVAL-07 | ☐ | | | D8, après EVAL-23 |
-| EVAL-08 | ☐ | | | |
-| EVAL-09 | ☐ | | | après EVAL-10 |
-| EVAL-10 | ☐ | | | D1 ; benchstat double ordre |
+| EVAL-00 | ☑ | `aba5202` | `TestAuditIdentifiersResolve` vert avec `EVAL-00`, rouge avec un préfixe inconnu | D1–D8 : recommandations retenues (mainteneur, 2026-09-23) |
+| EVAL-01 | ☑ | `498bc2c` | `cmp` LICENSE = module amont ; AST sans commentaires identique (7 fichiers) ; `go test ./internal/bigfft/` | + `LICENSE`/`NOTICE` dans l'image Docker |
+| EVAL-02 | ☑ | `5a6552e` | `grep 'O(n log n)'` : ne reste que Harvey–van der Hoeven | la borne prévue était fausse : FFT à un niveau, Θ(n^1,585) |
+| EVAL-03 | ☑ | `d81edd7` | `grep` des quatre lignes vide | |
+| EVAL-04 | ☑ | `8527827` | `grep 'échoue toujours\|est \*flaky\*'` vide | |
+| EVAL-05 | ☑ | `35a1073` | `grep` des durées historiques vide | |
+| EVAL-06 | ☑ | `5a6552e` | 15 DOI/URL résolus (302) et contrôlés sur Crossref | sections de livres non revérifiées, dit |
+| EVAL-07 | ☑ | `4c78cbe`, `2f487d9` | `bench-gmp-2026-09.txt` (WSL2) ; étape CI `gmp` ajoutée | relevé local, pas de run CI (branche non poussée) |
+| EVAL-08 | ☑ | `93f2a16` | critique à l'aveugle gagné ; chiffres rapportés au code | deux déductions du plan réfutées ; la mesure contredit deux défauts |
+| EVAL-09 | ☑ | `751c1cc`, `4c78cbe`, `2f487d9` | `grep -c '^BenchmarkFibonacci/'` = 120 | `grep -c 'BenchmarkFibonacci/'` donne 121 : la ligne `# command:` compte |
+| EVAL-10 | ☑ | `8ce097d` | `go list \| grep threshold` vide ; `-dynamic-thresholds` → exit 4 ; benchstat neutre une fois l'ordre équilibré | 48 → 45 arêtes (le plan disait 47) ; logger TUI réparé |
 | EVAL-11 | ⊘ | | | runners bruyants ; à revoir si runner dédié |
-| EVAL-12 | ☐ | | | D4 |
-| EVAL-13 | ☐ | | | avant EVAL-10 |
-| EVAL-14 | ☐ | | | |
+| EVAL-12 | ☑ | `4656ff2` | trois sites à 90 ; gate à 95,9 % | 90 %, non 92 % : CI Ubuntu à 94,0 % |
+| EVAL-13 | ☑ | `54cc9d9`, `827b390` | `ExecuteStep` (strategy.go:99) 66,7 % à n = 1M → 100 % à 1,5M | |
+| EVAL-14 | ☑ | `10a18bf` | 3 fichiers restants ; 51 sous-tests, 51 entrées | |
 | EVAL-15 | ⊘ | | | aide de test de 51 lignes |
-| EVAL-16 | ☐ | | | D5 ; accord explicite pour `origin` |
-| EVAL-17 | ☐ | | | D6 ; lire l'état avant |
+| EVAL-16 | ⟳ | | `git tag \| grep -c rewrite` = 0 (local) | 18 étiquettes, sauvegardées ; `origin` : accord du mainteneur attendu |
+| EVAL-17 | ⊘ | | `git -C … status` : une modification non commitée | worktree non propre : laissé, décision au mainteneur |
 | EVAL-18 | ⊘ | | | déjà dit en tête de 4.0.0 |
-| EVAL-19 | ☐ | | | D2 |
-| EVAL-20 | ☐ (opt.) | | | |
-| EVAL-21 | ☐ (opt.) | | | |
-| EVAL-22 | ☐ (opt.) | | | paquet par paquet |
-| EVAL-23 | ☐ | | | D8 |
+| EVAL-19 | ☑ | `fda4362`, `30ef357` | marqueurs de langue : `docs/` à 0 marqueur français | 15 documents traduits en plus d'`ARCH.md` |
+| EVAL-20 | ☑ | `fb84a2a` | relecture | |
+| EVAL-21 | ☑ | `8a9ff79` | `go test -tags purego ./internal/bigfft/` : 153 tests ; 386/arm64 compilent | |
+| EVAL-22 | ☑ | `f1dd229` | décompte 93 → 29 ; AST sans commentaires identique (44 fichiers) | relecture indépendante : aucune raison perdue |
+| EVAL-23 | ☑ | `c4b4c99` | WSL2 : `-algo all` sort quatre `Success` | |
 | EVAL-24 | ⊘ | | | sans mesure de contention |
-| EVAL-25 | ☐ | | | D7 ; poussée et fusion par le mainteneur |
+| EVAL-25 | ☑ | (commit de clôture) | gate final ; comparaison à l'aveugle `main` / branche | poussée, fusion et étiquette distante : mainteneur |

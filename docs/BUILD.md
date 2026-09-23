@@ -28,7 +28,7 @@ The default build produces a statically linked binary for the current platform. 
 
 ### GMP
 
-The GMP build tag enables the GNU Multiple Precision Arithmetic Library backend, which can outperform pure Go for very large Fibonacci indices.
+The GMP build tag enables the GNU Multiple Precision Arithmetic Library backend, an external reference for the pure-Go calculators. It is not faster on the one host measured: tied with `fast` at F(1M), while `fast` is 23 % faster in wall time at F(10M) ([algorithms/GMP.md § Performance](algorithms/GMP.md#performance)).
 
 - **Source file**: `internal/fibonacci/calculator_gmp.go`
 - **Build tag**: `gmp`
@@ -37,15 +37,13 @@ The GMP build tag enables the GNU Multiple Precision Arithmetic Library backend,
 go build -tags=gmp -o fibcalc ./cmd/fibcalc
 ```
 
-The GMP calculator auto-registers via `init()` in `calculator_gmp.go`:
+The GMP calculator auto-registers via `init()` in `calculator_gmp.go`, which
+appends to the `taggedRegistrations` list that every `NewDefaultFactory()`
+applies — so `-algo gmp` works and `-algo all` compares four calculators:
 
 ```go
 func init() {
-    RegisterGMPCalculator(globalFactory)
-}
-
-func RegisterGMPCalculator(f *DefaultFactory) {
-    f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} })
+    taggedRegistrations = append(taggedRegistrations, RegisterGMPCalculator)
 }
 ```
 
@@ -110,7 +108,8 @@ The `internal/bigfft` package uses `go:linkname` to access `math/big` internal v
 
 | File | Responsibility |
 |------|---------------|
-| `internal/bigfft/arith_decl.go` | `go:linkname` declarations to `math/big` internals (all platforms): `addVV`, `subVV`, `addVW`, `subVW`, `shlVU`, `addMulVVW` |
+| `internal/bigfft/arith_decl.go` | `go:linkname` declarations to `math/big` internals (all platforms, `//go:build !purego`): `addVV`, `subVV`, `addVW`, `subVW`, `shlVU`, `addMulVVW` |
+| `internal/bigfft/arith_purego.go` | the same six functions in pure Go with `math/bits`, `//go:build purego` — the fallback if a Go release renames or removes one of those internals ([PORTABILITY.md § 2.1](PORTABILITY.md#21-internalbigfftarithgo)) |
 | `internal/bigfft/arith.go` | Exported wrappers `AddVV` / `SubVV` / `AddMulVVW`, portable — no build tags |
 
 The exported wrappers are **not** the hot path: they exist as test oracles for
@@ -156,7 +155,7 @@ GOOS=darwin GOARCH=arm64 go build -o fibcalc-darwin-arm64 ./cmd/fibcalc
 | `build-windows-arm64` | windows | arm64 | `math/big` assembly (arm64) |
 | `build-darwin` | darwin | amd64 + arm64 | `math/big` assembly per arch |
 
-The wrappers in `arith.go` are portable (no build tags): every architecture delegates to `math/big`'s own platform-optimized assembly via `go:linkname`. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent platform-specific import surfaces immediately. Full matrix and portability contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
+The wrappers in `arith.go` are portable (no build tags): by default every architecture delegates to `math/big`'s own platform-optimized assembly via `go:linkname`; `-tags purego` swaps in `arith_purego.go`. Run `make build-all` locally to exercise `linux/arm64`, `darwin/arm64`, and `darwin/amd64` so a latent platform-specific import surfaces immediately. Full matrix and portability contract: [`docs/PORTABILITY.md`](PORTABILITY.md).
 
 Verified 2026-09-04 from a Windows host, running the same six `go build`
 invocations `build-all` issues (`GOOS=<os> GOARCH=<arch> go build -trimpath ./cmd/fibcalc`):
@@ -272,12 +271,12 @@ there is `scripts/check.ps1`.
 | `test-win` | `go test -v -cover ./...` (no `-race`; Windows / no-CGO hosts) |
 | `test-short` | `go test -v -short ./...` |
 | `coverage` | Generate `coverage.html` |
-| `coverage-check` | Fail if module total coverage drops below 80% |
+| `coverage-check` | Fail if module total coverage drops below 90% |
 | `benchmark` | Run benchmarks |
 | `lint` | `golangci-lint run ./...` |
 | `security` | `gosec ./...` |
 | `format` | `go fmt` + `gofmt` |
-| `check` | Run the canonical pre-commit gate (`bash scripts/check.sh`): build, vet, `go test -race` + coverage profile, `-tags gmp` step, lint report, 80% coverage floor. No formatting step — run `make format` separately |
+| `check` | Run the canonical pre-commit gate (`bash scripts/check.sh`): build, vet, `go test -race` + coverage profile, `-tags gmp` step, lint report, 90% coverage floor. No formatting step — run `make format` separately |
 
 ### Run Targets
 
@@ -349,9 +348,9 @@ ADR-0010 D4). Jobs:
 
 | Job | What it covers |
 |---|---|
-| `gate` (ubuntu + windows) | gofmt, vet, build, `go test -race -shuffle=on -count=1`, lint, govulncheck, 80% coverage floor, `go mod tidy -diff` |
-| `gmp` | `-tags gmp` build/vet/test with libgmp installed — the step that is SKIP on the maintainer's host |
-| `cross-build` | `GOARCH=386` and `GOARCH=arm64` compile check |
+| `gate` (ubuntu + windows) | gofmt, vet, build, `go test -race -shuffle=on -count=1`, lint, govulncheck, 90% coverage floor (Ubuntu only), `go mod tidy -diff` |
+| `gmp` | `-tags gmp` build/vet/test with libgmp installed — the step that is SKIP on the maintainer's host; then `-algo all` must print four calculators, and Fast Doubling is benchmarked against GMP (artifact `bench-gmp`) |
+| `cross-build` | `GOARCH=386` and `GOARCH=arm64` compile check; `go test -tags purego ./internal/bigfft/` |
 | `docker` | builds the image, asserts the version symbols are injected, runs a calculation |
 | `fuzz` | weekly (and on demand) mutation fuzzing, 120s per target |
 
@@ -360,7 +359,7 @@ Tool versions come from `scripts/tools.env`, the same file the local gates read.
 ## Local Pre-Commit Checks
 
 The local gate is the fast path; CI is the guarantee. Two gate scripts run the
-same core sequence (build, vet, test, lint, 80% coverage floor, govulncheck).
+same core sequence (build, vet, test, lint, 90% coverage floor, govulncheck).
 One difference remains: `check.sh` has a step 3b that builds, vets
 and tests under `-tags gmp` when the libgmp headers are present
 (`scripts/check.sh`, the block headed `step "gmp build tag (-tags gmp)"`);
@@ -382,7 +381,7 @@ host (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, MinGW-W64 gcc 16.1.0):
 pwsh ./scripts/check.ps1
 ```
 
-Every step is a hard gate: build, vet, test, **lint** and the 80% coverage floor.
+Every step is a hard gate: build, vet, test, **lint** and the 90% coverage floor.
 Lint became blocking in audit GATE-01 (2026-09-03); it had been advisory, which
 silently hid the fact that the pinned v1 linter could not run at all under a
 go1.27 toolchain. A golangci-lint that is absent, or that exits with a code

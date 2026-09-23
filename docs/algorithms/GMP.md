@@ -2,7 +2,7 @@
 
 ## Overview
 
-The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations, delegating every arithmetic operation to GMP's C/assembly routines instead of Go's `math/big`. Whether that wins is measured at two sizes only, on one host — see [Performance](#performance) below. The type comment in `calculator_gmp.go` asserts an advantage above N = 100,000,000 and a CGO-overhead penalty below it; the measurement stops at N = 10,000,000, so it tests neither claim directly, and at the sizes it covers it does not show the penalty.
+The GMP-based calculator utilizes the [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/) to perform Fibonacci calculations, delegating every arithmetic operation to GMP's C/assembly routines instead of Go's `math/big`. Whether that wins is measured at two sizes only, on one host — see [Performance](#performance) below. Until 2026-09-23 the type comment in `calculator_gmp.go` asserted an advantage above N = 100,000,000 and a CGO-overhead penalty below it; it now states only what the measurement shows. The measurement stops at N = 10,000,000, so it tests neither former claim directly, and at the sizes it covers it does not show the penalty.
 
 This implementation uses the **Fast Doubling** algorithm, like the `"fast"` strategy, but it is a separate loop, not the shared one:
 
@@ -143,9 +143,9 @@ What the ratio does and does not measure:
   files are not interchangeable (`FastDoubling/100M`: 219.1 ms here, 193.2 ms
   there). Take the ratio within this file only.
 
-Against the type comment: at 1M no CGO penalty is visible (the two do not
+Against the former type comment: at 1M no CGO penalty is visible (the two do not
 differ significantly), and at 10M the sequential GMP loop is slower than the
-parallel `math/big` one. Neither size reaches the N > 100,000,000 the comment is
+parallel `math/big` one. Neither size reaches the N > 100,000,000 that comment was
 about; `BenchmarkGMPCalculator` stops at 10M.
 
 The CI `gmp` job (`.github/workflows/ci.yml`) runs the same command on every push

@@ -7,8 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Corrigé
+## [5.0.0] - 2026-09-23
 
+### Exécution du plan de l'évaluation académique du 2026-09-15
+
+Plan [`plan-evaluation-2026-09-15.md`](docs/audits/plan-evaluation-2026-09-15.md),
+décisions D1–D8 dans [ADR-0013](docs/adr/0013-evaluation-2026-09-decisions.md).
+Majeure : le drapeau `-dynamic-thresholds` et la variable
+`FIBCALC_DYNAMIC_THRESHOLDS` disparaissent (D7).
+
+#### Supprimé (rupture)
+
+- **Gestionnaire de seuils dynamiques (EVAL-10, D1)** : paquet
+  `internal/fibonacci/threshold`, champs `Options.EnableDynamicThresholds`,
+  `DynamicAdjustmentInterval` et `ThresholdTuning`, le crochet `CacheStrategy`,
+  `config.ThresholdTuningProfile`, `orchestration.ThresholdTuning`, le drapeau
+  `-dynamic-thresholds` (désormais « flag provided but not defined », code 4) et
+  `FIBCALC_DYNAMIC_THRESHOLDS` (ignorée). Mesuré neutre à `-count=8`, il coûtait
+  une branche par itération. `arch_test.go` passe à six règles, le graphe
+  d'imports de 48 à 45 arêtes. ADR-0001 est remplacé par ADR-0013. Mesure de la
+  suppression contre `main@93af525` :
+  [`bench-dtm-removal-2026-09.txt`](docs/audits/bench-dtm-removal-2026-09.txt) —
+  sec/op neutre une fois l'ordre équilibré, allocations de `FastDoubling/1M`
+  −21,9 % (le `Options` réduit ne s'échappe plus sur le tas à chaque pas).
+
+#### Ajouté
+
+- **`-algo gmp` atteignable sous `-tags gmp` (EVAL-23, D8)** : les fichiers sous
+  tag s'ajoutent à `taggedRegistrations`, que `NewDefaultFactory` applique ;
+  `-algo all` compare quatre calculateurs. Le job CI `gmp` le vérifie et mesure
+  Fast Doubling contre GMP (artefact `bench-gmp`).
+- **Repli Go pur `-tags purego` (EVAL-21)** pour les six fonctions de `math/big`
+  liées par `go:linkname` ; testé en CI (`cross-build`).
+- **Bibliographie vérifiée** [`docs/REFERENCES.md`](docs/REFERENCES.md) (EVAL-06) :
+  15 entrées, chaque DOI résolu et contrôlé sur Crossref le 2026-09-23.
+- **Mesures archivées** : courbe d'échelle 100K → 100M
+  ([`bench-scale-2026-09.txt`](docs/audits/bench-scale-2026-09.txt), EVAL-09) et
+  référence GMP ([`bench-gmp-2026-09.txt`](docs/audits/bench-gmp-2026-09.txt),
+  EVAL-07). À F(1M), `fast` et la boucle GMP ne se distinguent pas ; à F(10M),
+  `fast` est 23 % plus rapide en temps écoulé, mais parallèle contre séquentiel.
+- **Test au-dessus du seuil FFT par défaut (EVAL-13)** : n = 1 500 000 ; le test à
+  n = 1 000 000 qui prétendait couvrir la branche FFT ne l'atteignait pas
+  (66,7 % → 100 % sur `AdaptiveStrategy.ExecuteStep`).
+- **Règle de revue** pour un projet à un seul mainteneur (EVAL-20).
+
+#### Corrigé
+
+- **La TUI perdait son logger** : `tui.NewModel` recevait le `*slog.Logger` sans
+  le conserver depuis `c2329f3`, donc `--tui --log-level debug` ne journalisait
+  rien. Trouvé pendant EVAL-10, test ajouté.
 - **Attribution de `internal/bigfft` (EVAL-01, constat P1)** : le paquet dérive de
   [`github.com/remyoudompheng/bigfft`](https://github.com/remyoudompheng/bigfft)
   (BSD-3-Clause, commit `24d4a6f8daec`) sans en avoir gardé la notice. La licence
@@ -20,6 +67,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `doc.go` et `BIGFFT.md` gagnent une section Provenance ; l'image Docker copie
   `LICENSE` et `NOTICE` dans `/usr/share/doc/fibcalc/`. Aucune ligne de code ne
   change (comparaison d'AST sans commentaires, sept fichiers identiques).
+- **Bornes de complexité (EVAL-02)** : la multiplication implémentée était
+  donnée en O(n log n). Le correctif prévu, O(n log n log log n), était faux lui
+  aussi : `bigfft` ne fait qu'un niveau de FFT (produits point à point rendus à
+  `math/big`, longueur de transformée plafonnée à 2^16), donc M(n) = Θ(n^1,585)
+  avec une constante plus petite ; les boucles de doublement coûtent Θ(M(n)), pas
+  O(log n) × M(n). Corrigé dans le README, `FFT.md`, `BIGFFT.md`,
+  `FAST_DOUBLING.md`, `MATRIX.md`, `COMPARISON.md`, `PERFORMANCE.md`, `ARCH.md` et
+  deux commentaires Go.
+- **CHANGELOG 1.0.0 (EVAL-03)** : quatre fonctions jamais présentes retirées,
+  entrées 0.1.0 et 1.0.0 marquées « préhistoire ».
+- **`HISTORY.md` (EVAL-04)** et **`PERFORMANCE.md` (EVAL-05)** : limites levées
+  dites levées ; les deux tableaux de débit sans artefact retirés.
+- **Seuils par défaut (EVAL-08)** : chacun dit d'où vient son ordre de grandeur,
+  argument et mesure séparés. La mesure d'un hôte contredit deux défauts
+  (parallèle perdant à 4 096 bits, Winograd gagnant dès 1 024 bits) — consigné,
+  non changé.
+
+#### Modifié
+
+- **Plancher de couverture 80 % → 90 % (EVAL-12, D4)** dans `check.sh`,
+  `check.ps1` et la CI. 90 % et non 92 % : la CI Ubuntu mesure 94,0 %
+  (2026-09-21), et D4 visait 4 points de marge sous la plateforme la plus basse.
+- **Règle de langue amendée (EVAL-19, D2)** : narratif en français, référence
+  technique en anglais ; `ARCH.md` et les quinze documents de référence encore
+  en français sont traduits.
+- **Commentaires Go (EVAL-22)** : phrases d'historique retirées, raisons gardées
+  (93 → 29 occurrences de « used to / previously / the previous »), commentaires
+  seulement.
+- **Corpus de fuzz (EVAL-14)** : douze graines qui répétaient un `f.Add` retirées ;
+  51 sous-tests rejoués, 51 entrées distinctes.
+- **Étiquettes `rewrite/*` (EVAL-16, D5)** : les 18 étiquettes locales sont
+  supprimées après sauvegarde ; celles d'`origin` attendent l'accord du
+  mainteneur.
+
+#### Vérification
+
+- Gate `scripts/check.ps1` rejoué sur la branche : build, vet,
+  `go test -race -shuffle=on -count=1`, `golangci-lint` 0, plancher 90 %,
+  `govulncheck` 0 (voir la ligne HISTORY du 2026-09-23 pour la couverture).
+- `-tags gmp` : vet, tests et `-algo all` à quatre calculateurs, vérifiés sous
+  WSL2 (go1.26.1, libgmp 6.3.0) ; `-tags purego` : 153 tests `bigfft` verts.
+- Ce qui n'est pas vérifié ici : la CI de la branche (non poussée) et
+  l'image Docker (pas de client Docker sur l'hôte).
 
 ## [4.1.1] - 2026-09-07
 
@@ -1225,7 +1315,8 @@ been purged ; the ADR series is the surviving source of truth.
 <!-- v4.0.0 and v3.0.0 are the release tags; no v1.0.0/v0.1.0 tags exist,
 so the 1.0.0 and 0.1.0 sections above are intentionally unlinked. -->
 
-[Unreleased]: https://github.com/agbruneau/Fibonacci/compare/v4.1.1...HEAD
+[Unreleased]: https://github.com/agbruneau/Fibonacci/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/agbruneau/Fibonacci/compare/v4.1.1...v5.0.0
 [4.1.1]: https://github.com/agbruneau/Fibonacci/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/agbruneau/Fibonacci/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/agbruneau/Fibonacci/compare/v3.0.0...v4.0.0

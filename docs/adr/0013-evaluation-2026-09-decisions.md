@@ -1,6 +1,6 @@
 # ADR-0013: Évaluation académique 2026-09-15 — décisions D1 à D8
 
-- **Status**: Proposed
+- **Status**: Accepted (2026-09-23 ; créé *Proposed* le même jour, EVAL-00)
 - **Date**: 2026-09-23
 - **Deciders**: André-Guy Bruneau (mainteneur)
 - **Context source**: [`evaluation-academique-2026-09-15.md`](../audits/evaluation-academique-2026-09-15.md)
@@ -44,12 +44,42 @@ Tâches écartées, avec leur motif :
 - **EVAL-24** — unification des deux sémaphores : aucune mesure de contention.
   À revoir si un profil montre du sur-abonnement.
 
+## Exécution et écarts (2026-09-23)
+
+Toutes les tâches non écartées sont faites, optionnelles comprises (EVAL-20,
+EVAL-21, EVAL-22) ; suivi détaillé au § 8 du plan. Écarts à la décision :
+
+- **D4** : plancher fixé à **90 %**, non 92 %. La réserve de D4 a joué : la CI
+  Ubuntu mesure 94,0 % (run du 2026-09-21), et 92 % n'aurait laissé que 2 points
+  sous la plateforme la plus basse.
+- **D5** : étiquettes supprimées **localement** (18, non 15 ; sauvegarde
+  `for-each-ref` et `git bundle`). Suppression sur `origin` en attente de
+  l'accord explicite du mainteneur.
+- **D6** : le *worktree* n'est **pas propre** (une modification non commitée de
+  `internal/progress/progress_test.go`, six lignes de commentaires retirées) ; sa
+  branche n'a aucun commit hors de `main`. Laissé en place, décision rendue au
+  mainteneur.
+- **D8 / EVAL-07** : le premier relevé GMP archivé est local (WSL2, même CPU),
+  pas un run CI ; le job `gmp` rejoue la même commande à chaque poussée.
+- **EVAL-02** : la correction prévue (O(n log n log log n)) était elle-même
+  inexacte pour ce code ; la documentation énonce Θ(n^1,585) à constante réduite
+  pour une FFT à un seul niveau.
+- **EVAL-19** : au-delà d'`ARCH.md`, quinze documents de référence encore en
+  français ont été traduits, sans quoi la règle amendée n'aurait pas décrit le
+  corpus.
+
+Mesures : suppression du DTM neutre en sec/op, `FastDoubling/1M` −21,9 %
+d'allocations ([`bench-dtm-removal-2026-09.txt`](../audits/bench-dtm-removal-2026-09.txt)) ;
+courbe d'échelle et référence GMP dans `docs/audits/bench-{scale,gmp}-2026-09.txt`.
+
 ## Consequences
 
 ### Positive
 
 - La condition de recevabilité R3 est levée par EVAL-01.
-- Les affirmations chiffrées publiées renvoient toutes à un artefact archivé.
+- Les mesures publiées par ce plan renvoient à un artefact archivé (`docs/audits/`),
+  sauf les micro-mesures des seuils d'EVAL-08 (`CALIBRATION.md` § Measurement),
+  dont le protocole est décrit mais la sortie non archivée.
 
 ### Negative / Trade-offs
 

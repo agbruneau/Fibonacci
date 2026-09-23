@@ -68,7 +68,6 @@ flowchart LR
     style Calibration fill:#fff3e0
     style Adaptive fill:#e8f5e9
     style Options fill:#fce4ec
-    style Dynamic fill:#e0f2f1
     style Profile fill:#f5f5f5
 ```
 

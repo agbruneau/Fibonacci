@@ -13,16 +13,16 @@ Ce qu'on y expérimente : algorithmique (Fast Doubling, exponentiation matriciel
 
 ### Historique
 
-Huit campagnes d'audit entre mai 2026 et septembre 2026, avec pour chacune ce
+Neuf campagnes d'audit entre mai 2026 et septembre 2026, avec pour chacune ce
 qui a été mesuré, ce qui a été rejeté et pourquoi :
 [`docs/audits/HISTORY.md`](docs/audits/HISTORY.md). Le détail commit par commit
 est dans [`CHANGELOG.md`](CHANGELOG.md), les décisions dans
 [`docs/adr/`](docs/adr/).
 
-**État vérifié le 2026-09-07** (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
+**État vérifié le 2026-09-23** sur `ed56592` (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
 `scripts/check.ps1` vert de bout en bout — build, vet, `go test -race -shuffle=on
--count=1` sur les 22 paquets, lint à **0 finding**, couverture **96,1 %** (plancher
-80 %), `govulncheck` sans vulnérabilité. La même séquence tourne en CI sur Ubuntu
+-count=1` sur les 21 paquets, lint à **0 finding**, couverture **96,0 %** (plancher
+90 %), `govulncheck` sans vulnérabilité. La même séquence tourne en CI sur Ubuntu
 et Windows à chaque poussée, avec en plus le backend `gmp`, un build 32 bits et
 l'image Docker.
 
@@ -93,7 +93,7 @@ make all      # clean + build + test
 | `fast` (défaut) — **Fast Doubling** | Θ(M(n)) — O(log n) multiplications | Identité F(2k) = F(k)·(2F(k+1) − F(k)) ; `AdaptiveStrategy` choisit M pas par pas ; pooling état+arène+scratch FFT |
 | `matrix` — **Exponentiation matricielle** | Θ(M(n)) — O(log n) multiplications | Variante **Strassen-Winograd** (7 multiplications, 15 add/sub) pour les grandes matrices ; choisit M lui aussi, mais à un autre point du graphe d'appel |
 | `fft` — **FFT-Based Doubling** | Θ(M(n)), M **toujours** FFT | **Pas un troisième algorithme** : `FFTBasedCalculator.CalculateCore` relance la boucle de `fast` — le même `ExecuteDoublingLoop` — en échangeant `AdaptiveStrategy` contre `FFTOnlyStrategy`, qui ne consulte plus aucun seuil. C'est un banc d'essai du chemin FFT isolé, et il n'est **plus rapide que `fast`** à aucune des quatre tailles mesurées ([Performance](#performance)) |
-| **GMP** (tag de build `gmp`) | — | Backend GNU MP (CGO + libgmp) ; `scripts/check.sh` étape 3b le compile et le teste **si** les en-têtes libgmp sont présentes sur l'hôte, sinon l'étape est sautée (`check.ps1` n'a pas d'équivalent) |
+| `gmp` (tag de build `gmp`) — **GMP** | Θ(M(n)), M de GMP | Même boucle de doublement, sur les entiers `mpz` ; backend GNU MP (CGO + libgmp) ; `scripts/check.sh` étape 3b le compile et le teste **si** les en-têtes libgmp sont présentes sur l'hôte, sinon l'étape est sautée (`check.ps1` n'a pas d'équivalent) |
 
 M(n) est le coût d'**une** multiplication de deux nombres de n bits, pas celui de F(n) : `math/big`
 (Karatsuba [[3]](docs/REFERENCES.md#ref-3), M(n) = Θ(n^1,585) [[13]](docs/REFERENCES.md#ref-13)) sous le seuil FFT, `internal/bigfft` au-dessus. Ce
@@ -191,7 +191,7 @@ Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 | `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) ; sous-package `cli/completion` (génération complétion shell) |
 | `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
 | `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
-| `internal/{errors,format,metrics,ui,testutil}` | Packages de support (feuilles) |
+| `internal/{apperrors,format,metrics,ui,testutil}` | Packages de support (feuilles) |
 | `test/e2e` | Tests bout-en-bout du binaire CLI (hors `internal/`) |
 
 ## Performance
@@ -289,7 +289,7 @@ fibcalc [flags]
 | Flag | Raccourci | Défaut | Description |
 |---|---|---|---|
 | `-n` | | 100 000 000 | Indice Fibonacci |
-| `-algo` | | `all` | `fast`, `matrix`, `fft` ou `all` (comparaison) |
+| `-algo` | | `all` | `fast`, `matrix`, `fft` ou `all` (comparaison) ; `gmp` en plus sous `-tags gmp` |
 | `-calculate` | `-c` | `false` | Affiche la valeur calculée |
 | `-verbose` | `-v` | `false` | Affiche la valeur complète |
 | `-details` | `-d` | `false` | Détails de performance et métadonnées |
@@ -374,14 +374,14 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   contre la chaîne Go (c'est ce qui avait cassé le lint, puis `govulncheck`, `gosec` et
   `staticcheck` d'un coup).
 - **Couverture** : plancher garanti **90 %** via `make coverage-check`, `check.ps1` et la CI ; dernière mesure
-  **96,1 %** des instructions (2026-09-07, `go1.27.0 windows/amd64`, 22 paquets). Le chiffre est
+  **96,0 %** des instructions (2026-09-23, `go1.27.0 windows/amd64`, 21 paquets). Le chiffre est
   daté, pas figé ; le plancher, relevé de 80 à 90 % le 2026-09-23, laisse 4 points sous la mesure
   de la CI Ubuntu (94,0 % le 2026-09-21). Détail, commande de re-datation et angles morts :
   [`docs/TESTING.md` § Coverage](docs/TESTING.md#coverage) (directive A5-04, amendée le 2026-09-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO et un compilateur C. `scripts/check.ps1` sonde les deux et active `-race`
-  quand ils sont présents — relevé du 2026-09-07 : 22 paquets verts sur cet hôte Windows. Sans compilateur
+  quand ils sont présents — relevé du 2026-09-23 : 21 paquets verts sur cet hôte Windows. Sans compilateur
   C, la passe complète se fait via **WSL** (`wsl go test -race ./...`). Les scripts shell sont épinglés en
   LF (`.gitattributes`) pour rester exécutables côté WSL.
 - **Lint bloquant** : depuis l'audit 2026-09 (GATE-01), `golangci-lint` **v2** fait échouer
@@ -392,8 +392,11 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
-- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0011, plus `0000-template.md`).
-  ⚠ **Dernier audit : 2026-09-03**, en deux passes — l'audit exhaustif (23 constats,
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0013, plus `0000-template.md`).
+  ⚠ **Dernière campagne : l'évaluation académique du 2026-09-15**, exécutée le 2026-09-23
+  ([ADR-0013](docs/adr/0013-evaluation-2026-09-decisions.md)), après l'audit « livre » du 2026-09-07
+  ([ADR-0012](docs/adr/0012-audit-2026-09-livre-decisions.md)). Avant eux, l'audit du 2026-09-03,
+  en deux passes — l'audit exhaustif (23 constats,
   [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md)) puis la passe de sur-ingénierie
   ([ADR-0011](docs/adr/0011-audit-2026-09-ponytail.md)). Les deux ADR consignent les décisions retenues
   **et** les candidats rejetés, avec la mesure ou l'ADR qui les rejette, pour qu'un audit futur ne les
@@ -402,7 +405,8 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   Les audits 2026-07 ([ADR-0009](docs/adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)) et 2026-08-07
   ont suivi la même règle ; celui de 2026-08-07 **n'a pas d'ADR** — il ne tranchait aucune décision
   d'architecture, et son journal de boucle (`gauntlet-log.md`) a été retiré le 2026-08-08.
-  Le tableau « Historique des audits et jalons » en tête de ce fichier en porte le détail.
+  Le tableau « Historique des audits et jalons » de
+  [`docs/audits/HISTORY.md`](docs/audits/HISTORY.md) en porte le détail.
 
 Commandes principales (équivalents `go` pour Windows sans GNU make) :
 
@@ -428,7 +432,7 @@ Stratégie de test (table-driven, `t.Parallel()`, doubles de test, fuzzing, gold
 
 ## Contribution et licence
 
-- Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer — release courante : `v4.1.0`).
+- Changements notables : [`CHANGELOG.md`](CHANGELOG.md) (format Keep-a-Changelog, SemVer — release courante : `v5.0.0`).
 - Workflow de contribution : [`CONTRIBUTING.md`](CONTRIBUTING.md) — test rouge → fix → vert,
   validation locale complète avant chaque commit.
 - Langue des documents : narratif (README, CHANGELOG, ADR, `docs/audits/`) en français, référence

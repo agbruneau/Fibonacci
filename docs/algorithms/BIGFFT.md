@@ -56,7 +56,7 @@ lists what it took and what changed; the table summarizes those headers.
 | `fft_poly.go` | `fft.go`: `poly`/`polValues` (exported as `Poly`/`PolValues`), `polyFromNat`, `Int`, `trim`, `Mul`, `Transform`, `InvTransform`, `NTransform`, `InvNTransform`, pointwise `Mul` | pooled backing arrays and `Release`, `*WithBump` variants, `IntTo`, pointwise `Sqr`, `Clone`, parallel pointwise products |
 | `fft_recursion.go` | `fft.go`: the radix-2 recursion that upstream's `fourier` runs as a closure | named recursion with error returns, bounded parallel recursion and panic re-propagation, tunable thresholds, parallel butterfly reconstruction |
 
-Every other file — `allocator.go`, `arith.go`, `bump.go`, `doc.go`, `fft_cache.go`,
+Every other file — `allocator.go`, `arith.go`, `arith_purego.go`, `bump.go`, `doc.go`, `fft_cache.go`,
 `memory_est.go`, `pool.go`, `pool_warming.go` and all `*_test.go` files — is original to this
 repository. Upstream's `scan.go` (`FromDecimalString`) was carried at one point and removed
 ([ADR-0009 R1](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md)); none of upstream's
@@ -776,7 +776,9 @@ flowchart TD
 ## Low-Level Arithmetic
 
 Word-level vector arithmetic is delegated to `math/big`'s internal assembly via
-`go:linkname`; bigfft performs no runtime CPU-feature detection of its own.
+`go:linkname`; bigfft performs no runtime CPU-feature detection of its own. Under
+`-tags purego`, `arith_purego.go` replaces those bindings with pure-Go `math/bits`
+code ([PORTABILITY.md § 2.1](../PORTABILITY.md#21-internalbigfftarithgo)).
 
 ### Vector Arithmetic
 
@@ -785,13 +787,13 @@ Word-level vector arithmetic is delegated to `math/big`'s internal assembly via
 A single portable file (no build tags) exports three functions (`AddVV`, `SubVV`,
 `AddMulVVW`) that wrap the `go:linkname` bindings declared in `arith_decl.go`.
 The exported wrappers serve as test-only oracles for `arith_test.go`; production
-code calls the lowercase linkname bindings directly. All platforms use the same
-`math/big` internals, which Go's standard library already optimizes with
-platform-appropriate assembly.
+code calls the lowercase linkname bindings directly. In the default build all
+platforms use the same `math/big` internals, which Go's standard library already
+optimizes with platform-appropriate assembly.
 
 ### go:linkname Declarations
 
-**File**: `internal/bigfft/arith_decl.go`
+**File**: `internal/bigfft/arith_decl.go` (`//go:build !purego`)
 
 Six `go:linkname` directives bind directly to `math/big` internal functions:
 
@@ -822,7 +824,8 @@ Six `go:linkname` directives bind directly to `math/big` internal functions:
 | `allocator.go` | `tempAllocator` interface, `poolAllocator` (`*BumpAllocator` implements it directly, see `bump.go`); consumed by `fft_poly.go`, no longer threaded through the FFT recursion (L-06) |
 | `memory_est.go` | `EstimateMemoryNeeds` for pool pre-warming |
 | `arith.go` | Portable vector arithmetic wrappers (test-only oracles) delegating to `math/big` internals |
-| `arith_decl.go` | Architecture-independent `go:linkname` declarations to `math/big` |
+| `arith_decl.go` | Architecture-independent `go:linkname` declarations to `math/big` (`!purego`) |
+| `arith_purego.go` | Pure-Go `math/bits` versions of the same six functions (`purego`) |
 | `doc.go` | Package documentation |
 
 ---

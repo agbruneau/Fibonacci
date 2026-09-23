@@ -7,15 +7,15 @@ combines unit tests, golden file validation, fuzz targets replayed as seed
 regression tests (mutation fuzzing itself runs on **no** gate — see
 [Fuzz Testing](#fuzz-testing)), property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
-testing, and end-to-end testing. The test suite spans 142 test files across the
-22 packages (2026-09-07; recount with `git ls-files '*_test.go' | wc -l` rather
+testing, and end-to-end testing. The test suite spans 133 test files across the
+21 packages (2026-09-23; recount with `git ls-files '*_test.go' | wc -l` rather
 than trusting the figure — `git ls-files` is used deliberately, so untracked
-scratch checkouts are not counted twice) and covered **96.1 % of statements**
-when last measured (2026-09-07, `go1.27.0 windows/amd64`). Only the **80 %**
-floor is enforced, by `make coverage-check` alone — `make coverage` renders
-`coverage.html` and asserts nothing. The 16.1-point margin between the reading
-and the floor is unenforced slack, not a guarantee; see [Coverage](#coverage)
-for the command that re-dates the figure.
+scratch checkouts are not counted twice) and covered **96.0 % of statements**
+when last measured (2026-09-23, `go1.27.0 windows/amd64`). Only the **90 %**
+floor is enforced — by `make coverage-check`, `scripts/check.ps1` and the CI
+`gate` job; `make coverage` renders `coverage.html` and asserts nothing. The
+6-point margin between the reading and the floor is unenforced slack, not a
+guarantee; see [Coverage](#coverage) for the command that re-dates the figure.
 
 All tests follow standard Go conventions: table-driven subtests, `t.Parallel()` for independent cases, and the `-race` flag run locally (requires CGO).
 
@@ -248,7 +248,7 @@ build: the `internal` package has no non-test Go file
 (`go list -f '{{.GoFiles}}' ./internal/` → `[]`), so `go build ./...` never
 compiles it and stays green even with a violation in place. It inspects each importer
 package via `go list -f '{{range .Imports}}{{.}}\n{{end}}'` (production code only — `_test.go`
-files are excluded). Currently six rules :
+files are excluded). Currently six rules:
 
 | Importer | Forbidden direct import | Rationale |
 |---|---|---|
@@ -334,8 +334,8 @@ go test -bench=BenchmarkFibonacci -benchtime=5x ./internal/fibonacci/
 go test -bench=BenchmarkCacheImpact -benchmem ./internal/fibonacci/
 ```
 
-`internal/fibonacci` defines nine benchmark functions: `BenchmarkFibonacci`
-(subtests `FastDoubling`, `MatrixExp`, `FFTBased`), `BenchmarkFibonacciDTM`,
+`internal/fibonacci` defines eight benchmark functions: `BenchmarkFibonacci`
+(subtests `FastDoubling`, `MatrixExp`, `FFTBased`),
 `BenchmarkCacheImpact`, `BenchmarkCacheHitRate`, `BenchmarkSmartSquareSmall` /
 `Medium` / `Large`, `BenchmarkSmartSquareVsSmartMultiply`, and
 `BenchmarkGMPCalculator` (build tag `gmp`) — there is no `BenchmarkFastDoubling`
@@ -408,10 +408,10 @@ Two numbers live here and they are not interchangeable.
 | | Value | Status |
 |---|---|---|
 | **Enforced floor** | 90.0 % of statements, module total | Asserted by `make coverage-check`, which delegates to `scripts/check.sh --coverage-only` (`COVERAGE_FLOOR=90.0`), by `scripts/check.ps1` and by the CI `gate` job on Ubuntu. Raised from 80 % on 2026-09-23 (EVAL-12): the Ubuntu CI run of 2026-09-21 measured 94.0 %, and 90 % keeps a 4-point margin under the lowest platform. Below it, the gate fails. |
-| **Last measured** | **96.1 %** of statements, module total | A dated reading: 2026-09-07, `go1.27.0 windows/amd64`, `go test -race -count=1 -coverprofile … ./...` exit 0, 22 packages. Nothing enforces it — coverage can fall 6.1 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
+| **Last measured** | **96.0 %** of statements, module total | A dated reading: 2026-09-23, commit `ed56592`, `go1.27.0 windows/amd64`, `scripts/check.ps1` (`go test -race -shuffle=on -count=1 -coverprofile … ./...`) exit 0, 21 packages. Nothing enforces it — coverage can fall 6 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
 
-Read the 96.1 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
-below: it counts no e2e subprocess path and no GMP backend, so it is 96.1 % of
+Read the 96.0 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
+below: it counts no e2e subprocess path and no GMP backend, so it is 96.0 % of
 what the instrumentation can see, not of the shipped code.
 
 That reading came from the same two commands `check.sh --coverage-only` runs
@@ -443,7 +443,7 @@ The HTML report (`coverage.html`) highlights tested and untested code paths. Foc
 > with its date, host and command, and re-date it when you re-run.** What stays
 > banned is a bare percentage with no provenance, and reading a measurement as
 > a commitment — `scripts/check.sh` is still the single source of the
-> *enforced* number, and it asserts 80 %, not 96.6 %.
+> *enforced* number, and it asserts 90 % (80 % until 2026-09-23), not 96.6 %.
 
 ### Coverage blind spots (A5-08)
 
@@ -456,11 +456,12 @@ Two categories of code are intentionally not reflected in the standard `coverage
 
 `cmd/generate-golden` is the **dev-time** oracle that regenerates the golden
 corpus; it is outside the production execution path. Its `main` is deliberately
-left uncovered, which costs the package **8.7 points** against the module total:
-**87.9 %** vs 96.1 % (`go test -count=1 -cover ./cmd/generate-golden/`,
-re-read 2026-09-07). The whole gap is `main` at 0.0 % — `run` measures 90.5 % and
+left uncovered, which costs the package **8.1 points** against the module total:
+**87.9 %** vs 96.0 % (`go test -count=1 -cover ./cmd/generate-golden/`,
+re-read 2026-09-23). The whole gap is `main` at 0.0 % — `run` measures 90.5 % and
 `fibBig` 100.0 % (`go tool cover -func`). So the package sits *below* the module
-total, not far below, and clears the 80 % floor on its own.
+total, not far below; it cleared the old 80 % floor on its own and would not clear
+the 90 % one.
 **Exclude it from any per-package coverage floor** regardless — the floor
 applies to the **module total** only (see `make coverage-check`, A5-10).
 

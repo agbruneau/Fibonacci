@@ -324,7 +324,7 @@ const MicroBenchIterations = 7 // raised from 3 by audit M-01; no per-test timeo
 // budget sets MicroBenchmark.Timeout on its own instance.
 const MicroBenchTimeout = 400 * time.Millisecond // was 150ms before audit M-01
 
-var MicroBenchTestSizes = []int{500, 2000, 8000, 16000} // word counts
+var microBenchTestSizes = [...]int{500, 2000, 8000, 16000} // word counts; MicroBenchTestSizes() returns a copy
 ```
 
 The test sizes are chosen to span the critical algorithm crossover ranges:

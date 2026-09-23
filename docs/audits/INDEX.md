@@ -36,7 +36,7 @@ Un identifiant n'est admis que si son préfixe figure dans le tableau ci-dessous
 | `EVAL-` | Évaluation académique 2026-09-15 (grille universitaire C1–C10), tâches du plan d'exécution | [`evaluation-academique-2026-09-15.md`](evaluation-academique-2026-09-15.md), plan [`plan-evaluation-2026-09-15.md`](plan-evaluation-2026-09-15.md), décisions dans [ADR-0013](../adr/0013-evaluation-2026-09-decisions.md) |
 | `ADR-00NN` | Décision d'architecture | [`docs/adr/`](../adr/) |
 
-Une décision notée `D1`…`D5` sans autre contexte appartient à l'ADR cité dans la
+Une décision notée `D1`…`D8` sans autre contexte appartient à l'ADR cité dans la
 même phrase.
 
 ## Artefacts de mesure conservés ici
