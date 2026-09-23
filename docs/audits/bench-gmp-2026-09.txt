@@ -1,0 +1,42 @@
+# EVAL-07 external reference — Fast Doubling on math/big vs the same doubling loop on GMP mpz (GMPCalculator, not mpz_fib_ui)
+# go version go1.26.1 linux/amd64; libgmp 2:6.3.0+dfsg-2ubuntu6.1
+# host: WSL2 Ubuntu on Intel(R) Core(TM) Ultra 9 275HX, nproc 24, machine otherwise idle
+# commit: 751c1cc3dcad1a389461f69e30784debb9ab3467
+# date: 2026-09-23T10:18Z
+# command: go test -tags gmp -bench='BenchmarkFibonacci/FastDoubling|BenchmarkGMPCalculator' -benchmem -run='^$' -count=5 -benchtime=1x ./internal/fibonacci/ (the CI gmp job runs the same command)
+goos: linux
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkGMPCalculator/1M-24 	       1	   4815476 ns/op	 8550712 B/op	      77 allocs/op
+BenchmarkGMPCalculator/1M-24 	       1	   3356770 ns/op	  180576 B/op	      15 allocs/op
+BenchmarkGMPCalculator/1M-24 	       1	   3190317 ns/op	  180464 B/op	      14 allocs/op
+BenchmarkGMPCalculator/1M-24 	       1	   3226977 ns/op	  180464 B/op	      14 allocs/op
+BenchmarkGMPCalculator/1M-24 	       1	   3324177 ns/op	  180480 B/op	      15 allocs/op
+BenchmarkGMPCalculator/10M-24         	       1	  41485328 ns/op	 1736960 B/op	      15 allocs/op
+BenchmarkGMPCalculator/10M-24         	       1	  41111714 ns/op	 1736944 B/op	      14 allocs/op
+BenchmarkGMPCalculator/10M-24         	       1	  41062901 ns/op	 1736944 B/op	      14 allocs/op
+BenchmarkGMPCalculator/10M-24         	       1	  40570104 ns/op	 1736944 B/op	      14 allocs/op
+BenchmarkGMPCalculator/10M-24         	       1	  39863278 ns/op	 1736960 B/op	      15 allocs/op
+BenchmarkFibonacci/FastDoubling/100K-24         	       1	    342181 ns/op	  224416 B/op	      79 allocs/op
+BenchmarkFibonacci/FastDoubling/100K-24         	       1	    303217 ns/op	  127832 B/op	      66 allocs/op
+BenchmarkFibonacci/FastDoubling/100K-24         	       1	    265485 ns/op	   72848 B/op	      51 allocs/op
+BenchmarkFibonacci/FastDoubling/100K-24         	       1	    212340 ns/op	   72344 B/op	      49 allocs/op
+BenchmarkFibonacci/FastDoubling/100K-24         	       1	    228615 ns/op	   45176 B/op	      46 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24           	       1	   4102633 ns/op	 2212552 B/op	     109 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24           	       1	   3497786 ns/op	 1342728 B/op	     104 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24           	       1	   4187756 ns/op	 1325280 B/op	     102 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24           	       1	   4036779 ns/op	 1324000 B/op	     106 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24           	       1	   3631138 ns/op	 1324328 B/op	     104 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24          	       1	  38906356 ns/op	29850208 B/op	   15667 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24          	       1	  29679309 ns/op	17359920 B/op	   15617 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24          	       1	  32457566 ns/op	17426152 B/op	   15600 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24          	       1	  31491607 ns/op	17436448 B/op	   15595 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24          	       1	  27003747 ns/op	17408408 B/op	   15605 allocs/op
+BenchmarkFibonacci/FastDoubling/100M-24         	       1	 414589490 ns/op	812347176 B/op	  112624 allocs/op
+BenchmarkFibonacci/FastDoubling/100M-24         	       1	 244394188 ns/op	588910424 B/op	  101804 allocs/op
+BenchmarkFibonacci/FastDoubling/100M-24         	       1	 219125687 ns/op	588532488 B/op	  104447 allocs/op
+BenchmarkFibonacci/FastDoubling/100M-24         	       1	 199023911 ns/op	521493000 B/op	  107946 allocs/op
+BenchmarkFibonacci/FastDoubling/100M-24         	       1	 198185335 ns/op	521869768 B/op	  104174 allocs/op
+PASS
+ok  	github.com/agbruneau/FibGo/internal/fibonacci	1.740s
