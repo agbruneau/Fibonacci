@@ -192,8 +192,13 @@ func BenchmarkFibonacci(b *testing.B) {
 		name string
 		n    uint64
 	}{
+		// 100K and 100M extend the curve (EVAL-09); 1M and 10M are the two
+		// sizes docs/audits/bench-baseline.txt carries, so benchstat still
+		// compares them against it.
+		{"100K", 100_000},
 		{"1M", 1_000_000},
 		{"10M", 10_000_000},
+		{"100M", 100_000_000},
 	}
 
 	calculators := map[string]Calculator{
