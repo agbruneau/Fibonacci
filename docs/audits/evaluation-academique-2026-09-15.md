@@ -9,7 +9,8 @@
   `scripts/tools.env`.
 - **Gabarit** : [`gabarit-evaluation-academique.md`](gabarit-evaluation-academique.md).
 - **Plan d'exécution** : [`plan-evaluation-2026-09-15.md`](plan-evaluation-2026-09-15.md)
-  (tâches `EVAL-00` à `EVAL-25`, décisions D1–D8 à trancher par le mainteneur).
+  (tâches `EVAL-00` à `EVAL-25`, décisions D1–D8 tranchées dans ADR-0013) ;
+  exécuté le 2026-09-23, voir [§ 7 Suivi](#7-suivi--exécution-du-plan-2026-09-23).
 - **Régime de preuve** : `[E]` exécuté ici, `[L]` lu, `[D]` déduit.
 - **Évaluation antérieure** : `EVALUATION.md` (2026-02-08, 98/100, retirée de
   l'arbre le 2026-05-21, commit `0f79a6c`). Elle n'a pas été reprise : elle ne
@@ -534,6 +535,57 @@ demi-journée ; L : plusieurs jours.
 10. **R-10 (L, perspective)** — Un repli Go pur derrière `go:linkname` protégé
     par un test de build, et une passe qui retire des commentaires la narration
     d'audit devenue redondante avec `INDEX.md`.
+
+---
+
+## 7. Suivi — exécution du plan (2026-09-23)
+
+Le plan ([`plan-evaluation-2026-09-15.md`](plan-evaluation-2026-09-15.md), § 8)
+est exécuté sur la branche `eval/2026-09-15`, décisions dans
+[ADR-0013](../adr/0013-evaluation-2026-09-decisions.md), version `v5.0.0`.
+Les notes ci-dessous **ne sont pas celles de l'exécutant** : elles viennent d'un
+évaluateur indépendant, sans contexte, qui a appliqué ce gabarit à un instantané
+de la branche (sans historique git, sans ce rapport ni le plan) et rejoué la
+suite, le lint, `-race`, `-tags purego` et douze affirmations chiffrées contre
+leurs artefacts.
+
+| # | Critère | 2026-09-15 | 2026-09-23 | Ce qui a bougé (preuve de l'évaluateur) |
+|---|---|---:|---:|---|
+| C1 | Problème, positionnement | 80 | 85 | positionnement face à GMP mesuré (`bench-gmp-2026-09.txt`) ; `mpz_fib_ui` et PARI cités, non mesurés |
+| C2 | Fondements | 82 | 88 | borne Θ(n^1,585) d'une FFT à un niveau, table k/K recalculée juste ; bibliographie vérifiée |
+| C3 | Architecture | 85 | 84 | 45/45 arêtes conformes ; `arch_test` reste une liste noire de six règles |
+| C4 | Implémentation | 86 | 85 | repli `purego` testé ; libellés « Zero-Alloc » contredits par 104 allocs/op à F(1M) |
+| C5 | Vérification | 90 | 82 | plancher 90 % gardé en CI ; **un test écrivait dans le vrai `$HOME`** (corrigé depuis, `73f58f5`) |
+| C6 | Performance | 80 | 84 | courbe d'échelle et GMP rejouées à l'identique, Bonferroni ; un hôte, ± 46 % à 100K |
+| C7 | Documentation | 80 | 78 | règle de langue appliquée ; neuf liens morts — vers ce rapport et le plan, **retirés de l'instantané pour l'aveugle** : artefact de la méthode, non du dépôt (0 lien mort vers eux dans l'arbre) |
+| C8 | Processus | 82 | 86 | CI : gmp, 386, purego ; actions GitHub épinglées par tag, non par SHA |
+| C9 | Intégrité, licences | 55 | 85 | R3 levée : `NOTICE`, LICENSE amont verbatim, en-têtes ; réserve sur `arith_purego.go` (corrigée depuis) |
+| C10 | Maintenabilité | 78 | 76 | surface large pour F(n) ; dette consignée |
+| | **Total pondéré** | **82,2 (A-)** | **83,6 (A-)** | |
+
+**Recevabilité : recevable** (R1–R4 satisfaites ; 2026-09-15 : sous réserve de R3).
+
+Comparaison à l'aveugle, par un second évaluateur, de `main@93af525` et de la
+branche selon le même gabarit : **la branche l'emporte** ; seule elle satisfait
+R3. Le défaut restant qu'il retient : la ligne F(100K) de la courbe d'échelle,
+à `-benchtime=1x`, varie de ± 46 %.
+
+Ce que l'exécution a appris que l'évaluation ignorait :
+
+- **P2 était mal corrigé par l'évaluation elle-même.** La borne proposée,
+  O(n log n log log n), ne vaut pas pour ce code : `bigfft` ne fait qu'un niveau
+  de FFT et rend ses produits point à point à `math/big`.
+- **Les seuils par défaut** (réserve C2 (c)) sont contredits par une mesure sur un
+  hôte : le parallélisme perd à 4 096 bits, Winograd gagne dès 1 024 bits.
+  Consigné dans `CALIBRATION.md`, non changé.
+- **La TUI ne recevait jamais son logger**, et **la suite de tests écrasait le
+  profil de calibration réel** du développeur : deux défauts qu'aucune des
+  campagnes précédentes n'avait vus.
+
+Constats que l'évaluateur indépendant laisse ouverts : la sonde de
+`mem-baseline-2026-09.txt` renvoie à un `audit.md` retiré de l'arbre ; les noms
+affichés des calculateurs (« Zero-Alloc », « O(log n) ») ; `arch_test.go` n'interdit
+que ce qu'il nomme.
 
 ---
 
