@@ -729,25 +729,25 @@ FibCalculator.CalculateWithObservers
 
 ## 7) Algorithm Layer
 
-> **Trois figures, une par pipeline** — [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md)
+> **Three figures, one per pipeline** — [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md)
 > (A), [`flows/matrix.md`](architecture/flows/matrix.md) (B),
-> [`flows/fft-pipeline.md`](architecture/flows/fft-pipeline.md) (le moteur `bigfft` sous
-> A et B). Les sous-sections ci-dessous donnent les identités mathématiques, les coûts et
-> les invariants ; les figures donnent le chemin — quelle branche est prise, dans quel
-> ordre, et où la boucle revient.
+> [`flows/fft-pipeline.md`](architecture/flows/fft-pipeline.md) (the `bigfft` engine under
+> A and B). The subsections below give the mathematical identities, the costs and the
+> invariants; the figures give the path — which branch is taken, in what order, and where
+> the loop returns.
 >
-> **Routage FFT** (à partir de quelle taille d'opérande la bascule a lieu, et sur quel
-> chemin) : la description canonique est dans
-> [`docs/algorithms/FFT.md` § FFT Routing](algorithms/FFT.md#fft-routing). Ce qui suit n'en
-> retient que l'implication structurelle — quel objet décide, et où.
+> **FFT routing** (from which operand size the switch happens, and on which path): the
+> canonical description is in
+> [`docs/algorithms/FFT.md` § FFT Routing](algorithms/FFT.md#fft-routing). What follows keeps
+> only the structural implication — which object decides, and where.
 
 ### A. Fast Doubling (`FastDoublingCalculator`)
 
-> **Figure — [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md).** Sous-graphes
-> `Input` (décorateur), `Strategy` (choix du `CoreCalculator`), `Framework` (boucle sur
-> les bits), `Multiply` (décision FFT et décision de parallélisme, prises à deux endroits
-> distincts), `FFTPipeline`, `Parallel`, `Result` (détachement hors de l'arène).
-- **Complexity:** O(log n) arithmetic operations; total: O(log n × M(n)) where M(n) is multiplication cost
+> **Figure — [`flows/fastdoubling.md`](architecture/flows/fastdoubling.md).** Subgraphs
+> `Input` (decorator), `Strategy` (choice of the `CoreCalculator`), `Framework` (loop over
+> the bits), `Multiply` (FFT decision and parallelism decision, taken in two different
+> places), `FFTPipeline`, `Parallel`, `Result` (detachment from the arena).
+- **Complexity:** O(log n) arithmetic operations; the operands double at every step, so the total is Θ(M(n)), not O(log n × M(n)) — M(n) being the cost of one n-bit multiplication ([FAST_DOUBLING.md § Complexity Analysis](algorithms/FAST_DOUBLING.md#complexity-analysis))
 - Core identities (derived from Q-matrix squaring):
   - `F(2k)   = F(k) * (2F(k+1) - F(k))`
   - `F(2k+1) = F(k+1)² + F(k)²`
@@ -1191,7 +1191,7 @@ From `go.mod`, direct dependencies are:
 - **Results:** fewer allocations per calculation. No measurement of a speed-up from pooling alone exists in this repo; the throughput baseline `docs/audits/bench-baseline.txt` measures whole calculators, not this decision in isolation, and the five targeted A/B artifacts beside it under [`docs/audits/`](audits/) cover other decisions.
 
 ### ADR-002: Dynamic Multiplication Algorithm Selection
-- **Context:** FFT multiplication has superior asymptotic complexity (O(n log n)) but significant overhead for small operands.
+- **Context:** FFT multiplication beats Karatsuba by a constant factor at large sizes (one-level Schönhage-Strassen, [FFT.md § Complexity Analysis](algorithms/FFT.md#complexity-analysis)) but has significant overhead for small operands.
 - **Decision:** 2-tier `smartMultiply` function: FFT (> FFTThreshold bits) or `math/big` Karatsuba (below).
 - **Results:** Optimal performance across entire value range; configurable via threshold.
 - **Scope, as the code stands today:** `smartMultiply` really is that 2-tier switch only on the

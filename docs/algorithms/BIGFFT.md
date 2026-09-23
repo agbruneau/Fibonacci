@@ -1,7 +1,7 @@
 # BigFFT Subsystem: Implementation Internals
 
 > **Scope**: Implementation architecture of `internal/bigfft`
-> **Complexity**: O(n log n log log n) integer multiplication via Schönhage-Strassen FFT
+> **Complexity**: one level of Schönhage-Strassen FFT over Fermat rings; pointwise products go back to `math/big` and the transform length stops at 2^16, so M(n) stays Θ(n^log2 3) with a smaller constant — the O(n log n log log n) bound needs the recursion this code does not do ([FFT.md § Complexity Analysis](FFT.md#complexity-analysis))
 > **Provenance**: derived from [`github.com/remyoudompheng/bigfft`](https://github.com/remyoudompheng/bigfft) (BSD-3-Clause) — see [§ Provenance](#provenance)
 > **See also**: [FFT.md](FFT.md) for the mathematical theory, and [FFT.md § FFT Routing](FFT.md#fft-routing) — the canonical answer to *when* a calculation reaches this package
 

@@ -1,11 +1,16 @@
 # Fast Doubling Algorithm
 
-> **Complexity**: O(log n) arithmetic operations
-> **Actual Complexity**: O(log n * M(n)) where M(n) is the multiplication cost
+> **Arithmetic operations**: `bits.Len64(n)` doubling steps, each one product and two squares
+> **Bit complexity**: Θ(M(n)), M(n) the cost of one n-bit multiplication — the operands double at every step, so the steps sum to a geometric series; O(log n · M(n)) is true but loose. See [Complexity Analysis](#complexity-analysis). Numbers in brackets refer to [`docs/REFERENCES.md`](../REFERENCES.md).
 
 ## Introduction
 
-The **Fast Doubling** algorithm is one of the most efficient methods for calculating Fibonacci numbers. It exploits the mathematical properties of the sequence to reduce the number of operations to O(log n).
+The **Fast Doubling** algorithm computes F(n) from the pair (F(k), F(k+1)) by doubling k
+along the bits of n, so it needs O(log n) arithmetic operations
+[[8]](../REFERENCES.md#ref-8), [[14]](../REFERENCES.md#ref-14). It is not the cheapest
+formulation known: GMP [[11]](../REFERENCES.md#ref-11) and Takahashi
+[[7]](../REFERENCES.md#ref-7) use two squarings per bit where this loop uses one product and
+two squarings — see [Against the two-squaring formulations](#against-the-two-squaring-formulations).
 
 ## Mathematical Foundation
 
@@ -19,7 +24,7 @@ The Fibonacci sequence can be expressed in matrix form:
 [ F(n)    F(n-1) ]   [ 1  0 ]
 ```
 
-This relation is known as the **Fibonacci Q matrix**.
+This relation is known as the **Fibonacci Q matrix** [[8]](../REFERENCES.md#ref-8) (§1.2.8).
 
 ### Derivation of Doubling Formulae
 
@@ -159,9 +164,7 @@ The recursive version is converted to an iterative `DoublingFramework` that acce
 
 ```go
 type DoublingFramework struct {
-    strategy         DoublingStepExecutor
-    dynamicThreshold *threshold.DynamicThresholdManager
-    CacheStrategy    CacheStrategy // optional hook tuning the transform cache from inside the loop
+    strategy DoublingStepExecutor
 }
 
 // Create framework with a strategy
@@ -355,26 +358,76 @@ Number of iterations: `bits.Len64(n)` = ⌊log2 n⌋ + 1 (`doubling_framework.go
 
 ### Multiplication Cost
 
-The cost of each multiplication depends on the operand size:
-- F(n) has approximately n * log2(phi) ~ 0.694 * n bits
-- Standard: O(n^2)
-- Karatsuba: O(n^1.585)
-- FFT: O(n log n)
+F(n) is the integer nearest φ^n/√5, so it has γn − log2 √5 + O(1) ≈ 0.69424·n bits, with
+γ = log2 φ.
+The routines that stand behind M in this code:
+
+- `math/big`: schoolbook under 40 words, Karatsuba above — Θ(n^log2 3) ≈ n^1.585
+  [[3]](../REFERENCES.md#ref-3), [[13]](../REFERENCES.md#ref-13).
+- `internal/bigfft`: a single-level Schönhage–Strassen FFT whose pointwise products go back to
+  `math/big` and whose transform length stops growing at 2^16. Asymptotically it is
+  **Θ(n^log2 3) as well**, with a smaller constant — not the O(n log n log log n) of the
+  recursive algorithm [[1]](../REFERENCES.md#ref-1), still less the O(n log n) of
+  Harvey–van der Hoeven [[2]](../REFERENCES.md#ref-2). Derivation in
+  [FFT.md § Complexity Analysis](FFT.md#complexity-analysis).
+- `-tags gmp`: GMP's own multiplication [[11]](../REFERENCES.md#ref-11); the `Options`
+  thresholds are not read ([GMP.md](GMP.md)).
 
 ### Total Complexity
 
-- **With standard math/big**: O(log n * n^2)
-- **With Karatsuba**: O(log n * n^1.585)
-- **With FFT**: O(log n * n log n)
+At the step that reads bit i (counting down from the top), the loop holds F(k), F(k+1) with
+k = ⌊n / 2^(i+1)⌋, about γn/2^(i+1) bits. The operands halve going backwards, so for any M with
+M(x)/x non-decreasing — true of all three routines above — M(γn/2^j) ≤ M(γn)/2^j and
+
+```
+T(n) = Σ_j [ M + 2·S ](γn / 2^j)  ≤  3 · M(γn) · Σ_j 2^-j  ≤  3 · M(γn)
+```
+
+(S the cost of a square, S ≤ M). The shift, add and subtract of each step are linear in the
+operand size and sum to O(n) the same way. So **T(n) = Θ(M(n))**: the log n factor of the
+usual "O(log n) operations × M(n)" is absorbed by the geometric series. For a power law
+M(x) = c·x^α the sum is 3·M(γn/2) / (1 − 2^-α); with Karatsuba (α = log2 3) that is
+1.5·M(γn), counting the squares as full products.
+
+With the routines of this repository that makes F(n) cost Θ(n^log2 3) on `"fast"`, `"fft"` and
+`"matrix"` alike; the FFT and the choice of calculator change the constant, not the exponent.
+
+### Against the two-squaring formulations
+
+GMP's `mpz_fib_ui` [[11]](../REFERENCES.md#ref-11) and Takahashi's algorithm
+[[7]](../REFERENCES.md#ref-7) need **two squarings per bit** and one product at the end. The
+(−1)^k correction terms that make this possible are Cassini's identity
+[[8]](../REFERENCES.md#ref-8) at work: GMP doubles (F(k), F(k−1)) through
+F(2k−1) = F(k)² + F(k−1)² and F(2k+1) = 4F(k)² − F(k−1)² + 2(−1)^k, Takahashi doubles
+(F(k), L(k)) through F(2k) = 2F(k+1)² − 3F(k)² − 2(−1)^k and L(2k) = 5F(k)² + 2(−1)^k.
+This loop keeps the (F(k), F(k+1)) pair of [[14]](../REFERENCES.md#ref-14) and pays one
+product and two squares per bit, **including the last**, where it computes F(n+1) that nobody
+reads.
+
+Under Takahashi's own cost model — FFT-dominated, a square costing 2/3 of a product (two
+transforms against three), M linear — the totals are:
+
+| Loop | Per bit | Last step | Total |
+|---|---|---|---|
+| this loop, `math/big` step | 1 M + 2 S | same | ≈ (7/3) · M(γn) |
+| this loop, FFT step (2 forward + 3 inverse transforms, shared) | 5 transforms | same | ≈ (5/3) · M(γn) |
+| Takahashi [[7]](../REFERENCES.md#ref-7) | 2 S | 1 M, F(n) only | ≤ (7/6) · M(γn), the paper's (16) |
+| GMP [[11]](../REFERENCES.md#ref-11) | 2 S | 1 M, F(n) only | same operation count as [[7]](../REFERENCES.md#ref-7); the manual gives no total |
+
+So in that model the loop does about twice the multiplication work of the best known
+doubling on the `math/big` path, and about 1.4 times on the FFT path. These ratios are
+arithmetic in a model, not a measurement: no benchmark in this repository runs a
+two-squaring variant, and no ADR records why the pair form was kept.
 
 ## Comparison with Other Methods
 
-| Method | Complexity | Multiplications/iteration | Advantage |
+| Method | Bit complexity | Multiplications per bit of n | Note |
 |--------|------------|---------------------------|-----------|
-| Fast Doubling | O(log n * M(n)) | 3 | Fewest multiplications |
-| Matrix Exp. | O(log n * M(n)) | 4 to 12 | More intuitive |
-| Naive recursion | O(phi^n) | 0 | Simple but impractical |
-| Iteration | O(n) | 0 | Simple, slow for large n |
+| Fast Doubling (this loop) | Θ(M(n)) | 3 (1 product, 2 squares) | Fewest among the calculators here |
+| Two-squaring doubling [[7]](../REFERENCES.md#ref-7), [[11]](../REFERENCES.md#ref-11) | Θ(M(n)) | 2 squares | Not implemented |
+| Matrix Exp. | Θ(M(n)) | 4 to 12 | See [MATRIX.md](MATRIX.md) |
+| Naive recursion | Θ(φ^n) additions | 0 | Impractical |
+| Iteration | Θ(n²) bit operations (n additions of up to γn bits) | 0 | Simple, slow for large n |
 
 Matrix Exp. per-iteration count, read off `MatrixFramework.ExecuteMatrixLoop`
 (`matrix_framework.go`): every iteration but the last does one symmetric squaring
@@ -420,6 +473,11 @@ it only when deliberately refreshing the baseline — see
 
 ## References
 
-1. Knuth, D. E. (1997). *The Art of Computer Programming, Volume 2: Seminumerical Algorithms*. Section 4.6.3.
-2. [Fast Fibonacci algorithms](https://www.nayuki.io/page/fast-fibonacci-algorithms) - Nayuki
-3. [Project Nayuki - Fast Doubling](https://www.nayuki.io/res/fast-fibonacci-algorithms/FastFibonacci.java)
+Full entries in [`docs/REFERENCES.md`](../REFERENCES.md):
+[[7]](../REFERENCES.md#ref-7) Takahashi 2000 — two squarings per bit;
+[[8]](../REFERENCES.md#ref-8) Knuth, TAOCP vol. 1, §1.2.8 — Q matrix, Cassini;
+[[9]](../REFERENCES.md#ref-9) Knuth, TAOCP vol. 2, §4.6.3 — binary exponentiation;
+[[11]](../REFERENCES.md#ref-11) GMP 6.3.0 manual, § Fibonacci Numbers;
+[[14]](../REFERENCES.md#ref-14) Project Nayuki — the (F(k), F(k+1)) doubling pair used here;
+[[1]](../REFERENCES.md#ref-1), [[2]](../REFERENCES.md#ref-2), [[3]](../REFERENCES.md#ref-3),
+[[13]](../REFERENCES.md#ref-13) for the multiplication bounds.

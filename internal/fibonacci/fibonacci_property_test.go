@@ -35,6 +35,9 @@ func allCalculators() []CoreCalculator {
 //
 //	F(n-1) * F(n+1) - F(n)² = (-1)ⁿ
 //
+// It is det(Q^n) = det(Q)^n for Q = [[1,1],[1,0]] (Knuth, TAOCP vol. 1,
+// §1.2.8 — docs/REFERENCES.md [8]).
+//
 // This property provides a powerful correctness check for our Fibonacci
 // implementations. The test generates a range of random `n` values and asserts
 // that the identity holds true for each calculator.

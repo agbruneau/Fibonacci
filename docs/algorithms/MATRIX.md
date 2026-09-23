@@ -1,11 +1,14 @@
 # Matrix Exponentiation
 
-> **Complexity**: O(log n) matrix operations
-> **Actual Complexity**: O(log n * M(n)) where M(n) is the multiplication cost
+> **Arithmetic operations**: O(log n) matrix operations — `bits.Len64(n-1)` iterations
+> **Bit complexity**: Θ(M(n)), M(n) the cost of one n-bit multiplication — as for Fast Doubling, the entry sizes double at every iteration and the costs sum to a geometric series; see [Total Complexity](#total-complexity). Numbers in brackets refer to [`docs/REFERENCES.md`](../REFERENCES.md).
 
 ## Introduction
 
-**Matrix exponentiation** is an elegant method for calculating Fibonacci numbers based on the matrix representation of the sequence. This approach exploits fast exponentiation (squaring) to reduce the number of operations to O(log n).
+**Matrix exponentiation** computes F(n) as an entry of Q^(n−1) by binary exponentiation
+[[9]](../REFERENCES.md#ref-9) (§4.6.3), which takes O(log n) matrix operations
+[[8]](../REFERENCES.md#ref-8). Its 2×2 products can use Strassen's seven-multiplication scheme
+[[5]](../REFERENCES.md#ref-5) in Winograd's 15-addition form [[6]](../REFERENCES.md#ref-6).
 
 ## Mathematical Foundation
 
@@ -27,7 +30,7 @@ Applying this relation n times from initial conditions F(1) = 1, F(0) = 0:
 [ F(n)    F(n-1) ]   [ 1  0 ]
 ```
 
-The matrix `Q = [[1,1], [1,0]]` is called the **Fibonacci Q matrix**.
+The matrix `Q = [[1,1], [1,0]]` is called the **Fibonacci Q matrix** [[8]](../REFERENCES.md#ref-8) (§1.2.8).
 
 ### Formal Proof of Q-matrix Power Property
 
@@ -58,7 +61,9 @@ This matches the formula for n=k+1. The property holds for all n >= 1.
 
 1. **Determinant**: det(Q^n) = (-1)^n
 2. **Symmetry**: Q^n is always a symmetric matrix (Q^n[0][1] = Q^n[1][0])
-3. **Cassini's Identity**: F(n+1)*F(n-1) - F(n)^2 = (-1)^n
+3. **Cassini's Identity**: F(n+1)*F(n-1) - F(n)^2 = (-1)^n — property 1 read through the
+   Q^n form [[8]](../REFERENCES.md#ref-8); `TestCassinisIdentity_PropertyBased`
+   (`internal/fibonacci/fibonacci_property_test.go`) checks it against every calculator
 
 ## Algorithm
 
@@ -155,7 +160,7 @@ type matrix struct{ a, b, c, d *big.Int }
 
 ### 1. Strassen Algorithm (Winograd Variant)
 
-For 2x2 matrices with large elements, Strassen-style multiplication reduces the number of multiplications from 8 to 7. The implementation (`multiplyMatrixStrassen` in `matrix_ops.go`) uses the **Strassen-Winograd variant**, which needs only 15 additions/subtractions instead of the 18 required by the classical Strassen formulation:
+For 2x2 matrices with large elements, Strassen-style multiplication reduces the number of multiplications from 8 to 7 [[5]](../REFERENCES.md#ref-5). The implementation (`multiplyMatrixStrassen` in `matrix_ops.go`) uses the **Strassen-Winograd variant** [[6]](../REFERENCES.md#ref-6), which needs only 15 additions/subtractions instead of the 18 required by the classical Strassen formulation:
 
 ```
 Classic 2x2 multiplication:
@@ -405,13 +410,26 @@ Note the asymmetry with the parallelism gate above: parallelism reads only
 
 ### Number of Iterations
 
-- log2(n) iterations
-- At each iteration: 1 squaring + potentially 1 multiplication
+- `bits.Len64(n-1)` = ⌊log2(n−1)⌋ + 1 iterations (`ExecuteMatrixLoop`, `matrix_framework.go`)
+- At each iteration: 1 symmetric squaring (skipped on the last) + 1 multiplication when the
+  exponent bit is set
 
 ### Total Complexity
 
-- **With Karatsuba**: O(log n * n^1.585)
-- **With FFT**: O(log n * n log n)
+At iteration i the loop holds p = Q^(2^i) and res = Q^r with r < 2^i, so every operand of
+every product is an entry of size at most about γ·2^i bits (γ = log2 φ ≈ 0.694). With at most
+12 products per iteration and M(x)/x non-decreasing,
+
+```
+T(n) ≤ 12 · Σ_{i < nb} M(γ·2^i)  ≤  12 · M(γ·2^nb)  ≤  12 · M(2γn),     nb = bits.Len64(n−1)
+```
+
+so **T(n) = Θ(M(n))**, the same class as Fast Doubling and, with this repository's
+multiplication routines, Θ(n^log2 3) — `internal/bigfft` included, since its FFT is one level
+over Karatsuba ([FFT.md § Complexity Analysis](FFT.md#complexity-analysis)). The constant is
+larger and depends on the bit pattern of n − 1: 4 products per clear bit, 11 or 12 per set bit,
+against Fast Doubling's flat 3; the largest products are the unbalanced `res × p` of the last
+iteration.
 
 ## Comparison with Fast Doubling
 
@@ -484,6 +502,8 @@ go test -bench='BenchmarkFibonacci/(FastDoubling|MatrixExp)' -benchmem -run='^$'
 
 ## References
 
-1. Erickson, J. (2019). *Algorithms*. Chapter on Recursion and Backtracking.
-2. Cormen, T. H. et al. (2009). *Introduction to Algorithms*. Section 31.2: Matrix Exponentiation.
-3. Strassen, V. (1969). "Gaussian Elimination is not Optimal". *Numerische Mathematik*.
+Full entries, with verified DOIs, in [`docs/REFERENCES.md`](../REFERENCES.md):
+[[5]](../REFERENCES.md#ref-5) Strassen 1969 — seven products;
+[[6]](../REFERENCES.md#ref-6) Winograd 1971 — the 15-addition variant in `matrix_ops.go`;
+[[8]](../REFERENCES.md#ref-8) Knuth, TAOCP vol. 1, §1.2.8 — Q matrix, Cassini;
+[[9]](../REFERENCES.md#ref-9) Knuth, TAOCP vol. 2, §4.6.3 — binary exponentiation.

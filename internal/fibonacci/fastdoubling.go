@@ -63,13 +63,22 @@ const maxCachedArenaWords = 4_000_000
 //	F(2k+1) = F(k+1)² + F(k)²
 //
 // Algorithmic Complexity:
-// The time complexity is often cited as O(log n), which refers to the number of
-// arithmetic operations. However, since we use arbitrary-precision integers
-// (`math/big`), the cost of each multiplication dominates. The number of bits in
-// F(n) is proportional to n. If M(k) is the time complexity of multiplying two
-// k-bit numbers, the total complexity of this algorithm is O(log n * M(n)).
-//   - For standard multiplication (math/big, which uses Karatsuba internally), M(n) ≈ O(n^1.585).
-//   - For FFT-based multiplication, M(n) ≈ O(n log n).
+// The loop runs bits.Len64(n) doubling steps — O(log n) arithmetic operations,
+// each step one product and two squares. The bit cost is not O(log n * M(n)):
+// F(n) has about 0.694*n bits and the operands double at every step, so for any
+// M with M(x)/x non-decreasing the steps form a geometric series and the total
+// is Θ(M(n)), at most 3*M(0.694*n). With the routines this package uses:
+//   - math/big: schoolbook, then Karatsuba above 40 words — M(n) = Θ(n^log2(3)),
+//     n^1.585.
+//   - internal/bigfft: a Schönhage–Strassen FFT of one level only — its
+//     pointwise products go back to math/big and its transform length stops at
+//     2^16 — so M(n) is Θ(n^log2(3)) too, with a smaller constant. The
+//     O(n log n log log n) bound belongs to the recursive algorithm, which this
+//     code does not implement.
+//
+// Derivations and the two-squarings-per-bit alternative (GMP, Takahashi 2000):
+// docs/algorithms/FAST_DOUBLING.md § Complexity Analysis and
+// docs/algorithms/FFT.md § Complexity Analysis; sources in docs/REFERENCES.md.
 //
 // Optimization Details:
 // To achieve maximum performance, this implementation incorporates several

@@ -13,7 +13,7 @@ This document compares the three Fibonacci calculation algorithms implemented in
 | FFT-Based | `"fft"` | "FFT-Based Doubling" |
 | Modular Fast Doubling | `--last-digits` mode | n/a — free function, not a registered calculator |
 
-An optional GMP-based calculator (`"gmp"`) is compiled in with `-tags=gmp`. The tag alone does **not** make it reachable from the CLI: its `init()` registers it only into a package-private factory, while `app.New` builds a fresh `fibonacci.NewDefaultFactory()` that pre-registers `"fast"`, `"matrix"` and `"fft"` only. A caller must add it explicitly with `fibonacci.RegisterGMPCalculator(factory)` — see [`GMP.md`](GMP.md).
+An optional GMP-based calculator (`"gmp"`) is compiled in with `-tags=gmp`, and every factory `NewDefaultFactory()` builds then offers it: `fibcalc -algo gmp` works and `-algo all` compares four calculators (since 2026-09-23, EVAL-23; before that the tag registered it into a private factory nothing read) — see [`GMP.md`](GMP.md).
 
 > **Note on Modular Fast Doubling**: unlike the three rows above, this is **not** a registered `CoreCalculator` and has no `Name()` method. It is the free function `FastDoublingMod(ctx context.Context, n uint64, m *big.Int) (*big.Int, error)` in `internal/fibonacci/modular.go`, reached only through the `--last-digits` CLI mode (which computes F(n) mod 10^K).
 
@@ -24,10 +24,26 @@ An optional GMP-based calculator (`"gmp"`) is compiled in with `-tags=gmp`. The 
 All algorithms have the same asymptotic complexity:
 
 ```
-O(log n * M(n))
+Θ(M(n))
 ```
 
-Where M(n) is the cost of multiplying numbers of n bits.
+where M(n) is the cost of multiplying two n-bit numbers. The familiar O(log n · M(n)) — O(log n)
+steps times one multiplication each — is an upper bound, not the order: the operands double
+from one step to the next, so for any M with M(x)/x non-decreasing the per-step costs form a
+geometric series dominated by the last step
+([FAST_DOUBLING.md § Total Complexity](FAST_DOUBLING.md#total-complexity),
+[MATRIX.md § Total Complexity](MATRIX.md#total-complexity)).
+
+With the multiplication routines in this repository — `math/big` Karatsuba
+[[3]](../REFERENCES.md#ref-3), [[13]](../REFERENCES.md#ref-13), and `internal/bigfft`, a
+one-level Schönhage–Strassen FFT over the same Karatsuba [[1]](../REFERENCES.md#ref-1),
+[[12]](../REFERENCES.md#ref-12) — M(n) = Θ(n^log2 3), so every pure-Go calculator is
+Θ(n^log2 3) ≈ Θ(n^1.585) in the index n. Neither the O(n log n log log n) of recursive
+Schönhage–Strassen [[1]](../REFERENCES.md#ref-1) nor the O(n log n) of Harvey–van der Hoeven
+[[2]](../REFERENCES.md#ref-2) applies to them
+([FFT.md § Complexity Analysis](FFT.md#complexity-analysis)). Under `-tags gmp` the products
+are GMP's [[11]](../REFERENCES.md#ref-11). Numbers in brackets refer to
+[`docs/REFERENCES.md`](../REFERENCES.md).
 
 ### Detailed Operation Count
 
@@ -56,21 +72,27 @@ which is which.
 
 ### Asymptotic Constants Analysis
 
-Let T(n) be the time to compute F(n):
+Let T(n) be the time to compute F(n), with k multiplications per step on operands that halve
+going backwards from about γn/2 bits (γ = log2 φ ≈ 0.694):
 
 ```
-T(n) ~ k * log2(n) * M(n)
+T(n) ≈ k · Σ_j M(γn / 2^j)  ≤  k · M(γn)            (M(x)/x non-decreasing)
+     = k · M(γn/2) / (1 − 2^-α)                      (M(x) = c·x^α; α = log2 3 gives k/2 · M(γn))
 ```
 
-The constant k represents the "multiplicative density" of the algorithm.
+There is no log2(n) factor. The constant k represents the "multiplicative density" of the
+algorithm, and it is what the comparison below turns on.
 
 1. **Fast Doubling (k = 3)**:
    - Exactly 3 multiplications per loop iteration, for every iteration: `FK·FK1`, `FK²`, `FK1²`
    - F(2k) = F(k) * (2*F(k+1) - F(k)), evaluated as `2·FK·FK1 - FK²`
    - F(2k+1) = F(k+1)^2 + F(k)^2
-   - It is the smallest k among the algorithms implemented here. Whether 3 is the
-     information-theoretic minimum for a doubling step is not established
-     anywhere in this repo, so no such claim is made.
+   - It is the smallest k among the algorithms implemented here, but **not the smallest
+     known**: GMP's `mpz_fib_ui` [[11]](../REFERENCES.md#ref-11) and Takahashi's algorithm
+     [[7]](../REFERENCES.md#ref-7) double with two squarings per bit, using the (−1)^k terms
+     of Cassini's identity [[8]](../REFERENCES.md#ref-8). Neither is implemented here; the
+     cost model that puts this loop at about twice their multiplication work is in
+     [FAST_DOUBLING.md § Against the two-squaring formulations](FAST_DOUBLING.md#against-the-two-squaring-formulations).
 
 2. **Matrix Exponentiation (k = 4 when the exponent bit is clear, 11-12 when set)**:
    - Symmetric squaring runs every iteration but the last: 4 mults (`squareSymmetricMatrix`)
@@ -289,4 +311,4 @@ what this option actually gates.
 
 **Matrix Exponentiation** is valuable for educational purposes and result verification. Its elegant mathematical foundation (Q-matrix) makes it ideal for understanding the theory, and the Strassen optimization demonstrates practical algorithm design. In `docs/audits/bench-baseline.txt` it is slower than Fast Doubling by **+91 %** at N=1M and **+29 %** at N=10M — the gap narrows with N and is not a stable 30–50 % band. [`../PERFORMANCE.md`](../PERFORMANCE.md) additionally warns that the Fast Doubling / Matrix ordering can invert at N ≥ 10M on some CPUs.
 
-**FFT-Based** is a specialized variant that forces FFT multiplication for all operations. At the two measured sizes it is slower than Fast Doubling (5.13 ms vs 3.15 ms at N=1M; 29.08 ms vs 23.87 ms at N=10M) and allocates ~4x more at 1M. Whether forcing FFT at every size ever pays off — the usual argument being that O(n log n) multiplication eventually dominates the constant-factor overhead — is a hypothesis this repo does not test: nothing here measures beyond N=10M. Its established use is exercising the FFT subsystem in isolation.
+**FFT-Based** is a specialized variant that forces FFT multiplication for all operations. At the two measured sizes it is slower than Fast Doubling (5.13 ms vs 3.15 ms at N=1M; 29.08 ms vs 23.87 ms at N=10M) and allocates ~4x more at 1M. Whether forcing FFT at every size ever pays off — the usual argument being that FFT multiplication's lower growth rate eventually outweighs its overhead — is a hypothesis this repo does not test: nothing here measures beyond N=10M. For this repository's FFT the argument is weaker than usual: `internal/bigfft` runs one transform level over Karatsuba and keeps Karatsuba's exponent, so what it can win is a constant factor ([FFT.md § Complexity Analysis](FFT.md#complexity-analysis)). Its established use is exercising the FFT subsystem in isolation.

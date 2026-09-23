@@ -1,11 +1,11 @@
 # FFT Multiplication for Large Integers
 
-> **Complexity**: O(n log n) for multiplying two numbers of n bits
+> **Complexity**: the method is Schönhage–Strassen's Fermat-ring FFT, whose bound is O(n log n log log n) when the pointwise products recurse [[1]](../REFERENCES.md#ref-1). `internal/bigfft` does not recurse: it runs **one** transform level, hands the pointwise products to `math/big` (Karatsuba) and caps the transform length at 2^16, so its own asymptotic class is Θ(n^log2 3), with a smaller constant than `math/big` alone — see [Complexity Analysis](#complexity-analysis). Numbers in brackets refer to [`docs/REFERENCES.md`](../REFERENCES.md).
 > **Used by**: `"fft"` at every size; `"fast"` only from `n = 1 440 422` up and `"matrix"` only from `n = 1 768 788` up, with the default threshold — see [FFT Routing](#fft-routing), which is the canonical description of the switch.
 
 ## Introduction
 
-The **Fast Fourier Transform (FFT)** allows multiplying two large integers in O(n log n) instead of O(n^2) for naive multiplication or O(n^1.585) for Karatsuba. In this project the nominal switch sits at `DefaultFFTThreshold = 500_000` bits — but that is a **configured default, not a measured crossover**: `internal/fibonacci/constants.go` states it is "a deliberately conservative placement of that crossover, not a measured one", the real crossover being host-dependent and measured only by `(*MicroBenchmark).findFFTCrossover` in `internal/calibration`.
+FFT multiplication turns an integer product into a convolution of its pieces, computed by a **Fast Fourier Transform** [[4]](../REFERENCES.md#ref-4): quadratic schoolbook multiplication costs O(n^2), Karatsuba [[3]](../REFERENCES.md#ref-3) O(n^log2 3) ≈ O(n^1.585), and the fully recursive FFT of Schönhage and Strassen [[1]](../REFERENCES.md#ref-1) O(n log n log log n). The single-level variant this repository runs does not reach the last bound: asymptotically it keeps Karatsuba's exponent and lowers the constant. Why, and by how much, is in [Complexity Analysis](#complexity-analysis). In this project the nominal switch sits at `DefaultFFTThreshold = 500_000` bits — but that is a **configured default, not a measured crossover**: `internal/fibonacci/constants.go` states it is "a deliberately conservative placement of that crossover, not a measured one", the real crossover being host-dependent and measured only by `(*MicroBenchmark).findFFTCrossover` in `internal/calibration`.
 
 And 500 000 bits is not the number to hold in your head when asking "will *my* run use the FFT?". The threshold is compared against an intermediate operand, not against `F(n)`, and each calculator compares it somewhere else — the whole mechanism is laid out in [FFT Routing](#fft-routing) below.
 
@@ -16,13 +16,13 @@ And 500 000 bits is not the number to hold in your head when asking "will *my* r
 Multiplication of two integers can be viewed as a **convolution** of their digits:
 
 ```
-A = Sum_i a_i * B^i
-B = Sum_j b_j * B^j
+x = Sum_i a_i * beta^i        y = Sum_j b_j * beta^j        (beta = 2^(64*m), pieces of m words)
 
-A * B = Sum_k c_k * B^k  where  c_k = Sum_i a_i * b(k-i)
+x * y = Sum_k c_k * beta^k    where  c_k = Sum_i a_i * b_(k-i)
 ```
 
-The term c_k is the **discrete convolution** of sequences {a_i} and {b_j}.
+The term c_k is the **discrete convolution** of sequences {a_i} and {b_j}. The c_k are
+larger than beta, so recombining them into x*y needs carries.
 
 ### Convolution Theorem
 
@@ -61,15 +61,41 @@ sequenceDiagram
 
 ### FFT Multiplication Algorithm
 
-1. **Padding**: Extend numbers to a power of 2 length
-2. **DFT**: Compute FFT of both digit sequences
-3. **Multiplication**: Multiply pointwise in the frequency domain
-4. **IDFT**: Compute inverse FFT
-5. **Carry Propagation**: Handle carries
+The generic scheme — pad, transform both operands, multiply pointwise, transform back,
+propagate carries — takes this concrete form in `internal/bigfft` (`fftSize`,
+`valueSize` in `fft.go`; `Poly.Transform`, `PolValues.Mul`/`Sqr`, `InvTransform` in
+`fft_poly.go`):
+
+1. **Split.** For a product of `W` words, `fftSize` picks `k` from the table
+   `fftSizeThreshold` and cuts each operand into pieces of `m = W>>k + 1` words, so that
+   `K = 2^k` pieces hold the whole product: the convolution is **cyclic with zero padding**,
+   nothing wraps around.
+2. **Coefficient ring.** Each piece becomes an element of Z/(2^n'+1), with n' the smallest
+   multiple of max(2^(k-2), 64) bits above `2·m·64 + k` (`valueSize(k, m, 2)`) — large enough
+   that no c_k is truncated.
+3. **Forward transforms.** Evaluate at θ^i, i = 0..K−1, where θ = 2^(l/2) is a K-th root of unity mod
+   2^n'+1 (2^n' = 2^(K·l/4)). An integer power of 2 is a shift; the half power uses
+   √2 ≡ 2^(3n'/4) − 2^(n'/4) (`fermat.ShiftHalf`), so every butterfly is shifts, an add and
+   a subtract — no multiplication — radix-2 as in [[4]](../REFERENCES.md#ref-4).
+4. **Pointwise products.** K products mod 2^n'+1, each a full n'×n' product by
+   `math/big` (or `basicMul` under 30 words) followed by a linear-time fold
+   (`fermat.Mul`/`Sqr`, `fermat.go`). **This is where Schönhage–Strassen recurses and this
+   code does not.**
+5. **Inverse transform and recombination**, with carries, back into a `big.Int`.
+
+Squaring transforms one operand instead of two (2 transforms instead of 3). The FFT step
+of the `"fast"` and `"fft"` calculators goes further: it transforms F(k) and F(k+1) once and
+derives all three products of a doubling step from them — 2 forward and 3 inverse
+transforms instead of 7 (`executeDoublingStepFFT`, `internal/fibonacci/fft.go`).
+
+GMP's FFT [[11]](../REFERENCES.md#ref-11) differs at step 1: it computes products *mod
+2^N+1* through a negacyclic convolution, which is what lets a pointwise product mod
+2^N'+1 recurse into the same routine. `internal/bigfft` has a negacyclic transform
+(`NTransform`), but its only callers are tests.
 
 ## Implementation in FibCalc
 
-The FFT multiplication is implemented in the `internal/bigfft` package using a **Fermat FFT** operating in the ring Z/(2^k + 1), where roots of unity are powers of 2 and multiplications become bit shifts.
+The FFT multiplication is implemented in the `internal/bigfft` package using a **Fermat FFT** operating in the ring Z/(2^n' + 1), where the roots of unity are powers of √2 and multiplying by them becomes shifts and adds (steps 2–3 above). The package is derived from `remyoudompheng/bigfft` [[12]](../REFERENCES.md#ref-12).
 
 For the implementation itself (public API, Fermat arithmetic, memory management, transform cache), see [BIGFFT.md](BIGFFT.md).
 
@@ -134,7 +160,7 @@ The `-tags gmp` calculator has no box in this diagram because it has no branch: 
 
 ### The two gates are in series, not the same gate
 
-`fibonacci.Options.FFTThreshold` counts **bits**; `bigfft`'s own `fftThreshold` counts **words** and defaults to `defaultFFTThresholdWords = 1800` (`internal/bigfft/fft.go:32`), i.e. 115 200 bits on a 64-bit host. Passing the first gate does not exempt an operand from the second: `bigfft.MulTo` re-tests `xwords > t && ywords > t` (`internal/bigfft/fft.go:101`) and silently falls back to `math/big` below it.
+`fibonacci.Options.FFTThreshold` counts **bits**; `bigfft`'s own `fftThreshold` counts **words** and defaults to `defaultFFTThresholdWords = 1800` (`internal/bigfft/fft.go:48`), i.e. 115 200 bits on a 64-bit host. Passing the first gate does not exempt an operand from the second: `bigfft.MulTo` re-tests `xwords > t && ywords > t` (`internal/bigfft/fft.go:101`) and silently falls back to `math/big` below it.
 
 In practice the second gate never bites on the `"matrix"` path for any value the heuristic can produce, since the smallest of those is 250 000 bits — more than twice 115 200; an explicit `--fft-threshold` below 115 200 would be a different story, the bit gate opening while the word gate stays shut. It also matters for `"fft"`: `FFTOnlyStrategy.Multiply`/`Square` route through `bigfft.MulTo`/`SqrTo` and therefore honour the word gate, while `FFTOnlyStrategy.ExecuteStep` calls `executeDoublingStepFFT`, which bypasses it entirely. That asymmetry is why "`"fft"` forces FFT at every size" is true of the doubling step and false of the `Multiplier` methods.
 
@@ -460,26 +486,76 @@ This calculator is primarily used for:
 - Multiplication algorithm comparison
 
 ## Complexity Analysis
+### Three bounds, one implementation
 
-### Multiplication of two numbers of n bits
+| Algorithm | Bound for an n-bit product | Present in this project? |
+|---|---|---|
+| Schoolbook | Θ(n^2) | yes — `basicMul`/`basicSqr` in `bigfft/fermat.go` under 30 words; `math/big` under 40 words [[13]](../REFERENCES.md#ref-13) |
+| Karatsuba [[3]](../REFERENCES.md#ref-3) | Θ(n^log2 3) ≈ n^1.585 | yes — `math/big.Int.Mul`, Tier 2 of `smartMultiply`, and every pointwise product of `internal/bigfft` |
+| Toom-Cook 3 | Θ(n^log3 5) ≈ n^1.465 | **no** — `math/big` stops at Karatsuba [[13]](../REFERENCES.md#ref-13) |
+| Schönhage–Strassen, recursive [[1]](../REFERENCES.md#ref-1) | O(n log n log log n) | **no** — see below |
+| Harvey–van der Hoeven [[2]](../REFERENCES.md#ref-2) | O(n log n) | **no** — nor in GMP 6.3.0 [[11]](../REFERENCES.md#ref-11) |
+| `internal/bigfft` (one level, K ≤ 2^16) | Θ(n^log2 3), smaller constant than Karatsuba alone | yes — this package, derived from [[12]](../REFERENCES.md#ref-12) |
 
-| Algorithm | Complexity | Hidden constant | Present in this project? |
-|-----------|------------|-----------------|--------------------------|
-| Naive | O(n^2) | Low | yes — `basicMul`/`basicSqr` in `bigfft/fermat.go`, below `smallMulThreshold` |
-| Karatsuba | O(n^1.585) | Medium | yes — inside `math/big.Int.Mul`, Tier 2 of `smartMultiply` |
-| Toom-Cook 3 | O(n^1.465) | High | **no** — listed for reference only; nothing in this repo implements it |
-| FFT | O(n log n) | Very high | yes — `internal/bigfft` |
+The Schönhage–Strassen bound needs step 4 of [the algorithm above](#fft-multiplication-algorithm)
+to recurse: each pointwise product mod 2^n'+1 is itself done by the same FFT, with a
+transform length that grows with n' at every level, and the log log n factor counts those
+levels. GMP does exactly that when it pays [[11]](../REFERENCES.md#ref-11). `internal/bigfft`
+does not: `fermat.Mul` hands every pointwise product to `math/big`, so the transform is a
+single level on top of Karatsuba. Its cost for a product of N bits, read off the code, is
+
+```
+C(N) =  t · Θ(K log K) shift/add butterflies on n'-bit residues      t = 3 (product), 2 (square)
+      + K · M_big(n')                                                  K = 2^k, n' ≈ 2N/K
+```
+
+with M_big the `math/big` product. The transforms are Θ(N log K). What decides the class is
+how `k` grows:
+
+- **Up to 600·2^20 bits of product** (`fftSizeThreshold[15]`), `k` follows the table, which
+  keeps K of the order of √N, so the residues stay short — 66 to 288 words in the rows below the cap, with 2√N/K between 2.0 and 4.0.
+- **Above it**, `k` is pinned at 16 (`GetFFTParams` and `fftSize` return
+  `len(fftSizeThreshold)`; `valueSize` rejects anything larger). K = 65 536 is then a constant,
+  n' grows linearly with N, and the pointwise term is 2^16 · M_big(2N/2^16) = Θ(N^log2 3). In the
+  pure power model M_big(x) = c·x^log2 3 that term is 3 · 2^(16(1 − log2 3)) ≈ 1/219 of one
+  Karatsuba product of the full size — a model figure, not a measurement.
+
+On the `"fast"` and `"fft"` FFT step (product ≈ 2·len(F(k+1)) + 2 words, last doubling step
+shown), the shapes are:
+
+| n | product (words) | k | K | residue n' (words) |
+|---|---|---|---|---|
+| 1.5·10^6 | 16 274 | 9 | 512 | 66 |
+| 10^7 | 108 478 | 11 | 2 048 | 112 |
+| 10^8 | 1 084 756 | 13 | 8 192 | 288 |
+| 10^9 | 10 847 532 | **16** | 65 536 | 512 |
+| 10^10 | 108 475 302 | 16 | 65 536 | 3 328 |
+| 10^11 | 1 084 752 994 | 16 | 65 536 | 33 280 |
+
+The cap is reached from n ≈ 9.06·10^8 on this path. Past it, each decade of n multiplies the
+residue length by ten, and the pointwise Karatsuba products take over the cost.
+The rows come from a verbatim copy of `GetFFTParams` and `valueSize` (`internal/bigfft/fft.go`)
+fed with bitlen(F(⌊n/2⌋+1)) ≈ (n/2)·log2 φ; no timing backs them.
+
+Two consequences:
+
+- **"FFT wins eventually" is a constant-factor statement here**, not a change of exponent.
+  The exponent only drops if the pointwise products recurse — through a mod 2^N+1 product, which
+  the package has in test-only form (`NTransform`) — and no benchmark in this repo measures
+  either the current constant or what recursion would buy.
+- Any O(·) for a calculator built on this package (`"fast"`, `"fft"`, `"matrix"`) inherits
+  Θ(n^log2 3), not the Schönhage–Strassen bound. Only `-tags gmp` gets GMP's recursive FFT.
 
 ### Crossover Point
 
 ```
                     |
     Calculation     |     /
-     time           |    /  <- Karatsuba O(n^1.585)
+     time           |    /  <- math/big Karatsuba, c1 * n^1.585
                     |   /
                     |  /
-                    | /          <- FFT O(n log n)
-                    |/     _______
+                    | /          <- internal/bigfft: one FFT level over Karatsuba,
+                    |/     _______   same exponent past the k = 16 cap, smaller constant
                     +------------------
                           500k bits     Size (bits)
 ```
@@ -535,6 +611,12 @@ go test -bench=. -benchmem ./internal/bigfft/
 
 ## References
 
-1. Cooley, J. W., & Tukey, J. W. (1965). "An algorithm for the machine calculation of complex Fourier series". *Mathematics of Computation*.
-2. Schonhage, A., & Strassen, V. (1971). "Schnelle Multiplikation grosser Zahlen". *Computing*.
-3. [GMP Library - FFT Multiplication](https://gmplib.org/manual/FFT-Multiplication)
+Full entries, with verified DOIs, in [`docs/REFERENCES.md`](../REFERENCES.md):
+[[1]](../REFERENCES.md#ref-1) Schönhage & Strassen 1971 — the method and its recursive bound;
+[[2]](../REFERENCES.md#ref-2) Harvey & van der Hoeven 2021 — the O(n log n) bound, not implemented;
+[[3]](../REFERENCES.md#ref-3) Karatsuba & Ofman 1962;
+[[4]](../REFERENCES.md#ref-4) Cooley & Tukey 1965;
+[[10]](../REFERENCES.md#ref-10) Brent & Zimmermann 2010, ch. 2;
+[[11]](../REFERENCES.md#ref-11) GMP 6.3.0 manual, § FFT Multiplication — the recursive counterpart;
+[[12]](../REFERENCES.md#ref-12) `remyoudompheng/bigfft`, the upstream;
+[[13]](../REFERENCES.md#ref-13) `math/big` `natmul.go`, where the pointwise products end.

@@ -171,7 +171,7 @@ func smartMultiply(z, x, y *big.Int, fftThreshold int) (*big.Int, error) {
     bx := x.BitLen()
     by := y.BitLen()
 
-    // Tier 1: FFT Multiplication — O(n log n)
+    // Tier 1: FFT multiplication (one-level Schönhage-Strassen, see FFT.md)
     if fftThreshold > 0 && bx > fftThreshold && by > fftThreshold {
         return bigfft.MulTo(z, x, y)
     }
@@ -183,7 +183,7 @@ func smartMultiply(z, x, y *big.Int, fftThreshold int) (*big.Int, error) {
 
 | Tier | Algorithm | Complexity | Activation Threshold (default) |
 |------|-----------|------------|-------------------------------|
-| 1 | FFT (Schonhage-Strassen) | O(n log n) | > 500,000 bits |
+| 1 | FFT (Schönhage-Strassen, one level) | Θ(n^1.585), smaller constant ([FFT.md](algorithms/FFT.md#complexity-analysis)) | > 500,000 bits |
 | 2 | Standard `math/big` | O(n^2) / O(n^1.585) | Below FFT threshold |
 
 > **Note — sub-threshold cost is library-bound.** Below `DefaultFFTThreshold` (500,000 bits), wall time is dominated by `math/big`'s Karatsuba multiplication and `sync.Pool` P-pinning, not by project code. This is the expected behavior under the FFT threshold and is not a regression of the calculator itself.

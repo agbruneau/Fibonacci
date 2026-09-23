@@ -48,7 +48,8 @@ const (
 
 	// DefaultFFTThreshold is the operand size, in bits, above which
 	// smartMultiply (both operands) and smartSquare hand the work to
-	// internal/bigfft (Schönhage-Strassen, O(n log n log log n)) instead of
+	// internal/bigfft (a one-level Schönhage-Strassen FFT: Θ(n^1.585) like
+	// Karatsuba, with a smaller constant; see docs/algorithms/FFT.md) instead of
 	// math/big (schoolbook below 40 words, Karatsuba O(n^1.585) above). bigfft has its
 	// own threshold, 1800 words = 115,200 bits (defaultFFTThresholdWords),
 	// under which it falls back to math/big; at 500,000 bits that one is not
