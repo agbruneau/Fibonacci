@@ -12,7 +12,7 @@
 #      (coverage floor derived from this run)
 #   3b. gmp build tag: build+vet+test -tags gmp (hard when libgmp present, else skipped)
 #   4. golangci-lint run ./...  (HARD — see below)
-#   5. coverage floor (>= 80% on the module total)
+#   5. coverage floor (>= 90% on the module total)
 #   6. govulncheck ./...  (HARD — audit DEP-01 / SEC-01)
 #
 # -shuffle=on randomizes test order within each package (audit TST-03; the book
@@ -59,7 +59,7 @@
 
 set -euo pipefail
 
-COVERAGE_FLOOR=80.0
+COVERAGE_FLOOR=90.0
 
 # Run from repo root regardless of the caller's cwd.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -148,7 +148,7 @@ else
     exit 1
 fi
 
-# 5. Coverage floor (>= 80% on the module total) — derived from the profile above
+# 5. Coverage floor (>= 90% on the module total) — derived from the profile above
 check_coverage_floor
 
 # 6. Vulnerability scan (HARD — audit DEP-01 / SEC-01). govulncheck reports only

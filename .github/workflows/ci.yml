@@ -115,10 +115,10 @@ jobs:
         run: |
           total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')"
           echo "Total coverage: ${total}%"
-          awk -v t="$total" 'BEGIN { exit (t+0 < 80.0) }' || {
-            echo "FAIL: coverage ${total}% < 80%"; exit 1;
+          awk -v t="$total" 'BEGIN { exit (t+0 < 90.0) }' || {
+            echo "FAIL: coverage ${total}% < 90%"; exit 1;
           }
-          echo "OK: coverage ${total}% >= 80%"
+          echo "OK: coverage ${total}% >= 90%"
 
       - name: go mod tidy -diff
         run: go mod tidy -diff

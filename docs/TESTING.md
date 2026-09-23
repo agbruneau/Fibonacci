@@ -408,8 +408,8 @@ Two numbers live here and they are not interchangeable.
 
 | | Value | Status |
 |---|---|---|
-| **Enforced floor** | 80.0 % of statements, module total | Asserted by `make coverage-check`, which delegates to `scripts/check.sh --coverage-only` (`COVERAGE_FLOOR=80.0`). Below it, the gate fails. |
-| **Last measured** | **96.1 %** of statements, module total | A dated reading: 2026-09-07, `go1.27.0 windows/amd64`, `go test -race -count=1 -coverprofile … ./...` exit 0, 22 packages. Nothing enforces it — coverage can fall 16.1 points before any gate reacts. |
+| **Enforced floor** | 90.0 % of statements, module total | Asserted by `make coverage-check`, which delegates to `scripts/check.sh --coverage-only` (`COVERAGE_FLOOR=90.0`), by `scripts/check.ps1` and by the CI `gate` job on Ubuntu. Raised from 80 % on 2026-09-23 (EVAL-12): the Ubuntu CI run of 2026-09-21 measured 94.0 %, and 90 % keeps a 4-point margin under the lowest platform. Below it, the gate fails. |
+| **Last measured** | **96.1 %** of statements, module total | A dated reading: 2026-09-07, `go1.27.0 windows/amd64`, `go test -race -count=1 -coverprofile … ./...` exit 0, 22 packages. Nothing enforces it — coverage can fall 6.1 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
 
 Read the 96.1 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
 below: it counts no e2e subprocess path and no GMP backend, so it is 96.1 % of
@@ -512,7 +512,7 @@ fast path and are still expected to be green before pushing:
 | Guardrail | Role |
 |---|---|
 | `scripts/check.ps1` / `scripts/check.sh` | One-shot pre-commit aggregator (lint + tests + coverage floor). `check.ps1` targets PowerShell 7; `check.sh` requires **bash**, not plain POSIX `sh` (its shebang is `#!/usr/bin/env bash`, and it uses `${BASH_SOURCE[0]}` to resolve `SCRIPT_DIR`). `check.sh` additionally runs a `-tags gmp` step, which `check.ps1` has no counterpart for; both run `-race` when the host has CGO and a C compiler (`check.ps1` probes for it since audit D4, 2026-09-03). In both, lint is a **hard** step — a missing or failing `golangci-lint` fails the gate (GATE-01) |
-| `make coverage-check` | Fails the run if **total** module coverage drops below 80 % (A5-10) |
+| `make coverage-check` | Fails the run if **total** module coverage drops below 90 % (A5-10, EVAL-12) |
 | `make test-win` | Full test run **without** `-race` (Windows / no-CGO hosts) |
 | `make test` | Full test run **with** `-race`, requires CGO/gcc (run via WSL or a Linux/macOS host on Windows) |
 

@@ -17,7 +17,7 @@
 #   3. go test -shuffle=on -count=1 -coverprofile ./...  (with -race when the
 #      host has CGO and a C compiler; coverage floor derived from this run)
 #   4. golangci-lint run ./...  (HARD — see below)
-#   5. coverage floor (>= 80% on the module total)
+#   5. coverage floor (>= 90% on the module total)
 #   6. govulncheck ./...  (HARD — audit DEP-01 / SEC-01)
 #
 # -shuffle=on randomizes test order within each package (audit TST-03). A
@@ -66,7 +66,7 @@ Set-StrictMode -Version Latest
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
-$CoverageFloor = 80.0
+$CoverageFloor = 90.0
 
 # Pinned tool versions — same file check.sh, the Makefile and the CI read.
 # Format is KEY=value, one per line, '#' comments; parse it rather than
@@ -148,7 +148,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "OK: golangci-lint" -ForegroundColor Green
 
-# 5. Coverage floor (>= 80% on the module total) — derived from the profile above
+# 5. Coverage floor (>= 90% on the module total) — derived from the profile above
 Write-Step "coverage floor (>= $CoverageFloor%)"
 $coverFunc = go tool cover -func coverage.out
 if ($LASTEXITCODE -ne 0) {

@@ -97,7 +97,7 @@ go build -o build/fibcalc ./cmd/fibcalc
 | `make test`       | Run all tests            |
 | `make test-short` | Run quick tests          |
 | `make coverage`   | Generate the HTML coverage report (asserts nothing) |
-| `make coverage-check` | Enforce the 80% floor — delegates to `bash scripts/check.sh --coverage-only` |
+| `make coverage-check` | Enforce the 90% floor — delegates to `bash scripts/check.sh --coverage-only` |
 | `make benchmark`  | Run benchmarks           |
 | `make bench-versioned` | Fixed-flag benchmark snapshot + Git/Go metadata (`build/bench/`, see [docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | `make lint`       | Run linter               |
@@ -203,7 +203,7 @@ perf(bigfft): optimize FFT butterfly operations
 - [ ] All tests pass (`make test`)
 - [ ] Code is formatted (`make format`)
 - [ ] Linter passes (`make lint`)
-- [ ] New code has tests (aim for >80% coverage)
+- [ ] New code has tests (total coverage must stay >= 90%)
 - [ ] Documentation is updated if needed
 - [ ] Commit messages follow conventions
 
@@ -365,12 +365,12 @@ For tests that need a tiny algorithm implementation, implement [`fibonacci.CoreC
 
 ### Test Coverage
 
-Aim for at least 80% code coverage — this is the floor enforced by the
-`make coverage-check` gate (it fails if total coverage drops below 80%):
+Keep total coverage at or above 90% — this is the floor enforced by the
+`make coverage-check` gate (it fails if total coverage drops below 90%):
 
 ```bash
 make coverage        # generate the HTML report (open coverage.html in your browser)
-make coverage-check  # verify total coverage is >= 80%
+make coverage-check  # verify total coverage is >= 90%
 ```
 
 ## Mock Generation

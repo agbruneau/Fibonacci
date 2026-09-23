@@ -331,10 +331,10 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   `go run <pkg>@<version>` : rien à installer, et un binaire ne peut plus périmer en silence
   contre la chaîne Go (c'est ce qui avait cassé le lint, puis `govulncheck`, `gosec` et
   `staticcheck` d'un coup).
-- **Couverture** : plancher garanti **80 %** via `make coverage-check` ; dernière mesure
+- **Couverture** : plancher garanti **90 %** via `make coverage-check`, `check.ps1` et la CI ; dernière mesure
   **96,1 %** des instructions (2026-09-07, `go1.27.0 windows/amd64`, 22 paquets). Le chiffre est
-  daté, pas figé : rien ne l'applique, la marge de 16,1 points est du mou non gardé, et seul le
-  plancher fait échouer le gate. Détail, commande de re-datation et angles morts :
+  daté, pas figé ; le plancher, relevé de 80 à 90 % le 2026-09-23, laisse 4 points sous la mesure
+  de la CI Ubuntu (94,0 % le 2026-09-21). Détail, commande de re-datation et angles morts :
   [`docs/TESTING.md` § Coverage](docs/TESTING.md#coverage) (directive A5-04, amendée le 2026-09-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
