@@ -207,6 +207,15 @@ perf(bigfft): optimize FFT butterfly operations
 - [ ] Documentation is updated if needed
 - [ ] Commit messages follow conventions
 
+### Review rule
+
+Written on 2026-09-23 (EVAL-20). While the project has a single maintainer, a
+pull request stays open at least until the five CI jobs are green **and** its
+diff has been read outside the tool that produced it — a change written with an
+AI assistant is reviewed in the GitHub diff view or a local `git diff`, not only
+in the assistant's own summary. From the second regular contributor on, every
+pull request needs one human approval that is not its author's.
+
 ### Adding New Algorithms
 
 The project uses the Decorator pattern. To add a new algorithm, you only need to implement the core logic; cross-cutting concerns (GC, caching, thresholds) are handled for you.
