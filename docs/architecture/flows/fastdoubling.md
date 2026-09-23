@@ -1,6 +1,6 @@
-# Pipeline Fast Doubling
+# Fast Doubling Pipeline
 
-Du décorateur `FibCalculator` jusqu'à l'extraction du résultat, en passant par `DoublingFramework` et le pas FFT.
+From the `FibCalculator` decorator to result extraction, by way of `DoublingFramework` and the FFT step.
 
 ```mermaid
 flowchart LR
@@ -86,5 +86,5 @@ flowchart LR
 ```
 
 ---
-[← Retour au hub architecture](../README.md)
-Légende narrative de cette figure : [§7A Fast Doubling](../../ARCH.md#a-fast-doubling-fastdoublingcalculator).
+[← Back to the architecture hub](../README.md)
+Narrative legend of this figure: [§7A Fast Doubling](../../ARCH.md#a-fast-doubling-fastdoublingcalculator).

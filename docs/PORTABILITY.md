@@ -1,138 +1,146 @@
-# Portabilité — FibCalc
+# Portability — FibCalc
 
-Document de référence pour la matrice OS/arch supportée, les *fallbacks*
-plate-forme, et la chaîne de compilation par cible. Audit-PRD P1-09 /
+Reference document for the supported OS/arch matrix, the platform
+*fallbacks*, and the per-target build chain. Audit-PRD P1-09 /
 E10-R5 / Sprint S4-T5.
 
-## 1. Matrice supportée
+## 1. Supported matrix
 
-| OS | Architecture | CGO | Race detector | Vérification locale |
+| OS | Architecture | CGO | Race detector | Local verification |
 |---|---|---|---|---|
-| Linux | amd64 | ✅ requis pour `-race` et `gmp` | ✅ via gcc | `make test` (race natif) |
-| Linux | arm64 | ❌ désactivé | ❌ (cross-compile only) | `make build-all` (build only) |
-| Windows | amd64 | ✅ requis pour `-race` (via MinGW) | ✅ via MinGW gcc si installé | `make test` ou `go test -race` |
-| Windows | arm64 | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-windows-arm64` (build only) |
-| macOS | amd64 | ✅ pour `-race` | ✅ via clang | `make test` (race natif) |
-| macOS | arm64 (Apple Silicon) | ❌ désactivé en cross-compile | ❌ (cross-compile only) | `make build-all` (build only) |
-| WASI / js | — | — | — | non supporté — `go build ./...` échoue sur la pile TUI tierce (voir §6) |
+| Linux | amd64 | ✅ required for `-race` and `gmp` | ✅ via gcc | `make test` (native race) |
+| Linux | arm64 | ❌ disabled | ❌ (cross-compile only) | `make build-all` (build only) |
+| Windows | amd64 | ✅ required for `-race` (via MinGW) | ✅ via MinGW gcc if installed | `make test` or `go test -race` |
+| Windows | arm64 | ❌ disabled when cross-compiling | ❌ (cross-compile only) | `make build-windows-arm64` (build only) |
+| macOS | amd64 | ✅ for `-race` | ✅ via clang | `make test` (native race) |
+| macOS | arm64 (Apple Silicon) | ❌ disabled when cross-compiling | ❌ (cross-compile only) | `make build-all` (build only) |
+| WASI / js | — | — | — | not supported — `go build ./...` fails in the third-party TUI stack (see §6) |
 
-**32 bits : compile, mais n'est ni testé ni distribué.** Depuis le 2026-09-07
-(audit TYP-01), `GOOS=linux GOARCH=386 go build ./...`, `GOARCH=arm` et
-`GOARCH=arm64` sortent tous en 0, et la CI garde ces trois cibles
+**32-bit: compiles, but is neither tested nor distributed.** Since 2026-09-07
+(audit TYP-01), `GOOS=linux GOARCH=386 go build ./...`, `GOARCH=arm` and
+`GOARCH=arm64` all exit 0, and CI guards these three targets
 (`.github/workflows/ci.yml`, job `cross-build`).
 
-Ce qui bloquait n'était pas une limite de conception mais une **erreur de
-compilation** : `maxReasonableWords = 1 << 60`, déclaré deux fois
-(`internal/fibonacci/memory/arena.go` et `internal/fibonacci/fastdoubling.go`),
-ne tient pas dans un `int` 32 bits. La constante est maintenant unique et
-relative à la taille du mot :
-`memory.MaxReasonableWords = 1 << (bits.UintSize - 4)`, soit la même valeur
-`1 << 60` en 64 bits. Le garde-fou de conversion `float64 → int` de
-`acquireSizingForN` compare désormais à `math.MaxInt` et non à `math.MaxInt64`,
-qui déborde à 2³¹ sur ces cibles.
+What blocked it was not a design limit but a **compile
+error**: `maxReasonableWords = 1 << 60`, declared twice
+(`internal/fibonacci/memory/arena.go` and `internal/fibonacci/fastdoubling.go`),
+does not fit in a 32-bit `int`. The constant is now single and
+relative to the word size:
+`memory.MaxReasonableWords = 1 << (bits.UintSize - 4)`, i.e. the same value
+`1 << 60` on 64 bits. The `float64 → int` conversion guard in
+`acquireSizingForN` now compares against `math.MaxInt` rather than `math.MaxInt64`,
+which overflows at 2³¹ on these targets.
 
-**Ce que « compile » ne veut pas dire.** Aucune cible 32 bits n'est construite
-par `make build-all`, aucune n'est testée, et la portée utile y est bornée par
-`int` : l'arène plafonne à `1 << 28` mots. Le job CI vérifie la compilation, pas
-le comportement. La mention `386` en §2.2 décrit uniquement la branche
-`runtime.GOARCH` de `DetectHardwareHeuristic()` ; elle ne constitue pas une
-déclaration de support.
+**What "compiles" does not mean.** No 32-bit target is built
+by `make build-all`, none is tested, and the useful range there is bounded by
+`int`: the arena caps at `1 << 28` words. The CI job checks compilation, not
+behavior. The mention of `386` in §2.2 describes only the
+`runtime.GOARCH` branch of `DetectHardwareHeuristic()`; it is not a
+statement of support.
 
-## 2. Fallbacks plate-forme
+## 2. Platform fallbacks
 
 ### 2.1 `internal/bigfft/arith.go`
 
-- `arith.go` (portable, sans build tag — fusion de l'ancien split
-  `arith_amd64.go`/`arith_generic.go`, audit FFT-06) : wrappers exportés
-  `AddVV`, `SubVV`, `AddMulVVW`, qui délèguent aux routines internes de
-  `math/big` via `go:linkname`. Les déclarations `go:linkname` vivent dans
-  `arith_decl.go` (commun à toutes les architectures), qui couvre aussi
-  `addVW`, `subVW`, `shlVU`. Aucun assembleur original dans ce dépôt :
-  l'assembleur optimisé exploité est celui de `math/big`, pour toutes les
+- `arith.go` (portable, no build tag — merge of the former
+  `arith_amd64.go`/`arith_generic.go` split, audit FFT-06): exported wrappers
+  `AddVV`, `SubVV`, `AddMulVVW`, which delegate to the internal routines of
+  `math/big` via `go:linkname`. The `go:linkname` declarations live in
+  `arith_decl.go` (common to all architectures), which also covers
+  `addVW`, `subVW`, `shlVU`. No original assembly in this repository:
+  the optimized assembly in use is `math/big`'s, for all
   architectures (amd64, arm64, riscv64, ppc64le, etc.).
+- **Pure-Go fallback** (EVAL-21): `internal/bigfft/arith_purego.go`
+  (`//go:build purego`) implements in pure Go, with `math/bits`, the six
+  functions that `arith_decl.go` (now `//go:build !purego`) links through
+  `go:linkname` — `addVV`, `subVV`, `addVW`, `subVW`, `shlVU`, `addMulVVW`.
+  It is the way out when a Go release renames or removes one of these
+  `math/big` internals. `go test -tags purego ./internal/bigfft/` passes
+  (153 tests), and the CI `cross-build` job runs it. The default path
+  remains `go:linkname`.
 
-**Conséquence** : le binaire compilé pour `linux/arm64` ou `darwin/arm64`
-est fonctionnellement équivalent ; la performance arithmétique pure est
-légèrement moindre (5-10 % d'écart attendu sur les très grands `big.Int`,
-non profilé formellement à ce jour).
+**Consequence**: the binary built for `linux/arm64` or `darwin/arm64`
+is functionally equivalent; raw arithmetic performance is
+slightly lower (5-10% gap expected on very large `big.Int`s,
+not formally profiled to date).
 
 ### 2.2 `internal/config/hardware.go`
 
-- Sans `//go:build` : `DetectHardwareHeuristic()` branche à l'exécution sur
-  `runtime.GOARCH` et ne consulte `golang.org/x/sys/cpu` (`HasAVX512F`,
-  `HasAVX2`) que pour `amd64`/`386` ; toute autre architecture reste en
-  `SIMDNone`. **Aucun chemin de code de `internal/bigfft` n'en dépend** : le
-  dispatch FFT ne consulte jamais `SIMDKind`. Le résultat a deux
-  consommateurs, tous deux dans `internal/config` :
+- No `//go:build`: `DetectHardwareHeuristic()` branches at run time on
+  `runtime.GOARCH` and consults `golang.org/x/sys/cpu` (`HasAVX512F`,
+  `HasAVX2`) only for `amd64`/`386`; every other architecture stays at
+  `SIMDNone`. **No code path in `internal/bigfft` depends on it**: the
+  FFT dispatch never consults `SIMDKind`. The result has two
+  consumers, both in `internal/config`:
   - `HeuristicKey()` (`hardware.go:HardwareHeuristic.HeuristicKey`) /
     `CurrentHardwareHeuristicKey()` (`hardware.go:CurrentHardwareHeuristicKey`) —
-    invalidation de profil de calibration (un profil calibré sur une classe
-    SIMD différente est rejeté) ;
-  - **les trois estimateurs de seuils adaptatifs**, qui branchent directement
-    sur `h.SIMD` : `thresholds.go:estimateParallelThresholdForHeuristic`
-    (parallèle : −512 / −256 bits si NumCPU ≥ 8),
-    `thresholds.go:estimateFFTThresholdForHeuristic` (FFT : 460 000 / 480 000 /
-    500 000 bits selon AVX512 / AVX2 / autre),
-    `thresholds.go:estimateStrassenThresholdForHeuristic` (Strassen : 224 / 240 /
-    256 bits si NumCPU ≥ 4).
-- Sur les architectures non-amd64/386, aucune détection SIMD avancée ;
-  seule la classification `NumCPU`/`GOARCH` s'applique.
+    calibration profile invalidation (a profile calibrated on a different SIMD
+    class is rejected);
+  - **the three adaptive threshold estimators**, which branch directly
+    on `h.SIMD`: `thresholds.go:estimateParallelThresholdForHeuristic`
+    (parallel: −512 / −256 bits if NumCPU ≥ 8),
+    `thresholds.go:estimateFFTThresholdForHeuristic` (FFT: 460,000 / 480,000 /
+    500,000 bits for AVX512 / AVX2 / other),
+    `thresholds.go:estimateStrassenThresholdForHeuristic` (Strassen: 224 / 240 /
+    256 bits if NumCPU ≥ 4).
+- On non-amd64/386 architectures, no advanced SIMD detection;
+  only the `NumCPU`/`GOARCH` classification applies.
 
-### 2.3 Backend GMP (`build tag gmp`)
+### 2.3 GMP backend (`build tag gmp`)
 
-- Activé via `go build -tags gmp` ; nécessite `libgmp-dev` à la compilation
-  et à l'exécution.
-- Désactivé par défaut. Le `Dockerfile` (image de production) est
-  `CGO_ENABLED=0` sans paquet `apt` : il ne peut pas construire ce backend.
-  Seul `.devcontainer/devcontainer.json` installe `libgmp-dev` (poste de
-  développement) ; le tag `gmp` doit alors être ajouté explicitement à la
-  commande de build locale.
+- Enabled via `go build -tags gmp`; requires `libgmp-dev` at build
+  and run time.
+- Disabled by default. The `Dockerfile` (production image) is
+  `CGO_ENABLED=0` with no `apt` package: it cannot build this backend.
+  Only `.devcontainer/devcontainer.json` installs `libgmp-dev` (development
+  workstation); the `gmp` tag must then be added explicitly to the
+  local build command.
 
 ## 3. Race detector
 
-Le race detector Go nécessite CGO. La cible canonique `make test` lance
-`go test -race`, qui exige donc un compilateur C :
+The Go race detector requires CGO. The canonical `make test` target runs
+`go test -race`, which therefore needs a C compiler:
 
-- **Linux + macOS** : CGO via gcc/clang natif. `make test` (avec `-race`)
-  fonctionne directement.
-- **Windows** : CGO via MinGW si le contributeur l'installe localement.
-  Sinon, `make test` échoue faute de gcc. Sur un poste Windows pur sans
-  gcc, utiliser la cible sans `-race` **`make test-win`** (équivalent
-  `go test -v -cover ./...`). Le `-race` reste **recommandé** : l'exécuter
-  via WSL ou un poste Linux/macOS.
-- **`scripts/check.ps1` n'est plus un repli sans `-race`** (2026-09-03,
-  [ADR-0010 D4](adr/0010-audit-2026-09-decisions.md)) : il sonde `CGO_ENABLED`
-  et la présence d'un compilateur C, et active `-race` quand les deux sont
-  réunis — relevé sur cet hôte Windows : **22 paquets verts**, réexécuté le
-  2026-09-07 (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, gcc MinGW-W64 16.1.0 ;
-  `go test -race -count=1 ./...` sort 0, aucun *data race*). Sans chaîne C,
-  il retombe sur la même suite sans `-race`. L'ancienne formulation décrivait
-  une installation, pas une limite de plate-forme.
+- **Linux + macOS**: CGO via native gcc/clang. `make test` (with `-race`)
+  works out of the box.
+- **Windows**: CGO via MinGW if the contributor installs it locally.
+  Otherwise, `make test` fails for lack of gcc. On a plain Windows workstation
+  without gcc, use the target without `-race`, **`make test-win`** (equivalent to
+  `go test -v -cover ./...`). `-race` remains **recommended**: run it
+  via WSL or on a Linux/macOS workstation.
+- **`scripts/check.ps1` is no longer a fallback without `-race`** (2026-09-03,
+  [ADR-0010 D4](adr/0010-audit-2026-09-decisions.md)): it probes `CGO_ENABLED`
+  and the presence of a C compiler, and enables `-race` when both are
+  present — as checked on this Windows host: **22 packages green**, re-run on
+  2026-09-07 (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, gcc MinGW-W64 16.1.0;
+  `go test -race -count=1 ./...` exits 0, no *data race*). Without a C toolchain,
+  it falls back to the same suite without `-race`. The former wording described
+  an installation, not a platform limit.
 
-> Résumé : `make test` = suite complète avec `-race` (CGO et compilateur C
-> requis) ; `make test-win` = repli explicite sans `-race` ;
-> `scripts/check.ps1` = `-race` si l'hôte peut, sinon sans.
+> Summary: `make test` = full suite with `-race` (CGO and a C compiler
+> required); `make test-win` = explicit fallback without `-race`;
+> `scripts/check.ps1` = `-race` if the host can, otherwise without.
 
-Pour les builds cross-compile (`linux/arm64`, `darwin/arm64`), le race
-detector n'est pas exécuté — seule la **compilabilité** sans CGO est
-vérifiée par `make build-all`.
+For cross-compiled builds (`linux/arm64`, `darwin/arm64`), the race
+detector is not run — only CGO-free **compilability** is
+checked by `make build-all`.
 
-## 4. Procédure de build par cible
+## 4. Per-target build procedure
 
-### Linux/amd64 (cible principale)
+### Linux/amd64 (primary target)
 
 ```bash
 make build              # standard
-make build-pgo          # avec profil PGO
+make build-pgo          # with PGO profile
 ```
 
-### Linux/arm64 (croisé)
+### Linux/arm64 (cross)
 
 ```bash
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/fibcalc-linux-arm64 ./cmd/fibcalc
 ```
 
-### macOS/arm64 (Apple Silicon, croisé)
+### macOS/arm64 (Apple Silicon, cross)
 
 ```bash
 GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -o build/fibcalc-darwin-arm64 ./cmd/fibcalc
@@ -144,22 +152,22 @@ GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -o build/fibcalc-darwin-arm64 ./
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o build/fibcalc.exe ./cmd/fibcalc
 ```
 
-### Container reproductible
+### Reproducible container
 
 ```bash
 docker build -t fibcalc:local .
 docker run --rm fibcalc:local --help
 ```
 
-L'image distroless ne ship que le binaire linké statiquement (pas de
-runtime libc, pas de shell). Pour debug : remplacer la stage finale par
+The distroless image ships only the statically linked binary (no libc
+runtime, no shell). To debug: replace the final stage with
 `gcr.io/distroless/base-debian12:debug`.
 
-## 5. Vérification locale
+## 5. Local verification
 
-`make build-all` exécute `go build` pour les cibles suivantes et doit
-passer sans erreur avant tout commit touchant `internal/bigfft/` ou
-`internal/fibonacci/` :
+`make build-all` runs `go build` for the following targets and must
+pass without error before any commit touching `internal/bigfft/` or
+`internal/fibonacci/`:
 
 - `linux/amd64`
 - `linux/arm64`
@@ -168,49 +176,49 @@ passer sans erreur avant tout commit touchant `internal/bigfft/` ou
 - `darwin/amd64`
 - `darwin/arm64`
 
-Une régression introduisant une dépendance amd64-exclusive non gardée par
-`//go:build` fera échouer immédiatement l'une des cibles ci-dessus.
+A regression introducing an amd64-only dependency not guarded by
+`//go:build` will immediately fail one of the targets above.
 
-Vérifié le 2026-09-04 depuis un hôte Windows, en rejouant les six `go build`
-qu'émet `build-all` (`GOOS=<os> GOARCH=<arch> go build -trimpath ./cmd/fibcalc`) :
-les six cibles sortent 0.
+Verified on 2026-09-04 from a Windows host, by replaying the six `go build`
+commands that `build-all` issues (`GOOS=<os> GOARCH=<arch> go build -trimpath ./cmd/fibcalc`):
+all six targets exit 0.
 
-## 6. Limitations connues
+## 6. Known limitations
 
-- **Pas de bench cross-arch** : les chiffres dans
-  `docs/audits/bench-baseline.txt` proviennent d'un host amd64. Un
-  benchmark arm64 demande un poste Apple Silicon ou ARM Linux.
-- **GMP non testé en cross-compile** : le tag `gmp` requiert CGO, donc aucune
-  cible croisée ne l'exerce. Le seul contrôle **automatisé** est l'étape 3b de
-  `scripts/check.sh`, qui ne se déclenche que si `/usr/include/gmp.h` ou
-  `/usr/include/x86_64-linux-gnu/gmp.h` existe. La **première** garde n'est ni
-  spécifique à une distribution ni à une architecture — `/usr/include/gmp.h` est
-  le chemin d'en-tête par défaut d'un `libgmp` installé par le gestionnaire de
-  paquets, amd64 comme arm64 ; la seconde ne couvre que le chemin multiarch
-  Debian/Ubuntu amd64. Ce que le dépôt permet d'affirmer, c'est la forme de la
-  garde (`scripts/check.sh`, étape 3b), pas la liste des hôtes où elle passe :
-  aucun hôte n'est exercé ici. `check.ps1` n'a pas d'équivalent de cette étape.
-  Un build manuel
-  `go build -tags gmp` reste possible sur tout hôte CGO avec libgmp, macOS inclus
-  (`brew install gmp`), mais aucun script du dépôt ne le vérifie.
-- **WebAssembly** : non supporté, mais **pas** à cause du noyau de calcul.
-  Vérifié le 2026-08-09, revérifié le 2026-09-04 (`go1.27.0`, mêmes résultats) :
-  le noyau de calcul compile pour les deux cibles WASM —
+- **No cross-arch bench**: the figures in
+  `docs/audits/bench-baseline.txt` come from an amd64 host. An
+  arm64 benchmark needs an Apple Silicon or ARM Linux workstation.
+- **GMP not tested when cross-compiling**: the `gmp` tag requires CGO, so no
+  cross target exercises it. The only **automated** check is step 3b of
+  `scripts/check.sh`, which triggers only if `/usr/include/gmp.h` or
+  `/usr/include/x86_64-linux-gnu/gmp.h` exists. The **first** guard is specific
+  neither to a distribution nor to an architecture — `/usr/include/gmp.h` is
+  the default header path of a `libgmp` installed by the package
+  manager, amd64 and arm64 alike; the second covers only the Debian/Ubuntu amd64
+  multiarch path. What the repository supports claiming is the shape of the
+  guard (`scripts/check.sh`, step 3b), not the list of hosts where it passes:
+  no host is exercised here. `check.ps1` has no equivalent of this step.
+  A manual build
+  `go build -tags gmp` remains possible on any CGO host with libgmp, macOS included
+  (`brew install gmp`), but no script in the repository checks it.
+- **WebAssembly**: not supported, but **not** because of the compute core.
+  Verified on 2026-08-09, re-verified on 2026-09-04 (`go1.27.0`, same results):
+  the compute core compiles for both WASM targets —
   `GOOS=js GOARCH=wasm go build ./internal/bigfft/ ./internal/fibonacci/... ./internal/progress/`
-  **passe**, et la même commande sous `GOOS=wasip1 GOARCH=wasm` aussi — alors
-  que ces paquets sont précisément
-  ceux qui importent `runtime/debug` (blocs `import` de `internal/bigfft/fft.go`
-  et de `internal/fibonacci/memory/gc_control.go`) et qui portent les assertions
-  de panic post-condition. Ce qui casse, c'est la pile TUI tierce :
-  `GOOS=js GOARCH=wasm go build ./...` échoue dans
+  **passes**, and so does the same command under `GOOS=wasip1 GOARCH=wasm` — even
+  though these packages are precisely
+  the ones that import `runtime/debug` (`import` blocks of `internal/bigfft/fft.go`
+  and of `internal/fibonacci/memory/gc_control.go`) and that carry the
+  post-condition panic assertions. What breaks is the third-party TUI stack:
+  `GOOS=js GOARCH=wasm go build ./...` fails in
   `github.com/charmbracelet/bubbletea` (`p.listenForResize undefined`,
-  `undefined: openInputTTY`, …) et `GOOS=wasip1 GOARCH=wasm go build ./...`
-  échoue dans `github.com/muesli/termenv` (`output.ColorProfile undefined`, …).
-  Un portage WASM passerait donc par l'exclusion de `internal/tui` et de ses
-  dépendances, pas par une réécriture du noyau.
-- **`unsafe`** : le code de production n'utilise **pas** `unsafe.Pointer` ; le
-  seul usage de `unsafe` est `unsafe.Sizeof` (`internal/bigfft/fft.go:_W`), plus
-  l'import muet requis par `go:linkname` (bloc `import` de `internal/bigfft/arith_decl.go`) ;
-  l'unique `unsafe.Pointer` du dépôt est dans un test
+  `undefined: openInputTTY`, …) and `GOOS=wasip1 GOARCH=wasm go build ./...`
+  fails in `github.com/muesli/termenv` (`output.ColorProfile undefined`, …).
+  A WASM port would therefore go through excluding `internal/tui` and its
+  dependencies, not through rewriting the core.
+- **`unsafe`**: production code does **not** use `unsafe.Pointer`; the
+  only use of `unsafe` is `unsafe.Sizeof` (`internal/bigfft/fft.go:_W`), plus
+  the blank import required by `go:linkname` (`import` block of `internal/bigfft/arith_decl.go`);
+  the repository's only `unsafe.Pointer` is in a test
   (`internal/fibonacci/memory/arena_test.go`, `TestCalculationArena_MultipleAllocs_NoAliasing`).
-- **32 bits** : compile depuis 2026-09-07, non testé et non distribué ; voir §1.
+- **32-bit**: compiles since 2026-09-07, not tested and not distributed; see §1.

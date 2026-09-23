@@ -1,6 +1,6 @@
-# System Context — C4 niveau 1
+# System Context — C4 Level 1
 
-FibCalc vu de l'extérieur : l'utilisateur, et les trois systèmes externes que le binaire touche (GMP optionnel, OS, système de fichiers).
+FibCalc seen from the outside: the user, and the three external systems the binary touches (optional GMP, OS, file system).
 
 ```mermaid
 C4Context
@@ -21,5 +21,5 @@ C4Context
 ```
 
 ---
-[← Retour au hub architecture](./README.md)
-Légende narrative de cette figure : [§1 Project Overview](../ARCH.md#1-project-overview).
+[← Back to the architecture hub](./README.md)
+Narrative legend of this figure: [§1 Project Overview](../ARCH.md#1-project-overview).

@@ -1,6 +1,6 @@
-# Hiérarchie des interfaces
+# Interface Hierarchy
 
-Les interfaces clés du projet et leurs implémentations, groupées par domaine (calcul, observation, allocation).
+The project's key interfaces and their implementations, grouped by domain (computation, observation, allocation).
 
 ```mermaid
 classDiagram
@@ -156,5 +156,5 @@ classDiagram
 ```
 
 ---
-[← Retour au hub architecture](../README.md)
-Légende narrative de cette figure : [§5 Design Patterns](../../ARCH.md#5-design-patterns) et [§8 Presentation Layer Integration](../../ARCH.md#presentation-layer-integration).
+[← Back to the architecture hub](../README.md)
+Narrative legend of this figure: [§5 Design Patterns](../../ARCH.md#5-design-patterns) and [§8 Presentation Layer Integration](../../ARCH.md#presentation-layer-integration).

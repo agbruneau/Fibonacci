@@ -1,6 +1,6 @@
-# Flux TUI (Bubble Tea)
+# TUI Flow (Bubble Tea)
 
-Cycle Elm du tableau de bord interactif : initialisation, pont `programRef`, messages, `Update`, `View`, raccourcis.
+The interactive dashboard's Elm cycle: initialization, `programRef` bridge, messages, `Update`, `View`, key bindings.
 
 ```mermaid
 flowchart LR
@@ -79,5 +79,5 @@ flowchart LR
 ```
 
 ---
-[← Retour au hub architecture](../README.md)
-Légende narrative de cette figure : [§6, mode TUI](../../ARCH.md#tui-mode-figure).
+[← Back to the architecture hub](../README.md)
+Narrative legend of this figure: [§6, TUI mode](../../ARCH.md#tui-mode-figure).

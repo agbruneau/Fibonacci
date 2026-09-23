@@ -1,6 +1,6 @@
-# Pipeline de multiplication FFT (bigfft)
+# FFT Multiplication Pipeline (bigfft)
 
-Chemin complet de `bigfft.Mul`/`Sqr` : seuil d'activation, allocation, conversion polynomiale, transformée, produit point à point, transformée inverse.
+Full path of `bigfft.Mul`/`Sqr`: activation threshold, allocation, polynomial conversion, transform, pointwise product, inverse transform.
 
 ```mermaid
 flowchart LR
@@ -72,5 +72,5 @@ flowchart LR
 ```
 
 ---
-[← Retour au hub architecture](../README.md)
-Légende narrative de cette figure : [§7C FFT-Based Doubling](../../ARCH.md#c-fft-based-doubling-fftbasedcalculator).
+[← Back to the architecture hub](../README.md)
+Narrative legend of this figure: [§7C FFT-Based Doubling](../../ARCH.md#c-fft-based-doubling-fftbasedcalculator).

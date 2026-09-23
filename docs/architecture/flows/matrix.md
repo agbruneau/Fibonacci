@@ -1,6 +1,6 @@
-# Pipeline Matrix Exponentiation
+# Matrix Exponentiation Pipeline
 
-Exponentiation binaire de la matrice Q, décision Strassen, et retour du résultat par vol de pointeur.
+Binary exponentiation of the Q matrix, Strassen decision, and result return by pointer theft.
 
 ```mermaid
 flowchart LR
@@ -58,5 +58,5 @@ flowchart LR
 ```
 
 ---
-[← Retour au hub architecture](../README.md)
-Légende narrative de cette figure : [§7B Matrix Exponentiation](../../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator).
+[← Back to the architecture hub](../README.md)
+Narrative legend of this figure: [§7B Matrix Exponentiation](../../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator).

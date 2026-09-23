@@ -507,16 +507,17 @@ read by `internal/ui` and `internal/calibration` outside the flag precedence cha
 - [PERFORMANCE.md](PERFORMANCE.md) -- Optimization techniques and benchmark results
 - [CALIBRATION.md](CALIBRATION.md) -- Automatic threshold calibration system
 - [TESTING.md](TESTING.md) -- Test strategy and execution
-## Dépannage
+
+## Troubleshooting
 
 <!-- Moved here from README.md on 2026-09-07 (audit DOC-03). Every entry is a
 build- or tooling-level symptom, which is this document's subject. -->
 
-| Symptôme | Cause / remède |
+| Symptom | Cause / remedy |
 |---|---|
-| `-race` échoue : « cgo: C compiler not found » | Le race detector exige gcc/clang. Sous Windows : WSL (`wsl go test -race ./...`) ou `make test-win` (sans race). |
-| `go test -bench=.` ne lance rien sous PowerShell | Quirk de parsing PowerShell : utiliser `-bench=BenchmarkFibonacci` (préfixe explicite). |
-| Build tag `gmp` : « gmp.h: No such file » | Installer les en-têtes : `sudo apt-get install libgmp-dev` (Linux/WSL). Sans eux, l'étape 3b de `check.sh` est proprement sautée (SKIP). |
-| `bash scripts/check.sh` : « syntax error near `$'{\r'` » | Fins de ligne CRLF (checkout antérieur au pin `*.sh eol=lf`) : `git checkout -- scripts/check.sh` ou `sed -i 's/\r$//' scripts/check.sh`. |
-| Le TUI ne se lance pas | `-tui` exige un terminal interactif (TTY) ; indisponible dans les pipes/CI. |
-| Calcul interrompu à 5 minutes | Défaut `-timeout 5m` — augmenter, p. ex. `-timeout 30m`. |
+| `-race` fails: "cgo: C compiler not found" | The race detector requires gcc/clang. On Windows: WSL (`wsl go test -race ./...`) or `make test-win` (no race). |
+| `go test -bench=.` runs nothing under PowerShell | PowerShell parsing quirk: use `-bench=BenchmarkFibonacci` (explicit prefix). |
+| Build tag `gmp`: "gmp.h: No such file" | Install the headers: `sudo apt-get install libgmp-dev` (Linux/WSL). Without them, step 3b of `check.sh` is cleanly skipped (SKIP). |
+| `bash scripts/check.sh`: "syntax error near `$'{\r'`" | CRLF line endings (checkout older than the `*.sh eol=lf` pin): `git checkout -- scripts/check.sh` or `sed -i 's/\r$//' scripts/check.sh`. |
+| The TUI does not start | `-tui` requires an interactive terminal (TTY); unavailable in pipes/CI. |
+| Computation interrupted at 5 minutes | Default `-timeout 5m` — raise it, e.g. `-timeout 30m`. |

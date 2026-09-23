@@ -44,7 +44,7 @@ compilent depuis le 2026-09-07 mais ne sont ni testées ni distribuées
 7. [Développement et tests](#développement-et-tests)
 8. [Contribution et licence](#contribution-et-licence)
 
-Dépannage : [`docs/BUILD.md` § Dépannage](docs/BUILD.md#dépannage). Historique des
+Dépannage : [`docs/BUILD.md` § Troubleshooting](docs/BUILD.md#troubleshooting). Historique des
 audits : [`docs/audits/HISTORY.md`](docs/audits/HISTORY.md). Chemin complet d'un
 calcul : [`docs/ARCH.md`](docs/ARCH.md).
 

@@ -1,116 +1,118 @@
-# FibGo Architecture — Référence Détaillée
+# FibGo Architecture — Detailed Reference
 
-Ce répertoire contient la documentation architecturale détaillée du projet FibCalc : diagrammes techniques, flux de données et le relevé de validation des invariants (§5). Les ADR (Architectural Decision Records) ne vivent pas ici mais dans [`docs/adr/`](../adr/) ; la §4 ci-dessous n'en donne que l'index.
+This directory holds the detailed architecture documentation of the FibCalc project: technical diagrams, data flows, and the invariant validation record (§5). The ADRs (Architectural Decision Records) do not live here but in [`docs/adr/`](../adr/); §4 below gives only their index.
 
-> **Partage du travail avec [`docs/ARCH.md`](../ARCH.md).** Ce répertoire **dessine** ;
-> `ARCH.md` **narre** — à une exception près : la figure du flux CLI est dessinée dans
-> [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result), en tête de la section
-> qui la commente, parce que sa légende est cette section et rien d'autre.
-> Les dix figures ci-dessous sont la vue faisant foi sur la *forme*
-> du système — arêtes d'import, sous-graphes, ordre des branches — et les sections
-> d'`ARCH.md` en sont la légende : le pourquoi, les constantes, les défauts, ce qui n'est
-> pas garanti. Il n'existe **pas** deux vues concurrentes de l'architecture : `ARCH.md`
-> cite ces figures au lieu d'en redessiner de secondes, et chaque figure indique en pied
-> de page la section qui la commente. La correspondance complète est la
-> [carte des figures](../ARCH.md#0-figure-map). Un changement de forme se corrige
-> **dans la figure d'abord**, puis dans la légende.
+> **Division of labor with [`docs/ARCH.md`](../ARCH.md).** This directory **draws**;
+> `ARCH.md` **narrates** — with one exception: the CLI flow figure is drawn in
+> [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result), at the head of the section
+> that explains it, because its legend is that section and nothing else.
+> The ten figures below are the authoritative view of the system's *shape*
+> — import edges, subgraphs, branch order — and the sections
+> of `ARCH.md` are their legend: the why, the constants, the defaults, what is
+> not guaranteed. There are **not** two competing views of the architecture: `ARCH.md`
+> cites these figures instead of redrawing second ones, and each figure names in its
+> footer the section that explains it. The full mapping is the
+> [figure map](../ARCH.md#0-figure-map). A change of shape is corrected
+> **in the figure first**, then in the legend.
 
-> **Format des diagrammes.** Les dix diagrammes sont des fichiers `.md` dont le corps est un
-> bloc clôturé `mermaid`. C'est le seul format que GitHub rend graphiquement : un fichier
-> `.mermaid` ou `.mmd` autonome s'affiche en texte brut. Ils portaient l'extension `.mermaid`
-> jusqu'au 2026-09-04 et ont été convertis pour cette raison ; le repo utilisait déjà cette
-> convention ailleurs (`docs/algorithms/*.md`, `docs/TUI_GUIDE.md`). Les onze blocs du corpus
-> — les dix d'ici plus celui de [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result) —
-> ont été passés au parseur `mermaid` v11.17.2 le 2026-09-04 : zéro erreur de syntaxe.
+> **Diagram format.** The ten diagrams are `.md` files whose body is a
+> fenced `mermaid` block. It is the only format GitHub renders graphically: a standalone
+> `.mermaid` or `.mmd` file displays as plain text. They carried the `.mermaid` extension
+> until 2026-09-04 and were converted for that reason; the repo already used this
+> convention elsewhere (`docs/algorithms/*.md`, `docs/TUI_GUIDE.md`). The corpus's eleven blocks
+> — the ten here plus the one in [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result) —
+> were run through the `mermaid` v11.17.2 parser on 2026-09-04: zero syntax errors.
 
-## 1) Diagrammes d'Architecture (C4 Model)
+## 1) Architecture Diagrams (C4 Model)
 
-Nous utilisons le modèle C4 pour documenter l'architecture à différents niveaux d'abstraction :
+We use the C4 model to document the architecture at different levels of abstraction:
 
-- **[System Context](system-context.md) :** Vue de haut niveau de FibCalc et de ses interactions avec l'utilisateur et le système d'exploitation. — *légende : [`ARCH.md` §1](../ARCH.md#1-project-overview)*
-- **[Container Diagram](container-diagram.md) :** Décomposition de l'application en conteneurs logiques (CLI, TUI, Core Engine). Chaque `Rel` entre deux `Container` est un import Go réel — le relevé §5 les compte un à un. — *légende : [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture)*
-- **[Component Diagram](component-diagram.md) :** Détail des composants internes du moteur de calcul et de l'orchestration. C'est un `classDiagram` : ses flèches sont des relations de classes, **pas** des imports de packages. — *légende : [`ARCH.md` §4](../ARCH.md#4-core-packages-responsibilities-key-types-interfaces)*
+- **[System Context](system-context.md):** High-level view of FibCalc and its interactions with the user and the operating system. — *legend: [`ARCH.md` §1](../ARCH.md#1-project-overview)*
+- **[Container Diagram](container-diagram.md):** Breakdown of the application into logical containers (CLI, TUI, Core Engine). Every `Rel` between two `Container`s is a real Go import — the §5 record counts them one by one. — *legend: [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture)*
+- **[Component Diagram](component-diagram.md):** Detail of the internal components of the compute engine and of orchestration. It is a `classDiagram`: its arrows are class relations, **not** package imports. — *legend: [`ARCH.md` §4](../ARCH.md#4-core-packages-responsibilities-key-types-interfaces)*
 
-## 2) Graphe des Dépendances
+## 2) Dependency Graph
 
-Le projet suit rigoureusement les principes de la **Clean Architecture**. Le graphe suivant illustre les relations entre les packages :
+The project strictly follows the principles of **Clean Architecture**. The following graph shows the relations between packages:
 
-- **[Dependency Graph](dependency-graph.md)** — les 48 imports internes directs du module, un par arête. Reproductible avec la commande `go list` donnée dans le [relevé de validation](./validation/validation-report.md#layer-tightness--dependency-direction). — *légende : [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture) (la règle de superposition) et [§3](../ARCH.md#3-directory-structure) (les répertoires derrière les nœuds)*
+- **[Dependency Graph](dependency-graph.md)** — the module's 45 direct internal imports, one per edge. Reproducible with the `go list` command given in the [validation record](./validation/validation-report.md#layer-tightness--dependency-direction). — *legend: [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture) (the layering rule) and [§3](../ARCH.md#3-directory-structure) (the directories behind the nodes)*
 
-## 3) Flux de Données et Chemins d'Exécution
+## 3) Data Flows and Execution Paths
 
-Six `flowchart` retracent les chemins d'exécution critiques, du point d'entrée au résultat :
+Six `flowchart`s trace the critical execution paths, from entry point to result:
 
-- **Exécution CLI** — la figure et sa légende sont ensemble dans
-  [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result) : le `flowchart` en tête
-  de section, puis dix étapes numérotées qui commentent chacune un sous-graphe.
-- **[Flows/](./flows/) :**
-  - Exécution [TUI](./flows/tui-flow.md) — *légende : [`ARCH.md` §6, mode TUI](../ARCH.md#tui-mode-figure)*.
-  - [Résolution de configuration](./flows/config-flow.md) — *légende : [`ARCH.md` §8](../ARCH.md#configuration-cascade) et [§9](../ARCH.md#9-configuration-and-environment)*.
-  - Pipelines algorithmiques : [Fast Doubling](./flows/fastdoubling.md) (*[§7A](../ARCH.md#a-fast-doubling-fastdoublingcalculator)*), [FFT](./flows/fft-pipeline.md) (*[§7C](../ARCH.md#c-fft-based-doubling-fftbasedcalculator)*), [Matrix](./flows/matrix.md) (*[§7B](../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator)*).
+- **CLI execution** — the figure and its legend sit together in
+  [`ARCH.md` §6](../ARCH.md#6-data-flow-cli-input-to-final-result): the `flowchart` at the head
+  of the section, then ten numbered steps that each comment one subgraph.
+- **[Flows/](./flows/):**
+  - [TUI](./flows/tui-flow.md) execution — *legend: [`ARCH.md` §6, TUI mode](../ARCH.md#tui-mode-figure)*.
+  - [Configuration resolution](./flows/config-flow.md) — *legend: [`ARCH.md` §8](../ARCH.md#configuration-cascade) and [§9](../ARCH.md#9-configuration-and-environment)*.
+  - Algorithm pipelines: [Fast Doubling](./flows/fastdoubling.md) (*[§7A](../ARCH.md#a-fast-doubling-fastdoublingcalculator)*), [FFT](./flows/fft-pipeline.md) (*[§7C](../ARCH.md#c-fft-based-doubling-fftbasedcalculator)*), [Matrix](./flows/matrix.md) (*[§7B](../ARCH.md#b-matrix-exponentiation-matrixexponentiationcalculator)*).
 
-## 4) Design Patterns et ADR
+## 4) Design Patterns and ADRs
 
-L'architecture repose sur les design patterns documentés ici :
+The architecture rests on the design patterns documented here:
 
-- **[Patterns/](./patterns/) :**
-  - **[Design Patterns inventory](./patterns/design-patterns.md)** — l'**inventaire faisant foi** : 16 patterns (Decorator, Strategy, ISP, Factory/Registry, Observer, Template Method, Facade, Adapter, Object Pool, Arena Allocator, Bump Allocator, LRU Cache, Circuit Breaker, Zero-Copy Result Return, Generics with Pointer Constraints, GC Controller) et 5 mécanismes d'ingénierie, avec la raison d'être et le site d'implémentation de chacun. Fusion (2026-09-04) de cette table et de celle que `ARCH.md` §5 tenait en parallèle ; il n'y a plus qu'une liste, et [`ARCH.md` §5](../ARCH.md#5-design-patterns) y renvoie.
-  - **[Hiérarchie des interfaces](./patterns/interface-hierarchy.md)** — les interfaces clés et leurs implémentations. Commentée par [`ARCH.md` §5](../ARCH.md#5-design-patterns) et [§8](../ARCH.md#presentation-layer-integration).
+- **[Patterns/](./patterns/):**
+  - **[Design Patterns inventory](./patterns/design-patterns.md)** — the **authoritative inventory**: 16 patterns (Decorator, Strategy, ISP, Factory/Registry, Observer, Template Method, Facade, Adapter, Object Pool, Arena Allocator, Bump Allocator, LRU Cache, Circuit Breaker, Zero-Copy Result Return, Generics with Pointer Constraints, GC Controller) and 5 engineering mechanisms, with the rationale and implementation site of each. Merged (2026-09-04) from this table and the one `ARCH.md` §5 kept in parallel; there is now only one list, and [`ARCH.md` §5](../ARCH.md#5-design-patterns) points to it.
+  - **[Interface hierarchy](./patterns/interface-hierarchy.md)** — the key interfaces and their implementations. Explained by [`ARCH.md` §5](../ARCH.md#5-design-patterns) and [§8](../ARCH.md#presentation-layer-integration).
 
-### ADR — Décisions architecturales courantes
+### ADRs — Current architectural decisions
 
-Les Architectural Decision Records vivent dans [`docs/adr/`](../adr/) :
+The Architectural Decision Records live in [`docs/adr/`](../adr/):
 
-| ADR | Titre | Statut |
+| ADR | Title | Status |
 |---|---|---|
 | [0000](../adr/0000-template.md) | Template | — |
-| [0001](../adr/0001-dtm-decision.md) | Sort de `DynamicThresholdManager` vs `internal/calibration/` | Superseded by 0013 |
-| [0002](../adr/0002-recover-strategy.md) | Stratégie `recover()` dans `bigfft` (sentinel post-condition) | Accepted |
-| [0003](../adr/0003-globals-vs-context.md) | Globaux `bigfft` mutables → `atomic.Int64` | Accepted |
-| [0004](../adr/0004-backlog-decisions.md) | Décisions de backlog formelles post-hardening | Accepted |
-| [0005](../adr/0005-gc-control-concurrent.md) | Contrôle GC concurrency-safe (refcount package-level) | Accepted |
-| [0006](../adr/0006-fft-recursion-cancellation.md) | Annulation récursion FFT — report au token par-appel (FFTContext) | Accepted ⚠ *objet retiré du code* |
-| [0007](../adr/0007-pool-pointer-vs-value.md) | SA6002 (`sync.Pool.Put` de slice) — décision mesurée | Accepted |
-| [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | Audit de refactorisation 2026-06 — candidats rejetés après vérification | Accepted |
-| [0009](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) | Audit 2026-07 — purge bigfft, rétention oracle, rejet puis adoption ×10 (addendum R4) | Accepted |
-| [0010](../adr/0010-audit-2026-09-decisions.md) | Audit 2026-09 — précédence des seuils explicites, DTM opt-in, lint bloquant, candidats rejetés sur mesure | Accepted |
-| [0011](../adr/0011-audit-2026-09-ponytail.md) | Audit de sur-ingénierie 2026-09-03 — suppressions et replis, candidats écartés avec leur motif | Accepted |
+| [0001](../adr/0001-dtm-decision.md) | Fate of `DynamicThresholdManager` vs `internal/calibration/` | Superseded by 0013 |
+| [0002](../adr/0002-recover-strategy.md) | `recover()` strategy in `bigfft` (post-condition sentinel) | Accepted |
+| [0003](../adr/0003-globals-vs-context.md) | Mutable `bigfft` globals → `atomic.Int64` | Accepted |
+| [0004](../adr/0004-backlog-decisions.md) | Formal post-hardening backlog decisions | Accepted |
+| [0005](../adr/0005-gc-control-concurrent.md) | Concurrency-safe GC control (package-level refcount) | Accepted |
+| [0006](../adr/0006-fft-recursion-cancellation.md) | FFT recursion cancellation — deferred to the per-call token (FFTContext) | Accepted ⚠ *subject removed from the code* |
+| [0007](../adr/0007-pool-pointer-vs-value.md) | SA6002 (`sync.Pool.Put` of a slice) — measured decision | Accepted |
+| [0008](../adr/0008-audit-2026-06-rejected-candidates.md) | 2026-06 refactoring audit — candidates rejected after verification | Accepted |
+| [0009](../adr/0009-audit-2026-07-cleanup-and-rejected-fib05.md) | 2026-07 audit — bigfft purge, oracle retention, rejection then adoption of ×10 (addendum R4) | Accepted |
+| [0010](../adr/0010-audit-2026-09-decisions.md) | 2026-09 audit — precedence of explicit thresholds, opt-in DTM, blocking lint, candidates rejected on measurement | Accepted |
+| [0011](../adr/0011-audit-2026-09-ponytail.md) | 2026-09-03 over-engineering audit — removals and fallbacks, candidates set aside with their reason | Accepted |
+| [0012](../adr/0012-audit-2026-09-livre-decisions.md) | 2026-09-07 audit against *Building Enterprise Projects with Go* — CI, pinned tools, language rule (amended by 0013) | Accepted |
+| [0013](../adr/0013-evaluation-2026-09-decisions.md) | 2026-09-15 academic evaluation — DTM removed, language rule amended, coverage floor, GMP reachable | Accepted |
 
-⚠ **ADR-0006 porte « Accepted » et son objet n'est plus dans l'arbre.** L'API opt-in `FFTContext`
-(`NewFFTContext`, `*WithContext`, `fourierRecursiveCtx`) a été **retirée** — zéro occurrence dans
-`internal/bigfft/` au relevé du 2026-08-08 —, la migration qu'elle préparait ayant été classée
-WONT-FIX par [ADR-0004 §B1](../adr/0004-backlog-decisions.md) ; le retrait est consigné à
-[`CHANGELOG.md`](../../CHANGELOG.md) et le code se relit à l'historique git. ⚠ *Un ADR décrit une
-décision datée, non l'état du code : celui-ci reste exact comme décision et cesse d'être vérifiable
-à la source.* **Changer son statut est une décision de mainteneur, pas une resynchronisation de
-documentation — elle n'est pas prise ici.**
+⚠ **ADR-0006 carries "Accepted" and its subject is no longer in the tree.** The opt-in `FFTContext` API
+(`NewFFTContext`, `*WithContext`, `fourierRecursiveCtx`) was **removed** — zero occurrences in
+`internal/bigfft/` as of the 2026-08-08 check —, the migration it prepared having been classified
+WONT-FIX by [ADR-0004 §B1](../adr/0004-backlog-decisions.md); the removal is recorded in
+[`CHANGELOG.md`](../../CHANGELOG.md) and the code can be reread in the git history. ⚠ *An ADR describes a
+dated decision, not the state of the code: this one stays accurate as a decision and stops being verifiable
+against the source.* **Changing its status is a maintainer decision, not a documentation
+resync — it is not taken here.**
 
-L'historique granulaire des décisions héritées (heuristique CPU, backends
-de recherche) reste résumé dans **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
+The granular history of inherited decisions (CPU heuristic, search
+backends) remains summarized in **[docs/ARCH.md](../ARCH.md#14-architectural-decision-records-adr)**.
 
-**ADR-0001 est remplacé par ADR-0013.** Le `DynamicThresholdManager` avait
-été conservé (KEEP) sur la foi d'un gain de 5-6 % à F(10M) ; l'audit 2026-09
-(M-04) l'a câblé derrière `--dynamic-thresholds` et la mesure faite à travers ce
-drapeau (`-count=8`) n'a pas reproduit le gain. L'évaluation du 2026-09-15 en a
-tiré la conséquence : le paquet, le drapeau et la variable sont supprimés depuis
-le 2026-09-23 ([ADR-0013](../adr/0013-evaluation-2026-09-decisions.md) D1).
+**ADR-0001 is superseded by ADR-0013.** The `DynamicThresholdManager` had
+been kept (KEEP) on the strength of a 5-6% gain at F(10M); the 2026-09 audit
+(M-04) wired it behind `--dynamic-thresholds`, and the measurement taken through that
+flag (`-count=8`) did not reproduce the gain. The 2026-09-15 evaluation drew
+the consequence: the package, the flag and the variable have been removed since
+2026-09-23 ([ADR-0013](../adr/0013-evaluation-2026-09-decisions.md) D1).
 
-### Gate d'architecture
+### Architecture gate
 
-`internal/arch_test.go` enforce cinq invariants Clean Architecture :
+`internal/arch_test.go` enforces five Clean Architecture invariants:
 `threshold → config`, `errors → format`, `tui → fibonacci`,
-`orchestration → format` (APP-10) et `config → fibonacci`/`config → bigfft`
-(ARCH-02) sont interdits. Tout PR réintroduisant
-un de ces imports remontants fait échouer `make test` (ou
-`go test ./internal/`). Détail : [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
+`orchestration → format` (APP-10) and `config → fibonacci`/`config → bigfft`
+(ARCH-02) are forbidden. Any PR reintroducing
+one of these upward imports fails `make test` (or
+`go test ./internal/`). Detail: [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 
-## 5) Validation des invariants
+## 5) Invariant Validation
 
-- **[Validation/](./validation/) :**
-  - **[validation-report.md](./validation/validation-report.md)** — relevé des invariants que la
-    documentation affirme et qui ont été confrontés à la source : étanchéité des couches et sens des
-    dépendances, affirmations d'interfaces et de patterns, flux d'exécution, note de maintenance.
-    Référence vivante, à re-vérifier et mettre à jour sur place quand la structure change.
+- **[Validation/](./validation/):**
+  - **[validation-report.md](./validation/validation-report.md)** — record of the invariants the
+    documentation asserts and that have been checked against the source: layer tightness and dependency
+    direction, interface and pattern claims, execution flows, maintenance note.
+    Living reference, to re-verify and update in place when the structure changes.
 
 ---
-[← Retour à la vue d'ensemble (ARCH.md)](../ARCH.md)
+[← Back to the overview (ARCH.md)](../ARCH.md)

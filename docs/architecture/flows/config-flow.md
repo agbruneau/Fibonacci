@@ -1,6 +1,6 @@
-# Flux de résolution de configuration
+# Configuration Resolution Flow
 
-Ordre de précédence des sources de configuration et construction de `fibonacci.Options`.
+Precedence order of the configuration sources and construction of `fibonacci.Options`.
 
 ```mermaid
 flowchart LR
@@ -73,5 +73,5 @@ flowchart LR
 ```
 
 ---
-[← Retour au hub architecture](../README.md)
-Légende narrative de cette figure : [§8 Configuration Cascade](../../ARCH.md#configuration-cascade) et [§9 Configuration and Environment](../../ARCH.md#9-configuration-and-environment).
+[← Back to the architecture hub](../README.md)
+Narrative legend of this figure: [§8 Configuration Cascade](../../ARCH.md#configuration-cascade) and [§9 Configuration and Environment](../../ARCH.md#9-configuration-and-environment).

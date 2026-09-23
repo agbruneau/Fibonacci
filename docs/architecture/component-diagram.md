@@ -1,6 +1,6 @@
-# Component Diagram — classes et interfaces du moteur
+# Component Diagram — Engine Classes and Interfaces
 
-Vue `classDiagram` du coeur de calcul : interfaces, implémentations, et les collaborations qui ne sont **pas** des imports de packages (voir le graphe de dépendances pour ceux-là).
+`classDiagram` view of the compute core: interfaces, implementations, and the collaborations that are **not** package imports (see the dependency graph for those).
 
 ```mermaid
 classDiagram
@@ -207,5 +207,5 @@ classDiagram
 ```
 
 ---
-[← Retour au hub architecture](./README.md)
-Légende narrative de cette figure : [§4 Core Packages](../ARCH.md#4-core-packages-responsibilities-key-types-interfaces).
+[← Back to the architecture hub](./README.md)
+Narrative legend of this figure: [§4 Core Packages](../ARCH.md#4-core-packages-responsibilities-key-types-interfaces).

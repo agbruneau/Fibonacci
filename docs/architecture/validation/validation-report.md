@@ -32,10 +32,10 @@ leaves (zero internal imports): bigfft, apperrors, format, metrics, progress,
 
 The `internal_test` package doc comment in `internal/arch_test.go` states the same chain.
 
-**Comment re-vérifier le graphe soi-même.** Le pipeline ci-dessous (shell POSIX,
-depuis la racine du dépôt) extrait les imports internes directs, les renomme
-avec les identifiants de nœud du diagramme, et compare l'ensemble obtenu à
-celui que `dependency-graph.md` dessine. Il ne doit rien afficher :
+**How to re-verify the graph yourself.** The pipeline below (POSIX shell,
+from the repository root) extracts the direct internal imports, renames them
+with the diagram's node identifiers, and compares the resulting set with
+the one `dependency-graph.md` draws. It must print nothing:
 
 ```sh
 go list -deps=false -f '{{$p := .ImportPath}}{{range .Imports}}{{$p}} -> {{.}}
@@ -53,14 +53,14 @@ grep -oE '^ +[a-z]+ --> [a-z]+$' docs/architecture/dependency-graph.md \
 diff /tmp/real.txt /tmp/drawn.txt
 ```
 
-Exécuté le **2026-09-23**, après la suppression de `fibonacci/threshold`
-(EVAL-10) : `45` lignes de chaque côté, `diff` vide — le diagramme est
-l'ensemble exact des imports internes directs, pas un sur-ensemble ni un
-sous-ensemble (48 au relevé précédent du 2026-09-07 ; les trois arêtes vers
-`fibonacci/threshold`, depuis `app`, `fibonacci` et `orchestration`, sont
-parties avec le paquet). Sur ce relevé, `internal/fibonacci` importe
-`apperrors`, `bigfft`, `fibonacci/fibmath`, `fibonacci/memory`, `progress` — pas
-`config` ; et `internal/bigfft` n'importe aucun package interne.
+Run on **2026-09-23**, after the removal of `fibonacci/threshold`
+(EVAL-10): `45` lines on each side, empty `diff` — the diagram is
+the exact set of direct internal imports, neither a superset nor a
+subset (48 at the previous reading of 2026-09-07; the three edges into
+`fibonacci/threshold`, from `app`, `fibonacci` and `orchestration`, went
+away with the package). On this reading, `internal/fibonacci` imports
+`apperrors`, `bigfft`, `fibonacci/fibmath`, `fibonacci/memory`, `progress` — not
+`config`; and `internal/bigfft` imports no internal package.
 
 Verified properties (against Go `import` declarations in source):
 
@@ -76,12 +76,12 @@ Verified properties (against Go `import` declarations in source):
 Only two of the diagrams carry package-import edges, and both were
 re-verified arrow-by-arrow against the `go list` command above:
 
-- `dependency-graph.md` — exact and complete. Its 48 arrows match, one for
+- `dependency-graph.md` — exact and complete. Its 45 arrows match, one for
   one, the 45 direct internal imports `go list` reports across the module
   (`cmd/fibcalc` 2, `app` 10, `calibration` 5, `cli` 8, `config` 3,
   `fibonacci` 5, `fibonacci/memory` 1, `orchestration` 4, `tui` 7; every
-  other package is a leaf — counts of 2026-09-23, after EVAL-10). **Re-verified 2026-09-07** after the « livre »
-  audit: `calibration → format` and `calibration → ui` are gone (T16) ;
+  other package is a leaf — counts of 2026-09-23, after EVAL-10). **Re-verified 2026-09-07** after the "livre"
+  audit: `calibration → format` and `calibration → ui` are gone (T16);
   `cli → calibration`, `orchestration → fibonacci/threshold` and the two arrows
   into the new `fibonacci/fibmath` leaf (from `fibonacci` and
   `fibonacci/memory`, T20) are new.
@@ -177,7 +177,7 @@ to match source. Notable narrow/wide interface contracts:
 - `Calculator` (decorated façade) / `CoreCalculator` (algorithm kernel wrapped by `FibCalculator`) — both exported, `internal/fibonacci/calculator.go`
 - `Multiplier` (narrow) extended by `DoublingStepExecutor` (wide)
 - `ProgressObserver` — `internal/progress/` / `ProgressReporter` — `internal/orchestration/`
-- `CalculatorSource` — `internal/orchestration/interfaces.go`, consumer-defined ; `app.CalculatorRegistry` (`internal/app/app.go`) embeds it and adds `GetAll`. `fibonacci.DefaultFactory` satisfies both ; the producer-side `CalculatorFactory` was removed on 2026-09-07 (T17)
+- `CalculatorSource` — `internal/orchestration/interfaces.go`, consumer-defined; `app.CalculatorRegistry` (`internal/app/app.go`) embeds it and adds `GetAll`. `fibonacci.DefaultFactory` satisfies both; the producer-side `CalculatorFactory` was removed on 2026-09-07 (T17)
 
 ## Execution flows
 

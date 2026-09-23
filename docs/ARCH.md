@@ -2,7 +2,7 @@
 
 > **This document narrates; [`docs/architecture/`](architecture/README.md) draws** — except
 > the CLI flow figure, which is drawn here, at the head of [§6](#6-data-flow-cli-input-to-final-result),
-> above the legend that comments it.
+> above the legend that explains it.
 > The eleven figures of the corpus (Mermaid blocks) are the **authoritative view of the
 > system's shape** — import edges, subgraphs, branch order, loop returns.
 > They are also the most verified pages of the repository: every import edge was
@@ -21,7 +21,7 @@ is inline in [§6](#6-data-flow-cli-input-to-final-result). Each row says which 
 this document comments which figure; follow the link from the section, or enter through
 the [hub](architecture/README.md).
 
-| Figure (Mermaid block) | What it draws | Commented in |
+| Figure (Mermaid block) | What it draws | Explained in |
 |---|---|---|
 | [`system-context.md`](architecture/system-context.md) | C4-1: the user and the three external systems touched (OS, file system, optional GMP) | [§1](#1-project-overview) |
 | [`container-diagram.md`](architecture/container-diagram.md) | C4-2: the logical containers; every `Rel` between two `Container`s is a real Go import | [§2](#2-high-level-architecture-clean-architecture) |
@@ -1255,6 +1255,6 @@ correspondences.
   [`docs/architecture/`](architecture/README.md); the eleventh heads
   [§6](#6-data-flow-cli-input-to-final-result). Maintenance rule: **if a figure already
   covers the question, ARCH.md cites it; it does not draw a second one.** A change of
-  shape is fixed in the figure, then in the legend that comments it.
+  shape is fixed in the figure, then in the legend that explains it.
 
 This architecture intentionally emphasizes separation of concerns, algorithmic interchangeability, and performance-tuning hooks while keeping orchestration and presentation decoupled.

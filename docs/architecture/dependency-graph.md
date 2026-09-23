@@ -1,9 +1,9 @@
-# Graphe des dépendances internes
+# Internal Dependency Graph
 
-Les 48 imports internes directs du module, un par arête — ni plus, ni moins. Le pipeline
-`go list` qui établit cette égalité d'ensembles est dans le
-[relevé de validation](./validation/validation-report.md#layer-tightness--dependency-direction)
-(exécuté le 2026-09-07, `diff` vide).
+The module's 45 direct internal imports, one per edge — no more, no fewer. The `go list`
+pipeline that establishes this set equality is in the
+[validation record](./validation/validation-report.md#layer-tightness--dependency-direction)
+(run on 2026-09-23, empty `diff`).
 
 ```mermaid
 flowchart LR
@@ -12,7 +12,7 @@ flowchart LR
     end
 
     subgraph Tooling["Dev Tooling"]
-        gen["cmd/generate-golden<br/>golden oracle — zéro import interne"]
+        gen["cmd/generate-golden<br/>golden oracle — zero internal imports"]
     end
 
     subgraph Core["Application Core"]
@@ -110,5 +110,5 @@ flowchart LR
 ```
 
 ---
-[← Retour au hub architecture](./README.md)
-Légende narrative de cette figure : [§2 High-Level Architecture](../ARCH.md#2-high-level-architecture-clean-architecture) et [§3 Directory Structure](../ARCH.md#3-directory-structure).
+[← Back to the architecture hub](./README.md)
+Narrative legend of this figure: [§2 High-Level Architecture](../ARCH.md#2-high-level-architecture-clean-architecture) and [§3 Directory Structure](../ARCH.md#3-directory-structure).

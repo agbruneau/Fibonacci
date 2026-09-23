@@ -1,6 +1,6 @@
-# Container Diagram — C4 niveau 2
+# Container Diagram — C4 Level 2
 
-Découpage de l'application en conteneurs logiques. Chaque `Rel` entre deux `Container` est un import Go direct ; `Rel(user, entry, …)` est la seule exception (relation `Person` → `Container`).
+Breakdown of the application into logical containers. Every `Rel` between two `Container`s is a direct Go import; `Rel(user, entry, …)` is the only exception (a `Person` → `Container` relation).
 
 ```mermaid
 C4Container
@@ -49,5 +49,5 @@ C4Container
 ```
 
 ---
-[← Retour au hub architecture](./README.md)
-Légende narrative de cette figure : [§2 High-Level Architecture](../ARCH.md#2-high-level-architecture-clean-architecture).
+[← Back to the architecture hub](./README.md)
+Narrative legend of this figure: [§2 High-Level Architecture](../ARCH.md#2-high-level-architecture-clean-architecture).
