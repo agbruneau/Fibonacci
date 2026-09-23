@@ -13,8 +13,7 @@ baseline** tracked in the repository — the file `benchstat` compares against.
 The five other files under [`docs/audits/`](audits/) are targeted A/B runs (DTM,
 FFT cache, pool memclr, micro-benchmark stability) or a resident-memory reading,
 each cited where it is used; none of them measures whole-calculator throughput.
-Everything else in *this section* is an unbacked historical note (see the
-Provenance warning below). Medians of the 5 samples per row, computed from
+Medians of the 5 samples per row, computed from
 that file — linux/amd64, 24 threads, `-count=5 -benchtime=1x`, header stamp
 `baseline-2026-07-07`:
 
@@ -33,82 +32,20 @@ the first sample (5,134,173 ns) is exactly the median. Counted from
 are the numbers `benchstat` compares against, and the only ones in this document
 you can re-derive from a file in the tree.
 
-### Test Configuration (historical, no archived output)
+### What the removed historical tables left behind
 
-- **CPU**: AMD Ryzen 9 5900X (12 cores, 24 threads)
-- **RAM**: 32 GB DDR4-3600
-- **OS**: Linux 6.1
-- **Go**: 1.25.0
+Earlier revisions carried two throughput tables (a Ryzen 9 5900X « historical »
+run and an Intel Core Ultra 9 275HX « snapshot ») for which no output was ever
+archived. Re-checked on 2026-09-04 against the CPU the second one names, their
+magnitudes were off by 2× to 88×, so both were removed (EVAL-05). The one thing
+that check confirmed is the **ordering**: Fast Doubling ≤ FFT-Based < Matrix
+Exponentiation at N = 1M, 10M and 100M, on that host. The baseline table above
+agrees at 1M and 10M, and it is the only source of magnitudes in this section.
 
-> **Provenance — read before quoting any number below.** The two tables that follow are **historical figures with no backing artifact in this repository**: no benchmark output for them was ever archived, on this hardware or any other, and nothing in the tree can confirm them. They are kept only as a record of *relative ordering* between the three algorithms. Do not cite them as measurements. The project now targets Go 1.26.1+ (see `go.mod`) while these predate it. For a number you can defend, use the baseline table above or re-run `make benchmark` on your own runner.
->
-> **Current dated references.** Two later optimization rounds make HEAD measurably faster than these historical numbers: the 2026-06-09 parallel pointwise/butterfly work (FastDoubling/10M −27.6 %; [`CHANGELOG.md`](../CHANGELOG.md)) and the 2026-06-10 audit loop (commits `4e34b82` TestMain, `fa13bfd` state+arena cache, `7999c39` bump F-012: geomean sec/op −12.0 % vs the same-day baseline, FastDoubling/10M 33.30 ms → 28.20 ms, B/op at 10M ~−70 %; [`CHANGELOG.md`](../CHANGELOG.md)).
-
-### Results
-
-| N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
-|---|---------------|-------------|-----------|-----------------|
-| 1,000 | 15us | 18us | 45us | 209 |
-| 10,000 | 180us | 220us | 350us | 2,090 |
-| 100,000 | 3.2ms | 4.1ms | 5.8ms | 20,899 |
-| 1,000,000 | 85ms | 110ms | 95ms | 208,988 |
-| 10,000,000 | 2.1s | 2.8s | 2.3s | 2,089,877 |
-| 100,000,000 | 45s | 62s | 48s | 20,898,764 |
-| 250,000,000 | 3m12s | 4m25s | 3m28s | 52,246,910 |
-
-> **The N=10M row is off by roughly two orders of magnitude, not by a hardware generation.** Its 2.1 s for Fast Doubling is **≈88×** the throughput baseline (23.87 ms median, `docs/audits/bench-baseline.txt`, linux/amd64) and **≈75×** the dated reference below. A gap that size is not explained by CPU, Go version or thermal profile; the row's provenance is simply unknown. Treat the whole column as ordering, never as magnitude.
->
-> Current dated reference for the N=10M row: `BenchmarkFibonacci/FastDoubling/10M` measures 28.20 ms (calculation only, no decimal conversion; 2026-06-10, Intel Core Ultra 9 275HX — see [`CHANGELOG.md`](../CHANGELOG.md)).
->
-> **The N=100M row is off by a comparable factor.** Sanity check run 2026-09-04
-> on a 24-thread Windows host (`go1.27.0 windows/amd64`, thresholds from the
-> host's cached profile: `Parallelism=disabled, FFT=480000 bits`):
-> `NO_COLOR=1 fibcalc -n 100000000 -algo all` prints
-> `FFT-Based Doubling 566ms`, `Fast Doubling 639ms`,
-> `Matrix Exponentiation 1.9347084s`, for a 69,424,191-bit result — against
-> 48 s / 45 s / 62 s in the table, i.e. **~85×**, **~70×** and **~32×** apart.
-> A second run agreed within 10 %. This is one wall-clock run as printed by the
-> comparison summary (calculation only, no decimal conversion), not a benchmark,
-> and no artifact for it is archived here — reproduce it with the command above
-> rather than citing these numbers.
-
-> **Caution — algorithm ordering at very large N.** At N >= 10M the wall-clock ordering of Fast Doubling vs Matrix Exponentiation can invert on some CPUs depending on L3 cache size and memory latency; treat the table above as the canonical Ryzen reference, not a hardware-independent ranking. Fast Doubling stays the most **memory**-efficient regardless: on the throughput baseline (`docs/audits/bench-baseline.txt`) it allocates **~4.8x** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB) and **~5.3x** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op medians — total bytes allocated, not peak RSS; no peak-memory measurement exists in this repo. Reconfirm on the reference machine (Ryzen / Linux, `-count>=10` + `benchstat`) before adjusting any ordering claim.
-
-### Comparison snapshot — Intel Core Ultra 9 275HX (24 cores)
-
-Kept as published. Ryzen remains the canonical reference — and the box below measures this table against the very CPU it names.
-
-| N | Fast Doubling | Matrix Exp. | FFT-Based | Result (digits) |
-|---|---------------|-------------|-----------|-----------------|
-| 10,000       | 120us  | 180us  | 280us  | 2,090      |
-| 1,000,000    | ~3ms   | 55ms   | 45ms   | 208,988    |
-| 10,000,000   | ~60ms  | 750ms  | 600ms  | 2,089,877  |
-| 100,000,000  | 30s    | 42s    | 33s    | 20,898,764 |
-| 250,000,000  | 2m10s  | 3m05s  | 2m25s  | 52,246,910 |
-
-> **This table has been checked against the machine it names, and its magnitudes do not hold.**
-> A host running that same CPU (`Intel(R) Core(TM) Ultra 9 275HX`, 24 logical processors,
-> `go1.27.0 windows/amd64`, thresholds `Parallelism=disabled, FFT=480000 bits`) gives, for
-> `NO_COLOR=1 fibcalc -n <N> -algo all` on 2026-09-04 — calculation only, no decimal
-> conversion, two runs each:
->
-> | N | Fast Doubling | Matrix Exp. | FFT-Based | table above says |
-> |---|---|---|---|---|
-> | 1,000,000 | 7 ms | 22 ms | 7 ms | 3 ms / 55 ms / 45 ms |
-> | 10,000,000 | 40–85 ms | 152–257 ms | 42–94 ms | 60 ms / 750 ms / 600 ms |
-> | 100,000,000 | 614–673 ms | 1.91–2.02 s | 650–703 ms | 30 s / 42 s / 33 s |
->
-> The error is not uniform, and the shape of it matters more than any single factor. The
-> Fast Doubling column is about right at N=10M and roughly 2× optimistic at N=1M; the
-> Matrix and FFT columns are pessimistic by 2× to 14× at N=1M and N=10M; and **every
-> column at N=100M is off by 21× to 51×**. What does survive is the ordering: Fast Doubling ≤ FFT <
-> Matrix held at all three sizes measured, on this platform. Read this table for ordering,
-> never for magnitude — the same rule as the Ryzen table above.
->
-> These are single wall-clock runs, not benchmarks: the two N=10M runs differ by a factor
-> of two on every algorithm, so the ranges above are spread, not precision. No artifact is
-> archived for them — reproduce with the command rather than citing these numbers. The
-> N=10,000 and N=250,000,000 rows were not re-measured.
+Fast Doubling is also the most **memory**-efficient: on the same baseline it
+allocates **~4.8×** fewer bytes per op than Matrix at F(1M) (1.32 MB vs 6.33 MB)
+and **~5.3×** fewer at F(10M) (17.38 MB vs 92.25 MB). Those are `-benchmem` B/op
+medians — total bytes allocated, not peak RSS.
 
 ### Running Benchmarks
 
@@ -172,7 +109,7 @@ To compare performance across Git revisions on the **same machine**, use a fixed
 3. **CHANGELOG** (optional): add a one-line entry such as
    `Perf: benchmark snapshot @ <SHA> — FastDoubling ns/op ±X% vs previous main` when you publish a measured change.
 
-In [Reference Benchmarks](#reference-benchmarks) above, only the **historical** tables (Results, and the Intel comparison snapshot) are tied to the Ryzen / Go 1.25.0 environment; the project now targets Go 1.26.1+ (`go.mod`). The baseline medians table at the top of that section comes from `docs/audits/bench-baseline.txt` (linux/amd64, 24 threads, stamped `baseline-2026-07-07`) and carries no Go-version stamp at all. Either way, both document *someone else's* runner — your snapshots document *yours*.
+The baseline medians table in [Reference Benchmarks](#reference-benchmarks) comes from `docs/audits/bench-baseline.txt` (linux/amd64, 24 threads, stamped `baseline-2026-07-07`) and carries no Go-version stamp. It documents *someone else's* runner — your snapshots document *yours*.
 
 ## Hardware heuristic defaults
 
