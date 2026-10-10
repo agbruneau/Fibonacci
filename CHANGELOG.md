@@ -41,8 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   listée, tout paquet non classé et toute arête listée disparue font échouer
   `go test`.
 
+### Retiré
+
+- **Étiquettes `rewrite/*`** (ADR-0013 D5, exécutée avec l'accord du
+  mainteneur ; ADR-0014 D5) : les 18 étiquettes sont supprimées en local et sur
+  `origin`. Sauvegarde dans `docs/audits/tags-rewrite-2026-10.txt`. Chaque
+  commit étiqueté reste atteignable depuis `main`.
+
 ### Documenté
 
+- **Surface et documentation** (ADR-0014 D6) : dette acceptée, sans refonte.
 - **`go:linkname` reste le défaut** (ADR-0014 D2) : `math/big` garde exprès
   les six symboles pour `bigfft`, et `-tags purego` n'est pas démontré gratuit
   (`docs/audits/bench-purego-2026-10.txt`).

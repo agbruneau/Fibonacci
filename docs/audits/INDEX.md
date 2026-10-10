@@ -56,6 +56,7 @@ permettent de rejouer une comparaison.
 | [`bench-scale-2026-09.txt`](bench-scale-2026-09.txt) | Courbe d'échelle (EVAL-09) : `BenchmarkFibonacci`, trois calculateurs à 100K, 1M, 10M et 100M, 10 échantillons, Windows ; pas une baseline de gate ; lue dans [`PERFORMANCE.md` § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host) |
 | [`mem-baseline-2026-09.txt`](mem-baseline-2026-09.txt) | Empreinte mémoire mesurée, base de l'estimateur ; sonde recopiée et addendum sur la commande nue (2026-10-10) |
 | [`microbench-stability-2026-09.txt`](microbench-stability-2026-09.txt) | Stabilité des micro-benchmarks de calibration ; addendum 2026-10-10 sur la résolution de l'horloge Windows (ADR-0014 D1) |
+| [`tags-rewrite-2026-10.txt`](tags-rewrite-2026-10.txt) | Sauvegarde des 18 étiquettes `rewrite/*` supprimées le 2026-10-10 (ADR-0014 D5) : nom, commit, messages des deux annotées |
 
 ## Conserver les rapports
 

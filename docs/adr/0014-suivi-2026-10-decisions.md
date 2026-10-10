@@ -1,4 +1,4 @@
-# ADR-0014: Suivi 2026-10 — horloge, `go:linkname`, défauts, porte d'architecture
+# ADR-0014: Suivi 2026-10 — horloge, `go:linkname`, défauts, porte d'architecture, ménage
 
 - **Status**: Accepted
 - **Date**: 2026-10-10
@@ -9,8 +9,10 @@
 
 ## Context
 
-L'analyse du 2026-10-10 a relevé plusieurs points ouverts. Deux d'entre eux
-appelaient une décision, et deux autres sont apparus en les traitant :
+L'analyse du 2026-10-10 a relevé six points ouverts. Les deux premiers (noms
+affichés, lien mort de `mem-baseline-2026-09.txt`) étaient de simples corrections.
+Les autres appelaient une décision, de même que deux constats apparus ou
+repris en cours de route (l'horloge, la porte d'architecture) :
 
 - `fibcalc -algo all -n 100000` affichait par intermittence `< 1µs` pour un
   calcul d'environ 540 µs. Sous Windows, l'horloge du runtime Go (`time.Now`,
@@ -25,6 +27,10 @@ appelaient une décision, et deux autres sont apparus en les traitant :
   n'était consigné nulle part.
 - `internal/arch_test.go` interdisait six importations nommées et laissait
   passer toute autre (constat de l'évaluateur indépendant).
+- Les étiquettes `rewrite/*` (ADR-0013 D5, en attente d'accord), un *worktree*
+  figé au 2026-09-04 et des branches locales fusionnées encombraient le dépôt.
+- La surface du code (environ 40 000 lignes pour F(n)) et une documentation
+  très tournée vers l'historique des audits (critère C10, 76/100).
 
 ## Decision
 
@@ -34,6 +40,8 @@ appelaient une décision, et deux autres sont apparus en les traitant :
 | D2 | `go:linkname` ou `purego` par défaut | **Garder `go:linkname`.** `math/big` (go1.27.0) maintient exprès les six symboles accessibles et nomme `remyoudompheng/bigfft` parmi leurs dépendants. [`bench-purego-2026-10.txt`](../audits/bench-purego-2026-10.txt) ne montre pas `purego` gratuit : pas d'écart sur `FFTBased/10M` (p = 0,937), +27,55 % sur `FastDoubling/10M` (p = 0,041, base dispersée à ± 39 %). Le repli reste testé en CI. |
 | D3 | Défauts `-n 100000000 -algo all` | **Garder**, documenter le coût : 2,1 s et 675 Mo de mémoire résidente sur l'hôte de référence ([`mem-baseline-2026-09.txt`](../audits/mem-baseline-2026-09.txt), addendum). L'image Docker démarre sur `--help`. Changer un défaut documenté aurait changé le comportement des appels existants sans mesure qui l'exige. |
 | D4 | Porte d'architecture | **Liste blanche exhaustive** (`allowedImports`) à la place des six règles d'interdiction : chaque paquet du module est classé, chacune de ses importations internes est nommée, et une arête listée qui disparaît fait échouer le test. La liste est le graphe exact de [`dependency-graph.md`](../architecture/dependency-graph.md) (47 arêtes). |
+| D5 | Étiquettes `rewrite/*`, branches et *worktree* périmés | **Exécution d'ADR-0013 D5**, avec l'accord explicite du mainteneur le 2026-10-10 : les 18 étiquettes sont supprimées en local et sur `origin`. Leur correspondance avec les commits et les messages des deux étiquettes annotées sont archivés dans [`tags-rewrite-2026-10.txt`](../audits/tags-rewrite-2026-10.txt). Chaque commit étiqueté est un ancêtre de `main`, donc aucun n'est devenu inatteignable. Le *worktree* `.claude/worktrees/lucid-nightingale-3e810f` est désenregistré, et trois branches locales déjà fusionnées sont supprimées. |
+| D6 | Surface du code et poids de la documentation (critère C10) | **Dette acceptée**, sans refonte. Le dépôt est un laboratoire : chaque paquet porte une technique mesurée, et l'historique des audits est le matériau de la méthode. Le constat reste ouvert à une campagne future qui le chiffrerait (code supprimable, README allégé). |
 
 ## Consequences
 
