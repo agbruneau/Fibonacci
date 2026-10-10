@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/testutil"
 )
 
 // PR#27 / P1-25:
@@ -39,6 +41,27 @@ func TestCLIResultPresenter_PresentComparisonTable(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("PresentComparisonTable output missing %q; got:\n%s", want, out)
 		}
+	}
+}
+
+// "µ" is two bytes: padding by len() pushed the status of a µs row one column
+// left of a ms row's.
+func TestCLIResultPresenter_PresentComparisonTable_AlignsMicroseconds(t *testing.T) {
+	t.Parallel()
+	results := []orchestration.CalculationResult{
+		{Name: "A", Duration: 524 * time.Microsecond, Result: big.NewInt(5)},
+		{Name: "B", Duration: time.Millisecond, Result: big.NewInt(5)},
+	}
+	var buf bytes.Buffer
+	CLIResultPresenter{}.PresentComparisonTable(results, &buf)
+	col := map[string]int{}
+	for _, line := range strings.Split(testutil.StripAnsiCodes(buf.String()), "\n") {
+		if i := strings.Index(line, "Success"); i >= 0 {
+			col[line[:1]] = utf8.RuneCountInString(line[:i])
+		}
+	}
+	if len(col) != 2 || col["A"] != col["B"] {
+		t.Fatalf("status columns differ (rune offset by row): %v; got:\n%s", col, buf.String())
 	}
 }
 

@@ -1,9 +1,9 @@
 # Internal Dependency Graph
 
-The module's 45 direct internal imports, one per edge — no more, no fewer. The `go list`
+The module's 47 direct internal imports, one per edge — no more, no fewer. The `go list`
 pipeline that establishes this set equality is in the
 [validation record](./validation/validation-report.md#layer-tightness--dependency-direction)
-(run on 2026-09-23, empty `diff`).
+(run on 2026-10-10, empty `diff`).
 
 ```mermaid
 flowchart LR
@@ -45,6 +45,7 @@ flowchart LR
         progress["internal/progress"]
         ui["internal/ui"]
         testutil["internal/testutil"]
+        clock["internal/clock<br/>High-resolution timing"]
     end
 
     main --> app
@@ -62,6 +63,7 @@ flowchart LR
     orch --> apperrors
     orch --> progress
     orch --> fibmem
+    orch --> clock
 
     config --> apperrors
     config --> fibmem
@@ -72,6 +74,7 @@ flowchart LR
     calib --> config
     calib --> apperrors
     calib --> progress
+    calib --> clock
 
     fib --> bigfft
     fib --> apperrors

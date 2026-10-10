@@ -6,144 +6,136 @@
 // fibonacci: internal/fibonacci does not import it. internal/bigfft is the
 // kernel and imports no internal package at all.
 //
-// The test inspects the go list -deps graph at runtime and fails if a
-// forbidden upward import is introduced. It carries six rules, the last
-// two of which forbid two targets each:
-//   - internal/apperrors → internal/format
-//   - internal/tui → internal/fibonacci (production code only)
-//   - internal/orchestration → internal/format
-//   - internal/cli → internal/fibonacci (production code only)
-//   - internal/calibration → internal/ui, internal/format
-//   - internal/config → internal/fibonacci, internal/bigfft
+// The rule is an allowlist (ADR-0014 D4): allowedImports names, for every
+// package of the module, every internal package its production code may
+// import directly. An import missing from it fails the test, and so does a
+// package missing from it, so a new arrow is a reviewed edit to this file
+// rather than a side effect of an import line. Entries that no longer exist
+// fail too, which keeps the list an exact picture of the graph. It replaced
+// six forbidden-import rules, which forbade only what they named.
 package internal_test
 
 import (
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 )
 
-// forbiddenImport describes an arrow that the architecture forbids.
-// Direct (level-1) imports only — transitive imports through legitimate
-// downward arrows (e.g. tui → orchestration → fibonacci) are allowed.
-type forbiddenImport struct {
-	importer string   // package whose direct imports we audit (full module path)
-	forbid   []string // sub-paths that must not appear in importer's direct imports
-}
+const modulePath = "github.com/agbruneau/FibGo/"
 
-// architectureRules encodes the inverted-tree invariant. Each rule says:
-// `importer` MUST NOT directly import any of the `forbid` entries. The
-// intent is to keep the dependency arrows pointing toward the kernel
-// (cmd → app → orchestration → fibonacci → bigfft) without being too rigid
-// about transitive paths, which legitimately allow a TUI to reach domain
-// types via the orchestration façade.
-var architectureRules = []forbiddenImport{
-	{
-		// internal/apperrors is a leaf utility package and must not depend
-		// on internal/format (presentation concern). A local
-		// formatBytesLocal helper covers the byte-count need.
-		importer: "github.com/agbruneau/FibGo/internal/apperrors",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/format",
-		},
+// allowedImports maps each package (path relative to the module) to the
+// internal packages it may import directly. Test files are not covered: the
+// production .Imports list excludes them. The -tags gmp and -tags purego
+// builds add no internal edge.
+var allowedImports = map[string][]string{
+	"cmd/fibcalc": {"internal/app", "internal/apperrors"},
+	// The golden generator is an independent oracle: math/big only.
+	"cmd/generate-golden": nil,
+	"internal":            nil,
+	"internal/app": {
+		"internal/apperrors", "internal/calibration", "internal/cli", "internal/cli/completion",
+		"internal/config", "internal/fibonacci", "internal/fibonacci/memory",
+		"internal/orchestration", "internal/tui", "internal/ui",
 	},
-	{
-		// Production code in internal/tui must reach fibonacci only via
-		// internal/orchestration ; the direct import is forbidden. Tests
-		// inside internal/tui are tolerated (the production .Imports
-		// query excludes _test.go files).
-		importer: "github.com/agbruneau/FibGo/internal/tui",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/fibonacci",
-		},
+	// Leaf; a local helper formats byte counts instead of internal/format.
+	"internal/apperrors": nil,
+	// The kernel.
+	"internal/bigfft": nil,
+	// Application layer: it decides what to say, internal/cli how it looks,
+	// so neither internal/ui nor internal/format (audit ARC-01).
+	"internal/calibration": {
+		"internal/apperrors", "internal/bigfft", "internal/clock", "internal/config",
+		"internal/fibonacci", "internal/progress",
 	},
-	{
-		// internal/orchestration owns progress aggregation (ProgressState
-		// moved here from internal/format, audit APP-10) ; it must not
-		// reach back into the presentation-only format package, which is
-		// a pure string-in/string-out layer with no aggregation state.
-		importer: "github.com/agbruneau/FibGo/internal/orchestration",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/format",
-		},
+	// Presentation: reaches fibonacci only through orchestration (audit STR-04).
+	"internal/cli": {
+		"internal/apperrors", "internal/calibration", "internal/config", "internal/format",
+		"internal/metrics", "internal/orchestration", "internal/progress", "internal/ui",
 	},
-	{
-		// Production code in internal/cli must reach fibonacci only via
-		// internal/orchestration, exactly as internal/tui must. The rule was
-		// stated in cli/doc.go and enforced "by convention" — which is to say,
-		// not enforced (audit STR-04). Tests inside internal/cli are tolerated;
-		// the production .Imports query excludes _test.go files.
-		importer: "github.com/agbruneau/FibGo/internal/cli",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/fibonacci",
-		},
+	"internal/cli/completion": nil,
+	"internal/clock":          nil,
+	// Two documented lateral imports (config/doc.go); never fibonacci's root or
+	// bigfft, which would pull the computation core into flag parsing.
+	"internal/config": {"internal/apperrors", "internal/fibonacci/memory", "internal/ui"},
+	"internal/fibonacci": {
+		"internal/apperrors", "internal/bigfft", "internal/fibonacci/fibmath",
+		"internal/fibonacci/memory", "internal/progress",
 	},
-	{
-		// internal/calibration is an application-layer package: it decides what
-		// to say, and internal/cli decides how it looks. It imported
-		// internal/ui and wrote colored text directly until audit ARC-01
-		// replaced that with the calibration.Reporter port. internal/format is
-		// forbidden for the same reason — rendering a duration for display is
-		// the adapter's job.
-		importer: "github.com/agbruneau/FibGo/internal/calibration",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/ui",
-			"github.com/agbruneau/FibGo/internal/format",
-		},
+	"internal/fibonacci/fibmath": nil,
+	"internal/fibonacci/memory":  {"internal/fibonacci/fibmath"},
+	"internal/format":            nil,
+	"internal/metrics":           nil,
+	// Owns progress aggregation; never the presentation-only internal/format
+	// (audit APP-10).
+	"internal/orchestration": {
+		"internal/apperrors", "internal/clock", "internal/fibonacci", "internal/fibonacci/memory",
+		"internal/progress",
 	},
-	{
-		// internal/config already carries two documented lateral imports
-		// (fibonacci/memory for budget estimation, ui for colored usage —
-		// see config/doc.go). This rule freezes that tolerance where it
-		// stands: reaching into fibonacci's root or bigfft would pull the
-		// whole computation core into flag parsing (audit Fable5 ARCH-02).
-		// The seventh rule, threshold → config, went with the threshold
-		// package (EVAL-10).
-		importer: "github.com/agbruneau/FibGo/internal/config",
-		forbid: []string{
-			"github.com/agbruneau/FibGo/internal/fibonacci",
-			"github.com/agbruneau/FibGo/internal/bigfft",
-		},
+	"internal/progress": nil,
+	"internal/testutil": nil,
+	// Presentation: reaches fibonacci only through orchestration.
+	"internal/tui": {
+		"internal/apperrors", "internal/config", "internal/format", "internal/metrics",
+		"internal/orchestration", "internal/progress", "internal/ui",
 	},
+	"internal/ui": nil,
+	"test/e2e":    nil,
 }
 
 func TestArchitectureLayering(t *testing.T) {
 	t.Parallel()
-	for _, rule := range architectureRules {
-		t.Run(rule.importer, func(t *testing.T) {
-			t.Parallel()
-			imports := directImports(t, rule.importer)
-			for _, forbidden := range rule.forbid {
-				if _, found := imports[forbidden]; found {
-					t.Errorf(
-						"architecture violation: %s directly imports %s; "+
-							"this upward arrow is forbidden by the Clean Architecture "+
-							"hierarchy that architectureRules (this file) defines.",
-						rule.importer, forbidden,
-					)
-				}
+	graph := moduleImports(t)
+
+	for pkg, imports := range graph {
+		allowed, classified := allowedImports[pkg]
+		if !classified {
+			t.Errorf("package %s is not in allowedImports (internal/arch_test.go): "+
+				"add it with the internal imports it may make", pkg)
+			continue
+		}
+		for _, imp := range imports {
+			if !slices.Contains(allowed, imp) {
+				t.Errorf("architecture violation: %s imports %s, an arrow allowedImports "+
+					"(internal/arch_test.go) does not list", pkg, imp)
 			}
-		})
+		}
+		for _, imp := range allowed {
+			if !slices.Contains(imports, imp) {
+				t.Errorf("allowedImports lists %s → %s, which no longer exists: remove it", pkg, imp)
+			}
+		}
+	}
+	for pkg := range allowedImports {
+		if _, ok := graph[pkg]; !ok {
+			t.Errorf("allowedImports lists package %s, which no longer exists: remove it", pkg)
+		}
 	}
 }
 
-// directImports returns the set of packages that pkg imports directly
-// in its production code (test files are excluded). It shells out to
-// `go list -f '{{.Imports}}'`.
-func directImports(t *testing.T, pkg string) map[string]struct{} {
+// moduleImports returns, for every package of the module, the module-internal
+// packages its production code imports directly, both as module-relative paths.
+// It shells out to `go list`.
+func moduleImports(t *testing.T) map[string][]string {
 	t.Helper()
-	cmd := exec.Command("go", "list", "-f", "{{range .Imports}}{{.}}\n{{end}}", pkg)
-	out, err := cmd.Output()
+	out, err := exec.Command("go", "list", "-f",
+		"{{.ImportPath}}{{range .Imports}} {{.}}{{end}}", modulePath+"...").Output()
 	if err != nil {
-		t.Fatalf("go list %s failed: %v", pkg, err)
+		t.Fatalf("go list %s... failed: %v", modulePath, err)
 	}
-	imports := map[string]struct{}{}
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	graph := map[string][]string{}
+	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
 			continue
 		}
-		imports[line] = struct{}{}
+		pkg := strings.TrimPrefix(fields[0], modulePath)
+		graph[pkg] = []string{}
+		for _, imp := range fields[1:] {
+			if rel, ok := strings.CutPrefix(imp, modulePath); ok {
+				graph[pkg] = append(graph[pkg], rel)
+			}
+		}
 	}
-	return imports
+	return graph
 }

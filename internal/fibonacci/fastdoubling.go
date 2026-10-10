@@ -83,9 +83,10 @@ const maxCachedArenaWords = 4_000_000
 // Optimization Details:
 // To achieve maximum performance, this implementation incorporates several
 // advanced optimizations:
-//   - Zero-Allocation Strategy: By using a sync.Pool, the calculator reuses
-//     calculationState objects, which significantly reduces memory allocation
-//     and garbage collector overhead during the main loop.
+//   - State Pooling: By using a sync.Pool, the calculator reuses
+//     CalculationState objects, which reduces memory allocation and garbage
+//     collector overhead during the main loop. It does not remove allocation:
+//     ~80 allocs/op remain at F(1M) (BenchmarkFibonacci/FastDoubling/1M).
 //   - Multi-core Parallelism: For very large numbers (exceeding a configurable
 //     `threshold`), the algorithm parallelizes the three core multiplications
 //     in the doubling step. The threshold defaults to 4096 bits — a starting
@@ -115,7 +116,7 @@ type FastDoublingCalculator struct {
 // Returns:
 //   - string: The name of the algorithm.
 func (fd *FastDoublingCalculator) Name() string {
-	return "Fast Doubling (O(log n), Parallel, Zero-Alloc)"
+	return "Fast Doubling"
 }
 
 // CalculateCore computes F(n) using the Fast Doubling algorithm.

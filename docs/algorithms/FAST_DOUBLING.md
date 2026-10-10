@@ -176,7 +176,7 @@ result, err := framework.ExecuteDoublingLoop(ctx, reporter, n, opts, state, inPa
 
 The `FastDoublingCalculator` uses an `AdaptiveStrategy` that selects between standard `math/big` and FFT multiplication based on operand size. The `FFTBasedCalculator` uses an `FFTOnlyStrategy` that forces FFT for all operations.
 
-### 2. Zero-Allocation with sync.Pool
+### 2. State Pooling with sync.Pool
 
 Calculation states are recycled via a `sync.Pool`. The `CalculationState` type is public; besides five `*big.Int` temporaries it owns its calculation arena and its FFT scratch allocator (nine fields total):
 

@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Corrigé
+
+- **Noms affichés des calculateurs** : `Fast Doubling (O(log n), Parallel,
+  Zero-Alloc)` et `Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)`
+  deviennent `Fast Doubling` et `Matrix Exponentiation`. Le coût est Θ(M(n)),
+  pas O(log n), et il reste environ 80 et 600 allocs/op à F(1M)
+  (`BenchmarkFibonacci`, 2026-10-10). Le nom change dans le tableau de
+  comparaison, la TUI et la clé `algo` des journaux. Les sections
+  « Zero-Allocation » de `PERFORMANCE.md`, `FAST_DOUBLING.md` et `MATRIX.md`
+  deviennent « State Pooling ». Constat laissé ouvert par l'évaluation du
+  2026-09-15 (§ 7).
+- **`docs/audits/mem-baseline-2026-09.txt`** renvoyait à l'annexe A.1 d'un
+  `audit.md` retiré de l'arbre : la sonde y est recopiée, avec le commit d'où
+  relire l'original, et rejouée à F(1M).
+- **Durées sous Windows** (ADR-0014 D1) : l'horloge du runtime Go y avance par
+  pas d'environ 0,5 ms. Un calcul de 540 µs s'affichait `< 1µs` une fois sur
+  trois, et la calibration rapide lisait ses multiplications de 500 et 2 000
+  mots comme 0 ou 0,5 ms. Le nouveau paquet `internal/clock`
+  (`QueryPerformanceCounter`, comme le paquet `testing`) chronomètre
+  maintenant les calculs, `-last-digits`, le micro-benchmark et les balayages de
+  calibration. Le seuil FFT de la passe rapide sort désormais 115 200 bits dix
+  fois sur dix, contre sept sur dix avant (addendum de
+  `microbench-stability-2026-09.txt`).
+- **Alignement du tableau de comparaison** : le remplissage comptait les octets,
+  et « µ » en compte deux, si bien qu'une ligne en µs décalait sa colonne
+  d'état d'un cran.
+
+### Modifié
+
+- **Porte d'architecture** (ADR-0014 D4) : `internal/arch_test.go` passe de six
+  interdictions à une liste blanche exhaustive. Toute importation interne non
+  listée, tout paquet non classé et toute arête listée disparue font échouer
+  `go test`.
+
+### Documenté
+
+- **`go:linkname` reste le défaut** (ADR-0014 D2) : `math/big` garde exprès
+  les six symboles pour `bigfft`, et `-tags purego` n'est pas démontré gratuit
+  (`docs/audits/bench-purego-2026-10.txt`).
+- **Coût de la commande nue** (ADR-0014 D3) : `fibcalc` sans argument prend
+  2,1 s et 675 Mo de mémoire résidente sur l'hôte de référence (README,
+  tableau des flags).
+
 ## [5.0.0] - 2026-09-23
 
 ### Exécution du plan de l'évaluation académique du 2026-09-15

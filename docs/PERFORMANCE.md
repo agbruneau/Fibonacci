@@ -259,7 +259,7 @@ Diagnostics and the in-package unit tests (`internal/config/hardware_test.go`) e
 
 ## Implemented Optimizations
 
-### 1. Zero-Allocation Strategy
+### 1. State Pooling
 
 #### Problem
 Fibonacci calculations for large N create millions of temporary `big.Int` objects, causing excessive garbage collector pressure.

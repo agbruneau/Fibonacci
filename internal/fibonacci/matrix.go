@@ -33,8 +33,8 @@ import (
 //
 // Optimization Details:
 // This implementation is enhanced with several key optimizations:
-//   - Zero-Allocation: A sync.Pool recycles `matrixState` objects, minimizing
-//     memory allocations and GC pressure.
+//   - State Pooling: A sync.Pool recycles `matrixState` objects, reducing
+//     memory allocations and GC pressure (~600 allocs/op remain at F(1M)).
 //   - Parallel Processing: Matrix multiplications are parallelized above a
 //     `threshold` (default 4096 bits), leveraging multi-core processors.
 //   - Symmetric Squaring: A specialized function, `squareSymmetricMatrix`, is
@@ -54,7 +54,7 @@ type MatrixExponentiationCalculator struct{}
 // Returns:
 //   - string: The name of the algorithm.
 func (c *MatrixExponentiationCalculator) Name() string {
-	return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
+	return "Matrix Exponentiation"
 }
 
 // CalculateCore computes F(n) using the matrix exponentiation method.

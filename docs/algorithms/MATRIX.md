@@ -135,7 +135,7 @@ The implementation uses the `MatrixFramework` to encapsulate the exponentiation 
 type MatrixExponentiationCalculator struct{}
 
 func (c *MatrixExponentiationCalculator) Name() string {
-    return "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)"
+    return "Matrix Exponentiation"
 }
 
 func (c *MatrixExponentiationCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback,
@@ -338,7 +338,7 @@ Since the Fibonacci Q-matrix powers are always symmetric (b = c), squaring can b
 
 The `squareSymmetricMatrix` function in `matrix_ops.go` implements this optimization.
 
-### 3. Zero-Allocation with sync.Pool
+### 3. State Pooling with sync.Pool
 
 Matrix states are recycled via a `sync.Pool`:
 

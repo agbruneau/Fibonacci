@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/agbruneau/FibGo/internal/format"
 	"github.com/agbruneau/FibGo/internal/orchestration"
@@ -43,8 +44,8 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 		if res.Duration == 0 {
 			durations[i] = "< 1µs"
 		}
-		if len(durations[i]) > maxDurationLen {
-			maxDurationLen = len(durations[i])
+		if utf8.RuneCountInString(durations[i]) > maxDurationLen {
+			maxDurationLen = utf8.RuneCountInString(durations[i])
 		}
 	}
 	pad := func(n int) string { return strings.Repeat(" ", max(n, 0)) }
@@ -65,7 +66,7 @@ func (CLIResultPresenter) PresentComparisonTable(results []orchestration.Calcula
 		}
 		fmt.Fprintf(out, "%s%s%s%s   %s%s%s%s   %s\n",
 			ui.ColorBlue(), res.Name, ui.ColorReset(), pad(maxNameLen-len(res.Name)),
-			ui.ColorYellow(), durations[i], ui.ColorReset(), pad(maxDurationLen-len(durations[i])),
+			ui.ColorYellow(), durations[i], ui.ColorReset(), pad(maxDurationLen-utf8.RuneCountInString(durations[i])),
 			status)
 	}
 }

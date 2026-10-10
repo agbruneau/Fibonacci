@@ -18,12 +18,12 @@ cmd → app → orchestration → fibonacci → bigfft
 
 config is a SIBLING of orchestration, not a layer below fibonacci: it is
 imported by app, cli, tui and calibration, and by nothing inside
-fibonacci or bigfft. The reverse arrow (config → fibonacci, config →
-bigfft) is what internal/arch_test.go forbids; it tolerates the two
-documented lateral imports config → fibonacci/memory and config → ui.
+fibonacci or bigfft. internal/arch_test.go allows config exactly the two
+documented lateral imports config → fibonacci/memory and config → ui, and
+nothing else (its allowlist names every edge of the graph, since 2026-10-10).
 
-leaves (zero internal imports): bigfft, apperrors, format, metrics, progress,
-                                ui, testutil, fibonacci/fibmath,
+leaves (zero internal imports): bigfft, apperrors, clock, format, metrics,
+                                progress, ui, testutil, fibonacci/fibmath,
                                 cli/completion (fibonacci/threshold was one
                                 until its removal on 2026-09-23)
                                 (fibonacci/memory stopped being one on
@@ -52,6 +52,10 @@ grep -oE '^ +[a-z]+ --> [a-z]+$' docs/architecture/dependency-graph.md \
  | sed 's/^ *//; s/-->/->/' | sort -u > /tmp/drawn.txt
 diff /tmp/real.txt /tmp/drawn.txt
 ```
+
+Re-run on **2026-10-10**, after the addition of `internal/clock` (imported by
+`orchestration` and `calibration`): `47` lines on each side, empty `diff`.
+`internal/arch_test.go` now asserts the same set at every `go test`.
 
 Run on **2026-09-23**, after the removal of `fibonacci/threshold`
 (EVAL-10): `45` lines on each side, empty `diff` — the diagram is

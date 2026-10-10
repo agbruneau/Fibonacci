@@ -52,9 +52,10 @@ permettent de rejouer une comparaison.
 | [`bench-fftcache-2026-09.txt`](bench-fftcache-2026-09.txt) | Plafond de la cache FFT, mesure du rejet ADR-0010 R1 |
 | [`bench-gmp-2026-09.txt`](bench-gmp-2026-09.txt) | Référence externe (EVAL-07) : `FastDoubling` contre `GMPCalculator` — même boucle de doublement sur `mpz`, séquentielle, pas `mpz_fib_ui` — à F(1M) et F(10M), 5 échantillons, WSL2 ; lu dans [`GMP.md` § Performance](../algorithms/GMP.md#performance) |
 | [`bench-poolclear-2026-09.txt`](bench-poolclear-2026-09.txt) | Vidage de pool |
+| [`bench-purego-2026-10.txt`](bench-purego-2026-10.txt) | `go:linkname` (défaut) contre `-tags purego` à F(10M), six tours entrelacés, Windows ; fonde ADR-0014 D2 |
 | [`bench-scale-2026-09.txt`](bench-scale-2026-09.txt) | Courbe d'échelle (EVAL-09) : `BenchmarkFibonacci`, trois calculateurs à 100K, 1M, 10M et 100M, 10 échantillons, Windows ; pas une baseline de gate ; lue dans [`PERFORMANCE.md` § Scale curve](../PERFORMANCE.md#scale-curve-four-sizes-one-host) |
-| [`mem-baseline-2026-09.txt`](mem-baseline-2026-09.txt) | Empreinte mémoire mesurée, base de l'estimateur |
-| [`microbench-stability-2026-09.txt`](microbench-stability-2026-09.txt) | Stabilité des micro-benchmarks de calibration |
+| [`mem-baseline-2026-09.txt`](mem-baseline-2026-09.txt) | Empreinte mémoire mesurée, base de l'estimateur ; sonde recopiée et addendum sur la commande nue (2026-10-10) |
+| [`microbench-stability-2026-09.txt`](microbench-stability-2026-09.txt) | Stabilité des micro-benchmarks de calibration ; addendum 2026-10-10 sur la résolution de l'horloge Windows (ADR-0014 D1) |
 
 ## Conserver les rapports
 

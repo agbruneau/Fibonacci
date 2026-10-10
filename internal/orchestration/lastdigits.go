@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/agbruneau/FibGo/internal/clock"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
@@ -47,9 +48,9 @@ func ComputeLastDigits(ctx context.Context, n uint64, k int) (LastDigitsResult, 
 	// modulus = 10^k. k is bounded by user input; treat as an int64 exponent.
 	mod := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(k)), nil)
 
-	start := time.Now()
+	start := clock.Now()
 	value, err := fibonacci.FastDoublingMod(ctx, n, mod)
-	elapsed := time.Since(start)
+	elapsed := clock.Since(start)
 
 	if err != nil {
 		return LastDigitsResult{}, err

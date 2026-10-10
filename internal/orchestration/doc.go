@@ -29,5 +29,5 @@
 //
 // Dependencies (downward):
 //
-//	orchestration → fibonacci, progress, errors
+//	orchestration → fibonacci, fibonacci/memory, progress, apperrors, clock
 package orchestration

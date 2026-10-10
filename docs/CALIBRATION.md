@@ -689,3 +689,19 @@ See `docs/audits/microbench-stability-2026-09.txt`.
 
 `CurrentProfileVersion` moved 3 to 4 so profiles written by the old search are
 re-measured rather than replayed.
+
+**Timer resolution (2026-10-10).** A fifth cause survived the audit, on
+Windows only: Go's runtime clock (`time.Now`, monotonic and wall) advances
+there in steps of about 0.5 ms. The 500- and 2000-word multiplications take
+about 40 µs and 340 µs on the reference host, so each iteration read as either
+0 or one step. `timingStability` skips any run whose fastest iteration is 0,
+so the two sizes that decide between 115 200 and 460 800 bits were left out of
+the confidence score, and the crossover itself was a comparison of quantised
+means. The micro-benchmark and the calibration sweeps now time with
+`internal/clock`, which reads `QueryPerformanceCounter` on Windows as the
+`testing` package does. Ten consecutive quick passes on the reference host
+return 115 200 bits ten times, against seven of ten before. Confidence still
+stays under the escalation bar, because the 2000-word FFT arm still spreads
+1.4×, so the pass still escalates, now on a real measurement. Elsewhere the
+runtime clock was already fine-grained and nothing changes. Before/after:
+`docs/audits/microbench-stability-2026-09.txt`, addendum.

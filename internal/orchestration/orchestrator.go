@@ -7,11 +7,11 @@ import (
 	"io"
 	"sort"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/agbruneau/FibGo/internal/apperrors"
+	"github.com/agbruneau/FibGo/internal/clock"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 	"github.com/agbruneau/FibGo/internal/progress"
@@ -45,10 +45,10 @@ func ExecuteCalculations(ctx context.Context, cfg ExecutionConfig) []Calculation
 
 	// Fast path: single calculator doesn't need errgroup overhead
 	if len(cfg.Calculators) == 1 {
-		startTime := time.Now()
+		startTime := clock.Now()
 		res, err := cfg.Calculators[0].Calculate(ctx, progressChan, 0, cfg.N, cfg.Opts)
 		results[0] = CalculationResult{
-			Name: cfg.Calculators[0].Name(), Result: res, Duration: time.Since(startTime),
+			Name: cfg.Calculators[0].Name(), Result: res, Duration: clock.Since(startTime),
 			Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),
 		}
 	} else {
@@ -56,10 +56,10 @@ func ExecuteCalculations(ctx context.Context, cfg ExecutionConfig) []Calculation
 		for i, calc := range cfg.Calculators {
 			idx, calculator := i, calc
 			g.Go(func() error {
-				startTime := time.Now()
+				startTime := clock.Now()
 				res, err := calculator.Calculate(groupCtx, progressChan, idx, cfg.N, cfg.Opts)
 				results[idx] = CalculationResult{
-					Name: calculator.Name(), Result: res, Duration: time.Since(startTime),
+					Name: calculator.Name(), Result: res, Duration: clock.Since(startTime),
 					Err: wrapCalculationFailure(err, cfg.N, cfg.Opts),
 				}
 				// Propagate the raw calculation error to errgroup so that a

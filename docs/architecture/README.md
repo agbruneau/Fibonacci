@@ -99,12 +99,13 @@ the consequence: the package, the flag and the variable have been removed since
 
 ### Architecture gate
 
-`internal/arch_test.go` enforces six Clean Architecture rules, eight forbidden arrows:
-`errors → format`, `tui → fibonacci`, `orchestration → format` (APP-10),
-`cli → fibonacci` (STR-04), `calibration → ui`/`calibration → format` (ARC-01) and
-`config → fibonacci`/`config → bigfft` (ARCH-02). Any PR reintroducing
-one of these upward imports fails `make test` (or
-`go test ./internal/`). Detail: [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
+`internal/arch_test.go` holds an allowlist (`allowedImports`): every package of
+the module, with every internal package it may import directly — the exact
+graph of [`dependency-graph.md`](./dependency-graph.md). Any PR adding an import
+the list does not name, or a package it does not classify, fails `make test`
+(or `go test ./internal/`); so does a listed edge that no longer exists. It
+replaced six forbidden-import rules on 2026-10-10
+([ADR-0014](../adr/0014-suivi-2026-10-decisions.md) D4). Detail: [`docs/TESTING.md` §Architecture-Layering Gate](../TESTING.md#architecture-layering-gate).
 
 ## 5) Invariant Validation
 

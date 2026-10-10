@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/apperrors"
+	"github.com/agbruneau/FibGo/internal/clock"
 	"github.com/agbruneau/FibGo/internal/config"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 	"github.com/agbruneau/FibGo/internal/progress"
@@ -190,9 +191,9 @@ func runPassSequence(ctx context.Context, out io.Writer, rep Reporter, calculato
 		wg.Add(1)
 		go progressDisplay(&wg, progressChan, 1, out)
 
-		startTime := time.Now()
+		startTime := clock.Now()
 		_, err := calculator.Calculate(ctx, progressChan, 0, CalibrationN, fibonacci.Options{ParallelThreshold: threshold})
-		duration := time.Since(startTime)
+		duration := clock.Since(startTime)
 
 		close(progressChan)
 		wg.Wait()

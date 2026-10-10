@@ -2,7 +2,32 @@
 #
 # runtime.MemStats.Sys delta across one calculation, one PROCESS per data point
 # (Sys never shrinks, so several points in one process report the high-water
-# mark of all of them). Probe source: annex A.1 of audit.md.
+# mark of all of them).
+#
+# Probe: annex A.1 of the 2026-09-03 audit report, which was deleted after
+# execution (read it with `git show bf3d6a7^:audit.md`). Copied here so this
+# file stands alone. Drop it into internal/fibonacci as a temporary _test.go,
+# set n and the calculator, then `go test -count=1 -run AuditProbe -v
+# ./internal/fibonacci` once per point. The "old est" column is the same
+# EstimateMemoryUsage call before its re-model (5da71eb). How the "all" column
+# was probed was not archived.
+#
+#   func TestAuditProbeMemoryEstimate(t *testing.T) {
+#       const n = 10_000_000
+#       runtime.GC()
+#       var before, after runtime.MemStats
+#       runtime.ReadMemStats(&before)
+#       calc := MustNewCalculator(&FastDoublingCalculator{}) // or FFTBased / MatrixExponentiation
+#       if _, err := calc.Calculate(context.Background(), nil, 0, n, Options{}); err != nil {
+#           t.Fatal(err)
+#       }
+#       runtime.ReadMemStats(&after)
+#       est := memory.EstimateMemoryUsage(n)
+#       t.Logf("n=%d estimate=%d MB | Sys delta=%d MB", n, est.TotalBytes>>20, (after.Sys-before.Sys)>>20)
+#   }
+#
+# Re-run 2026-10-10 against 5c4d765 (same host, go1.27.0): fast at 1M gives
+# Sys delta 8 MB and estimate 24 MB, against 9 MB and 24 MB below.
 #
 # Host: Intel Core Ultra 9 275HX, windows/amd64, go1.27.0.
 # "all" runs the three calculators concurrently, as --algo all does by default.
@@ -40,3 +65,17 @@
 # the P2-01 note on Options.FFTCacheMinBitLen already predicted, now measured.
 # The cache is therefore bounded tightly (4x the size of F(n)) rather than
 # being given room it has no demonstrated use for.
+#
+# ADDENDUM 2026-10-10 — the bare command. `fibcalc` with no flag runs the
+# defaults, -n 100000000 -algo all, a point the table above leaves empty. A
+# different metric from the table: the OS peak working set of the process,
+# sampled every 50 ms from PowerShell (Process.PeakWorkingSet64), same host,
+# go1.27.0, 5c4d765 plus uncommitted changes.
+#
+#   command          wall     peak working set   stdout
+#   fibcalc          2.1 s    675 MB             2.4 KB (summary only)
+#   fibcalc -q       22.1 s   752 MB             20.9 MB (every digit)
+#
+# The calculations finish within the first row's 2.1 s, so the extra ~20 s of
+# -q goes to producing and writing the 20.9 million digits (inferred from the
+# two rows, not profiled).

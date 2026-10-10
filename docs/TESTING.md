@@ -242,24 +242,27 @@ Each fuzz target seeds its own corpus of interesting values (e.g. `FuzzFastDoubl
 
 ## Architecture-Layering Gate
 
-`internal/arch_test.go` is a runtime sentinel that fails `go test` if a
-forbidden upward import is reintroduced. It gates the test run, not the
-build: the `internal` package has no non-test Go file
-(`go list -f '{{.GoFiles}}' ./internal/` → `[]`), so `go build ./...` never
-compiles it and stays green even with a violation in place. It inspects each importer
-package via `go list -f '{{range .Imports}}{{.}}\n{{end}}'` (production code only — `_test.go`
-files are excluded). Currently six rules:
+`internal/arch_test.go` is a runtime sentinel over the whole import graph. It
+gates the test run, not the build: the `internal` package has no non-test Go
+file (`go list -f '{{.GoFiles}}' ./internal/` → `[]`), so `go build ./...` never
+compiles it and stays green even with a violation in place. One
+`go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' github.com/agbruneau/FibGo/...`
+gives every package's direct imports (production code only — `_test.go` files
+are excluded), and the test checks them against `allowedImports`, an allowlist
+that names every package of the module and every internal package it may
+import. It fails on:
 
-| Importer | Forbidden direct import | Rationale |
-|---|---|---|
-| `internal/apperrors` | `internal/format` | Leaf utility ; uses local `formatBytesLocal` instead. |
-| `internal/tui` (production) | `internal/fibonacci` | UI must reach domain types through `orchestration.Calculator`/`Options` aliases. |
-| `internal/orchestration` | `internal/format` | APP-10 : progress aggregation (`ProgressAggregator`, formerly `ProgressState`) moved from `format` to `orchestration` ; the arrow must not come back. |
-| `internal/cli` (production) | `internal/fibonacci` | Same rule as `tui` : `cli/doc.go` stated it and nothing enforced it (audit STR-04, 2026-09-07). |
-| `internal/calibration` | `internal/ui`, `internal/format` | An application-layer package decides *what* to say ; `internal/cli` decides how it looks, through the `calibration.Reporter` port (audit ARC-01, 2026-09-07). |
-| `internal/config` | `internal/fibonacci`, `internal/bigfft` | ARCH-02 : freezes the two documented lateral imports (`fibonacci/memory`, `ui`) where they stand ; reaching the computation core would close a cycle. |
+- an import the allowlist does not name for that package;
+- a package the allowlist does not classify;
+- a listed edge or package that no longer exists, so the list stays the exact
+  graph drawn in [`dependency-graph.md`](architecture/dependency-graph.md).
 
-Adding a new rule is a one-line append to `architectureRules`.
+Adding an arrow is therefore an edit to `allowedImports`, visible in review.
+The six forbidden-import rules it replaced on 2026-10-10 (ADR-0014 D4) forbade
+only what they named; their rationales (APP-10, STR-04, ARC-01, ARCH-02) are
+kept as comments on the allowlist entries concerned. Checked by mutation: an
+allowlist with one edge removed, one package removed and one stale edge added
+fails with one message for each.
 
 ## Panic-Contract Tests
 

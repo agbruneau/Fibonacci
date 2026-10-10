@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/agbruneau/FibGo/internal/clock"
 	"github.com/agbruneau/FibGo/internal/fibonacci"
 )
 
@@ -40,9 +41,9 @@ func newCalibrationRunner(ctx context.Context, timeout time.Duration) *calibrati
 func (r *calibrationRunner) runTrial(calc fibonacci.Calculator, opts fibonacci.Options) (duration time.Duration, err error) {
 	ctx, cancel := context.WithTimeout(r.ctx, r.perTrial)
 	defer cancel()
-	start := time.Now()
+	start := clock.Now()
 	_, err = calc.Calculate(ctx, nil, 0, CalibrationN, opts)
-	return time.Since(start), err
+	return clock.Since(start), err
 }
 
 // findBest times calc once per candidate threshold, each run under the

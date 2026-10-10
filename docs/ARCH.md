@@ -151,27 +151,28 @@ edge and neither belongs in this diagram.
   importing it on 2026-09-07 — it reports through the `calibration.Reporter`
   port that `internal/cli` implements).
 - **Use-Case layer** → `internal/orchestration` imports exactly
-  `internal/apperrors`, `internal/fibonacci`, `internal/fibonacci/memory`
-  and `internal/progress` — Domain plus the
-  `apperrors` leaf, never a presentation package.
+  `internal/apperrors`, `internal/clock`, `internal/fibonacci`,
+  `internal/fibonacci/memory` and `internal/progress` — Domain plus the
+  `apperrors` and `clock` leaves, never a presentation package.
 - **Domain layer** → no imports from outer layers (self-contained).
   `internal/bigfft` imports no internal package at all.
 - **Infrastructure** → utility packages with no upward dependencies.
   `internal/apperrors` ships its own byte-formatter (`formatBytesLocal`) instead
   of depending on `internal/format`.
 
-`internal/arch_test.go` fails `go test` if any of **eight** upward arrows is
-reintroduced — a **test** gate, not a compile gate: the package
+`internal/arch_test.go` fails `go test` on any direct internal import that
+its allowlist (`allowedImports`) does not name, on any package the allowlist
+does not classify, and on any listed edge that no longer exists — a **test**
+gate, not a compile gate: the package
 `github.com/agbruneau/FibGo/internal` has `GoFiles = []` and
 `XTestGoFiles = [arch_test.go]`, so `go build ./...` compiles none of it and
-passes regardless. They are grouped into **six** rules (`architectureRules`, one
-subtest each): `errors → format` and `tui → fibonacci` (May-2026 hardening
-sprint), `orchestration → format` (July-2026, APP-10), `cli → fibonacci`
-(2026-09-07, STR-04), `calibration → ui` / `calibration → format` (2026-09-07,
-ARC-01), and — as the two targets of the sixth and last rule —
-`config → fibonacci` / `config → bigfft` (audit Fable5, ARCH-02 — the two
-tolerated lateral imports `config → fibonacci/memory` and `config → ui` stay
-allowed). Its package doc comment (the `internal_test` package comment in `internal/arch_test.go`) states the same
+passes regardless. Since 2026-10-10 (ADR-0014 D4) the allowlist is the exact
+graph of [`dependency-graph.md`](architecture/dependency-graph.md); it replaced
+six forbidden-import rules (`errors → format`, `tui → fibonacci`,
+`orchestration → format` APP-10, `cli → fibonacci` STR-04,
+`calibration → ui`/`format` ARC-01, `config → fibonacci`/`bigfft` ARCH-02),
+which forbade only what they named. Their rationales stay as comments on the
+corresponding allowlist entries. Its package doc comment (the `internal_test` package comment in `internal/arch_test.go`) states the same
 chain as this section: `cmd → app → orchestration → fibonacci → bigfft`, with
 `config` a sibling of `orchestration` rather than a layer beneath `fibonacci`.
 
@@ -304,6 +305,7 @@ internal/
 ├── calibration/                 # Threshold benchmarking + profile persistence
 ├── cli/                         # CLI output/presenter/spinner
 │   └── completion/              # Shell completion generators (bash/zsh/fish/powershell)
+├── clock/                       # High-resolution interval timing (QueryPerformanceCounter on Windows)
 ├── config/                      # Flag parsing, env override, adaptive thresholds
 ├── apperrors/                   # Typed app errors + exit code handling
 ├── fibonacci/                   # Core Fibonacci algorithms + framework/strategy/factory
@@ -424,8 +426,8 @@ internal/
 - **Key types:** `ConfigError`, `CalculationError`, `MemoryError` (timeout/cancellation are classified via `errors.Is` on context sentinels, not dedicated types — OVR-07).
 - **Key helpers:** `NewConfigError`, `WrapCalculationError`, `ExitCodeFor` (pure `error → int` ; the message lives in `cli.WriteCalculationStatus`). The former `HandleCalculationError` / `ColorProvider` pair, which mixed both, was removed on 2026-09-07 (audit ARC-02).
 
-## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`
-- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers. Host CPU/memory sampling is inlined in `internal/tui` (its only consumer — audit Fable5 DEAD-05).
+## `internal/metrics`, `internal/format`, `internal/ui`, `internal/testutil`, `internal/clock`
+- **Responsibility:** telemetry formatting, performance indicators (throughput, O(1) properties), theming/color controls (`NO_COLOR` support), test helpers, and the interval clock that times calculations and calibration (`internal/clock`: Go's runtime clock steps by ~0.5 ms on Windows). Host CPU/memory sampling is inlined in `internal/tui` (its only consumer — audit Fable5 DEAD-05).
 
 ---
 

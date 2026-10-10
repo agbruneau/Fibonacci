@@ -174,7 +174,7 @@ Détails mathématiques : [`docs/algorithms/`](docs/algorithms/) — [FAST_DOUBL
 Clean Architecture — `cmd → app → orchestration → fibonacci → bigfft`, `internal/config` étant un *frère* de
 `orchestration` et non une couche sous `fibonacci` (commentaire de paquet de `internal/arch_test.go`) ; `internal/bigfft` est le noyau
 et n'importe aucun package interne. Étanchéité gardée par `internal/arch_test.go`
-(six règles d'import montant interdit — huit arêtes, les deux dernières en couvrant deux chacune).
+(liste blanche exhaustive : chaque paquet et chacune de ses importations internes permises, ADR-0014 D4).
 Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 [`docs/architecture/`](docs/architecture/) (diagrammes C4,
 [graphe de dépendances](docs/architecture/dependency-graph.md)).
@@ -191,7 +191,7 @@ Vue d'ensemble : [`docs/ARCH.md`](docs/ARCH.md) ; référence détaillée :
 | `internal/cli` / `internal/tui` | Couches de présentation (`ProgressReporter` / `ResultPresenter` partagés) ; sous-package `cli/completion` (génération complétion shell) |
 | `internal/config` | Parsing flags + variables d'environnement, estimation des seuils |
 | `internal/progress` | Pattern observer (chemin de production : `Freeze`) |
-| `internal/{apperrors,format,metrics,ui,testutil}` | Packages de support (feuilles) |
+| `internal/{apperrors,clock,format,metrics,ui,testutil}` | Packages de support (feuilles) ; `clock` chronomètre calculs et calibration à la résolution de `QueryPerformanceCounter` sous Windows |
 | `test/e2e` | Tests bout-en-bout du binaire CLI (hors `internal/`) |
 
 ## Performance
@@ -288,7 +288,7 @@ fibcalc [flags]
 
 | Flag | Raccourci | Défaut | Description |
 |---|---|---|---|
-| `-n` | | 100 000 000 | Indice Fibonacci |
+| `-n` | | 100 000 000 | Indice Fibonacci. La commande nue (donc `-algo all`) prend 2,1 s et 675 Mo de mémoire résidente sur l'hôte de référence ([`mem-baseline-2026-09.txt`](docs/audits/mem-baseline-2026-09.txt), addendum) ; `-q` y ajoute l'écriture des 20,9 millions de chiffres |
 | `-algo` | | `all` | `fast`, `matrix`, `fft` ou `all` (comparaison) ; `gmp` en plus sous `-tags gmp` |
 | `-calculate` | `-c` | `false` | Affiche la valeur calculée |
 | `-verbose` | `-v` | `false` | Affiche la valeur complète |

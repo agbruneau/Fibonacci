@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/agbruneau/FibGo/internal/bigfft"
+	"github.com/agbruneau/FibGo/internal/clock"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -268,9 +269,9 @@ func (mb *MicroBenchmark) runSingleTest(ctx context.Context, wordSize int, useFF
 		default:
 		}
 
-		start := time.Now()
+		start := clock.Now()
 		multiplyTest(x, y, useFFT)
-		elapsed := time.Since(start)
+		elapsed := clock.Since(start)
 
 		totalDuration += elapsed
 		samples = append(samples, elapsed)

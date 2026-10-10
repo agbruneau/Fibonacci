@@ -26,10 +26,17 @@
 //     runtime panics or memory corruption.
 //  3. This approach may break with different Go compilers or build modes.
 //
+// Risk 1 is smaller than it reads: math/big keeps all six symbols reachable on
+// purpose, under a push-style //go:linkname whose comment names
+// github.com/remyoudompheng/bigfft among the packages that depend on it
+// (checked in go1.27.0, src/math/big/arith_decl.go and arith.go).
+//
 // If this package fails to compile or behaves unexpectedly after a Go upgrade,
 // the linkname declarations below should be reviewed against the current
 // math/big implementation. Meanwhile, -tags purego swaps them for the pure-Go
-// versions in arith_purego.go (EVAL-21).
+// versions in arith_purego.go (EVAL-21), which CI builds and tests. It stays
+// the fallback, not the default: docs/audits/bench-purego-2026-10.txt does
+// not show it to be free (ADR-0014 D2).
 
 package bigfft
 

@@ -17,12 +17,11 @@
 //
 // Dependencies (downward):
 //
-//	internal/cli → internal/orchestration, internal/format, internal/config,
-//	               internal/progress, internal/apperrors
+//	internal/cli → internal/orchestration, internal/calibration,
+//	               internal/config, internal/format, internal/metrics,
+//	               internal/progress, internal/ui, internal/apperrors
 //
 // This package MUST NOT import internal/fibonacci directly ; calculator
 // types arrive through the orchestration.Calculator alias. The
-// arch_test.go architecture gate enforces this invariant on the tui
-// sibling ; the cli production code follows the same rule by
-// convention.
+// arch_test.go allowlist enforces this, as it does for the tui sibling.
 package cli

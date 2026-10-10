@@ -31,9 +31,9 @@ var taggedRegistrations []func(*DefaultFactory)
 // Fibonacci calculator implementations pre-registered.
 //
 // Pre-registered calculators:
-//   - "fast": FastDoublingCalculator (O(log n), Parallel, Zero-Alloc)
-//   - "matrix": MatrixExponentiationCalculator (O(log n), Parallel, Zero-Alloc)
-//   - "fft": FFTBasedCalculator (O(log n), FFT-accelerated)
+//   - "fast": FastDoublingCalculator
+//   - "matrix": MatrixExponentiationCalculator
+//   - "fft": FFTBasedCalculator (the "fast" loop with FFT multiplication forced)
 //   - "gmp": GMPCalculator, only in a build with the gmp tag
 //
 // Returns:

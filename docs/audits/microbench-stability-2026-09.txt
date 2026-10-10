@@ -65,3 +65,30 @@
 #
 # CurrentProfileVersion 3 -> 4: a version-3 profile can carry a threshold this
 # code would never produce, so old profiles are invalidated rather than replayed.
+#
+# ADDENDUM 2026-10-10 — timer resolution (Windows)
+#
+# The RESIDUAL above blamed the hardware. Most of it was the clock: on Windows,
+# time.Now advances in steps of ~0.5 ms (measured: 513-531 µs between distinct
+# readings, wall and monotonic alike), and the 500- and 2000-word arms run in
+# 40-340 µs. Same host and go1.27.0 as above, 5c4d765 plus the change; the
+# probe is annex A.2 of the 2026-09-03 audit report (git show bf3d6a7^:audit.md)
+# with one extra loop printing runSingleTest per arm.
+#
+# BEFORE (time.Now)                        AFTER (internal/clock, QPC)
+#   words  fft    fastest   slowest          fastest    slowest
+#     500  no     0s        540.4µs          38.5µs     46.6µs
+#    2000  no     0s        619.9µs          334.4µs    349.7µs
+#    2000  yes    0s        547.8µs          241.3µs    346.6µs
+#    8000  no     2.5174ms  3.7835ms         2.9666ms   3.6836ms
+#    8000  yes    999.4µs   2.0002ms         1.0471ms   1.2488ms
+#
+#   ten RunQuick:  FFT=460800 x3, 115200 x7     FFT=115200 x10
+#                  conf 0.00-0.42               conf 0.00-0.28
+#
+# timingStability skips runs whose fastest iteration is 0, so before the fix
+# the 500- and 2000-word arms never entered the confidence score at all.
+# Confidence remains under the escalation bar after the fix (the 2000-word FFT
+# arm spreads 1.4x), so FastStrategy still escalates; it now does so on
+# measurements, not on rounding. Off Windows the runtime clock is already
+# fine-grained (the testing package special-cases Windows only).

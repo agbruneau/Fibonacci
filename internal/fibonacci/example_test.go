@@ -20,8 +20,8 @@ func ExampleMustNewCalculator() {
 	fmt.Println(matrix.Name())
 	fmt.Println(fft.Name())
 	// Output:
-	// Fast Doubling (O(log n), Parallel, Zero-Alloc)
-	// Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)
+	// Fast Doubling
+	// Matrix Exponentiation
 	// FFT-Based Doubling
 }
 

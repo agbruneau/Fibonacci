@@ -8,8 +8,8 @@ This document compares the three Fibonacci calculation algorithms implemented in
 
 | Algorithm | Registry Name | Name() Output |
 |-----------|--------------|---------------|
-| Fast Doubling | `"fast"` | "Fast Doubling (O(log n), Parallel, Zero-Alloc)" |
-| Matrix Exponentiation | `"matrix"` | "Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)" |
+| Fast Doubling | `"fast"` | "Fast Doubling" |
+| Matrix Exponentiation | `"matrix"` | "Matrix Exponentiation" |
 | FFT-Based | `"fft"` | "FFT-Based Doubling" |
 | Modular Fast Doubling | `--last-digits` mode | n/a — free function, not a registered calculator |
 
