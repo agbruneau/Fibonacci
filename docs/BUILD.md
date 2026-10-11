@@ -117,7 +117,7 @@ The exported wrappers are **not** the hot path: they exist as test oracles for
 `bigfft` calls the linkname'd `addVV` / `subVV` / `addMulVVW` directly (see the
 doc comment on each wrapper in `arith.go`).
 
-Go's `math/big` package already includes platform-optimized assembly for these operations, so the `go:linkname` approach provides the best available performance on all architectures without maintaining separate assembly code. Runtime CPU feature detection (`golang.org/x/sys/cpu`) lives separately in `internal/config/hardware.go`, used for adaptive threshold heuristics — not by the `bigfft` vector arithmetic above.
+Go's `math/big` package already includes platform-optimized assembly for these operations, so the `go:linkname` approach provides the best available performance on all architectures without maintaining separate assembly code. Runtime CPU feature detection (`golang.org/x/sys/cpu`) lives separately in `internal/config/hardware.go`, used for adaptive threshold heuristics — not by the `bigfft` vector arithmetic above. The module's other use of `golang.org/x/sys` is `x/sys/windows` in `internal/clock/clock_windows.go`, the high-resolution timer ([PORTABILITY.md § 2.4](PORTABILITY.md#24-internalclock)).
 
 ## Cross-Compilation
 

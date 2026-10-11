@@ -19,9 +19,9 @@ qui a été mesuré, ce qui a été rejeté et pourquoi :
 est dans [`CHANGELOG.md`](CHANGELOG.md), les décisions dans
 [`docs/adr/`](docs/adr/).
 
-**État vérifié le 2026-09-23** sur `ed56592` (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
+**État vérifié le 2026-10-11** sur `0590ab8` (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
 `scripts/check.ps1` vert de bout en bout — build, vet, `go test -race -shuffle=on
--count=1` sur les 21 paquets, lint à **0 finding**, couverture **96,0 %** (plancher
+-count=1` sur les 22 paquets, lint à **0 finding**, couverture **96,0 %** (plancher
 90 %), `govulncheck` sans vulnérabilité. La même séquence tourne en CI sur Ubuntu
 et Windows à chaque poussée, avec en plus le backend `gmp`, un build 32 bits et
 l'image Docker.
@@ -374,14 +374,14 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   contre la chaîne Go (c'est ce qui avait cassé le lint, puis `govulncheck`, `gosec` et
   `staticcheck` d'un coup).
 - **Couverture** : plancher garanti **90 %** via `make coverage-check`, `check.ps1` et la CI ; dernière mesure
-  **96,0 %** des instructions (2026-09-23, `go1.27.0 windows/amd64`, 21 paquets). Le chiffre est
+  **96,0 %** des instructions (2026-10-11, `go1.27.0 windows/amd64`, 22 paquets). Le chiffre est
   daté, pas figé ; le plancher, relevé de 80 à 90 % le 2026-09-23, laisse 4 points sous la mesure
   de la CI Ubuntu (94,0 % le 2026-09-21). Détail, commande de re-datation et angles morts :
   [`docs/TESTING.md` § Coverage](docs/TESTING.md#coverage) (directive A5-04, amendée le 2026-09-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO et un compilateur C. `scripts/check.ps1` sonde les deux et active `-race`
-  quand ils sont présents — relevé du 2026-09-23 : 21 paquets verts sur cet hôte Windows. Sans compilateur
+  quand ils sont présents — relevé du 2026-10-11 : 22 paquets verts sur cet hôte Windows. Sans compilateur
   C, la passe complète se fait via **WSL** (`wsl go test -race ./...`). Les scripts shell sont épinglés en
   LF (`.gitattributes`) pour rester exécutables côté WSL.
 - **Lint bloquant** : depuis l'audit 2026-09 (GATE-01), `golangci-lint` **v2** fait échouer

@@ -319,6 +319,14 @@ The project uses the Decorator pattern. To add a new algorithm, you only need to
 
 7. **Concurrency**: Use `sync.Pool` for frequently allocated objects
 
+8. **Internal imports are an allowlist**: `allowedImports` in
+   `internal/arch_test.go` names every internal package each package may
+   import ([ADR-0014 D4](docs/adr/0014-suivi-2026-10-decisions.md)). A new
+   import between internal packages, or a new package, fails `go test` until
+   it is added there; an edge you remove must go too, since a stale entry also
+   fails. Update [`docs/architecture/dependency-graph.md`](docs/architecture/dependency-graph.md)
+   in the same change: it draws the same edges.
+
 ### File Organization
 
 ```

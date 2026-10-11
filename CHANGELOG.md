@@ -57,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Coût de la commande nue** (ADR-0014 D3) : `fibcalc` sans argument prend
   2,1 s et 675 Mo de mémoire résidente sur l'hôte de référence (README,
   tableau des flags).
+- **Suites d'ADR-0014 dans la doc de référence** : `PORTABILITY.md` § 2.4
+  décrit `internal/clock` (QueryPerformanceCounter sous Windows),
+  `CONTRIBUTING.md` explique la liste blanche d'imports de `arch_test.go`,
+  `BUILD.md` cite `x/sys/windows`. L'état vérifié du README et de
+  `TESTING.md` passe au 2026-10-11 (`0590ab8`, 22 paquets, couverture 96,0 %).
 
 ## [5.0.0] - 2026-09-23
 

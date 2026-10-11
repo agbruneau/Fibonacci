@@ -96,6 +96,23 @@ not formally profiled to date).
   workstation); the `gmp` tag must then be added explicitly to the
   local build command.
 
+### 2.4 `internal/clock`
+
+- `clock_windows.go` (`//go:build windows`) reads `QueryPerformanceCounter`
+  through `golang.org/x/sys/windows`, as Go's `testing` package does
+  (`src/testing/testing_windows.go`). On Windows the runtime clock
+  (`time.Now`, monotonic and wall readings alike) steps by about 0.5 ms
+  (513–531 µs measured on the reference host): a shorter interval reads as 0,
+  a longer one is rounded to a multiple of the step.
+- `clock_other.go` (`//go:build !windows`) is a thin wrapper over the
+  runtime's monotonic clock, already fine-grained there.
+- Scope ([ADR-0014 D1](adr/0014-suivi-2026-10-decisions.md)): displayed
+  calculation durations (including `-last-digits`), the micro-benchmark loop
+  and the calibration sweeps. Deadlines, timeouts and timestamps stay on
+  `time`.
+- `TestResolution` (`clock_test.go`) fails if the smallest observable step
+  exceeds 50 µs; the CI `gate` job runs it on `windows-latest`.
+
 ## 3. Race detector
 
 The Go race detector requires CGO. The canonical `make test` target runs
@@ -112,7 +129,7 @@ The Go race detector requires CGO. The canonical `make test` target runs
   [ADR-0010 D4](adr/0010-audit-2026-09-decisions.md)): it probes `CGO_ENABLED`
   and the presence of a C compiler, and enables `-race` when both are
   present — as checked on this Windows host: **22 packages green**, re-run on
-  2026-09-07 (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, gcc MinGW-W64 16.1.0;
+  2026-10-11 (`go1.27.0 windows/amd64`, `CGO_ENABLED=1`, gcc MinGW-W64 16.2.0;
   `go test -race -count=1 ./...` exits 0, no *data race*). Without a C toolchain,
   it falls back to the same suite without `-race`. The former wording described
   an installation, not a platform limit.

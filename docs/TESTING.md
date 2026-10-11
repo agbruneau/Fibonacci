@@ -7,11 +7,11 @@ combines unit tests, golden file validation, fuzz targets replayed as seed
 regression tests (mutation fuzzing itself runs on **no** gate — see
 [Fuzz Testing](#fuzz-testing)), property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
-testing, and end-to-end testing. The test suite spans 133 test files across the
-21 packages (2026-09-23; recount with `git ls-files '*_test.go' | wc -l` rather
+testing, and end-to-end testing. The test suite spans 134 test files across the
+22 packages (2026-10-11; recount with `git ls-files '*_test.go' | wc -l` rather
 than trusting the figure — `git ls-files` is used deliberately, so untracked
 scratch checkouts are not counted twice) and covered **96.0 % of statements**
-when last measured (2026-09-23, `go1.27.0 windows/amd64`). Only the **90 %**
+when last measured (2026-10-11, `go1.27.0 windows/amd64`). Only the **90 %**
 floor is enforced — by `make coverage-check`, `scripts/check.ps1` and the CI
 `gate` job; `make coverage` renders `coverage.html` and asserts nothing. The
 6-point margin between the reading and the floor is unenforced slack, not a
@@ -411,7 +411,7 @@ Two numbers live here and they are not interchangeable.
 | | Value | Status |
 |---|---|---|
 | **Enforced floor** | 90.0 % of statements, module total | Asserted by `make coverage-check`, which delegates to `scripts/check.sh --coverage-only` (`COVERAGE_FLOOR=90.0`), by `scripts/check.ps1` and by the CI `gate` job on Ubuntu. Raised from 80 % on 2026-09-23 (EVAL-12): the Ubuntu CI run of 2026-09-21 measured 94.0 %, and 90 % keeps a 4-point margin under the lowest platform. Below it, the gate fails. |
-| **Last measured** | **96.0 %** of statements, module total | A dated reading: 2026-09-23, commit `ed56592`, `go1.27.0 windows/amd64`, `scripts/check.ps1` (`go test -race -shuffle=on -count=1 -coverprofile … ./...`) exit 0, 21 packages. Nothing enforces it — coverage can fall 6 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
+| **Last measured** | **96.0 %** of statements, module total | A dated reading: 2026-10-11, commit `0590ab8`, `go1.27.0 windows/amd64`, `scripts/check.ps1` (`go test -race -shuffle=on -count=1 -coverprofile … ./...`) exit 0, 22 packages. Nothing enforces it — coverage can fall 6 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
 
 Read the 96.0 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
 below: it counts no e2e subprocess path and no GMP backend, so it is 96.0 % of
