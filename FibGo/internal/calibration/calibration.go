@@ -73,12 +73,14 @@ type CalibrationOptions struct {
 //
 // Parameters:
 //   - ctx: The context for managing cancellation and deadlines.
-//   - out: The io.Writer to which progress and results will be written.
+//   - out: The io.Writer to which progress will be written.
+//   - rep: The Reporter for presenting calibration status, tables, and errors.
 //   - calculatorRegistry: A map of available calculators, which must include
 //     the "fast" algorithm.
 //   - profilePath: destination of the saved profile; empty selects the
 //     default path (~/.fibcalc_calibration.json). Honors the CLI's
 //     --calibration-profile flag (audit Fable5 CAL-01).
+//   - progressDisplay: Optional callback for rendering progress updates.
 //
 // Returns:
 //   - int: The exit code (0 for success, non-zero for errors).
@@ -287,7 +289,7 @@ func effectiveProfilePath(profilePath string) string {
 // Parameters:
 //   - parentCtx: The context used to manage the calibration timeout.
 //   - cfg: The initial application configuration, providing starting values.
-//   - out: The io.Writer for logging calibration results.
+//   - rep: The Reporter for logging calibration results.
 //   - calculatorRegistry: The map of available calculators.
 //
 // Returns:
@@ -510,7 +512,7 @@ func applyCalibrationResults(cfg config.AppConfig, bestPar int, bestParDur time.
 // Parameters:
 //   - cfg: The updated configuration with calibration results.
 //   - profilePath: The path to save the profile.
-//   - out: The writer for warning messages.
+//   - rep: The Reporter for warning messages.
 //   - confidence: The confidence score of the calibration.
 func saveCalibrationProfile(cfg config.AppConfig, profilePath string, rep Reporter, confidence float64) {
 	profile := NewProfile()

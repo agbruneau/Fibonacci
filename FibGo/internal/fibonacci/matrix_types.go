@@ -20,7 +20,6 @@ type matrix struct{ a, b, c, d *big.Int }
 // Returns:
 //   - *matrix: A pointer to the newly created matrix.
 func newMatrix() *matrix {
-	// We return a matrix struct with nil pointers, as they will be populated from the pool
 	return &matrix{
 		a: new(big.Int),
 		b: new(big.Int),

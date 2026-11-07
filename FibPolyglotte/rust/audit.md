@@ -195,7 +195,7 @@ Cet audit a été vérifié constat par constat, sous Linux, avec rustc 1.97. Tr
 | `std::mem::forget(lines)` sans garde (§ 6.2) | Laissé à la revue de code, comme le prévoit le catalogue § 6. Une garde exigerait d'extraire de `main` une fonction de production, et un allocateur compteur dans les tests de `main.rs`, pour un gain mesuré ici de 0,4 à 0,9 ms. |
 | Mesure réelle de la durée, F6, et câblage de `main` (§ 6.2) | La durée est gardée par PERF-RS-14. Un espion dort 20 ms, tour à tour pour chaque algorithme de `--algo all`, et chronomètre son sommeil par `Instant`. La ligne de l'algorithme lent vaut au moins ce sommeil, et les trois lignes au plus le temps mural de `run`. La durée de `--list` va du vingtième au tout du temps mural de `run` : le plafond est exact, le plancher dépend de la charge. Restent à la revue : l'étendue exacte de la fenêtre, une durée qui perdrait ses secondes entières (`subsec_nanos`), et le câblage de `main` (le calcul passé à `run`, le code de sortie). |
 
-Ajout de parité, hors audit : PERF-RS-12 joue aussi n = 1 000 000, avec un espion qui ne calcule pas, comme PERF-GO-10, PERF-TS-12 et PERF-PY-27. Un algorithme qui change selon n dans `compute` rougit.
+Ajout de parité, hors audit : PERF-RS-12 joue aussi n = 1 000 000, avec un espion qui ne calcule pas, comme PERF-GO-10, PERF-TS-12 et PERF-PY-27. Un algorithme qui change selon n dans `compute` rougit. Le même jour, `a13321a` remplace `chunks_exact_mut(4)` par `as_chunks_mut::<4>()` dans `src/lib.rs` (251 lignes au lieu de 250, 340 lignes de production et 569 lignes au total pour `src/`).
 
 ### 7.2 Errata
 

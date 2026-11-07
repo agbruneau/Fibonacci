@@ -29,7 +29,7 @@ Fib vit dans le dossier `FibPolyglotte/` du dépôt [agbruneau/Fibonacci](https:
 | Audits par langage (`go/`, `rust/`, `ts/` et `python/audit.md`) : constats vérifiés en workflow, gardes ajoutées ou étendues dans les quatre langages, témoin Windows de PERF-PY-23 corrigé, puis `/code-review` | 2026-10-14 | fait |
 | Intégration dans `agbruneau/Fibonacci` : l'extraction de révision (`bench --contre`, `differentiel --revision`) fonctionne depuis un sous-dossier du dépôt git, gardée par HAR-8 | 2026-11-07 | fait |
 
-Les quatre implémentations passent `npm run check` sous Windows 11, avec Python 3.14 (2026-10-12), et sous Linux (2026-10-14), avec Go 1.26, Rust 1.97, Node 24.20 et Python 3.13. Sous Windows, `check:py` rougissait depuis #35 (2026-10-13) : un témoin de PERF-PY-23 attendait `\n` là où CPython écrit `\r\n`. Corrigé le 2026-10-14, ce point n'est pas encore revérifié sous Windows. La suite Python et le contrat Python passent aussi sous Python 3.12 (3.12.3, Linux, 2026-10-13).
+Les quatre implémentations passent `npm run check` sous Windows 11, avec Python 3.14 (2026-10-12, revérifié le 2026-11-07 avec Go 1.26, Rust 1.98, Node 24.20 et Python 3.14), et sous Linux (2026-10-14), avec Go 1.26, Rust 1.97, Node 24.20 et Python 3.13. Sous Windows, `check:py` rougissait depuis #35 (2026-10-13) : un témoin de PERF-PY-23 attendait `\n` là où CPython écrit `\r\n`. Corrigé le 2026-10-14, ce point est revérifié au vert sous Windows 11 le 2026-11-07. La suite Python et le contrat Python passent aussi sous Python 3.12 (3.12.3, Linux, 2026-10-13).
 
 | Implémentation | Grand entier |
 |---|---|
@@ -69,9 +69,9 @@ Le scénario impair, terme `999999`, s'ajoute au banc le 2026-10-14 : il n'a pas
 
 | Lignes de code (`wc -l`, hors fichiers de test) | Go | Rust | TypeScript | Python |
 |---|---|---|---|---|
-| avant → final | 255 → 394 | 205 → 568 | 151 → 270 | 158 → 270 |
+| avant → final | 255 → 394 | 205 → 569 | 151 → 270 | 158 → 270 |
 
-- Rust compte aussi ses tests unitaires : 60 lignes dans `lib.rs` (dont PERF-RS-13) et 169 dans `main.rs` (PERF-RS-8, 11, 12 et 14). Sans eux, Rust compte 339 lignes. La cible d'environ 200 lignes (PRD, A3) est remplacée par l'ADR-0004.
+- Rust compte aussi ses tests unitaires : 60 lignes dans `lib.rs` (dont PERF-RS-13) et 169 dans `main.rs` (PERF-RS-8, 11, 12 et 14). Sans eux, Rust compte 340 lignes. La cible d'environ 200 lignes (PRD, A3) est remplacée par l'ADR-0004.
 - `iterative` reste en O(n²) opérations sur les mots : à 1 000 000, il prend environ 1,6 s en Go et 5 s en Python, ce que F8 accepte.
 
 Le détail des décisions et des mesures est dans l'[ADR-0004](docs/adr/0004-performance-du-calcul.md).

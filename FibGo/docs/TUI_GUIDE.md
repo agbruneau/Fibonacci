@@ -63,6 +63,7 @@ type Model struct {
     config    config.AppConfig
     ref       *programRef
     paused    bool
+    logger    *slog.Logger
 }
 
 // ExecutionState (model.go) groups the per-run execution fields so they can be
@@ -435,9 +436,9 @@ defaults, via the `NO_COLOR` environment variable).
 ```go
 // internal/tui/commands.go
 func Run(ctx context.Context, calculators []orchestration.Calculator,
-    cfg config.AppConfig, version string, errOut io.Writer) int {
-    initTUIStyles()
-    model := NewModel(ctx, calculators, cfg, version)
+    cfg config.AppConfig, version string, errOut io.Writer, logger *slog.Logger) int {
+    initTUIStyles(cfg.TUITheme)
+    model := NewModel(ctx, calculators, cfg, version, logger)
     defer model.cancel()
     p := tea.NewProgram(model, tea.WithAltScreen())
     model.ref.SetProgram(p)  // Inject program reference before Run

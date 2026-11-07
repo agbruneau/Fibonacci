@@ -2,7 +2,7 @@ module github.com/agbruneau/FibGo
 
 go 1.26.1
 
-require golang.org/x/sync v0.21.0
+require golang.org/x/sync v0.22.0
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
@@ -40,5 +40,5 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 )

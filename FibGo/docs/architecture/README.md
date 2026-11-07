@@ -35,7 +35,7 @@ We use the C4 model to document the architecture at different levels of abstract
 
 The project strictly follows the principles of **Clean Architecture**. The following graph shows the relations between packages:
 
-- **[Dependency Graph](dependency-graph.md)** — the module's 45 direct internal imports, one per edge. Reproducible with the `go list` command given in the [validation record](./validation/validation-report.md#layer-tightness--dependency-direction). — *legend: [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture) (the layering rule) and [§3](../ARCH.md#3-directory-structure) (the directories behind the nodes)*
+- **[Dependency Graph](dependency-graph.md)** — the module's 47 direct internal imports, one per edge. Reproducible with the `go list` command given in the [validation record](./validation/validation-report.md#layer-tightness--dependency-direction). — *legend: [`ARCH.md` §2](../ARCH.md#2-high-level-architecture-clean-architecture) (the layering rule) and [§3](../ARCH.md#3-directory-structure) (the directories behind the nodes)*
 
 ## 3) Data Flows and Execution Paths
 
@@ -77,6 +77,7 @@ The Architectural Decision Records live in [`docs/adr/`](../adr/):
 | [0011](../adr/0011-audit-2026-09-ponytail.md) | 2026-09-03 over-engineering audit — removals and fallbacks, candidates set aside with their reason | Accepted |
 | [0012](../adr/0012-audit-2026-09-livre-decisions.md) | 2026-09-07 audit against *Building Enterprise Projects with Go* — CI, pinned tools, language rule (amended by 0013) | Accepted |
 | [0013](../adr/0013-evaluation-2026-09-decisions.md) | 2026-09-15 academic evaluation — DTM removed, language rule amended, coverage floor, GMP reachable | Accepted |
+| [0014](../adr/0014-suivi-2026-10-decisions.md) | 2026-10-10 follow-up on academic evaluation — QPC clock on Windows, purego benchmarked, calibration profile path | Accepted |
 
 ⚠ **ADR-0006 carries "Accepted" and its subject is no longer in the tree.** The opt-in `FFTContext` API
 (`NewFFTContext`, `*WithContext`, `fourierRecursiveCtx`) was **removed** — zero occurrences in

@@ -396,10 +396,11 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   silencieusement. Validation manuelle : `wsl go test -tags gmp -race ./internal/fibonacci/`.
 - Environnement reproductible : [`.devcontainer/`](.devcontainer/devcontainer.json) (Go + CGO + libgmp +
   benchstat) ou [`Dockerfile`](Dockerfile) multi-étages.
-- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0013, plus `0000-template.md`).
-  ⚠ **Dernière campagne : l'évaluation académique du 2026-09-15**, exécutée le 2026-09-23
-  ([ADR-0013](docs/adr/0013-evaluation-2026-09-decisions.md)), après l'audit « livre » du 2026-09-07
-  ([ADR-0012](docs/adr/0012-audit-2026-09-livre-decisions.md)). Avant eux, l'audit du 2026-09-03,
+- Décisions architecturales : [`docs/adr/`](docs/adr/) (0001–0014, plus `0000-template.md`).
+  ⚠ **Dernière campagne : le suivi d'évaluation du 2026-10-10**
+  ([ADR-0014](docs/adr/0014-suivi-2026-10-decisions.md)), après l'évaluation académique du 2026-09-15,
+  exécutée le 2026-09-23 ([ADR-0013](docs/adr/0013-evaluation-2026-09-decisions.md)), et l'audit « livre »
+  du 2026-09-07 ([ADR-0012](docs/adr/0012-audit-2026-09-livre-decisions.md)). Avant eux, l'audit du 2026-09-03,
   en deux passes — l'audit exhaustif (23 constats,
   [ADR-0010](docs/adr/0010-audit-2026-09-decisions.md)) puis la passe de sur-ingénierie
   ([ADR-0011](docs/adr/0011-audit-2026-09-ponytail.md)). Les deux ADR consignent les décisions retenues

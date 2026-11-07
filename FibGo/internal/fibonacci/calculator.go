@@ -83,8 +83,7 @@ type FibCalculator struct {
 // NewCalculator is a factory function that constructs and returns a new
 // FibCalculator.
 // It takes a CoreCalculator as input, which represents the specific Fibonacci
-// algorithm to be used. This function panics if the core calculator is nil,
-// ensuring system integrity.
+// algorithm to be used, and returns an error if the core calculator is nil.
 //
 // Parameters:
 //   - core: The core calculator to be wrapped.

@@ -18,7 +18,7 @@ flowchart LR
         A5d --> B1{Which CoreCalculator?}
         B1 -->|fast| B2["FastDoublingCalculator:<br/>acquireStateForN, normalizeOptions,<br/>AdaptiveStrategy"]
         B1 -->|fft| B3["FFTBasedCalculator:<br/>AcquireStateForN, FFTOnlyStrategy,<br/>useParallel hard-coded false"]
-        B1 -->|"gmp — -tags gmp AND an explicit<br/>RegisterGMPCalculator on your factory;<br/>NewDefaultFactory registers fast/matrix/fft only"| B4["GMPCalculator: standalone loop,<br/>no DoublingFramework"]
+        B1 -->|"gmp — -tags gmp (auto-registered in<br/>NewDefaultFactory via taggedRegistrations,<br/>EVAL-23)"| B4["GMPCalculator: standalone loop,<br/>no DoublingFramework"]
     end
 
     subgraph Framework["DoublingFramework.ExecuteDoublingLoop"]

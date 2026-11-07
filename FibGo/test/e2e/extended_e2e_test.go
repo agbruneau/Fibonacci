@@ -13,9 +13,8 @@ func TestCLI_GoldenValues(t *testing.T) {
 	binPath := buildBinary(t)
 
 	tests := []struct {
-		n       string
-		want    string
-		isQuiet bool
+		n    string
+		want string
 	}{
 		{
 			n:    "1000",
@@ -59,22 +58,22 @@ func TestCLI_ErrorCases(t *testing.T) {
 		{
 			name:     "Negative N",
 			args:     []string{"-n", "-1"},
-			wantCode: 1, // Validation error
+			wantCode: 4, // ExitErrorConfig: flag parse / validation error
 		},
 		{
 			name:     "Non-numeric N",
 			args:     []string{"-n", "abc"},
-			wantCode: 1,
+			wantCode: 4, // ExitErrorConfig
 		},
 		{
 			name:     "Invalid Output Path",
 			args:     []string{"-n", "10", "--output", "\x00invalid/path.txt"},
-			wantCode: 1,
+			wantCode: 1, // ExitErrorGeneric: runtime file write error
 		},
 		{
 			name:     "Extremely Large N",
-			args:     []string{"-n", "10000000000000000000", "-c"}, // N > max uint64? No, max uint64 is ~1.8e19. 1e20 is more.
-			wantCode: 1,
+			args:     []string{"-n", "100000000000000000000", "-c"}, // 1e20 > math.MaxUint64 (~1.84e19)
+			wantCode: 4,                                             // ExitErrorConfig
 		},
 	}
 
@@ -89,8 +88,8 @@ func TestCLI_ErrorCases(t *testing.T) {
 			}
 
 			if exitErr, ok := err.(*exec.ExitError); ok {
-				if exitErr.ExitCode() == 0 {
-					t.Errorf("Expected non-zero exit code, got 0")
+				if exitErr.ExitCode() != tt.wantCode {
+					t.Errorf("Expected exit code %d, got %d", tt.wantCode, exitErr.ExitCode())
 				}
 			}
 		})

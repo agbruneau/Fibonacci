@@ -19,7 +19,7 @@
 //     via ReleaseBumpAllocator, which resets it for reuse. Reset is exposed
 //     separately for reusing one allocator instance across multiple phases
 //     without a full release/acquire round-trip.
-//   - Element-wise word arithmetic (arith.go) delegates to math/big's
+//   - Element-wise word arithmetic delegates to math/big's
 //     internal assembly via go:linkname (arith_decl.go); there is no
 //     per-architecture split. The one build tag, purego, replaces those
 //     bindings with the math/bits code of arith_purego.go.

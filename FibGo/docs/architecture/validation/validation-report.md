@@ -80,11 +80,12 @@ Verified properties (against Go `import` declarations in source):
 Only two of the diagrams carry package-import edges, and both were
 re-verified arrow-by-arrow against the `go list` command above:
 
-- `dependency-graph.md` — exact and complete. Its 45 arrows match, one for
-  one, the 45 direct internal imports `go list` reports across the module
-  (`cmd/fibcalc` 2, `app` 10, `calibration` 5, `cli` 8, `config` 3,
-  `fibonacci` 5, `fibonacci/memory` 1, `orchestration` 4, `tui` 7; every
-  other package is a leaf — counts of 2026-09-23, after EVAL-10). **Re-verified 2026-09-07** after the "livre"
+- `dependency-graph.md` — exact and complete. Its 47 arrows match, one for
+  one, the 47 direct internal imports `go list` reports across the module
+  (`cmd/fibcalc` 2, `app` 10, `calibration` 6, `cli` 8, `config` 3,
+  `fibonacci` 5, `fibonacci/memory` 1, `orchestration` 5, `tui` 7; every
+  other package is a leaf — counts of 2026-10-10, after `internal/clock` was
+  added alongside EVAL-10). **Re-verified 2026-09-07** after the "livre"
   audit: `calibration → format` and `calibration → ui` are gone (T16);
   `cli → calibration`, `orchestration → fibonacci/threshold` and the two arrows
   into the new `fibonacci/fibmath` leaf (from `fibonacci` and
@@ -105,7 +106,7 @@ re-verified arrow-by-arrow against the `go list` command above:
   real import. The one exception is `Rel(user, entry, "Invokes")`, a
   `Person` → `Container` relation that is not an import at all. The
   `orch → config` edge the diagram used to draw was **false**:
-  `internal/orchestration` imports only `apperrors`, `fibonacci`,
+  `internal/orchestration` imports only `apperrors`, `clock`, `fibonacci`,
   `fibonacci/memory`, `progress` (and `fibonacci/threshold` until 2026-09-23). It was removed on 2026-08-07, and the real
   `cli → config`, `tui → config`, `calib → config`, `calib → bigfft` edges plus
   the edges into the leaf-package container were added. On 2026-08-07 the

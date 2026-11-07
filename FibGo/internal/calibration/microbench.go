@@ -143,7 +143,7 @@ func (mb *MicroBenchmark) RunQuick(ctx context.Context) (ThresholdResults, error
 	ctx, cancel := context.WithTimeout(ctx, mb.Timeout)
 	defer cancel()
 
-	// Run tests in parallel for speed
+	// Run tests sequentially to avoid CPU contention (audit M-01)
 	results := mb.runTests(ctx)
 
 	// Analyze results to determine optimal thresholds

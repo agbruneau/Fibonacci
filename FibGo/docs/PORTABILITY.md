@@ -90,8 +90,9 @@ not formally profiled to date).
 
 - Enabled via `go build -tags gmp`; requires `libgmp-dev` at build
   and run time.
-- Disabled by default. The `Dockerfile` (production image) is
-  `CGO_ENABLED=0` with no `apt` package: it cannot build this backend.
+- Disabled by default. The `Dockerfile` (production image) builds with
+  `CGO_ENABLED=0` and only installs `make` (no `gcc` or `libgmp-dev`), so it
+  cannot build this backend.
   Only `.devcontainer/devcontainer.json` installs `libgmp-dev` (development
   workstation); the `gmp` tag must then be added explicitly to the
   local build command.

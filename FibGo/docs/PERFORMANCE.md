@@ -426,7 +426,7 @@ fibcalc --calibrate
 fibcalc --auto-calibrate
 ```
 
-> The programmatic entry point is `calibration.RunCalibration(ctx, out, calculatorRegistry, profilePath, progressDisplay, colorProvider) int`; see [CALIBRATION.md](CALIBRATION.md) for the full API and the 3-tier fallback.
+> The programmatic entry point is `calibration.RunCalibration(ctx, out, rep, calculatorRegistry, profilePath, progressDisplay) int`; see [CALIBRATION.md](CALIBRATION.md) for the full API and the 3-tier fallback.
 
 ### Configuration Parameters
 

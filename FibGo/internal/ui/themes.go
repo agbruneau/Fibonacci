@@ -51,7 +51,7 @@ var (
 
 	// NoColorTheme disables all color output.
 	// Used when NO_COLOR is set, or when the caller passes noColor=true to
-	// InitTheme (app.New passes Config.Quiet || Config.MachineOutput).
+	// InitTheme (app.Run passes Config.Quiet || Config.MachineOutput).
 	NoColorTheme = Theme{
 		Name:      "none",
 		Primary:   "",
@@ -194,7 +194,7 @@ func setCurrentTheme(t Theme) {
 //
 // Parameters:
 //   - noColor: If true, disables all color output regardless of environment.
-//     There is no --no-color flag; app.New passes Config.Quiet ||
+//     There is no --no-color flag; app.Run passes Config.Quiet ||
 //     Config.MachineOutput, i.e. -q/--quiet or -machine.
 func InitTheme(noColor bool) {
 	themeMutex.Lock()
@@ -225,7 +225,7 @@ func InitTheme(noColor bool) {
 // ---------------------------------------------------------------------------
 // The Color* functions below return ANSI escape codes from the currently
 // active CLI theme. They are the primary API used by CLI presentation code
-// (cli/, calibration/, app/) for consistent coloring. Each call is
+// (cli/, config/, app/) for consistent coloring. Each call is
 // thread-safe via GetCurrentTheme.
 
 // ColorReset returns the reset escape code from the current theme.

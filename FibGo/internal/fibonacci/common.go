@@ -28,8 +28,8 @@ import (
 // Sizing: runtime.GOMAXPROCS(0). The previous value was NumCPU*2, which
 // allowed oversubscription when big.Int arithmetic is already
 // CPU-saturating (e.g. FFT paths). GOMAXPROCS(0) tracks the actual parallel
-// capacity the runtime is allowed to use and matches the bigfft FFT-level
-// semaphore at the same tier. The two semaphores remain separate because
+// capacity the runtime is allowed to use (whereas the bigfft FFT-level
+// semaphore uses runtime.NumCPU()). The two semaphores remain separate because
 // collapsing them across packages would require internal/bigfft to import
 // internal/fibonacci — a layering inversion.
 //

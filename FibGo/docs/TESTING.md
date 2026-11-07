@@ -4,7 +4,7 @@
 
 The Fibonacci Calculator project uses a layered testing strategy that
 combines unit tests, golden file validation, fuzz targets replayed as seed
-regression tests (mutation fuzzing itself runs on **no** gate — see
+regression tests on every gate plus scheduled/manual mutation fuzzing (see
 [Fuzz Testing](#fuzz-testing)), property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite spans 134 test files across the
@@ -519,21 +519,17 @@ fast path and are still expected to be green before pushing:
 | `make test-win` | Full test run **without** `-race` (Windows / no-CGO hosts) |
 | `make test` | Full test run **with** `-race`, requires CGO/gcc (run via WSL or a Linux/macOS host on Windows) |
 
-Because no remote gate enforces these, discipline is the only safeguard: run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing.
+Run the appropriate `scripts/check.*` (or the underlying `make` targets) locally before committing so issues are caught before the remote CI gate runs.
 
-**No guardrail runs `-fuzz`.** The seven fuzz targets enter these runs only as
-the 63 replayed seed inputs described in [Fuzz Testing](#fuzz-testing) (~0.5 s
-of the total); mutation fuzzing is manual, unscheduled, and unrecorded. Nothing
-in this table would catch a bug that only a mutated input reaches.
+**Pre-commit guardrails replay fuzz seeds without `-fuzz`.** The seven fuzz
+targets enter the standard `go test` runs as the 61 replayed seed inputs
+described in [Fuzz Testing](#fuzz-testing) (51 in `internal/fibonacci` + 10 in
+`internal/bigfft`, ~0.5 s of the total); bounded mutation fuzzing runs via
+`make fuzz-smoke` locally and in the weekly CI `fuzz` job.
 
-On Windows hosts without gcc, the `-race` run is executable via WSL (`wsl go test -race ./...`); with MinGW installed it runs natively.
+On Windows hosts without gcc, the `-race` run is executable via WSL (`wsl go test -race ./...`); with MinGW installed it runs natively (and `scripts/check.ps1` enables `-race` automatically when `gcc` is on `PATH`).
 
-No `-race` log is archived in the tree — there is no CI and no artifact to point
-at — so the pass is only ever as recent as the last person who ran it. Last
-recorded run, 2026-09-04 on `go1.27.0 windows/amd64` with `CGO_ENABLED=1` and
-MinGW-W64 gcc 16.1.0: `go test -race -count=1 ./...` exits 0, `ok` on all 21
-packages, no data race reported. Re-run it yourself rather than trusting this
-line.
+In CI, `.github/workflows/ci.yml` runs `go test -race -shuffle=on -count=1 ./...` on every push and pull request across Ubuntu and Windows; locally, re-run `scripts/check.ps1` or `scripts/check.sh` rather than trusting a dated reading.
 
 ## Test Organization
 
@@ -547,8 +543,8 @@ The table lists key test files per package; it is **not exhaustive** (`internal/
 | `internal/cli` | `output_test.go`, `ui_test.go`, `goldens_test.go`, `presenter_test.go` | Unit, golden output, result presentation |
 | `internal/tui` | `model_test.go`, `bridge_test.go`, `header_test.go`, `chart_test.go`, `metrics_test.go`, `sparkline_test.go`, `footer_test.go`, `logs_test.go`, `keymap_test.go`, `cli_flags_test.go` | Unit, sub-model testing, message handling |
 | `internal/orchestration` | `orchestrator_test.go`, `orchestration_spy_test.go`, `calculator_selection_test.go` | Integration, spy-based config propagation, calculator selection |
-| `internal/calibration` | `calibration_test.go`, `calibration_advanced_test.go`, `adaptive_test.go`, `microbench_test.go`, `profile_test.go`, `io_test.go` | Unit, advanced calibration, micro-benchmark validation, profile I/O |
-| `internal/config` | `config_test.go`, `config_exhaustive_test.go`, `env_test.go` | Unit, exhaustive flag combinations, env vars |
+| `internal/calibration` | `calibration_test.go`, `calibration_profile_paths_test.go`, `adaptive_test.go`, `microbench_test.go`, `profile_test.go`, `io_test.go` | Unit, profile path resolution, micro-benchmark validation, profile I/O |
+| `internal/config` | `config_test.go`, `env_overrides_test.go`, `env_parsing_test.go`, `validation_test.go`, `env_test.go` | Unit, flag/env overrides, parsing, validation |
 | `internal/apperrors` | `errors_test.go`, `handler_test.go` | Unit, exit code mapping |
 | `internal/metrics` | `indicators_test.go` | Performance indicators (throughput, O(1) properties) |
 | `internal/app` | `app_test.go`, `version_test.go` | Unit, lifecycle |
@@ -606,7 +602,7 @@ func newTestModel(t *testing.T) Model {
     t.Helper()
     ctx := context.Background()
     cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
-    m := NewModel(ctx, nil, cfg, "v0.1.0")
+    m := NewModel(ctx, nil, cfg, "v0.1.0", nil)
     t.Cleanup(m.cancel)
     return m
 }
@@ -621,7 +617,7 @@ Each sub-model (header, chart, metrics, logs, footer) has its own test file vali
 1. Follow the table-driven pattern with subtests and descriptive names
 2. Use `t.Parallel()` for independent subtests
 3. Add golden file entries for new algorithms (regenerate with `go run ./cmd/generate-golden/`)
-4. Write fuzz tests for cross-validation between algorithms — knowing that a new target only buys its seed replay until someone runs `-fuzz` by hand ([Fuzz Testing](#fuzz-testing)), so choose seeds that are worth running as fixed regression cases
+4. Write fuzz tests for cross-validation between algorithms — knowing that on per-commit gates a new target runs its seed corpus (`make fuzz-smoke` and the weekly CI `fuzz` job run mutation fuzzing; see [Fuzz Testing](#fuzz-testing)), so choose seeds that are worth running as fixed regression cases
 5. Run with `-race` during development
 6. Use `-short` to skip slow tests during rapid iteration
 7. Test context cancellation for any long-running computation

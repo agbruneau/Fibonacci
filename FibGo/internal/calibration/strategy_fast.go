@@ -1,5 +1,5 @@
 // FastStrategy: micro-benchmark-driven tier of the calibration
-// orchestrator. It wraps QuickCalibrate (microbench.go) and packages
+// orchestrator. It wraps (*MicroBenchmark).RunQuick (microbench.go) and packages
 // its ThresholdResults into a *CalibrationProfile so the orchestrator
 // can treat it interchangeably with CompleteStrategy.
 
@@ -35,13 +35,13 @@ func (FastStrategy) Name() string { return "fast" }
 
 // Calibrate implements CalibrationStrategy.
 //
-// It runs QuickCalibrate, converts the produced ThresholdResults into
+// It runs (*MicroBenchmark).RunQuick, converts the produced ThresholdResults into
 // a *CalibrationProfile (preserving the original confidence score),
 // and reports a single informational line through opts.Reporter. The wording of
 // the historical "Quick calibration (..): ..." message is preserved; the color
 // is now the adapter's decision (audit ARC-01).
 //
-// On context cancellation or QuickCalibrate failure, Calibrate returns
+// On context cancellation or micro-benchmark failure, Calibrate returns
 // (nil, 0, err) so the orchestrator can escalate to CompleteStrategy.
 func (s FastStrategy) Calibrate(ctx context.Context, opts StrategyOptions) (*CalibrationProfile, Confidence, error) {
 	results, err := NewMicroBenchmark().RunQuick(ctx)

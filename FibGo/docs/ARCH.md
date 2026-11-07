@@ -25,7 +25,7 @@ the [hub](architecture/README.md).
 |---|---|---|
 | [`system-context.md`](architecture/system-context.md) | C4-1: the user and the three external systems touched (OS, file system, optional GMP) | [§1](#1-project-overview) |
 | [`container-diagram.md`](architecture/container-diagram.md) | C4-2: the logical containers; every `Rel` between two `Container`s is a real Go import | [§2](#2-high-level-architecture-clean-architecture) |
-| [`dependency-graph.md`](architecture/dependency-graph.md) | the module's 45 direct internal imports, one per edge (neither superset nor subset) | [§2](#2-high-level-architecture-clean-architecture), [§3](#3-directory-structure) |
+| [`dependency-graph.md`](architecture/dependency-graph.md) | the module's 47 direct internal imports, one per edge (neither superset nor subset) | [§2](#2-high-level-architecture-clean-architecture), [§3](#3-directory-structure) |
 | [`component-diagram.md`](architecture/component-diagram.md) | `classDiagram`: interfaces, fields, class collaborations — **not** imports | [§4](#4-core-packages-responsibilities-key-types-interfaces) |
 | [`patterns/interface-hierarchy.md`](architecture/patterns/interface-hierarchy.md) | the key interfaces and their implementations, grouped by domain | [§5](#5-design-patterns), [§8](#presentation-layer-integration) |
 | **inline in [§6](#6-data-flow-cli-input-to-final-result)** (CLI flow) | `main.go` → exit code: configuration, dispatch, execution, presentation, errors | the section itself, ten numbered steps |
@@ -77,9 +77,9 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 > **Figures — [`architecture/dependency-graph.md`](architecture/dependency-graph.md) and
 > [`architecture/container-diagram.md`](architecture/container-diagram.md).** The diagram
 > below states the layering **rule** (which layer may import what); it draws no edge.
-> The real edges are in the two figures: `dependency-graph.md` carries the **45 direct
+> The real edges are in the two figures: `dependency-graph.md` carries the **47 direct
 > internal imports**, one per edge, checked equal to the `go list` output (reading of
-> 2026-09-23, empty `diff`); `container-diagram.md` groups them into C4 containers, with
+> 2026-10-10, empty `diff`); `container-diagram.md` groups them into C4 containers, with
 > the leaf packages gathered in one `support` block. That is where to read whether an
 > edge exists — here, only whether it is allowed to.
 
@@ -117,20 +117,26 @@ FibCalc follows **Clean Architecture** principles with strict unidirectional dep
 +-----------------------------------------------------------------------+
 
 Cross-cutting leaves — NOT a layer below the Domain. No Domain package
-imports them; the arrows come sideways, from Interfaces and Application:
+imports them (except `fibonacci` importing `apperrors`); the arrows come sideways:
 
 +-----------------------------------------------------------------------+
 |                       Shared Utility Packages                         |
 |                                                                       |
-| internal/metrics ← internal/cli, internal/tui                         |
-| internal/format  ← internal/cli, internal/tui                         |
+| internal/metrics   ← internal/cli, internal/tui                       |
+| internal/format    ← internal/cli, internal/tui                       |
+| internal/clock     ← internal/calibration, internal/orchestration     |
+| internal/apperrors ← cmd/fibcalc, app, calibration, cli, config,      |
+|                      fibonacci, orchestration, tui                    |
+| internal/ui        ← internal/app, internal/cli, internal/config,     |
+|                      internal/tui                                     |
+| internal/testutil  ← tests across internal/*                          |
 +-----------------------------------------------------------------------+
 ```
 
 Importers verified on HEAD with
 `go list -f '{{join .Imports " "}}' ./internal/<pkg>` over every package of
-the four layers: only `cli` and `tui` come back (`calibration` stopped
-importing `format` on 2026-09-07, audit ARC-01). `test/e2e` and
+the four layers (`calibration` stopped importing `format` and `ui` on
+2026-09-07, audit ARC-01; `internal/clock` was added on 2026-10-10). `test/e2e` and
 `docs/` are consumers of the binary and prose about it — neither is an import
 edge and neither belongs in this diagram.
 
@@ -947,7 +953,7 @@ Three-tier calibration approach:
      (= 0.5, strategy.go:EscalationConfidenceThreshold; used in calibration.go:tryFastThenEscalate)
 
 3. FULL CALIBRATION (seconds to minutes)
-   RunCalibration(ctx, out, registry, profilePath, progressDisplay, colorProvider)
+   RunCalibration(ctx, out, rep, registry, profilePath, progressDisplay)
    ├─ registry["fast"] is the only calculator used  (calibration.go:configureHardwareDetection)
    ├─ GenerateParallelThresholds() → CPU-adaptive candidates  (idem)
    ├─ For each threshold: Calculate(ctx, progressChan, 0, CalibrationN, opts)
@@ -1174,13 +1180,13 @@ From `go.mod`, direct dependencies are:
 | `github.com/shirou/gopsutil/v4` | Host CPU/memory sampling, called directly from `internal/tui` |
 | `golang.org/x/sys` | Low-level OS/CPU support (including CPU feature usage) |
 
-**Notable indirect dependencies:** Charmbracelet ecosystem (x/ansi, x/cellbuf, x/term, colorprofile), fatih/color, go-ole (Windows COM), ebitengine/purego, tklauser/numcpus.
+**Notable indirect dependencies:** Charmbracelet ecosystem (`x/ansi`, `x/cellbuf`, `x/term`, `colorprofile`), `go-ole` (Windows COM), `ebitengine/purego`, `tklauser/numcpus`, `golang.org/x/text`.
 
 ---
 
 ## 14) Architectural Decision Records (ADR)
 
-> The entries below (ADR-001..ADR-010) form a **narrative log internal to this document**, with its own three-digit numbering. They do not map one to one onto the files of [`docs/adr/`](adr/) (the formal register `0001`..`0013`, four-digit numbering and different subjects); read that directory for the canonical ADRs.
+> The entries below (ADR-001..ADR-010) form a **narrative log internal to this document**, with its own three-digit numbering. They do not map one to one onto the files of [`docs/adr/`](adr/) (the formal register `0001`..`0014`, four-digit numbering and different subjects); read that directory for the canonical ADRs.
 
 ### ADR-001: Using `sync.Pool` for Calculation States
 - **Context:** Fibonacci calculations for large N require numerous temporary `big.Int` objects.

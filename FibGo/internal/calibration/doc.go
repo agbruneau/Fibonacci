@@ -18,7 +18,8 @@
 //     rather than loading stale thresholds.
 //   - Micro-benchmarks (microbench.go) average N timed iterations per
 //     configuration to reduce noise; the configurations themselves run
-//     concurrently, bounded by a runtime.NumCPU semaphore.
+//     sequentially so concurrent goroutines do not contend for the CPU
+//     they are measuring (audit M-01).
 //
 // # Entry points
 //
@@ -29,7 +30,7 @@
 //
 // # Example
 //
-//	cfg, ok := calibration.AutoCalibrate(ctx, cfg, os.Stderr, registry)
+//	cfg, ok := calibration.AutoCalibrate(ctx, cfg, calibration.NopReporter{}, registry)
 //	if !ok {
 //	    // fall back to static defaults
 //	}

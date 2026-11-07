@@ -173,6 +173,7 @@ classDiagram
         +FFTCacheEnabled *bool
         +GCMode string
         +MemoryLimitBytes uint64
+        +Logger *slog.Logger
     }
 
     Calculator <|.. FibCalculator
