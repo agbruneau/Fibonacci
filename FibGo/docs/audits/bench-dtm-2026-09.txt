@@ -1,0 +1,27 @@
+# DTM off vs on — audit 2026-09 (T-09 / M-04)
+#
+# go test -bench='BenchmarkFibonacciDTM/{Off,On}' -benchmem -run='^$' -count=8 -benchtime=1x
+# Sub-benchmark name prefixes stripped so benchstat pairs the rows.
+# Host: Intel Core Ultra 9 275HX, windows/amd64, go1.27.0.
+
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+                    │    o.txt    │               n.txt               │
+                    │   sec/op    │   sec/op     vs base              │
+FibonacciDTM/1M-24    3.144m ± 5%   3.041m ± 5%       ~ (p=0.279 n=8)
+FibonacciDTM/10M-24   26.20m ± 3%   25.71m ± 5%       ~ (p=0.382 n=8)
+geomean               9.076m        8.841m       -2.59%
+
+                    │    o.txt     │               n.txt                │
+                    │     B/op     │     B/op      vs base              │
+FibonacciDTM/1M-24    2.106Mi ± 1%   2.108Mi ± 0%       ~ (p=0.700 n=8)
+FibonacciDTM/10M-24   28.56Mi ± 0%   28.56Mi ± 0%       ~ (p=1.000 n=8)
+geomean               7.756Mi        7.759Mi       +0.04%
+
+                    │    o.txt    │               n.txt                │
+                    │  allocs/op  │  allocs/op   vs base               │
+FibonacciDTM/1M-24     117.5 ± 3%    138.5 ± 3%  +17.87% (p=0.006 n=8)
+FibonacciDTM/10M-24   15.57k ± 0%   15.58k ± 0%        ~ (p=0.574 n=8)
+geomean               1.353k        1.469k        +8.61%

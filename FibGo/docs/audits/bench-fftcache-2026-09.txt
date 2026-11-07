@@ -1,0 +1,45 @@
+# Fibonacci benchmarks — audit 2026-09, T-10 (M-08 cache byte bound)
+#
+# ADR-0009 R4 protocol: A/B in the same session, -benchmem -benchtime=1s -count=8.
+# Host: Intel Core Ultra 9 275HX, windows/amd64, go1.27.0.
+#
+# A first attempt bounded the cache at 4x the size of F(n) and was REJECTED:
+#   MatrixExp/10M  +22.17% sec/op (p=0.000), +75.86% B/op, +137.08% allocs/op.
+# The single-run zero hit rate is real, but a REPEATED calculation of the same
+# n (TUI restart, calibration sweep, these benchmarks) replays identical
+# operands and does hit. The bound is now 48x, sized to hold one calculation's
+# transforms (20 entries of ~2x the operand measured at F(10M)).
+
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+                              │ before.txt │            after.txt            │
+                              │    sec/op     │   sec/op     vs base               │
+Fibonacci/FastDoubling/1M-24     3.243m ±  4%   3.170m ± 1%        ~ (p=0.065 n=8)
+Fibonacci/MatrixExp/1M-24        6.856m ± 10%   6.480m ± 5%   -5.48% (p=0.050 n=8)
+Fibonacci/FFTBased/1M-24         6.095m ±  3%   5.832m ± 6%   -4.30% (p=0.010 n=8)
+Fibonacci/FastDoubling/10M-24    30.72m ± 19%   25.70m ± 7%  -16.33% (p=0.007 n=8)
+Fibonacci/MatrixExp/10M-24       33.21m ±  2%   33.57m ± 9%        ~ (p=0.195 n=8)
+Fibonacci/FFTBased/10M-24        28.02m ±  4%   28.04m ± 3%        ~ (p=0.505 n=8)
+geomean                          12.53m         11.94m        -4.72%
+
+                              │ before.txt │            after.txt            │
+                              │     B/op      │     B/op      vs base              │
+Fibonacci/FastDoubling/1M-24     610.6Ki ± 5%   615.2Ki ± 5%       ~ (p=0.878 n=8)
+Fibonacci/MatrixExp/1M-24        3.640Mi ± 7%   3.572Mi ± 4%       ~ (p=0.442 n=8)
+Fibonacci/FFTBased/1M-24         2.648Mi ± 1%   2.623Mi ± 2%       ~ (p=0.234 n=8)
+Fibonacci/FastDoubling/10M-24    7.401Mi ± 5%   7.323Mi ± 5%       ~ (p=0.645 n=8)
+Fibonacci/MatrixExp/10M-24       55.79Mi ± 2%   56.39Mi ± 4%       ~ (p=0.721 n=8)
+Fibonacci/FFTBased/10M-24        19.80Mi ± 4%   19.49Mi ± 2%       ~ (p=0.574 n=8)
+geomean                          6.007Mi        5.971Mi       -0.60%
+
+                              │ before.txt │           after.txt            │
+                              │   allocs/op   │  allocs/op   vs base              │
+Fibonacci/FastDoubling/1M-24       75.00 ± 1%    75.00 ± 1%       ~ (p=0.546 n=8)
+Fibonacci/MatrixExp/1M-24          613.0 ± 2%    607.0 ± 1%       ~ (p=0.163 n=8)
+Fibonacci/FFTBased/1M-24          7.901k ± 0%   7.896k ± 0%  -0.05% (p=0.000 n=8)
+Fibonacci/FastDoubling/10M-24     15.36k ± 0%   15.36k ± 0%       ~ (p=0.244 n=8)
+Fibonacci/MatrixExp/10M-24        18.91k ± 0%   18.91k ± 0%       ~ (p=0.664 n=8)
+Fibonacci/FFTBased/10M-24         23.23k ± 0%   23.23k ± 0%       ~ (p=0.526 n=8)
+geomean                           3.672k        3.665k       -0.18%

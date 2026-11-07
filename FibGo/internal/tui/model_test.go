@@ -1,0 +1,1226 @@
+package tui
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"math/big"
+	"strings"
+	"testing"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/agbruneau/FibGo/internal/apperrors"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/metrics"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+	"github.com/agbruneau/FibGo/internal/progress"
+)
+
+// mockCalculator implements fibonacci.Calculator for testing.
+type mockCalculator struct {
+	name string
+}
+
+func (m mockCalculator) Calculate(_ context.Context, _ chan<- progress.ProgressUpdate, _ int, _ uint64, _ fibonacci.Options) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (m mockCalculator) Name() string { return m.name }
+
+// Verify interface compliance at compile time.
+var _ fibonacci.Calculator = mockCalculator{}
+
+func newTestModel(t *testing.T) Model {
+	t.Helper()
+	ctx := context.Background()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	m := NewModel(ctx, nil, cfg, "v0.1.0", nil)
+	t.Cleanup(m.cancel)
+	return m
+}
+
+// TestNewModel_KeepsLogger guards NewModel's logger parameter: taken but never
+// stored, it leaves --tui --log-level debug logging nothing (EVAL-10).
+func TestNewModel_KeepsLogger(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.DiscardHandler)
+	m := NewModel(context.Background(), nil, config.AppConfig{Timeout: time.Minute}, "v0.1.0", logger)
+	t.Cleanup(m.cancel)
+	if m.logger != logger {
+		t.Fatal("NewModel dropped its logger")
+	}
+}
+
+func newTestModelWithSize(t *testing.T, w, h int) Model {
+	t.Helper()
+	m := newTestModel(t)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
+	return updated.(Model)
+}
+
+func TestNewModel(t *testing.T) {
+	t.Parallel()
+	model := newTestModel(t)
+
+	if model.paused {
+		t.Error("expected model to not be paused initially")
+	}
+	if model.done {
+		t.Error("expected model to not be done initially")
+	}
+	if model.exitCode != apperrors.ExitSuccess {
+		t.Errorf("expected exit code %d, got %d", apperrors.ExitSuccess, model.exitCode)
+	}
+}
+
+func TestNewModel_WithCalculators(t *testing.T) {
+	t.Parallel()
+	calcs := []fibonacci.Calculator{
+		mockCalculator{name: "Fast Doubling"},
+		mockCalculator{name: "Matrix"},
+	}
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), calcs, cfg, "v1.0.0", nil)
+	defer model.cancel()
+
+	if len(model.calculators) != 2 {
+		t.Errorf("expected 2 calculators, got %d", len(model.calculators))
+	}
+}
+
+func TestModel_Update_WindowSize(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	updated, cmd := model.Update(msg)
+	m := updated.(Model)
+
+	if m.width != 120 {
+		t.Errorf("expected width 120, got %d", m.width)
+	}
+	if m.height != 40 {
+		t.Errorf("expected height 40, got %d", m.height)
+	}
+	if cmd != nil {
+		t.Error("expected no command from window size update")
+	}
+}
+
+func TestModel_Update_ProgressMsg(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	// Set size first so viewport is initialized
+	sized, _ := model.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m := sized.(Model)
+
+	msg := ProgressMsg{
+		CalculatorIndex: 0,
+		Value:           0.5,
+		AverageProgress: 0.5,
+		ETA:             30 * time.Second,
+	}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.chart.averageProgress == 0 {
+		t.Error("expected chart to have progress after progress update")
+	}
+}
+
+func TestModel_Update_ProgressMsg_Paused(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+	model.paused = true
+
+	msg := ProgressMsg{
+		CalculatorIndex: 0,
+		Value:           0.5,
+		AverageProgress: 0.5,
+		ETA:             30 * time.Second,
+	}
+	updated, _ := model.Update(msg)
+	result := updated.(Model)
+
+	if result.chart.averageProgress != 0 {
+		t.Error("expected chart to have no progress when paused")
+	}
+}
+
+func TestModel_Update_CalculationComplete(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	msg := CalculationCompleteMsg{ExitCode: 0}
+	updated, _ := model.Update(msg)
+	result := updated.(Model)
+
+	if !result.done {
+		t.Error("expected model to be done after calculation complete")
+	}
+	if result.exitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", result.exitCode)
+	}
+}
+
+func TestModel_Update_ErrorMsg(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	// Set size first
+	sized, _ := model.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m := sized.(Model)
+
+	msg := ErrorMsg{Err: context.DeadlineExceeded, Duration: time.Second}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if !result.done {
+		t.Error("expected model to be done after error")
+	}
+	if !result.footer.hasErr {
+		t.Error("expected footer to show error state")
+	}
+}
+
+func TestModel_View_Initializing(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	view := model.View()
+	if view != "Initializing..." {
+		t.Errorf("expected 'Initializing...' when no size set, got %q", view)
+	}
+}
+
+func TestModel_View_WithSize(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	sized, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m := sized.(Model)
+
+	view := m.View()
+	if view == "Initializing..." {
+		t.Error("expected rendered dashboard, got 'Initializing...'")
+	}
+	if view == "" {
+		t.Error("expected non-empty view")
+	}
+}
+
+func TestModel_HandleKey_Pause(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	model := NewModel(context.Background(), nil, cfg, "v0.1.0", nil)
+	defer model.cancel()
+
+	// Press space to pause
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeySpace})
+	m := updated.(Model)
+	if !m.paused {
+		t.Error("expected model to be paused after space key")
+	}
+
+	// Press space to resume
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	m = updated.(Model)
+	if m.paused {
+		t.Error("expected model to be unpaused after second space key")
+	}
+}
+
+func TestModel_HandleKey_Restart(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 80, 24)
+
+	// Add some chart data and log entries
+	m.chart.AddDataPoint(0.5, 10*time.Second)
+	m.logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: 0.5})
+	m.done = true
+	m.footer.SetDone(true)
+
+	initialGen := m.generation
+
+	// Press 'r' to restart
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	result := updated.(Model)
+
+	if result.chart.averageProgress != 0 {
+		t.Error("expected chart to be reset after restart")
+	}
+	if len(result.logs.entries) != 0 {
+		t.Error("expected logs to be cleared after restart")
+	}
+	if result.done {
+		t.Error("expected done to be false after restart")
+	}
+	if result.generation != initialGen+1 {
+		t.Errorf("expected generation %d, got %d", initialGen+1, result.generation)
+	}
+	if cmd == nil {
+		t.Error("expected commands to be returned for restarting calculation")
+	}
+}
+
+func TestModel_Update_ComparisonResultsMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	msg := ComparisonResultsMsg{
+		Results: []orchestration.CalculationResult{
+			{Name: "Fast", Duration: 100 * time.Millisecond},
+		},
+	}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from comparison results")
+	}
+	if len(result.logs.entries) == 0 {
+		t.Error("expected logs to have entries after comparison results")
+	}
+}
+
+func TestModel_Update_FinalResultMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	msg := FinalResultMsg{
+		Result: orchestration.CalculationResult{
+			Name:     "Fast",
+			Result:   big.NewInt(55),
+			Duration: 50 * time.Millisecond,
+		},
+		N:       10,
+		Verbose: true,
+	}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if cmd == nil {
+		t.Error("expected a command to compute indicators from final result")
+	}
+	if len(result.logs.entries) == 0 {
+		t.Error("expected logs to have entries after final result")
+	}
+
+	// Execute the command and verify it returns an IndicatorsMsg
+	indicatorsMsg := cmd()
+	if _, ok := indicatorsMsg.(IndicatorsMsg); !ok {
+		t.Errorf("expected IndicatorsMsg, got %T", indicatorsMsg)
+	}
+}
+
+func TestModel_Update_ContextCancelledMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := ContextCancelledMsg{Err: context.Canceled, Generation: m.generation}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if !result.done {
+		t.Error("expected model to be done after context canceled")
+	}
+	if cmd == nil {
+		t.Error("expected tea.Quit command from context canceled")
+	}
+}
+
+func TestModel_Update_ContextCancelledMsg_TimeoutExitCode(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := ContextCancelledMsg{Err: context.DeadlineExceeded, Generation: m.generation}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.exitCode != apperrors.ExitErrorTimeout {
+		t.Errorf("expected exit code %d for timeout, got %d", apperrors.ExitErrorTimeout, result.exitCode)
+	}
+}
+
+func TestModel_Update_ContextCancelledMsg_SIGINTExitCode(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := ContextCancelledMsg{Err: context.Canceled, Generation: m.generation}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.exitCode != apperrors.ExitErrorCanceled {
+		t.Errorf("expected exit code %d for SIGINT/canceled, got %d", apperrors.ExitErrorCanceled, result.exitCode)
+	}
+}
+
+func TestModel_Update_ContextCancelledMsg_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// Stale generation should be ignored
+	msg := ContextCancelledMsg{Err: context.Canceled, Generation: m.generation + 1}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if result.done {
+		t.Error("expected stale context canceled to be ignored")
+	}
+	if cmd != nil {
+		t.Error("expected no command from stale context canceled")
+	}
+}
+
+// TestModel_HandleReset_FreshTimeoutBudget pins APP-05: a restart must get a
+// full new timeout budget for its generation instead of inheriting a single
+// absolute deadline computed once at session start. parentCtx here mirrors
+// the real app.runTUI parent post-fix: signal-cancelable only, no deadline of
+// its own. The first generation's short Timeout is left to expire, then
+// handleReset must produce a context whose remaining budget is close to a
+// fresh cfg.Timeout again -- not already expired and not just the leftover
+// sliver a shared absolute deadline would have given it.
+func TestModel_HandleReset_FreshTimeoutBudget(t *testing.T) {
+	t.Parallel()
+
+	parentCtx, parentCancel := context.WithCancel(context.Background())
+	defer parentCancel()
+
+	cfg := config.AppConfig{N: 1000, Timeout: 20 * time.Millisecond}
+	m := NewModel(parentCtx, nil, cfg, "v0.1.0", nil)
+	t.Cleanup(m.cancel)
+
+	// Let the first generation's budget fully expire.
+	<-m.ctx.Done()
+	if !errors.Is(m.ctx.Err(), context.DeadlineExceeded) {
+		t.Fatalf("expected first generation to expire via deadline, got %v", m.ctx.Err())
+	}
+
+	before := time.Now()
+	updated, _ := m.handleReset()
+	result := updated.(Model)
+	t.Cleanup(result.cancel)
+
+	deadline, ok := result.ctx.Deadline()
+	if !ok {
+		t.Fatal("expected the restarted generation's context to carry a deadline")
+	}
+	// Stall-insensitive freshness proof (TEST-03): the fresh context is
+	// created inside handleReset, i.e. after `before`, so its deadline must
+	// sit at least a full Timeout past `before`. An inherited (already
+	// expired) deadline would sit in the past and fail this check, while a
+	// scheduler stall between handleReset and now cannot — unlike the
+	// previous time.Until(deadline) assertion (~10 ms flake window under
+	// load, observed 2026-07-10).
+	if got := deadline.Sub(before); got < cfg.Timeout {
+		t.Fatalf("expected a fresh >=%v budget measured from before the reset, got %v", cfg.Timeout, got)
+	}
+}
+
+func TestModel_Update_CalculationComplete_NonZeroExitCode(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := CalculationCompleteMsg{ExitCode: apperrors.ExitErrorMismatch}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.exitCode != apperrors.ExitErrorMismatch {
+		t.Errorf("expected exit code %d, got %d", apperrors.ExitErrorMismatch, result.exitCode)
+	}
+	if !result.footer.done {
+		t.Error("expected footer to show done state")
+	}
+}
+
+func TestModel_Update_MemStatsMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	msg := MemStatsMsg{
+		Alloc:        1024 * 1024 * 10,
+		NumGC:        5,
+		NumGoroutine: 12,
+	}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.metrics.alloc != msg.Alloc {
+		t.Errorf("expected alloc %d, got %d", msg.Alloc, result.metrics.alloc)
+	}
+}
+
+func TestModel_Update_TickMsg_NotPaused(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	updated, cmd := m.Update(TickMsg(time.Now()))
+	_ = updated
+
+	// When not paused, should return a batch of sampleMemStatsCmd + tickCmd
+	if cmd == nil {
+		t.Error("expected commands from tick when not paused")
+	}
+}
+
+func TestModel_Update_TickMsg_Paused(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.paused = true
+
+	updated, cmd := m.Update(TickMsg(time.Now()))
+	_ = updated
+
+	// When paused, should return only tickCmd (no mem stats sampling)
+	if cmd == nil {
+		t.Error("expected tick command even when paused")
+	}
+}
+
+func TestModel_Update_FinalResultMsg_NilResult(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	// A failed calculation carries no numeric value: the result must still be
+	// logged but no indicators command may be scheduled.
+	msg := FinalResultMsg{
+		Result: orchestration.CalculationResult{Name: "Fast", Duration: time.Millisecond},
+		N:      10,
+	}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no indicators command when result value is nil")
+	}
+	if len(result.logs.entries) == 0 {
+		t.Error("expected logs to record the final result even without a value")
+	}
+}
+
+func TestModel_Update_TickMsg_Done(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	m.done = true
+
+	_, cmd := m.Update(TickMsg(time.Now()))
+	if cmd != nil {
+		t.Error("expected the tick loop to stop once the model is done")
+	}
+}
+
+func TestModel_Update_CalculationComplete_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// A completion from a previous generation (pre-reset) must be dropped.
+	msg := CalculationCompleteMsg{ExitCode: apperrors.ExitErrorGeneric, Generation: m.generation + 1}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.done {
+		t.Error("expected stale completion message to be ignored")
+	}
+	if result.exitCode != apperrors.ExitSuccess {
+		t.Errorf("expected exit code to stay %d, got %d", apperrors.ExitSuccess, result.exitCode)
+	}
+}
+
+// TestModel_Update_ErrorMsg_StaleGeneration guards the headline symptom of the
+// missing data-message generation check: an ErrorMsg from a previous run still
+// in flight after Restart must NOT flip the fresh run into a done+error state.
+func TestModel_Update_ErrorMsg_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	msg := ErrorMsg{Err: context.DeadlineExceeded, Duration: time.Second, Generation: m.generation + 1}
+	updated, _ := m.Update(msg)
+	result := updated.(Model)
+
+	if result.done {
+		t.Error("stale ErrorMsg must not mark the fresh run done")
+	}
+	if result.footer.hasErr {
+		t.Error("stale ErrorMsg must not flip the footer to error state")
+	}
+}
+
+// TestModel_Update_StaleDataMessagesDropped covers the remaining data-bearing
+// messages (Progress/Comparison/FinalResult): a stale generation must leave the
+// logs untouched and yield no follow-up command.
+func TestModel_Update_StaleDataMessagesDropped(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+	stale := m.generation + 1
+	before := len(m.logs.entries)
+
+	progressed, _ := m.Update(ProgressMsg{CalculatorIndex: 0, Value: 0.5, AverageProgress: 0.5, Generation: stale})
+	if got := len(progressed.(Model).logs.entries); got != before {
+		t.Errorf("stale ProgressMsg changed log entries to %d, want unchanged %d", got, before)
+	}
+
+	compared, _ := m.Update(ComparisonResultsMsg{
+		Results:    []orchestration.CalculationResult{{Name: "Fast", Result: big.NewInt(55)}},
+		Generation: stale,
+	})
+	if got := len(compared.(Model).logs.entries); got != before {
+		t.Errorf("stale ComparisonResultsMsg changed log entries to %d, want unchanged %d", got, before)
+	}
+
+	finalized, cmd := m.Update(FinalResultMsg{
+		Result:     orchestration.CalculationResult{Name: "Fast", Result: big.NewInt(55), Duration: time.Millisecond},
+		N:          10,
+		Generation: stale,
+	})
+	if cmd != nil {
+		t.Error("stale FinalResultMsg must not return a follow-up command")
+	}
+	if got := len(finalized.(Model).logs.entries); got != before {
+		t.Errorf("stale FinalResultMsg changed log entries to %d, want unchanged %d", got, before)
+	}
+}
+
+func TestModel_Update_IndicatorsMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	ind := &metrics.Indicators{BitsPerSecond: 1234}
+	updated, cmd := m.Update(IndicatorsMsg{Indicators: ind, Generation: m.generation})
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from indicators update")
+	}
+	if result.metrics.indicators != ind {
+		t.Error("expected indicators to be stored on the metrics panel")
+	}
+}
+
+func TestModel_Update_IndicatorsMsg_StaleGeneration(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// Simulate a Reset: bump the generation, then a straggler IndicatorsMsg
+	// from the previous generation arrives.
+	m.generation++
+
+	ind := &metrics.Indicators{BitsPerSecond: 1234}
+	updated, cmd := m.Update(IndicatorsMsg{Indicators: ind, Generation: m.generation - 1})
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from stale indicators update")
+	}
+	if result.metrics.indicators == ind {
+		t.Error("expected stale-generation IndicatorsMsg to be ignored")
+	}
+}
+
+func TestTickCmd_DeliversTickMsg(t *testing.T) {
+	t.Parallel()
+	cmd := tickCmd()
+	if cmd == nil {
+		t.Fatal("expected non-nil command from tickCmd")
+	}
+	// Executing the command blocks for the 500ms tick interval, then must
+	// yield a TickMsg carrying the firing time.
+	msg := cmd()
+	tick, ok := msg.(TickMsg)
+	if !ok {
+		t.Fatalf("expected TickMsg, got %T", msg)
+	}
+	if time.Time(tick).IsZero() {
+		t.Error("expected tick message to carry a non-zero timestamp")
+	}
+}
+
+func TestModel_HandleKey_Quit_Q(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd == nil {
+		t.Error("expected tea.Quit command from 'q' key")
+	}
+}
+
+func TestModel_HandleKey_Quit_CtrlC(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd == nil {
+		t.Error("expected tea.Quit command from Ctrl+C")
+	}
+}
+
+func TestModel_HandleKey_ScrollKeys(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	// Add enough content to scroll
+	for i := 0; i < 50; i++ {
+		m.logs.AddProgressEntry(ProgressMsg{CalculatorIndex: 0, Value: float64(i) / 50})
+	}
+
+	keys := []tea.KeyMsg{
+		{Type: tea.KeyUp},
+		{Type: tea.KeyDown},
+		{Type: tea.KeyPgUp},
+		{Type: tea.KeyPgDown},
+		{Type: tea.KeyRunes, Runes: []rune{'k'}},
+		{Type: tea.KeyRunes, Runes: []rune{'j'}},
+	}
+	for _, k := range keys {
+		updated, cmd := m.Update(k)
+		m = updated.(Model)
+		if cmd != nil {
+			t.Errorf("expected no command from scroll key %v", k)
+		}
+	}
+}
+
+func TestModel_HandleKey_Unknown(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from unknown key")
+	}
+	if result.paused {
+		t.Error("unknown key should not change state")
+	}
+}
+
+func TestModel_Update_UnknownMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// Send an arbitrary message type
+	type unknownMsg struct{}
+	updated, cmd := m.Update(unknownMsg{})
+	_ = updated
+
+	if cmd != nil {
+		t.Error("expected no command from unknown message type")
+	}
+}
+
+func TestModel_LayoutPanels_VerySmallTerminal(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// Very small terminal — bodyHeight would be negative without the clamp
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 20, Height: 8})
+	result := updated.(Model)
+
+	// Should not panic and should render something
+	view := result.View()
+	if view == "" {
+		t.Error("expected non-empty view for small terminal")
+	}
+}
+
+func TestModel_LayoutPanels_MinBodyHeight(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+
+	// Height = 6 means bodyHeight = 0 -> clamped to 4
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 6})
+	result := updated.(Model)
+
+	view := result.View()
+	if view == "Initializing..." {
+		t.Error("expected rendered dashboard, not initializing")
+	}
+}
+
+func TestModel_HandleKey_Restart_ClearsMetrics(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 80, 24)
+
+	// Set some metrics
+	m.metrics.lastUpdate = time.Now().Add(-time.Second)
+	m.metrics.UpdateProgress(0.5)
+
+	if m.metrics.speed == 0 {
+		t.Fatal("precondition: metrics speed should be non-zero")
+	}
+
+	// Restart
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	result := updated.(Model)
+
+	if result.metrics.speed != 0 {
+		t.Error("expected metrics speed to be reset to 0")
+	}
+}
+
+func TestModel_Init_ReturnsCommands(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t)
+	cmd := m.Init()
+	if cmd == nil {
+		t.Error("expected Init to return a non-nil command batch")
+	}
+}
+
+func TestSampleMemStatsCmd_ReturnsMemStatsMsg(t *testing.T) {
+	t.Parallel()
+	cmd := sampleMemStatsCmd()
+	if cmd == nil {
+		t.Fatal("expected non-nil command from sampleMemStatsCmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(MemStatsMsg); !ok {
+		t.Errorf("expected MemStatsMsg, got %T", msg)
+	}
+}
+
+func TestWatchContextCmd_SendsOnCancel(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := watchContextCmd(ctx, 0)
+	if cmd == nil {
+		t.Fatal("expected non-nil command from watchContextCmd")
+	}
+
+	done := make(chan tea.Msg, 1)
+	go func() {
+		done <- cmd()
+	}()
+
+	cancel()
+
+	select {
+	case msg := <-done:
+		if _, ok := msg.(ContextCancelledMsg); !ok {
+			t.Errorf("expected ContextCancelledMsg, got %T", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ContextCancelledMsg")
+	}
+}
+
+func TestWatchContextCmd_AlreadyCancelled(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before creating cmd
+
+	cmd := watchContextCmd(ctx, 0)
+	msg := cmd()
+	if _, ok := msg.(ContextCancelledMsg); !ok {
+		t.Errorf("expected ContextCancelledMsg, got %T", msg)
+	}
+}
+
+func TestModel_layoutPanels_Percentages(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 100, 40)
+
+	// Logs should get 60% of width
+	expectedLogsWidth := 100 * 60 / 100
+	if m.logs.width != expectedLogsWidth {
+		t.Errorf("expected logs width %d, got %d", expectedLogsWidth, m.logs.width)
+	}
+
+	// Right column gets the rest
+	expectedRightWidth := 100 - expectedLogsWidth
+	if m.metrics.width != expectedRightWidth {
+		t.Errorf("expected metrics width %d, got %d", expectedRightWidth, m.metrics.width)
+	}
+	if m.chart.width != expectedRightWidth {
+		t.Errorf("expected chart width %d, got %d", expectedRightWidth, m.chart.width)
+	}
+}
+
+func TestModel_layoutPanels_MinimumSizes(t *testing.T) {
+	t.Parallel()
+	// Very small terminal: bodyHeight would be negative, clamped to minBodyHeight
+	m := newTestModelWithSize(t, 20, 4)
+
+	// bodyHeight = 4 - 3 - 3 = -2, clamped to 4
+	expectedBodyHeight := minBodyHeight
+	// Logs height should equal bodyHeight
+	if m.logs.height != expectedBodyHeight {
+		t.Errorf("expected logs height %d, got %d", expectedBodyHeight, m.logs.height)
+	}
+}
+
+func TestModel_metricsHeight_ConsistentWithLayout(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 100, 40)
+
+	// metricsHeight() should match the value assigned during layoutPanels
+	if m.metricsHeight() != m.metrics.height {
+		t.Errorf("metricsHeight()=%d differs from metrics.height=%d", m.metricsHeight(), m.metrics.height)
+	}
+}
+
+func TestModel_View_ContainsAllComponents(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 40)
+
+	view := m.View()
+	if view == "" {
+		t.Fatal("expected non-empty view")
+	}
+	// The view should contain the FibGo title from header
+	if !strings.Contains(view, "FibGo") {
+		t.Error("expected view to contain 'FibGo' from header")
+	}
+	// The view should contain Heap from the metrics panel
+	if !strings.Contains(view, "Heap") {
+		t.Error("expected view to contain 'Heap' from metrics panel")
+	}
+	// The view should contain Progress Chart from the chart panel
+	if !strings.Contains(view, "Progress Chart") {
+		t.Error("expected view to contain 'Progress Chart' from chart panel")
+	}
+}
+
+func TestModel_Update_VeryWideTerminal(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 500, 40)
+
+	// Should not panic
+	view := m.View()
+	if view == "" {
+		t.Error("expected non-empty view for wide terminal")
+	}
+}
+
+func TestModel_metricsHeight_SmallTerminal(t *testing.T) {
+	t.Parallel()
+	// When height is very small, bodyHeight clamps to minBodyHeight (4). In
+	// side-by-side mode the right-column height equals bodyHeight, and
+	// metricsHeight() caps the panel at avail/2 = minBodyHeight/2.
+	m := newTestModelWithSize(t, 80, 4)
+	mh := m.metricsHeight()
+	expected := minBodyHeight / 2
+	if mh != expected {
+		t.Errorf("expected metricsHeight=%d for small terminal, got %d", expected, mh)
+	}
+}
+
+func TestTickCmd_ReturnsCmd(t *testing.T) {
+	t.Parallel()
+	cmd := tickCmd()
+	if cmd == nil {
+		t.Error("expected non-nil command from tickCmd")
+	}
+}
+
+func TestStartCalculationCmd_ReturnsCompleteMsg(t *testing.T) {
+	t.Parallel()
+	ref := &programRef{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	calcs := []fibonacci.Calculator{mockCalculator{name: "Fast"}}
+	cfg := config.AppConfig{N: 10, Timeout: 10 * time.Second}
+	cmd := startCalculationCmd(ctx, ref, calcs, cfg, 0, nil)
+	if cmd == nil {
+		t.Fatal("expected non-nil command from startCalculationCmd")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(CalculationCompleteMsg); !ok {
+		t.Errorf("expected CalculationCompleteMsg, got %T", msg)
+	}
+}
+
+func TestModel_Update_SysStatsMsg(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 80, 24)
+
+	msg := SysStatsMsg{CPUPercent: 25.5, MemPercent: 60.0}
+	updated, cmd := m.Update(msg)
+	result := updated.(Model)
+
+	if cmd != nil {
+		t.Error("expected no command from SysStatsMsg")
+	}
+	if result.chart.cpuHistory.Len() != 1 {
+		t.Errorf("expected 1 cpu sample, got %d", result.chart.cpuHistory.Len())
+	}
+	if result.chart.memHistory.Len() != 1 {
+		t.Errorf("expected 1 mem sample, got %d", result.chart.memHistory.Len())
+	}
+	if result.chart.cpuHistory.Last() != 25.5 {
+		t.Errorf("expected cpu 25.5, got %f", result.chart.cpuHistory.Last())
+	}
+}
+
+func TestSampleSysStatsCmd_ReturnsSysStatsMsg(t *testing.T) {
+	t.Parallel()
+	cmd := sampleSysStatsCmd()
+	if cmd == nil {
+		t.Fatal("expected non-nil command from sampleSysStatsCmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(SysStatsMsg); !ok {
+		t.Errorf("expected SysStatsMsg, got %T", msg)
+	}
+}
+
+func TestModel_HandleKey_Restart_ClearsSysStats(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 80, 24)
+
+	m.chart.UpdateSysStats(50.0, 70.0)
+	m.chart.UpdateSysStats(55.0, 72.0)
+
+	if m.chart.cpuHistory.Len() != 2 {
+		t.Fatal("precondition: expected 2 cpu samples")
+	}
+
+	// Press 'r' to restart
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	result := updated.(Model)
+
+	if result.chart.cpuHistory.Len() != 0 {
+		t.Error("expected cpuHistory to be cleared after restart")
+	}
+	if result.chart.memHistory.Len() != 0 {
+		t.Error("expected memHistory to be cleared after restart")
+	}
+}
+
+func TestModel_HandleKey_Quit_CancelsContext(t *testing.T) {
+	t.Parallel()
+	cfg := config.AppConfig{N: 1000, Timeout: time.Minute}
+	m := NewModel(context.Background(), nil, cfg, "v1.0.0", nil)
+
+	calcCtx := m.ctx
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	// Child context should be canceled after quit
+	select {
+	case <-calcCtx.Done():
+		// Good — context was canceled
+	default:
+		t.Error("expected context to be canceled after quit")
+	}
+}
+
+// --- R4.10: adaptive layout for narrow / short terminals ---
+
+// TestModel_AdaptiveLayout_Narrow verifies that a 60x18 terminal switches to
+// the single-column layout (logs full width, metrics + chart stacked below)
+// without producing zero-sized panels or an empty view.
+func TestModel_AdaptiveLayout_Narrow(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 60, 18)
+
+	if !m.isNarrow() {
+		t.Fatalf("expected isNarrow()=true for width=60 (threshold=%d)", minNormalWidth)
+	}
+	if !m.isShort() {
+		t.Fatalf("expected isShort()=true for height=18 (threshold=%d)", minNormalHeight)
+	}
+
+	// Logs panel must take the full terminal width in single-column mode.
+	if m.logs.width != 60 {
+		t.Errorf("expected logs width 60 (full width), got %d", m.logs.width)
+	}
+	// Metrics + chart must also span the full width.
+	if m.metrics.width != 60 {
+		t.Errorf("expected metrics width 60, got %d", m.metrics.width)
+	}
+	if m.chart.width != 60 {
+		t.Errorf("expected chart width 60, got %d", m.chart.width)
+	}
+
+	// Compact metrics: metricsHeight is bounded by the right column's space
+	// but must remain strictly positive (no division by zero downstream).
+	if m.metrics.height <= 0 {
+		t.Errorf("expected metrics height > 0, got %d", m.metrics.height)
+	}
+	if m.chart.height <= 0 {
+		t.Errorf("expected chart height > 0, got %d", m.chart.height)
+	}
+	if m.logs.height <= 0 {
+		t.Errorf("expected logs height > 0, got %d", m.logs.height)
+	}
+
+	// The compact mode must shrink the metrics base height.
+	if m.baseMetricsHeight() != compactMetricsHeight {
+		t.Errorf("expected baseMetricsHeight()=%d, got %d", compactMetricsHeight, m.baseMetricsHeight())
+	}
+
+	// The full body partition must fit inside the available body height
+	// (no overlapping panels in the stacked layout).
+	if m.logsHeight()+m.rightColumnHeight() > m.bodyHeight() {
+		t.Errorf("logs+right=%d exceeds bodyHeight=%d", m.logsHeight()+m.rightColumnHeight(), m.bodyHeight())
+	}
+
+	// View() must produce a non-empty rendering.
+	view := m.View()
+	if view == "Initializing..." {
+		t.Fatal("expected rendered view, got 'Initializing...'")
+	}
+	if !strings.Contains(view, "FibGo") {
+		t.Error("expected narrow view to contain header 'FibGo'")
+	}
+	if !strings.Contains(view, "Heap") {
+		t.Error("expected narrow view to contain 'Heap' from metrics panel")
+	}
+}
+
+// TestModel_AdaptiveLayout_NormalUnchanged confirms that terminals at or
+// above the thresholds keep the side-by-side layout with the historical
+// 60/40 split.
+func TestModel_AdaptiveLayout_NormalUnchanged(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 80, 24)
+
+	if m.isNarrow() {
+		t.Errorf("expected isNarrow()=false for width=80")
+	}
+	if m.isShort() {
+		t.Errorf("expected isShort()=false for height=24")
+	}
+	if m.baseMetricsHeight() != MetricsPanelHeight {
+		t.Errorf("expected baseMetricsHeight()=%d at normal size, got %d", MetricsPanelHeight, m.baseMetricsHeight())
+	}
+	if m.logs.width != 80*LogsPanelWidthPercent/100 {
+		t.Errorf("expected logs width %d at normal size, got %d", 80*LogsPanelWidthPercent/100, m.logs.width)
+	}
+	if m.metrics.width != 80-(80*LogsPanelWidthPercent/100) {
+		t.Errorf("expected metrics width %d at normal size, got %d", 80-(80*LogsPanelWidthPercent/100), m.metrics.width)
+	}
+}
+
+// TestModel_AdaptiveLayout_ShortOnly verifies the compact-metrics branch
+// when only the height threshold is crossed.
+func TestModel_AdaptiveLayout_ShortOnly(t *testing.T) {
+	t.Parallel()
+	m := newTestModelWithSize(t, 120, 18)
+
+	if m.isNarrow() {
+		t.Errorf("expected isNarrow()=false for width=120")
+	}
+	if !m.isShort() {
+		t.Errorf("expected isShort()=true for height=18")
+	}
+	if m.baseMetricsHeight() != compactMetricsHeight {
+		t.Errorf("expected compact metrics base height %d, got %d", compactMetricsHeight, m.baseMetricsHeight())
+	}
+	// Side-by-side layout preserved.
+	if m.logs.width != 120*LogsPanelWidthPercent/100 {
+		t.Errorf("expected side-by-side logs width %d, got %d", 120*LogsPanelWidthPercent/100, m.logs.width)
+	}
+	if m.metrics.height <= 0 || m.chart.height <= 0 {
+		t.Errorf("expected positive panel heights, got metrics=%d chart=%d", m.metrics.height, m.chart.height)
+	}
+	view := m.View()
+	if view == "" {
+		t.Error("expected non-empty view for short terminal")
+	}
+}
+
+// TestLayoutManager_NoNegativeDimensions exercises a sweep of pathological
+// sizes (including 0x0 and 1x1) to make sure no calculation returns a
+// negative or zero dimension that would crash downstream renderers.
+func TestLayoutManager_NoNegativeDimensions(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ w, h int }{
+		{0, 0},
+		{1, 1},
+		{40, 10},
+		{60, 18},
+		{79, 19},
+		{80, 20},
+		{120, 40},
+		{500, 200},
+	}
+	for _, c := range cases {
+		l := LayoutManager{width: c.w, height: c.h}
+		if l.bodyHeight() < minBodyHeight {
+			t.Errorf("[%dx%d] bodyHeight=%d < min=%d", c.w, c.h, l.bodyHeight(), minBodyHeight)
+		}
+		if l.logsWidth() < 0 {
+			t.Errorf("[%dx%d] logsWidth=%d", c.w, c.h, l.logsWidth())
+		}
+		if l.rightWidth() < 0 {
+			t.Errorf("[%dx%d] rightWidth=%d", c.w, c.h, l.rightWidth())
+		}
+		if l.metricsHeight() < 1 {
+			t.Errorf("[%dx%d] metricsHeight=%d < 1", c.w, c.h, l.metricsHeight())
+		}
+		if l.chartHeight() < 1 {
+			t.Errorf("[%dx%d] chartHeight=%d < 1", c.w, c.h, l.chartHeight())
+		}
+		if l.logsHeight() < 1 {
+			t.Errorf("[%dx%d] logsHeight=%d < 1", c.w, c.h, l.logsHeight())
+		}
+	}
+}
+
+// TestModel_ContextCancelledAfterDone_KeepsExitCode pins audit H-01: once a run
+// has finished, a cancellation of the (still-armed) run context must not
+// rewrite the recorded exit code. watchContextCmd stays blocked on ctx.Done()
+// after completion and the --timeout keeps running, so before the fix a
+// dashboard left open past the timeout exited 2, and pressing q after
+// completion could exit 130, both on a successful calculation.
+func TestModel_ContextCancelledAfterDone_KeepsExitCode(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"deadline exceeded", context.DeadlineExceeded},
+		{"canceled", context.Canceled},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			m := newTestModel(t)
+
+			done, _ := m.Update(CalculationCompleteMsg{
+				ExitCode:   apperrors.ExitSuccess,
+				Generation: m.generation,
+			})
+			finished := done.(Model)
+			if !finished.done {
+				t.Fatal("precondition: model must be done after CalculationCompleteMsg")
+			}
+
+			updated, cmd := finished.Update(ContextCancelledMsg{
+				Err:        tc.err,
+				Generation: finished.generation,
+			})
+			result := updated.(Model)
+
+			if result.exitCode != apperrors.ExitSuccess {
+				t.Errorf("exit code must survive a post-completion cancellation: got %d, want %d",
+					result.exitCode, apperrors.ExitSuccess)
+			}
+			if cmd != nil {
+				t.Error("a post-completion cancellation must not ask bubbletea to quit")
+			}
+		})
+	}
+}

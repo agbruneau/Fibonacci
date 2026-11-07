@@ -1,0 +1,42 @@
+# Build context filter (audit STR-02 / SEC-02).
+#
+# Without this file `COPY . .` shipped the whole working tree into the builder
+# stage: the git history, every Markdown document, the coverage profile and the
+# agent scratch directories. None of it is compiled, all of it invalidates the
+# layer cache on every edit, and anything that lands in the context can end up
+# in an image layer.
+#
+# Note the consequence for versioning: .git is excluded, so `git describe`
+# cannot run inside the build. Version, commit and build date are passed in as
+# build arguments instead — see the Dockerfile header.
+
+# Version control and CI metadata
+.git
+.gitignore
+.gitattributes
+.github
+
+# Build outputs and generated profiles
+build/
+coverage.out
+coverage.html
+*.prof
+*.test
+*.exe
+
+# Documentation and audit trail (not compiled)
+docs/
+*.md
+# LICENSE and NOTICE stay in the context: the image ships them (EVAL-01).
+
+# Local tooling and agent state
+.claude/
+.devcontainer/
+.vscode/
+.idea/
+.env
+.understand-anything/
+
+# Container definitions themselves
+Dockerfile
+.dockerignore

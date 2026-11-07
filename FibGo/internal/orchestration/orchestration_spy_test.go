@@ -1,0 +1,57 @@
+package orchestration
+
+import (
+	"context"
+	"io"
+	"math/big"
+	"testing"
+
+	"github.com/agbruneau/FibGo/internal/fibonacci"
+	"github.com/agbruneau/FibGo/internal/progress"
+)
+
+// TestExecuteCalculationsRespectsStrassenConfig verifies that the orchestration layer
+// correctly passes the StrassenThreshold from the AppConfig to the calculator Options.
+// This proves that setting the global default in main.go is redundant and safe to remove.
+func TestExecuteCalculationsRespectsStrassenConfig(t *testing.T) {
+	t.Parallel()
+	// 1. Ensure global default is NOT what we are testing for.
+	// Default is 256. We'll verify that we can pass a different value (e.g. 1000)
+	// and it is used.
+	// Since we can't inspect the internal execution, we rely on the fact that
+	// ExecuteCalculations creates Options.
+
+	// We can create a SpyCalculator that implements fibonacci.Calculator interface.
+
+	spy := &SpyCalculator{}
+	calculators := []fibonacci.Calculator{spy}
+
+	opts := fibonacci.Options{
+		StrassenThreshold: 12345, // Unique value to verify
+	}
+
+	ExecuteCalculations(context.Background(), ExecutionConfig{
+		Calculators:      calculators,
+		N:                10,
+		Opts:             opts,
+		ProgressReporter: NullProgressReporter{},
+		Out:              io.Discard,
+	})
+
+	if spy.capturedOpts.StrassenThreshold != 12345 {
+		t.Errorf("ExecuteCalculations failed to pass StrassenThreshold. Expected 12345, got %d", spy.capturedOpts.StrassenThreshold)
+	}
+}
+
+type SpyCalculator struct {
+	capturedOpts fibonacci.Options
+}
+
+func (s *SpyCalculator) Calculate(ctx context.Context, progressChan chan<- progress.ProgressUpdate, calcIndex int, n uint64, opts fibonacci.Options) (*big.Int, error) {
+	s.capturedOpts = opts
+	return big.NewInt(55), nil // F(10)
+}
+
+func (s *SpyCalculator) Name() string {
+	return "Spy"
+}

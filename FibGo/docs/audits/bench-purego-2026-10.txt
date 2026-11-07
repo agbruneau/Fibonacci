@@ -1,0 +1,63 @@
+# go:linkname (default build) vs -tags purego — internal/bigfft vector kernels
+# go version go1.27.0 windows/amd64
+# host: Windows 11, Intel(R) Core(TM) Ultra 9 275HX, 24 threads
+# commit: 5c4d765 plus uncommitted changes outside internal/bigfft and internal/fibonacci's hot path
+# date: 2026-10-10
+# command, six rounds, the two builds interleaved within each round:
+#   go test [-tags purego] -run '^$' -bench 'BenchmarkFibonacci/(FastDoubling|FFT)/10M' -benchmem -count=1 ./internal/fibonacci
+# replay: benchstat -col build docs/audits/bench-purego-2026-10.txt
+#
+# Result: FFTBased/10M, the path that spends most in bigfft, shows no difference
+# (p=0.937). FastDoubling/10M is +27.55% under purego (p=0.041) but its linkname
+# arm spreads ±39%, so the gap is not established either way. Nothing here
+# shows purego to be free, so the linkname path stays the default (ADR-0014 D2).
+build: linkname
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FastDoubling/10M-24         	      51	  22818876 ns/op	 7447315 B/op	   15349 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      43	  33260981 ns/op	20114642 B/op	   23210 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FastDoubling/10M-24         	      52	  22531240 ns/op	 7706891 B/op	   15360 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      43	  30184442 ns/op	20849471 B/op	   23209 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FastDoubling/10M-24         	      51	  22390420 ns/op	 7669780 B/op	   15365 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      44	  30457620 ns/op	20814882 B/op	   23215 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FastDoubling/10M-24         	      51	  22716290 ns/op	 7550534 B/op	   15367 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      48	  33688144 ns/op	21268786 B/op	   23213 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FFTBased/10M-24         	      45	  26040584 ns/op	20918917 B/op	   23213 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24     	      42	  31541457 ns/op	 7764503 B/op	   15358 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkFibonacci/FastDoubling/10M-24         	      52	  23126994 ns/op	 7498871 B/op	   15357 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      43	  34254891 ns/op	20961885 B/op	   23207 allocs/op
+build: purego
+BenchmarkFibonacci/FFTBased/10M-24         	      39	  31125933 ns/op	19375157 B/op	   23207 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24     	      42	  30943329 ns/op	 7848650 B/op	   15357 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24         	      39	  30071408 ns/op	20974234 B/op	   23208 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24     	      43	  31880807 ns/op	 7552414 B/op	   15359 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24         	      44	  26356564 ns/op	 7625266 B/op	   15358 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      37	  34795122 ns/op	21071952 B/op	   23219 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24         	      32	  31683653 ns/op	20620411 B/op	   23217 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24     	      40	  27377142 ns/op	 7781361 B/op	   15361 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24         	      46	  26007283 ns/op	 7584337 B/op	   15373 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24             	      37	  33365624 ns/op	19733944 B/op	   23208 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24         	      39	  30340372 ns/op	20066871 B/op	   23227 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24     	      43	  30703040 ns/op	 7753148 B/op	   15361 allocs/op

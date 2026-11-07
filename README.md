@@ -7,18 +7,12 @@ Deux laboratoires d'expérimentation qui prennent un problème volontairement si
 | **FibCalc** | [`FibGo/`](FibGo/) | [agbruneau/FiboGo](https://github.com/agbruneau/FiboGo) | Calculateur haute performance en Go : Fast Doubling, matrices Strassen-Winograd, multiplication FFT, parallélisme adaptatif, PGO, interface TUI. |
 | **Fib** | [`FibPolyglotte/`](FibPolyglotte/) | [agbruneau/FiboPolyGlotte](https://github.com/agbruneau/FiboPolyGlotte) | Une même CLI écrite quatre fois (Go, Rust, TypeScript, Python) sous un contrat commun vérifié à l'octet près. |
 
-Chaque dossier est un submodule git qui pointe vers son dépôt d'origine. Son README détaille l'installation, l'utilisation, les mesures et l'état vérifié.
+Les deux projets sont intégrés ici en totalité, dans l'état de leur dépôt d'origine (FiboGo@6b51364, FiboPolyGlotte@18877d5); leur historique de commits reste dans ces dépôts. Le README de chaque dossier détaille l'installation, l'utilisation, les mesures et l'état vérifié.
 
 ## Cloner
 
 ```bash
-git clone --recurse-submodules https://github.com/agbruneau/Fibonacci.git
-```
-
-Dans un clone fait sans `--recurse-submodules` :
-
-```bash
-git submodule update --init
+git clone https://github.com/agbruneau/Fibonacci.git
 ```
 
 ## FibCalc (`FibGo/`)
@@ -60,14 +54,8 @@ Voir [`FibPolyglotte/README.md`](FibPolyglotte/README.md), le [PRD](FibPolyglott
 ```
 Fibonacci/
 ├── README.md
-├── .gitmodules
-├── FibGo/           submodule → agbruneau/FiboGo
-└── FibPolyglotte/   submodule → agbruneau/FiboPolyGlotte
+├── FibGo/           FibCalc, issu de agbruneau/FiboGo
+└── FibPolyglotte/   Fib, issu de agbruneau/FiboPolyGlotte
 ```
 
-Le travail sur un projet se fait dans son dossier et se pousse vers son dépôt d'origine. Pour faire pointer ce dépôt sur la dernière version des deux :
-
-```bash
-git submodule update --remote
-git commit -am "chore: mettre à jour les submodules"
-```
+Chaque projet garde ses propres fichiers de configuration (`.gitignore`, `.gitattributes`, `go.mod`, `package.json`…) dans son dossier; les commandes se lancent depuis ce dossier.

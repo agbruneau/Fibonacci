@@ -1,0 +1,30 @@
+{
+  "name": "fibcalc",
+  "image": "mcr.microsoft.com/devcontainers/go:1.26-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode"
+    }
+  },
+  "//": "No `go install ...@latest` here (audit PRO-02): a binary installed once goes stale against the toolchain and fails silently, which is what happened to golangci-lint, govulncheck, gosec and staticcheck. Every tool is pinned in scripts/tools.env and invoked with `go run <pkg>@<version>` by the gates and the Makefile. libgmp-dev is still installed so check.sh step 3b (-tags gmp) actually runs here.",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends libgmp-dev build-essential",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "github.vscode-github-actions"
+      ],
+      "settings": {
+        "go.toolsManagement.autoUpdate": false,
+        "go.testEnvVars": {
+          "CGO_ENABLED": "1"
+        }
+      }
+    }
+  },
+  "containerEnv": {
+    "CGO_ENABLED": "1",
+    "GOFLAGS": "-trimpath"
+  },
+  "remoteUser": "vscode"
+}

@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: baseline-2026-07-07
+BenchmarkFibonacci/FastDoubling/1M-24         	       1	   4501888 ns/op	10574536 B/op	     192 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24         	       1	   3461529 ns/op	 1345336 B/op	     115 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24         	       1	   3148853 ns/op	 1322528 B/op	     109 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24         	       1	   3069782 ns/op	 1313552 B/op	     109 allocs/op
+BenchmarkFibonacci/FastDoubling/1M-24         	       1	   3112757 ns/op	 1323824 B/op	     109 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	       1	   5781043 ns/op	 6331816 B/op	     744 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	       1	   6026386 ns/op	 6356096 B/op	     738 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	       1	   6599425 ns/op	 6399744 B/op	     724 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	       1	   5367404 ns/op	 6320328 B/op	     721 allocs/op
+BenchmarkFibonacci/MatrixExp/1M-24            	       1	   6238563 ns/op	 6323944 B/op	     729 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	       1	   5134173 ns/op	 5380024 B/op	    8014 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	       1	   5362148 ns/op	 5374864 B/op	    8002 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	       1	   5217294 ns/op	 5385384 B/op	    8018 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	       1	   4964385 ns/op	 5379136 B/op	    8008 allocs/op
+BenchmarkFibonacci/FFTBased/1M-24             	       1	   4922054 ns/op	 5379624 B/op	    8009 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	       1	  33259957 ns/op	30076080 B/op	   15724 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	       1	  25071828 ns/op	17337608 B/op	   15537 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	       1	  23383633 ns/op	17381856 B/op	   15586 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	       1	  21820657 ns/op	17266480 B/op	   15506 allocs/op
+BenchmarkFibonacci/FastDoubling/10M-24        	       1	  23869417 ns/op	17378640 B/op	   15557 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	       1	  60570821 ns/op	151153712 B/op	   46039 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	       1	  36036681 ns/op	92459240 B/op	   19318 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	       1	  30033072 ns/op	92199696 B/op	   19005 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	       1	  30839752 ns/op	90199544 B/op	   19166 allocs/op
+BenchmarkFibonacci/MatrixExp/10M-24           	       1	  30371438 ns/op	92248304 B/op	   19262 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	       1	  30951589 ns/op	30872936 B/op	   23421 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	       1	  29075999 ns/op	30881800 B/op	   23418 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	       1	  30480984 ns/op	30857704 B/op	   23413 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	       1	  27724666 ns/op	30875224 B/op	   23437 allocs/op
+BenchmarkFibonacci/FFTBased/10M-24            	       1	  25976652 ns/op	30927184 B/op	   23435 allocs/op

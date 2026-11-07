@@ -1,0 +1,57 @@
+package config
+
+import (
+	"flag"
+	"fmt"
+
+	"github.com/agbruneau/FibGo/internal/ui"
+)
+
+// setCustomUsage configures the flag set with a colored usage function.
+func setCustomUsage(fs *flag.FlagSet) {
+	fs.Usage = func() {
+		// Respect NO_COLOR even before app initialization
+		t := ui.GetCurrentTheme()
+		if ui.NoColorRequested() {
+			t = ui.NoColorTheme
+		}
+		// ui.InitTheme runs in app.Run, i.e. after parsing, so --machine and
+		// -q had no effect on the help text and `fibcalc --machine --help`
+		// emitted ANSI escapes into a stream the caller asked to keep clean
+		// (audit L-05). fs.Visit only reports flags already parsed, which is
+		// the case here: Parse handles them in order and reaches -h last.
+		if isFlagSet(fs, "machine", "quiet", "q") {
+			t = ui.NoColorTheme
+		}
+
+		out := fs.Output()
+
+		// Header
+		fmt.Fprintf(out, "\n%sFibonacci Calculator%s\n", t.Bold, t.Reset)
+		fmt.Fprintf(out, "High-performance modular Fibonacci calculator.\n\n")
+		fmt.Fprintf(out, "%sUsage:%s\n  %s [flags]\n\n%sFlags:%s\n", t.Warning, t.Reset, fs.Name(), t.Warning, t.Reset)
+
+		fs.VisitAll(func(f *flag.Flag) {
+			name, usage := flag.UnquoteUsage(f)
+			flagSig := fmt.Sprintf("-%s", f.Name)
+			if name != "" {
+				flagSig += " " + name
+			}
+
+			// Print formatted flag
+			fmt.Fprintf(out, "  %s%-25s%s %s", t.Primary, flagSig, t.Reset, usage)
+
+			// Print default value if meaningful
+			if f.DefValue != "" && f.DefValue != "0" && f.DefValue != "false" {
+				fmt.Fprintf(out, " %s(default %s)%s", t.Secondary, f.DefValue, t.Reset)
+			}
+			fmt.Fprintln(out)
+		})
+
+		// Flags handled outside the FlagSet (HasVersionFlag, flag.ErrHelp)
+		// would otherwise be invisible in the help (ERR-06).
+		fmt.Fprintf(out, "  %s%-25s%s %s\n", t.Primary, "-version, -V", t.Reset, "Print version information and exit.")
+		fmt.Fprintf(out, "  %s%-25s%s %s\n", t.Primary, "-h, --help", t.Reset, "Show this help and exit.")
+		fmt.Fprintln(out)
+	}
+}

@@ -1,0 +1,707 @@
+# Calibration System
+
+## Overview
+
+The calibration system (`internal/calibration/`) determines optimal performance thresholds for the current hardware. Rather than relying on hard-coded constants, it benchmarks the system at runtime and selects the threshold values that yield the fastest execution for the active CPU, architecture, and core count.
+
+It is the only threshold-selection layer. A second one, the Dynamic
+Threshold Manager, adjusted the thresholds mid-calculation from per-iteration
+timings; measured neutral (`docs/audits/bench-dtm-2026-09.txt`), it was removed
+on 2026-09-23 ([ADR-0013](adr/0013-evaluation-2026-09-decisions.md) D1,
+superseding [ADR-0001](adr/0001-dtm-decision.md)).
+
+Three operational modes are supported:
+
+| Mode | Flag | Latency | Description |
+|------|------|---------|-------------|
+| Full calibration | `--calibrate` | Seconds to minutes | Exhaustive threshold sweep with real Fibonacci calculations |
+| Auto-calibration | `--auto-calibrate` | Instant to seconds | 3-tier fallback: cached profile, micro-benchmarks, full runner |
+| Cached profile | `--calibration-profile` | Instant | Loads a previously saved JSON profile. The load itself is unconditional — `app.New` calls `LoadCachedCalibration` on every run; the flag only selects *which* file (default `~/.fibcalc_calibration.json`) |
+
+## Quick Start
+
+```bash
+# Run full calibration (saves profile to ~/.fibcalc_calibration.json by default)
+fibcalc --calibrate
+
+# Full calibration saving to a custom profile path
+fibcalc --calibrate --calibration-profile /path/to/profile.json
+
+# Quick startup calibration with automatic fallback
+fibcalc --auto-calibrate
+
+# Use a specific profile file
+fibcalc --calibration-profile /path/to/profile.json
+```
+
+After calibration completes, the optimal thresholds are applied to all subsequent calculations in the same invocation. The profile is saved to disk so future runs can skip benchmarking entirely.
+
+## Calibrated Thresholds
+
+The calibration system tunes three thresholds that control algorithm and concurrency dispatch in the `fibonacci.Options` struct:
+
+| Threshold | Default | Unit | Description |
+|-----------|---------|------|-------------|
+| `ParallelThreshold` | 4096 | bits | Goroutine parallelism activation point for multiplication steps |
+| `FFTThreshold` | 500,000 | bits | Crossover point from standard math/big to FFT multiplication |
+| `StrassenThreshold` | 3072 | bits | Activation point for Strassen matrix multiplication |
+
+These values interact with the 2-tier adaptive multiplication system described in [PERFORMANCE.md](PERFORMANCE.md) — for *which* calculator reads `FFTThreshold` where, and from which `n` the FFT actually runs, see [algorithms/FFT.md § FFT Routing](algorithms/FFT.md#fft-routing):
+
+```go
+opts := fibonacci.Options{
+    ParallelThreshold:  4096,
+    FFTThreshold:       500_000,
+    StrassenThreshold:  3072,
+}
+```
+
+When operand bit sizes exceed a threshold, the corresponding optimization is activated. Setting a threshold to `0` means "use the package default" — `normalizeOptions()` rewrites `0` to `DefaultParallelThreshold`/`DefaultFFTThreshold`/`DefaultStrassenThreshold`. The genuine sequential value is `-1`, `config.ThresholdDisabled` (FIB-02), accepted by `config.Validate` for the parallel and FFT thresholds since the 2026-09 audit (H-02) but not for Strassen, whose consumer compares `maxBitLen <= threshold` and would therefore read a negative value as "always Strassen". Higher values delay activation to larger operand sizes.
+
+### Where the Defaults Come From
+
+None of the three defaults was measured. Git history does not explain them:
+they arrived with the initial import (`5bfc50e`). For each one, this section
+states the argument that places it, labelled as an argument. That is a cost
+model or, for the FFT, an exponent count in the manner of the GMP manual's
+"FFT Multiplication" chapter. Each argument is then set against what was
+measured: the upstream calibrations the code inherits, and one short run on one
+host (see [Measurement](#measurement) for what it can and cannot support).
+The `math/big` facts refer to Go 1.27, `$GOROOT/src/math/big/natmul.go`.
+
+**Parallel: 4096 bits.**
+`shouldParallelizeMultiplicationCached` compares the larger doubling operand
+with `ParallelThreshold`. Above it, `executeParallel3` runs F(k)·F(k+1),
+F(k+1)² and F(k)² on three goroutines. The matrix path applies the same gate to
+its 7 or 8 products; that path was not measured here.
+
+- *Argument.* Let T be the sequential time of the three operations and D the
+  cost of dispatching them. The parallel time is about T/3 + D, so parallelism
+  wins once T > 1.5·D. At 4096 bits (64 words), the product gets one Karatsuba
+  level (`karatsubaThreshold = 40` words) and the two squares get schoolbook
+  squaring: `big.Int.Mul(x, x)` routes to `sqr`, and 64 words lies between
+  `basicSqrThreshold = 12` and `karatsubaSqrThreshold = 80`. The two inputs of
+  the model were timed on the host: D ≈ 1.6 µs (parallel time at 512 bits,
+  where the operations take 0.1 µs), and T = 1.0 µs at 2048 bits, 3.6 µs at
+  4096 bits. The model therefore puts the crossover between 2048 and 4096
+  bits, where the default sits.
+- *Measurement.* The model's one assumption fails: D is not constant. At 4096
+  bits the parallel step takes 6.1 µs, although its longest operation, the
+  product, takes 1.4 µs. That is about 4.7 µs of dispatch, three times the
+  512-bit figure. The run does not show why. As a result, parallel loses 1.7×
+  at 4096 bits and 1.3× at 8192. The two are tied at 16,384 bits, and parallel
+  wins 2.1× at 65,536, against a ceiling of 3× for three operations. On this
+  host, the argument gets the decade of the default right, and the crossover is
+  4 to 16 times higher.
+
+**FFT: 500,000 bits.**
+`smartMultiply` sends a product to `internal/bigfft` when both operands exceed
+`FFTThreshold`. `smartSquare` does the same for a square whose operand exceeds
+it. Below the threshold, `math/big` runs schoolbook multiplication under 40
+words and Karatsuba, O(n^log2 3), above; it has no Toom-3. `bigfft` multiplies
+modulo 2^N+1, splitting the operands into 2^k pieces. `fftSize` picks k from
+`fftSizeThreshold` according to bits(x)+bits(y). `fermat.Mul` hands each
+pointwise product back to `math/big`, so the FFT never recurses into itself.
+
+- *Argument.* For a full product, an FFT with 2^k pieces does 2^k pointwise
+  products. Each one is about 1/2^(k−2) of the operand size: pieces of
+  m ≈ (len x + len y)/2^k words, and coefficients of about 2m words
+  (`valueSize`). If the pointwise products used the same method, the cost
+  would grow as N^(k/(k−2)). That gives 1.667 for k = 5, 1.5 for k = 6, 1.4
+  for k = 7 and 1.333 for k = 8. The first FFT under Karatsuba's 1.585 is
+  k = 6. The count leaves out the transforms' shifts and additions, which is
+  why practice lands higher.
+- *Observed.* `bigfft` has its own threshold, `defaultFFTThresholdWords =
+  1800` words (115,200 bits). Its comment credits this to an upstream
+  `TestCalibrate` run ("110kbits on 64-bit arches"); that test is not in this
+  repo. At that size `fftSize` picks k = 8: 256 pointwise products of 31-word
+  coefficients. That is two steps past the argument, the same gap the GMP
+  manual reports against Toom-3, where k = 7 is predicted and k = 8 found. The
+  host run agrees with the upstream figure: `math/big` wins at 1000 words and
+  `bigfft` at 1800 words, for products and squares, on 1 thread and on 24.
+- *The default.* 500,000 bits (7813 words) is 4.3× the `bigfft` threshold.
+  There, `fftSize` picks k = 9, with 512 pieces and 64-word coefficients.
+  Neither the argument nor the measurement singles this size out. At 8000
+  words (512,000 bits), `bigfft` is 2.4× faster for products and 2.3× for
+  squares on 24 threads, and 3.0× and 2.8× on 1 thread. The default is a
+  safety margin, not a crossover, and no reason for its size survives. One
+  effect was not measured: `executeDoublingStepFFT` reuses forward transforms
+  across the three operations. By inference, that should favour the FFT
+  further.
+
+**Strassen: 3072 bits.**
+`multiplyMatrices` compares the largest entry with `StrassenThreshold`. Only
+the res×p step reaches it; squaring goes through `squareSymmetricMatrix`. The
+classic path does 8 products and 4 additions on product-sized values.
+Strassen-Winograd does 7 products and 15 additions or subtractions: S1–S8 on
+entries, and 7 on products.
+
+- *Argument.* Strassen's exponent, log2 7 ≈ 2.807, does not apply. With one
+  level on a 2×2 matrix, the method saves exactly one product in eight, so the
+  gain is capped at 12.5%. Winograd wins once one entry-sized product M(s)
+  costs more than the extra linear work, 8·A(s) + 3·A(2s), where A is one
+  `big.Int` addition. With `big.Int` timings from the host, the comparison
+  runs as follows. At 512 bits, M = 35 ns against 68 ns of extra additions.
+  At 1024 bits, M = 130 ns against 85 ns. The crossover therefore lies
+  between 512 and 1024 bits. At 3072 bits, M = 773 ns, 3.8 times the 204 ns
+  of extra additions.
+- *Measurement.* It agrees with the argument, not with the default. Classic
+  is 1.65× faster at 256 bits and 1.12× at 512. From 1024 to 16,384 bits,
+  3072 included, Winograd is 9–13% faster, close to the 12.5% cap. At 3072
+  bits the argument predicts a saving of 0.57 µs, and 0.66 µs was measured.
+  The default has no derivation. It sits 3 to 6 times above the crossover, so
+  every res×p step whose entries fall between about 1024 and 3072 bits pays
+  roughly 10% more than it would with Winograd.
+
+These estimators matter more than the constants for the CLI. Without a cached
+profile, `internal/app/app.go` calls `config.ApplyAdaptiveThresholds` before
+`normalizeOptions` runs, so a CLI run gets the estimates. The constants mainly
+reach library callers. The no-benchmark estimators in
+`internal/config/thresholds.go` go against these measurements on a many-core
+host.
+`EstimateOptimalParallelThreshold` returns 512 bits above 16 CPUs; at that size
+parallel measured 15 times slower. `EstimateOptimalStrassenThreshold` returns
+224 to 256 bits with 4 or more CPUs; classic measured 1.65 times faster at 256.
+`EstimateOptimalFFTThreshold` returns 460,000 to 500,000 bits. This is one host,
+so the mismatch is reported here, not corrected.
+
+#### Measurement
+
+The run took place on 2026-09-23: an Intel Core Ultra 9 275HX (24 cores, 24
+threads) under Windows 11, with `go1.27.0 windows/amd64` and `GOMAXPROCS=24`
+unless noted otherwise. The benchmarks were written for this evaluation and
+kept out of the repo: `go test -overlay` injects them without adding a
+source file.
+
+- *Parallel.* The three `big.Int.Mul` calls of a doubling step, first in
+  sequence, then through `executeParallel3`. Operands are random at the given
+  size and destinations are reused. Run with `-bench Eval08Parallel
+  -benchtime=200ms -count=3` on `./internal/fibonacci/`.
+- *Strassen.* `multiplyMatrix2x2` against `multiplyMatrixStrassen`, sequential
+  (at 3072 bits `ParallelThreshold` keeps the step sequential anyway), on
+  random entries. Run with `-bench Eval08Strassen -benchtime=300ms -count=8`.
+- *FFT.* `big.Int.Mul` against `bigfft.MulTo`/`SqrTo` with `SetFFTThreshold(0)`.
+  Run with `-bench Eval08FFT -benchtime=200ms -count=3` on `./internal/bigfft/`,
+  once as is and once with `-cpu=1`. On 24 threads the `bigfft` transform
+  recursion is itself parallel (`fft_recursion.go`: k ≥ 4, depth ≤ 3), as in
+  production.
+- *Model inputs.* `big.Int.Mul` and `big.Int.Add` in a scratch module, run with
+  `-benchtime=200ms -count=3`.
+
+| Threshold | Size | Default side | Other side | Faster |
+|-----------|------|--------------|------------|--------|
+| Parallel (seq / par) | 512 bits | 0.11 µs | 1.6 µs | seq 15× |
+| | 2048 bits | 1.0 µs | 3.9 µs | seq 3.9× |
+| | 4096 bits | 3.6 µs | 6.1 µs | seq 1.7× |
+| | 8192 bits | 10.3 µs | 13.1 µs | seq 1.3× |
+| | 16,384 bits | 33 µs | 36 µs | tie (runs overlap) |
+| | 65,536 bits | 488 µs | 237 µs | par 2.1× |
+| Strassen (classic / Winograd) | 256 bits | 0.33 µs | 0.54 µs | classic 1.65× |
+| | 512 bits | 0.72 µs | 0.81 µs | classic 1.12× |
+| | 1024 bits | 1.16 µs | 1.06 µs | Winograd 1.10× |
+| | 3072 bits | 6.38 µs | 5.72 µs | Winograd 1.12× |
+| | 16,384 bits | 98.2 µs | 88.2 µs | Winograd 1.11× |
+| FFT product (math/big / bigfft; 1 thread in parentheses) | 1000 words | 131 (112) µs | 286 (193) µs | math/big 2.2× (1.7×) |
+| | 1800 words | 472 (313) µs | 377 (249) µs | bigfft 1.25× (1.26×) |
+| | 8000 words | 4726 (3470) µs | 1942 (1166) µs | bigfft 2.4× (3.0×) |
+| FFT square | 1000 words | 91 (81) µs | 269 (172) µs | math/big 3.0× (2.1×) |
+| | 1800 words | 355 (315) µs | 316 (186) µs | bigfft 1.12× (1.69×) |
+| | 8000 words | 3709 (2380) µs | 1638 (863) µs | bigfft 2.3× (2.8×) |
+
+The figures are medians of 3 runs (8 for Strassen), from one session, without
+`benchstat` and without a pinned CPU frequency. Where runs overlap, as for
+parallel at 16,384 bits, the run cannot rank the alternatives; where they do
+not, it can. The figures place the defaults relative to the crossovers on one
+host. They are not portable values; calibration measures those.
+
+## Calibration Modes
+
+### Full Calibration
+
+Entry point: `RunCalibration()` in `internal/calibration/calibration.go`.
+
+Full calibration runs a real Fibonacci calculation (N=10,000,000, defined by `calibration.CalibrationN`) with the "fast" algorithm for every candidate threshold value. It measures wall-clock time for each run and selects the fastest.
+
+The process:
+
+1. `GenerateParallelThresholds()` produces a CPU-adaptive candidate list (see Adaptive Threshold Generation below).
+2. For each candidate, the "fast" calculator runs `Calculate()` with that threshold.
+3. Execution times are recorded in a `calibrationResult` slice.
+4. The threshold that produced the shortest duration is selected.
+5. FFT and Strassen thresholds are estimated via heuristics (`EstimateOptimalFFTThreshold()`, `EstimateOptimalStrassenThreshold()`).
+6. Results are printed as a formatted table and the profile is saved to the path given by `--calibration-profile` (default: `~/.fibcalc_calibration.json`).
+
+```
+--- Calibration Summary ---
+  Threshold      | Execution Time
+  ──────────────┼─────────────────────────
+  Sequential     | 3.842s
+  512 bits       | 2.651s
+  1024 bits      | 2.412s
+  2048 bits      | 2.318s (Optimal)
+  4096 bits      | 2.445s
+```
+
+### Auto-Calibration
+
+Entry point: `AutoCalibrateWithProfile()` in `internal/calibration/calibration.go`.
+
+Auto-calibration uses a 3-tier fallback strategy to minimize startup latency while still finding reasonable threshold values:
+
+```mermaid
+flowchart TD
+    A["fibcalc --auto-calibrate"] --> B{"LoadOrCreateProfile<br/>and IsValid?"}
+    B -- "no / missing" --> F["FastStrategy<br/>RunQuick micro-benchmarks<br/>~125 ms, budget 400 ms"]
+    B -- yes --> C{"IsStale maxAge?<br/>FIBCALC_PROFILE_MAX_AGE"}
+    C -- yes --> G["CompleteStrategy<br/>calibrationRunner.findBest x3"]
+    C -- no --> D{"3 thresholds in range?<br/>SEC-01 re-validation"}
+    D -- no --> F
+    D -- yes --> E["TIER 1 - apply cached thresholds<br/>no benchmark run"]
+    F --> H{"Confidence ≥ 0.5?<br/>EscalationConfidenceThreshold"}
+    H -- yes --> I["TIER 2 - accept, save profile"]
+    H -- no --> G
+    G --> J["TIER 3 - save profile"]
+```
+
+**Tier 1 -- Cached profile (instant)**
+
+`LoadOrCreateProfile()` attempts to load a saved profile from disk. The cached thresholds are
+applied immediately — no benchmarks executed — only when three conditions hold together
+(`internal/calibration/calibration.go:AutoCalibrateWithProfile`): the profile exists and
+`IsValid()` returns true; it is **not stale** (`IsStale(maxAge)`, see `FIBCALC_PROFILE_MAX_AGE`);
+and its three `Optimal*Threshold` values are all in range (SEC-01 re-validation, because
+`IsValid()` checks hardware only and never threshold ranges) — `>= config.ThresholdDisabled`
+for the parallel and FFT thresholds, `>= 0` for Strassen, mirroring `config.Validate` exactly. A stale profile goes straight to
+`CompleteStrategy`; out-of-range thresholds log `"Cached calibration profile has invalid
+thresholds, re-calibrating"` and fall through to the escalation chain.
+
+`IsValid()` checks **five** conditions, all of which must hold (`internal/calibration/profile.go:CalibrationProfile.IsValid`):
+
+1. `ProfileVersion == CurrentProfileVersion` (4 since the 2026-09 audit; the bump invalidates profiles written by the old FFT-crossover search, see M-01 below)
+2. `NumCPU == runtime.NumCPU()`
+3. `GOARCH == runtime.GOARCH`
+4. `WordSize` matches the host's (32 or 64)
+5. `CPUHeuristicKey == config.CurrentHardwareHeuristicKey()` — the `GOARCH`-plus-SIMD-class tag, e.g. `amd64-avx2`
+
+**Tier 2 -- Quick micro-benchmarks (~125ms, budget 400ms)**
+
+If no valid cached profile exists, `NewMicroBenchmark().RunQuick()` from `microbench.go` runs rapid multiplication tests. If the resulting confidence score is >= 0.5, the thresholds are accepted and a profile is saved for future use.
+
+Since the 2026-09 audit the score starts at **zero** and is earned as
+`stability x decisiveness`; it used to start at 0.5, which equalled the
+acceptance bar, so this tier was never escalated. See "Reliability of the quick
+pass" at the end of this document.
+
+**Tier 3 -- Full calibration runner**
+
+If micro-benchmarks produce low confidence, `newCalibrationRunner()` executes targeted threshold searches:
+- `findBest()` over `GenerateQuickParallelThresholds()` with the "fast" calculator
+- `findBest()` over `GenerateFFTThresholds()` with the "fast" calculator (using the parallel winner)
+- `findBest()` over `GenerateQuickStrassenThresholds()` with the "matrix" calculator (if available)
+
+Each method iterates over its candidate set (`GenerateQuickParallelThresholds()`, `GenerateFFTThresholds()`, `GenerateQuickStrassenThresholds()`). The profile is saved after successful calibration.
+
+> **Architecture note:** the calibration flow is structured around the **Strategy pattern** — `CalibrationStrategy` (`strategy.go`) with concrete `FastStrategy` (`strategy_fast.go`, micro-benchmark tier) and `CompleteStrategy` (`strategy_complete.go`, full runner tier). `calibration.go` selects/escalates strategies, including the stale-profile branch (`IsStale` → `CompleteStrategy`). The `calibrationRunner` described under "Calibration Runner" is the execution helper invoked by `CompleteStrategy`, not a directly-called entry point.
+
+### Cached Profile Loading
+
+Entry point: `LoadCachedCalibration()` in `internal/calibration/calibration.go`.
+
+This is the simplest mode. It loads an existing profile, validates it against the current hardware, and applies the thresholds to `config.AppConfig`. No benchmarks are executed. If the profile is missing or invalid, the function returns `false` and the caller falls back to default thresholds.
+
+## Micro-Benchmarking Engine
+
+File: `internal/calibration/microbench.go`
+
+The micro-benchmarking engine provides rapid threshold estimation by testing raw multiplication performance rather than full Fibonacci calculations.
+
+### Configuration
+
+```go
+const MicroBenchIterations = 7 // raised from 3 by audit M-01; no per-test timeout constant
+
+// MicroBenchTimeout caps the whole quick suite; a caller wanting another
+// budget sets MicroBenchmark.Timeout on its own instance.
+const MicroBenchTimeout = 400 * time.Millisecond // was 150ms before audit M-01
+
+var microBenchTestSizes = [...]int{500, 2000, 8000, 16000} // word counts; MicroBenchTestSizes() returns a copy
+```
+
+The test sizes are chosen to span the critical algorithm crossover ranges:
+
+| Word Count | Approximate Bit Size | Region |
+|------------|---------------------|--------|
+| 500 | ~32K bits | Standard math/big territory |
+| 2,000 | ~128K bits | Near parallel threshold |
+| 8,000 | ~512K bits | Near FFT threshold |
+| 16,000 | ~1M bits | FFT territory |
+
+### Test Matrix
+
+`runTests` (`internal/calibration/microbench.go:runTests`) enqueues **at most
+two** configurations per word size and runs them **one at a time**:
+
+- the `math/big` baseline, for every size;
+- the FFT arm, **only when the size exceeds `bigfft.FFTThresholdWords()`**
+  (1 800 words by default — `internal/bigfft/fft.go:defaultFFTThresholdWords`).
+
+With the default `MicroBenchTestSizes` that is **7 runs**, not 16:
+
+| Word size | `math/big` arm | FFT arm | Note |
+|---|---|---|---|
+| 500 | yes | no | below `FFTThresholdWords`: `bigfft.Mul` would take the same `math/big` path, so timing the two against each other would report jitter as a crossover |
+| 2 000 | yes | yes | first size past the 1 800-word threshold |
+| 8 000 | yes | yes | |
+| 16 000 | yes | yes | |
+
+Both properties are audit M-01. Before it, every size was enqueued in four
+variants (sequential / "parallel" × standard / FFT) — 16 runs — launched
+concurrently under a `runtime.NumCPU()` semaphore while `bigfft.Mul`
+parallelises its own recursion, so the timings measured contention between the
+benchmark's own goroutines rather than the cost of a multiplication.
+
+The `parallel` flag survives on `runSingleTest`'s signature but is now inert on
+both sides: `runTests` always passes `false`, and `runSingleTest` opens with
+`_ = parallel` and never branches on it (P1-07 keeps the knob to record the
+intent for future work). The measurable consequence is that
+`findParallelCrossover` has no `parallel` row to compare against and returns 0
+on every host — see [Analysis](#analysis).
+
+Each run generates deterministic `big.Int` operands via `generateTestNumber()`,
+performs one warm-up multiplication, then times `MicroBenchIterations` (7)
+iterations and reports their mean plus the fastest/slowest bracket that the
+confidence score is built from.
+
+### Analysis
+
+After all tests complete, the engine analyzes results:
+
+- `findFFTCrossover()` returns `(bitSize, decisiveness)`. Per word size it
+  computes the speedup `avg(standard) / avg(FFT)`, keeping only sizes that have
+  both arms. A size qualifies when that ratio clears
+  `minRatio = 1 / fftCrossoverMargin = 1 / 0.9 ≈ 1.11×` **and every larger
+  measured size clears it too** — the scan runs from the largest size downward
+  and stops at the first loser, so the answer is a monotone suffix, not merely
+  the smallest winner (audit M-01: taking the smallest winner let the boundary
+  size at 2 000 words move the persisted threshold by 4× between two
+  consecutive start-ups). The reported value is
+  `winningWordSize × bits.UintSize × 9 / 10` — the 10 % margin. It returns
+  `(0, 0)` when nothing qualifies; the conservative default
+  (`FFTThreshold: 500000`) is owned by `analyzeResults()`, not by this function
+  (FIB-03: a fallback is not a measurement).
+
+- `findParallelCrossover()` measures nothing today. It compares rows flagged
+  `parallel` against sequential rows among the non-FFT results, but no row is
+  ever flagged parallel (see [Test Matrix](#test-matrix)), so its `parCount` is
+  always 0 and it returns 0 on every host — as it also does early on
+  single-core systems. `analyzeResults` discards the value
+  (`_ = mb.findParallelCrossover(bySize)`) and keeps the conservative
+  `ParallelThreshold: 4096` default.
+
+### Confidence Scoring
+
+The `ThresholdResults` struct carries a confidence score in [0.0, 1.0]. Since
+audit M-01 it starts at **zero** and has to be earned:
+
+```
+Confidence = timingStability(results) × decisiveness      (then capped at 1.0)
+```
+
+- **`timingStability`** — for each successful run, the ratio
+  `slowest / fastest` over its 7 iterations; the **worst** ratio in the batch
+  decides, because a crossover is a comparison and one unstable arm invalidates
+  it. Score = `clamp(2 − worst, 0, 1)`: 1.0 when every iteration took the same
+  time, 0.0 as soon as one run's slowest iteration is twice its fastest. The
+  full min/max bracket rather than a median is deliberate — a wrongly
+  *accepted* result is written to disk and replayed at every subsequent
+  start-up, while a wrongly *rejected* one costs a single slower sweep.
+- **`decisiveness`** — how far past the acceptance margin the deciding size
+  sits: 0 at `minRatio ≈ 1.11×`, ramping linearly to 1 at
+  `decisiveSpeedup = 2.0×` (`decisivenessOf`).
+- The score stays at **0** when no FFT crossover qualifies, when every run
+  errored, and when the suite collected nothing (timeout).
+- There is **no** parallel-crossover bonus, because there is no parallel
+  measurement to reward (see [Analysis](#analysis)).
+
+`FastStrategy`'s result is kept only when
+`Confidence >= EscalationConfidenceThreshold` (**0.5**,
+`internal/calibration/strategy.go`); below it, `AutoCalibrateWithProfile`
+escalates to `CompleteStrategy`. The pre-M-01 formula — a flat 0.5 base plus
+0.2 for having found any crossover — made that test unreachable, since the base
+alone equalled the bar.
+
+## Calibration Profile
+
+File: `internal/calibration/profile.go`
+
+### Structure
+
+```go
+type CalibrationProfile struct {
+    CPUModel                  string    `json:"cpu_model"`
+    NumCPU                    int       `json:"num_cpu"`
+    GOARCH                    string    `json:"goarch"`
+    GOOS                      string    `json:"goos"`
+    GoVersion                 string    `json:"go_version"`
+    WordSize                  int       `json:"word_size"`
+    CPUHeuristicKey           string    `json:"cpu_heuristic_key"`
+
+    OptimalParallelThreshold  int       `json:"optimal_parallel_threshold"`
+    OptimalFFTThreshold       int       `json:"optimal_fft_threshold"`
+    OptimalStrassenThreshold  int       `json:"optimal_strassen_threshold"`
+
+    CalibratedAt              time.Time `json:"calibrated_at"`
+    CalibrationN              uint64    `json:"calibration_n"`
+    CalibrationTime           string    `json:"calibration_time"`
+    Confidence                float64   `json:"confidence"` // 0.0–1.0 calibration reliability
+    ProfileVersion            int       `json:"profile_version"`
+}
+```
+
+`NewProfile()` populates the hardware fields from `runtime`, sets `CPUHeuristicKey` from `config.CurrentHardwareHeuristicKey()` (the SIMD-class / arch tag that drives the default thresholds), and sets `ProfileVersion` to `CurrentProfileVersion` (currently **4**, bumped by audit M-01 so profiles written by the old FFT-crossover search are re-measured rather than replayed).
+
+### Validation
+
+`IsValid()` checks the following fields against the running system:
+
+| Field | Comparison |
+|-------|-----------|
+| `ProfileVersion` | Must equal `CurrentProfileVersion` |
+| `NumCPU` | Must equal `runtime.NumCPU()` |
+| `GOARCH` | Must equal `runtime.GOARCH` |
+| `WordSize` | Must equal system word size (32 or 64) |
+| `CPUHeuristicKey` | Must equal `config.CurrentHardwareHeuristicKey()` (ex. `amd64-avx2`, `amd64-generic`) |
+
+If any field differs, the profile is invalid and a fresh calibration is triggered. **v2**-format profiles (without `cpu_heuristic_key`) and **v3** profiles (written by the pre-M-01 crossover search) are no longer accepted after the version bumps.
+
+**Migration:** delete or rename `~/.fibcalc_calibration.json` when upgrading from an earlier binary, or re-run `--calibrate` / `--auto-calibrate` to regenerate a v4 profile.
+
+`IsStale(maxAge time.Duration)` provides time-based invalidation. A profile older than `maxAge` is considered stale. This can be used to trigger periodic re-calibration.
+
+### Persistence
+
+File: `internal/calibration/profile.go` (save/load methods) and `internal/calibration/io.go` (output formatting).
+
+- `SaveProfile(path)`: Serializes to JSON with `json.MarshalIndent` and writes with `0600` permissions. If `path` is empty, uses the default path.
+- `loadProfile(path)`: Reads and deserializes. Returns an error if the file is missing or malformed.
+- `LoadOrCreateProfile(path)`: Loads an existing valid profile, or returns `NewProfile(), false`. That fallback profile is **not empty** — `NewProfile()` populates nine fields from the running host (`CPUModel`, `NumCPU`, `GOARCH`, `GOOS`, `GoVersion`, `WordSize`, `CPUHeuristicKey`, `CalibratedAt`, `ProfileVersion` — `internal/calibration/profile.go:NewProfile`). Only the three `Optimal*Threshold` values and `Confidence` are left at zero.
+- `GetDefaultProfilePath()`: Returns `~/.fibcalc_calibration.json` (falls back to the current directory if `$HOME` is unavailable).
+
+Example profile on disk. `json.MarshalIndent` emits keys in struct-declaration order, so a
+real file always has exactly this key sequence — `cpu_heuristic_key` sits with the hardware
+block (before the thresholds), and `confidence` is always present:
+
+```json
+{
+  "cpu_model": "amd64-12-cores",
+  "num_cpu": 12,
+  "goarch": "amd64",
+  "goos": "linux",
+  "go_version": "go1.26.0",
+  "word_size": 64,
+  "cpu_heuristic_key": "amd64-avx2",
+  "optimal_parallel_threshold": 2048,
+  "optimal_fft_threshold": 500000,
+  "optimal_strassen_threshold": 256,
+  "calibrated_at": "2025-03-15T10:30:00Z",
+  "calibration_n": 10000000,
+  "calibration_time": "45.2s",
+  "confidence": 1,
+  "profile_version": 4
+}
+```
+
+`calibration_time` is populated only on the `--calibrate` path
+(`persistCalibrationProfile`). On the `--auto-calibrate` path the persisted profile is rebuilt
+by `saveCalibrationProfile`, which copies the thresholds, `CalibrationN` and `Confidence` but
+not `CalibrationTime` — so an auto-calibrated file carries `"calibration_time": ""`.
+
+## Adaptive Threshold Generation
+
+File: `internal/calibration/adaptive.go`
+
+The **benchmark-free estimates** (`EstimateOptimal*`, used when the thresholds are left at 0 and no valid profile loads) live in `internal/config/thresholds.go`. They read the core count and, on **amd64/386**, the **AVX2 / AVX-512** capabilities detected through `golang.org/x/sys/cpu` (`internal/config/hardware.go`). See also [PERFORMANCE.md](PERFORMANCE.md#hardware-heuristic-defaults).
+
+### Parallel Threshold Candidates
+
+`GenerateParallelThresholds()` produces a CPU-adaptive candidate list:
+
+The baseline element is `-1` (`config.ThresholdDisabled`, the genuine sequential
+value), not `0` — `0` would be rewritten to the package default by
+`normalizeOptions()` and the no-parallelism run would never be measured
+(FIB-02). When that baseline wins, `-1` is what gets written to the profile;
+`config.Validate` accepts it since the 2026-09 audit (H-02), so the profile
+survives the next start instead of being discarded without a message and
+replaced by a plain default.
+
+| Core Count | Candidates |
+|-----------|------------|
+| 1 | `[-1]` |
+| 2-4 | `[-1, 512, 1024, 2048, 4096]` |
+| 5-8 | `[-1, 256, 512, 1024, 2048, 4096, 8192]` |
+| 9-16 | `[-1, 256, 512, 1024, 2048, 4096, 8192, 16384]` |
+| 17+ | `[-1, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]` |
+
+`GenerateQuickParallelThresholds()` returns a reduced set for auto-calibration (Tier 3 fallback):
+
+| Core Count | Candidates |
+|-----------|------------|
+| 1 | `[-1]` |
+| 2-4 | `[-1, 2048, 4096]` |
+| 5-8 | `[-1, 2048, 4096, 8192]` |
+| 9+ | `[-1, 2048, 4096, 8192, 16384]` |
+
+### FFT and Strassen Candidates
+
+- `GenerateFFTThresholds()` (exported, `adaptive.go:GenerateFFTThresholds`): `[-1]` plus 200 000 → 1 000 000 in steps of 50 000 — 18 candidates. **This is the list the full runner actually sweeps** (`strategy_complete.go`, FFT sweep).
+- `GenerateQuickStrassenThresholds()` (`adaptive.go:GenerateQuickStrassenThresholds`): `[192, 256, 384, 512]` — used by the Strassen sweep in `strategy_complete.go`.
+
+### Heuristic Estimation (No Benchmarks)
+
+When benchmarks cannot run (e.g., timeout or missing calculator), heuristic functions provide reasonable defaults:
+
+**`EstimateOptimalParallelThreshold()`**:
+
+| Core Count | Estimated Threshold |
+|-----------|-------------------|
+| 1 | 0 |
+| 2 | 8192 |
+| 3-4 | 4096 |
+| 5-8 | 2048 |
+| 9-16 | 1024 |
+| 17+ | 512 |
+
+> A returned `0` does **not** disable parallelism by itself: `normalizeOptions`
+> (`internal/fibonacci/options.go`) rewrites a zero `ParallelThreshold` to
+> `DefaultParallelThreshold` (4096). What actually disables parallelism on a
+> single-core host is the `runtime.GOMAXPROCS(0) > 1` gate in
+> `internal/fibonacci/fastdoubling.go`.
+
+> **SIMD adjustment** — on hosts with 8+ cores and a table value above 512,
+> `estimateParallelThresholdForHeuristic()` (`internal/config/thresholds.go`)
+> lowers the estimate for higher SIMD throughput: `max(512, base - 512)` with
+> AVX-512, `max(512, base - 256)` with AVX2.
+
+**`EstimateOptimalFFTThreshold()`**: on 64-bit systems, 500,000 bits (generic), 480,000 (AVX2) or 460,000 (AVX-512); 250,000 bits on 32-bit systems.
+
+**`EstimateOptimalStrassenThreshold()`**: on systems with 4+ cores, 256 bits (generic), 240 (AVX2) or 224 (AVX-512); 3,072 bits otherwise.
+
+## Calibration Runner
+
+File: `internal/calibration/runner.go`
+
+The `calibrationRunner` struct encapsulates the trial execution logic used by auto-calibration Tier 3:
+
+```go
+type calibrationRunner struct {
+    ctx      context.Context
+    perTrial time.Duration
+}
+```
+
+`newCalibrationRunner()` derives a per-trial timeout from the overall timeout (`timeout / 6`, minimum 2 seconds). Each trial uses `context.WithTimeout` to prevent any single test from blocking.
+
+One search method, `runner.go:findBest`, is called three times with these candidate lists:
+
+| Sweep | Calculator | Options Varied | Candidates Source |
+|--------|-----------|----------------|-------------------|
+| parallel | "fast" | `ParallelThreshold` | `GenerateQuickParallelThresholds()` |
+| FFT | "fast" | `FFTThreshold` (with best parallel) | `GenerateFFTThresholds()` |
+| Strassen | "matrix" | `StrassenThreshold` (with best parallel) | `GenerateQuickStrassenThresholds()` |
+
+Each sweep returns the best threshold and its duration. If all trials fail (timeout or error), the default threshold is preserved.
+
+## Package Structure
+
+| File | Responsibility |
+|------|---------------|
+| `calibration.go` | Entry points: `RunCalibration()`, `AutoCalibrate()`, `AutoCalibrateWithProfile()`, `LoadCachedCalibration()` |
+| `adaptive.go` | CPU-adaptive candidate-list generation only (`Generate*Thresholds`). It holds no estimation code: the `EstimateOptimal*` heuristics live in `internal/config/thresholds.go` and the former pass-through delegates were removed (audit 2026-06) |
+| `microbench.go` | Quick micro-benchmarking engine (`MicroBenchmark`, `RunQuick()`) |
+| `profile.go` | `CalibrationProfile` data structure, validation, serialization |
+| `io.go` | Result formatting and output (`printCalibrationResults()`, `printCalibrationOutput()`) |
+| `runner.go` | `calibrationRunner` with the shared `findBest()` sweep |
+| `strategy.go` | `CalibrationStrategy` interface (Strategy pattern, see the Architecture note under Auto-Calibration) |
+| `strategy_fast.go` | `FastStrategy` -- micro-benchmark tier |
+| `strategy_complete.go` | `CompleteStrategy` -- full calibration runner tier |
+| `doc.go` | Package documentation |
+
+## Tuning Recommendations
+
+| Hardware | ParallelThreshold | FFTThreshold | Notes |
+|----------|-------------------|--------------|-------|
+| Laptop (4 cores) | 2048-4096 | 500,000 | Conservative to avoid thermal throttling |
+| Desktop (8 cores) | 1024-2048 | 500,000 | Good parallelism gains |
+| Server (16+ cores) | 256-1024 | 250,000-500,000 | Maximum parallelism beneficial |
+| Low memory (< 8 GB) | 4096+ | 1,000,000 | Higher FFT threshold reduces memory pressure |
+| 32-bit system | 4096 | 250,000 | Smaller word size shifts crossover points |
+
+For most users, running `fibcalc --auto-calibrate` once is sufficient. The saved profile will be reused on subsequent runs until the hardware configuration changes (e.g., different core count after a VM resize).
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FIBCALC_CALIBRATE` | Enable full calibration | `false` |
+| `FIBCALC_AUTO_CALIBRATE` | Enable auto-calibration | `false` |
+| `FIBCALC_CALIBRATION_PROFILE` | Path to calibration profile file | `~/.fibcalc_calibration.json` |
+| `FIBCALC_PROFILE_MAX_AGE` | Freshness window; a profile older than this is `IsStale` and triggers re-calibration via `CompleteStrategy` | `168h` (7 d) |
+
+These environment variables follow the `FIBCALC_*` convention and have lower priority than their corresponding CLI flags. See `internal/config/env.go` for the full list ; `FIBCALC_PROFILE_MAX_AGE` has been part of it since 2026-09-07 (audit CFG-02), with `--profile-max-age` as its flag — `internal/calibration` receives the value through `AppConfig` and reads no environment variable itself.
+
+## Cross-References
+
+- [PERFORMANCE.md](PERFORMANCE.md) -- Threshold impact on the 2-tier multiplication system
+- [BUILD.md](BUILD.md) -- `make run-calibrate` target
+- [Architecture](architecture/README.md) -- Calibration package placement (Business Logic layer, wired in at the app layer via `internal/app`)
+- [algorithms/FFT.md](algorithms/FFT.md) -- FFT threshold context and algorithm details
+
+## Reliability of the quick pass (audit 2026-09, M-01)
+
+`FastStrategy` derives the FFT threshold from `RunQuick`'s
+micro-benchmarks. Before the 2026-09 audit that measurement was not
+trustworthy, in four independent ways:
+
+- it compared `useFFT=true` against `useFFT=false` at sizes **below**
+  `bigfft.FFTThresholdWords`, where both run the same `math/big` code, so any
+  difference was noise;
+- it ran its 16 configurations concurrently under a `NumCPU` semaphore while
+  `bigfft.Mul` parallelises its own recursion, timing contention rather than
+  multiplication;
+- it accepted any margin, so a 1 % edge counted as a crossover;
+- confidence was a flat `0.5 + 0.2`, and that `0.5` baseline equalled
+  `EscalationConfidenceThreshold` exactly — so the fast pass was **always**
+  accepted and `CompleteStrategy` was unreachable except on total failure.
+
+Ten consecutive runs produced thresholds a factor of four apart (115 200 and
+460 800 bits) while every one of them reported the same 0.70 confidence.
+
+The crossover search now requires a 10 % margin **and** monotonicity (every
+larger measured size must win too), runs sequentially with more samples, and
+earns its confidence as `stability x decisiveness` from a base of zero. Eight
+of ten runs now fall below the bar and escalate to the authoritative sweep.
+
+This is an improvement, not a solution: on a CPU where the crossover genuinely
+sits between two test sizes, repeated runs still disagree. The difference is
+that the disagreement is now visible in the confidence score and routed to
+`CompleteStrategy`, instead of being persisted as if it were a measurement.
+See `docs/audits/microbench-stability-2026-09.txt`.
+
+`CurrentProfileVersion` moved 3 to 4 so profiles written by the old search are
+re-measured rather than replayed.
+
+**Timer resolution (2026-10-10).** A fifth cause survived the audit, on
+Windows only: Go's runtime clock (`time.Now`, monotonic and wall) advances
+there in steps of about 0.5 ms. The 500- and 2000-word multiplications take
+about 40 µs and 340 µs on the reference host, so each iteration read as either
+0 or one step. `timingStability` skips any run whose fastest iteration is 0,
+so the two sizes that decide between 115 200 and 460 800 bits were left out of
+the confidence score, and the crossover itself was a comparison of quantised
+means. The micro-benchmark and the calibration sweeps now time with
+`internal/clock`, which reads `QueryPerformanceCounter` on Windows as the
+`testing` package does. Ten consecutive quick passes on the reference host
+return 115 200 bits ten times, against seven of ten before. Confidence still
+stays under the escalation bar, because the 2000-word FFT arm still spreads
+1.4×, so the pass still escalates, now on a real measurement. Elsewhere the
+runtime clock was already fine-grained and nothing changes. Before/after:
+`docs/audits/microbench-stability-2026-09.txt`, addendum.

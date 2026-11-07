@@ -1,0 +1,13 @@
+[package]
+name = "fib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+num-bigint = "0.5"
+
+# Temps de réponse : mesuré 15 % plus rapide au démarrage et sur matrix, sans régression ailleurs.
+# panic = "abort" et strip n'ont rien gagné de mesurable.
+[profile.release]
+lto = true
+codegen-units = 1

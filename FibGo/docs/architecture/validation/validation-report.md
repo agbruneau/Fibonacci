@@ -1,0 +1,214 @@
+# Architecture Validation
+
+**Project**: FibCalc (github.com/agbruneau/FibGo)
+
+This document records the architectural invariants that the documentation
+suite asserts and that have been checked against the source code. It is a
+living reference, not a point-in-time process artifact: when the structure
+changes, re-verify the items below and update them in place.
+
+---
+
+## Layer tightness & dependency direction
+
+The project follows Clean Architecture with the dependency hierarchy:
+
+```
+cmd → app → orchestration → fibonacci → bigfft
+
+config is a SIBLING of orchestration, not a layer below fibonacci: it is
+imported by app, cli, tui and calibration, and by nothing inside
+fibonacci or bigfft. internal/arch_test.go allows config exactly the two
+documented lateral imports config → fibonacci/memory and config → ui, and
+nothing else (its allowlist names every edge of the graph, since 2026-10-10).
+
+leaves (zero internal imports): bigfft, apperrors, clock, format, metrics,
+                                progress, ui, testutil, fibonacci/fibmath,
+                                cli/completion (fibonacci/threshold was one
+                                until its removal on 2026-09-23)
+                                (fibonacci/memory stopped being one on
+                                2026-09-07: it imports fibonacci/fibmath)
+```
+
+The `internal_test` package doc comment in `internal/arch_test.go` states the same chain.
+
+**How to re-verify the graph yourself.** The pipeline below (POSIX shell,
+from the repository root) extracts the direct internal imports, renames them
+with the diagram's node identifiers, and compares the resulting set with
+the one `dependency-graph.md` draws. It must print nothing:
+
+```sh
+go list -deps=false -f '{{$p := .ImportPath}}{{range .Imports}}{{$p}} -> {{.}}
+{{end}}' ./... \
+ | grep -E '^github\.com/agbruneau/FibGo/\S+ -> github\.com/agbruneau/FibGo/internal/' \
+ | sed 's|github.com/agbruneau/FibGo/||g' \
+ | sed -E 's|internal/fibonacci/memory|fibmem|g;
+           s|internal/fibonacci/fibmath|fibmath|g;
+           s|internal/cli/completion|completion|g; s|cmd/fibcalc|main|g;
+           s|internal/fibonacci|fib|g; s|internal/orchestration|orch|g;
+           s|internal/calibration|calib|g; s|internal/||g' \
+ | sed 's/ \[main\]$//' | sort -u > /tmp/real.txt
+grep -oE '^ +[a-z]+ --> [a-z]+$' docs/architecture/dependency-graph.md \
+ | sed 's/^ *//; s/-->/->/' | sort -u > /tmp/drawn.txt
+diff /tmp/real.txt /tmp/drawn.txt
+```
+
+Re-run on **2026-10-10**, after the addition of `internal/clock` (imported by
+`orchestration` and `calibration`): `47` lines on each side, empty `diff`.
+`internal/arch_test.go` now asserts the same set at every `go test`.
+
+Run on **2026-09-23**, after the removal of `fibonacci/threshold`
+(EVAL-10): `45` lines on each side, empty `diff` — the diagram is
+the exact set of direct internal imports, neither a superset nor a
+subset (48 at the previous reading of 2026-09-07; the three edges into
+`fibonacci/threshold`, from `app`, `fibonacci` and `orchestration`, went
+away with the package). On this reading, `internal/fibonacci` imports
+`apperrors`, `bigfft`, `fibonacci/fibmath`, `fibonacci/memory`, `progress` — not
+`config`; and `internal/bigfft` imports no internal package.
+
+Verified properties (against Go `import` declarations in source):
+
+| Invariant | Status | Evidence |
+|-----------|--------|----------|
+| `orchestration` does not import `cli` | Holds | No `internal/cli` import in `internal/orchestration/*.go` |
+| `orchestration` does not import `tui` | Holds | No `internal/tui` import in `internal/orchestration/*.go` |
+| `cli` depends on `orchestration` (not the reverse) | Holds | `internal/cli` imports `internal/orchestration` |
+| `tui` depends on `orchestration` (not the reverse) | Holds | `internal/tui` calls orchestration entry points |
+| `app` is the composition root | Holds | `internal/app` imports `cli`, `tui`, `orchestration`, `fibonacci`, `config`, `apperrors` |
+| `internal/**` does not leak into `cmd/**` | Holds | `cmd/fibcalc` imports `internal/app` and `internal/apperrors` (the `Exit*` codes it hands to `os.Exit`) and nothing else |
+
+Only two of the diagrams carry package-import edges, and both were
+re-verified arrow-by-arrow against the `go list` command above:
+
+- `dependency-graph.md` — exact and complete. Its 45 arrows match, one for
+  one, the 45 direct internal imports `go list` reports across the module
+  (`cmd/fibcalc` 2, `app` 10, `calibration` 5, `cli` 8, `config` 3,
+  `fibonacci` 5, `fibonacci/memory` 1, `orchestration` 4, `tui` 7; every
+  other package is a leaf — counts of 2026-09-23, after EVAL-10). **Re-verified 2026-09-07** after the "livre"
+  audit: `calibration → format` and `calibration → ui` are gone (T16);
+  `cli → calibration`, `orchestration → fibonacci/threshold` and the two arrows
+  into the new `fibonacci/fibmath` leaf (from `fibonacci` and
+  `fibonacci/memory`, T20) are new.
+  **Corrected 2026-09-04.** The earlier reading claimed 45 edges and was wrong
+  on three of them, all three around `cli/completion` and `cmd`:
+  `cmd/fibcalc → errors` was missing; `cli → cli/completion` was drawn but
+  does not exist (`internal/cli` never imports it — only `doc.go` mentions it
+  in prose); and the real importer, `app → cli/completion`
+  (`internal/app/app.go` import block, used by `runCompletion` →
+  `completion.Generate`), was missing. The same three corrections were applied
+  to `container-diagram.md`'s `Rel(entry, support, …)`,
+  `Rel(app, support, …)` and `Rel(cli, support, …)` labels.
+  (Previously re-verified 2026-09-03, 2026-08-07 and 2026-07-11 — audit
+  Fable5 ARCH-01 — each time against the same command but with the miscount
+  carried forward.)
+- `container-diagram.md` — every `Rel` **between two `Container`s** is a
+  real import. The one exception is `Rel(user, entry, "Invokes")`, a
+  `Person` → `Container` relation that is not an import at all. The
+  `orch → config` edge the diagram used to draw was **false**:
+  `internal/orchestration` imports only `apperrors`, `fibonacci`,
+  `fibonacci/memory`, `progress` (and `fibonacci/threshold` until 2026-09-23). It was removed on 2026-08-07, and the real
+  `cli → config`, `tui → config`, `calib → config`, `calib → bigfft` edges plus
+  the edges into the leaf-package container were added. On 2026-08-07 the
+  leaf container was also widened from six packages to nine: it previously
+  omitted `fibonacci/memory`, `fibonacci/threshold` and `cli/completion`, so
+  `config → fibonacci/memory`, `app → fibonacci/memory`,
+  `app → fibonacci/threshold`, `orch → fibonacci/memory`,
+  `fibonacci → fibonacci/memory` and `fibonacci → fibonacci/threshold` had no
+  representation. With those nine leaves inside one container, the **eight**
+  `Rel(*, support, …)` labels (`entry`, `app`, `config`, `orch`, `fib`, `cli`,
+  `tui`, `calib`) now enumerate every remaining direct internal import — the
+  `entry` one added 2026-09-04 with the `cmd/fibcalc → errors` correction
+  above.
+
+`system-context.md` has no package edges at all — its four `Rel`s are
+to a Person and three external systems. `component-diagram.md` is a
+`classDiagram`: its arrows are class relations, not imports, and they are
+**not** covered by the import check above. Three of them were false and were
+corrected on 2026-08-07:
+
+- `CoreCalculator <|.. FibCalculator` was drawn as a realization.
+  `*FibCalculator` has `Name`, `Calculate` and `CalculateWithObservers` and no
+  `CalculateCore`, so it does not implement `CoreCalculator` — it composes one
+  (`-core CoreCalculator`). Now an aggregation. Same fix applied in
+  `patterns/interface-hierarchy.md`.
+- `DoublingFramework --> ProgressSubject` — neither framework ever receives a
+  `*ProgressSubject`; `ExecuteDoublingLoop` and `ExecuteMatrixLoop` both take a
+  `progress.ProgressCallback`. Retargeted.
+- `AdaptiveStrategy --> TransformCache` — cached *transforms* are read only
+  through `Mul`/`Sqr`/`MulTo`/`SqrTo` (`fftmulTo`/`fftsqrTo` →
+  `MulCachedWithBump`/`SqrCachedWithBump`, called from
+  `internal/bigfft/fft_core.go:fftmulTo` and `internal/bigfft/fft_core.go:fftsqrTo`),
+  which the *matrix* path enters via `smartMultiply`/`smartSquare`.
+  `executeDoublingStepFFT` calls `TransformWithBump`, not
+  `TransformCachedWithBump`, and `AdaptiveStrategy.ExecuteStep` routes every
+  operand above `FFTThreshold` there (`internal/fibonacci/strategy.go:AdaptiveStrategy.ExecuteStep`),
+  so the operands that fall through to `smartMultiply` never clear its own FFT
+  gate. Retargeted to `MatrixFramework`. Corrected further on 2026-08-07: the
+  cache is nevertheless *configured* from two places outside that set —
+  `configureFFTCache` → `SetTransformCacheConfig` once per calculation with
+  `n > MaxFibUint64` (`internal/fibonacci/options.go:configureFFTCache`, called
+  from `calculator.go:FibCalculator.CalculateWithObservers`), and `bigfftCacheStrategy.Sample` →
+  `GetTransformCache`/`SetTransformCacheConfig` from *inside*
+  `ExecuteDoublingLoop`, gated on a non-nil `DynamicThresholdManager` and
+  throttled to every `cacheSampleInterval` iterations
+  (`internal/fibonacci/doubling_framework.go:DoublingFramework.ExecuteDoublingLoop`,
+  `cache_strategy_bigfft.go:bigfftCacheStrategy.Sample`). A
+  `DoublingFramework --> TransformCache` edge was added for that path.
+  That edge and the `CacheStrategy` hook behind it were removed with the
+  dynamic threshold manager on 2026-09-23 (EVAL-10); `configureFFTCache` is now
+  the only place that configures the cache.
+
+Class *members* (field/method listings in `component-diagram.md`) drift
+independently from both checks; they were last corrected on 2026-08-07 —
+`tempAllocator`/`BumpAllocator`/`poolAllocator` methods and the
+`DynamicThresholdManager` threshold getters had been shown as exported when the
+source has them unexported, `AdaptiveStrategy` carried a field the `struct{}`
+does not have, and `MatrixFramework` was drawn holding a `Multiplier` instead of
+its `SquareFunc`. Re-verify members separately from the edge check.
+
+## Interface & pattern claims
+
+The design-pattern catalogue lives in exactly **one** file since 2026-09-04:
+[`../patterns/design-patterns.md`](../patterns/design-patterns.md). Before that date
+[`docs/ARCH.md`](../../ARCH.md) §5 carried a second, independently maintained table
+(14 entries against 11, overlapping but not equal, neither mentioning the other); the two
+were merged into the file above and `ARCH.md` §5 now links to it instead. `../README.md`
+§4 enumerates it but does not restate the sites. The interface signatures in
+[`../component-diagram.md`](../component-diagram.md) and
+[`../patterns/interface-hierarchy.md`](../patterns/interface-hierarchy.md) are maintained
+to match source. Notable narrow/wide interface contracts:
+
+- `Calculator` (decorated façade) / `CoreCalculator` (algorithm kernel wrapped by `FibCalculator`) — both exported, `internal/fibonacci/calculator.go`
+- `Multiplier` (narrow) extended by `DoublingStepExecutor` (wide)
+- `ProgressObserver` — `internal/progress/` / `ProgressReporter` — `internal/orchestration/`
+- `CalculatorSource` — `internal/orchestration/interfaces.go`, consumer-defined; `app.CalculatorRegistry` (`internal/app/app.go`) embeds it and adds `GetAll`. `fibonacci.DefaultFactory` satisfies both; the producer-side `CalculatorFactory` was removed on 2026-09-07 (T17)
+
+## Execution flows
+
+The drawings live under [`../flows/`](../flows/) — except the CLI flow, whose `flowchart`
+sits at the head of [`docs/ARCH.md` §6](../../ARCH.md#6-data-flow-cli-input-to-final-result),
+above the ten numbered steps that are its legend. The other legends live in
+[`docs/ARCH.md`](../../ARCH.md) §§6-8, which cite each subgraph by name rather than
+re-drawing it. When a path changes, correct the figure first, then its legend:
+
+- CLI path: `main()` → `app.New()` → `app.Run()` → orchestration → output
+- TUI path: dispatch → `tui.Run()` → Bubble Tea model lifecycle
+- Configuration resolution: CLI flags → env vars → defaults, **uniformly**, the
+  three thresholds included since audit M-03 (2026-09). `ParseConfig` marks
+  `Threshold`/`FFTThreshold`/`StrassenThreshold` explicit when the user supplied
+  them by flag or by `FIBCALC_*` (`internal/config/env.go:markExplicitThresholds`);
+  a valid cached calibration profile then fills only the ones left unmarked
+  (`internal/app/app.go:New`,
+  `internal/calibration/calibration.go:LoadCachedCalibration` → `applyProfileThresholds`),
+  and adaptive estimation fills those still at 0 when no valid profile loads.
+  Before M-03 the profile overwrote all three unconditionally
+- Per-algorithm: `FibCalculator` decorator → `DoublingFramework` /
+  `MatrixFramework` → strategy dispatch
+
+## Maintenance
+
+When refactoring package boundaries, re-check the dependency-direction
+table above and the Mermaid diagrams. A future tooling step (Makefile or
+pre-commit) that parses documented interface signatures and compares
+them against source (via reflection or AST) would let this drift be
+detected automatically.

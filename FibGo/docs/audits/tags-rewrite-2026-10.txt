@@ -1,0 +1,29 @@
+# rewrite/* tags — removed from the repository and from origin on 2026-10-10
+# (ADR-0013 D5, executed with the maintainer's explicit approval; ADR-0014 D5).
+#
+# Every tagged commit below is an ancestor of main at cd3c46a (checked with
+# git merge-base --is-ancestor), so no commit became unreachable. To restore a
+# tag:  git tag <name> <commit>   (add -a -m '<message>' for the two annotated
+# ones, whose messages follow their line).
+#
+# name                                commit                                    type
+rewrite/v1/done                       da80099f4d3659ec43b8f4cb3bd92a336f7a78a9 lightweight
+rewrite/v2/done                       246810c001442540a20120cd40371fd70160d736 lightweight
+rewrite/v2/format-green               7736cc83d9330650170f317051ff50756c4013b3 lightweight
+rewrite/v2/generate-golden-green      d4b6596961863fc41fb53ddd0010cb22f2ef9ee1 lightweight
+rewrite/v2/metrics-green              f874d1a5c520d6db3cabefdcf2fde986dcd5aada lightweight
+rewrite/v2/progress-green             d54f4f0b7e93f66d49d294687d72f38ff2fd643c lightweight
+rewrite/v2/testutil-green             46d92f6922f84fb6427349a26e918e2e7ff81cc9 lightweight
+rewrite/v2/ui-green                   8d83bc48d9aeb1ad75506bf70362bea5f01860d8 lightweight
+rewrite/v3/app-green                  760064abc624221f211f0da46d88a79e1b0aeaee lightweight
+rewrite/v3/calibration-green          5f44cffbbc2c3bca70ea364536ec6f6e3a538e6c lightweight
+rewrite/v3/cli-completion-green       a4f8be1e97d045be9b1c310a3f45c3c52c013682 lightweight
+rewrite/v3/cli-green                  705d2496358bf26df1ba61540da31738213fbeb1 lightweight
+rewrite/v3/config-green               2f5b757841e31823f4b83d1cf8f88b63d5efae4c lightweight
+rewrite/v3/done                       4b85f7ee920fe17f65a50cb659e6ae4b19a7a2fd annotated
+#   message: Wave 3 complete: config, cli/completion, orchestration, calibration, cli, tui, app rewritten under Phase A/B oracle discipline. All exit gates green (arch_test, e2e, -race whole tree, gmp -race, scripts/check.sh 95.1% coverage).
+rewrite/v3/orchestration-green        a342685d1995076bd4852c3f5485beb1bb10890a lightweight
+rewrite/v3/tui-green                  269e4e00cabe8b122c9b1c44a044ae03066f8439 lightweight
+rewrite/v4/cmd-fibcalc-green          99b6578b3a7051c1fe3ad59c0511ef45372e4bc5 annotated
+#   message: Wave 4: cmd/fibcalc rewritten (zero prod diff, test dedup + 8 mutations validated), arbre entier vert
+rewrite/vP/done                       43cbd497730f4de45e0f7f313ae949facdf6d08e lightweight

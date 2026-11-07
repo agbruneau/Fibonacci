@@ -1,0 +1,153 @@
+//go:build gmp
+
+// This file provides a GMP-based Fibonacci calculator, conditionally compiled
+// with the "gmp" build tag. The build tag architecture ensures that:
+//   - Projects can build without GMP (the default, using math/big)
+//   - GMP support is opt-in, requiring: go build -tags=gmp
+//   - The codebase remains portable across systems without libgmp installed
+//
+// System Requirements for GMP:
+//   - Linux: sudo apt-get install libgmp-dev (Debian/Ubuntu)
+//   - macOS: brew install gmp
+//   - Windows: Requires MinGW or WSL with libgmp
+//
+// Architectural Decision:
+// The direct use of github.com/ncw/gmp in this file is intentional. While an
+// abstract BigInt interface could provide more flexibility, the performance
+// overhead of interface indirection would negate GMP's speed benefits.
+// The build tag approach provides clean separation without runtime cost.
+
+package fibonacci
+
+import (
+	"context"
+	"fmt"
+	"math/big"
+	"math/bits"
+
+	"github.com/agbruneau/FibGo/internal/progress"
+	"github.com/ncw/gmp"
+)
+
+// RegisterGMPCalculator registers the GMP calculator in the given factory.
+//
+// Register validates its input since audit API-02 and can now fail — on a
+// duplicate name, in practice. Calling this twice on the same factory is a
+// programmer error, and it runs inside NewDefaultFactory where there is no
+// caller to return to, so it panics rather than registering nothing in silence.
+func RegisterGMPCalculator(f *DefaultFactory) {
+	if err := f.Register("gmp", func() CoreCalculator { return &GMPCalculator{} }); err != nil {
+		panic(fmt.Sprintf("fibonacci: registering gmp calculator: %v", err))
+	}
+}
+
+// Until 2026-09-23 this init registered into a private factory nothing ever
+// read, so `-algo gmp` was unreachable even with the tag (EVAL-23).
+func init() {
+	taggedRegistrations = append(taggedRegistrations, RegisterGMPCalculator)
+}
+
+// GMPCalculator implements the Fibonacci calculation using the GMP library.
+// It requires the 'gmp' build tag and the libgmp library installed on the system.
+// This implementation uses the Fast Doubling algorithm but leverages GMP's
+// highly optimized C assembly routines for arithmetic operations.
+//
+// Performance characteristics (docs/audits/bench-gmp-2026-09.txt, one host):
+//   - The loop is sequential: the three mpz operations of a step run one after
+//     the other, while FastDoublingCalculator can spread them over goroutines.
+//   - At F(1M) the two are not distinguishable (p = 0.151, n = 5); at F(10M) the
+//     parallel math/big calculator is 23 % faster in wall time. Nothing above
+//     10M is measured for GMP, and no per-call CGO cost has been isolated.
+//   - Memory is managed by reusing gmp.Int instances to minimize allocations
+type GMPCalculator struct{}
+
+// Name returns the name of the algorithm.
+func (c *GMPCalculator) Name() string {
+	return "GMP (Fast Doubling)"
+}
+
+// gmpDoublingStep performs the Fast Doubling step on GMP integers.
+// Given F(k) in a and F(k+1) in b, computes:
+//   - F(2k) = F(k) * (2*F(k+1) - F(k))
+//   - F(2k+1) = F(k+1)² + F(k)²
+//
+// After this call, a contains F(2k) and b contains F(2k+1).
+// t1 and t2 are temporary variables to avoid allocations.
+func gmpDoublingStep(a, b, t1, t2 *gmp.Int) {
+	// t1 = 2b - a
+	t1.MulUint32(b, 2)
+	t1.Sub(t1, a)
+	// t1 = a * (2b - a) = F(2k)
+	t1.Mul(a, t1)
+
+	// t2 = a²
+	t2.Mul(a, a)
+	// Temporarily store b² in a (we have F(2k) safe in t1)
+	a.Mul(b, b)
+	// t2 = a² + b² = F(2k+1)
+	t2.Add(t2, a)
+
+	// Update results
+	a.Set(t1)
+	b.Set(t2)
+}
+
+// gmpAdditionStep performs the addition step when the current bit is 1.
+// Transforms (a, b) from (F(k), F(k+1)) to (F(k+1), F(k)+F(k+1)).
+// t is a temporary variable to avoid allocations.
+func gmpAdditionStep(a, b, t *gmp.Int) {
+	t.Add(a, b)
+	a.Set(b)
+	b.Set(t)
+}
+
+// gmpToStdBigInt converts a gmp.Int to a standard library big.Int.
+func gmpToStdBigInt(g *gmp.Int) *big.Int {
+	return new(big.Int).SetBytes(g.Bytes())
+}
+
+// CalculateCore executes the calculation using GMP's optimized arithmetic.
+func (c *GMPCalculator) CalculateCore(ctx context.Context, reporter progress.ProgressCallback, n uint64, opts Options) (*big.Int, error) {
+	// Handle base cases
+	if n == 0 {
+		return big.NewInt(0), nil
+	}
+	if n == 1 {
+		return big.NewInt(1), nil
+	}
+
+	// Initialize GMP integers: a = F(0), b = F(1)
+	a := gmp.NewInt(0)
+	b := gmp.NewInt(1)
+	t1 := gmp.NewInt(0)
+	t2 := gmp.NewInt(0)
+
+	// Calculate bit length for iteration
+	numBits := bits.Len64(n)
+
+	// Progress reporting setup
+	lastReported := -1.0
+
+	// Iterate from MSB-1 down to 0
+	for i := numBits - 1; i >= 0; i-- {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		// Doubling step: (F(k), F(k+1)) -> (F(2k), F(2k+1))
+		gmpDoublingStep(a, b, t1, t2)
+
+		// Addition step: if bit is 1, advance to k = 2k + 1
+		if (n>>i)&1 == 1 {
+			gmpAdditionStep(a, b, t1)
+		}
+
+		// Report progress
+		progress.ReportStepProgress(reporter, &lastReported, i, numBits)
+	}
+
+	return gmpToStdBigInt(a), nil
+}

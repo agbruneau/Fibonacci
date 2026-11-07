@@ -1,0 +1,166 @@
+// This file contains concrete observer implementations for the Observer pattern.
+
+package progress
+
+import (
+	"context"
+	"log/slog"
+	"sync"
+)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel Observer (Backward Compatibility)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ChannelObserver adapts the Observer pattern to channel-based communication.
+// This maintains backward compatibility with existing UI code that expects
+// progress updates via channels.
+type ChannelObserver struct {
+	channel chan<- ProgressUpdate
+}
+
+// NewChannelObserver creates an observer that sends updates to a channel.
+// The channel should have sufficient buffer capacity to avoid blocking.
+//
+// Parameters:
+//   - ch: The channel to send progress updates to. If nil, updates are discarded.
+//
+// Returns:
+//   - *ChannelObserver: A new observer that forwards to the channel.
+func NewChannelObserver(ch chan<- ProgressUpdate) *ChannelObserver {
+	return &ChannelObserver{channel: ch}
+}
+
+// Update implements ProgressObserver by sending to the channel.
+//
+// Intermediate updates use a non-blocking send: dropping one is harmless
+// because another follows, and blocking would let a slow UI throttle the
+// calculation.
+//
+// The TERMINAL update (1.0) is sent blocking instead (audit L-03). It is the
+// only value with no successor, and consumers use it to decide whether the run
+// completed: cli.DisplayProgress prints "ETA: N/A (interrupted)" when the last
+// average it saw is below 1.0, so a dropped 1.0 reported a successful
+// calculation as interrupted.
+//
+// The blocking send cannot deadlock in the orchestration this package serves.
+// The reporter emits 1.0 while the calculator goroutine is still running;
+// ExecuteCalculations only closes the channel after g.Wait() returns, and the
+// consumer drains until that close. So a receiver is always live at this
+// point.
+//
+// Parameters:
+//   - calcIndex: The calculator instance identifier.
+//   - progress: The normalized progress value (0.0 to 1.0).
+func (o *ChannelObserver) Update(calcIndex int, progress float64) {
+	if o.channel == nil {
+		return
+	}
+
+	// Clamp progress to valid range
+	if progress > 1.0 {
+		progress = 1.0
+	}
+
+	update := ProgressUpdate{CalculatorIndex: calcIndex, Value: progress}
+
+	if progress >= 1.0 {
+		o.channel <- update
+		return
+	}
+
+	// Non-blocking send to avoid deadlocks
+	select {
+	case o.channel <- update:
+	default:
+		// Channel full, drop update (UI will catch up on next update)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logging Observer
+// ─────────────────────────────────────────────────────────────────────────────
+
+// LoggingObserver logs progress updates through log/slog.
+// It throttles logging based on a threshold to avoid log spam.
+type LoggingObserver struct {
+	logger    *slog.Logger
+	threshold float64         // Minimum progress change to log
+	lastLog   map[int]float64 // Last logged progress per calculator
+	mu        sync.Mutex
+}
+
+// NewLoggingObserver creates an observer that logs progress.
+// It only logs when progress changes by at least the threshold amount.
+//
+// Parameters:
+//   - logger: The logger to use. A nil logger discards every record, so callers
+//     that do not want progress logs need no sentinel of their own.
+//   - threshold: Minimum progress change to trigger a log (e.g., 0.1 for 10%).
+//
+// Returns:
+//   - *LoggingObserver: A new observer that logs through log/slog.
+func NewLoggingObserver(logger *slog.Logger, threshold float64) *LoggingObserver {
+	if threshold <= 0 {
+		threshold = 0.1 // Default to 10%
+	}
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	return &LoggingObserver{
+		logger:    logger,
+		threshold: threshold,
+		lastLog:   make(map[int]float64),
+	}
+}
+
+// Update implements ProgressObserver by logging significant progress changes.
+//
+// Parameters:
+//   - calcIndex: The calculator instance identifier.
+//   - progress: The normalized progress value (0.0 to 1.0).
+func (o *LoggingObserver) Update(calcIndex int, progress float64) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	lastProgress := o.lastLog[calcIndex]
+
+	// Log at boundaries or significant changes
+	shouldLog := progress >= 1.0 ||
+		lastProgress == 0 && progress > 0 ||
+		progress-lastProgress >= o.threshold
+
+	if shouldLog {
+		// LogAttrs with an explicit level check: Update runs on the progress
+		// path, and this avoids building the attribute slice when the handler
+		// would drop the record anyway.
+		if o.logger.Enabled(context.Background(), slog.LevelDebug) {
+			o.logger.LogAttrs(context.Background(), slog.LevelDebug, "calculation progress",
+				slog.Int("calculator", calcIndex),
+				slog.Float64("progress", progress),
+			)
+		}
+		o.lastLog[calcIndex] = progress
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// No-Op Observer (Null Object Pattern)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// NoOpObserver is a null object that discards all progress updates.
+// Useful for testing or when progress tracking is not needed.
+type NoOpObserver struct{}
+
+// NewNoOpObserver creates a no-op observer that discards updates.
+//
+// Returns:
+//   - *NoOpObserver: A new no-op observer.
+func NewNoOpObserver() *NoOpObserver {
+	return &NoOpObserver{}
+}
+
+// Update implements ProgressObserver by doing nothing.
+func (o *NoOpObserver) Update(calcIndex int, progress float64) {
+	// Intentionally empty - Null Object pattern
+}

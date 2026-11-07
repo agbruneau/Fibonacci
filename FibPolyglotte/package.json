@@ -1,0 +1,19 @@
+{
+  "name": "fib",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:go": "go -C go vet ./... && go -C go test ./... && node contracts/cli.test.ts go",
+    "check:rust": "cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path rust/Cargo.toml && node contracts/cli.test.ts rust",
+    "check:ts": "tsc --noEmit && node --test \"ts/**/*.test.ts\" && node contracts/cli.test.ts ts",
+    "check:py": "python -m unittest discover -s python && node contracts/cli.test.ts py",
+    "contract": "node contracts/cli.test.ts",
+    "check": "npm run check:go && npm run check:rust && npm run check:ts && npm run check:py",
+    "bench": "node contracts/bench.ts",
+    "differentiel": "node contracts/differentiel.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}

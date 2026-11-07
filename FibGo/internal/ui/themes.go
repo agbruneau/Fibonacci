@@ -1,0 +1,256 @@
+package ui
+
+import (
+	"os"
+	"strings"
+	"sync"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+// Theme defines a color scheme for UI output.
+// Each field contains an ANSI escape code for the corresponding color category.
+type Theme struct {
+	// Name is the identifier of the theme.
+	Name string
+	// Primary is the main accent color for important elements.
+	Primary string
+	// Secondary is used for less prominent elements.
+	Secondary string
+	// Success indicates positive outcomes or completed operations.
+	Success string
+	// Warning is used for caution messages or non-critical issues.
+	Warning string
+	// Error indicates failures or critical issues.
+	Error string
+	// Info is used for informational messages.
+	Info string
+	// Bold is the escape code for bold text.
+	Bold string
+	// Underline is the escape code for underlined text.
+	Underline string
+	// Reset clears all formatting.
+	Reset string
+}
+
+var (
+	// DarkTheme is optimized for dark terminal backgrounds.
+	// Uses bright, vibrant colors for good contrast.
+	DarkTheme = Theme{
+		Name:      "dark",
+		Primary:   "\033[38;5;39m",  // Bright blue
+		Secondary: "\033[38;5;245m", // Grey
+		Success:   "\033[38;5;82m",  // Bright green
+		Warning:   "\033[38;5;220m", // Yellow
+		Error:     "\033[38;5;196m", // Red
+		Info:      "\033[38;5;141m", // Purple
+		Bold:      "\033[1m",
+		Underline: "\033[4m",
+		Reset:     "\033[0m",
+	}
+
+	// NoColorTheme disables all color output.
+	// Used when NO_COLOR is set, or when the caller passes noColor=true to
+	// InitTheme (app.New passes Config.Quiet || Config.MachineOutput).
+	NoColorTheme = Theme{
+		Name:      "none",
+		Primary:   "",
+		Secondary: "",
+		Success:   "",
+		Warning:   "",
+		Error:     "",
+		Info:      "",
+		Bold:      "",
+		Underline: "",
+		Reset:     "",
+	}
+
+	// currentTheme is the active theme used throughout the application.
+	// Defaults to DarkTheme but can be changed via InitTheme.
+	currentTheme = DarkTheme
+	themeMutex   sync.RWMutex
+)
+
+// TUITheme defines lipgloss-compatible colors for the TUI dashboard.
+// Each field is a lipgloss.TerminalColor suitable for use with
+// lipgloss.Style.Foreground() and Background().
+type TUITheme struct {
+	Bg      lipgloss.TerminalColor
+	Text    lipgloss.TerminalColor
+	Border  lipgloss.TerminalColor
+	Accent  lipgloss.TerminalColor
+	Success lipgloss.TerminalColor
+	Warning lipgloss.TerminalColor
+	Error   lipgloss.TerminalColor
+	Dim     lipgloss.TerminalColor
+	Info    lipgloss.TerminalColor
+}
+
+var (
+	// DarkTUITheme is the orange-dominant btop-inspired TUI palette.
+	DarkTUITheme = TUITheme{
+		Bg:      lipgloss.Color("#000000"),
+		Text:    lipgloss.Color("#E0E0E0"),
+		Border:  lipgloss.Color("#FF6600"),
+		Accent:  lipgloss.Color("#FF8C00"),
+		Success: lipgloss.Color("#9ece6a"),
+		Warning: lipgloss.Color("#FFB347"),
+		Error:   lipgloss.Color("#FF4444"),
+		Dim:     lipgloss.Color("#666666"),
+		Info:    lipgloss.Color("#4488FF"),
+	}
+
+	// NoColorTUITheme disables all TUI colors.
+	// lipgloss.NoColor{} renders text with the terminal's default colors.
+	NoColorTUITheme = TUITheme{
+		Bg:      lipgloss.NoColor{},
+		Text:    lipgloss.NoColor{},
+		Border:  lipgloss.NoColor{},
+		Accent:  lipgloss.NoColor{},
+		Success: lipgloss.NoColor{},
+		Warning: lipgloss.NoColor{},
+		Error:   lipgloss.NoColor{},
+		Dim:     lipgloss.NoColor{},
+		Info:    lipgloss.NoColor{},
+	}
+
+	// HighContrastTUITheme is a black/white/yellow palette for low-vision and
+	// high-contrast terminal profiles (WCAG-oriented, not a certification).
+	HighContrastTUITheme = TUITheme{
+		Bg:      lipgloss.Color("#000000"),
+		Text:    lipgloss.Color("#FFFFFF"),
+		Border:  lipgloss.Color("#FFFF00"),
+		Accent:  lipgloss.Color("#FFFF00"),
+		Success: lipgloss.Color("#00FF00"),
+		Warning: lipgloss.Color("#FFAA00"),
+		Error:   lipgloss.Color("#FF3333"),
+		Dim:     lipgloss.Color("#CCCCCC"),
+		Info:    lipgloss.Color("#66CCFF"),
+	}
+)
+
+// TUIThemeFor returns the TUI palette for the named theme, honoring the
+// active color theme first: when NoColorTheme is installed the answer is
+// NoColorTUITheme whatever the caller asks for.
+//
+// name is "" or "dark" for the default palette, "high-contrast" (or
+// "highcontrast") for the accessible one; anything else falls back to dark,
+// since config.Validate has already rejected the values a user could type.
+//
+// It takes the name as a parameter rather than reading FIBCALC_TUI_THEME
+// itself (audit CFG-02). A setting read straight from the environment down here
+// is invisible to --help, cannot be overridden by a flag, and is missed by the
+// test that keeps the flag set and the env-override table in sync — which is
+// exactly what happened to this one.
+func TUIThemeFor(name string) TUITheme {
+	themeMutex.RLock()
+	noColor := currentTheme.Name == "none"
+	themeMutex.RUnlock()
+
+	if noColor {
+		return NoColorTUITheme
+	}
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "high-contrast", "highcontrast":
+		return HighContrastTUITheme
+	default:
+		return DarkTUITheme
+	}
+}
+
+// NoColorRequested reports whether the NO_COLOR convention
+// (https://no-color.org/) is in effect: the variable is present, whatever its
+// value, including empty.
+//
+// Exported so internal/config's usage printer asks here instead of repeating
+// the os.LookupEnv call. NO_COLOR is a cross-tool convention rather than an
+// application setting, so unlike FIBCALC_* it is read at the point of use and
+// not routed through AppConfig; having one reader keeps the "presence, not
+// value" rule in a single place.
+func NoColorRequested() bool {
+	_, present := os.LookupEnv("NO_COLOR")
+	return present
+}
+
+// GetCurrentTheme returns the currently active theme in a thread-safe manner.
+func GetCurrentTheme() Theme {
+	themeMutex.RLock()
+	defer themeMutex.RUnlock()
+	return currentTheme
+}
+
+// setCurrentTheme sets the currently active theme in a thread-safe manner.
+// Test-only: production selects a theme exclusively via InitTheme (dark or
+// no-color); this setter exists so tests can save/restore theme state.
+func setCurrentTheme(t Theme) {
+	themeMutex.Lock()
+	defer themeMutex.Unlock()
+	currentTheme = t
+}
+
+// InitTheme initializes the theme based on the noColor flag and environment.
+// It respects the NO_COLOR environment variable (https://no-color.org/) for
+// accessibility. If noColor is true or NO_COLOR is set, colors are disabled.
+//
+// Parameters:
+//   - noColor: If true, disables all color output regardless of environment.
+//     There is no --no-color flag; app.New passes Config.Quiet ||
+//     Config.MachineOutput, i.e. -q/--quiet or -machine.
+func InitTheme(noColor bool) {
+	themeMutex.Lock()
+	defer themeMutex.Unlock()
+
+	// Caller-supplied override wins over the environment.
+	if noColor {
+		currentTheme = NoColorTheme
+		return
+	}
+
+	// NO_COLOR environment variable. This uses LookupEnv, so *presence*
+	// disables colors — NO_COLOR= (empty) disables them too. That is one
+	// notch stricter than no-color.org, which exempts the empty string; the
+	// behavior is deliberate and pinned by TestInitThemeWithNO_COLOREnv
+	// ("NO_COLOR empty value still disables colors").
+	if NoColorRequested() {
+		currentTheme = NoColorTheme
+		return
+	}
+
+	// Default to dark theme
+	currentTheme = DarkTheme
+}
+
+// ---------------------------------------------------------------------------
+// CLI color helpers
+// ---------------------------------------------------------------------------
+// The Color* functions below return ANSI escape codes from the currently
+// active CLI theme. They are the primary API used by CLI presentation code
+// (cli/, calibration/, app/) for consistent coloring. Each call is
+// thread-safe via GetCurrentTheme.
+
+// ColorReset returns the reset escape code from the current theme.
+func ColorReset() string { return GetCurrentTheme().Reset }
+
+// ColorRed returns the error color from the current theme.
+func ColorRed() string { return GetCurrentTheme().Error }
+
+// ColorGreen returns the success color from the current theme.
+func ColorGreen() string { return GetCurrentTheme().Success }
+
+// ColorYellow returns the warning color from the current theme.
+func ColorYellow() string { return GetCurrentTheme().Warning }
+
+// ColorBlue returns the primary color from the current theme.
+func ColorBlue() string { return GetCurrentTheme().Primary }
+
+// ColorMagenta returns the info color from the current theme.
+func ColorMagenta() string { return GetCurrentTheme().Info }
+
+// ColorCyan returns the secondary color from the current theme.
+func ColorCyan() string { return GetCurrentTheme().Secondary }
+
+// ColorBold returns the bold escape code from the current theme.
+func ColorBold() string { return GetCurrentTheme().Bold }
+
+// ColorUnderline returns the underline escape code from the current theme.
+func ColorUnderline() string { return GetCurrentTheme().Underline }

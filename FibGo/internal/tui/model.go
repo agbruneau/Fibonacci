@@ -1,0 +1,201 @@
+package tui
+
+import (
+	"context"
+	"log/slog"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/agbruneau/FibGo/internal/apperrors"
+	"github.com/agbruneau/FibGo/internal/config"
+	"github.com/agbruneau/FibGo/internal/orchestration"
+)
+
+// ExecutionState holds the execution-related fields of a TUI session.
+type ExecutionState struct {
+	ctx         context.Context
+	cancel      context.CancelFunc
+	calculators []orchestration.Calculator
+	generation  uint64
+	done        bool
+	exitCode    int
+}
+
+// Model is the root bubbletea model for the TUI dashboard. It owns the five
+// sub-components (header, logs, metrics, chart, footer) plus the shared
+// execution state and layout dimensions; per-message handling lives in
+// handlers.go and command builders live in commands.go so this file can stay
+// focused on the router/composition concern.
+type Model struct {
+	header  HeaderModel
+	logs    LogsModel
+	metrics MetricsModel
+	chart   ChartModel
+	footer  FooterModel
+
+	keymap KeyMap
+
+	ExecutionState
+	LayoutManager
+
+	parentCtx context.Context
+	config    config.AppConfig
+	ref       *programRef
+	paused    bool
+
+	// logger is the diagnostic logger built by app (nil when --log-level is
+	// off). It travels with the model because each generation rebuilds its
+	// fibonacci.Options and must pass the same logger down (audit OBS-01).
+	logger *slog.Logger
+}
+
+// NewModel creates a new TUI model.
+func NewModel(parentCtx context.Context, calculators []orchestration.Calculator, cfg config.AppConfig, version string, logger *slog.Logger) Model {
+	algoNames := make([]string, len(calculators))
+	for i, c := range calculators {
+		algoNames[i] = c.Name()
+	}
+
+	// Per-generation timeout: each run (including restarts via handleReset)
+	// gets its own full budget instead of inheriting a single absolute
+	// deadline set once at session start (APP-05). signal.NotifyContext
+	// stays on parentCtx in app.runTUI, so SIGINT/SIGTERM still cancel
+	// through this derived context.
+	ctx, cancel := context.WithTimeout(parentCtx, cfg.Timeout)
+
+	logs := NewLogsModel(algoNames)
+	logs.AddExecutionConfig(cfg)
+
+	return Model{
+		header:  NewHeaderModel(version),
+		logs:    logs,
+		metrics: NewMetricsModel(),
+		chart:   NewChartModel(),
+		footer:  NewFooterModel(),
+		keymap:  DefaultKeyMap(),
+		ExecutionState: ExecutionState{
+			ctx:         ctx,
+			cancel:      cancel,
+			calculators: calculators,
+			exitCode:    apperrors.ExitSuccess,
+		},
+		parentCtx: parentCtx,
+		config:    cfg,
+		ref:       &programRef{},
+		// Dropped since c2329f3: NewModel took the logger and never stored
+		// it, so --tui --log-level debug logged nothing (found by EVAL-10).
+		logger: logger,
+	}
+}
+
+// Init returns the initial commands.
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(
+		tickCmd(),
+		startCalculationCmd(m.ctx, m.ref, m.calculators, m.config, m.generation, m.logger),
+		watchContextCmd(m.ctx, m.generation),
+	)
+}
+
+// Update is the bubbletea router: it dispatches each message type to a
+// dedicated handler in handlers.go and returns the resulting model + cmd.
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.layoutPanels()
+		return m, nil
+
+	case ProgressMsg:
+		m.handleProgress(msg)
+		return m, nil
+
+	case ComparisonResultsMsg:
+		if msg.Generation == m.generation {
+			m.logs.AddResults(msg.Results)
+		}
+		return m, nil
+
+	case FinalResultMsg:
+		cmd := m.handleFinalResult(msg)
+		return m, cmd
+
+	case IndicatorsMsg:
+		if msg.Generation == m.generation {
+			m.metrics.UpdateIndicators(msg.Indicators)
+		}
+		return m, nil
+
+	case ErrorMsg:
+		m.handleError(msg)
+		return m, nil
+
+	case TickMsg:
+		cmd := m.handleTick()
+		return m, cmd
+
+	case MemStatsMsg:
+		m.metrics.UpdateMemStats(msg)
+		return m, nil
+
+	case SysStatsMsg:
+		m.chart.UpdateSysStats(msg.CPUPercent, msg.MemPercent)
+		return m, nil
+
+	case CalculationCompleteMsg:
+		m.handleCalculationComplete(msg)
+		return m, nil
+
+	case ContextCancelledMsg:
+		cmd := m.handleContextCancelled(msg)
+		return m, cmd
+	}
+
+	return m, nil
+}
+
+// View renders the entire dashboard by composing each component's View().
+// Composition adapts to terminal size (R4.10): narrow terminals stack the
+// logs panel on top of the metrics + chart column instead of side-by-side.
+func (m Model) View() string {
+	if m.width == 0 || m.height == 0 {
+		return "Initializing..."
+	}
+
+	header := m.header.View()
+	footer := m.footer.View()
+
+	metrics := m.metrics.View()
+	chart := m.chart.View()
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, metrics, chart)
+
+	var body string
+	if m.isNarrow() {
+		// Single-column: logs on top, metrics + chart stacked below.
+		logs := m.logs.renderToHeight(m.logsHeight())
+		body = lipgloss.JoinVertical(lipgloss.Left, logs, rightCol)
+	} else {
+		// Side-by-side: logs on the left, right column on the right.
+		logs := m.logs.renderToHeight(lipgloss.Height(rightCol))
+		body = lipgloss.JoinHorizontal(lipgloss.Top, logs, rightCol)
+	}
+
+	// Full layout: header + body + footer.
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
+}
+
+// layoutPanels propagates the current terminal dimensions to every component
+// using the LayoutManager's percentage/clamp rules. Adaptive behavior
+// (single-column / compact metrics) is encapsulated in LayoutManager.
+func (m *Model) layoutPanels() {
+	m.header.SetWidth(m.width)
+	m.footer.SetWidth(m.width)
+	m.logs.SetSize(m.logsWidth(), m.logsHeight())
+	m.metrics.SetSize(m.rightWidth(), m.metricsHeight())
+	m.chart.SetSize(m.rightWidth(), m.chartHeight())
+}

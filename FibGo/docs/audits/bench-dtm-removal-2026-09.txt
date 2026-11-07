@@ -1,0 +1,131 @@
+# EVAL-10 — removal of the dynamic threshold manager, benchstat A/B
+# date: 2026-09-23; host: go version go1.27.0 windows/amd64 ; CPU Intel(R) Core(TM) Ultra 9 275HX, 24 threads, Windows 11
+# base: main@93af525 (git archive, go test -c); new: eval/2026-09-15 working tree with EVAL-10 applied
+# same session, two test binaries, flags: -test.bench='BenchmarkFibonacci/(FastDoubling|MatrixExp|FFTBased)' -test.benchmem -test.run=^$
+#
+# 1) ABBA order (base, new, new, base), -test.count=8 each. Both 'new' runs sat in the middle of the session:
+#    the 1M rows below disagree with (2) and (3) and are read as session drift, not as a regression.
+
+## 1a) base-1 vs new-1
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+                              │ dtm-base-1.txt │            dtm-new-1.txt            │
+                              │     sec/op     │    sec/op     vs base               │
+Fibonacci/FastDoubling/1M-24      3.104m ±  6%    3.892m ± 7%  +25.39% (p=0.000 n=8)
+Fibonacci/MatrixExp/1M-24         8.380m ± 12%   10.226m ± 4%  +22.03% (p=0.000 n=8)
+Fibonacci/FFTBased/1M-24          6.200m ±  8%    8.177m ± 4%  +31.88% (p=0.000 n=8)
+Fibonacci/FastDoubling/10M-24     30.36m ±  2%    29.44m ± 5%        ~ (p=0.083 n=8)
+Fibonacci/MatrixExp/10M-24        33.51m ±  3%    32.07m ± 4%   -4.32% (p=0.021 n=8)
+Fibonacci/FFTBased/10M-24         37.44m ±  1%    37.38m ± 1%        ~ (p=0.574 n=8)
+geomean                           13.53m          15.02m       +10.99%
+
+                              │ dtm-base-1.txt │           dtm-new-1.txt            │
+                              │      B/op      │     B/op      vs base              │
+Fibonacci/FastDoubling/1M-24      638.2Ki ± 7%   605.0Ki ± 9%       ~ (p=0.161 n=8)
+Fibonacci/MatrixExp/1M-24         3.583Mi ± 4%   3.643Mi ± 6%       ~ (p=0.382 n=8)
+Fibonacci/FFTBased/1M-24          2.637Mi ± 3%   2.665Mi ± 2%       ~ (p=0.105 n=8)
+Fibonacci/FastDoubling/10M-24     7.352Mi ± 2%   7.362Mi ± 4%       ~ (p=0.959 n=8)
+Fibonacci/MatrixExp/10M-24        56.08Mi ± 4%   56.70Mi ± 2%       ~ (p=0.574 n=8)
+Fibonacci/FFTBased/10M-24         20.39Mi ± 6%   19.80Mi ± 6%       ~ (p=0.105 n=8)
+geomean                           6.060Mi        6.016Mi       -0.72%
+
+                              │ dtm-base-1.txt │           dtm-new-1.txt            │
+                              │   allocs/op    │  allocs/op   vs base               │
+Fibonacci/FastDoubling/1M-24        96.00 ± 2%    75.00 ± 3%  -21.88% (p=0.000 n=8)
+Fibonacci/MatrixExp/1M-24           611.5 ± 2%    615.0 ± 2%        ~ (p=0.338 n=8)
+Fibonacci/FFTBased/1M-24           7.893k ± 0%   7.900k ± 0%   +0.10% (p=0.000 n=8)
+Fibonacci/FastDoubling/10M-24      15.39k ± 0%   15.37k ± 0%   -0.15% (p=0.000 n=8)
+Fibonacci/MatrixExp/10M-24         18.95k ± 0%   18.96k ± 0%        ~ (p=0.224 n=8)
+Fibonacci/FFTBased/10M-24          23.24k ± 0%   23.25k ± 0%        ~ (p=0.314 n=8)
+geomean                            3.827k        3.676k        -3.93%
+
+## 1b) base-2 vs new-2
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+                              │ dtm-base-2.txt │            dtm-new-2.txt            │
+                              │     sec/op     │    sec/op     vs base               │
+Fibonacci/FastDoubling/1M-24       3.290m ± 6%   5.713m ±  8%  +73.62% (p=0.000 n=8)
+Fibonacci/MatrixExp/1M-24          9.325m ± 4%   8.828m ± 10%   -5.33% (p=0.007 n=8)
+Fibonacci/FFTBased/1M-24           7.080m ± 3%   9.096m ±  6%  +28.47% (p=0.000 n=8)
+Fibonacci/FastDoubling/10M-24      31.18m ± 3%   32.24m ±  2%   +3.39% (p=0.000 n=8)
+Fibonacci/MatrixExp/10M-24         34.27m ± 3%   35.96m ±  3%   +4.93% (p=0.001 n=8)
+Fibonacci/FFTBased/10M-24          33.38m ± 2%   37.23m ±  2%  +11.53% (p=0.000 n=8)
+geomean                            14.07m        16.45m        +16.92%
+
+                              │ dtm-base-2.txt │            dtm-new-2.txt            │
+                              │      B/op      │     B/op       vs base              │
+Fibonacci/FastDoubling/1M-24      631.8Ki ± 7%   651.6Ki ±  5%       ~ (p=0.083 n=8)
+Fibonacci/MatrixExp/1M-24         3.627Mi ± 9%   3.694Mi ±  5%       ~ (p=0.161 n=8)
+Fibonacci/FFTBased/1M-24          2.615Mi ± 2%   2.653Mi ±  2%       ~ (p=0.234 n=8)
+Fibonacci/FastDoubling/10M-24     7.365Mi ± 2%   7.170Mi ±  3%  -2.65% (p=0.038 n=8)
+Fibonacci/MatrixExp/10M-24        56.38Mi ± 4%   57.27Mi ± 10%       ~ (p=0.878 n=8)
+Fibonacci/FFTBased/10M-24         19.90Mi ± 2%   19.99Mi ±  1%       ~ (p=0.645 n=8)
+geomean                           6.036Mi        6.093Mi        +0.94%
+
+                              │ dtm-base-2.txt │           dtm-new-2.txt            │
+                              │   allocs/op    │  allocs/op   vs base               │
+Fibonacci/FastDoubling/1M-24        96.00 ± 2%    76.50 ± 2%  -20.31% (p=0.000 n=8)
+Fibonacci/MatrixExp/1M-24           612.5 ± 3%    613.5 ± 3%        ~ (p=0.457 n=8)
+Fibonacci/FFTBased/1M-24           7.895k ± 0%   7.901k ± 0%   +0.08% (p=0.000 n=8)
+Fibonacci/FastDoubling/10M-24      15.39k ± 0%   15.37k ± 0%   -0.14% (p=0.000 n=8)
+Fibonacci/MatrixExp/10M-24         18.95k ± 0%   18.95k ± 0%        ~ (p=0.878 n=8)
+Fibonacci/FFTBased/10M-24          23.23k ± 0%   23.24k ± 0%   +0.05% (p=0.025 n=8)
+geomean                            3.828k        3.686k        -3.69%
+
+## 2) strict alternation base/new x6, 1M only, -test.count=3 each (n=18)
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+                             │ alt-base.txt │             alt-new.txt             │
+                             │    sec/op    │    sec/op     vs base               │
+Fibonacci/FastDoubling/1M-24    3.351m ± 7%   3.290m ± 14%       ~ (p=0.696 n=18)
+Fibonacci/MatrixExp/1M-24       9.397m ± 7%   9.095m ± 11%       ~ (p=0.767 n=18)
+Fibonacci/FFTBased/1M-24        6.774m ± 5%   7.248m ±  4%  +7.01% (p=0.044 n=18)
+geomean                         5.975m        6.008m        +0.55%
+
+                             │ alt-base.txt │             alt-new.txt             │
+                             │     B/op     │     B/op      vs base               │
+Fibonacci/FastDoubling/1M-24   629.1Ki ± 4%   607.0Ki ± 8%       ~ (p=0.372 n=18)
+Fibonacci/MatrixExp/1M-24      3.599Mi ± 2%   3.587Mi ± 3%       ~ (p=0.815 n=18)
+Fibonacci/FFTBased/1M-24       2.643Mi ± 2%   2.629Mi ± 1%       ~ (p=0.226 n=18)
+geomean                        1.801Mi        1.775Mi       -1.47%
+
+                             │ alt-base.txt │             alt-new.txt             │
+                             │  allocs/op   │  allocs/op   vs base                │
+Fibonacci/FastDoubling/1M-24     96.00 ± 1%    75.00 ± 3%  -21.88% (p=0.000 n=18)
+Fibonacci/MatrixExp/1M-24        611.5 ± 1%    613.0 ± 1%        ~ (p=0.969 n=18)
+Fibonacci/FFTBased/1M-24        7.894k ± 0%   7.894k ± 0%        ~ (p=0.451 n=18)
+geomean                          773.9         713.3        -7.82%
+
+## 3) balanced alternation (new first on odd rounds) x10, FFTBased only, -test.count=2 each (n=20)
+goos: windows
+goarch: amd64
+pkg: github.com/agbruneau/FibGo/internal/fibonacci
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+                          │ fft-base.txt │            fft-new.txt             │
+                          │    sec/op    │   sec/op     vs base               │
+Fibonacci/FFTBased/1M-24     6.763m ± 5%   6.928m ± 6%       ~ (p=0.277 n=20)
+Fibonacci/FFTBased/10M-24    36.41m ± 1%   36.31m ± 1%       ~ (p=0.883 n=20)
+geomean                      15.69m        15.86m       +1.07%
+
+                          │ fft-base.txt │             fft-new.txt             │
+                          │     B/op     │     B/op      vs base               │
+Fibonacci/FFTBased/1M-24    2.646Mi ± 1%   2.636Mi ± 1%       ~ (p=0.301 n=20)
+Fibonacci/FFTBased/10M-24   19.87Mi ± 1%   19.71Mi ± 2%       ~ (p=0.779 n=20)
+geomean                     7.250Mi        7.208Mi       -0.58%
+
+                          │ fft-base.txt │            fft-new.txt             │
+                          │  allocs/op   │  allocs/op   vs base               │
+Fibonacci/FFTBased/1M-24     7.894k ± 0%   7.894k ± 0%       ~ (p=0.545 n=20)
+Fibonacci/FFTBased/10M-24    23.24k ± 0%   23.23k ± 0%       ~ (p=0.100 n=20)
+geomean                      13.55k        13.54k       -0.01%
+
+# Reading: sec/op neutral on all six sub-benchmarks once order is balanced; FastDoubling/1M
+# allocs/op -21.9% (p=0.000): with the three Options fields gone, executeDoublingStepMultiplications
+# no longer moves opts to the heap once per doubling step (go build -gcflags=-m: 'moved to heap: opts'
+# at doubling_framework.go:74 on main, absent on the branch).

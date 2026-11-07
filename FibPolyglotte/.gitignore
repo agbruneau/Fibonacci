@@ -1,0 +1,10 @@
+# Artefacts de build et dépendances
+node_modules/
+.build/
+rust/target/
+__pycache__/
+*.pyc
+
+# Worktrees des sous-agents et réglages locaux de Claude Code
+.claude/worktrees/
+.claude/settings.local.json
