@@ -4,7 +4,7 @@ Version 1.15 · 2026-10-13 · André-Guy Bruneau. Révisée par `/grill-with-doc
 
 ## 1. Contexte et objectifs
 
-Fib sert de terrain d'essai pour explorer les skills de Matt Pocock (plugin `mattpocock-skills` v1.2.3) en Go, Rust, TypeScript et Python. Le calcul de Fibonacci est un prétexte : chaque implémentation reste académique et lisible. La référence fonctionnelle est [agbruneau/Fibonacci](https://github.com/agbruneau/Fibonacci) (FibCalc, en Go); Fib n'en garde qu'un sous-ensemble.
+Fib sert de terrain d'essai pour explorer les skills de Matt Pocock (plugin `mattpocock-skills` v1.2.3) en Go, Rust, TypeScript et Python. Le calcul de Fibonacci est un prétexte : chaque implémentation reste académique et lisible. La référence fonctionnelle est FibCalc, en Go, dans le dossier voisin [`FibGo/`](../FibGo/) (dépôt d'origine [agbruneau/FiboGo](https://github.com/agbruneau/FiboGo)); Fib n'en garde qu'un sous-ensemble.
 
 - **O1** — Une même CLI dans les quatre langages, avec un contrat respecté à l'octet près.
 - **O2** — Chaque skill du flux de Matt Pocock (§ 9) sert au moins une fois sur du vrai travail, et son constat est consigné.

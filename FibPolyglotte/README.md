@@ -2,7 +2,9 @@
 
 Une même CLI de calcul de la suite de Fibonacci, écrite quatre fois, en Go, Rust, TypeScript et Python, sous un contrat commun vérifié à l'octet près.
 
-Fib est un terrain d'essai académique. Il sert à explorer, avec Claude Code, les [skills d'ingénierie de Matt Pocock](https://github.com/mattpocock/skills), du PRD jusqu'à la revue de code. Le calcul de Fibonacci n'est qu'un prétexte. Depuis l'[ADR-0004](docs/adr/0004-performance-du-calcul.md), le temps de réponse prime sur la brièveté du code, et chaque optimisation porte un commentaire d'une ligne qui dit pourquoi. Fib reprend un sous-ensemble de [FibCalc](https://github.com/agbruneau/Fibonacci).
+Fib est un terrain d'essai académique. Il sert à explorer, avec Claude Code, les [skills d'ingénierie de Matt Pocock](https://github.com/mattpocock/skills), du PRD jusqu'à la revue de code. Le calcul de Fibonacci n'est qu'un prétexte. Depuis l'[ADR-0004](docs/adr/0004-performance-du-calcul.md), le temps de réponse prime sur la brièveté du code, et chaque optimisation porte un commentaire d'une ligne qui dit pourquoi. Fib reprend un sous-ensemble de [FibCalc](../FibGo/).
+
+Fib vit dans le dossier `FibPolyglotte/` du dépôt [agbruneau/Fibonacci](https://github.com/agbruneau/Fibonacci), à côté de FibCalc (`FibGo/`) : les commandes ci-dessous se lancent depuis ce dossier. Son dépôt d'origine, avec l'historique des commits et les issues citées plus bas, est [agbruneau/FiboPolyGlotte](https://github.com/agbruneau/FiboPolyGlotte), anciennement `agbruneau/Fib`, nom vers lequel pointent encore les liens.
 
 ## État
 
@@ -115,7 +117,7 @@ Le contrat complet est au § 4 du [PRD](PRD.md) : grammaire, formats, erreurs.
 
 ## Lancer une implémentation
 
-Depuis la racine du dépôt :
+Depuis le dossier `FibPolyglotte/` :
 
 | Langage | Commande |
 |---|---|
@@ -155,6 +157,7 @@ npm run differentiel
 - `check` vérifie les quatre langages.
 - `bench` compile, puis mesure le temps total et le temps de calcul de chaque langage sur huit scénarios, dont un terme à 1 000 000 et un terme impair, 999 999 (la branche impaire du dernier bit de `fast`). Il prend aussi des identifiants de langage; sans `--runs`, il fait 11 exécutions.
 - `differentiel` lance la boucle différentielle, un outil de recherche hors de `check` et de `contract` (ADR-0001) : elle joue les quatre CLI sur les mêmes entrées et rend les écarts, sans attendu ni référence, en code 1 s'il y en a.
+- `bench -- <id> --contre REF` et `differentiel --revision REF` ne fonctionnent pas encore dans `agbruneau/Fibonacci` : l'extraction de la révision y range les fichiers sous `FibPolyglotte/` au lieu de la racine de la révision. Ils fonctionnent dans le dépôt d'origine.
 - `bench -- <id> --contre REF` mesure un travail de démarrage par un A/B apparié : la révision REF, extraite sous `.build/revisions/` (à vider par `npm run bench -- --nettoyer`, jamais par `Remove-Item -Recurse` : chaque révision porte un lien vers `node_modules`), contre l'arbre de travail, lancées en alternance, avec la médiane des différences par paire (ADR-0004). Sans `--runs`, l'A/B fait 100 paires ; un `--runs` impair est arrondi au pair supérieur, pour que chaque côté parte le premier aussi souvent.
 
 ## Prérequis
@@ -164,7 +167,7 @@ npm run differentiel
 - Node 24.2 ou plus, ou 22.18 et plus dans la ligne 22, avec npm : la CLI TypeScript lance son point d'entrée par `import.meta.main`
 - Python 3.12 ou plus
 
-Sous Windows, la toolchain Rust MSVC exige le composant C++ de Visual Studio Build Tools. Sans lui, utilisez la toolchain GNU pour ce dossier seulement, depuis la racine du dépôt :
+Sous Windows, la toolchain Rust MSVC exige le composant C++ de Visual Studio Build Tools. Sans lui, utilisez la toolchain GNU pour ce dossier seulement, depuis le dossier `FibPolyglotte/` :
 
 ```bash
 rustup override set stable-x86_64-pc-windows-gnu
@@ -177,7 +180,7 @@ Le fichier `.gitattributes` force les fins de ligne LF, dont le contrat a besoin
 ## Organisation
 
 ```
-Fib/
+FibPolyglotte/
 ├── README.md, PRD.md, CLAUDE.md, CONTEXT.md
 ├── docs/
 │   ├── adr/             décisions durables

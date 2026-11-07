@@ -59,3 +59,11 @@ Fibonacci/
 ```
 
 Chaque projet garde ses propres fichiers de configuration (`.gitignore`, `.gitattributes`, `go.mod`, `package.json`…) dans son dossier; les commandes se lancent depuis ce dossier.
+
+## Limites de l'intégration
+
+- **Historique.** Les commits et les étiquettes de version (FibCalc v3.0.0 à v5.0.0) restent dans FiboGo et FiboPolyGlotte. Les hashes cités dans les docs des deux projets, comme `0590ab8`, ne se résolvent que là.
+- **Issues.** Les issues citées par Fib (`agbruneau/Fib#…`) sont celles de FiboPolyGlotte; l'ancien nom redirige.
+- **CI.** Le workflow `FibGo/.github/workflows/ci.yml` ne s'exécute pas ici : GitHub ne lit que le `.github/` de la racine. Il tourne dans FiboGo.
+- **Révisions de Fib.** `npm run bench -- <id> --contre REF` et `npm run differentiel -- --revision REF` ne fonctionnent pas encore ici : l'extraction de la révision range ses fichiers sous `FibPolyglotte/` au lieu de la racine de la révision.
+- **Chemin de module.** FibCalc garde `github.com/agbruneau/FibGo`, que GitHub redirige vers FiboGo.

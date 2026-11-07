@@ -1,7 +1,7 @@
 # FibCalc — Calculateur Fibonacci haute performance
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
-[![Release](https://img.shields.io/github/v/tag/agbruneau/FibGo?style=for-the-badge&label=Release&color=2ea44f)](CHANGELOG.md)
+[![Release](https://img.shields.io/github/v/tag/agbruneau/FiboGo?style=for-the-badge&label=Release&color=2ea44f)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache)](LICENSE)
 ![Status](https://img.shields.io/badge/Status-Prototype_acad%C3%A9mique-orange?style=for-the-badge)
 
@@ -19,12 +19,14 @@ qui a été mesuré, ce qui a été rejeté et pourquoi :
 est dans [`CHANGELOG.md`](CHANGELOG.md), les décisions dans
 [`docs/adr/`](docs/adr/).
 
-**État vérifié le 2026-10-11** sur `0590ab8` (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
+**État vérifié le 2026-10-11** sur `0590ab8` du dépôt d'origine
+[`agbruneau/FiboGo`](https://github.com/agbruneau/FiboGo) (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
 `scripts/check.ps1` vert de bout en bout — build, vet, `go test -race -shuffle=on
 -count=1` sur les 22 paquets, lint à **0 finding**, couverture **96,0 %** (plancher
 90 %), `govulncheck` sans vulnérabilité. La même séquence tourne en CI sur Ubuntu
-et Windows à chaque poussée, avec en plus le backend `gmp`, un build 32 bits et
-l'image Docker.
+et Windows à chaque poussée vers FiboGo, avec en plus le backend `gmp`, un build 32 bits et
+l'image Docker. Dans [`agbruneau/Fibonacci`](https://github.com/agbruneau/Fibonacci), où ce
+projet vit sous `FibGo/`, ce workflow ne s'exécute pas : GitHub ne lit que le `.github/` de la racine.
 
 ⚠ **Limites déclarées.** Le backend `gmp` ne se compile pas sur cet hôte (pas
 d'en-têtes libgmp) ; il est couvert par le job CI `gmp`. Les cibles 32 bits
@@ -56,15 +58,17 @@ Prérequis : **Go 1.26.1+** (`go.mod` déclare `go 1.26.1`, sans directive `tool
 `-o fibcalc` produit un fichier **sans extension** que le shell refuse d'exécuter : écrire
 `go build -o fibcalc.exe ./cmd/fibcalc` puis `.\fibcalc.exe`.
 
-Le dépôt s'appelle **`agbruneau/Fibonacci`** ; le chemin de module est resté
+Le projet vit dans le dossier `FibGo/` du dépôt **`agbruneau/Fibonacci`**, avec
+Fib (`FibPolyglotte/`). Son dépôt d'origine, avec l'historique des commits et les
+étiquettes de version, est **`agbruneau/FiboGo`**. Le chemin de module est resté
 `github.com/agbruneau/FibGo`, nom d'origine du dépôt. L'écart est délibéré :
 changer un chemin de module casse tous les imports existants, et la redirection
-GitHub couvre les deux usages — vérifié le 2026-09-07, `git ls-remote` et
-`go list -m github.com/agbruneau/FibGo@latest` réussissent tous les deux.
+GitHub de `agbruneau/FibGo` vers `agbruneau/FiboGo` couvre `git clone` comme le proxy de modules —
+vérifié le 2026-11-07, `git ls-remote` et `go list -m github.com/agbruneau/FibGo@latest` réussissent tous les deux.
 
 ```bash
 git clone https://github.com/agbruneau/Fibonacci.git
-cd Fibonacci
+cd Fibonacci/FibGo
 go build -o fibcalc ./cmd/fibcalc
 ./fibcalc -n 1000000 -algo fast        # 694 241 bits (la durée dépend de l'hôte, cf. Performance)
 ./fibcalc -n 100 -c                    # → 354224848179261915075
