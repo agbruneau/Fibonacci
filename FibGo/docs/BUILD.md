@@ -319,13 +319,14 @@ from source on demand (audit PRO-02).
 # Run linter
 make lint
 # or, directly — the version comes from scripts/tools.env
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run ./...
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run ./...
 ```
 
 The expected state is **zero findings** — the gate treats any non-zero exit as
-a failure, findings and toolchain breakage alike. Verified 2026-09-04 with
-`golangci-lint v2.13.2 built with go1.27.0`: `golangci-lint run ./...` prints
-`0 issues.` and exits 0.
+a failure, findings and toolchain breakage alike. Verified 2026-11-07 with
+`golangci-lint v2.15.0` under go1.27.3: `golangci-lint run ./...` prints
+`0 issues.` and exits 0. The previous pin, v2.13.2, could no longer analyze the
+module under go1.27.3 (stdlib export data version 5).
 
 ### Key Limits
 
