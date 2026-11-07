@@ -109,6 +109,15 @@ func (a *Application) validateMemoryBudget(out io.Writer) int {
 
 	// Error paths report on ErrWriter: stdout stays reserved for results so
 	// scripts capturing it never receive error text as data (ERR-02).
+	var tooLarge config.IndexTooLargeError
+	if errors.As(err, &tooLarge) {
+		fmt.Fprintf(a.ErrWriter, "Configuration error: %v.\n", tooLarge)
+		if a.Config.LastDigits == 0 {
+			fmt.Fprintf(a.ErrWriter, "Use --last-digits K to compute the last K digits of F(n) in O(K) memory.\n")
+		}
+		return apperrors.ExitErrorConfig
+	}
+
 	var parseErr config.MemoryLimitParseError
 	if errors.As(err, &parseErr) {
 		fmt.Fprintf(a.ErrWriter, "Invalid --memory-limit: %v\n", parseErr.Cause)
@@ -169,6 +178,19 @@ func (a *Application) runLastDigits(ctx context.Context, out io.Writer) int {
 	} else {
 		fmt.Fprintf(out, "Last %d digits of F(%d): %s\n", k, n, res.Digits)
 		fmt.Fprintf(out, "Computed in %s\n", res.Duration.Round(time.Millisecond))
+	}
+
+	// --output is honored here too (audit 2026-11-07): this path used to return
+	// without writing it, so `--last-digits 5 -o f.txt` exited 0 and no f.txt
+	// existed. Same error contract as saveResultIfNeeded.
+	outputCfg := cli.OutputConfig{OutputFile: a.Config.OutputFile, Quiet: a.Config.Quiet}
+	if err := cli.WriteLastDigitsToFile(res.Digits, n, res.Duration, outputCfg); err != nil {
+		fmt.Fprintf(a.ErrWriter, "Error saving result: %v\n", err)
+		return apperrors.ExitErrorGeneric
+	}
+	if outputCfg.OutputFile != "" && !outputCfg.Quiet {
+		fmt.Fprintf(out, "\n%s✓ Result saved to: %s%s%s\n",
+			ui.ColorGreen(), ui.ColorCyan(), outputCfg.OutputFile, ui.ColorReset())
 	}
 
 	return apperrors.ExitSuccess

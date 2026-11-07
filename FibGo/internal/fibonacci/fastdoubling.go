@@ -29,7 +29,7 @@ const maxArenaPoolWords = 50_000_000
 // arena until the next call (or the calculator is dropped), the cap is
 // deliberately much tighter than maxArenaPoolWords: 4M words = 32 MB on a
 // 64-bit word. With the ADR-0009 R4 arena factor of 10 —
-// arenaTotalWords(n) = (⌊n*0.69424/64⌋+1)*10, memory/arena.go — that covers
+// arenaTotalWords(n) = (⌊n*log2(φ)/64⌋+1)*10, memory/arena.go — that covers
 // n up to ≈ 36.9M. (The previous "roughly 20M" here was computed against the
 // pre-ADR-0009 ×15 factor and was never updated.) Larger arenas keep the
 // historical pool-only behavior.

@@ -11,14 +11,18 @@ type MemoryEstimate struct {
 	MaxFermatSliceSize int
 }
 
+// log2Phi is log2(phi) to float64 precision. Canonical definition:
+// fibmath.GrowthFactor; the truncation 0.69424 both used to carry under-sized
+// from n = 10^8 (audit 2026-11-07). This package deliberately imports nothing
+// from this repository (ARCH.md), so it keeps a literal rather than the import
+// (audit TYP-04); TestLog2PhiIsExact keeps it equal to math.Log2(math.Phi).
+const log2Phi = 0.6942419136306174
+
 // EstimateMemoryNeeds estimates the memory requirements for calculating F(n).
 // This is a heuristic estimation used for pool pre-warming.
 func EstimateMemoryNeeds(n uint64) MemoryEstimate {
 	// F(n) has approximately n * log10(phi) / log10(2) bits
-	// log2(phi) ≈ 0.69424. Canonical definition: fibmath.GrowthFactor. This
-	// package deliberately imports nothing from this repository (ARCH.md), so
-	// it keeps a literal rather than the import (audit TYP-04).
-	bitLen := uint64(float64(n) * 0.69424)
+	bitLen := uint64(float64(n) * log2Phi)
 	// bitLen is bounded by n (practical limit ~10^9 ⇒ bitLen fits in int).
 	// This is a heuristic estimate for pool sizing.
 	wordLen := int((bitLen + 63) / 64) // #nosec G115 -- bitLen ≈ 0.7*n and n is a Fibonacci index (< 2^53 in practice), so the /64 quotient is far below MaxInt

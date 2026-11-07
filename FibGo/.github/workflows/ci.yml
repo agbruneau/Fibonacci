@@ -165,7 +165,7 @@ jobs:
   # where int is 32 bits. This job is what audit TYP-01 was invisible without —
   # a `1 << 60` constant overflowed int and nobody noticed.
   cross-build:
-    name: cross build (386, arm64)
+    name: cross build (386, arm, arm64)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -175,8 +175,17 @@ jobs:
           cache: true
       - name: build GOARCH=386
         run: GOOS=linux GOARCH=386 go build ./...
+      # vet type-checks the _test.go files too, which `go build` skips: three
+      # 64-bit constants kept internal/bigfft's tests from compiling on 386
+      # until the audit of 2026-11-07, with the build step above green.
+      - name: vet GOARCH=386 (test files included)
+        run: GOOS=linux GOARCH=386 go vet ./...
       - name: build GOARCH=arm64
         run: GOOS=linux GOARCH=arm64 go build ./...
+      # docs/PORTABILITY.md §1 has long said CI guards 386, arm and arm64; until
+      # 2026-11-07 nothing here built the 32-bit arm target.
+      - name: build GOARCH=arm
+        run: GOOS=linux GOARCH=arm go build ./...
       # The pure-Go fallback for the go:linkname kernels (EVAL-21) must keep
       # building and agreeing with math/big, or it is no fallback at all.
       - name: test -tags purego (bigfft without go:linkname)

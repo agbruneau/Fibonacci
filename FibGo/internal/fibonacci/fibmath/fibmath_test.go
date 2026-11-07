@@ -16,8 +16,28 @@ func TestGrowthFactorIsLog2Phi(t *testing.T) {
 	phi := (1 + math.Sqrt(5)) / 2
 	want := math.Log2(phi)
 
-	if diff := math.Abs(GrowthFactor - want); diff > 1e-5 {
-		t.Errorf("GrowthFactor = %v, want log2(phi) = %v (diff %v)", GrowthFactor, want, diff)
+	// Exact, not within 1e-5: that tolerance let the truncation 0.69424 pass
+	// although it under-sized F(n) from n = 10^8 on (audit 2026-11-07).
+	if GrowthFactor != want {
+		t.Errorf("GrowthFactor = %v, want log2(phi) = %v exactly (diff %v)", GrowthFactor, want, GrowthFactor-want)
+	}
+}
+
+// TestGrowthFactorBoundsTheBitLength checks the property the sizing code needs
+// at the n it actually runs, far beyond what the naive oracle below can reach:
+// int(BitsFor(n))/64+1 words, the pre-sizing formula, must hold F(n), whose bit
+// length is floor(n*log2(phi) - log2(sqrt(5))) + 1 by Binet's formula. With
+// the old truncated constant it failed from n = 10^8 (2 words short).
+func TestGrowthFactorBoundsTheBitLength(t *testing.T) {
+	t.Parallel()
+
+	log2Phi, log2Sqrt5 := math.Log2(math.Phi), math.Log2(math.Sqrt(5))
+	for _, n := range []uint64{1_000_000, 100_000_000, 1_000_000_000, 1_000_000_000_000} {
+		bitLen := math.Floor(float64(n)*log2Phi-log2Sqrt5) + 1
+		need := int(math.Ceil(bitLen / 64))
+		if got := int(BitsFor(n))/64 + 1; got < need {
+			t.Errorf("n=%d: pre-sized %d words, F(n) needs %d", n, got, need)
+		}
 	}
 }
 

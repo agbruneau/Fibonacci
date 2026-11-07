@@ -641,7 +641,8 @@ func EstimateMemoryNeeds(n uint64) MemoryEstimate
 ```
 
 Returns estimated maximum sizes for each pool type based on the bit-length of F(n),
-computed from the approximation `bitLen(F(n)) ~ n * 0.69424`.
+computed from the approximation `bitLen(F(n)) ~ n * log2(φ)`, with log2(φ) = 0.6942419136306174
+(the package's `log2Phi`, a copy of `fibmath.GrowthFactor`).
 
 ---
 

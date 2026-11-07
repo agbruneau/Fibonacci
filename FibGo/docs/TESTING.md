@@ -8,10 +8,11 @@ regression tests on every gate plus scheduled/manual mutation fuzzing (see
 [Fuzz Testing](#fuzz-testing)), property-based
 testing, panic-contract testing, an architecture-layering gate, benchmark
 testing, and end-to-end testing. The test suite spans 134 test files across the
-22 packages (2026-10-11; recount with `git ls-files '*_test.go' | wc -l` rather
+22 packages (2026-11-07; recount with `git ls-files '*_test.go' | wc -l` rather
 than trusting the figure — `git ls-files` is used deliberately, so untracked
-scratch checkouts are not counted twice) and covered **96.0 % of statements**
-when last measured (2026-10-11, `go1.27.0 windows/amd64`). Only the **90 %**
+scratch checkouts are not counted twice) and covered **94.3 % of statements**
+when last measured (2026-11-07, `go1.27.3 windows/amd64`; 96.0 % on 2026-10-11
+under `go1.27.0`). Only the **90 %**
 floor is enforced — by `make coverage-check`, `scripts/check.ps1` and the CI
 `gate` job; `make coverage` renders `coverage.html` and asserts nothing. The
 6-point margin between the reading and the floor is unenforced slack, not a
@@ -411,10 +412,10 @@ Two numbers live here and they are not interchangeable.
 | | Value | Status |
 |---|---|---|
 | **Enforced floor** | 90.0 % of statements, module total | Asserted by `make coverage-check`, which delegates to `scripts/check.sh --coverage-only` (`COVERAGE_FLOOR=90.0`), by `scripts/check.ps1` and by the CI `gate` job on Ubuntu. Raised from 80 % on 2026-09-23 (EVAL-12): the Ubuntu CI run of 2026-09-21 measured 94.0 %, and 90 % keeps a 4-point margin under the lowest platform. Below it, the gate fails. |
-| **Last measured** | **96.0 %** of statements, module total | A dated reading: 2026-10-11, commit `0590ab8`, `go1.27.0 windows/amd64`, `scripts/check.ps1` (`go test -race -shuffle=on -count=1 -coverprofile … ./...`) exit 0, 22 packages. Nothing enforces it — coverage can fall 6 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
+| **Last measured** | **94.3 %** of statements, module total | A dated reading: 2026-11-07, the audit tree on top of `642e7ae` in `agbruneau/Fibonacci`, `go1.27.3 windows/amd64`, `scripts/check.ps1` (`go test -race -shuffle=on -count=1 -coverprofile … ./...`) exit 0, 22 packages. The previous reading, 96.0 % on 2026-10-11 (`0590ab8` of `agbruneau/FiboGo`, `go1.27.0`), was not re-measured on that commit, so the 1.7-point gap is not attributed. Nothing enforces it — coverage can fall 4.3 points (4 on Ubuntu CI, 94.0 % on 2026-09-21) before the gate reacts. |
 
-Read the 96.0 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
-below: it counts no e2e subprocess path and no GMP backend, so it is 96.0 % of
+Read the 94.3 % against [Coverage blind spots](#coverage-blind-spots-a5-08)
+below: it counts no e2e subprocess path and no GMP backend, so it is 94.3 % of
 what the instrumentation can see, not of the shipped code.
 
 That reading came from the same two commands `check.sh --coverage-only` runs
@@ -459,12 +460,12 @@ Two categories of code are intentionally not reflected in the standard `coverage
 
 `cmd/generate-golden` is the **dev-time** oracle that regenerates the golden
 corpus; it is outside the production execution path. Its `main` is deliberately
-left uncovered, which costs the package **8.1 points** against the module total:
-**87.9 %** vs 96.0 % (`go test -count=1 -cover ./cmd/generate-golden/`,
-re-read 2026-09-23). The whole gap is `main` at 0.0 % — `run` measures 90.5 % and
-`fibBig` 100.0 % (`go tool cover -func`). So the package sits *below* the module
-total, not far below; it cleared the old 80 % floor on its own and would not clear
-the 90 % one.
+left uncovered, which costs the package **11.8 points** against the module total:
+**82.5 %** vs 94.3 % (`go test -count=1 -cover ./cmd/generate-golden/`,
+re-read 2026-11-07; 87.9 % vs 96.0 % on 2026-09-23). `main` is at 0.0 %, `run`
+at 85.2 % (90.5 % on 2026-09-23) and `fibBig` at 100.0 % (`go tool cover -func`).
+So the package sits *below* the module total; it clears the old 80 % floor on its
+own and would not clear the 90 % one.
 **Exclude it from any per-package coverage floor** regardless — the floor
 applies to the **module total** only (see `make coverage-check`, A5-10).
 

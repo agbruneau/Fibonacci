@@ -31,7 +31,9 @@ func TestFFT_Sqr(t *testing.T) {
 	x := new(big.Int)
 	words := make([]big.Word, numWords)
 	for i := range words {
-		words[i] = big.Word(0x123456789ABCDEF0 + i)
+		// uint64 then Word: a run-time conversion, which keeps the low 32 bits
+		// on a 32-bit target instead of failing to compile there.
+		words[i] = big.Word(uint64(0x123456789ABCDEF0) + uint64(i))
 	}
 	x.SetBits(words)
 
@@ -55,7 +57,7 @@ func TestFFT_SqrTo(t *testing.T) {
 	x := new(big.Int)
 	words := make([]big.Word, numWords)
 	for i := range words {
-		words[i] = big.Word(0xFEEDBACC + i)
+		words[i] = big.Word(uint64(0xFEEDBACC) + uint64(i)) // see TestFFT_Sqr
 	}
 	x.SetBits(words)
 

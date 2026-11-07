@@ -23,9 +23,18 @@ package fibmath
 // GrowthFactor is log2(phi), where phi = (1+sqrt(5))/2 is the golden ratio.
 //
 // F(n) is asymptotically phi^n / sqrt(5), so its bit length is n*log2(phi)
-// to within a constant. Every buffer sized from n in this repository starts
+// to within a constant — in fact floor(n*log2(phi) - log2(sqrt(5))) + 1, never
+// more than n*log2(phi). Every buffer sized from n in this repository starts
 // from this number.
-const GrowthFactor = 0.69424
+//
+// It is log2(phi) to float64 precision, math.Log2(math.Phi) written out
+// because a const cannot call a function. It used to be the truncation
+// 0.69424, short by 1.9e-6, and that shortfall grows with n instead of staying
+// a constant: from n = 10^8 (the default -n) the pre-sized big.Int slots,
+// int(n*GrowthFactor)/64+1 words, came out 2 words below F(n) (29 at
+// n = 10^9), so the final doubling step reallocated outside the arena
+// (audit 2026-11-07). TestGrowthFactorBoundsTheBitLength pins the bound.
+const GrowthFactor = 0.6942419136306174
 
 // MaxUint64Index is the largest n for which F(n) fits in a uint64: F(93) is
 // 12200160415121876738, and F(94) exceeds 2^64.

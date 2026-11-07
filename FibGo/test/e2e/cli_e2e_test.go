@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -272,8 +273,14 @@ func TestCLI_TimeoutLargeN(t *testing.T) {
 	skipShortE2E(t)
 	binPath := buildBinary(t)
 
-	// Use an extremely large N with a very short timeout to guarantee timeout
-	cmd := exec.Command(binPath, "-n", "999999999", "--timeout", "1ms")
+	// Use an extremely large N with a very short timeout to guarantee timeout.
+	// On a 32-bit target F(999999999) is refused before it starts (exit 4):
+	// its memory estimate exceeds the 4 GiB address space. F(10^8) still fits.
+	n := "999999999"
+	if strconv.IntSize == 32 {
+		n = "100000000"
+	}
+	cmd := exec.Command(binPath, "-n", n, "--timeout", "1ms")
 	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 	_, err := cmd.CombinedOutput()
 

@@ -3,10 +3,12 @@ package fibonacci
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
 	"github.com/agbruneau/FibGo/internal/apperrors"
+	"github.com/agbruneau/FibGo/internal/fibonacci/memory"
 )
 
 func TestFibCalculator_Name(t *testing.T) {
@@ -99,6 +101,34 @@ func TestCanCalculate(t *testing.T) {
 			t.Fatalf("CanCalculate(1k, 1GB) should return ok=true (estimate=%d)", est.TotalBytes)
 		}
 	})
+
+	t.Run("unaddressable n is refused with or without a budget", func(t *testing.T) {
+		t.Parallel()
+		for _, limit := range []uint64{0, math.MaxUint64} {
+			if ok, est := CanCalculate(math.MaxUint64, limit); ok {
+				t.Errorf("CanCalculate(MaxUint64, %d) = true (estimate=%d), want false", limit, est.TotalBytes)
+			}
+		}
+	})
+}
+
+// TestCalculateWithObservers_UnaddressableN reproduces the audit 2026-11-07
+// crash at the calculator boundary: with no budget set, F(MaxUint64) reached
+// NewCalculationArena and panicked ("makeslice: len out of range"). The call
+// must now return a MemoryError, for every calculator, before any allocation.
+func TestCalculateWithObservers_UnaddressableN(t *testing.T) {
+	t.Parallel()
+	for _, core := range []CoreCalculator{&FastDoublingCalculator{}, &MatrixExponentiationCalculator{}, &FFTBasedCalculator{}} {
+		calc := MustNewCalculator(core)
+		result, err := calc.Calculate(context.Background(), nil, 0, math.MaxUint64, Options{})
+		var memErr apperrors.MemoryError
+		if !errors.As(err, &memErr) {
+			t.Fatalf("%s: expected apperrors.MemoryError, got %T: %v (result=%v)", calc.Name(), err, err, result)
+		}
+		if memErr.Available != memory.AddressableHeapBytes || memErr.Limit != 0 {
+			t.Errorf("%s: Available/Limit = %d/%d, want %d/0", calc.Name(), memErr.Available, memErr.Limit, memory.AddressableHeapBytes)
+		}
+	}
 }
 
 // TestCalculateWithObservers_MemoryLimitExceeded verifies that the calculator

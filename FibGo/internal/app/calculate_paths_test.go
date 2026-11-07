@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"strings"
@@ -251,7 +252,7 @@ func TestValidateMemoryBudgetSuggestion(t *testing.T) {
 			var outBuf, errBuf bytes.Buffer
 			app := &Application{
 				Config: config.AppConfig{
-					N:           1_000_000_000,
+					N:           10_000_000, // addressable on 32-bit too
 					MemoryLimit: "1K",
 					LastDigits:  tc.lastDigits,
 				},
@@ -290,7 +291,7 @@ func TestRunTUI_RejectsOversizedMemoryBudget(t *testing.T) {
 	var errBuf bytes.Buffer
 	app := &Application{
 		Config: config.AppConfig{
-			N:           1_000_000_000,
+			N:           10_000_000, // addressable on 32-bit too
 			MemoryLimit: "1K",
 			TUI:         true,
 		},
@@ -306,6 +307,41 @@ func TestRunTUI_RejectsOversizedMemoryBudget(t *testing.T) {
 	// ERR-02: the diagnostic goes to ErrWriter, stdout stays clean.
 	if !strings.Contains(errBuf.String(), "exceeds limit") {
 		t.Errorf("expected the memory budget diagnostic on stderr, got:\n%s", errBuf.String())
+	}
+}
+
+// TestValidateMemoryBudget_RefusesUnaddressableN reproduces the audit
+// 2026-11-07 crash: `fibcalc -n 18446744073709551615` (no --memory-limit)
+// panicked in the arena allocation ("makeslice: len out of range"), exit 2,
+// and n = 10^14 ran past --timeout. Both the CLI and the TUI path must now stop
+// at validateMemoryBudget with a configuration error, before any calculator
+// runs, and point at --last-digits.
+func TestValidateMemoryBudget_RefusesUnaddressableN(t *testing.T) {
+	t.Parallel()
+	for _, tui := range []bool{false, true} {
+		var outBuf, errBuf bytes.Buffer
+		app := &Application{
+			Config:    config.AppConfig{N: math.MaxUint64, TUI: tui},
+			ErrWriter: &errBuf,
+		}
+
+		var code int
+		if tui {
+			code = app.runTUI(context.Background(), &outBuf)
+		} else {
+			code = app.validateMemoryBudget(&outBuf)
+		}
+
+		if code != apperrors.ExitErrorConfig {
+			t.Fatalf("tui=%v: exit code %d, want %d (config)", tui, code, apperrors.ExitErrorConfig)
+		}
+		stderr := errBuf.String()
+		if !strings.Contains(stderr, "cannot be computed in full") || !strings.Contains(stderr, "--last-digits") {
+			t.Errorf("tui=%v: stderr should explain the refusal and suggest --last-digits, got:\n%s", tui, stderr)
+		}
+		if outBuf.Len() != 0 {
+			t.Errorf("tui=%v: stdout must stay clean, got:\n%s", tui, outBuf.String())
+		}
 	}
 }
 

@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Corrigé
 
+Audit du 2026-11-07 (dépôt `agbruneau/Fibonacci`, go1.27.3 windows/amd64) :
+
+- **Un n non calculable faisait planter le processus** au lieu d'être refusé.
+  Sans `--memory-limit`, rien ne bornait n : `fibcalc -n 18446744073709551615`
+  paniquait dans l'allocation de l'arène (« makeslice: len out of range »,
+  code 2, celui d'un dépassement de délai) dès n = 10¹⁶, et n = 10¹⁴ dépassait
+  `--timeout`. Une estimation mémoire au-delà du tas adressable par Go
+  (`memory.AddressableHeapBytes` : 2⁴⁸ octets en 64 bits, 4 Gio en 32 bits,
+  soit n au-delà d'environ 1,8·10¹³) est maintenant refusée avec une erreur de
+  configuration (code 4) qui renvoie à `--last-digits`, par
+  `config.ValidateMemoryBudget` (CLI et TUI) et par `fibonacci.CanCalculate`
+  à la frontière du calculateur, budget ou non.
+- **Arguments positionnels ignorés en silence** : `flag` s'arrête au premier
+  mot qui n'est pas un drapeau, si bien que `fibcalc 100` calculait le défaut
+  F(100 000 000), et que `fibcalc 100 -n 5` ou `fibcalc -- -algo bogus`
+  ignoraient tous les drapeaux suivants, code 0. Un argument positionnel est
+  désormais une erreur de configuration (code 4).
+- **`--last-digits K -o fichier` n'écrivait pas le fichier** et sortait en 0.
+  Le mode écrit maintenant `-o` (`cli.WriteLastDigitsToFile`, même en-tête que
+  le résultat complet), et un échec d'écriture sort en 1, comme ailleurs.
+- **`fibmath.GrowthFactor` valait 0,69424, une troncature de log₂ φ** : l'écart
+  de 1,9·10⁻⁶ croît avec n, et dès n = 10⁸ (le `-n` par défaut) les `big.Int`
+  pré-dimensionnés manquaient de 2 mots (29 à n = 10⁹), d'où une réallocation
+  hors de l'arène au dernier pas. La constante vaut log₂ φ à la précision du
+  float64, de même que la copie de `internal/bigfft` (`log2Phi`), et des tests
+  exigent l'égalité exacte.
+- **Message de `--memory-limit` invalide** : `invalid memory limit "1.5G":
+  invalid memory limit "1.5": strconv.ParseUint: …` répétait son préfixe et
+  citait la valeur amputée de son suffixe. La cause ne porte plus que
+  l'explication (`want a whole number of bytes with an optional K, M or G
+  suffix (invalid syntax)`).
+- **`gosec` v2.29.0 → v2.30.0** (`scripts/tools.env`) : comme `golangci-lint`
+  v2.13.2, la v2.29.0 ne lisait pas les export data de go1.27.3 (199 erreurs
+  d'import) et `make security` n'analysait qu'une partie du module.
+- **Tests non portables en 32 bits** : trois constantes 64 bits empêchaient
+  les tests de `internal/bigfft` de compiler sous `GOARCH=386`, et quatre tests
+  supposaient un mot de 64 bits. `GOARCH=386 go test ./...` passe ; le job CI
+  `cross-build` lance `go vet` en 386 (qui type-vérifie les tests) et compile
+  enfin `GOARCH=arm`, que `PORTABILITY.md` disait déjà gardé.
+- **Documentation** : `docs/BUILD.md` omettait `FIBCALC_LOG_LEVEL` dans un
+  tableau qu'il dit refléter `envOverrides`, et décrivait l'ancien sort des
+  arguments après `--` ; `docs/PORTABILITY.md` niait tout `unsafe.Pointer` en
+  production, alors que `internal/clock/clock_windows.go` en a deux.
+
 - **`golangci-lint` v2.13.2 → v2.15.0** (`scripts/tools.env`) : sous go1.27.3,
   la v2.13.2 ne lisait plus les export data de la bibliothèque standard
   (« export data version 5 is greater than maximum supported version 4 ») et le

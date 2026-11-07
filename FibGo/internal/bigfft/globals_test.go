@@ -97,7 +97,10 @@ func TestSetCacheLoggerWiresPeriodicStats(t *testing.T) {
 // globalCachePoly builds a poly large enough (>= default MinBitLen) to
 // qualify for the global transform cache, plus the matching transform length.
 func globalCachePoly(seed int) (p Poly, n int) {
-	x := makeBigInt(seed, 2000) // 2000 words = 128k bits >= 100k MinBitLen
+	// 128k bits >= the 100k MinBitLen: 2000 words on 64-bit, 4000 on 32-bit.
+	// A fixed 2000 words is 64k bits there, below the gate, so the cache was
+	// never consulted and both miss-then-hit tests failed under GOARCH=386.
+	x := makeBigInt(seed, 128_000/_W)
 	var xb nat = x.Bits()
 	k, m := fftSize(xb, xb)
 	return polyFromNat(xb, k, m), valueSize(k, m, 2)

@@ -1,12 +1,37 @@
 package memory
 
 import (
+	"errors"
 	"fmt"
-	"github.com/agbruneau/FibGo/internal/fibonacci/fibmath"
 	"math"
+	"math/bits"
 	"strconv"
 	"strings"
+
+	"github.com/agbruneau/FibGo/internal/fibonacci/fibmath"
 )
+
+// AddressableHeapBytes is the most heap the Go runtime can map on this target:
+// 2^48 bytes (256 TiB) on 64-bit platforms, the runtime's heapAddrBits, and
+// the whole 4 GiB address space on 32-bit ones.
+//
+// An estimate above it is not a budget question that --memory-limit could
+// answer: no machine this binary runs on can hold the calculation. Before this
+// ceiling existed (audit 2026-11-07), such an n reached the arena allocation
+// unchecked, and the run died there — "panic: runtime error: makeslice: len
+// out of range" for n = 10^16 and above, "fatal error: out of memory" or a
+// hang past --timeout below that — instead of exiting with a configuration
+// error. IsAddressable is the check; config.ValidateMemoryBudget and
+// fibonacci.CanCalculate both apply it, budget or no budget.
+const AddressableHeapBytes uint64 = 1 << addressBits
+
+// addressBits is 48 on 64-bit targets and 32 on 32-bit ones.
+const addressBits = 32 + (bits.UintSize-32)/2
+
+// IsAddressable reports whether an estimate fits the Go heap of this target.
+func IsAddressable(est MemoryEstimate) bool {
+	return est.TotalBytes <= AddressableHeapBytes
+}
 
 // MemoryEstimate holds the estimated memory usage for a calculation.
 type MemoryEstimate struct {
@@ -144,9 +169,17 @@ func ParseMemoryLimit(s string) (uint64, error) {
 		s = s[:len(s)-1]
 	}
 
+	// The cause only: both callers (config.Validate, config.MemoryLimitParseError)
+	// already prefix `invalid memory limit "<value>"`. Repeating it printed the
+	// prefix twice, the second time with the suffix stripped ("1.5G" quoted as
+	// "1.5"); strconv's own message would quote that stripped value again.
 	val, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid memory limit %q: %w", s, err)
+		var numErr *strconv.NumError
+		if errors.As(err, &numErr) {
+			err = numErr.Err // strconv.ErrSyntax or strconv.ErrRange
+		}
+		return 0, fmt.Errorf("want a whole number of bytes with an optional K, M or G suffix (%w)", err)
 	}
 
 	return satMul(val, multiplier), nil
@@ -162,8 +195,13 @@ func FormatMemoryEstimate(est MemoryEstimate) string {
 		formatBytesInternal(est.TotalBytes))
 }
 
+// FormatBytes renders a byte count with a binary unit, from B up to TB.
+func FormatBytes(b uint64) string { return formatBytesInternal(b) }
+
 func formatBytesInternal(b uint64) string {
 	switch {
+	case b >= 1024*1024*1024*1024:
+		return fmt.Sprintf("%.1f TB", float64(b)/(1024*1024*1024*1024))
 	case b >= 1024*1024*1024:
 		return fmt.Sprintf("%.1f GB", float64(b)/(1024*1024*1024))
 	case b >= 1024*1024:

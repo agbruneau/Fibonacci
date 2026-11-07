@@ -125,6 +125,14 @@ func TestArenaTotalWords_ClampNoUB(t *testing.T) {
 	}
 
 	for _, n := range []uint64{1001, 100_000, 1_000_000, 1_000_000_000, 1_000_000_000_000} {
+		if (math.Floor(fibmath.BitsFor(n)/64)+1)*10 > float64(MaxReasonableWords) {
+			// 32-bit targets only (n = 10^12, 1<<28 words): the naive formula
+			// would overflow int, which is the case the clamp exists for.
+			if got := arenaTotalWords(n); got != MaxReasonableWords {
+				t.Errorf("arenaTotalWords(%d) = %d, want clamp %d", n, got, MaxReasonableWords)
+			}
+			continue
+		}
 		if got, want := arenaTotalWords(n), naive(n); got != want {
 			t.Errorf("arenaTotalWords(%d) = %d, want %d (must match naive formula)", n, got, want)
 		}

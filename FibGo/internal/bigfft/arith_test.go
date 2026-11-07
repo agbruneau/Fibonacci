@@ -296,7 +296,8 @@ func BenchmarkAddMulVVW(b *testing.B) {
 
 	for _, size := range sizes {
 		x := generateRandomWords(size, 42)
-		y := Word(0x123456789ABCDEF0)
+		yBits := uint64(0x123456789ABCDEF0)
+		y := Word(yBits) // run-time conversion: truncates on 32-bit instead of failing to compile
 		z := make([]Word, size)
 
 		b.Run(itoa(size), func(b *testing.B) {

@@ -999,7 +999,7 @@ the `"matrix"` calculator when it is registered
 | `-details` (`-d`) | Show metadata/perf details |
 | `-verbose` (`-v`) | Full value output |
 | `-quiet` (`-q`) | Minimal output |
-| `-output` (`-o`) | Write result to file |
+| `-output` (`-o`) | Write result to file (the full value, or the K digits under `--last-digits`) |
 | `-completion` | Shell completion script (bash, zsh, fish, powershell) |
 | `--last-digits` | Modular computation mode (O(K) memory) |
 | `--memory-limit` | Memory budget guard (e.g., "8G", "512M") |

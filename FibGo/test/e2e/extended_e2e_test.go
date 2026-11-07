@@ -3,6 +3,7 @@ package e2e
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -75,6 +76,29 @@ func TestCLI_ErrorCases(t *testing.T) {
 			args:     []string{"-n", "100000000000000000000", "-c"}, // 1e20 > math.MaxUint64 (~1.84e19)
 			wantCode: 4,                                             // ExitErrorConfig
 		},
+		// Audit 2026-11-07: these four used to exit 2 on a runtime panic
+		// ("makeslice: len out of range" in the arena allocation) or to exit 0
+		// after computing the default F(100000000) with the flags ignored.
+		{
+			name:     "Unaddressable N",
+			args:     []string{"-n", "18446744073709551615", "-q"},
+			wantCode: 4, // ExitErrorConfig: beyond memory.AddressableHeapBytes
+		},
+		{
+			name:     "Unaddressable N under a huge memory limit",
+			args:     []string{"-n", "10000000000000000", "-algo", "fast", "-memory-limit", "999999999G", "-q"},
+			wantCode: 4,
+		},
+		{
+			name:     "Positional argument",
+			args:     []string{"100"},
+			wantCode: 4,
+		},
+		{
+			name:     "Double dash before flags",
+			args:     []string{"--", "-n", "100", "-algo", "bogus"},
+			wantCode: 4,
+		},
 	}
 
 	for _, tt := range tests {
@@ -117,6 +141,34 @@ func TestCLI_ModesCombination(t *testing.T) {
 
 	if got != want {
 		t.Errorf("Combined mode mismatch.\nWant: %s\nGot:  %s", want, got)
+	}
+}
+
+// TestCLI_LastDigitsBeyondTheFullRange checks the two sides of the audit
+// 2026-11-07 fixes in last-digits mode: an n refused for a full calculation is
+// still computable there (O(K) memory), and --output is written.
+func TestCLI_LastDigitsBeyondTheFullRange(t *testing.T) {
+	skipShortE2E(t)
+	binPath := buildBinary(t)
+	t.Parallel()
+
+	outFile := filepath.Join(t.TempDir(), "last.txt")
+	cmd := exec.Command(binPath, "-n", "18446744073709551615", "--last-digits", "8", "-q", "-o", outFile)
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("Command failed: %v", err)
+	}
+	digits := strings.TrimSpace(string(output))
+	if len(digits) != 8 {
+		t.Fatalf("want 8 digits on stdout, got %q", digits)
+	}
+	saved, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("--output not written in last-digits mode: %v", err)
+	}
+	if !strings.Contains(string(saved), "mod 10^8 =\n"+digits+"\n") {
+		t.Errorf("output file should hold the digits printed on stdout (%s), got:\n%s", digits, saved)
 	}
 }
 

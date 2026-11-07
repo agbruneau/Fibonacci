@@ -19,19 +19,21 @@ qui a été mesuré, ce qui a été rejeté et pourquoi :
 est dans [`CHANGELOG.md`](CHANGELOG.md), les décisions dans
 [`docs/adr/`](docs/adr/).
 
-**État vérifié le 2026-10-11** sur `0590ab8` du dépôt d'origine
-[`agbruneau/FiboGo`](https://github.com/agbruneau/FiboGo) (Windows 11, `go1.27.0`, `golangci-lint v2.13.2`) :
+**État vérifié le 2026-11-07** dans [`agbruneau/Fibonacci`](https://github.com/agbruneau/Fibonacci),
+à l'audit qui suit `642e7ae` (Windows 11, `go1.27.3`, `golangci-lint v2.15.0`) :
 `scripts/check.ps1` vert de bout en bout — build, vet, `go test -race -shuffle=on
--count=1` sur les 22 paquets, lint à **0 finding**, couverture **96,0 %** (plancher
-90 %), `govulncheck` sans vulnérabilité. La même séquence tourne en CI sur Ubuntu
+-count=1` sur les 22 paquets, lint à **0 finding** (et sous `GOOS=linux` et `darwin`),
+couverture **94,3 %** (plancher 90 %), `govulncheck` sans vulnérabilité ; `GOARCH=386 go test ./...`
+vert lui aussi. Relevé précédent : 2026-10-11, `0590ab8` du dépôt d'origine
+[`agbruneau/FiboGo`](https://github.com/agbruneau/FiboGo), couverture 96,0 % sous `go1.27.0`. La même séquence tourne en CI sur Ubuntu
 et Windows à chaque poussée vers FiboGo, avec en plus le backend `gmp`, un build 32 bits et
 l'image Docker. Dans [`agbruneau/Fibonacci`](https://github.com/agbruneau/Fibonacci), où ce
 projet vit sous `FibGo/`, ce workflow ne s'exécute pas : GitHub ne lit que le `.github/` de la racine.
 
 ⚠ **Limites déclarées.** Le backend `gmp` ne se compile pas sur cet hôte (pas
 d'en-têtes libgmp) ; il est couvert par le job CI `gmp`. Les cibles 32 bits
-compilent depuis le 2026-09-07 mais ne sont ni testées ni distribuées
-([`docs/PORTABILITY.md`](docs/PORTABILITY.md) §1).
+compilent depuis le 2026-09-07 mais ne sont ni testées en CI ni distribuées ; leur suite de tests
+passe sous `GOARCH=386` depuis le 2026-11-07 ([`docs/PORTABILITY.md`](docs/PORTABILITY.md) §1).
 
 ---
 
@@ -292,12 +294,12 @@ fibcalc [flags]
 
 | Flag | Raccourci | Défaut | Description |
 |---|---|---|---|
-| `-n` | | 100 000 000 | Indice Fibonacci. La commande nue (donc `-algo all`) prend 2,1 s et 675 Mo de mémoire résidente sur l'hôte de référence ([`mem-baseline-2026-09.txt`](docs/audits/mem-baseline-2026-09.txt), addendum) ; `-q` y ajoute l'écriture des 20,9 millions de chiffres |
+| `-n` | | 100 000 000 | Indice Fibonacci. La commande nue (donc `-algo all`) prend 2,1 s et 675 Mo de mémoire résidente sur l'hôte de référence ([`mem-baseline-2026-09.txt`](docs/audits/mem-baseline-2026-09.txt), addendum) ; `-q` y ajoute l'écriture des 20,9 millions de chiffres. Un n dont l'estimation mémoire dépasse le tas adressable par Go (256 Tio en 64 bits, soit n au-delà d'environ 1,8·10¹³ ; 4 Gio en 32 bits) est refusé, code 4 ; `-last-digits` reste disponible. Aucun argument positionnel : `fibcalc 100` est une erreur, code 4 |
 | `-algo` | | `all` | `fast`, `matrix`, `fft` ou `all` (comparaison) ; `gmp` en plus sous `-tags gmp` |
 | `-calculate` | `-c` | `false` | Affiche la valeur calculée |
 | `-verbose` | `-v` | `false` | Affiche la valeur complète |
 | `-details` | `-d` | `false` | Détails de performance et métadonnées |
-| `-output` | `-o` | | Écrit le résultat dans un fichier |
+| `-output` | `-o` | | Écrit le résultat dans un fichier, y compris sous `-last-digits` |
 | `-quiet` | `-q` | `false` | Sortie minimale (scripts) |
 | `-machine` | | `false` | Sortie machine (sans ANSI) |
 | `-tui` | | `false` | Dashboard TUI interactif |
@@ -378,14 +380,15 @@ Liste complète : [`.env.example`](.env.example). Principales : `FIBCALC_N`, `FI
   contre la chaîne Go (c'est ce qui avait cassé le lint, puis `govulncheck`, `gosec` et
   `staticcheck` d'un coup).
 - **Couverture** : plancher garanti **90 %** via `make coverage-check`, `check.ps1` et la CI ; dernière mesure
-  **96,0 %** des instructions (2026-10-11, `go1.27.0 windows/amd64`, 22 paquets). Le chiffre est
+  **94,3 %** des instructions (2026-11-07, `go1.27.3 windows/amd64`, 22 paquets ; 96,0 % le 2026-10-11
+  sous `go1.27.0`). Le chiffre est
   daté, pas figé ; le plancher, relevé de 80 à 90 % le 2026-09-23, laisse 4 points sous la mesure
   de la CI Ubuntu (94,0 % le 2026-09-21). Détail, commande de re-datation et angles morts :
   [`docs/TESTING.md` § Coverage](docs/TESTING.md#coverage) (directive A5-04, amendée le 2026-09-04).
 - **Golden tests immuables** : `internal/fibonacci/testdata/fibonacci_golden.json` est l'oracle de
   non-régression (étendu à F(50k/100k/200k) sous ADR-0004 §B5) — aucune mise à jour sans ADR.
 - **Race detector** : exige CGO et un compilateur C. `scripts/check.ps1` sonde les deux et active `-race`
-  quand ils sont présents — relevé du 2026-10-11 : 22 paquets verts sur cet hôte Windows. Sans compilateur
+  quand ils sont présents — relevé du 2026-11-07 : 22 paquets verts sur cet hôte Windows. Sans compilateur
   C, la passe complète se fait via **WSL** (`wsl go test -race ./...`). Les scripts shell sont épinglés en
   LF (`.gitattributes`) pour rester exécutables côté WSL.
 - **Lint bloquant** : depuis l'audit 2026-09 (GATE-01), `golangci-lint` **v2** fait échouer

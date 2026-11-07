@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -374,6 +375,22 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	setCustomUsage(fs)
 
 	if err := fs.Parse(args); err != nil {
+		return AppConfig{}, err
+	}
+
+	// fibcalc takes no positional argument. The flag package stops at the
+	// first non-flag and leaves the rest in fs.Args(), so `fibcalc 100` used to
+	// compute the default F(100000000), and `fibcalc 100 -n 5` or
+	// `fibcalc -- -algo bogus` ignored every flag after the stray word and
+	// exited 0 (audit 2026-11-07).
+	if rest := fs.Args(); len(rest) > 0 {
+		hint := ""
+		if _, numErr := strconv.ParseUint(rest[0], 10, 64); numErr == nil {
+			hint = fmt.Sprintf(" (for the index, use -n %s)", rest[0])
+		}
+		err := apperrors.NewConfigError("unexpected argument %q: fibcalc takes flags only%s", rest[0], hint)
+		fmt.Fprintln(errorWriter, "Configuration error:", err)
+		fs.Usage()
 		return AppConfig{}, err
 	}
 

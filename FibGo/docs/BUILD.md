@@ -16,11 +16,12 @@ go run ./cmd/fibcalc -n 1000 -algo fast
 
 Do **not** insert `--` before the program's own flags. `--` terminates Go's
 flag parsing *and* `fibcalc`'s: everything after it becomes a positional
-argument that the program ignores. Verified 2026-08-07 — `fibcalc -- -n 100
--algo bogus` **exits 0** having computed the default `-n 100000000` with
-`-algo all`, while `fibcalc -n 100 -algo bogus` prints the usage and
-**exits 4** (`internal/config/config.go:AppConfig.Validate`;
-`ExitErrorConfig = 4`, `internal/apperrors/errors.go:ExitErrorConfig`).
+argument, and `fibcalc` takes none. Since 2026-11-07 a positional argument is
+a configuration error (`unexpected argument "-n"`, usage, **exit 4**;
+`internal/config/config.go:ParseConfig`, `ExitErrorConfig = 4`). Before, it
+was ignored: `fibcalc -- -n 100 -algo bogus` **exited 0** having computed the
+default `-n 100000000` with `-algo all` (verified 2026-08-07), and so did
+`fibcalc 100`.
 
 The default build produces a statically linked binary for the current platform. No external dependencies are required unless building with GMP support.
 
@@ -351,7 +352,7 @@ ADR-0010 D4). Jobs:
 |---|---|
 | `gate` (ubuntu + windows) | gofmt, vet, build, `go test -race -shuffle=on -count=1`, lint, govulncheck, 90% coverage floor (Ubuntu only), `go mod tidy -diff` |
 | `gmp` | `-tags gmp` build/vet/test with libgmp installed — the step that is SKIP on the maintainer's host; then `-algo all` must print four calculators, and Fast Doubling is benchmarked against GMP (artifact `bench-gmp`) |
-| `cross-build` | `GOARCH=386` and `GOARCH=arm64` compile check; `go test -tags purego ./internal/bigfft/` |
+| `cross-build` | `GOARCH=386`, `GOARCH=arm` and `GOARCH=arm64` compile check, `go vet` of the whole module (test files included) under `GOARCH=386`; `go test -tags purego ./internal/bigfft/` |
 | `docker` | builds the image, asserts the version symbols are injected, runs a calculation |
 | `fuzz` | weekly (and on demand) mutation fuzzing, 120s per target |
 
@@ -486,6 +487,7 @@ for a measurement, so the measurement is what gets stored and applied.
 | `FIBCALC_MACHINE_OUTPUT` | Emit machine-readable output (same as `--machine`) | `false` |
 | `FIBCALC_MEMORY_LIMIT` | Memory budget ceiling; pre-flight estimator aborts if exceeded. Suffix is a **single letter** `K`/`M`/`G` (case-insensitive), e.g. `4G`, `512M` — `4GB` is rejected | (unbounded) |
 | `FIBCALC_GC_CONTROL` | GC control during calculation: `auto`, `aggressive`, `disabled` | `auto` |
+| `FIBCALC_LOG_LEVEL` | Diagnostic log verbosity on stderr: `off`, `error`, `warn`, `info`, `debug` (flag `--log-level`) | `off` |
 | `NO_COLOR` | Disable ANSI color output (standard; no `FIBCALC_` prefix) | (unset) |
 
 ### Calibration

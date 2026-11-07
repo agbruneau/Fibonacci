@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -16,6 +17,29 @@ func TestValidateMemoryBudget_NoLimit(t *testing.T) {
 	}
 	if report != (MemoryBudgetReport{}) {
 		t.Errorf("expected zero-value report when no limit is set, got %+v", report)
+	}
+}
+
+// TestValidateMemoryBudget_IndexTooLarge pins the addressable-heap refusal
+// (audit 2026-11-07): it applies with no limit set, which is how
+// `fibcalc -n 18446744073709551615` reached the arena allocation and panicked,
+// and it wins over a limit too large to refuse anything on its own.
+func TestValidateMemoryBudget_IndexTooLarge(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []string{"", "18014398509481984K"} {
+		for _, n := range []uint64{10_000_000_000_000_000, math.MaxUint64} {
+			report, err := ValidateMemoryBudget(AppConfig{N: n, MemoryLimit: limit})
+			var tooLarge IndexTooLargeError
+			if !errors.As(err, &tooLarge) {
+				t.Fatalf("N=%d limit=%q: expected IndexTooLargeError, got %T: %v", n, limit, err, err)
+			}
+			if tooLarge.N != n || tooLarge.EstimateBytes != report.Estimate.TotalBytes {
+				t.Errorf("N=%d limit=%q: error = %+v, report estimate %d", n, limit, tooLarge, report.Estimate.TotalBytes)
+			}
+			if msg := tooLarge.Error(); !strings.Contains(msg, "256.0 TB") && !strings.Contains(msg, "4.0 GB") {
+				t.Errorf("Error() = %q, should name the addressable ceiling", msg)
+			}
+		}
 	}
 }
 

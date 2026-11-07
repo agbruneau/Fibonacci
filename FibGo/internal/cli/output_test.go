@@ -24,6 +24,34 @@ func TestWriteResult_FailingWriter(t *testing.T) {
 	}
 }
 
+// TestWriteLastDigitsToFile pins the --last-digits output file (audit
+// 2026-11-07): the leading zeros of the K digits survive, the header names the
+// mode, and an empty path writes nothing.
+func TestWriteLastDigitsToFile(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "nested", "last.txt")
+
+	if err := WriteLastDigitsToFile("00875", 1000, 3*time.Millisecond, OutputConfig{OutputFile: path}); err != nil {
+		t.Fatalf("WriteLastDigitsToFile: %v", err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("output file not written: %v", err)
+	}
+	for _, want := range []string{"# N: 1000\n", "# Digits: 5 (the last 5 of F(1000))\n", "\nF(1000) mod 10^5 =\n00875\n", "--last-digits"} {
+		if !strings.Contains(string(content), want) {
+			t.Errorf("output file lacks %q:\n%s", want, content)
+		}
+	}
+
+	if err := WriteLastDigitsToFile("1", 1, 0, OutputConfig{}); err != nil {
+		t.Errorf("an empty OutputFile must be a no-op, got %v", err)
+	}
+	if err := writeLastDigits(errWriter{}, "5", 5, 0); err == nil {
+		t.Error("writeLastDigits must surface write errors, got nil")
+	}
+}
+
 func TestWriteResultToFile(t *testing.T) {
 	t.Parallel()
 	// Create temporary directory

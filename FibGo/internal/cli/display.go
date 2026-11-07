@@ -309,20 +309,40 @@ type OutputConfig struct {
 //
 // Returns:
 //   - error: An error if the file cannot be written.
-func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) (err error) {
-	if config.OutputFile == "" {
+func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo string, config OutputConfig) error {
+	return writeOutputFile(config.OutputFile, func(w io.Writer) error {
+		return writeResult(w, result, n, duration, algo)
+	})
+}
+
+// WriteLastDigitsToFile writes a --last-digits result to config.OutputFile, in
+// the layout of WriteResultToFile: a commented header, a blank line, then the
+// value. It is a no-op when no output file is configured.
+//
+// Before it existed (audit 2026-11-07) the last-digits mode never wrote a file:
+// `--last-digits 5 -o f.txt` exited 0 and f.txt was never created.
+func WriteLastDigitsToFile(digits string, n uint64, duration time.Duration, config OutputConfig) error {
+	return writeOutputFile(config.OutputFile, func(w io.Writer) error {
+		return writeLastDigits(w, digits, n, duration)
+	})
+}
+
+// writeOutputFile creates path (and its directory), hands it to write, and
+// reports a failed close: the shared part of the two result writers.
+func writeOutputFile(path string, write func(io.Writer) error) (err error) {
+	if path == "" {
 		return nil
 	}
 
 	// Ensure directory exists
-	dir := filepath.Dir(config.OutputFile)
+	dir := filepath.Dir(path)
 	if dir != "" && dir != "." {
 		if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
 			return fmt.Errorf("failed to create directory: %w", mkErr)
 		}
 	}
 
-	file, err := os.OpenFile(config.OutputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
@@ -335,7 +355,27 @@ func WriteResultToFile(result *big.Int, n uint64, duration time.Duration, algo s
 		}
 	}()
 
-	return writeResult(file, result, n, duration, algo)
+	return write(file)
+}
+
+// writeLastDigits writes the last len(digits) digits of F(n) to w.
+func writeLastDigits(w io.Writer, digits string, n uint64, duration time.Duration) error {
+	bw := bufio.NewWriter(w)
+
+	fmt.Fprintf(bw, "# Fibonacci Calculation Result\n")
+	fmt.Fprintf(bw, "# Generated: %s\n", time.Now().Format(time.RFC3339))
+	fmt.Fprintf(bw, "# Algorithm: Modular Fast Doubling (--last-digits)\n")
+	fmt.Fprintf(bw, "# Duration: %s\n", duration)
+	fmt.Fprintf(bw, "# N: %d\n", n)
+	fmt.Fprintf(bw, "# Digits: %d (the last %d of F(%d))\n", len(digits), len(digits), n)
+	fmt.Fprintf(bw, "\n")
+
+	fmt.Fprintf(bw, "F(%d) mod 10^%d =\n%s\n", n, len(digits), digits)
+
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("failed to write result: %w", err)
+	}
+	return nil
 }
 
 // writeResult writes the formatted result to w. Fprintf errors are sticky in

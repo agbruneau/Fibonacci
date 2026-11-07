@@ -2,9 +2,12 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/agbruneau/FibGo/internal/apperrors"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -433,6 +436,29 @@ func TestParseConfigValidationErrors(t *testing.T) {
 			[]string{"-fft-threshold", "-2"},
 			"",
 		},
+		// Audit 2026-11-07: a positional argument stopped flag parsing and was
+		// then ignored, so each of these exited 0 on the default F(100000000).
+		{
+			"PositionalIndex",
+			[]string{"100"},
+			`unexpected argument "100": fibcalc takes flags only (for the index, use -n 100)`,
+		},
+		{
+			"PositionalBeforeFlags",
+			[]string{"100", "-n", "5"},
+			`unexpected argument "100"`,
+		},
+		{
+			// No "-n" hint for a word that is not an index: "use -n -n" helps nobody.
+			"DoubleDashThenFlags",
+			[]string{"--", "-n", "100", "-algo", "bogus"},
+			"unexpected argument \"-n\": fibcalc takes flags only\n",
+		},
+		{
+			"TrailingPositional",
+			[]string{"-n", "100", "extra"},
+			`unexpected argument "extra"`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -441,6 +467,10 @@ func TestParseConfigValidationErrors(t *testing.T) {
 			_, err := ParseConfig("test", tc.args, &buf, algos)
 			if err == nil {
 				t.Error("Expected validation error")
+			}
+			var cfgErr apperrors.ConfigError
+			if tc.errorContains != "" && !errors.As(err, &cfgErr) {
+				t.Errorf("Expected an apperrors.ConfigError, got %T: %v", err, err)
 			}
 			if tc.errorContains != "" && !strings.Contains(buf.String(), tc.errorContains) {
 				t.Errorf("Expected error containing '%s', got: %s", tc.errorContains, buf.String())

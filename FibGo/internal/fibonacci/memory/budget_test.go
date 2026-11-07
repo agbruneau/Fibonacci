@@ -1,8 +1,11 @@
 package memory
 
 import (
+	"errors"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +45,37 @@ func TestEstimateMemoryUsage_SaturatesNoWrap(t *testing.T) {
 	est := EstimateMemoryUsage(math.MaxUint64)
 	if est.TotalBytes < uint64(1)<<62 {
 		t.Errorf("TotalBytes wrapped: got %d, want >= %d", est.TotalBytes, uint64(1)<<62)
+	}
+}
+
+// TestAddressableHeapBytes pins the ceiling per word size and the boundary of
+// IsAddressable. The ceiling must sit far above every n the repository
+// measures (F(100M) estimates ~1.6 GB) and below the estimate of the n that
+// used to panic in the arena allocation (10^16, ~1.6e17 bytes).
+func TestAddressableHeapBytes(t *testing.T) {
+	t.Parallel()
+
+	want := uint64(1) << 48
+	if math.MaxUint == math.MaxUint32 {
+		want = 1 << 32
+	}
+	if AddressableHeapBytes != want {
+		t.Fatalf("AddressableHeapBytes = %d, want %d", AddressableHeapBytes, want)
+	}
+
+	if !IsAddressable(MemoryEstimate{TotalBytes: AddressableHeapBytes}) {
+		t.Error("an estimate equal to the ceiling must be addressable")
+	}
+	if IsAddressable(MemoryEstimate{TotalBytes: AddressableHeapBytes + 1}) {
+		t.Error("an estimate one byte above the ceiling must not be addressable")
+	}
+	if !IsAddressable(EstimateMemoryUsage(100_000_000)) {
+		t.Error("F(100M), the repository's largest measured point, must be addressable")
+	}
+	for _, n := range []uint64{10_000_000_000_000_000, math.MaxUint64} {
+		if IsAddressable(EstimateMemoryUsage(n)) {
+			t.Errorf("F(%d) must not be addressable", n)
+		}
 	}
 }
 
@@ -105,6 +139,29 @@ func TestParseMemoryLimit_Errors(t *testing.T) {
 	}
 }
 
+// TestParseMemoryLimit_ErrorIsTheCauseOnly pins the audit 2026-11-07 fix: the
+// callers prefix `invalid memory limit "<value>"`, so the cause must neither
+// repeat that prefix nor quote the suffix-stripped number ("1.5G" was reported
+// as `invalid memory limit "1.5G": invalid memory limit "1.5": strconv...`).
+func TestParseMemoryLimit_ErrorIsTheCauseOnly(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseMemoryLimit("1.5G")
+	if err == nil {
+		t.Fatal(`ParseMemoryLimit("1.5G") should return an error`)
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "invalid memory limit") || strings.Contains(msg, `"1.5"`) {
+		t.Errorf("error %q repeats the caller's prefix or quotes the stripped value", msg)
+	}
+	if !errors.Is(err, strconv.ErrSyntax) {
+		t.Errorf("error %q should wrap strconv.ErrSyntax", msg)
+	}
+	if _, err := ParseMemoryLimit("99999999999999999999K"); !errors.Is(err, strconv.ErrRange) {
+		t.Errorf("an out-of-range number should wrap strconv.ErrRange, got %v", err)
+	}
+}
+
 // TestFormatMemoryEstimate pins the exact rendering (field order and units)
 // so a formatting regression cannot slip through unnoticed.
 func TestFormatMemoryEstimate(t *testing.T) {
@@ -140,12 +197,17 @@ func TestFormatBytesInternal(t *testing.T) {
 		{1024*1024*1024 - 1, "1024.0 MB"},
 		{1024 * 1024 * 1024, "1.0 GB"},
 		{5 * 1024 * 1024 * 1024, "5.0 GB"},
+		// The TB branch exists for the AddressableHeapBytes refusal, whose
+		// ceiling read "262144.0 GB" without it.
+		{1024*1024*1024*1024 - 1, "1024.0 GB"},
+		{1 << 40, "1.0 TB"},
+		{1 << 48, "256.0 TB"},
 	}
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("%d", tc.b), func(t *testing.T) {
 			t.Parallel()
-			if got := formatBytesInternal(tc.b); got != tc.want {
+			if got := FormatBytes(tc.b); got != tc.want {
 				t.Errorf("formatBytesInternal(%d) = %q, want %q", tc.b, got, tc.want)
 			}
 		})

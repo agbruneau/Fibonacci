@@ -159,7 +159,10 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- progr
 // can present the predicted breakdown regardless of the verdict.
 //
 // Semantics:
-//   - memLimitBytes == 0 disables the check; CanCalculate always returns true.
+//   - An estimate beyond memory.AddressableHeapBytes is refused whatever the
+//     budget: no machine this binary runs on can hold it (audit 2026-11-07).
+//   - Otherwise, memLimitBytes == 0 disables the budget check and CanCalculate
+//     returns true.
 //   - Otherwise, the verdict is (estimate.TotalBytes <= memLimitBytes).
 //
 // CanCalculate is a pure function: it performs no allocation beyond the
@@ -174,6 +177,9 @@ func (c *FibCalculator) Calculate(ctx context.Context, progressChan chan<- progr
 // bypassed.
 func CanCalculate(n, memLimitBytes uint64) (bool, memory.MemoryEstimate) {
 	est := memory.EstimateMemoryUsage(n)
+	if !memory.IsAddressable(est) {
+		return false, est
+	}
 	if memLimitBytes == 0 {
 		return true, est
 	}
@@ -203,14 +209,18 @@ func (c *FibCalculator) CalculateWithObservers(ctx context.Context, subject *pro
 	// or pool warm-up so an over-budget request fails fast. Mirrors the
 	// contract of config.ValidateMemoryBudget but at the calculator boundary,
 	// so the guard holds even when the config-level validator is bypassed
-	// (programmatic embedding, tests, future entry points).
-	if opts.MemoryLimitBytes > 0 {
-		if ok, est := CanCalculate(n, opts.MemoryLimitBytes); !ok {
-			return nil, apperrors.MemoryError{
-				Requested: est.TotalBytes,
-				Available: opts.MemoryLimitBytes,
-				Limit:     opts.MemoryLimitBytes,
-			}
+	// (programmatic embedding, tests, future entry points). It runs with no
+	// budget too: an unaddressable n would otherwise reach the arena
+	// allocation, which panics ("makeslice: len out of range").
+	if ok, est := CanCalculate(n, opts.MemoryLimitBytes); !ok {
+		available := opts.MemoryLimitBytes
+		if available == 0 || available > memory.AddressableHeapBytes {
+			available = memory.AddressableHeapBytes
+		}
+		return nil, apperrors.MemoryError{
+			Requested: est.TotalBytes,
+			Available: available,
+			Limit:     opts.MemoryLimitBytes,
 		}
 	}
 

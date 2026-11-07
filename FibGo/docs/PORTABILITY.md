@@ -16,10 +16,17 @@ E10-R5 / Sprint S4-T5.
 | macOS | arm64 (Apple Silicon) | ❌ disabled when cross-compiling | ❌ (cross-compile only) | `make build-all` (build only) |
 | WASI / js | — | — | — | not supported — `go build ./...` fails in the third-party TUI stack (see §6) |
 
-**32-bit: compiles, but is neither tested nor distributed.** Since 2026-09-07
+**32-bit: compiles, but is not tested by CI nor distributed.** Since 2026-09-07
 (audit TYP-01), `GOOS=linux GOARCH=386 go build ./...`, `GOARCH=arm` and
 `GOARCH=arm64` all exit 0, and CI guards these three targets
-(`.github/workflows/ci.yml`, job `cross-build`).
+(`.github/workflows/ci.yml`, job `cross-build`; the `arm` step was missing
+until 2026-11-07, although this paragraph already claimed it). Since
+2026-11-07 the same job also runs `GOOS=linux GOARCH=386 go vet ./...`, which
+type-checks the test files: three 64-bit constants had kept
+`internal/bigfft`'s tests from compiling on 386 while the build step stayed
+green. The full suite, `GOARCH=386 go test ./...`, passed that day on a
+Windows amd64 host (which runs 386 binaries natively) once four tests that
+assumed a 64-bit word were fixed; CI does not run it.
 
 What blocked it was not a design limit but a **compile
 error**: `maxReasonableWords = 1 << 60`, declared twice
@@ -32,8 +39,10 @@ relative to the word size:
 which overflows at 2³¹ on these targets.
 
 **What "compiles" does not mean.** No 32-bit target is built
-by `make build-all`, none is tested, and the useful range there is bounded by
-`int`: the arena caps at `1 << 28` words. The CI job checks compilation, not
+by `make build-all`, none is tested by CI, and the useful range there is bounded by
+the 4 GiB address space: the arena caps at `1 << 28` words, and an n whose
+memory estimate exceeds 4 GiB (`memory.AddressableHeapBytes`; F(10^9) already
+does) is refused with a configuration error before it starts. The CI job checks compilation, not
 behavior. The mention of `386` in §2.2 describes only the
 `runtime.GOARCH` branch of `DetectHardwareHeuristic()`; it is not a
 statement of support.
@@ -234,9 +243,14 @@ all six targets exit 0.
   fails in `github.com/muesli/termenv` (`output.ColorProfile undefined`, …).
   A WASM port would therefore go through excluding `internal/tui` and its
   dependencies, not through rewriting the core.
-- **`unsafe`**: production code does **not** use `unsafe.Pointer`; the
-  only use of `unsafe` is `unsafe.Sizeof` (`internal/bigfft/fft.go:_W`), plus
-  the blank import required by `go:linkname` (`import` block of `internal/bigfft/arith_decl.go`);
-  the repository's only `unsafe.Pointer` is in a test
+- **`unsafe`**: outside Windows, production code does **not** use
+  `unsafe.Pointer`; the uses of `unsafe` are `unsafe.Sizeof`
+  (`internal/bigfft/fft.go:_W`) and the blank import required by `go:linkname`
+  (`import` block of `internal/bigfft/arith_decl.go`). The Windows build adds
+  two `unsafe.Pointer` conversions in `internal/clock/clock_windows.go`
+  (`//go:build windows`), the out-parameter of the `QueryPerformanceCounter`
+  and `QueryPerformanceFrequency` system calls, since 2026-10-10 (ADR-0014).
+  This paragraph said "does not use `unsafe.Pointer`" until 2026-11-07; a
+  Windows-hosted `gosec` (G103) reports both. The other `unsafe.Pointer` is in a test
   (`internal/fibonacci/memory/arena_test.go`, `TestCalculationArena_MultipleAllocs_NoAliasing`).
-- **32-bit**: compiles since 2026-09-07, not tested and not distributed; see §1.
+- **32-bit**: compiles since 2026-09-07, not tested by CI and not distributed; see §1.

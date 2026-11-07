@@ -99,6 +99,11 @@ func TestAcquireStateForN_HugeN_NoPanic(t *testing.T) {
 	for _, n := range []uint64{1001, 100_000, 1_000_000, 1_000_000_000, 1_000_000_000_000} {
 		wGot, tGot := acquireSizingForN(n)
 		wWant, tWant := naive(n)
+		if float64(n)*FibonacciGrowthFactor >= float64(math.MaxInt) {
+			// 32-bit targets only (n = 10^12): the naive int conversion would
+			// overflow, which is the case the clamp exists for.
+			wWant, tWant = memory.MaxReasonableWords/10, memory.MaxReasonableWords
+		}
 		if wGot != wWant || tGot != tWant {
 			t.Errorf("acquireSizingForN(%d) = (%d,%d), want (%d,%d)", n, wGot, tGot, wWant, tWant)
 		}

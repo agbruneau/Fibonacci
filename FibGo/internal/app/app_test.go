@@ -1056,6 +1056,52 @@ func TestRunLastDigitsViaRun(t *testing.T) {
 	}
 }
 
+// TestRunLastDigitsWritesOutputFile reproduces the audit 2026-11-07 finding:
+// with --last-digits, --output was accepted and then never written. The file
+// must now hold the digits, and an unwritable path must fail the run.
+func TestRunLastDigitsWritesOutputFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	run := func(path string) (int, string, string) {
+		var outBuf, errBuf bytes.Buffer
+		app := &Application{
+			Config: config.AppConfig{
+				N:          100,
+				Algo:       "fast",
+				LastDigits: 5,
+				OutputFile: path,
+				Timeout:    1 * time.Minute,
+			},
+			Factory:   createMockFactory(big.NewInt(55), nil),
+			ErrWriter: &errBuf,
+		}
+		return app.Run(context.Background(), &outBuf), outBuf.String(), errBuf.String()
+	}
+
+	path := filepath.Join(dir, "last.txt")
+	code, stdout, stderr := run(path)
+	if code != apperrors.ExitSuccess {
+		t.Fatalf("exit code %d, want %d; stderr:\n%s", code, apperrors.ExitSuccess, stderr)
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("--output not written in last-digits mode: %v", err)
+	}
+	if !strings.Contains(string(saved), "F(100) mod 10^5 =\n15075\n") {
+		t.Errorf("output file should hold the last 5 digits of F(100), got:\n%s", saved)
+	}
+	if !strings.Contains(stdout, "Result saved to") {
+		t.Errorf("stdout should confirm the save, got:\n%s", stdout)
+	}
+
+	// A directory where the file should be: the save fails, and so does the run.
+	code, _, stderr = run(dir)
+	if code != apperrors.ExitErrorGeneric || !strings.Contains(stderr, "Error saving result") {
+		t.Errorf("unwritable --output: exit %d, stderr %q; want %d and an error", code, stderr, apperrors.ExitErrorGeneric)
+	}
+}
+
 // TestRunCalculateMemoryLimit tests the memory limit validation paths
 // in runCalculate.
 func TestRunCalculateMemoryLimit(t *testing.T) {
@@ -1097,7 +1143,7 @@ func TestRunCalculateMemoryLimit(t *testing.T) {
 		// Use a very large N to ensure estimated memory exceeds a tiny limit
 		app := &Application{
 			Config: config.AppConfig{
-				N:           1_000_000_000,
+				N:           10_000_000, // addressable on 32-bit too: 1e9 is refused there before the limit
 				Algo:        "fast",
 				Timeout:     1 * time.Minute,
 				MemoryLimit: "1K",
