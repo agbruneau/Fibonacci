@@ -218,6 +218,6 @@ La répartition des rôles est décrite dans [CLAUDE.md](CLAUDE.md).
 
 ## Licence et attributions
 
-Aucune licence n'est encore déclarée pour le code de ce dépôt.
+Fib est sous licence Apache 2.0, la licence globale du dépôt `agbruneau/Fibonacci` : voir [`LICENSE`](../LICENSE) et [`NOTICE`](../NOTICE) à la racine.
 
 L'oracle des tests (`contracts/b000045.txt`) est généré par la formule de Binet et vérifié par la définition de la suite. Il coïncide avec la suite [A000045 de l'OEIS](https://oeis.org/A000045), qui reste la référence publique.

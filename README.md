@@ -29,7 +29,7 @@ Calcul de nombres de Fibonacci arbitrairement grands, jusqu'à n = 100 000 000 d
   ```
 
   Sous Windows : `go build -o fibcalc.exe ./cmd/fibcalc`, puis `.\fibcalc.exe -n 100 -c`.
-- Licence : Apache 2.0 ([`FibGo/LICENSE`](FibGo/LICENSE)).
+- Licence : Apache 2.0; le code dérivé de `bigfft` reste sous BSD-3-Clause ([`FibGo/NOTICE`](FibGo/NOTICE)).
 
 Voir [`FibGo/README.md`](FibGo/README.md), [`FibGo/docs/ARCH.md`](FibGo/docs/ARCH.md) et l'historique des audits dans [`FibGo/docs/audits/HISTORY.md`](FibGo/docs/audits/HISTORY.md).
 
@@ -45,7 +45,7 @@ Terrain d'essai académique pour explorer, avec Claude Code, les [skills d'ingé
   npm install
   npm run check
   ```
-- Licence : aucune déclarée pour l'instant.
+- Licence : Apache 2.0.
 
 Voir [`FibPolyglotte/README.md`](FibPolyglotte/README.md), le [PRD](FibPolyglotte/PRD.md) et les [ADR](FibPolyglotte/docs/adr/).
 
@@ -54,6 +54,8 @@ Voir [`FibPolyglotte/README.md`](FibPolyglotte/README.md), le [PRD](FibPolyglott
 ```
 Fibonacci/
 ├── README.md
+├── LICENSE          Apache 2.0, pour tout le dépôt
+├── NOTICE           droits d'auteur et code tiers
 ├── FibGo/           FibCalc, issu de agbruneau/FiboGo
 └── FibPolyglotte/   Fib, issu de agbruneau/FiboPolyGlotte
 ```
@@ -67,3 +69,7 @@ Chaque projet garde ses propres fichiers de configuration (`.gitignore`, `.gitat
 - **CI.** Le workflow `FibGo/.github/workflows/ci.yml` ne s'exécute pas ici : GitHub ne lit que le `.github/` de la racine. Il tourne dans FiboGo.
 - **Révisions de Fib.** `npm run bench -- <id> --contre REF` et `npm run differentiel -- --revision REF` ne fonctionnent pas encore ici : l'extraction de la révision range ses fichiers sous `FibPolyglotte/` au lieu de la racine de la révision.
 - **Chemin de module.** FibCalc garde `github.com/agbruneau/FibGo`, que GitHub redirige vers FiboGo.
+
+## Licence
+
+Tout le dépôt est sous [licence Apache 2.0](LICENSE), © 2026 André-Guy Bruneau. Le code tiers et ses licences sont recensés dans [`NOTICE`](NOTICE). `FibGo/` garde sa propre copie de `LICENSE` et `NOTICE`, que son image Docker embarque.
