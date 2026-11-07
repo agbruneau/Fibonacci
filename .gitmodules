@@ -1,0 +1,6 @@
+[submodule "FibGo"]
+	path = FibGo
+	url = https://github.com/agbruneau/FiboGo.git
+[submodule "FibPolyglotte"]
+	path = FibPolyglotte
+	url = https://github.com/agbruneau/FiboPolyGlotte.git
