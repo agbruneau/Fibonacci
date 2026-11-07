@@ -115,9 +115,10 @@ export const shown = (value: string | undefined): string => (value === undefined
 
 // Résout ref en SHA, puis vérifie que la révision a le dossier de chaque langage de ids : avant toute extraction et tout build, car un
 // langage absent de ref ne se découvre sinon qu'au milieu de l'A/B, après les langages qui le précèdent. Elle ne lit la révision que par
-// `git rev-parse` et `git ls-tree`. Lève une erreur d'une ligne, que le banc et la boucle écrivent sans pile.
-export function resolve(ref: string, ids: readonly string[]): string {
-  const git = (...args: string[]) => spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+// `git rev-parse` et `git ls-tree`. Lève une erreur d'une ligne, que le banc et la boucle écrivent sans pile. Lancé depuis root, `ls-tree`
+// ne liste que ce dossier, même quand il n'est qu'un sous-dossier du dépôt git (FibPolyglotte/ dans agbruneau/Fibonacci). root : HAR-8.
+export function resolve(ref: string, ids: readonly string[], root = ROOT): string {
+  const git = (...args: string[]) => spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   const resolved = git('rev-parse', '--verify', '--quiet', `${ref}^{commit}`);
   if (resolved.status !== 0) throw new Error(`révision introuvable : ${ref}`);
   const sha = resolved.stdout.trim();
@@ -131,26 +132,31 @@ export function resolve(ref: string, ids: readonly string[]): string {
 
 // Extrait la révision sha (rendue par `resolve`) sous revisions/<sha> et rend sa racine. Une fois : si le dossier existe, il est réutilisé,
 // avec ses binaires déjà construits. L'extraction passe par un index à part (GIT_INDEX_FILE) et un dossier provisoire renommé à la fin :
-// ni l'index ni la liste des worktrees ne changent, et une extraction interrompue ne laisse pas un dossier à moitié rempli.
-export function extract(sha: string, revisions: string): string {
-  const git = (args: string[], env: Record<string, string> = {}, input?: string) => {
-    const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', env: { ...process.env, ...env }, input });
+// ni l'index ni la liste des worktrees ne changent, et une extraction interrompue ne laisse pas un dossier à moitié rempli. root : HAR-8.
+export function extract(sha: string, revisions: string, root = ROOT): string {
+  const git = (args: string[], env: Record<string, string> = {}, input?: string, cwd = root) => {
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, ...env }, input });
     if (r.status !== 0) throw new Error(`git ${args.join(' ')} a échoué (code ${r.status}) : ${r.stderr}${r.error ?? ''}`);
     return r.stdout;
   };
   const dest = join(revisions, sha);
   if (existsSync(dest)) return dest;
+  // Ce dossier peut n'être qu'un sous-dossier du dépôt git (FibPolyglotte/ dans agbruneau/Fibonacci) : l'index provisoire prend son seul
+  // sous-arbre (`sha:<préfixe>`), pour que go/ et package.json soient à la racine de la révision, et se lit depuis le haut du dépôt git,
+  // où ses chemins valent tels quels. Lancés depuis le sous-dossier, `ls-files` et `checkout-index` y ajouteraient le préfixe.
+  const prefix = git(['rev-parse', '--show-prefix']).trim();
+  const top = git(['rev-parse', '--show-toplevel']).trim();
   const part = `${dest}.part`;
   const index = `${dest}.index`;
   rmSync(part, { recursive: true, force: true });
   rmSync(index, { force: true });
   mkdirSync(part, { recursive: true });
   const env = { GIT_INDEX_FILE: index };
-  git(['read-tree', sha], env);
-  git(['checkout-index', '-z', '--stdin', `--prefix=${part}/`], env, git(['ls-files', '-z', '--', ...BUILD_PATHS], env));
+  git(['read-tree', `${sha}:${prefix}`], env);
+  git(['checkout-index', '-z', '--stdin', `--prefix=${part}/`], env, git(['ls-files', '-z', '--', ...BUILD_PATHS], env, undefined, top), top);
   rmSync(index);
   // tsc et les @types y sont cherchés dans node_modules : la révision emprunte ceux de ce dépôt (jonction sous Windows).
-  symlinkSync(join(ROOT, 'node_modules'), join(part, 'node_modules'), 'junction');
+  symlinkSync(join(root, 'node_modules'), join(part, 'node_modules'), 'junction');
   renameSync(part, dest);
   return dest;
 }

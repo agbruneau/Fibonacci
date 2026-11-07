@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { abPairs, abRound, main, measure, pair, paired, parseArgs, rounds } from './bench.ts';
-import { build, closeStderr, command, IDS, launch, present, ROOT, type LaunchOptions } from './lancement.ts';
+import { build, closeStderr, command, extract, IDS, launch, present, resolve, ROOT, type LaunchOptions } from './lancement.ts';
 import { CHECKS, lines, terms } from './oracle.ts';
 
 const USAGE = `usage: fib [--algo iterative|matrix|fast|all] [--time] N
@@ -230,6 +230,8 @@ const V02 = (impl: string) => {
 
 // Sous Windows, ni Node ni le contrat ne savent lancer un processus sans stderr : la raison s'affiche à la place du test.
 const noShell = process.platform === 'win32' && 'Windows : ni Node ni le contrat ne lancent un processus sans stderr';
+// HAR-8 joue git pour de vrai : sans git (une archive des sources, par exemple), la raison s'affiche à la place du test.
+const noGit = spawnSync('git', ['--version']).status !== 0 && 'git est introuvable : HAR-8 extrait une révision pour de vrai';
 
 // CLI-V04 joue trois exécutions, le fd 2 fermé : sans stderr, X-3 ne s'applique pas, et `verify` ne sert pas.
 // L'oracle ne sert qu'aux deux dernières, après le code. X-4 n'a pas d'assertion à part : l'égalité exacte de stdout, dont
@@ -256,7 +258,7 @@ describe('oracle', () => {
 });
 
 // Les contrôles du harnais, joués une fois pour les quatre CLI : ils éprouvent le test de contrat lui-même et rougissent
-// quand il ferait passer un cas à vide. La sonde du fd 2 lance un vrai processus; HAR-1 à HAR-3 et HAR-5 à HAR-7 n'en lancent aucun.
+// quand il ferait passer un cas à vide. La sonde du fd 2 lance un vrai processus; HAR-1 à HAR-3 et HAR-5 à HAR-7 n'en lancent aucun, et HAR-8 ne lance que git.
 describe('harnais', () => {
   // Si `2>&-` cessait de fermer le fd 2, CLI-V04 passerait à vide. Une redirection vers un fd fermé échoue (code non nul).
   test('CLI-V04 : le harnais ferme le fd 2', { skip: noShell }, () => {
@@ -834,6 +836,56 @@ describe('harnais', () => {
       assert.deepEqual(command(id), attendu.argv, `${id} : la table de lancement ne lance pas ${attendu.quoi}`);
     });
   }
+
+  // HAR-8 : l'extraction d'une révision (`resolve` puis `extract`, pour l'A/B du banc et le `--revision` de la boucle), jouée pour de vrai
+  // par git dans un dépôt provisoire où ce dossier est la racine git, puis un sous-dossier, comme FibPolyglotte/ dans agbruneau/Fibonacci.
+  // En sous-dossier, `checkout-index` rangeait la révision sous <sha>/FibPolyglotte/ : le build de l'A/B partait d'une racine sans go/.
+  // HAR-5 ne pouvait pas le voir : il réutilise une révision déjà extraite, sans lancer git. La configuration git de l'hôte est écartée
+  // (GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM) pour que le commit d'essai ne dépende ni d'une identité ni d'une signature configurées.
+  test('HAR-8 : une révision s’extrait à la racine de ce dossier, racine git ou sous-dossier, sans rien de ses voisins', { skip: noGit }, () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'fib-har8-'));
+    const config = join(tmp, 'gitconfig');
+    writeFileSync(config, '');
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: config, GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'har8', GIT_AUTHOR_EMAIL: 'har8@example.invalid', GIT_COMMITTER_NAME: 'har8', GIT_COMMITTER_EMAIL: 'har8@example.invalid' };
+    const git = (cwd: string, ...args: string[]) => {
+      const r = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+      assert.equal(r.status, 0, `git ${args.join(' ')} : ${r.stderr}${r.error ?? ''}`);
+      return r.stdout.trim();
+    };
+    try {
+      for (const sous of ['', 'projet']) {
+        const quoi = sous ? 'en sous-dossier' : 'à la racine git';
+        const depot = join(tmp, sous ? 'monodepot' : 'seul');
+        const racine = join(depot, sous);
+        mkdirSync(join(racine, 'go'), { recursive: true });
+        writeFileSync(join(racine, 'go', 'fib.go'), 'package fib\n');
+        writeFileSync(join(racine, 'package.json'), '{}\n');
+        writeFileSync(join(racine, 'CLAUDE.md'), 'hors des chemins du build\n');
+        // Un voisin du dossier, hors de lui : ni `resolve` ni `extract` ne doivent le voir.
+        if (sous) {
+          mkdirSync(join(depot, 'rust'));
+          writeFileSync(join(depot, 'rust', 'lib.rs'), '\n');
+        }
+        git(depot, 'init', '-q');
+        git(depot, 'add', '.');
+        git(depot, 'commit', '-q', '-m', 'har8');
+        const sha = git(depot, 'rev-parse', 'HEAD');
+        // node_modules s'ajoute après le commit, comme dans un clone : `extract` y lie la révision.
+        mkdirSync(join(racine, 'node_modules'));
+        const revisions = join(tmp, `revisions-${sous || 'seul'}`);
+        assert.equal(resolve('HEAD', ['go'], racine), sha, `${quoi} : resolve ne rend pas le SHA de HEAD`);
+        assert.throws(() => resolve('HEAD', ['rust'], racine), /rust : dossier absent de HEAD/, `${quoi} : resolve voit un dossier hors de ce dossier`);
+        const rev = extract(sha, revisions, racine);
+        assert.equal(rev, join(revisions, sha), `${quoi} : extract ne rend pas <revisions>/<sha>`);
+        // `extract` suit la configuration git de l'hôte : sous core.autocrlf, la fin de ligne devient \r\n.
+        assert.match(readFileSync(join(rev, 'go', 'fib.go'), 'utf8'), /^package fib\r?\n$/, `${quoi} : go/ n’est pas à la racine de la révision`);
+        assert.ok(existsSync(join(rev, 'package.json')), `${quoi} : package.json n’est pas à la racine de la révision`);
+        assert.deepEqual(readdirSync(rev).sort(), ['go', 'node_modules', 'package.json'], `${quoi} : la révision extraite n’a pas les seuls chemins du build`);
+      }
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });
 
 const requested = process.argv.slice(2);
