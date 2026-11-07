@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Corrigé
 
+- **`golangci-lint` v2.13.2 → v2.15.0** (`scripts/tools.env`) : sous go1.27.3,
+  la v2.13.2 ne lisait plus les export data de la bibliothèque standard
+  (« export data version 5 is greater than maximum supported version 4 ») et le
+  gate échouait à l'étape 4 sans rien analyser. La v2.15.0 analyse le module :
+  `0 issues.`, code 0 (2026-11-07).
+
 - **Noms affichés des calculateurs** : `Fast Doubling (O(log n), Parallel,
   Zero-Alloc)` et `Matrix Exponentiation (O(log n), Parallel, Zero-Alloc)`
   deviennent `Fast Doubling` et `Matrix Exponentiation`. Le coût est Θ(M(n)),

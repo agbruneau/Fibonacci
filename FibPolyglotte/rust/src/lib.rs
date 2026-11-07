@@ -111,8 +111,9 @@ fn decimal(limbs: &[u64]) -> String {
     let mut buf = [0; LIMB_DIGITS];
     put_limb(top, &mut buf);
     head.copy_from_slice(&buf[LIMB_DIGITS - top_len..]);
-    for (chunk, &limb) in tail.chunks_exact_mut(LIMB_DIGITS).zip(rest.iter().rev()) {
-        put_limb(limb, chunk.try_into().expect("morceau de 18 chiffres"));
+    let (chunks, _) = tail.as_chunks_mut::<LIMB_DIGITS>(); // tail compte rest.len() × 18 octets : aucun reste
+    for (chunk, &limb) in chunks.iter_mut().zip(rest.iter().rev()) {
+        put_limb(limb, chunk);
     }
     String::from_utf8(out).expect("chiffres ASCII")
 }
